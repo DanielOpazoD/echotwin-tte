@@ -221,3 +221,41 @@ Analysis        : visibilidad por modelo, score, mediciones (cadencia reducida)
 **Evaluación visual** (`docs/validation/iteracion-2/antes-despues-*.png`, izquierda antes, derecha después). El miocardio tiene grano de speckle que se alarga lateralmente con la profundidad y ya no hay estrías radiales. El endocardio deja de ser un contorno brillante continuo. El septo y la pared lateral se apagan donde el haz corre a lo largo de ellos. Las válvulas siguen finas y visibles. La sangre muestra un suelo oscuro con grano. Las líneas A del pulmón quedan sobre fondo oscuro.
 
 **Comparación con ecografía real.** Textura miocárdica, sangre y comportamiento de la ganancia se parecen ahora a un equipo: speckle de celda lateral de 1–3 mm, cavidades casi negras con ruido, saturación con ganancia alta y dropout de paredes paralelas al haz. Lo que todavía delata la simulación ya no es la textura sino la escena: grasa y pulmón del tórax con caras planas, campo cercano demasiado brillante, aurículas elipsoidales y papilares desprendidos (iteraciones 4 y 6).
+
+### Iteración 3 — Cadena de imagen en GPU de extremo a extremo
+
+**Problema.** Con WebGL2 la GPU formaba la envolvente, pero todo lo demás volvía a la CPU: el worker leía la envolvente en coma flotante y los identificadores, aplicaba la consola, convertía el barrido a 890×814 px y transfería 2,9 MB por cuadro, que el hilo principal volvía a copiar. Medido en la app (tier medio, sonda oscilando ±1°): paso del worker 20,7 / 34,8 ms (p50/p90), del que la lectura eran 2,8 / 11,5 ms, la consola 1,6 / 6,0 ms y la composición 5,8 / 12,2 ms. Llegaban 29,0 cuadros/s de 36,9 simulados, y 22,6 de 27,3 en tier alto. Antes de cambiar nada se cronometró cada pasada en el M4: 2,6 / 2,7 / 2,1 / 1,3 ms. La GPU no era el cuello de botella, y tampoco la marcha cuadrática de la pasada B, que era la sospechosa.
+
+**Solución** (decisiones 54 y 55).
+- Una pasada de consola en GLSL repite la de CPU paso a paso: compensación, ruido con el mismo hash entero, compresión, realce, persistencia con la historia en la GPU y mapa de grises. Escribe un cuadro RGBA8 empaquetado con gris, estructura, tejido y transmisión en 8 bits, que es la única lectura. La amplitud lineal se queda en la GPU.
+- Una pasada de presentación usa la LUT de conversión de barrido de la CPU, subida como texels enteros, y el campo de color. Dibuja en el lienzo del worker, que se entrega como `ImageBitmap` sin copias.
+- Siguen en CPU, con resultado equivalente (≤ 1 nivel de gris), la consola con los artefactos espejo y lóbulo lateral, la composición de los modos con tira (su sector se sigue formando en la GPU), el cine congelado y el camino sin GPU. La persistencia continúa al cambiar de consola en los dos sentidos. Si se pierde el contexto WebGL, incluso a mitad de un cuadro, el núcleo vuelve a formar el cuadro con el trazador CPU.
+- Ritmo: con el paso ya en 5 ms seguían faltando cuadros (31,5 de 36,9), porque los temporizadores del worker disparaban 3,8 ms tarde de mediana y el acumulador del núcleo tiraba el resto. El worker programa ahora contra un horario absoluto y el acumulador conserva el resto.
+- La lectura asíncrona que proponía la hoja de ruta (PBO + fence) no se implementó. Con una sola lectura de 100 kB el criterio se cumple con holgura, y un cuadro leído tarde habría desalineado el cine y las máscaras Doppler de la imagen mostrada. Queda como opción para GPU integradas lentas.
+
+**Verificación.**
+
+| Criterio de la hoja de ruta | Resultado |
+|---|---|
+| Paso del worker < 16 ms p90 en tier medio con GPU | 10,3 ms p90 (4,6 p50, 14,3 p99); 12,5 ms p90 en tier alto |
+| Imagen a la cadencia simulada sin pérdidas | 36,9 de 36,89 cuadros/s en medio y 27,2 de 27,27 en alto, 0 descartados |
+
+- Equivalencia en el M4: una cadena de cuatro cuadros formados en GPU, GPU, CPU y GPU difiere de la consola CPU como máximo en 1 nivel de gris, en ninguna muestra más de 1, con tres configuraciones de consola. La presentación difiere como máximo en 1 nivel, en ningún píxel más de 1 y sin píxeles coloreados sólo en un lado, con saltos de signo en el color y el sector invertido. En la app, 6 cuadros en vivo formados en GPU y los mismos cuadros compuestos en CPU al congelar son idénticos píxel a píxel.
+- `scanConvert.test.ts`: la reunión entera sobre los texels de la LUT reproduce exactamente la de CPU, también la muestra que usa el color.
+- `e2e/gpu-equivalence.spec.ts`: 24/24 sobre SwiftShader: las 21 comparaciones de cuadro y 3 de la cadena de imagen (cadena mixta GPU, GPU, CPU, GPU y presentación con color), dentro de una corrida completa de 42 pruebas E2E en 25,2 min.
+- `e2e/gpu-live.spec.ts` (GPU real): 4/4 con GPU real (Chromium completo en modo headless, ANGLE Metal sobre Apple M4): los cuadros en vivo en 2D (7,7 s) y en color (5,4 s) llegan como `ImageBitmap` y son idénticos a los mismos cuadros compuestos en CPU al congelar; las tiras, el cine y los artefactos van por CPU y los cuadros vuelven a la GPU al quitarlos (11,7 s); los cuadros siguen llegando tras visitar otra pantalla (5,0 s).
+- E2E de flujo (core-flow, learning, measurements): 14/14 (core-flow 10, incluida la prueba nueva de ida y vuelta a otra pantalla en 13,2 s; learning 2; measurements 2). Corren sobre SwiftShader, es decir, por el camino CPU con el nuevo ritmo del worker.
+- Unitarias: 146/146 en 29 archivos sobre el commit de esta iteración aislado en un worktree, donde también quedan verdes lint, tipos y compilación; 149/149 en 30 archivos en el árbol combinado con la corrección del Doppler color en curso. Con `--testTimeout=60000`: con la máquina en cargas de 150–200 por otros procesos, las pruebas de 5 s expiran también en HEAD (comparación A/B: 15–19 s). Lint, tipos y compilación sin errores (`npm run check`).
+- En la app, al activar el artefacto espejo desde el laboratorio los cuadros pasan a consola y composición en CPU, y vuelven a la GPU al quitarlo.
+
+**Revisión adversarial.** Un revisor de contexto limpio no encontró defectos graves y sí estos, todos corregidos:
+- Al cambiar entre la consola CPU y la GPU se saltaba la persistencia durante un cuadro. Ahora la historia pasa de una a otra (`gpuPath.test.ts` y la cadena mixta de `compareImageChain`).
+- Un contexto perdido a mitad de un cuadro devolvía el cuadro anterior como nuevo; ahora el cuadro se vuelve a formar en CPU.
+- Un renderizador liberado seguía aceptando trabajo y no liberaba su contexto.
+- La prueba de equivalencia de la presentación medía la fracción sobre todo el lienzo, esquinas negras incluidas, y no exigía la diferencia máxima. Al endurecerla apareció la caja de color desplazada por `atan` en SwiftShader, que ahora se prueba contra las coordenadas de la LUT.
+- Varias afirmaciones de la documentación eran inexactas (tiras, «resultado idéntico», un color que en realidad satura, qué prueba cubría el `ImageBitmap`, la causa de los cuadros perdidos) y se corrigieron.
+- Vio además, sin relación con el cambio, que la imagen se congelaba al volver de otra pantalla (corregido aquí, con prueba E2E) y que la persistencia del color nunca se aplicaba (tarea aparte).
+
+**Evaluación visual.** En modo color, un mismo cuadro PLAX en vivo (GPU) y en revisión de cine (CPU) no se distinguen, y el recuento de píxeles lo confirma. La imagen no cambia: cambia la cadencia. Con la sonda en movimiento la imagen sigue al gesto a 36,9 cuadros/s en lugar de 29, con un intervalo mediano de 27,5 ms, y el hilo principal dibuja cada cuadro en 0,1 ms.
+
+**Comparación con ecografía real.** Un equipo cardíaco adquiere en 2D a decenas de cuadros por segundo según profundidad y sector, no pierde cuadros al mover la sonda y la latencia es de un cuadro. Con GPU el simulador entrega ahora exactamente la cadencia que calcula su propio modelo de adquisición (líneas × profundidad), también en tier alto. Una GPU integrada lenta puede volver a limitarla, porque la lectura sigue siendo síncrona. Lo que queda por acercar a un equipo real es el campo de color, que se recalcula cada dos cuadros en CPU con un modelo paramétrico.

@@ -81,6 +81,7 @@ export const GLSL_COMMON = /* glsl */ `
 precision highp float;
 precision highp int;
 precision highp sampler3D;
+precision highp sampler2D; // float textures (compensation, envelope) need full precision on GPUs that honour lowp
 uniform sampler2D uParams;   // RGBA32F, 4 floats per texel
 uniform sampler3D uNoise;    // RGBA8 128^3: latA, latB, latC, wallNoise
 float P(int i) { return texelFetch(uParams, ivec2(i >> 2, 0), 0)[i & 3]; }

@@ -57,7 +57,11 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
       }
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
-      ctx.putImageData(new ImageData(new Uint8ClampedArray(out.rgba), out.width, out.height), 0, 0);
+      if (out.bitmap) {
+        // formed on the GPU (decision 54): a texture copy, then release the bitmap's GPU memory
+        ctx.drawImage(out.bitmap, 0, 0);
+        out.bitmap.close();
+      } else ctx.putImageData(new ImageData(new Uint8ClampedArray(out.rgba), out.width, out.height), 0, 0);
     };
     const redrawOverlay = () => {
       const out = lastOutRef.current;
@@ -66,11 +70,16 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
       drawOverlay(canvas, out, useSimStore.getState(), pendingRef.current.points);
     };
     const unsubFrame = frameBus.subscribe((out) => {
+      const t0 = performance.now();
       drawImage(out);
+      const t1 = performance.now();
       frameBus.latest = null;
       frameBus.recycle(out.rgba);
       lastOutRef.current = out;
       redrawOverlay();
+      frameBus.diag.drawMs = t1 - t0;
+      frameBus.diag.overlayMs = performance.now() - t1;
+      frameBus.diag.frames++;
     });
     const unsubStore = useSimStore.subscribe(redrawOverlay);
     return () => {

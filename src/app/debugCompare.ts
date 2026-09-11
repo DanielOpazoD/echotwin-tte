@@ -4,7 +4,10 @@ import { createThoraxModel } from '@/simulator/anatomy/thoraxModel';
 import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { ProceduralSliceRenderer } from '@/simulator/renderer/procedural/sliceRenderer';
 import { createWebgl2Renderer } from '@/simulator/renderer/gpu/webgl2Renderer';
-import { allocPolarFrame, DEFAULT_ACQUISITION, polarSpecFor, type Scene } from '@/simulator/renderer/types';
+import { allocPolarFrame, DEFAULT_ACQUISITION, polarSpecFor, type AcquisitionSettings, type Scene } from '@/simulator/renderer/types';
+import { applyConsole, createConsoleState } from '@/simulator/renderer/postprocess/consolePipeline';
+import { buildScanLut, computeSectorMapping, scanConvertLut } from '@/simulator/renderer/scanConvert';
+import { DEFAULT_COLOR, overlayColorField, type ColorSettings } from '@/simulator/doppler/color/colorDoppler';
 import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
 import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
 
@@ -26,28 +29,34 @@ export interface BackendComparison {
   examples?: { line: number; sample: number; cpu: number; gpu: number; hx: number; hy: number; hz: number }[];
 }
 
-/**
- * Debug/QA hook (window.__echotwin.compareBackends): renders the same canonical view with the CPU
- * reference renderer and the WebGL2 port on the main thread and reports agreement metrics. Used by
- * e2e/gpu-equivalence.spec.ts.
- */
-export function compareBackends(viewId: string, phase: number, caseId = 'normal-excellent-window', tier: 'low' | 'medium' | 'high' = 'medium'): BackendComparison {
+type Tier = 'low' | 'medium' | 'high';
+
+/** Canonical view of a case at a phase, with the scene the renderers take. */
+function canonicalSetup(viewId: string, phase: number, caseId: string, tier: Tier, settings: AcquisitionSettings) {
   const c = loadCaseById(caseId);
   const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, { position: 'left-lateral', respiration: 'expiration', headElevationDeg: 0 });
   const heart = createHeartModel(c.anatomy, c.physiology, thorax.heartOffset, c.seed);
   heartLandmarks(heart);
   const tables = buildBeatTables(60 / c.rhythm.heartRateBpm, c.physiology, c.rhythm, c.hemodynamics);
-  const view = getViewTarget(viewId);
-  const ctrl = canonicalControl(view, heart, thorax);
+  const ctrl = canonicalControl(getViewTarget(viewId), heart, thorax);
   const beam = beamFrameFromPose(poseFromControl(thorax, ctrl), 1);
-  const settings = DEFAULT_ACQUISITION;
   const spec = polarSpecFor(settings, tier);
-  const scene: Scene = {
+  const sceneAt = (ph: number): Scene => ({
     heart,
-    heartPose: computeHeartPose(heart, cycleStateAt(tables, phase)),
+    heartPose: computeHeartPose(heart, cycleStateAt(tables, ph)),
     thorax,
     physics: { frequencyMHz: settings.frequencyMHz, harmonics: settings.harmonics, clutterLevel: c.acousticWindow.clutterLevel, windowAttenuation: c.acousticWindow.chestWallAttenuation, seed: c.seed },
-  };
+  });
+  return { c, heart, beam, spec, scene: sceneAt(phase), sceneAt };
+}
+
+/**
+ * Debug/QA hook (window.__echotwin.compareBackends): renders the same canonical view with the CPU
+ * reference renderer and the WebGL2 port on the main thread and reports agreement metrics. Used by
+ * e2e/gpu-equivalence.spec.ts.
+ */
+export function compareBackends(viewId: string, phase: number, caseId = 'normal-excellent-window', tier: Tier = 'medium'): BackendComparison {
+  const { heart, beam, spec, scene } = canonicalSetup(viewId, phase, caseId, tier, DEFAULT_ACQUISITION);
   const empty: BackendComparison = { lines: spec.lines, samples: spec.samples, structureAgreement: 0, tissueAgreement: 0, ampRelDiff: 1, transDiff: 1, cpuMs: 0, gpuMs: 0 };
   const cpu = new ProceduralSliceRenderer();
   const fa = allocPolarFrame(spec);
@@ -95,4 +104,135 @@ export function compareBackends(viewId: string, phase: number, caseId = 'normal-
   }
   const mismatches = Object.fromEntries([...mm.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8));
   return { lines: spec.lines, samples: spec.samples, structureAgreement: sAgree / n, tissueAgreement: tAgree / n, ampRelDiff: ampDiff / Math.max(ampSum, 1e-6), transDiff: trDiff / n, cpuMs, gpuMs, mismatches, examples };
+}
+
+export interface ImageChainComparison {
+  error?: string;
+  lines: number;
+  samples: number;
+  /** Console path of each frame of the mixed chain compared with the all-CPU reference chain. */
+  framePaths: string[];
+  /** Mixed chain vs the CPU console on every frame, per frame (persistence carries across the switches). */
+  displayMeanAbsDiff: number[];
+  displayMaxDiff: number[];
+  displayFracOver1: number[];
+  /** Structure and tissue ids of the packed read-back vs the float read-back. */
+  idsAgreement: number;
+  /** Largest relative error of the 8-bit transmission code where the transmission is ≥ 1e-4. */
+  transMaxRelErr: number;
+  /** GPU present pass vs CPU scan conversion + colour overlay of the same display (RGB channels, every pixel). */
+  presentMaxDiff: number;
+  /** Pixels differing by more than one level, as a fraction of the pixels inside the sector. */
+  presentFracOver1: number;
+  presentColorPixels: number;
+  /** Pixels coloured on one side and grey on the other (a colour box edge placed differently). */
+  presentColourFlips: number;
+  gpuDisplayMs: number;
+  cpuConsoleMs: number;
+}
+
+/**
+ * Debug/QA hook (window.__echotwin.compareImageChain, decision 54): the GPU console and present pass must
+ * reproduce the CPU console, scan conversion and colour overlay. Four frames form a mixed chain (GPU, GPU, CPU,
+ * GPU) compared with the CPU console on every frame, so persistence is checked within the GPU and across both
+ * switches. The present pass is compared on a mirrored sector with a synthetic colour field that has sign jumps
+ * like aliasing, saturated values, variance and holes.
+ */
+export function compareImageChain(viewId: string, phase: number, caseId = 'normal-excellent-window', tier: Tier = 'medium', overrides: Partial<AcquisitionSettings> = {}): ImageChainComparison {
+  const settings: AcquisitionSettings = { ...DEFAULT_ACQUISITION, ...overrides };
+  const { c, beam, spec, sceneAt } = canonicalSetup(viewId, phase, caseId, tier, settings);
+  const n = spec.lines * spec.samples;
+  const result: ImageChainComparison = { lines: spec.lines, samples: spec.samples, framePaths: [], displayMeanAbsDiff: [], displayMaxDiff: [], displayFracOver1: [], idsAgreement: 0, transMaxRelErr: 1, presentMaxDiff: 255, presentFracOver1: 1, presentColorPixels: 0, presentColourFlips: 0, gpuDisplayMs: 0, cpuConsoleMs: 0 };
+  const g = createWebgl2Renderer(undefined, { allowSoftware: true });
+  if (!g.renderer) return { ...result, error: g.reason };
+  const gpu = g.renderer;
+  const refState = createConsoleState(c.seed);
+  const mixState = createConsoleState(c.seed);
+  const fFloat = allocPolarFrame(spec);
+  const fGpu = allocPolarFrame(spec);
+  const dispRef = new Uint8ClampedArray(n);
+  const dispMix = new Uint8ClampedArray(n);
+  const dispGpu = new Uint8ClampedArray(n); // last display formed on the GPU (input of the present comparison)
+  for (const [k, path] of (['gpu', 'gpu', 'cpu', 'gpu'] as const).entries()) {
+    const ph = (phase + 0.05 * k) % 1;
+    const scene = sceneAt(ph);
+    gpu.render(scene, beam, spec, ph, fFloat); // the float envelope both CPU consoles read
+    const tc = performance.now();
+    applyConsole(fFloat, settings, refState, dispRef);
+    result.cpuConsoleMs = performance.now() - tc;
+    if (path === 'gpu') {
+      const tg = performance.now();
+      gpu.renderDisplay(scene, beam, spec, ph, fGpu, undefined, { settings, state: mixState }, dispMix);
+      result.gpuDisplayMs = performance.now() - tg;
+      dispGpu.set(dispMix);
+    } else {
+      if (mixState.gpuHistory) gpu.restoreCpuHistory(mixState, spec);
+      applyConsole(fFloat, settings, mixState, dispMix);
+    }
+    result.framePaths.push(path);
+    let sum = 0,
+      max = 0,
+      over = 0;
+    for (let i = 0; i < n; i++) {
+      const d = Math.abs(dispRef[i]! - dispMix[i]!);
+      sum += d;
+      if (d > max) max = d;
+      if (d > 1) over++;
+    }
+    result.displayMeanAbsDiff.push(sum / n);
+    result.displayMaxDiff.push(max);
+    result.displayFracOver1.push(over / n);
+  }
+  let ids = 0,
+    trErr = 0;
+  for (let i = 0; i < n; i++) {
+    if (fFloat.structure[i] === fGpu.structure[i] && fFloat.tissue[i] === fGpu.tissue[i]) ids++;
+    const t = fFloat.transmission[i]!;
+    if (t >= 1e-4) trErr = Math.max(trErr, Math.abs(fGpu.transmission[i]! - t) / t);
+  }
+  result.idsAgreement = ids / n;
+  result.transMaxRelErr = trErr;
+  // present: mirrored sector, synthetic colour field with aliasing and variance
+  const W = 640,
+    H = 520;
+  const mapping = computeSectorMapping(spec, W, H, true, 1);
+  const lut = buildScanLut(spec, mapping);
+  const vel = new Float32Array(n).fill(NaN);
+  const variance = new Float32Array(n);
+  for (let li = Math.floor(spec.lines * 0.2); li < Math.floor(spec.lines * 0.8); li++)
+    for (let si = Math.floor(spec.samples * 0.25); si < Math.floor(spec.samples * 0.7); si++) {
+      if ((li + si) % 7 === 0) continue; // holes: samples without colour
+      const i = li * spec.samples + si;
+      vel[i] = ((((li * 7 + si * 3) % 41) - 20) / 20) * 0.8; // ±0.8 m/s against a 0.62 m/s scale
+      variance[i] = (si % 11) / 10;
+    }
+  const colorSettings: ColorSettings = { ...DEFAULT_COLOR, boxRMinCm: 4, boxRMaxCm: 12.5, boxThetaMinRad: -0.35, boxThetaMaxRad: 0.28, showVariance: true };
+  const cpuRgba = new Uint8ClampedArray(W * H * 4);
+  scanConvertLut(dispGpu, lut, cpuRgba);
+  overlayColorField(cpuRgba, lut, vel, variance, colorSettings);
+  const gpuRgba = new Uint8Array(W * H * 4);
+  gpu.present({ lut, width: W, height: H, color: { vel, variance, version: 1, settings: colorSettings }, readback: gpuRgba });
+  gpu.dispose();
+  let pMax = 0,
+    pOver = 0,
+    colored = 0,
+    flips = 0,
+    inside = 0;
+  for (let p = 0; p < W * H; p++) {
+    const o = p * 4;
+    if ((lut.idx[p] ?? -1) >= 0) inside++;
+    let d = 0;
+    for (let ch = 0; ch < 3; ch++) d = Math.max(d, Math.abs(cpuRgba[o + ch]! - gpuRgba[o + ch]!));
+    if (d > pMax) pMax = d;
+    if (d > 1) pOver++;
+    const cpuColoured = cpuRgba[o]! !== cpuRgba[o + 1]! || cpuRgba[o + 1]! !== cpuRgba[o + 2]!;
+    const gpuColoured = gpuRgba[o]! !== gpuRgba[o + 1]! || gpuRgba[o + 1]! !== gpuRgba[o + 2]!;
+    if (cpuColoured) colored++;
+    if (cpuColoured !== gpuColoured) flips++;
+  }
+  result.presentMaxDiff = pMax;
+  result.presentFracOver1 = pOver / Math.max(1, inside);
+  result.presentColorPixels = colored;
+  result.presentColourFlips = flips;
+  return result;
 }

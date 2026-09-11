@@ -99,6 +99,33 @@ Medido con `tools/offline/render/image-metrics.ts` en el caso normal, fase 0,35,
 | Fasor de dispersores de media nula, potencia unidad y partes incorreladas | `psf.test.ts` | pasa |
 | SNR local, celda anisótropa creciente, contraste, anisotropía y grises en PLAX/A4C | `imageFormation.test.ts` | pasa |
 
+## Cadena de imagen en GPU (2026-09-11)
+Decisiones 54 y 55. App con GPU real (Apple M4, ANGLE Metal), lienzo 890×814 px, caso normal, sonda oscilando ±1° cada 90 ms durante 9 s por tier. Carga media de la máquina: ≈ 20 antes y 7–17 después.
+
+| Magnitud (p50 / p90 / p99) | Antes, medio | Después, medio | Antes, alto | Después, alto | Criterio |
+|---|---|---|---|---|---|
+| Paso del worker | 20,7 / 34,8 / 91,3 ms | 4,6 / 10,3 / 14,3 ms | 27,0 / 45,3 / 77,2 ms | 6,6 / 12,5 / 17,7 ms | < 16 ms p90 en medio |
+| Espera de la GPU | 7,3 / 12,3 / 21,2 ms | 3,5 / 8,9 / 12,1 ms | — | 5,4 / 10,6 / 14,6 ms | — |
+| Lectura | 2,8 / 11,5 / 20,8 ms | 0,4 / 1,5 / 2,3 ms | 5,5 / 14,3 / 29,6 ms | 0,6 / 1,6 / 2,8 ms | — |
+| Consola en CPU | 1,6 / 6,0 / 16,5 ms | en GPU | 3,7 / 11,3 / 31,4 ms | en GPU | — |
+| Composición en CPU | 5,8 / 12,2 / 53,7 ms | 0,1 / 0,1 / 0,2 ms | 4,7 / 15,7 / 34,4 ms | 0,1 / 0,2 / 0,3 ms | — |
+| Dibujo en el hilo principal | `putImageData` de 2,9 MB | 0 / 0,1 / 0,2 ms | — | 0 / 0,1 / 0,1 ms | — |
+| Cuadros entregados / simulados por segundo | 29,0 / 36,9 | 36,9 / 36,89 | 22,6 / 27,3 | 27,2 / 27,27 | la cadencia simulada |
+| Cuadros descartados | 0 | 0 | 0 | 0 | 0 |
+
+Con sólo la cadena en GPU, antes de programar el worker contra un horario absoluto, llegaban 31,5 de 36,9 cuadros/s en medio y 23,7 de 27,3 en alto: el temporizador del worker disparaba 3,8 / 8,2 ms tarde (p50/p90) y el intervalo mediano entre cuadros era 32,5 ms. Después, 27,5 ms en medio y 35,7 ms en alto. Coste por pasada medido en el M4 antes del cambio, sincronizando cada una: A 2,6 ms, B 2,7 ms, C 2,1 ms y D 1,3 ms en tier medio (5,3 ms en total sin sincronizar); por eso la marcha cuadrática de la pasada B no se reestructuró.
+
+| Equivalencia | Configuración | Resultado |
+|---|---|---|
+| Cadena de cuatro cuadros formados en GPU, GPU, CPU y GPU frente a la consola CPU en todos (persistencia dentro de la GPU y en los dos cambios de consola) | PLAX medio por defecto; A4C alto con mapa high-contrast, realce 0,6, persistencia 0,6, +6 dB, TGC y rango de 45 dB; PSAX-AV medio lineal, sin realce ni persistencia, −8 dB y 20 cm | M4: diferencia media 0, máxima 1 nivel de gris, ninguna muestra > 1 en los cuatro cuadros. SwiftShader: máxima 1 nivel y ninguna muestra > 1 en los cuatro cuadros; la prueba exige media < 0,05, máxima ≤ 2 y < 0,1 % de muestras > 1 |
+| Identificadores y transmisión de la lectura empaquetada | las mismas | identificadores 100 %; error relativo máximo de la transmisión 1,82 % (medio paso del código de 8 bits) |
+| Presentación GPU frente a conversión de barrido + color en CPU | sector invertido de 640×520 px, color con saltos de signo como los del aliasing, valores saturados, varianza y huecos | M4: máximo 1 nivel, ningún píxel > 1 y ningún píxel coloreado sólo en un lado, 20–26 mil píxeles con color. SwiftShader: con la caja probada por `atan` en GLSL, 216–217 niveles en el 0,10–0,12 % de los píxeles del sector (bordes radiales de la caja desplazados); con la caja probada contra las coordenadas de la LUT, máximo 1 nivel, ningún píxel > 1 y ningún píxel coloreado sólo en un lado |
+| Reunión entera sobre texels frente a `scanConvertLut` | tiers medio y alto, 640×520 y 890×680 invertido | idéntica en todos los píxeles, también la muestra más cercana que usa el color (`scanConvert.test.ts`) |
+| Cuadros GPU en vivo frente a los mismos cuadros compuestos en CPU al congelar | app en modo color, 890×814 px, 6 cuadros emparejados por fase | 0 píxeles distintos; dos de ellos con 13 430 píxeles de color |
+| Vuelta a la CPU con artefactos de consola | app en 2D, artefacto espejo 0,6 desde el laboratorio y después sin él | 43 cuadros GPU → 44 cuadros con consola y composición en CPU → 44 cuadros GPU |
+| Camino completo con GPU real (`e2e/gpu-live.spec.ts`, Chromium completo headless) | cuadros en vivo en 2D y color frente a los mismos cuadros compuestos en CPU al congelar; tiras, cine y artefactos; ida y vuelta a Referencias | 4/4 con GPU real (Chromium completo en modo headless, ANGLE Metal sobre Apple M4): los cuadros en vivo en 2D (7,7 s) y en color (5,4 s) llegan como `ImageBitmap` y son idénticos a los mismos cuadros compuestos en CPU al congelar; las tiras, el cine y los artefactos van por CPU y los cuadros vuelven a la GPU al quitarlos (11,7 s); los cuadros siguen llegando tras visitar otra pantalla (5,0 s) |
+| Imagen tras visitar otra pantalla | app, 2,5 s en Referencias y vuelta al simulador | antes: 55 cuadros en 1,5 s y ninguno al volver (imagen congelada); después: los cuadros siguen llegando en Referencias (95 cuadros en 2,5 s) y al volver llegan 93 en 2,5 s, todos formados en la GPU |
+
 ## Pruebas E2E (`e2e/core-flow.spec.ts`, Playwright + `vite preview`)
 | Prueba | Qué verifica |
 |---|---|

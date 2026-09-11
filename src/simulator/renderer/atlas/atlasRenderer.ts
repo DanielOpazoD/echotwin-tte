@@ -1,7 +1,8 @@
 import type { BeamFrame } from '@/simulator/probe/pose';
-import type { PolarFrame, PolarFrameSpec, RenderHints, RendererBackend, Scene } from '../types';
+import type { DisplayConsole, PolarFrame, PolarFrameSpec, RenderHints, RendererBackend, Scene } from '../types';
 import { qAngleBetween, qFromBasis } from '@/core/quat';
 import { distance } from '@/core/vec3';
+import { decodeTransmission, encodeTransmission, TRANS_DECODE } from '../transmissionCode';
 
 /**
  * Render cache for slow sources (spec 0.2, 0.3, 33; decision 50).
@@ -23,6 +24,9 @@ import { distance } from '@/core/vec3';
  *
  * Frames are stored compactly (amplitude as 16-bit fixed point, transmission as 8-bit log) and are
  * pre-console, so every console control stays causal on top of the cache.
+ *
+ * `renderDisplay` (GPU console, decision 54) is delegated to the source only for frames rendered directly;
+ * in cache mode it declines and the simulator uses `render` and the CPU console.
  */
 interface Anchor {
   beam: BeamFrame;
@@ -48,16 +52,7 @@ const LEAVE_CACHE = 0.75;
 /** Consecutive direct frames after which kept cines are released. */
 const RELEASE_AFTER_FRAMES = 120;
 const AMP_SCALE = 2048; // amplitude 0..31.99 → uint16
-const TRANS_K = 9.2; // transmission 1e-4..1 → uint8 via −ln
-const TRANS_LUT = Float32Array.from({ length: 256 }, (_, u) => Math.exp((-u * TRANS_K) / 255));
-
-export function encodeTransmission(t: number): number {
-  const v = Math.round((-Math.log(Math.max(1e-4, Math.min(1, t))) / TRANS_K) * 255);
-  return v < 0 ? 0 : v > 255 ? 255 : v;
-}
-export function decodeTransmission(u: number): number {
-  return Math.exp((-u * TRANS_K) / 255);
-}
+export { decodeTransmission, encodeTransmission };
 
 export type AtlasMode = 'direct' | 'cache';
 
@@ -104,17 +99,40 @@ export class AtlasRenderer implements RendererBackend {
     return a.lines === b.lines && a.samples === b.samples && a.depthCm === b.depthCm && Math.abs(a.sectorRad - b.sectorRad) < 1e-6 && a.elevationSamples === b.elevationSamples && a.focusCm === b.focusCm;
   }
 
-  render(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, phase: number, out: PolarFrame, hints?: RenderHints): void {
-    const t0 = performance.now();
-    const n = spec.lines * spec.samples;
-    const budget = hints?.budgetMs ?? Infinity;
-    if (this.sourceMs >= 0) {
-      if (this.mode === 'direct' && this.sourceMs > ENTER_CACHE * budget) this.mode = 'cache';
-      else if (this.mode === 'cache' && this.sourceMs < LEAVE_CACHE * budget) this.mode = 'direct';
-    }
+  /** Mode of the next frame under the cost hysteresis, without changing any state. */
+  private nextMode(budget: number): AtlasMode {
+    if (this.sourceMs < 0) return this.mode;
+    if (this.mode === 'direct' && this.sourceMs > ENTER_CACHE * budget) return 'cache';
+    if (this.mode === 'cache' && this.sourceMs < LEAVE_CACHE * budget) return 'direct';
+    return this.mode;
+  }
+
+  private advanceMode(budget: number): void {
+    this.mode = this.nextMode(budget);
     // a source that stays fast needs no cache: release it
     this.directFrames = this.mode === 'direct' ? this.directFrames + 1 : 0;
     if (this.directFrames > RELEASE_AFTER_FRAMES && this.anchors.length) this.anchors = [];
+  }
+
+  private measureSource(cost: number): void {
+    this.sourceMs = this.sourceMs < 0 ? cost : this.sourceMs + COST_EMA * (cost - this.sourceMs);
+  }
+
+  renderDisplay(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, phase: number, out: PolarFrame, hints: RenderHints | undefined, con: DisplayConsole, display: Uint8ClampedArray): boolean {
+    const budget = hints?.budgetMs ?? Infinity;
+    if (!this.source.renderDisplay || this.nextMode(budget) !== 'direct') return false;
+    const t0 = performance.now();
+    this.advanceMode(budget);
+    if (!this.source.renderDisplay(scene, beam, spec, phase, out, hints, con, display)) return false;
+    this.measureSource(performance.now() - t0);
+    this.composeStats('direct', Infinity, null, t0, hints);
+    return true;
+  }
+
+  render(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, phase: number, out: PolarFrame, hints?: RenderHints): void {
+    const t0 = performance.now();
+    const n = spec.lines * spec.samples;
+    this.advanceMode(hints?.budgetMs ?? Infinity);
 
     let best: Anchor | null = null;
     let nearest = Infinity;
@@ -145,8 +163,7 @@ export class AtlasRenderer implements RendererBackend {
         const slotPhase = slot / ATLAS_PHASES;
         const ts = performance.now();
         this.source.render(hints.sceneAtPhase(slotPhase), beam, spec, slotPhase, out);
-        const cost = performance.now() - ts;
-        this.sourceMs = this.sourceMs < 0 ? cost : this.sourceMs + COST_EMA * (cost - this.sourceMs);
+        this.measureSource(performance.now() - ts);
         this.store(cine, slot, out, n);
         cine.filled++;
       }
@@ -154,8 +171,7 @@ export class AtlasRenderer implements RendererBackend {
     } else {
       const ts = performance.now();
       this.source.render(scene, beam, spec, phase, out);
-      const cost = performance.now() - ts;
-      this.sourceMs = this.sourceMs < 0 ? cost : this.sourceMs + COST_EMA * (cost - this.sourceMs);
+      this.measureSource(performance.now() - ts);
       // without a scene for arbitrary phases, keep frames that happen to fall on their slot (±¼ slot)
       if (this.mode === 'cache' && hints?.stationary && Math.abs(slotF - Math.round(slotF)) <= SLOT_TOLERANCE) {
         cine ??= this.addAnchor(beam, spec);
@@ -167,7 +183,14 @@ export class AtlasRenderer implements RendererBackend {
       }
     }
 
+    this.composeStats(served, nearest, cine, t0, hints);
+  }
+
+  private composeStats(served: 'direct' | 'cache', nearest: number, cine: Anchor | null, t0: number, hints: RenderHints | undefined): void {
+    const src = this.source.stats();
     this.lastStats = {
+      source: this.source.id,
+      ...(typeof src['gpuMs'] === 'number' ? { gpuMs: src['gpuMs'], readMs: src['readMs'] ?? 0, output: src['output'] ?? 'float' } : {}),
       mode: this.mode,
       served,
       atlasAnchors: this.anchors.length,
@@ -234,7 +257,7 @@ export class AtlasRenderer implements RendererBackend {
     const ot = out.transmission;
     for (let k = 0; k < n; k++) {
       oa[k] = (amp[k] ?? 0) / AMP_SCALE;
-      ot[k] = TRANS_LUT[tr[k] ?? 255] ?? 0;
+      ot[k] = TRANS_DECODE[tr[k] ?? 255] ?? 0;
     }
     out.structure.set(st);
     out.tissue.set(ti);

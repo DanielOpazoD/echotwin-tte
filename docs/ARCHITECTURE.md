@@ -32,20 +32,20 @@ Por cada step(dt) en SimulatorCore:
   CardiacClock.advance(dt)               → phase, beatIndex, RR (determinista por semilla)
   poseFromControl → beamFrameFromPose    → origen + forward/lateral/normal + contacto
   polarSpecFor(settings, quality)        → líneas × muestras; simulatedFrameRate → intervalo de cuadro
-  backend.render(scene(φ), beam, spec)   → PolarFrame: amplitud lineal + structure + transmission + tissue
-  applyConsole(frame, settings, state)   → intensidades 0..255 (polar)
+  backend.renderDisplay(…)  [GPU]        → consola en GLSL; única lectura: gris 0..255 + structure + tissue + transmission (8 bits)
+  o backend.render(…) + applyConsole     → PolarFrame con amplitud lineal → intensidades 0..255 (CPU; artefactos espejo y lóbulo lateral)
   [color]  computeColorField cada dos cuadros 2D          [strips] advanceStrip: columnas M-mode / espectrales
   analyzeView cada 5 cuadros             → ViewAnalysis (score, componentes, hints)
-  composite()                            → scan conversion por LUT → RGBA + overlay color + strip + ECG + stats
+  composite()                            → 2D/color en vivo con GPU: pasada de presentación → ImageBitmap; si no, LUT en CPU → RGBA + overlay color + strip; ECG + stats
 UI:
-  frameBus → DisplayCanvas dibuja RGBA y overlays; el buffer vuelve al worker (recycle)
+  frameBus → DisplayCanvas dibuja el ImageBitmap (drawImage) o el RGBA (putImageData) y los overlays; el buffer (vacío con bitmap) vuelve al worker (recycle = acuse)
   herramientas → Measurement en el store → buildEducationalReport(measurements, truth, hideTruth)
   viewProgress (mejor score por vista) + mediciones → scoreAcquisition / scoreMeasurements / buildExamSummary → ReportScreen
 ```
 
 Puntos de diseño que el código impone:
 - **Una sola fuente de verdad fisiológica.** Volúmenes, apertura valvular, movimiento longitudinal, velocidades Doppler y verdad de terreno salen de las mismas `BeatTables`.
-- **Cuadros pre-consola.** Los backends producen amplitud lineal; ganancia, TGC, compresión, foco y persistencia se aplican después, de modo que cualquier control de consola actúa sobre el mismo cuadro (también sobre el atlas).
+- **Cuadros pre-consola.** Los backends producen amplitud lineal; ganancia, TGC, compresión, foco y persistencia se aplican después, de modo que cualquier control de consola actúa sobre el mismo cuadro (también sobre el atlas). Con WebGL2 esa consola corre en la GPU sobre la misma envolvente y con los mismos parámetros (decisión 54).
 - **Pose canónica alcanzable.** `canonicalControl` resuelve cada vista desde un punto de piel ajustado al centro del espacio intercostal (`snapToIntercostal`) y `canonicalBeam` la cachea por (corazón, vista, tórax); el score compara contra esa pose, no contra el plano anatómico ideal.
 - **Mapas auxiliares por muestra.** `structure`, `tissue` y `transmission` viajan con el cuadro y alimentan el reconocimiento de vista (sombras), el Doppler (máscara de sangre, sombra) y las mediciones.
 
@@ -59,10 +59,19 @@ Los dos trazadores (CPU de referencia y WebGL2) producen el mismo cuadro polar p
 
 La consola trabaja sobre esa envolvente (ganancia, TGC, ruido electrónico Rayleigh, compresión, realce, persistencia y mapa de grises) y ya no aplica resolución. En la GPU las etapas 1–2 son la pasada A (tres destinos: σ/atenuación, identificadores, especular/fasor), la 3–4 la pasada B, y la 5 las pasadas C (axial) y D (lateral y envolvente), que leen la misma tabla de núcleos Float32 que la CPU desde una textura. `acoustic/acoustics.ts` define las constantes compartidas y las exporta a GLSL como `#define`.
 
+## Cadena de imagen en GPU (decisiones 54 y 55)
+Con WebGL2 por hardware el cuadro no vuelve a la CPU hasta estar formado:
+1. **Pasadas A–D** (formación acústica, arriba) dejan la envolvente y la transmisión en una textura y los identificadores en otra.
+2. **Consola** (`gpu/glslImage.ts`, `GLSL_CONSOLE_FRAG`): la misma secuencia que `applyConsole` —tabla de compensación por muestra (`consoleCompensation`, subida como textura), ruido Rayleigh con el mismo hash entero por línea, muestra, cuadro y semilla, compresión logarítmica, realce de bordes, persistencia contra una textura de historia en ping-pong y mapa de grises—. Escribe la historia (coma flotante) y un cuadro RGBA8 empaquetado: gris, estructura, tejido y código logarítmico de la transmisión (`transmissionCode.ts`, el mismo del atlas). `ConsoleState.gpuHistory` indica que la historia de la GPU es la del estado, de modo que alternar consola CPU y GPU nunca mezcla historias ajenas.
+3. **Lectura única** de ese cuadro empaquetado (100 kB en tier medio): rellena `display`, `structure`, `tissue` y `transmission` para el cine, el análisis de vista, las máscaras Doppler y el HUD. La amplitud lineal no se lee.
+4. **Presentación** (`GLSL_PRESENT_FRAG`): por píxel, la reunión bilineal entera de la LUT de conversión de barrido de la CPU, subida como texels RGBA16UI (`packScanLutTexels`) sólo cuando cambia la geometría, y el campo de color (subido cuando se recalcula) mezclado dentro de la caja con el mismo mapa de colores. La caja se prueba contra las coordenadas polares de la propia LUT (textura flotante), no con `atan` en GLSL, que es aproximado en algunas GPU. Dibuja en el lienzo del worker y `transferToImageBitmap` entrega el cuadro sin copias; el hilo principal lo dibuja con `drawImage` y lo cierra.
+
+Siguen en la CPU, con resultado equivalente (≤ 1 nivel de gris): la consola con los artefactos espejo y lóbulo lateral (con ellos activos el cuadro va por `render` + `applyConsole`), la conversión y composición de los modos con tira (M, CMM, PW, CW, TDI; su sector se sigue formando en la GPU), la revisión de cine congelada (se compone desde el cine en CPU), el atlas en modo caché y todo el camino sin WebGL2 o con WebGL por software. Al cambiar de consola la persistencia continúa: `renderDisplay` sube la historia de la CPU cuando el cuadro anterior se formó allí, y `restoreCpuHistory` lee la de la GPU en el caso contrario. Si el contexto WebGL se pierde, incluso a mitad de un cuadro, el núcleo sustituye el port por el trazador CPU y vuelve a formar ese cuadro. `compareImageChain` (gancho de depuración) compara consola y presentación GPU con las de CPU.
+
 ## Worker y protocolo
 - `SimClient` (`core/client.ts`) crea `new Worker(sim.worker.ts, { type: 'module' })`; si `Worker` no existe, cae a un `SimulatorCore` inline con `setInterval` de 33 ms.
-- Mensajes (`protocol.ts`): `init` / `loadCase` (caso + `SimInput`), `input`, `recycle` (devuelve el `ArrayBuffer` transferido); respuestas `ready` (con la verdad de terreno), `frame` (`SimOutput`, con `rgba` transferido) y `error`.
-- **El worker marca su propio ritmo**: `setTimeout` con `targetMs = frozen ? 80 : clamp(12, 50, 1000/simulatedFps)` menos el coste del paso, mínimo 4 ms. Con `outstanding < 2` cuadros sin reciclar se envía el cuadro; si no, se descarta y el buffer vuelve al pool (contrapresión).
+- Mensajes (`protocol.ts`): `init` / `loadCase` (caso + `SimInput`), `input`, `recycle` (devuelve el `ArrayBuffer` transferido); respuestas `ready` (con la verdad de terreno), `frame` (`SimOutput`, con `rgba` o, si la GPU formó la imagen, `bitmap` y un `rgba` vacío, ambos transferidos) y `error`.
+- **El worker marca su propio ritmo contra un horario absoluto** (decisión 55): cada tick se programa a `targetMs = frozen ? 80 : clamp(12, 50, 1000/simulatedFps)` de la hora prevista del anterior, así que un temporizador tardío acorta la espera siguiente (mínimo 1 ms); tras un atasco de más de un intervalo el horario se reinicia. El núcleo conserva el resto de su acumulador de cuadro (hasta un intervalo). Con `outstanding < 2` cuadros sin reciclar se envía el cuadro; si no, se descarta (el bitmap se cierra) y el buffer vuelve al pool (contrapresión). `stats.lateMs` mide el retraso del temporizador. Si ninguna pantalla está montada (Informe, Referencias, Currículo, Progreso), `frameBus` acusa y cierra el cuadro al llegar; si no, la contrapresión dejaba al worker sin enviar cuadros al volver.
 - La UI empuja `SimInput` solo cuando cambia (comparación JSON) al suscribirse al store y, como red de seguridad, cada 500 ms. `requestAnimationFrame` únicamente cuenta los fps de la UI: en pestañas ocultas el rAF se pausa pero el worker sigue simulando.
 - `SimOutput` incluye la geometría del sector (`apexX/Y`, `pxPerCm`) y del strip (`secondsPerColumn`, valores superior/inferior), que son la única fuente del mapeo píxel↔unidades usado por calipers y overlays.
 
@@ -74,8 +83,10 @@ La consola trabaja sobre esa envolvente (ganancia, TGC, ruido electrónico Rayle
 ## RendererBackend
 ```ts
 interface RendererBackend {
-  readonly id: 'atlas' | 'procedural' | 'webgpu-procedural' | 'remote-cuda';
-  render(scene, beam, spec, phase, out: PolarFrame): void;
+  readonly id: 'atlas' | 'procedural' | 'webgl2-procedural' | 'webgpu-procedural' | 'remote-cuda';
+  render(scene, beam, spec, phase, out: PolarFrame, hints?): void;
+  // opcional (decisión 54): renderiza y forma el display; false si este cuadro no puede formarse así
+  renderDisplay?(scene, beam, spec, phase, out: PolarFrame, hints, console: { settings, state }, display): boolean;
   stats(): Record<string, number | string>;
   dispose(): void;
 }

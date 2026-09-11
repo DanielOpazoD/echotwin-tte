@@ -228,3 +228,28 @@ export function scanConvert(polar: Uint8ClampedArray, spec: PolarFrameSpec, m: S
   const lut = buildScanLut(spec, m);
   scanConvertLut(polar, lut, rgba);
 }
+
+/** Bit 11 of the third texel channel: the pixel lies inside the sector. */
+export const LUT_TEXEL_INSIDE = 2048;
+
+/**
+ * The LUT as RGBA16UI texels (row-major, top row first) for the GPU present pass (decision 54): line and
+ * sample of the (l0, s0) corner, line weight | next-line flag << 10 | inside << 11, sample weight |
+ * next-sample flag << 10. Outside the sector every channel is 0. The GPU gather with these integers is the
+ * same arithmetic as `scanConvertLut`, so both produce identical grey levels.
+ */
+export function packScanLutTexels(lut: ScanLut, out?: Uint16Array<ArrayBuffer>): Uint16Array<ArrayBuffer> {
+  const n = lut.idx.length;
+  const t = out && out.length === n * 4 ? out.fill(0) : new Uint16Array(n * 4);
+  const S = lut.samples;
+  const { inPix, inIdx, inWl, inWs, inDl, inDs } = lut;
+  for (let k = 0; k < inPix.length; k++) {
+    const o = inPix[k]! * 4;
+    const i = inIdx[k]!;
+    t[o] = (i / S) | 0;
+    t[o + 1] = i % S;
+    t[o + 2] = inWl[k]! | (inDl[k]! << 10) | LUT_TEXEL_INSIDE;
+    t[o + 3] = inWs[k]! | (inDs[k]! << 10);
+  }
+  return t;
+}

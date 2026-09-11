@@ -53,3 +53,51 @@ for (const [caseId, views, phases, tier] of MATRIX) {
     }
   }
 }
+
+/**
+ * GPU image chain (decision 54): a four-frame chain formed on the GPU, GPU, CPU and GPU against the CPU console on
+ * every frame (persistence within the GPU and across both switches), and the present pass (scan conversion +
+ * colour overlay) against the CPU scan conversion and colour overlay of the same display.
+ */
+interface ChainComparison {
+  error?: string;
+  lines: number;
+  framePaths: string[];
+  displayMeanAbsDiff: number[];
+  displayMaxDiff: number[];
+  displayFracOver1: number[];
+  idsAgreement: number;
+  transMaxRelErr: number;
+  presentMaxDiff: number;
+  presentFracOver1: number;
+  presentColorPixels: number;
+  presentColourFlips: number;
+}
+const CHAIN: [string, string, number, 'medium' | 'high', Record<string, unknown>][] = [
+  ['normal-excellent-window', 'plax', 0.35, 'medium', {}],
+  ['normal-excellent-window', 'a4c', 0, 'high', { grayMap: 'high-contrast', edgeEnhance: 0.6, persistence: 0.6, gainDb: 6, tgcDb: [0, 2, 4, 6, 6, 4, 2, 0], dynamicRangeDb: 45 }],
+  ['aortic-stenosis-severe', 'psax-av', 0.2, 'medium', { grayMap: 'linear', edgeEnhance: 0, persistence: 0, gainDb: -8, depthCm: 20 }],
+];
+for (const [caseId, viewId, phase, tier, overrides] of CHAIN) {
+  test(`${caseId} ${viewId} @${phase} (${tier}): GPU console and present pass match the CPU image chain`, async ({ page }) => {
+    const r = (await page.evaluate(
+      ([v, p, c, t, o]) => (window as unknown as { __echotwin: { compareImageChain: (v: string, p: number, c: string, t: string, o: unknown) => ChainComparison } }).__echotwin.compareImageChain(v as string, p as number, c as string, t as string, o),
+      [viewId, phase, caseId, tier, overrides] as const,
+    )) as ChainComparison;
+    expect(r.error, 'WebGL2 must be available in the test browser').toBeUndefined();
+    expect(r.lines).toBeGreaterThan(60);
+    expect(r.framePaths).toEqual(['gpu', 'gpu', 'cpu', 'gpu']);
+    for (let f = 0; f < r.framePaths.length; f++) {
+      const label = `frame ${f} (${r.framePaths[f]})`;
+      expect(r.displayMeanAbsDiff[f], `${label} mean grey difference`).toBeLessThan(0.05);
+      expect(r.displayMaxDiff[f], `${label} largest grey difference`).toBeLessThanOrEqual(2);
+      expect(r.displayFracOver1[f], `${label} samples differing by more than one grey level`).toBeLessThan(0.001);
+    }
+    expect(r.idsAgreement).toBe(1);
+    expect(r.transMaxRelErr).toBeLessThan(0.02);
+    expect(r.presentMaxDiff, 'largest RGB difference of the present pass').toBeLessThanOrEqual(2);
+    expect(r.presentFracOver1, 'sector pixels differing by more than one level').toBe(0);
+    expect(r.presentColourFlips, 'pixels coloured on one side only').toBe(0);
+    expect(r.presentColorPixels).toBeGreaterThan(1000);
+  });
+}

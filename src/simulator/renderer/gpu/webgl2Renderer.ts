@@ -1,5 +1,5 @@
 import type { BeamFrame } from '@/simulator/probe/pose';
-import type { PolarFrame, PolarFrameSpec, RendererBackend, Scene } from '../types';
+import type { AcquisitionSettings, DisplayConsole, PolarFrame, PolarFrameSpec, RenderHints, RendererBackend, Scene } from '../types';
 import { TISSUE_PROPS } from '@/simulator/anatomy/tissue';
 import { noiseLattice } from '@/core/noise';
 import { GLSL_COMMON } from './glslCommon';
@@ -8,13 +8,48 @@ import { GLSL_THORAX } from './glslThorax';
 import { GLSL_PASS_A_MAIN, GLSL_PASS_B_MAIN, GLSL_PASS_C_MAIN, GLSL_PASS_D_MAIN, GLSL_VERT } from './glslPasses';
 import { allocPacked, packScene, PARAM_TEXELS, type PackedScene } from './paramLayout';
 import { buildPsfKernels, LATERAL_TAPS, MAX_LATERAL_RADIUS, psfKey, type PsfKernels } from '../acoustic/psf';
+import { GLSL_CONSOLE_FRAG, GLSL_PRESENT_FRAG } from './glslImage';
+import { consoleCompensation, type ConsoleState } from '../postprocess/consolePipeline';
+import { TRANS_DECODE } from '../transmissionCode';
+import { packScanLutTexels, type ScanLut } from '../scanConvert';
+import type { ColorSettings } from '@/simulator/doppler/color/colorDoppler';
+
+/** Colour field blended by the present pass: velocity per polar sample (NaN = no colour) and variance. */
+export interface PresentColor {
+  vel: Float32Array;
+  variance: Float32Array;
+  /** Changes whenever the field is recomputed, so an unchanged field is not uploaded again. */
+  version: number;
+  settings: ColorSettings;
+}
+
+export interface PresentRequest {
+  lut: ScanLut;
+  width: number;
+  height: number;
+  color: PresentColor | null;
+  /** Equivalence checks: read the drawn RGBA (top row first) into this array instead of returning an ImageBitmap. */
+  readback?: Uint8Array;
+}
+
+const CONSOLE_UNIFORMS = ['uEnv', 'uIds', 'uComp', 'uHist', 'uSamples', 'uDynRange', 'uEdge', 'uPersist', 'uGrayMap', 'uSeed', 'uFrameIndex'] as const;
+const PRESENT_UNIFORMS = ['uPacked', 'uLut', 'uColor', 'uPolar', 'uHeightPx', 'uLines', 'uSamples', 'uColorOn', 'uBox', 'uColorMap'] as const;
+type Locations<T extends readonly string[]> = Record<T[number], WebGLUniformLocation | null>;
+function uniformLocations<T extends readonly string[]>(gl: WebGL2RenderingContext, prog: WebGLProgram, names: T): Locations<T> {
+  const o: Record<string, WebGLUniformLocation | null> = {};
+  for (const n of names) o[n] = gl.getUniformLocation(prog, n);
+  return o as Locations<T>;
+}
+/** Texture unit used only to upload data, never sampled. */
+const UPLOAD_UNIT = 9;
 
 /**
  * WebGL2 procedural renderer: the same scanline model and image formation as ProceduralSliceRenderer,
  * evaluated in four fragment passes — classification and local acoustics in parallel (A), per-line
  * transmission march into a complex signal (B), axial PSF (C), lateral PSF and envelope (D) — and read back
- * into the CPU PolarFrame so console, scan conversion, Doppler masks and view analysis are untouched.
- * Deterministic given the same lattices (uploaded as a 3D texture), parameters and PSF kernel table.
+ * into the CPU PolarFrame (`render`), or continued on the GPU through the console into a packed display that is
+ * the only read-back and a present pass that scan-converts it into the canvas (`renderDisplay`, `present`,
+ * decision 54). Deterministic given the same lattices (a 3D texture), parameters and PSF kernel table.
  * Requires WebGL2 with EXT_color_buffer_float; `createWebgl2Renderer` returns null otherwise.
  */
 export class Webgl2Renderer implements RendererBackend {
@@ -24,6 +59,37 @@ export class Webgl2Renderer implements RendererBackend {
   private progB: WebGLProgram;
   private progC: WebGLProgram;
   private progD: WebGLProgram;
+  private progConsole: WebGLProgram;
+  private progPresent: WebGLProgram;
+  private uc: Locations<typeof CONSOLE_UNIFORMS>;
+  private up: Locations<typeof PRESENT_UNIFORMS>;
+  private compTex: WebGLTexture;
+  private compKey = '';
+  private compData = new Float32Array(0);
+  private lutTex: WebGLTexture;
+  private lutKeyUploaded = '';
+  private lutTexels = new Uint16Array(0);
+  private colorTex: WebGLTexture;
+  private colorKey = '';
+  /** Polar coordinates of every pixel (the LUT's r and theta) for the colour box test, uploaded when colour is shown. */
+  private polarTex: WebGLTexture;
+  private polarKeyUploaded = '';
+  private polarTexels = new Float32Array(0);
+  private colorTexels = new Float32Array(0);
+  /** Console: history ping-pong (float, before the grey map) and the packed RGBA8 output. */
+  private texHist: [WebGLTexture | null, WebGLTexture | null] = [null, null];
+  private fbConsole: [WebGLFramebuffer | null, WebGLFramebuffer | null] = [null, null];
+  private texPacked: WebGLTexture | null = null;
+  private histCurrent: 0 | 1 = 0;
+  private histUpload = new Float32Array(0);
+  private disposed = false;
+  private histValid = false;
+  /** True when texPacked holds the display of the last rendered frame (present shows nothing older). */
+  private packedFresh = false;
+  private readPacked = new Uint8Array(0);
+  private probe8 = new Uint8Array(4);
+  private lastPresentMs = 0;
+  private lastOutput: 'float' | 'display' = 'float';
   private paramsTex: WebGLTexture;
   private noiseTex: WebGLTexture;
   private psfTex: WebGLTexture;
@@ -56,6 +122,9 @@ export class Webgl2Renderer implements RendererBackend {
   private readAmp = new Float32Array(0);
   private readIds = new Uint8Array(0);
   private lastMs = 0;
+  private lastGpuMs = 0;
+  private lastReadMs = 0;
+  private probe = new Float32Array(4);
   private uElevK: WebGLUniformLocation | null;
   private vao: WebGLVertexArrayObject;
 
@@ -68,6 +137,14 @@ export class Webgl2Renderer implements RendererBackend {
     this.progB = buildProgram(gl, GLSL_VERT, `${common}${GLSL_PASS_B_MAIN}`);
     this.progC = buildProgram(gl, GLSL_VERT, `${common}${GLSL_PASS_C_MAIN}`);
     this.progD = buildProgram(gl, GLSL_VERT, `${common}${GLSL_PASS_D_MAIN}`);
+    this.progConsole = buildProgram(gl, GLSL_VERT, GLSL_CONSOLE_FRAG);
+    this.progPresent = buildProgram(gl, GLSL_VERT, GLSL_PRESENT_FRAG);
+    this.uc = uniformLocations(gl, this.progConsole, CONSOLE_UNIFORMS);
+    this.up = uniformLocations(gl, this.progPresent, PRESENT_UNIFORMS);
+    this.compTex = makeTexture2D(gl);
+    this.lutTex = makeTexture2D(gl);
+    this.colorTex = makeTexture2D(gl);
+    this.polarTex = makeTexture2D(gl);
     this.vao = gl.createVertexArray()!;
     this.paramsTex = makeTexture2D(gl);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, PARAM_TEXELS, 1, 0, gl.RGBA, gl.FLOAT, null);
@@ -107,25 +184,52 @@ export class Webgl2Renderer implements RendererBackend {
     gl.useProgram(this.progD);
     gl.uniform1i(gl.getUniformLocation(this.progD, 'uAx'), 2);
     gl.uniform1i(gl.getUniformLocation(this.progD, 'uPsf'), 3);
+    gl.useProgram(this.progConsole);
+    gl.uniform1i(this.uc.uEnv, 2);
+    gl.uniform1i(this.uc.uIds, 3);
+    gl.uniform1i(this.uc.uComp, 4);
+    gl.uniform1i(this.uc.uHist, 5);
+    gl.useProgram(this.progPresent);
+    gl.uniform1i(this.up.uPacked, 2);
+    gl.uniform1i(this.up.uLut, 3);
+    gl.uniform1i(this.up.uColor, 4);
+    gl.uniform1i(this.up.uPolar, 5);
+  }
+
+  /** True once the WebGL context is lost (GPU reset, driver update): the caller must fall back to the CPU. */
+  get contextLost(): boolean {
+    return this.disposed || this.gl.isContextLost();
   }
 
   stats(): Record<string, number | string> {
-    return { renderMs: Number(this.lastMs.toFixed(2)), gpu: 'webgl2' };
+    return { renderMs: Number(this.lastMs.toFixed(2)), gpuMs: Number(this.lastGpuMs.toFixed(2)), readMs: Number(this.lastReadMs.toFixed(2)), presentMs: Number(this.lastPresentMs.toFixed(2)), output: this.lastOutput, gpu: 'webgl2' };
   }
 
+  /** Frees every GL object and the context itself; afterwards `render` throws and the other entry points decline. */
   dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
     const gl = this.gl;
-    for (const p of [this.progA, this.progB, this.progC, this.progD]) gl.deleteProgram(p);
+    for (const p of [this.progA, this.progB, this.progC, this.progD, this.progConsole, this.progPresent]) gl.deleteProgram(p);
+    for (const t of [this.compTex, this.lutTex, this.colorTex, this.polarTex]) gl.deleteTexture(t);
     gl.deleteTexture(this.paramsTex);
     gl.deleteTexture(this.noiseTex);
     gl.deleteTexture(this.psfTex);
     this.disposeTargets();
+    this.compKey = this.lutKeyUploaded = this.colorKey = this.polarKeyUploaded = this.psfKeyUploaded = '';
+    this.noiseSeed = NaN;
+    (gl.getExtension('WEBGL_lose_context') as { loseContext: () => void } | null)?.loseContext();
   }
 
   private disposeTargets(): void {
     const gl = this.gl;
-    for (const t of [this.texA0, this.texA1, this.texA2, this.texS0, this.texS1, this.texSC0, this.texSC1, this.texSIds, this.texB0, this.texB1, this.texC0, this.texD0]) if (t) gl.deleteTexture(t);
-    for (const f of [this.fbA, this.fbS0, this.fbS1, this.fbB, this.fbC, this.fbD]) if (f) gl.deleteFramebuffer(f);
+    for (const t of [this.texA0, this.texA1, this.texA2, this.texS0, this.texS1, this.texSC0, this.texSC1, this.texSIds, this.texB0, this.texB1, this.texC0, this.texD0, ...this.texHist, this.texPacked]) if (t) gl.deleteTexture(t);
+    for (const f of [this.fbA, this.fbS0, this.fbS1, this.fbB, this.fbC, this.fbD, ...this.fbConsole]) if (f) gl.deleteFramebuffer(f);
+    this.texHist = [null, null];
+    this.fbConsole = [null, null];
+    this.texPacked = null;
+    this.histValid = false;
+    this.packedFresh = false;
     this.texA0 = this.texA1 = this.texA2 = this.texS0 = this.texS1 = this.texSC0 = this.texSC1 = this.texSIds = null;
     this.texB0 = this.texB1 = this.texC0 = this.texD0 = null;
     this.fbA = this.fbS0 = this.fbS1 = this.fbB = this.fbC = this.fbD = null;
@@ -220,14 +324,21 @@ export class Webgl2Renderer implements RendererBackend {
     this.fbB = mkFb(this.texB0, this.texB1);
     this.fbC = mkFb(this.texC0);
     this.fbD = mkFb(this.texD0);
+    const hist0 = f32(),
+      hist1 = f32();
+    const packed = mk(gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE);
+    this.texHist = [hist0, hist1];
+    this.texPacked = packed;
+    this.fbConsole = [mkFb(hist0, packed), mkFb(hist1, packed)];
+    this.readPacked = new Uint8Array(w * h * 4);
     this.fbW = w;
     this.fbH = h;
     this.readAmp = new Float32Array(w * h * 4);
     this.readIds = new Uint8Array(w * h * 4);
   }
 
-  render(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, _phase: number, out: PolarFrame): void {
-    const t0 = performance.now();
+  /** Passes A–D: envelope amplitude and transmission in texD0, ids in texB1; fbD stays bound. */
+  private formEnvelope(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec): void {
     const gl = this.gl;
     const w = spec.samples,
       h = spec.lines;
@@ -262,10 +373,7 @@ export class Webgl2Renderer implements RendererBackend {
     // pass B: transmission march → complex signal
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbB);
     gl.useProgram(this.progB);
-    const bindAt = (unit: number, tex: WebGLTexture | null): void => {
-      gl.activeTexture(gl.TEXTURE0 + unit);
-      gl.bindTexture(gl.TEXTURE_2D, tex);
-    };
+    const bindAt = (unit: number, tex: WebGLTexture | null): void => this.bindAt(unit, tex);
     bindAt(2, this.texA0);
     bindAt(3, this.texA1);
     bindAt(4, this.texS0);
@@ -286,14 +394,32 @@ export class Webgl2Renderer implements RendererBackend {
     bindAt(2, this.texC0);
     bindAt(3, this.psfTex);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
-    // read back: amplitude + transmission from D, ids from B
+    for (let u = 2; u <= 8; u++) bindAt(u, null);
+  }
+
+  private bindAt(unit: number, tex: WebGLTexture | null): void {
+    this.gl.activeTexture(this.gl.TEXTURE0 + unit);
+    this.gl.bindTexture(this.gl.TEXTURE_2D, tex);
+  }
+
+  render(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, _phase: number, out: PolarFrame): void {
+    if (this.disposed) throw new Error('Webgl2Renderer used after dispose');
+    const t0 = performance.now();
+    const gl = this.gl;
+    const w = spec.samples,
+      h = spec.lines;
+    this.formEnvelope(scene, beam, spec);
+    // read back: amplitude + transmission from D, ids from B. A one-texel read first waits for the GPU, so the
+    // stats separate GPU work (gpuMs) from the transfer of the frame (readMs).
     gl.readBuffer(gl.COLOR_ATTACHMENT0);
+    gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.FLOAT, this.probe);
+    const tGpu = performance.now();
+    this.lastGpuMs = tGpu - t0;
     gl.readPixels(0, 0, w, h, gl.RGBA, gl.FLOAT, this.readAmp);
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbB);
     gl.readBuffer(gl.COLOR_ATTACHMENT1);
     gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, this.readIds);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    for (let u = 2; u <= 8; u++) bindAt(u, null);
     const n = w * h;
     const amp = out.amplitude,
       tr = out.transmission,
@@ -307,7 +433,232 @@ export class Webgl2Renderer implements RendererBackend {
       st[i] = ri[i * 4]!;
       ti[i] = ri[i * 4 + 1]!;
     }
+    this.packedFresh = false;
+    this.lastOutput = 'float';
     this.lastMs = performance.now() - t0;
+    this.lastReadMs = performance.now() - tGpu;
+  }
+
+  /**
+   * Render and form the displayed polar image on the GPU (decision 54): passes A–D, then the console pass,
+   * whose packed RGBA8 output (grey, structure, tissue, transmission code) is the only read-back. The envelope
+   * amplitude stays on the GPU. Advances the console state exactly like `applyConsole`.
+   */
+  renderDisplay(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, _phase: number, out: PolarFrame, _hints: RenderHints | undefined, con: DisplayConsole, display: Uint8ClampedArray): boolean {
+    const gl = this.gl;
+    if (this.disposed || gl.isContextLost()) return false;
+    const t0 = performance.now();
+    const w = spec.samples,
+      h = spec.lines;
+    this.formEnvelope(scene, beam, spec);
+    const s = con.settings;
+    this.ensureCompensation(s, spec);
+    let useHistory = con.state.gpuHistory && this.histValid && s.persistence > 0;
+    if (!con.state.gpuHistory && s.persistence > 0 && con.state.prev?.length === w * h) {
+      // the previous output of this state came from the CPU console: continue its persistence here
+      this.uploadHistory(con.state.prev, w, h);
+      useHistory = true;
+    }
+    const next = this.histCurrent === 0 ? 1 : 0;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbConsole[next]);
+    gl.viewport(0, 0, w, h);
+    gl.useProgram(this.progConsole);
+    const u = this.uc;
+    gl.uniform1i(u.uSamples, w);
+    gl.uniform1f(u.uDynRange, s.dynamicRangeDb);
+    gl.uniform1f(u.uEdge, s.edgeEnhance > 0 ? s.edgeEnhance * 0.8 : 0);
+    gl.uniform1f(u.uPersist, useHistory ? s.persistence : 0);
+    gl.uniform1i(u.uGrayMap, s.grayMap === 's-curve' ? 1 : s.grayMap === 'high-contrast' ? 2 : 0);
+    gl.uniform1ui(u.uSeed, con.state.seed >>> 0);
+    gl.uniform1ui(u.uFrameIndex, con.state.frameIndex >>> 0);
+    this.bindAt(2, this.texD0);
+    this.bindAt(3, this.texB1);
+    this.bindAt(4, this.compTex);
+    this.bindAt(5, this.texHist[this.histCurrent]);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    for (let unit = 2; unit <= 5; unit++) this.bindAt(unit, null);
+    gl.readBuffer(gl.COLOR_ATTACHMENT1);
+    gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, this.probe8);
+    const tGpu = performance.now();
+    this.lastGpuMs = tGpu - t0;
+    gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, this.readPacked);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    // a context lost during the frame reads nothing: decline before touching any state
+    if (gl.isContextLost()) return false;
+    this.histCurrent = next;
+    this.histValid = true;
+    this.packedFresh = true;
+    con.state.gpuHistory = true;
+    con.state.prev = null;
+    con.state.frameIndex++;
+    const n = w * h;
+    const rp = this.readPacked;
+    const st = out.structure,
+      ti = out.tissue,
+      tr = out.transmission;
+    for (let i = 0, o = 0; i < n; i++, o += 4) {
+      display[i] = rp[o]!;
+      st[i] = rp[o + 1]!;
+      ti[i] = rp[o + 2]!;
+      tr[i] = TRANS_DECODE[rp[o + 3]!]!;
+    }
+    this.lastOutput = 'display';
+    this.lastMs = performance.now() - t0;
+    this.lastReadMs = performance.now() - tGpu;
+    return true;
+  }
+
+  /**
+   * Scan-convert the display of the last `renderDisplay` (and the colour field) into the canvas at
+   * width × height and hand it over as an ImageBitmap (decision 54). Null when there is no fresh GPU display
+   * or the canvas cannot transfer bitmaps; with `readback` the pixels are copied there instead.
+   */
+  present(req: PresentRequest): ImageBitmap | null {
+    const gl = this.gl;
+    if (this.disposed || !this.packedFresh || !this.texPacked || gl.isContextLost()) return null;
+    const t0 = performance.now();
+    const { lut, width: W, height: H, color } = req;
+    const canvas = gl.canvas;
+    if (canvas.width !== W || canvas.height !== H) {
+      canvas.width = W;
+      canvas.height = H;
+    }
+    this.ensureLut(lut, W, H);
+    if (color) {
+      this.ensureColor(color, lut.lines, lut.samples);
+      this.ensurePolar(lut, W, H);
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, W, H);
+    gl.bindVertexArray(this.vao);
+    gl.useProgram(this.progPresent);
+    const u = this.up;
+    gl.uniform1i(u.uHeightPx, H);
+    gl.uniform1i(u.uLines, lut.lines);
+    gl.uniform1i(u.uSamples, lut.samples);
+    gl.uniform1i(u.uColorOn, color ? 1 : 0);
+    if (color) {
+      const c = color.settings;
+      gl.uniform4f(u.uBox, c.boxRMinCm, c.boxRMaxCm, c.boxThetaMinRad, c.boxThetaMaxRad);
+      gl.uniform2f(u.uColorMap, c.scaleMps, c.showVariance ? 1 : 0);
+    }
+    this.bindAt(2, this.texPacked);
+    this.bindAt(3, this.lutTex);
+    this.bindAt(4, this.colorTex);
+    this.bindAt(5, this.polarTex);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    for (let unit = 2; unit <= 5; unit++) this.bindAt(unit, null);
+    if (req.readback) {
+      const tmp = new Uint8Array(W * H * 4);
+      gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, tmp);
+      for (let y = 0; y < H; y++) req.readback.set(tmp.subarray((H - 1 - y) * W * 4, (H - y) * W * 4), y * W * 4);
+      this.lastPresentMs = performance.now() - t0;
+      return null;
+    }
+    const bitmap = typeof OffscreenCanvas !== 'undefined' && canvas instanceof OffscreenCanvas ? canvas.transferToImageBitmap() : null;
+    this.lastPresentMs = performance.now() - t0;
+    return bitmap;
+  }
+
+  /**
+   * Hand persistence back to the CPU console: when the last output of `state` was formed here, read the history
+   * texture into `state.prev` (one float read of lines × samples, only when the console switches to the CPU).
+   */
+  restoreCpuHistory(state: ConsoleState, spec: PolarFrameSpec): void {
+    if (!state.gpuHistory) return;
+    state.gpuHistory = false;
+    const gl = this.gl;
+    const w = spec.samples,
+      h = spec.lines;
+    if (this.disposed || gl.isContextLost() || !this.histValid || this.fbW !== w || this.fbH !== h) return;
+    const n = w * h;
+    if (this.histUpload.length !== n * 4) this.histUpload = new Float32Array(n * 4);
+    const t = this.histUpload;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbConsole[this.histCurrent]);
+    gl.readBuffer(gl.COLOR_ATTACHMENT0);
+    gl.readPixels(0, 0, w, h, gl.RGBA, gl.FLOAT, t);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    if (gl.isContextLost()) return;
+    const prev = new Float32Array(n);
+    for (let i = 0; i < n; i++) prev[i] = t[i * 4]!;
+    state.prev = prev;
+  }
+
+  /** Put a CPU persistence buffer (0..1 per sample) into the history texture the next console pass reads. */
+  private uploadHistory(prev: Float32Array, w: number, h: number): void {
+    const n = w * h;
+    if (this.histUpload.length !== n * 4) this.histUpload = new Float32Array(n * 4);
+    const t = this.histUpload;
+    t.fill(0);
+    for (let i = 0; i < n; i++) t[i * 4] = prev[i] ?? 0;
+    const gl = this.gl;
+    this.bindAt(UPLOAD_UNIT, this.texHist[this.histCurrent]);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h, gl.RGBA, gl.FLOAT, t);
+    this.bindAt(UPLOAD_UNIT, null);
+    this.histValid = true;
+  }
+
+  private ensureCompensation(s: AcquisitionSettings, spec: PolarFrameSpec): void {
+    const key = `${spec.samples}|${spec.depthCm}|${s.frequencyMHz}|${s.gainDb}|${s.tgcDb.join(',')}`;
+    if (key === this.compKey) return;
+    if (this.compData.length !== spec.samples) this.compData = new Float32Array(spec.samples);
+    consoleCompensation(s, spec, this.compData);
+    const gl = this.gl;
+    this.bindAt(UPLOAD_UNIT, this.compTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, spec.samples, 1, 0, gl.RED, gl.FLOAT, this.compData);
+    this.bindAt(UPLOAD_UNIT, null);
+    this.compKey = key;
+  }
+
+  private ensureLut(lut: ScanLut, W: number, H: number): void {
+    if (lut.key === this.lutKeyUploaded) return;
+    this.lutTexels = packScanLutTexels(lut, this.lutTexels);
+    const gl = this.gl;
+    this.bindAt(UPLOAD_UNIT, this.lutTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16UI, W, H, 0, gl.RGBA_INTEGER, gl.UNSIGNED_SHORT, this.lutTexels);
+    this.bindAt(UPLOAD_UNIT, null);
+    this.lutKeyUploaded = lut.key;
+  }
+
+  /**
+   * The colour box is tested against the LUT's own polar coordinates, not recomputed per pixel: GLSL `atan` is
+   * approximate on some GPUs (on SwiftShader ~0.1 % of the sector's pixels landed on the other side of a box edge).
+   */
+  private ensurePolar(lut: ScanLut, W: number, H: number): void {
+    if (lut.key === this.polarKeyUploaded) return;
+    const n = W * H;
+    if (this.polarTexels.length !== n * 2) this.polarTexels = new Float32Array(n * 2);
+    const t = this.polarTexels;
+    for (let p = 0; p < n; p++) {
+      t[p * 2] = lut.rCm[p] ?? 0;
+      t[p * 2 + 1] = lut.theta[p] ?? 0;
+    }
+    const gl = this.gl;
+    this.bindAt(UPLOAD_UNIT, this.polarTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG32F, W, H, 0, gl.RG, gl.FLOAT, t);
+    this.bindAt(UPLOAD_UNIT, null);
+    this.polarKeyUploaded = lut.key;
+  }
+
+  private ensureColor(c: PresentColor, lines: number, samples: number): void {
+    const key = `${c.version}|${lines}x${samples}`;
+    if (key === this.colorKey) return;
+    const n = lines * samples;
+    if (this.colorTexels.length !== n * 4) this.colorTexels = new Float32Array(n * 4);
+    const t = this.colorTexels;
+    for (let i = 0, o = 0; i < n; i++, o += 4) {
+      const v = c.vel[i] ?? NaN;
+      const valid = !Number.isNaN(v);
+      t[o] = valid ? v : 0;
+      t[o + 1] = c.variance[i] ?? 0;
+      t[o + 2] = valid ? 1 : 0;
+      t[o + 3] = 1;
+    }
+    const gl = this.gl;
+    this.bindAt(UPLOAD_UNIT, this.colorTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, samples, lines, 0, gl.RGBA, gl.FLOAT, t);
+    this.bindAt(UPLOAD_UNIT, null);
+    this.colorKey = key;
   }
 }
 

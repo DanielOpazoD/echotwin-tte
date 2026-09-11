@@ -10,7 +10,13 @@ let core: SimulatorCore | null = null;
 let input: SimInput | null = null;
 let lastTick = 0;
 let outstanding = 0;
+let lastPostMs = 0;
+let dropped = 0;
 let timer: ReturnType<typeof setTimeout> | null = null;
+/** Absolute time (ms) the next tick is due, and how late the current one fired (diagnostics). */
+let nextDue = 0;
+let lateMs = 0;
+let lastFps = 30;
 
 const post = (m: WorkerToMain, transfer?: Transferable[]): void => {
   (self as unknown as Worker).postMessage(m, transfer ?? []);
@@ -24,7 +30,9 @@ function schedule(delayMs: number): void {
 function tick(): void {
   timer = null;
   if (!core || !input) return;
-  const now = performance.now() / 1000;
+  const tStart = performance.now();
+  lateMs = nextDue > 0 ? Math.max(0, tStart - nextDue) : 0;
+  const now = tStart / 1000;
   const dt = lastTick ? now - lastTick : 1 / 60;
   lastTick = now;
   try {
@@ -32,15 +40,23 @@ function tick(): void {
     const out = core.step(dt);
     const stepMs = performance.now() - t0;
     if (out && outstanding < 2) {
-      out.stats = { ...out.stats, stepMs: Number(stepMs.toFixed(1)) };
+      out.stats = { ...out.stats, stepMs: Number(stepMs.toFixed(1)), postMs: Number(lastPostMs.toFixed(2)), lateMs: Number(lateMs.toFixed(1)), dropped };
       outstanding++;
-      post({ type: 'frame', output: out }, [out.rgba]);
+      const tp = performance.now();
+      post({ type: 'frame', output: out }, out.bitmap ? [out.rgba, out.bitmap] : [out.rgba]);
+      lastPostMs = performance.now() - tp;
     } else if (out) {
-      core.recycle(out.rgba); // main thread is behind: drop the frame, keep simulating
+      out.bitmap?.close(); // main thread is behind: drop the frame, keep simulating
+      core.recycle(out.rgba);
+      dropped++;
     }
-    // pace at the simulated frame rate (or 30 Hz for strips), never faster than the work allows
-    const targetMs = input.frozen ? 80 : Math.max(12, Math.min(50, 1000 / (out?.simulatedFps ?? 30)));
-    schedule(Math.max(4, targetMs - stepMs));
+    // pace at the simulated frame rate (or 30 Hz for strips) against an absolute schedule: a timer that fires
+    // late shortens the next wait instead of lowering the frame rate (worker timers ran ~5 ms late under load,
+    // 31.5 instead of 36.9 frames/s); after a stall longer than one interval the schedule restarts from now
+    if (out) lastFps = out.simulatedFps;
+    const targetMs = input.frozen ? 80 : Math.max(12, Math.min(50, 1000 / lastFps));
+    nextDue = nextDue > 0 && tStart - nextDue < targetMs ? nextDue + targetMs : tStart + targetMs;
+    schedule(Math.max(1, nextDue - performance.now()));
   } catch (e) {
     post({ type: 'error', message: e instanceof Error ? e.message + '\n' + (e.stack ?? '') : String(e) });
     schedule(500);
@@ -55,6 +71,8 @@ self.onmessage = (ev: MessageEvent<MainToWorker>) => {
       input = msg.input;
       lastTick = 0;
       outstanding = 0;
+      nextDue = 0;
+      lastFps = 30;
       post({ type: 'ready', truth: core.truth, caseId: msg.caseDef.id, phaseMarks: core.phaseMarks(), lvLengthCm: core.lvLengthCm() });
       schedule(1);
       return;

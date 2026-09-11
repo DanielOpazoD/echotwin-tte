@@ -99,6 +99,18 @@ test.describe('EchoTwin TTE core flow', () => {
     // measurements and pose are not persisted
     expect((s['measurements'] as unknown[]).length).toBe(0);
   });
+
+  test('the image keeps updating after visiting another screen', async ({ page }) => {
+    // the display unmounts on the other screens; frames must still be acknowledged or the worker stops delivering
+    const setScreen = (screen: string) =>
+      page.evaluate((s) => (window as unknown as { __echotwin: { useSimStore: { getState: () => { setUi: (u: { screen: string }) => void } } } }).__echotwin.useSimStore.getState().setUi({ screen: s }), screen);
+    await setScreen('references');
+    await page.waitForTimeout(2000);
+    await setScreen('simulator');
+    const f0 = ((await getHud(page))?.['frameId'] as number | undefined) ?? 0;
+    await expect.poll(async () => (((await getHud(page))?.['frameId'] as number | undefined) ?? 0) - f0, { timeout: 30_000 }).toBeGreaterThan(3);
+    await expect.poll(() => imageMean(page), { timeout: 30_000 }).toBeGreaterThan(4);
+  });
 });
 
 test('a preset view moves the probe continuously and reaches the target view', async ({ page }) => {

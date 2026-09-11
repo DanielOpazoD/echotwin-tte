@@ -5,7 +5,7 @@ import { buildBeatTables, cycleStateAt, type BeatTables } from '@/simulator/card
 import { CardiacClock } from '@/simulator/cardiac-cycle/clock';
 import { ecgSample } from '@/simulator/cardiac-cycle/ecg';
 import { ProceduralSliceRenderer } from '@/simulator/renderer/procedural/sliceRenderer';
-import { createWebgl2Renderer } from '@/simulator/renderer/gpu/webgl2Renderer';
+import { createWebgl2Renderer, type Webgl2Renderer } from '@/simulator/renderer/gpu/webgl2Renderer';
 import { AtlasRenderer } from '@/simulator/renderer/atlas/atlasRenderer';
 import { allocPolarFrame, polarSpecFor, type PolarFrame, type PolarFrameSpec, type RendererBackend, type RenderHints, type Scene } from '@/simulator/renderer/types';
 import { AtlasRenderer as AtlasBackend } from '@/simulator/renderer/atlas/atlasRenderer';
@@ -15,7 +15,7 @@ import { simulatedFrameRate } from '@/simulator/renderer/frameRate';
 import { beamFrameFromPose, contactQuality, poseFromControl, type BeamFrame } from '@/simulator/probe/pose';
 import { analyzeView, type ViewAnalysis } from '@/simulator/view-recognition/viewQuality';
 import { buildFlowParams, sampleFlow, sampleTissueVelocity, type FlowFieldParams, type FlowSample } from '@/simulator/doppler/flow-primitives/flowField';
-import { allocColorField, colorMap, computeColorField, type ColorField } from '@/simulator/doppler/color/colorDoppler';
+import { allocColorField, colorMap, computeColorField, overlayColorField, type ColorField } from '@/simulator/doppler/color/colorDoppler';
 import { aliasVelocity } from '@/clinical/formulas';
 import { buildSpectralColumn, SPECTRAL_BINS, spectralRange, type VelocitySample } from '@/simulator/doppler/spectral/spectrum';
 import { computeGroundTruth, type StructuredEchoTruth } from '@/simulator/hemodynamics/groundTruth';
@@ -57,7 +57,7 @@ export class SimulatorCore {
   private atlas: AtlasRenderer;
   private backend: RendererBackend;
   /** WebGL2 port of the procedural renderer; null when unavailable (reason in `gpuReason`). */
-  private gpu: RendererBackend | null;
+  private gpu: Webgl2Renderer | null;
   private gpuReason: string;
   private consoleState: ConsoleState;
   private artifacts: ArtifactSettings = { sideLobe: 0, mirror: 0, beamWidth: 0 };
@@ -76,6 +76,10 @@ export class SimulatorCore {
   private colorPrev: ColorField | null = null;
   private colorFrameCounter = 0;
   private colorFps = 0;
+  /** Incremented whenever the colour field is recomputed (the GPU present pass uploads it only then). */
+  private colorVersion = 0;
+  /** The display of the last rendered frame was formed on the GPU and is still there (decision 54). */
+  private displayOnGpu = false;
   private cine: CineFrame[] = [];
   private frameId = 0;
   private timeS = 0;
@@ -104,7 +108,7 @@ export class SimulatorCore {
   private lastOutputBeam: BeamFrame | null = null;
   private lastSector: (SectorMapping & { x: number; y: number }) | null = null;
   private lastStrip: StripInfo | null = null;
-  private timing = { renderFrameMs: 0, compositeMs: 0, analysisMs: 0, consoleMs: 0 };
+  private timing = { renderFrameMs: 0, compositeMs: 0, analysisMs: 0, consoleMs: 0, cineMs: 0, presentMs: 0 };
   private lut: ScanLut | null = null;
   private prevBeam: BeamFrame | null = null;
   private stationaryFrames = 0;
@@ -172,7 +176,8 @@ export class SimulatorCore {
   }
 
   recycle(buffer: ArrayBuffer): void {
-    if (this.rgbaPool.length < 3) this.rgbaPool.push(buffer);
+    // frames drawn on the GPU travel with an empty buffer: nothing to reuse
+    if (buffer.byteLength > 0 && this.rgbaPool.length < 3) this.rgbaPool.push(buffer);
   }
 
   /** Advance simulation by dt seconds. Returns an output when a new composite frame is ready. */
@@ -198,7 +203,9 @@ export class SimulatorCore {
     // the worker paces itself at the simulated frame interval; tolerate timer jitter so the cadence
     // stays even instead of skipping every few frames
     if (this.frameAccumulator >= frameInterval * 0.85 || !this.frame) {
-      this.frameAccumulator = 0;
+      // keep the remainder (at most one interval): a late tick followed by an early one still yields two frames,
+      // so the long-run rate is the simulated rate
+      this.frameAccumulator = Math.min(frameInterval, Math.max(0, this.frameAccumulator - frameInterval));
       const t0 = performance.now();
       this.renderFrame(beam, spec);
       this.timing.renderFrameMs = performance.now() - t0;
@@ -209,6 +216,15 @@ export class SimulatorCore {
     const out = this.composite(beam, spec, false);
     this.timing.compositeMs = performance.now() - t1;
     return out;
+  }
+
+  /** Continue without the GPU port (context lost): the atlas feeds from the CPU tracer again. */
+  private dropGpu(reason: string): void {
+    this.gpu = null;
+    this.gpuReason = reason;
+    this.atlas = new AtlasRenderer(this.procedural, this.caseDef.seed);
+    this.backend = this.pickBackend(this.input.rendererBackend);
+    this.displayOnGpu = false;
   }
 
   private accumulateEcg(timeInBeatStart: number, rrS: number, dt: number): void {
@@ -260,10 +276,14 @@ export class SimulatorCore {
     this.stationaryFrames = moved < 0.03 ? this.stationaryFrames + 1 : 0;
     this.prevBeam = beam;
     const hints: RenderHints = { stationary: this.stationaryFrames >= 6, budgetMs: this.frameBudgetMs, sceneAtPhase: (ph) => this.scene(ph) };
-    this.backend.render(scene, beam, spec, phase, this.frame, hints);
-    const tc = performance.now();
-    applyConsole(this.frame, inp.settings, this.consoleState, this.display!, this.artifacts);
-    this.timing.consoleMs = performance.now() - tc;
+    if (this.gpu?.contextLost) this.dropGpu('WebGL context lost: CPU tracer');
+    let onGpu = this.formDisplay(scene, beam, spec, phase, hints);
+    if (this.gpu?.contextLost) {
+      // lost while forming this frame: nothing valid was read back, so form it again with the CPU tracer
+      this.dropGpu('WebGL context lost: CPU tracer');
+      onGpu = this.formDisplay(scene, beam, spec, phase, hints);
+    }
+    this.displayOnGpu = onGpu;
     let colorVel: Float32Array | null = null;
     let colorVar: Float32Array | null = null;
     if (inp.modality === 'color') {
@@ -284,6 +304,7 @@ export class SimulatorCore {
       this.lastAnalysis = analyzeView({ heart: this.heart, thorax: this.thorax, control: inp.probe, beam, frame: this.frame, display: this.display, settings: inp.settings });
       this.timing.analysisMs = performance.now() - ta;
     }
+    const tCine = performance.now();
     const cf: CineFrame = {
       structure: new Uint8Array(this.frame!.structure),
       display: new Uint8ClampedArray(this.display!),
@@ -298,7 +319,30 @@ export class SimulatorCore {
     };
     this.cine.push(cf);
     if (this.cine.length > CINE_FRAMES) this.cine.shift();
+    this.timing.cineMs = performance.now() - tCine;
     this.frameId++;
+  }
+
+  /**
+   * Render the frame and form its display. On the GPU when the backend can (decision 54): every console step
+   * except the mirror and side-lobe artifacts, and the atlas declines while it serves a cache. Otherwise render
+   * and the CPU console. Persistence continues across a switch in either direction. True when formed on the GPU.
+   */
+  private formDisplay(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, phase: number, hints: RenderHints): boolean {
+    const settings = this.input.settings;
+    const frame = this.frame!;
+    const display = this.display!;
+    if (this.artifacts.mirror <= 0 && this.artifacts.sideLobe <= 0 && this.backend.renderDisplay?.(scene, beam, spec, phase, frame, hints, { settings, state: this.consoleState }, display) === true) {
+      this.timing.consoleMs = 0;
+      return true;
+    }
+    this.backend.render(scene, beam, spec, phase, frame, hints);
+    const tc = performance.now();
+    // the previous output of this console state was formed on the GPU: carry its persistence over
+    if (this.consoleState.gpuHistory) this.gpu?.restoreCpuHistory(this.consoleState, spec);
+    applyConsole(frame, settings, this.consoleState, display, this.artifacts);
+    this.timing.consoleMs = performance.now() - tc;
+    return false;
   }
 
   private computeColor(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, phase: number): void {
@@ -339,6 +383,7 @@ export class SimulatorCore {
       },
       out,
     );
+    this.colorVersion++;
   }
 
   private advanceStrip(dt: number, beam: BeamFrame, spec: PolarFrameSpec): void {
@@ -658,20 +703,31 @@ export class SimulatorCore {
     const H = Math.max(64, inp.display.height);
     const isStrip = inp.modality === 'm-mode' || inp.modality === 'cmm' || inp.modality === 'pw' || inp.modality === 'cw' || inp.modality === 'tdi';
     const sectorH = isStrip ? Math.round(H * 0.42) : H;
-    const buffer = this.takeBuffer(W * H * 4);
-    const rgba = new Uint8ClampedArray(buffer);
     const display = cf ? cf.display : this.display;
     const fspec = cf ? cf.spec : spec;
     if (!display) return null;
     const mapping = computeSectorMapping(fspec, W, sectorH, inp.settings.invertLR, inp.settings.zoom);
     const key = lutKey(fspec, mapping);
     if (!this.lut || this.lut.key !== key) this.lut = buildScanLut(fspec, mapping);
-    // the sector occupies the top rows of the composite: scan-convert straight into the buffer
-    const sectorRgba = new Uint8ClampedArray(buffer, 0, W * sectorH * 4);
-    scanConvertLut(display, this.lut, sectorRgba);
     const colorVel = cf ? cf.colorVel : inp.modality === 'color' && this.colorPrev ? this.colorPrev.vel : null;
     const colorVar = cf ? cf.colorVar : inp.modality === 'color' && this.colorPrev ? this.colorPrev.variance : null;
-    if (colorVel && colorVar) this.overlayColor(sectorRgba, this.lut, colorVel, colorVar);
+    // a live 2D or colour frame whose display was formed on the GPU is scan-converted there as well and travels
+    // as an ImageBitmap (decision 54); strips, cine review and the CPU console keep the CPU composite
+    let bitmap: ImageBitmap | null = null;
+    const tp = performance.now();
+    if (!cf && !isStrip && this.displayOnGpu && this.gpu) {
+      const color = colorVel && colorVar ? { vel: colorVel, variance: colorVar, version: this.colorVersion, settings: inp.color } : null;
+      bitmap = this.gpu.present({ lut: this.lut, width: W, height: sectorH, color });
+    }
+    this.timing.presentMs = bitmap ? performance.now() - tp : 0;
+    const buffer = bitmap ? new ArrayBuffer(0) : this.takeBuffer(W * H * 4);
+    const rgba = new Uint8ClampedArray(buffer);
+    if (!bitmap) {
+      // the sector occupies the top rows of the composite: scan-convert straight into the buffer
+      const sectorRgba = new Uint8ClampedArray(buffer, 0, W * sectorH * 4);
+      scanConvertLut(display, this.lut, sectorRgba);
+      if (colorVel && colorVar) overlayColorField(sectorRgba, this.lut, colorVel, colorVar, inp.color);
+    }
     if (isStrip) {
       // clear strip area
       rgba.fill(0, W * sectorH * 4);
@@ -694,6 +750,7 @@ export class SimulatorCore {
       width: W,
       height: H,
       rgba: buffer,
+      bitmap,
       sector,
       strip,
       polar: { lines: fspec.lines, samples: fspec.samples, sectorRad: fspec.sectorRad, depthCm: fspec.depthCm },
@@ -724,6 +781,10 @@ export class SimulatorCore {
         consoleMs: Number(this.timing.consoleMs.toFixed(1)),
         analysisMs: Number(this.timing.analysisMs.toFixed(1)),
         compositeMs: Number(this.timing.compositeMs.toFixed(1)),
+        cineMs: Number(this.timing.cineMs.toFixed(2)),
+        console: this.displayOnGpu ? 'gpu' : 'cpu',
+        present: bitmap ? 'gpu' : 'cpu',
+        presentMs: Number(this.timing.presentMs.toFixed(2)),
       },
       colorFps: this.colorFps,
       probeBeam: {
@@ -733,28 +794,6 @@ export class SimulatorCore {
         normal: [beam.normal.x, beam.normal.y, beam.normal.z],
       },
     };
-  }
-
-  private overlayColor(rgba: Uint8ClampedArray, lut: ScanLut, vel: Float32Array, variance: Float32Array): void {
-    const c = this.input.color;
-    const rgb: [number, number, number] = [0, 0, 0];
-    const S = lut.samples;
-    const n = lut.idx.length;
-    for (let p = 0, o = 0; p < n; p++, o += 4) {
-      if ((lut.idx[p] ?? -1) < 0) continue;
-      const r = lut.rCm[p] ?? 0;
-      if (r < c.boxRMinCm || r > c.boxRMaxCm) continue;
-      const th = lut.theta[p] ?? 0;
-      if (th < c.boxThetaMinRad || th > c.boxThetaMaxRad) continue;
-      const k = (lut.li[p] ?? 0) * S + (lut.si[p] ?? 0);
-      const v = vel[k];
-      if (v === undefined || Number.isNaN(v)) continue;
-      colorMap(v, c.scaleMps, variance[k] ?? 0, c.showVariance, rgb);
-      const g = rgba[o] ?? 0;
-      rgba[o] = Math.round(rgb[0] * 0.85 + g * 0.15);
-      rgba[o + 1] = Math.round(rgb[1] * 0.85 + g * 0.15);
-      rgba[o + 2] = Math.round(rgb[2] * 0.85 + g * 0.15);
-    }
   }
 
   private drawStrip(rgba: Uint8ClampedArray, W: number, H: number, sectorH: number, spec: PolarFrameSpec): StripInfo {

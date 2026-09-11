@@ -67,7 +67,10 @@ export interface SimOutput {
   frameId: number;
   width: number;
   height: number;
+  /** Composite RGBA, row-major. Empty when the GPU formed the image and it travels as `bitmap`. */
   rgba: ArrayBuffer;
+  /** The composite drawn by the GPU present pass (decision 54); the display draws it once and closes it. */
+  bitmap?: ImageBitmap | null;
   sector: SectorMapping & { x: number; y: number };
   strip: StripInfo;
   /** Polar geometry of the frame and its per-sample structure map (line-major), for measurement technique checks. */

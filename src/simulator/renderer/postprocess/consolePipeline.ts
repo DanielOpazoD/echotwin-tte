@@ -1,4 +1,4 @@
-import type { AcquisitionSettings, PolarFrame } from '../types';
+import type { AcquisitionSettings, PolarFrame, PolarFrameSpec } from '../types';
 import { hash3 } from '@/core/random';
 
 /**
@@ -7,9 +7,13 @@ import { hash3 } from '@/core/random';
  * compensation, so it rises with depth and gain) → log compression / dynamic range → edge enhancement →
  * persistence → gray map. Axial and lateral resolution are not console effects: the renderer forms them
  * with the PSF before envelope detection (decision 52). Pure CPU, deterministic per (frameIndex, seed).
+ * The GPU console (gpu/glslImage.ts, decision 54) evaluates the same steps except the mirror and side-lobe
+ * artifacts, with the same compensation table, noise hash and constants.
  */
 export interface ConsoleState {
-  prev: Float32Array | null; // persistence buffer (0..1)
+  prev: Float32Array | null; // persistence buffer of the CPU console (0..1)
+  /** True while the GPU console's history texture holds the previous output of this state (decision 54). */
+  gpuHistory: boolean;
   frameIndex: number;
   seed: number;
 }
@@ -18,18 +22,35 @@ export interface ConsoleState {
 export const NOISE_FLOOR = 0.0018;
 /** White point: envelope amplitude 10^(REF_DB/20) maps to full white at 0 dB gain. */
 export const REF_DB = 8;
-const RAYLEIGH_MEAN = Math.sqrt(Math.PI / 2);
+/** Mean of a unit Rayleigh envelope, √(π/2): the noise envelope is scaled so its mean is NOISE_FLOOR. */
+export const RAYLEIGH_MEAN = Math.sqrt(Math.PI / 2);
 
 export function createConsoleState(seed: number): ConsoleState {
-  return { prev: null, frameIndex: 0, seed };
+  return { prev: null, gpuHistory: false, frameIndex: 0, seed };
 }
 
 const scratchA = { buf: new Float32Array(0) };
 const scratchB = { buf: new Float32Array(0) };
+const scratchComp = { buf: new Float64Array(0) };
 
 function ensure(s: { buf: Float32Array }, n: number): Float32Array {
   if (s.buf.length !== n) s.buf = new Float32Array(n);
   return s.buf;
+}
+
+/**
+ * Per-sample amplification of the console: default depth compensation (0.38 dB/cm/MHz) plus the TGC curve,
+ * capped at 60 dB, times the overall gain. The CPU console uses it in float64, the GPU console as a texture.
+ */
+export function consoleCompensation(settings: AcquisitionSettings, spec: PolarFrameSpec, out: Float32Array | Float64Array): void {
+  const dr = spec.depthCm / spec.samples;
+  const baselineDbPerCm = 0.38 * settings.frequencyMHz; // default depth compensation of the (fictional) console
+  const gainLin = Math.pow(10, settings.gainDb / 20);
+  for (let si = 0; si < spec.samples; si++) {
+    const r = (si + 0.5) * dr;
+    const compDb = baselineDbPerCm * r + tgcAtDepth(settings, r);
+    out[si] = Math.pow(10, Math.min(compDb, 60) / 20) * gainLin;
+  }
 }
 
 export function tgcAtDepth(settings: AcquisitionSettings, r: number): number {
@@ -58,18 +79,16 @@ export function applyConsole(frame: PolarFrame, settings: AcquisitionSettings, s
   const { lines, samples, depthCm } = frame.spec;
   const n = lines * samples;
   const dr = depthCm / samples;
-  const f = settings.frequencyMHz;
-  const baselineDbPerCm = 0.38 * f; // default depth compensation of the (fictional) console
-  const gainLin = Math.pow(10, settings.gainDb / 20);
   const dr_ = settings.dynamicRangeDb;
   const a = ensure(scratchA, n);
   const b = ensure(scratchB, n);
   const fi = state.frameIndex;
+  if (scratchComp.buf.length !== samples) scratchComp.buf = new Float64Array(samples);
+  const compensation = scratchComp.buf;
+  consoleCompensation(settings, frame.spec, compensation);
   // 1) amplification + noise, per sample depth
   for (let si = 0; si < samples; si++) {
-    const r = (si + 0.5) * dr;
-    const compDb = baselineDbPerCm * r + tgcAtDepth(settings, r);
-    const comp = Math.pow(10, Math.min(compDb, 60) / 20) * gainLin;
+    const comp = compensation[si] ?? 1;
     for (let li = 0; li < lines; li++) {
       const idx = li * samples + si;
       // Rayleigh-distributed envelope of complex Gaussian receiver noise, new every frame
@@ -163,5 +182,6 @@ export function applyConsole(frame: PolarFrame, settings: AcquisitionSettings, s
     else if (settings.grayMap === 'high-contrast') y = Math.pow(y, 1.6);
     outU8[i] = Math.round(y * 255);
   }
+  state.gpuHistory = false;
   state.frameIndex++;
 }

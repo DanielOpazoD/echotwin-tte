@@ -1,6 +1,7 @@
 import { aliasVelocity } from '@/clinical/formulas';
 import { Tissue } from '@/simulator/anatomy/tissue';
 import type { PolarFrame } from '@/simulator/renderer/types';
+import type { ScanLut } from '@/simulator/renderer/scanConvert';
 
 export interface ColorSettings {
   boxThetaMinRad: number;
@@ -124,5 +125,30 @@ export function colorMap(v: number, scale: number, variance: number, showVarianc
     out[1] = out[1] * (1 - g) + 230 * g;
     out[0] = out[0] * (1 - g * 0.4);
     out[2] = out[2] * (1 - g * 0.4);
+  }
+}
+
+/**
+ * Blend a polar colour field over a scan-converted grey image (85 % colour, 15 % grey) inside the colour
+ * box, using the nearest polar sample of each pixel. The GPU present pass (gpu/glslImage.ts) does the same.
+ */
+export function overlayColorField(rgba: Uint8ClampedArray, lut: ScanLut, vel: Float32Array, variance: Float32Array, c: ColorSettings): void {
+  const rgb: [number, number, number] = [0, 0, 0];
+  const S = lut.samples;
+  const n = lut.idx.length;
+  for (let p = 0, o = 0; p < n; p++, o += 4) {
+    if ((lut.idx[p] ?? -1) < 0) continue;
+    const r = lut.rCm[p] ?? 0;
+    if (r < c.boxRMinCm || r > c.boxRMaxCm) continue;
+    const th = lut.theta[p] ?? 0;
+    if (th < c.boxThetaMinRad || th > c.boxThetaMaxRad) continue;
+    const k = (lut.li[p] ?? 0) * S + (lut.si[p] ?? 0);
+    const v = vel[k];
+    if (v === undefined || Number.isNaN(v)) continue;
+    colorMap(v, c.scaleMps, variance[k] ?? 0, c.showVariance, rgb);
+    const g = rgba[o] ?? 0;
+    rgba[o] = Math.round(rgb[0] * 0.85 + g * 0.15);
+    rgba[o + 1] = Math.round(rgb[1] * 0.85 + g * 0.15);
+    rgba[o + 2] = Math.round(rgb[2] * 0.85 + g * 0.15);
   }
 }

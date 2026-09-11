@@ -1,6 +1,7 @@
 import type { BeamFrame } from '@/simulator/probe/pose';
 import type { HeartModel, HeartPose } from '@/simulator/anatomy/heartModel';
 import type { ThoraxModel } from '@/simulator/anatomy/thoraxModel';
+import type { ConsoleState } from './postprocess/consolePipeline';
 
 export type ImagingModality = '2d' | 'm-mode' | 'cmm' | 'color' | 'pw' | 'cw' | 'tdi';
 export type LineDensity = 'low' | 'medium' | 'high';
@@ -54,7 +55,8 @@ export interface PolarFrameSpec {
 
 export interface PolarFrame {
   spec: PolarFrameSpec;
-  amplitude: Float32Array; // lines*samples, index = line*samples + sample
+  /** Linear envelope, lines*samples, index = line*samples + sample. Not read back when the GPU forms the display (decision 54). */
+  amplitude: Float32Array;
   /** Per-sample structure id (for view analysis, Doppler masks, measurements). */
   structure: Uint8Array;
   /** Per-sample two-way transmission reaching that sample (for shadow-aware Doppler). */
@@ -101,9 +103,22 @@ export interface RenderHints {
   sceneAtPhase?: (phase: number) => Scene;
 }
 
+/** Console input of a display formed by the renderer: the settings and the console state it advances. */
+export interface DisplayConsole {
+  settings: AcquisitionSettings;
+  state: ConsoleState;
+}
+
 export interface RendererBackend {
   readonly id: 'atlas' | 'procedural' | 'webgl2-procedural' | 'webgpu-procedural' | 'remote-cuda';
   render(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, phase: number, out: PolarFrame, hints?: RenderHints): void;
+  /**
+   * Optional: render and form the displayed polar image in one go (GPU console, decision 54). Fills `display`
+   * and the structure, tissue and transmission maps of `out` (not the amplitude) and advances the console
+   * state. Returns false when this frame cannot be formed that way; the caller then uses `render` and the CPU
+   * console.
+   */
+  renderDisplay?(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, phase: number, out: PolarFrame, hints: RenderHints | undefined, console: DisplayConsole, display: Uint8ClampedArray): boolean;
   /** Optional diagnostics for the dev HUD. */
   stats(): Record<string, number | string>;
   dispose(): void;
