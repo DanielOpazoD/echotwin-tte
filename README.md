@@ -30,6 +30,7 @@ Requiere Node ≥ 20 (`engines` en `package.json`). Dependencias de ejecución: 
 | `npm run golden:update` | Regenera `src/tests/goldens/frames.json` (ver `docs/validation/README.md`). |
 | `npm run measure -- <caseId>` | Mide el modelo geométrico del caso (43 magnitudes: volúmenes, diámetros, grosores, raíz, anillos, índices) contra rangos adultos por sexo y marca ok/LOW/HIGH; es la misma tabla que comprueba `proportions.test.ts`. |
 | `npx tsx tools/offline/render/slice-map.ts [outDir] [vistas] [caseId]` | Mapa de estructuras del plano canónico de cada vista (colores por estructura, sin acústica) para control anatómico; `audit-views.ts` imprime el error de plano/rotación de cada vista canónica frente al plano anatómico y la distancia de cada referencia al plano. |
+| `npm run review:export -- [outDir]` | Conjunto de revisión para el protocolo de validación externa: 12 casos × 8 vistas canónicas × 3 cuadros en PNG, hoja de puntuación CSV con la rúbrica y guion del evaluador (`docs/VALIDATION_PROTOCOL.md`). |
 | `npm run atlas:build` | Renderiza los cines de 16 fases de cada vista canónica (una hoja de contacto PNG por vista) con la fuente de anclas procedimental: `tools/offline/atlas-generation/build-atlas.ts [outDir] [caseId]`. |
 
 ## Controles de la sonda
@@ -108,6 +109,7 @@ e2e/                    core-flow.spec.ts (9 pruebas Playwright) + helpers.ts
 Corte vertical funcionando: ventanas paraesternal y apical de un corazón normal, Doppler paramétrico coherente con la verdad de terreno, un caso de estenosis aórtica severa y puntuación de examen. Vitest: 23 archivos / 128 pruebas, todas en verde; Playwright: 30 pruebas (flujo, mediciones, aprendizaje, equivalencia GPU), última ejecución local `passed`; lint y typecheck en verde. Hay un flujo de CI en `.github/workflows/ci.yml` que nunca se ha ejecutado: el repositorio tiene commits locales pero **sin remoto**. Detalle y avisos en [docs/VALIDATION.md](docs/VALIDATION.md).
 
 ## Documentación
+- [docs/VALIDATION_PROTOCOL.md](docs/VALIDATION_PROTOCOL.md) — protocolo preregistrado de validación externa (expertos, imágenes reales, residentes); ningún estudio ejecutado todavía.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — capas, flujo de datos, worker, backends, tiers.
 - [docs/CLINICAL_SCOPE.md](docs/CLINICAL_SCOPE.md) — alcance clínico V1 y lo que falta.
 - [docs/ULTRASOUND_PHYSICS.md](docs/ULTRASOUND_PHYSICS.md) — qué física se aproxima y cómo.

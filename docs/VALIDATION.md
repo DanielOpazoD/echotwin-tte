@@ -80,6 +80,9 @@ Referencia = con qué se compara (valor analítico, consistencia interna o rango
 
 El `beforeEach` de las siete primeras marca `tutorialDone` en `localStorage` para que el tutorial no tape la interfaz. Los helpers usan el gancho `window.__echotwin` (`src/main.tsx`) para leer los stores; el buffer RGBA no se serializa.
 
+## Validación externa
+El protocolo preregistrado (tres estudios: puntuación experta por vista y versión, comparación ciega con imágenes reales anonimizadas, piloto con residentes) está en `docs/VALIDATION_PROTOCOL.md`. Materiales listos: `npm run review:export` (288 imágenes + hoja CSV + guion) y la exportación anónima del progreso. **Ninguno de los tres estudios se ha ejecutado**; los resultados irán a `docs/validation/results/`.
+
 ## Pendiente de validar
 - Comparación contra imágenes reales o contra un simulador físico (PyMUST/OpenBCSim/i4h): `tools/offline/{pymust-validation,optional-cuda-reference,optical-flow}` están vacías (`atlas-generation/build-atlas.ts` sólo produce hojas de contacto para inspección visual).
 - Precisión numérica de las herramientas frente a la verdad de terreno a través de la UI: los E2E comprueban el flujo y la procedencia, no el valor; no hay prueba unitaria del mapeo píxel↔cm ni de velocidad/VTI/tiempo manuales.

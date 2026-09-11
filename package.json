@@ -17,6 +17,7 @@
     "check": "npm run lint && npm run typecheck && npm run test && npm run build",
     "atlas:build": "tsx tools/offline/atlas-generation/build-atlas.ts",
     "measure": "tsx tools/offline/render/measure-model.ts",
+    "review:export": "tsx tools/offline/validation/export-review-set.ts",
     "golden:update": "UPDATE_GOLDENS=1 vitest run src/tests/goldens.test.ts"
   },
   "dependencies": {
