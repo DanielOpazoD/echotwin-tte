@@ -33,8 +33,8 @@ const SCALARS = [
   'LA_RESERVOIR', 'IAS_X', 'FOSSA_Y', 'FOSSA_Z', 'SVC_AX', 'SVC_AY', 'SVC_AZ', 'SVC_BX', 'SVC_BY', 'SVC_BZ', 'SVC_R', 'IVC_AX', 'IVC_AY', 'IVC_AZ', 'IVC_BX', 'IVC_BY', 'IVC_BZ', 'IVC_R', 'HV_AX', 'HV_AY', 'HV_AZ', 'HV_BX', 'HV_BY', 'HV_BZ',
   // valves
   'CUSP_COUNT', 'CUSP_HALF', 'CUSP_SEGLEN', 'CUSP_T', 'MV_RING_X', 'MV_RING_Y', 'MV_RING_Z', 'MV_RING_R', 'TV_RING_X', 'TV_RING_Y', 'TV_RING_Z', 'TV_RING_R',
-  'MVS_CX', 'MVS_CY', 'MVS_CZ', 'MVS_R', 'MVS_PHIA', 'MVS_HALFSPAN', 'MVS_BLEND', 'MVS_T', 'MVS_SADDLE',
-  'TVS_CX', 'TVS_CY', 'TVS_CZ', 'TVS_R', 'TVS_PHIA', 'TVS_HALFSPAN', 'TVS_BLEND', 'TVS_T', 'TVS_SADDLE',
+  'MVS_CX', 'MVS_CY', 'MVS_CZ', 'MVS_R', 'MVS_NZ', 'MVS_CLOSED', 'MVS_BLEND', 'MVS_T', 'MVS_SADDLE',
+  'TVS_CX', 'TVS_CY', 'TVS_CZ', 'TVS_R', 'TVS_NZ', 'TVS_CLOSED', 'TVS_BLEND', 'TVS_T', 'TVS_SADDLE',
   // thorax
   'TH_AW', 'TH_BDEPTH', 'TH_N', 'TH_CHESTWALL', 'TH_RIBR', 'TH_RIBSP', 'TH_RIB2Y', 'TH_RIBSLOPE', 'TH_LUNGSHIFT', 'TH_ABD', 'TH_DIAPH',
 ] as const;
@@ -51,11 +51,11 @@ const ARRAYS: [string, number][] = [
   ['PV_W', 9],
   ['CUSP_SEGS', 3 * 2 * 6],
   ['CUSP_W', 9],
-  ['CHORDAE', 4 * 6],
-  ['MVS_PROFA', 8],
-  ['MVS_PROFP', 8],
-  ['TVS_PROFA', 8],
-  ['TVS_PROFP', 8],
+  ['CHORDAE', 10 * 6],
+  ['MVS_ZONES', 3 * 6],
+  ['MVS_PROF', 3 * 8],
+  ['TVS_ZONES', 3 * 6],
+  ['TVS_PROF', 3 * 8],
   ['LINE_DROP', 256],
 ];
 
@@ -285,13 +285,25 @@ export function packScene(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, o
     set(`${prefix}_CY`, k.cy);
     set(`${prefix}_CZ`, k.cz);
     set(`${prefix}_R`, k.R);
-    set(`${prefix}_PHIA`, k.phiA);
-    set(`${prefix}_HALFSPAN`, k.halfSpan);
+    set(`${prefix}_NZ`, k.zones.length);
+    set(`${prefix}_CLOSED`, k.closed);
     set(`${prefix}_BLEND`, k.blend);
     set(`${prefix}_T`, k.thickness);
     set(`${prefix}_SADDLE`, k.saddle);
-    d.set(k.profA, PARAM_OFFSET[`${prefix}_PROFA`]!);
-    d.set(k.profP, PARAM_OFFSET[`${prefix}_PROFP`]!);
+    const zb = PARAM_OFFSET[`${prefix}_ZONES`]!;
+    const pb = PARAM_OFFSET[`${prefix}_PROF`]!;
+    d.fill(0, zb, zb + 18);
+    d.fill(0, pb, pb + 24);
+    for (let i = 0; i < k.zones.length && i < 3; i++) {
+      const zn = k.zones[i]!;
+      d[zb + i * 6] = zn.phi;
+      d[zb + i * 6 + 1] = zn.halfSpan;
+      d[zb + i * 6 + 2] = zn.kind;
+      d[zb + i * 6 + 3] = zn.lobes;
+      d[zb + i * 6 + 4] = zn.c;
+      d[zb + i * 6 + 5] = zn.structure;
+      d.set(zn.prof, pb + i * 8);
+    }
   };
   sk('MVS', V.mv);
   sk('TVS', V.tv);
@@ -300,7 +312,7 @@ export function packScene(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, o
   d.set(V.segs.subarray(0, Math.min(36, V.segs.length)), PARAM_OFFSET['CUSP_SEGS']!);
   d.fill(0, PARAM_OFFSET['CUSP_W']!, PARAM_OFFSET['CUSP_W']! + 9);
   d.set(V.cuspWidths.subarray(0, Math.min(9, V.cuspWidths.length)), PARAM_OFFSET['CUSP_W']!);
-  d.set(V.chordae.subarray(0, 24), PARAM_OFFSET['CHORDAE']!);
+  d.set(V.chordae.subarray(0, 60), PARAM_OFFSET['CHORDAE']!);
   set('PV_HALF', V.pvHalf);
   set('PV_SEGLEN', V.pvSegLen);
   set('PV_T', V.pvThickness);

@@ -28,35 +28,63 @@ void setSample(out Sample s, int tissue, float sdf, vec3 n, vec3 m, float extra,
 // ---- profile helpers (skirts) ----
 float profAt(int base, int i) { return P(base + i); }
 
-// distance to an AV-valve skirt; returns thickness at the point, writes distance/frac
-float skirtDistance(vec3 p, vec3 c, float R, int profA, int profP, float phiA, float halfSpan, float blend, float thickness, float saddle, out float dOut, out float fracOut) {
+// AV-valve skirt: minimum over leaflet zones (radial revolution or parallel-fibre sheets); writes distance, frac, zone
+float skirtDistance(vec3 p, vec3 c, float R, int zonesBase, int profBase, int nz, float closed, float blend, float thickness, float saddle, out float dOut, out float fracOut, out int zoneOut) {
   vec2 d = p.xy - c.xy;
+  float zr0 = p.z - c.z;
   float rho = length(d);
+  zoneOut = 0;
+  if (zr0 > 3.5 || zr0 < -2.5 || rho > R + 1.5) { dOut = 1e3; fracOut = 0.0; return 0.0; }
   float phi = atan(d.y, d.x);
-  float dphi = abs(phi - phiA);
-  if (dphi > PI) dphi = TWO_PI - dphi;
-  float t = (dphi - (halfSpan - blend)) / (2.0 * blend);
-  float w = t <= 0.0 ? 1.0 : (t >= 1.0 ? 0.0 : 1.0 - t * t * (3.0 - 2.0 * t));
-  float zr = p.z - c.z - saddleOffset(phi, phiA, saddle);
-  float best = 1e9;
-  float bestFrac = 0.0;
-  for (int i = 0; i < 3; i++) {
-    float ax = w * profAt(profA, i * 2) + (1.0 - w) * profAt(profP, i * 2);
-    float az = w * profAt(profA, i * 2 + 1) + (1.0 - w) * profAt(profP, i * 2 + 1);
-    float bx = w * profAt(profA, i * 2 + 2) + (1.0 - w) * profAt(profP, i * 2 + 2);
-    float bz = w * profAt(profA, i * 2 + 3) + (1.0 - w) * profAt(profP, i * 2 + 3);
-    float ex = bx - ax, ez = bz - az;
-    float l2 = ex * ex + ez * ez;
-    float u = l2 > 0.0 ? ((rho - ax) * ex + (zr - az) * ez) / l2 : 0.0;
-    u = clamp(u, 0.0, 1.0);
-    float qx = ax + ex * u - rho;
-    float qz = az + ez * u - zr;
-    float dd = sqrt(qx * qx + qz * qz);
-    if (dd < best) { best = dd; bestFrac = (float(i) + u) / 3.0; }
+  float zr = zr0 - saddleOffset(phi, P(zonesBase), saddle);
+  float best = 1e9, bestFrac = 0.0, bestW = 0.0;
+  int bestZone = 0;
+  for (int zi = 0; zi < 3; zi++) {
+    if (zi >= nz) break;
+    int zb = zonesBase + zi * 6;
+    float zphi = P(zb), zhalf = P(zb + 1), zkind = P(zb + 2), zlobes = P(zb + 3), zc = P(zb + 4);
+    float w, rhoS, s;
+    if (zkind > 0.5) {
+      float ca = cos(zphi), sa = sin(zphi);
+      float v = d.x * ca + d.y * sa;
+      float u = -d.x * sa + d.y * ca;
+      float t = abs(u) / R;
+      if (t >= 0.98) continue;
+      float vAtt = sqrt(R * R - u * u);
+      rhoS = R - (vAtt - v);
+      float tw = (t - 0.8) / 0.18;
+      w = tw <= 0.0 ? 1.0 : 1.0 - tw * tw * (3.0 - 2.0 * tw);
+      float sc = sqrt(1.0 - t * t) * (1.0 + zc * t * t);
+      if (zlobes > 0.0) sc *= 1.0 + zlobes * cos(TWO_PI * t / 0.8);
+      s = 1.0 + (sc - 1.0) * closed;
+    } else {
+      float dphi = abs(phi - zphi);
+      if (dphi > PI) dphi = TWO_PI - dphi;
+      float tw = (dphi - (zhalf - blend)) / (2.0 * blend);
+      w = tw <= 0.0 ? 1.0 : (tw >= 1.0 ? 0.0 : 1.0 - tw * tw * (3.0 - 2.0 * tw));
+      if (w <= 0.0) continue;
+      rhoS = rho;
+      float q = dphi / zhalf;
+      s = 1.0 - zc * q * q * closed;
+    }
+    int pb = profBase + zi * 8;
+    for (int i = 0; i < 3; i++) {
+      float ax = R + (P(pb + i * 2) - R) * s, az = P(pb + i * 2 + 1) * s;
+      float bx = R + (P(pb + i * 2 + 2) - R) * s, bz = P(pb + i * 2 + 3) * s;
+      float ex = bx - ax, ez = bz - az;
+      float l2 = ex * ex + ez * ez;
+      float uu = l2 > 0.0 ? ((rhoS - ax) * ex + (zr - az) * ez) / l2 : 0.0;
+      uu = clamp(uu, 0.0, 1.0);
+      float qx = ax + ex * uu - rhoS;
+      float qz = az + ez * uu - zr;
+      float dd = sqrt(qx * qx + qz * qz);
+      if (dd < best) { best = dd; bestFrac = (float(i) + uu) / 3.0; bestW = w; bestZone = zi; }
+    }
   }
   dOut = best;
   fracOut = bestFrac;
-  return thickness * (1.0 - 0.45 * bestFrac) * 0.5 + 0.035;
+  zoneOut = bestZone;
+  return (thickness * (0.6 + 0.4 * bestFrac) * 0.5 + 0.035) * (0.4 + 0.6 * bestW);
 }
 
 // distance to a 2-segment cusp chain with tapered width
@@ -248,7 +276,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
   float zAnn = ZANN;
 
   // ---------- aortic root coordinates ----------
-  float rootT = -99.0, rootRr = 0.0, rootR = 0.0;
+  float rootT = -99.0, rootRr = 0.0, rootR = 0.0, rootPhi = 0.0;
   vec3 rootQ = vec3(0.0);
   vec3 avC = vec3(AV_CX, AV_CY, AV_CZ);
   vec3 ax = vec3(AV_AXX, AV_AXY, AV_AXZ);
@@ -261,8 +289,10 @@ bool classifyHeart(vec3 p0, out Sample s) {
       rootQ = d - ax * t - vec3(AV_BX, AV_BY, AV_BZ) * bend;
       rootRr = length(rootQ);
       rootT = t;
+      rootPhi = atan(dot(rootQ, vec3(AV_E2X, AV_E2Y, AV_E2Z)), dot(rootQ, vec3(AV_E1X, AV_E1Y, AV_E1Z)));
+      float trefoil = 1.0 + 0.06 * cos(CUSP_COUNT * (rootPhi - 0.5));
       if (t < 0.0) rootR = AV_R * 0.95 + (LVOT_D / 2.0 - AV_R * 0.95) * min(1.0, -t / 1.2);
-      else if (t < 2.2) rootR = AV_R + (SINUS_R - AV_R) * sin(PI * t / 2.2);
+      else if (t < 2.2) rootR = AV_R + (SINUS_R * trefoil - AV_R) * sin(PI * t / 2.2);
       else if (t < 3.2) rootR = min(ASC_R, SINUS_R * 0.88);
       else rootR = ASC_R;
     }
@@ -272,12 +302,12 @@ bool classifyHeart(vec3 p0, out Sample s) {
   // ---------- valves ----------
   {
     float dS, fr;
+    int zn;
     vec3 c = vec3(MVS_CX, MVS_CY, MVS_CZ);
-    float t = skirtDistance(p, c, MVS_R, MVS_PROFA_BASE, MVS_PROFP_BASE, MVS_PHIA, MVS_HALFSPAN, MVS_BLEND, MVS_T, MVS_SADDLE, dS, fr);
+    float t = skirtDistance(p, c, MVS_R, MVS_ZONES_BASE, MVS_PROF_BASE, int(MVS_NZ + 0.5), MVS_CLOSED, MVS_BLEND, MVS_T, MVS_SADDLE, dS, fr, zn);
     if (dS < t) {
-      vec2 dm = p.xy - c.xy;
-      float rr = length(dm); if (rr == 0.0) rr = 1.0;
-      setSample(s, T_VALVE, dS - t, vec3(dm / rr, 0.8), p, MV_CALC, dm.y > 0.0 ? S_MV_ANT : S_MV_POST);
+      float zphi = P(MVS_ZONES_BASE + zn * 6);
+      setSample(s, T_VALVE, dS - t, vec3(cos(zphi), sin(zphi), 0.8), p, MV_CALC, int(P(MVS_ZONES_BASE + zn * 6 + 5) + 0.5));
       return true;
     }
   }
@@ -299,9 +329,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float finLo = AV_R * 0.45, finHi = AV_R * 1.05;
     if (rootT > finLo && rootT < finHi) {
       vec3 e1 = vec3(AV_E1X, AV_E1Y, AV_E1Z);
-      vec3 e2 = vec3(AV_E2X, AV_E2Y, AV_E2Z);
-      float u1 = dot(rootQ, e1), u2 = dot(rootQ, e2);
-      float phi = atan(u2, u1);
+      float phi = rootPhi;
       float n = CUSP_COUNT;
       float per = TWO_PI / n;
       float dphi = mod(mod(phi - PI / n, per) + per, per);
@@ -329,30 +357,31 @@ bool classifyHeart(vec3 p0, out Sample s) {
   }
   {
     float dS, fr;
+    int zn;
     vec3 c = vec3(TVS_CX, TVS_CY, TVS_CZ);
-    float t = skirtDistance(p, c, TVS_R, TVS_PROFA_BASE, TVS_PROFP_BASE, TVS_PHIA, TVS_HALFSPAN, TVS_BLEND, TVS_T, TVS_SADDLE, dS, fr);
+    float t = skirtDistance(p, c, TVS_R, TVS_ZONES_BASE, TVS_PROF_BASE, int(TVS_NZ + 0.5), TVS_CLOSED, TVS_BLEND, TVS_T, TVS_SADDLE, dS, fr, zn);
     if (dS < t) {
       vec2 dm = p.xy - c.xy;
       float rr = length(dm); if (rr == 0.0) rr = 1.0;
-      setSample(s, T_VALVE, dS - t, vec3(dm / rr, 0.8), p, 0.0, S_TV);
+      setSample(s, T_VALVE, dS - t, vec3(dm / rr, 0.8), p, 0.0, int(P(TVS_ZONES_BASE + zn * 6 + 5) + 0.5));
       return true;
     }
   }
   {
     vec3 r = vec3(MV_RING_X, MV_RING_Y, MV_RING_Z);
-    float dR = sdTorusZ(vec3(x, y, z - saddleOffset(atan(y - r.y, x - r.x), MVS_PHIA, MVS_SADDLE)), r, MV_RING_R, 0.11);
+    float dR = sdTorusZ(vec3(x, y, z - saddleOffset(atan(y - r.y, x - r.x), P(MVS_ZONES_BASE), MVS_SADDLE)), r, MV_RING_R, 0.11);
     if (dR < 0.0) {
       setSample(s, T_FIBROUS, dR, vec3(x - r.x, y - r.y, 0.0), p, 0.15 * MV_CALC, S_MV_ANN);
       return true;
     }
     vec3 q = vec3(TV_RING_X, TV_RING_Y, TV_RING_Z);
-    float dT = sdTorusZ(vec3(x, y, z - saddleOffset(atan(y - q.y, x - q.x), TVS_PHIA, TVS_SADDLE)), q, TV_RING_R, 0.09);
+    float dT = sdTorusZ(vec3(x, y, z - saddleOffset(atan(y - q.y, x - q.x), P(TVS_ZONES_BASE), TVS_SADDLE)), q, TV_RING_R, 0.09);
     if (dT < 0.0) {
       setSample(s, T_FIBROUS, dT, vec3(x - q.x, y - q.y, 0.0), p, 0.0, S_TV_ANN);
       return true;
     }
   }
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < 10; i++) {
     int o = CHORDAE_BASE + i * 6;
     float d = sdCapsule(p, vec3(P(o), P(o + 1), P(o + 2)), vec3(P(o + 3), P(o + 4), P(o + 5)), 0.045);
     if (d < 0.0) {

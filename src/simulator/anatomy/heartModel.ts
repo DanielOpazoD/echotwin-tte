@@ -222,21 +222,33 @@ export interface ValveGeometry {
   tvRing: [number, number, number, number];
 }
 
+export interface SkirtZone {
+  /** Zone centre azimuth (rad; for parallel zones the direction of the attachment arc) and half span (radial zones). */
+  phi: number;
+  halfSpan: number;
+  /** Profile as 4 points (ρ, z) relative to the hinge: [ρ0,z0, ρ1,z1, ρ2,z2, ρ3,z3]; ρ0 = R, z0 = 0. */
+  prof: Float64Array;
+  /** 0 = radial fibres toward the annulus centre; 1 = parallel fibres hanging from the annulus arc along −phi. */
+  kind: number;
+  /** Scallop amplitude of the free edge along the lateral coordinate (closed state; 0 = none). */
+  lobes: number;
+  /** Closed-state reach shaping: parallel zones s(t) = √(1 − t²)·(1 + c·t²) (t = lateral fraction); radial zones s = 1 − c·(Δφ/halfSpan)². */
+  c: number;
+  structure: Structure;
+}
+
 export interface SkirtDesc {
   cx: number;
   cy: number;
   cz: number; // hinge plane z
   R: number; // annulus radius
-  /** Profiles as 4 points (ρ, z) relative to the hinge: [ρ0,z0, ρ1,z1, ρ2,z2, ρ3,z3]; ρ0 = R, z0 = 0. */
-  profA: Float64Array;
-  profP: Float64Array;
-  /** Azimuth (rad) of the anterior-zone centre and its half span; blend width at the commissures. */
-  phiA: number;
-  halfSpan: number;
-  blend: number;
+  blend: number; // azimuthal blend width at the commissures of radial zones (rad)
   thickness: number;
   /** Saddle height (cm): commissures sit this much more apical than the anterior/posterior high points. */
   saddle: number;
+  /** 1 when closed (coaptation-line shaping and scallops fully applied), 0 when open. */
+  closed: number;
+  zones: SkirtZone[];
 }
 
 /** Apical offset of a saddle-shaped annulus at azimuth `phi` (0 at the high points, `saddle` at the commissures). */
@@ -264,47 +276,116 @@ function buildProfile(R: number, angles: number[], segLen: number): Float64Array
 
 const blendAngles = (closed: number[], open: number[], t: number): number[] => closed.map((c, i) => c + ((open[i] ?? c) - c) * t);
 
-const skirtHit: ChainHit = { d: 0, frac: 0 };
+/** Result of the last skirt query: distance, along-fraction (0 hinge → 1 free edge), zone index and zone weight. */
+const skirtHit = { d: 0, frac: 0, zone: 0, w: 0 };
 const TWO_PI = Math.PI * 2;
 
 /**
- * Distance from a heart-frame point to an AV-valve skirt. Writes distance and along-fraction to
- * `skirtHit`; returns the blended thickness at that point (for the inside test).
+ * Distance from a heart-frame point to an AV-valve skirt (minimum over its leaflet zones). Radial zones
+ * are revolution surfaces of their profile; parallel zones hang the profile from the annulus arc along
+ * the zone direction (the anterior mitral leaflet crosses the orifice centre to reach its coaptation
+ * line), with the reach scaled per fibre so the closed free edges meet on a curved line and scalloped
+ * zones show their lobes. Writes `skirtHit`; returns the local thickness (for the inside test).
  */
 function skirtDistance(x: number, y: number, z: number, k: SkirtDesc): number {
   const dx = x - k.cx,
     dy = y - k.cy;
+  const zr0 = z - k.cz;
   const rho = Math.sqrt(dx * dx + dy * dy);
+  if (zr0 > 3.5 || zr0 < -2.5 || rho > k.R + 1.5) {
+    skirtHit.d = 1e3;
+    return 0;
+  }
   const phi = fastAtan2(dy, dx);
-  let dphi = Math.abs(phi - k.phiA);
-  if (dphi > Math.PI) dphi = TWO_PI - dphi;
-  // anterior-zone weight: 1 inside the span, 0 outside, smooth across the commissures
-  const t = (dphi - (k.halfSpan - k.blend)) / (2 * k.blend);
-  const w = t <= 0 ? 1 : t >= 1 ? 0 : 1 - t * t * (3 - 2 * t);
-  const zr = z - k.cz - saddleOffset(phi, k.phiA, k.saddle);
-  let best = Infinity;
-  let bestFrac = 0;
-  for (let i = 0; i < 3; i++) {
-    const ax = w * k.profA[i * 2]! + (1 - w) * k.profP[i * 2]!;
-    const az = w * k.profA[i * 2 + 1]! + (1 - w) * k.profP[i * 2 + 1]!;
-    const bx = w * k.profA[i * 2 + 2]! + (1 - w) * k.profP[i * 2 + 2]!;
-    const bz = w * k.profA[i * 2 + 3]! + (1 - w) * k.profP[i * 2 + 3]!;
-    const ex = bx - ax,
-      ez = bz - az;
-    const l2 = ex * ex + ez * ez;
-    let u = l2 > 0 ? ((rho - ax) * ex + (zr - az) * ez) / l2 : 0;
-    u = u < 0 ? 0 : u > 1 ? 1 : u;
-    const qx = ax + ex * u - rho,
-      qz = az + ez * u - zr;
-    const d = Math.sqrt(qx * qx + qz * qz);
-    if (d < best) {
-      best = d;
-      bestFrac = (i + u) / 3;
+  const zr = zr0 - saddleOffset(phi, k.zones[0]!.phi, k.saddle);
+  let best = Infinity,
+    bestFrac = 0,
+    bestW = 0,
+    bestZone = 0;
+  for (let zi = 0; zi < k.zones.length; zi++) {
+    const zn = k.zones[zi]!;
+    let w: number, rhoS: number, s: number;
+    if (zn.kind === 1) {
+      const ca = Math.cos(zn.phi),
+        sa = Math.sin(zn.phi);
+      const v = dx * ca + dy * sa;
+      const u = -dx * sa + dy * ca;
+      const t = Math.abs(u) / k.R;
+      if (t >= 0.98) continue;
+      const vAtt = Math.sqrt(k.R * k.R - u * u);
+      rhoS = k.R - (vAtt - v);
+      const tw = (t - 0.8) / 0.18;
+      w = tw <= 0 ? 1 : 1 - tw * tw * (3 - 2 * tw);
+      let sc = Math.sqrt(1 - t * t) * (1 + zn.c * t * t);
+      if (zn.lobes > 0) sc *= 1 + zn.lobes * Math.cos((TWO_PI * t) / 0.8);
+      s = 1 + (sc - 1) * k.closed;
+    } else {
+      let dphi = Math.abs(phi - zn.phi);
+      if (dphi > Math.PI) dphi = TWO_PI - dphi;
+      const tw = (dphi - (zn.halfSpan - k.blend)) / (2 * k.blend);
+      w = tw <= 0 ? 1 : tw >= 1 ? 0 : 1 - tw * tw * (3 - 2 * tw);
+      if (w <= 0) continue;
+      rhoS = rho;
+      const q = dphi / zn.halfSpan;
+      s = 1 - zn.c * q * q * k.closed;
+    }
+    const P = zn.prof;
+    for (let i = 0; i < 3; i++) {
+      const ax = k.R + (P[i * 2]! - k.R) * s,
+        az = P[i * 2 + 1]! * s,
+        bx = k.R + (P[i * 2 + 2]! - k.R) * s,
+        bz = P[i * 2 + 3]! * s;
+      const ex = bx - ax,
+        ez = bz - az;
+      const l2 = ex * ex + ez * ez;
+      let u = l2 > 0 ? ((rhoS - ax) * ex + (zr - az) * ez) / l2 : 0;
+      u = u < 0 ? 0 : u > 1 ? 1 : u;
+      const qx = ax + ex * u - rhoS,
+        qz = az + ez * u - zr;
+      const d = Math.sqrt(qx * qx + qz * qz);
+      if (d < best) {
+        best = d;
+        bestFrac = (i + u) / 3;
+        bestW = w;
+        bestZone = zi;
+      }
     }
   }
   skirtHit.d = best;
   skirtHit.frac = bestFrac;
-  return k.thickness * (1 - 0.45 * bestFrac) * 0.5 + 0.035;
+  skirtHit.zone = bestZone;
+  skirtHit.w = bestW;
+  // leaflets are thickest at the free edge (rough zone) and thin out toward the commissures
+  return (k.thickness * (0.6 + 0.4 * bestFrac) * 0.5 + 0.035) * (0.4 + 0.6 * bestW);
+}
+
+/** Free-edge point of a skirt zone at lateral fraction t (parallel zones) or azimuth offset Δφ (radial zones). */
+function skirtTip(k: SkirtDesc, zn: SkirtZone, param: number, out: number[]): void {
+  const P = zn.prof;
+  const phiA = k.zones[0]!.phi;
+  if (zn.kind === 1) {
+    const t = param;
+    const u = t * k.R;
+    const vAtt = Math.sqrt(Math.max(0, k.R * k.R - u * u));
+    let sc = Math.sqrt(Math.max(0, 1 - t * t)) * (1 + zn.c * t * t);
+    if (zn.lobes > 0) sc *= 1 + zn.lobes * Math.cos((TWO_PI * Math.abs(t)) / 0.8);
+    const s = 1 + (sc - 1) * k.closed;
+    const vTip = vAtt + (P[6]! - k.R) * s;
+    const ca = Math.cos(zn.phi),
+      sa = Math.sin(zn.phi);
+    out[0] = k.cx + ca * vTip - sa * u;
+    out[1] = k.cy + sa * vTip + ca * u;
+    out[2] = k.cz + P[7]! * s + saddleOffset(Math.atan2(out[1] - k.cy, out[0] - k.cx), phiA, k.saddle);
+  } else {
+    const dphi = param;
+    const q = dphi / zn.halfSpan;
+    const s = 1 - zn.c * q * q * k.closed;
+    const rTip = k.R + (P[6]! - k.R) * s;
+    const ang = zn.phi + dphi;
+    out[0] = k.cx + rTip * Math.cos(ang);
+    out[1] = k.cy + rTip * Math.sin(ang);
+    out[2] = k.cz + P[7]! * s + saddleOffset(ang, phiA, k.saddle);
+  }
 }
 
 /** Early-diastolic RV free-wall collapse window (tamponade): after AV closure, before the mitral E peak. */
@@ -408,7 +489,7 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
   const antOpen = [-0.61 * openScale, -0.7 * openScale, -0.79 * openScale];
   const prol = m.anatomy.mitral.prolapse;
   // prolapse: the closed leaflet body billows beyond the annular plane into the LA (angles beyond π/2 point basally)
-  const postClosed = [0.95 + 1.1 * prol, 0.7 + 1.5 * prol, 0.45 + 1.7 * prol];
+  const postClosed = [1.05 + 1.1 * prol, 0.85 + 1.5 * prol, 0.6 + 1.7 * prol];
   const postOpen = [-0.61 * openScale, -0.79 * openScale, -0.96 * openScale];
   const mvAngleAnt = antClosed[1]! + (antOpen[1]! - antClosed[1]!) * open;
   const mvAnglePost = postClosed[1]! + (postOpen[1]! - postClosed[1]!) * open;
@@ -420,8 +501,10 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
   const tvZ = m.physiology.tapseCm * long;
   const septalShiftCm = m.anatomy.rv.septalFlattening * 0.9;
   const rvCollapse = tamp * rvCollapseWindow(state);
-  // Mitral skirt: anterior zone centred at +y (φ = π/2), spanning ±70°; closed profiles bow toward the
-  // LA with tips meeting apically; open profiles swing outward (anterior toward the septum).
+  // Mitral valve: the anterior leaflet is a sheet hanging from the anterior half of the annulus whose fibres run
+  // posteriorly across the orifice centre to the coaptation line (closed reach 1.32·R at the centre, shorter
+  // toward the commissures); the posterior leaflet is the shorter sheet from the posterior half with three
+  // scallops (P1–P3). Closed profiles bow toward the LA; open profiles swing outward (anterior toward the septum).
   const antLen = m.anatomy.mitral.anteriorLeafletLengthCm / 3;
   const postLen = m.anatomy.mitral.posteriorLeafletLengthCm / 3;
   const mv: SkirtDesc = {
@@ -429,27 +512,33 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
     cy: A.mvCenter.y,
     cz: zAnn,
     R: A.mvR,
-    profA: buildProfile(A.mvR, blendAngles(antClosed, antOpen, open), antLen),
-    profP: buildProfile(A.mvR, blendAngles(postClosed, postOpen, open), postLen),
-    phiA: Math.PI / 2,
-    halfSpan: 1.22,
     blend: 0.3,
     thickness: m.anatomy.mitral.thickeningCm,
     saddle: 0.35,
+    closed: 1 - open,
+    zones: [
+      { phi: Math.PI / 2, halfSpan: Math.PI / 2, prof: buildProfile(A.mvR, blendAngles(antClosed, antOpen, open), antLen), kind: 1, lobes: 0, c: 0.12, structure: Structure.MitralAnterior },
+      { phi: -Math.PI / 2, halfSpan: Math.PI / 2, prof: buildProfile(A.mvR, blendAngles(postClosed, postOpen, open), postLen), kind: 1, lobes: 0.08, c: -0.235, structure: Structure.MitralPosterior },
+    ],
   };
+  // Tricuspid valve: three radial leaflets — anterior (largest), septal (hanging along the septum, the +x side
+  // of the RV inflow) and posterior (inferior) — whose closed tips converge toward the orifice centre.
   const tvOpen = state.tvOpen;
+  const tvProf = (lenFrac: number, closed: number[], opened: number[]): Float64Array => buildProfile(A.tvR, blendAngles(closed, opened, tvOpen), (A.tvR * lenFrac) / 3);
   const tv: SkirtDesc = {
     cx: A.tvCenter.x,
     cy: A.tvCenter.y,
     cz: A.tvCenter.z + tvZ,
     R: A.tvR,
-    profA: buildProfile(A.tvR, blendAngles([1.15, 1.0, 0.75], [-0.5, -0.6, -0.7], tvOpen), (A.tvR * 1.05) / 3),
-    profP: buildProfile(A.tvR, blendAngles([1.05, 0.8, 0.5], [-0.5, -0.65, -0.8], tvOpen), (A.tvR * 0.75) / 3),
-    phiA: Math.PI / 2,
-    halfSpan: 1.1,
-    blend: 0.3,
+    blend: 0.25,
     thickness: 0.09,
     saddle: 0.15,
+    closed: 1 - tvOpen,
+    zones: [
+      { phi: Math.PI / 2, halfSpan: 1.45, prof: tvProf(1.05, [1.15, 1.0, 0.75], [-0.5, -0.6, -0.7]), kind: 0, lobes: 0, c: 0.45, structure: Structure.TricuspidValve },
+      { phi: 0, halfSpan: 0.85, prof: tvProf(0.75, [1.1, 0.9, 0.65], [-0.45, -0.55, -0.65]), kind: 0, lobes: 0, c: 0.45, structure: Structure.TricuspidValve },
+      { phi: -2.0, halfSpan: 1.05, prof: tvProf(0.85, [1.1, 0.9, 0.6], [-0.5, -0.65, -0.8]), kind: 0, lobes: 0, c: 0.45, structure: Structure.TricuspidValve },
+    ],
   };
   // aortic cusps: sheets ~1.5·R long from the annular nadir to the free edge as 2-segment chains whose reach
   // follows the orifice (0.05·R closed → 0.9·R open, scaled by the case's maxOpeningFraction)
@@ -486,21 +575,30 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
     const grow = 0.9 + 0.3 * state.contraction;
     rvPap.set([rb * Math.cos(A.rvPapAz), rb * Math.sin(A.rvPapAz), zb, rt * Math.cos(A.rvPapAz + 0.1), rt * Math.sin(A.rvPapAz + 0.1), zt, 0.42 * grow, 0.28 * grow]);
   }
-  // chordae: from the mitral leaflet free edges (anterior at φ = 45°/135°, posterior at −45°/−135°) to the papillary tips
-  const pa: [number, number, number] = [paps[3]!, paps[4]!, paps[5]!],
-    pm: [number, number, number] = [paps[11]!, paps[12]!, paps[13]!];
-  const chordae = new Float64Array(4 * 6);
-  const tipOf = (prof: Float64Array, phi: number): [number, number, number] => [mv.cx + prof[6]! * Math.cos(phi), mv.cy + prof[6]! * Math.sin(phi), mv.cz + prof[7]!];
-  const chordDefs: [Float64Array, number, [number, number, number]][] = [
-    [mv.profA, Math.PI * 0.25, pa],
-    [mv.profA, Math.PI * 0.75, pm],
-    [mv.profP, -Math.PI * 0.25, pa],
-    [mv.profP, -Math.PI * 0.75, pm],
+  // chordae tendineae: two primary chordae per mitral leaflet half from the free edge to each papillary tip
+  // (anterolateral papillary ← lateral half, posteromedial ← medial half), plus two from the anterior
+  // tricuspid leaflet to the RV anterior papillary muscle
+  const pa = [paps[3]!, paps[4]!, paps[5]!],
+    pm = [paps[11]!, paps[12]!, paps[13]!],
+    rvp = [rvPap[3]!, rvPap[4]!, rvPap[5]!];
+  const chordae = new Float64Array(10 * 6);
+  const tipBuf = [0, 0, 0];
+  const chordDefs: [SkirtDesc, number, number, number[]][] = [
+    [mv, 0, -0.5, pa],
+    [mv, 0, -0.2, pa],
+    [mv, 0, 0.2, pm],
+    [mv, 0, 0.5, pm],
+    [mv, 1, 0.3, pa],
+    [mv, 1, 0.7, pa],
+    [mv, 1, -0.3, pm],
+    [mv, 1, -0.7, pm],
+    [tv, 0, -0.5, rvp],
+    [tv, 0, 0.4, rvp],
   ];
-  for (let i = 0; i < 4; i++) {
-    const [prof, phi, e] = chordDefs[i]!;
-    const t = tipOf(prof, phi);
-    chordae.set([t[0], t[1], t[2], e[0], e[1], e[2]], i * 6);
+  for (let i = 0; i < 10; i++) {
+    const [k, zi, prm, e] = chordDefs[i]!;
+    skirtTip(k, k.zones[zi]!, prm, tipBuf);
+    chordae.set([tipBuf[0]!, tipBuf[1]!, tipBuf[2]!, e[0]!, e[1]!, e[2]!], i * 6);
   }
   const valves: ValveGeometry = {
     segs,
@@ -514,7 +612,7 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
     cuspSegLen,
     cuspThickness: m.anatomy.aorticValve.cuspThicknessCm,
     chordae,
-    chordaeCount: 4,
+    chordaeCount: 10,
     pvSegs,
     pvWidths,
     pvHalf: A.pvR * Math.sin(Math.PI / 3) * 0.95,
@@ -909,7 +1007,8 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
     rootR = 0,
     rootQx = 0,
     rootQy = 0,
-    rootQz = 0;
+    rootQz = 0,
+    rootPhi = 0;
   {
     const c = A.avCenter;
     const ax = A.avAxis;
@@ -927,9 +1026,12 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
       rootQz = dz - ax.z * t - A.avBend.z * bend;
       rootRr = Math.sqrt(rootQx * rootQx + rootQy * rootQy + rootQz * rootQz);
       rootT = t;
+      // sinuses of Valsalva bulge at the cusp centres (trefoil in short axis, ±6 %), narrowing at the commissures
+      rootPhi = fastAtan2(rootQx * A.avE2.x + rootQy * A.avE2.y + rootQz * A.avE2.z, rootQx * A.avE1.x + rootQy * A.avE1.y + rootQz * A.avE1.z);
+      const trefoil = 1 + 0.06 * Math.cos(hp.valves.cuspCount * (rootPhi - 0.5));
       // radius profile: LVOT (t<0) → annulus → sinuses (t≈1) → STJ → ascending
       if (t < 0) rootR = A.avR * 0.95 + (m.anatomy.aorta.lvotDiameterCm / 2 - A.avR * 0.95) * Math.min(1, -t / 1.2);
-      else if (t < 2.2) rootR = A.avR + (A.sinusR - A.avR) * Math.sin((Math.PI * t) / 2.2);
+      else if (t < 2.2) rootR = A.avR + (A.sinusR * trefoil - A.avR) * Math.sin((Math.PI * t) / 2.2);
       else if (t < 3.2) rootR = Math.min(A.ascR, A.sinusR * 0.88); // sinotubular junction
       else rootR = A.ascR;
     }
@@ -940,16 +1042,13 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
   // ---------- Valves, annuli and chordae (thin, highest priority) ----------
   const V = hp.valves;
   const hit = chainHit;
-  // mitral skirt (two leaflet zones blended around the annulus)
+  // mitral leaflets (anterior sheet crossing the orifice, scalloped posterior sheet)
   {
     const t = skirtDistance(x, y, z, V.mv);
     if (skirtHit.d < t) {
-      const dxm = x - V.mv.cx,
-        dym = y - V.mv.cy;
-      const rr = Math.hypot(dxm, dym) || 1;
-      const anterior = dym > 0;
-      // normal ≈ radial in-plane blended with z (leaflet mostly hangs apically when open, lies flatter when closed)
-      setSample(out, Tissue.Valve, skirtHit.d - t, dxm / rr, dym / rr, 0.8, x, y, z, m.anatomy.mitral.calcification, anterior ? Structure.MitralAnterior : Structure.MitralPosterior);
+      const zn = V.mv.zones[skirtHit.zone]!;
+      // normal ≈ along the leaflet fibres (the zone direction) blended with z
+      setSample(out, Tissue.Valve, skirtHit.d - t, Math.cos(zn.phi), Math.sin(zn.phi), 0.8, x, y, z, m.anatomy.mitral.calcification, zn.structure);
       return true;
     }
   }
@@ -975,11 +1074,8 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
     const finLo = A.avR * 0.45,
       finHi = A.avR * 1.05;
     if (rootT > finLo && rootT < finHi) {
-      const e1 = A.avE1,
-        e2 = A.avE2;
-      const u1 = rootQx * e1.x + rootQy * e1.y + rootQz * e1.z;
-      const u2 = rootQx * e2.x + rootQy * e2.y + rootQz * e2.z;
-      const phi = fastAtan2(u2, u1);
+      const e1 = A.avE1;
+      const phi = rootPhi;
       const n = V.cuspCount;
       let dphi = ((phi - Math.PI / n) % (TWO_PI / n) + TWO_PI / n) % (TWO_PI / n);
       if (dphi > Math.PI / n) dphi = TWO_PI / n - dphi;
@@ -1009,27 +1105,27 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
       }
     }
   }
-  // tricuspid skirt
+  // tricuspid leaflets (anterior, septal, posterior)
   {
     const t = skirtDistance(x, y, z, V.tv);
     if (skirtHit.d < t) {
       const dxt = x - V.tv.cx,
         dyt = y - V.tv.cy;
       const rr = Math.hypot(dxt, dyt) || 1;
-      setSample(out, Tissue.Valve, skirtHit.d - t, dxt / rr, dyt / rr, 0.8, x, y, z, 0, Structure.TricuspidValve);
+      setSample(out, Tissue.Valve, skirtHit.d - t, dxt / rr, dyt / rr, 0.8, x, y, z, 0, V.tv.zones[skirtHit.zone]!.structure);
       return true;
     }
   }
   // fibrous annuli (bright hinge points in long-axis views)
   {
     const r = V.mvRing;
-    const dR = sdTorusZ(x, y, z - saddleOffset(fastAtan2(y - r[1], x - r[0]), V.mv.phiA, V.mv.saddle), r[0], r[1], r[2], r[3], 0.11);
+    const dR = sdTorusZ(x, y, z - saddleOffset(fastAtan2(y - r[1], x - r[0]), V.mv.zones[0]!.phi, V.mv.saddle), r[0], r[1], r[2], r[3], 0.11);
     if (dR < 0) {
       setSample(out, Tissue.Fibrous, dR, x - r[0], y - r[1], 0, x, y, z, 0.15 * m.anatomy.mitral.calcification, Structure.MitralAnnulus);
       return true;
     }
     const q = V.tvRing;
-    const dT = sdTorusZ(x, y, z - saddleOffset(fastAtan2(y - q[1], x - q[0]), V.tv.phiA, V.tv.saddle), q[0], q[1], q[2], q[3], 0.09);
+    const dT = sdTorusZ(x, y, z - saddleOffset(fastAtan2(y - q[1], x - q[0]), V.tv.zones[0]!.phi, V.tv.saddle), q[0], q[1], q[2], q[3], 0.09);
     if (dT < 0) {
       setSample(out, Tissue.Fibrous, dT, x - q[0], y - q[1], 0, x, y, z, 0, Structure.TricuspidAnnulus);
       return true;
