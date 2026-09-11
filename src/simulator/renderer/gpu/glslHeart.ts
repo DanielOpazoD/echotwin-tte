@@ -188,36 +188,54 @@ float septalShiftAt(float az, float levelFrac) {
   return SEPTAL_SHIFT * c * c * zw;
 }
 
-// RV crescent: returns [signed distance, rIn, rOut]
-vec3 rvCrescent(vec3 p, float az) {
+float rvAzProfile(float u) {
+  float sn = sin(PI * u);
+  float uIn = (PI + 0.04 - RV_AZA) / (RV_AZP - RV_AZA);
+  float inflow = exp(-((u - uIn) * (u - uIn)) / (2.0 * 0.18 * 0.18));
+  return pow(min(1.0, max(0.0, sn) / 0.75), 0.7) * (0.85 + 0.15 * inflow);
+}
+float rvAxialTaper(float tvPlane, float zApex, float z) {
+  if (z <= tvPlane) return 0.85;
+  float q = min(1.0, (z - tvPlane) / max(0.5, zApex - tvPlane));
+  float s = max(0.0, (q - 0.25) / 0.75);
+  return (1.0 - 0.55 * s) * sqrt(max(0.0, 1.0 - s * s * s * s * s));
+}
+// [rIn, u, rOut, t] without trabecular noise
+vec4 rvRadii(float az, float z) {
   float L = LV_LEN;
   float azN = az < 0.0 ? az + TWO_PI : az;
   float u = (azN - RV_AZA) / (RV_AZP - RV_AZA);
-  float r = length(p.xy);
-  float rCav = lvCavityRadius(az, p.z);
-  float levelFracR = clamp((p.z - ZANN) / max(LENGTH_NOW, 1.0), 0.0, 1.0);
-  float ampR = P(SEG_AMP_BASE + ahaSegment(az, levelFracR));
-  float rEpi = rCav + wallThicknessAt(az, levelFracR, ampR) * lvRadialOffsetFactor(az, p.z);
-  float rIn = rEpi - septalShiftAt(az, levelFracR) + 0.05;
-  float zApex = RV_APEX_FRAC * L;
-  if (u <= 0.0 || u >= 1.0) return vec3(1e3, rIn, rIn);
+  float rCav = lvCavityRadius(az, z);
+  float levelFrac = clamp((z - ZANN) / max(LENGTH_NOW, 1.0), 0.0, 1.0);
+  float amp = P(SEG_AMP_BASE + ahaSegment(az, levelFrac));
+  float rEpi = rCav + wallThicknessAt(az, levelFrac, amp) * lvRadialOffsetFactor(az, z);
+  float rIn = rEpi - septalShiftAt(az, levelFrac) + 0.05;
+  if (u <= 0.0 || u >= 1.0) return vec4(rIn, u, rIn, 0.0);
   float tvPlane = TV_CZ + TVZ;
-  float zBase = u >= 0.35 ? tvPlane : tvPlane - 2.2 * (1.0 - u / 0.35);
-  float fz = 1.0;
-  if (p.z > tvPlane) {
-    float q = (p.z - tvPlane) / max(0.5, zApex - tvPlane);
-    fz = q >= 1.0 ? 0.0 : sqrt(1.0 - q * q);
-  }
-  float plateau = min(1.0, sin(PI * u) / 0.7071);
-  float uIn = (PI + 0.04 - RV_AZA) / (RV_AZP - RV_AZA);
-  float inflow = exp(-((u - uIn) * (u - uIn)) / (2.0 * 0.15 * 0.15));
-  float prof = 0.8 * plateau + 0.2 * inflow;
-  float t = RV_T * prof * fz * (1.0 - 0.35 * CONTRACTION);
+  float t = RV_T * rvAzProfile(u) * rvAxialTaper(tvPlane, RV_APEX_FRAC * L, z) * (1.0 - 0.35 * CONTRACTION);
   if (RV_COLLAPSE > 0.0 && u < 0.55) t *= 1.0 - 0.65 * RV_COLLAPSE * (1.0 - u / 0.55);
-  if (p.z > 0.3 * L) t += 0.22 * min(1.0, (p.z - 0.3 * L) / (0.3 * L)) * (lat(vec3(p.x * 1.7 + 3.1, p.y * 1.7 + 9.7, p.z * 1.7 + 5.3), 3) - 0.5);
+  return vec4(rIn, u, rIn + t, t);
+}
+// RV crescent: returns [signed distance, rIn, rOut]
+vec3 rvCrescent(vec3 p, float az) {
+  vec4 rr = rvRadii(az, p.z);
+  float rIn = rr.x, u = rr.y;
+  if (u <= 0.0 || u >= 1.0) return vec3(1e3, rIn, rIn);
+  float L = LV_LEN;
+  float tvPlane = TV_CZ + TVZ;
+  float zApex = RV_APEX_FRAC * L;
+  float uInf = 0.35;
+  float zBase = u >= uInf ? tvPlane : tvPlane - 2.6 * (1.0 - u / uInf);
+  float t = rr.w;
+  if (p.z > 0.25 * L) {
+    float w = min(1.0, (p.z - 0.25 * L) / (0.35 * L));
+    float rs = 1.0 - 0.3 * CONTRACTION;
+    float n = lat(vec3((p.x / rs) * 1.4 + 3.1, (p.y / rs) * 1.4 + 9.7, p.z * 0.9 + 5.3), 3) - 0.5;
+    t += (0.25 + 0.25 * w) * n - 0.12 * w * w;
+  }
   float rOut = rIn + max(0.0, t);
+  float r = length(p.xy);
   float d = max(max(rIn - r, r - rOut), max(zBase - p.z, p.z - zApex));
-  if (u < 0.08 || u > 0.92) d = max(d, 0.35 - t);
   return vec3(d, rIn, rOut);
 }
 
@@ -291,6 +309,20 @@ bool classifyHeart(vec3 p0, out Sample s) {
       float dist = rootRr * sin(dphi);
       if (dist < 0.04) {
         setSample(s, T_VALVE, dist - 0.04, e1, p, AV_CALC, S_AV);
+        return true;
+      }
+    }
+  }
+  if (sdCapsule(p, vec3(RVOT_MX, RVOT_MY, RVOT_MZ), vec3(PA_EX, PA_EY, PA_EZ), PA_R + 0.02) < 0.0) {
+    for (int i = 0; i < 3; i++) {
+      vec3 w = vec3(P(PV_W_BASE + i * 3), P(PV_W_BASE + i * 3 + 1), P(PV_W_BASE + i * 3 + 2));
+      float fr;
+      float dd = sdCuspChain(p, PV_SEGS_BASE + i * 12, PV_SEGLEN, w, PV_HALF, 0.75, fr);
+      float t = PV_T * (1.0 - 0.3 * fr) * 0.5 + 0.03;
+      if (dd < t) {
+        int o = PV_SEGS_BASE + i * 12 + min(1, int(floor(fr * 2.0))) * 6;
+        vec3 d = vec3(P(o + 3), P(o + 4), P(o + 5));
+        setSample(s, T_VALVE, dd - t, cross(d, w), p, 0.0, S_PV);
         return true;
       }
     }
@@ -492,41 +524,47 @@ bool classifyHeart(vec3 p0, out Sample s) {
   {
     float sc = CONTRACTION;
     float fw = RV_FW * (1.0 + 0.35 * sc);
+    float k = 0.85 + 0.15 * (1.0 - sc);
     vec3 rvotA = vec3(RVOT_AX, RVOT_AY, RVOT_AZ);
+    vec3 rvotM = vec3(RVOT_MX, RVOT_MY, RVOT_MZ);
     vec3 rvotB = vec3(RVOT_BX, RVOT_BY, RVOT_BZ);
     vec3 paEnd = vec3(PA_EX, PA_EY, PA_EZ);
-    vec3 paDir = vec3(PA_DX, PA_DY, PA_DZ);
-    float dRvot = sdCapsule(p, rvotA, rvotB, RVOT_R * (0.85 + 0.15 * (1.0 - sc)));
+    float dRvot = min(sdRoundCone(p, rvotA, rvotM, RVOT_RA * k, RVOT_RM * k), sdRoundCone(p, rvotM, rvotB, RVOT_RM * k, RVOT_R * k));
     float dPa = sdCapsule(p, rvotB, paEnd, PA_R);
-    float dCavRv = min(dRv, min(dRvot, dPa));
-    if (dPa < 0.0 && dRvot > -0.02) {
-      vec3 v = p - rvotB;
-      float along = dot(v, paDir);
-      if (abs(along) < 0.08 && !(PV_OPEN > 0.3)) {
-        setSample(s, T_VALVE, -0.05, paDir, p, 0.0, S_PV);
-        return true;
-      }
-      if (dPa > -0.2) {
-        setSample(s, T_VESSEL, dPa, v, p, 0.0, S_RVOT);
-        return true;
-      }
+    float dRpa = sdCapsule(p, paEnd, vec3(RPA_EX, RPA_EY, RPA_EZ), RPA_R);
+    float dLpa = sdCapsule(p, paEnd, vec3(LPA_EX, LPA_EY, LPA_EZ), LPA_R);
+    float dTrunk = min(dPa, min(dRpa, dLpa));
+    vec3 v = p - rvotB;
+    if (dTrunk < 0.0) {
+      setSample(s, T_BLOOD, dTrunk, v, p, 0.0, S_PA);
+      return true;
     }
+    if (dTrunk < 0.18 && dRvot > 0.0) {
+      setSample(s, T_VESSEL, -min(dTrunk, 0.18 - dTrunk), v, p, 0.0, S_PA);
+      return true;
+    }
+    float dCavRv = min(dRv, dRvot);
     float sc3 = 1.0 - 0.3 * sc;
     if (dCavRv < 0.0) {
       if (dRv < 0.0) {
         float L = LV_LEN;
         float rIn = rvc.y, rOut = rvc.z;
-        vec3 b0 = vec3(-(rIn + 0.12), -0.2, L * 0.56);
+        vec3 b0 = vec3(-(rIn + 0.12), -0.2, L * 0.6);
         float rB = rOut - fw * 1.2;
-        vec3 b1 = vec3(rB * cos(2.75), rB * sin(2.75), L * 0.66);
+        vec3 b1 = vec3(rB * cos(RV_PAP_AZ), rB * sin(RV_PAP_AZ), L * 0.68);
         float dBand = sdCapsule(p, b0, b1, 0.28);
         if (dBand < 0.0) {
           setSample(s, T_MYO, dBand, vec3(0.0, 0.0, 1.0), p, 0.0, S_MOD_BAND);
           return true;
         }
+        float dRp = sdRoundCone(p, vec3(P(RVPAP_BASE), P(RVPAP_BASE + 1), P(RVPAP_BASE + 2)), vec3(P(RVPAP_BASE + 3), P(RVPAP_BASE + 4), P(RVPAP_BASE + 5)), P(RVPAP_BASE + 6), P(RVPAP_BASE + 7));
+        if (dRp < 0.0) {
+          setSample(s, T_MYO, dRp, vec3(x, y, 0.0), p, 0.0, S_RV_PAP);
+          return true;
+        }
       }
       float rr = length(p.xy); if (rr == 0.0) rr = 1.0;
-      setSample(s, T_BLOOD, dCavRv, vec3(x / rr, y / rr, 0.0), vec3(x / sc3, y / sc3, z), 0.0, (dRvot < dRv || dPa < dRv) ? S_RVOT : S_RV_CAV);
+      setSample(s, T_BLOOD, dCavRv, vec3(x / rr, y / rr, 0.0), vec3(x / sc3, y / sc3, z), 0.0, dRvot < dRv ? S_RVOT : S_RV_CAV);
       return true;
     }
     if (dCavRv < fw) {
@@ -546,7 +584,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     vec3 rvotA = vec3(RVOT_AX, RVOT_AY, RVOT_AZ);
     vec3 rvotB = vec3(RVOT_BX, RVOT_BY, RVOT_BZ);
     vec3 paEnd = vec3(PA_EX, PA_EY, PA_EZ);
-    float dRvotEpi = sdCapsule(p, rvotA, rvotB, RVOT_R + fw);
+    float dRvotEpi = sdCapsule(p, rvotA, rvotB, RVOT_RA + fw);
     float dPaEpi = sdCapsule(p, rvotB, paEnd, PA_R + 0.2);
     float dEpi = min(min(dLvEpi, dRvEpi), min(min(dLaEpi, dRaEpi), min(dRvotEpi, dPaEpi)));
     float eff = EFFUSION;

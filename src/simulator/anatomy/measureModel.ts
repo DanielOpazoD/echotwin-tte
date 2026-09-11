@@ -210,11 +210,11 @@ export function measureModel(c: CaseDefinition, patient: PatientState = DEFAULT_
   const sinusD = rootAt(1.1, edPose);
   const stjD = rootAt(2.7, edPose);
   const ascD = rootAt(3.8, edPose);
-  const rvotD = 2 * A.rvotR;
+  const rvotD = 2 * A.rvotRa;
   const paDir = A.paDir;
   const paPerp: [number, number, number] = [-paDir.y, paDir.x, 0];
   const pl = Math.hypot(paPerp[0], paPerp[1]) || 1;
-  const paD = runAlong(edPose, [Structure.Rvot], [A.rvotB.x + paDir.x * 1.5, A.rvotB.y + paDir.y * 1.5, A.rvotB.z + paDir.z * 1.5], [paPerp[0] / pl, paPerp[1] / pl, 0]);
+  const paD = runAlong(edPose, [Structure.PulmonaryArtery], [A.rvotB.x + paDir.x * 1.5, A.rvotB.y + paDir.y * 1.5, A.rvotB.z + paDir.z * 1.5], [paPerp[0] / pl, paPerp[1] / pl, 0]);
   const mvAnn = 2 * A.mvR;
   const tvAnn = 2 * A.tvR;
 

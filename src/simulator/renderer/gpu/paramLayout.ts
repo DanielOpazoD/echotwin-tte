@@ -28,7 +28,8 @@ const SCALARS = [
   'AV_E1X', 'AV_E1Y', 'AV_E1Z', 'AV_E2X', 'AV_E2Y', 'AV_E2Z', 'AV_BX', 'AV_BY', 'AV_BZ',
   'LA_CX', 'LA_CY', 'LA_CZ', 'LA_RX', 'LA_RY', 'LA_RZ', 'RA_CX', 'RA_CY', 'RA_CZ', 'RA_RX', 'RA_RY', 'RA_RZ',
   'RV_T', 'RV_AZA', 'RV_AZP', 'RV_APEX_FRAC', 'TV_CX', 'TV_CY', 'TV_CZ', 'TV_R',
-  'RVOT_AX', 'RVOT_AY', 'RVOT_AZ', 'RVOT_BX', 'RVOT_BY', 'RVOT_BZ', 'RVOT_R', 'PA_DX', 'PA_DY', 'PA_DZ', 'PA_EX', 'PA_EY', 'PA_EZ', 'PA_R',
+  'RVOT_AX', 'RVOT_AY', 'RVOT_AZ', 'RVOT_MX', 'RVOT_MY', 'RVOT_MZ', 'RVOT_BX', 'RVOT_BY', 'RVOT_BZ', 'RVOT_RA', 'RVOT_RM', 'RVOT_R', 'PA_DX', 'PA_DY', 'PA_DZ', 'PA_EX', 'PA_EY', 'PA_EZ', 'PA_R',
+  'RPA_EX', 'RPA_EY', 'RPA_EZ', 'RPA_R', 'LPA_EX', 'LPA_EY', 'LPA_EZ', 'LPA_R', 'RV_PAP_AZ', 'PV_HALF', 'PV_SEGLEN', 'PV_T',
   // valves
   'CUSP_COUNT', 'CUSP_HALF', 'CUSP_SEGLEN', 'CUSP_T', 'MV_RING_X', 'MV_RING_Y', 'MV_RING_Z', 'MV_RING_R', 'TV_RING_X', 'TV_RING_Y', 'TV_RING_Z', 'TV_RING_R',
   'MVS_CX', 'MVS_CY', 'MVS_CZ', 'MVS_R', 'MVS_PHIA', 'MVS_HALFSPAN', 'MVS_BLEND', 'MVS_T', 'MVS_SADDLE',
@@ -44,6 +45,9 @@ const ARRAYS: [string, number][] = [
   ['LV_PROF_R', LV_PROF_BINS],
   ['LV_PROF_S', LV_PROF_BINS],
   ['PAPS', 16],
+  ['RVPAP', 8],
+  ['PV_SEGS', 36],
+  ['PV_W', 9],
   ['CUSP_SEGS', 3 * 2 * 6],
   ['CUSP_W', 9],
   ['CHORDAE', 4 * 6],
@@ -151,6 +155,7 @@ export function packScene(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, o
   d.set(hp.prof.R, PARAM_OFFSET['LV_PROF_R']!);
   d.set(hp.prof.S, PARAM_OFFSET['LV_PROF_S']!);
   d.set(hp.paps, PARAM_OFFSET['PAPS']!);
+  d.set(hp.rvPap, PARAM_OFFSET['RVPAP']!);
   set('RADIAL_SCALE', hp.radialScale);
   set('LONG_SCALE', hp.longScale);
   set('CONTRACTION', hp.state.contraction);
@@ -215,7 +220,21 @@ export function packScene(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, o
   set('RVOT_BX', A.rvotB.x);
   set('RVOT_BY', A.rvotB.y);
   set('RVOT_BZ', A.rvotB.z);
+  set('RVOT_MX', A.rvotM.x);
+  set('RVOT_MY', A.rvotM.y);
+  set('RVOT_MZ', A.rvotM.z);
+  set('RVOT_RA', A.rvotRa);
+  set('RVOT_RM', A.rvotRm);
   set('RVOT_R', A.rvotR);
+  set('RPA_EX', A.rpaEnd.x);
+  set('RPA_EY', A.rpaEnd.y);
+  set('RPA_EZ', A.rpaEnd.z);
+  set('RPA_R', A.rpaR);
+  set('LPA_EX', A.lpaEnd.x);
+  set('LPA_EY', A.lpaEnd.y);
+  set('LPA_EZ', A.lpaEnd.z);
+  set('LPA_R', A.lpaR);
+  set('RV_PAP_AZ', A.rvPapAz);
   set('PA_DX', A.paDir.x);
   set('PA_DY', A.paDir.y);
   set('PA_DZ', A.paDir.z);
@@ -257,6 +276,11 @@ export function packScene(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, o
   d.fill(0, PARAM_OFFSET['CUSP_W']!, PARAM_OFFSET['CUSP_W']! + 9);
   d.set(V.cuspWidths.subarray(0, Math.min(9, V.cuspWidths.length)), PARAM_OFFSET['CUSP_W']!);
   d.set(V.chordae.subarray(0, 24), PARAM_OFFSET['CHORDAE']!);
+  set('PV_HALF', V.pvHalf);
+  set('PV_SEGLEN', V.pvSegLen);
+  set('PV_T', V.pvThickness);
+  d.set(V.pvSegs, PARAM_OFFSET['PV_SEGS']!);
+  d.set(V.pvWidths, PARAM_OFFSET['PV_W']!);
   set('TH_AW', thorax.aw);
   set('TH_BDEPTH', thorax.bDepth);
   set('TH_N', thorax.n);

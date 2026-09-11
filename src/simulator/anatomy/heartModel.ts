@@ -166,6 +166,8 @@ export interface HeartPose {
   longScale: number; // lengthNow / length at ED
   /** Papillary muscles as round cones [ax,ay,az,bx,by,bz,ra,rb] × 2 (anterolateral, posteromedial), current frame. */
   paps: Float64Array;
+  /** RV anterior papillary muscle (round cone, 8 floats), current frame. */
+  rvPap: Float64Array;
   mvAngleAnt: number; // anterior leaflet angle (rad) in y–z plane from +z toward −y
   mvAnglePost: number;
   avOpenAngle: number; // rad from perpendicular (closed) toward axis (open)
@@ -206,6 +208,12 @@ export interface ValveGeometry {
   /** Chordae tendineae as capsules [ax,ay,az,bx,by,bz] × n. */
   chordae: Float64Array;
   chordaeCount: number;
+  /** Pulmonary cusps: three 2-segment chains on the trunk axis (same layout as the aortic ones). */
+  pvSegs: Float64Array;
+  pvWidths: Float64Array;
+  pvHalf: number;
+  pvSegLen: number;
+  pvThickness: number;
   /** Annulus rings (torus, axis z): [cx,cy,cz,R] for mitral and tricuspid. */
   mvRing: [number, number, number, number];
   tvRing: [number, number, number, number];
@@ -311,6 +319,55 @@ function raCollapseWindow(state: CycleState): number {
   return Math.exp(-(d * d) / (2 * 0.06 * 0.06));
 }
 
+/**
+ * Semilunar cusps as 2-segment chains in the (inward, axis) plane: closed = shallow cup with the free edges
+ * meeting near the axis, open = lying along the wall; the two segment angles are solved (bisection) so the
+ * free edge reaches the orifice radius for the given openness. Fills `segs` (count × 12) and `widths` (count × 3).
+ */
+function buildCuspChains(cx: number, cy: number, cz: number, ax: Vec3, e1: Vec3, e2: Vec3, R: number, openness: number, count: number, segs: Float64Array, widths: Float64Array, phi0: number): number {
+  const segLen = (R * 1.5) / 2;
+  const targetReach = R - R * (0.05 + 0.85 * Math.max(0, Math.min(1, openness)));
+  let lo = 0,
+    hi = 1;
+  for (let it = 0; it < 14; it++) {
+    const mid = (lo + hi) / 2;
+    const reach = segLen * (Math.cos(0.45 + 1.0 * mid) + Math.cos(0.95 + 0.5 * mid));
+    if (reach > targetReach) lo = mid;
+    else hi = mid;
+  }
+  const fr = (lo + hi) / 2;
+  const angles = [0.45 + 1.0 * fr, 0.95 + 0.5 * fr];
+  for (let i = 0; i < count; i++) {
+    const phi = (i * 2 * Math.PI) / count + phi0;
+    const rx = e1.x * Math.cos(phi) + e2.x * Math.sin(phi);
+    const ry = e1.y * Math.cos(phi) + e2.y * Math.sin(phi);
+    const rz = e1.z * Math.cos(phi) + e2.z * Math.sin(phi);
+    let sx = cx + rx * R,
+      sy = cy + ry * R,
+      sz = cz + rz * R;
+    for (let k = 0; k < 2; k++) {
+      const a = angles[k]!;
+      const dx = -rx * Math.cos(a) + ax.x * Math.sin(a);
+      const dy = -ry * Math.cos(a) + ax.y * Math.sin(a);
+      const dz = -rz * Math.cos(a) + ax.z * Math.sin(a);
+      const o = i * 12 + k * 6;
+      segs[o] = sx;
+      segs[o + 1] = sy;
+      segs[o + 2] = sz;
+      segs[o + 3] = dx;
+      segs[o + 4] = dy;
+      segs[o + 5] = dz;
+      sx += dx * segLen;
+      sy += dy * segLen;
+      sz += dz * segLen;
+    }
+    widths[i * 3] = ax.y * rz - ax.z * ry;
+    widths[i * 3 + 1] = ax.z * rx - ax.x * rz;
+    widths[i * 3 + 2] = ax.x * ry - ax.y * rx;
+  }
+  return segLen;
+}
+
 export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
   const { lv } = m;
   const sh = lv.shape;
@@ -357,9 +414,9 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
   const tvAnglePost = 0.8 + (-0.7 - 0.8) * state.tvOpen;
   const A = anchorsCached(m);
   const cusps = m.anatomy.aorticValve.bicuspid ? 2 : 3;
-  const CUSP_SEGS = 2;
-  const segs = new Float64Array(cusps * CUSP_SEGS * 6);
   const tvZ = m.physiology.tapseCm * long;
+  const septalShiftCm = m.anatomy.rv.septalFlattening * 0.9;
+  const rvCollapse = tamp * rvCollapseWindow(state);
   // Mitral skirt: anterior zone centred at +y (φ = π/2), spanning ±70°; closed profiles bow toward the
   // LA with tips meeting apically; open profiles swing outward (anterior toward the septum).
   const antLen = m.anatomy.mitral.anteriorLeafletLengthCm / 3;
@@ -391,65 +448,16 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
     thickness: 0.09,
     saddle: 0.15,
   };
-  // aortic cusps: 2 segments each in the (inward, axis) plane; closed = shallow cup, open = flat on the wall
-  const cuspOffsets: number[] = [];
+  // aortic cusps: sheets ~1.5·R long from the annular nadir to the free edge as 2-segment chains whose reach
+  // follows the orifice (0.05·R closed → 0.9·R open, scaled by the case's maxOpeningFraction)
+  const segs = new Float64Array(cusps * 12);
   const cuspWidths = new Float64Array(cusps * 3);
-  // Cusps are sheets ~1.5·R long from the annular nadir to the free edge. Closed: cup with free edges
-  // meeting near the centre at mid-sinus level; open: lying along the sinus wall. The opening is
-  // parametrised by the orifice radius (0.05·R closed → 0.9·R fully open, scaled by the case's
-  // maxOpeningFraction), and the two segment angles are solved for that reach each frame.
-  const cuspSegLen = (A.avR * 1.5) / CUSP_SEGS;
-  {
-    const c = A.avCenter;
-    const ax = A.avAxis;
-    const czz = c.z + zAnn * 0.5;
-    const e1 = A.avE1,
-      e2 = A.avE2;
-    const R = A.avR;
-    const openness = Math.max(0, Math.min(1, state.avOpen)) * m.anatomy.aorticValve.maxOpeningFraction;
-    const targetReach = R - R * (0.05 + 0.85 * openness);
-    let lo = 0,
-      hi = 1;
-    for (let it = 0; it < 14; it++) {
-      const mid = (lo + hi) / 2;
-      const reach = cuspSegLen * (Math.cos(0.45 + 1.0 * mid) + Math.cos(0.95 + 0.5 * mid));
-      if (reach > targetReach) lo = mid;
-      else hi = mid;
-    }
-    const f = (lo + hi) / 2;
-    const angles = [0.45 + 1.0 * f, 0.95 + 0.5 * f];
-    let off = 0;
-    for (let i = 0; i < cusps; i++) {
-      const phi = (i * 2 * Math.PI) / cusps + 0.5;
-      const rx = e1.x * Math.cos(phi) + e2.x * Math.sin(phi);
-      const ry = e1.y * Math.cos(phi) + e2.y * Math.sin(phi);
-      const rz = e1.z * Math.cos(phi) + e2.z * Math.sin(phi);
-      let sx = c.x + rx * R,
-        sy = c.y + ry * R,
-        sz = czz + rz * R;
-      cuspOffsets.push(off);
-      for (let k = 0; k < CUSP_SEGS; k++) {
-        const a = angles[k]!;
-        const dx = -rx * Math.cos(a) + ax.x * Math.sin(a);
-        const dy = -ry * Math.cos(a) + ax.y * Math.sin(a);
-        const dz = -rz * Math.cos(a) + ax.z * Math.sin(a);
-        const o = off + k * 6;
-        segs[o] = sx;
-        segs[o + 1] = sy;
-        segs[o + 2] = sz;
-        segs[o + 3] = dx;
-        segs[o + 4] = dy;
-        segs[o + 5] = dz;
-        sx += dx * cuspSegLen;
-        sy += dy * cuspSegLen;
-        sz += dz * cuspSegLen;
-      }
-      cuspWidths[i * 3] = ax.y * rz - ax.z * ry;
-      cuspWidths[i * 3 + 1] = ax.z * rx - ax.x * rz;
-      cuspWidths[i * 3 + 2] = ax.x * ry - ax.y * rx;
-      off += CUSP_SEGS * 6;
-    }
-  }
+  const cuspSegLen = buildCuspChains(A.avCenter.x, A.avCenter.y, A.avCenter.z + zAnn * 0.5, A.avAxis, A.avE1, A.avE2, A.avR, Math.max(0, Math.min(1, state.avOpen)) * m.anatomy.aorticValve.maxOpeningFraction, cusps, segs, cuspWidths, 0.5);
+  const cuspOffsets = Array.from({ length: cusps }, (_, i) => i * 12);
+  // pulmonary valve: three cusps hinged at the outflow–trunk junction on the trunk axis, opening with RV ejection
+  const pvSegs = new Float64Array(36);
+  const pvWidths = new Float64Array(9);
+  const pvSegLen = buildCuspChains(A.rvotB.x, A.rvotB.y, A.rvotB.z, A.paDir, A.pvE1, A.pvE2, A.pvR, Math.max(0, Math.min(1, state.pvOpen)), 3, pvSegs, pvWidths, 0.2);
   // papillary muscles: round cones rooted inside the wall (level ζb) leaning into the cavity toward the
   // annulus (tip at level ζt, about halfway to the axis); they move with the wall and thicken in systole
   const paps = new Float64Array(16);
@@ -462,6 +470,18 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
     const rt = lvCavityRadius(sh, prof, paz, zt) * A.papTipFrac;
     const grow = 0.9 + 0.3 * state.contraction;
     paps.set([rb * Math.cos(paz), rb * Math.sin(paz), zb, rt * Math.cos(paz), rt * Math.sin(paz), zt, A.papR * grow, A.papR * 0.65 * grow], i * 8);
+  }
+  // RV anterior papillary muscle: cone from the free wall at the moderator-band insertion toward the tricuspid
+  const rvPap = new Float64Array(8);
+  {
+    const zb = zAnn + A.rvPapZetaBase * lengthNow;
+    const zt = zAnn + A.rvPapZetaTip * lengthNow;
+    rvRadii(m, A, prof, thickK, zAnn, lengthNow, tvZ, state.contraction, septalShiftCm, rvCollapse, A.rvPapAz, zb, rvRad);
+    const rb = rvRad[2]! + 0.15;
+    rvRadii(m, A, prof, thickK, zAnn, lengthNow, tvZ, state.contraction, septalShiftCm, rvCollapse, A.rvPapAz + 0.1, zt, rvRad);
+    const rt = rvRad[0]! + 0.5 * (rvRad[2]! - rvRad[0]!);
+    const grow = 0.9 + 0.3 * state.contraction;
+    rvPap.set([rb * Math.cos(A.rvPapAz), rb * Math.sin(A.rvPapAz), zb, rt * Math.cos(A.rvPapAz + 0.1), rt * Math.sin(A.rvPapAz + 0.1), zt, 0.42 * grow, 0.28 * grow]);
   }
   // chordae: from the mitral leaflet free edges (anterior at φ = 45°/135°, posterior at −45°/−135°) to the papillary tips
   const pa: [number, number, number] = [paps[3]!, paps[4]!, paps[5]!],
@@ -492,6 +512,11 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
     cuspThickness: m.anatomy.aorticValve.cuspThicknessCm,
     chordae,
     chordaeCount: 4,
+    pvSegs,
+    pvWidths,
+    pvHalf: A.pvR * Math.sin(Math.PI / 3) * 0.95,
+    pvSegLen,
+    pvThickness: 0.06,
     mvRing: [A.mvCenter.x, A.mvCenter.y, zAnn, A.mvR * 0.98],
     tvRing: [A.tvCenter.x, A.tvCenter.y, A.tvCenter.z + tvZ, A.tvR * 0.98],
   };
@@ -505,6 +530,7 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
     radialScale,
     longScale,
     paps,
+    rvPap,
     mvAngleAnt,
     mvAnglePost,
     avOpenAngle,
@@ -514,10 +540,10 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
     tvZ: m.physiology.tapseCm * long,
     laBooster: 1 - 0.06 * state.atrialContraction,
     effusion: m.anatomy.pericardium.effusionCm,
-    rvCollapse: tamp * rvCollapseWindow(state),
+    rvCollapse,
     raCollapse: tamp * raCollapseWindow(state),
     swingX: tamp * 0.45 * Math.sin(TWO_PI * state.phase),
-    septalShiftCm: m.anatomy.rv.septalFlattening * 0.9,
+    septalShiftCm,
     valves,
   };
 }
@@ -544,12 +570,24 @@ interface Anchors {
   rvApexFrac: number;
   tvCenter: Vec3;
   tvR: number;
-  rvotA: Vec3;
-  rvotB: Vec3;
-  rvotR: number;
+  rvotA: Vec3; // infundibulum entry (RV anterior base)
+  rvotM: Vec3; // outflow mid point (bowed anteriorly over the aortic root)
+  rvotB: Vec3; // pulmonary valve plane
+  rvotRa: number; // proximal (infundibular) radius
+  rvotRm: number;
+  rvotR: number; // distal radius at the valve
   paDir: Vec3;
-  paEnd: Vec3;
+  paEnd: Vec3; // bifurcation of the trunk
   paR: number;
+  rpaEnd: Vec3; // right pulmonary artery (runs to the patient's right, behind the ascending aorta)
+  rpaR: number;
+  lpaEnd: Vec3;
+  lpaR: number;
+  pvR: number; // pulmonary annulus radius
+  /** RV anterior papillary muscle (moderator-band insertion): azimuth and level fractions of root and tip. */
+  rvPapAz: number;
+  rvPapZetaBase: number;
+  rvPapZetaTip: number;
   /** Papillary muscles: azimuth of each, level fractions of the wall root and of the tip, tip radius fraction, radius. */
   papAzAL: number;
   papAzPM: number;
@@ -573,6 +611,15 @@ function anchors(m: HeartModel): Anchors {
   const rvR = a.rv.basalDiameterCm / 2;
   // LV hypertrophy must not crush the right heart: the RV/RVOT anchors move with the septal thickness
   const dWall = (a.lv.ivsdCm - 0.9) * 1.5;
+  const paDir = normalize(v3(0.6, 0.35, -0.72));
+  const paEnd = v3(-0.6 + paDir.x * 3.6, 5.7 + dWall + paDir.y * 3.6, -2.6 + paDir.z * 3.6);
+  // torso directions in the heart frame: the pulmonary branches run horizontally in the patient
+  const f = m.frame;
+  const dirH = (d: Vec3): Vec3 => v3(dot(d, f.ex), dot(d, f.ey), dot(d, f.ez));
+  const tRight = dirH(v3(-1, 0, 0)),
+    tLeft = dirH(v3(1, 0, 0)),
+    tPost = dirH(v3(0, 0, -1)),
+    tSup = dirH(v3(0, 1, 0));
   return {
     mvCenter: v3(0.2, -0.9, 0),
     mvR: a.mitral.annulusDiameterCm / 2,
@@ -601,11 +648,22 @@ function anchors(m: HeartModel): Anchors {
     tvCenter: v3(-(m.lv.rMax * lvProfileG(m.lv.shape, 0.12) + a.lv.ivsdCm + 0.25 + a.tricuspid.annulusDiameterCm / 2), -0.2, 0.7),
     tvR: a.tricuspid.annulusDiameterCm / 2,
     rvotA: v3(-2.8, 3.6 + dWall, 0.3),
+    rvotM: v3(-1.95, 5.0 + dWall, -1.1),
     rvotB: v3(-0.6, 5.7 + dWall, -2.6),
+    rvotRa: 1.3,
+    rvotRm: 1.2,
     rvotR: 1.1,
-    paDir: normalize(v3(0.6, 0.35, -0.72)),
-    paEnd: v3(-0.6 + 0.6 * 3.4, 5.7 + dWall + 0.35 * 3.4, -2.6 - 0.72 * 3.4),
-    paR: 1.1,
+    paDir,
+    paEnd,
+    paR: 1.15,
+    rpaEnd: add(paEnd, scale(normalize(add(tRight, scale(tPost, 0.45))), 4.4)),
+    rpaR: 0.8,
+    lpaEnd: add(paEnd, scale(normalize(add(add(tLeft, scale(tPost, 0.6)), scale(tSup, 0.2))), 3.0)),
+    lpaR: 0.75,
+    pvR: 1.05,
+    rvPapAz: 2.35,
+    rvPapZetaBase: 0.68,
+    rvPapZetaTip: 0.46,
     // papillary azimuths (model frame = AHA − 28°): anterolateral at the lateral wall (AHA ≈ 0°, 3 o'clock in
     // PSAX), posteromedial at the inferior / inferoseptal junction (AHA ≈ 250°, 7–8 o'clock)
     papAzAL: -0.5,
@@ -648,6 +706,7 @@ export function heartLandmarks(m: HeartModel): Landmark[] {
     { id: 'ra', label: 'Aurícula derecha', p: A.raCenter, radius: 1.4 },
     { id: 'rv', label: 'Ventrículo derecho (entrada)', p: v3(rvc.x, -0.35, L * 0.35), radius: 1.3 },
     { id: 'pa', label: 'Tronco pulmonar', p: add(A.rvotB, scale(A.paDir, 1.5)), radius: 1.0 },
+    { id: 'pa-bifurcation', label: 'Bifurcación pulmonar', p: A.paEnd, radius: 1.0 },
     { id: 'rv-anterior', label: 'Ventrículo derecho (anterior)', p: v3((a + 0.6) * Math.cos(2.1), (b + 0.6) * Math.sin(2.1) + 0.5, L * 0.35), radius: 0.9 },
     { id: 'rvot', label: 'TSVD', p: v3(-1.7, 4.7, -1.2), radius: 1.0 },
     { id: 'tv', label: 'Válvula tricúspide', p: v3(A.tvCenter.x, A.tvCenter.y, A.tvCenter.z + 0.7), radius: 1.2 },
@@ -670,7 +729,7 @@ export function heartLandmarks(m: HeartModel): Landmark[] {
  * septal and free-wall values, systolic thickening from wall incompressibility scaled by the segment's
  * motion (akinetic segments barely thicken), and a low-frequency modulation around the wall.
  */
-function wallThicknessAt(m: HeartModel, hp: HeartPose, az: number, levelFrac: number, amp: number): number {
+function wallThicknessAt(m: HeartModel, thickK: number, az: number, levelFrac: number, amp: number): number {
   const lv = m.lv;
   const septalness = 0.5 - 0.5 * Math.cos(az);
   const tBase = lv.lvpwd + (lv.ivsd - lv.lvpwd) * septalness;
@@ -678,73 +737,103 @@ function wallThicknessAt(m: HeartModel, hp: HeartPose, az: number, levelFrac: nu
   const tED = tBase * axialWallFactor(levelFrac, lv.apexT / tBase);
   // low-frequency thickness modulation (±14 % at the base, fading to none at the apical cap)
   const wallMod = 1 + 0.28 * (latticeNoise3(Math.cos(az) * 1.6 + 7.3, Math.sin(az) * 1.6 + 2.1, levelFrac * 2.4, m.wallNoise) - 0.5) * (1 - levelFrac * levelFrac);
-  return tED * Math.max(0.6, 1 + (hp.thickK - 1) * (0.35 + 0.65 * amp)) * wallMod;
+  return tED * Math.max(0.6, 1 + (thickK - 1) * (0.35 + 0.65 * amp)) * wallMod;
 }
 
 /** Septal shift toward the LV (cm) at azimuth/level: maximal at the mid septum, zero at the free wall, base and apex. */
-function septalShiftAt(hp: HeartPose, az: number, levelFrac: number): number {
-  if (hp.septalShiftCm <= 0) return 0;
+function septalShiftAt(shiftCm: number, az: number, levelFrac: number): number {
+  if (shiftCm <= 0) return 0;
   const c = -Math.cos(az); // 1 at the septum (az = π)
   if (c <= 0) return 0;
   const zw = 1 - Math.pow((levelFrac - 0.45) / 0.45, 2);
   if (zw <= 0) return 0;
-  return hp.septalShiftCm * c * c * zw;
+  return shiftCm * c * c * zw;
 }
 
 const rvTmp = new Float64Array(3);
+const rvRad = new Float64Array(4);
+
+/** RV crescent azimuthal profile over u ∈ (0, 1) between the grooves: rounded tips, plateau, fullest at the inflow (A4C direction). */
+function rvAzProfile(A: AnchorsCached, u: number): number {
+  const sn = Math.sin(Math.PI * u);
+  const uIn = (Math.PI + 0.04 - A.rvAzA) / (A.rvAzP - A.rvAzA);
+  const inflow = Math.exp(-((u - uIn) * (u - uIn)) / (2 * 0.18 * 0.18));
+  return Math.pow(Math.min(1, Math.max(0, sn) / 0.75), 0.7) * (0.85 + 0.15 * inflow);
+}
+
+/** Triangular axial taper of the RV from the tricuspid plane (1) to a rounded apex (0 at zApex); 0.85 in the infundibulum above the plane. */
+function rvAxialTaper(tvPlane: number, zApex: number, z: number): number {
+  if (z <= tvPlane) return 0.85;
+  const q = Math.min(1, (z - tvPlane) / Math.max(0.5, zApex - tvPlane));
+  // full width through the basal quarter, then a straight taper that rounds off at the apex
+  const s = Math.max(0, (q - 0.25) / 0.75);
+  return (1 - 0.55 * s) * Math.sqrt(Math.max(0, 1 - s * s * s * s * s));
+}
+
 /**
- * RV crescent: the cavity lies between the LV epicardium (+ a small gap) and an outer surface at
- * radial distance rIn + t(az, z), where the thickness t follows a sine profile across the azimuth span
- * between the anterior and inferior interventricular grooves (maximum = A4C basal diameter, in the
- * inflow) and tapers axially to a rounded apex at rvApexFrac·L. Basally the inflow ends at the
- * tricuspid plane while the anterior part rises as the infundibulum toward the RVOT. The free wall
- * moves toward the septum with contraction and the base descends by TAPSE. Writes
- * [signedDistance, rIn, rOut] into `res` (signed distance is approximate near the crescent tips).
+ * RV radii at azimuth/height without trabecular noise: writes [rIn, u, rOut, t] — the inner boundary
+ * (LV epicardium + gap, minus septal flattening), the groove fraction u, the outer free-wall endocardium
+ * and the cavity thickness t (0 outside the crescent span).
  */
-function rvCrescent(m: HeartModel, hp: HeartPose, A: AnchorsCached, x: number, y: number, z: number, az: number, res: Float64Array): void {
+function rvRadii(m: HeartModel, A: AnchorsCached, prof: LvProfileTable, thickK: number, zAnn: number, lengthNow: number, tvZ: number, contraction: number, septalShiftCm: number, rvCollapse: number, az: number, z: number, res: Float64Array): void {
   const L = m.lv.lengthCm;
+  const sh = m.lv.shape;
   const azN = az < 0 ? az + TWO_PI : az;
   const u = (azN - A.rvAzA) / (A.rvAzP - A.rvAzA);
-  const r = Math.hypot(x, y);
-  // LV epicardial radius at this azimuth and height: cavity profile radius plus the local wall thickness
-  // (a normal offset, converted to a radial one by the profile slope)
-  const sh = m.lv.shape;
-  const rCav = lvCavityRadius(sh, hp.prof, az, z);
-  const levelFrac = Math.min(1, Math.max(0, (z - hp.zAnn) / Math.max(hp.lengthNow, 1)));
+  const rCav = lvCavityRadius(sh, prof, az, z);
+  const levelFrac = Math.min(1, Math.max(0, (z - zAnn) / Math.max(lengthNow, 1)));
   const amp = m.segAmp[ahaSegment(az, levelFrac)] ?? 1;
-  const rEpi = rCav + wallThicknessAt(m, hp, az, levelFrac, amp) * lvRadialOffsetFactor(sh, hp.prof, az, z);
-  const rIn = rEpi - septalShiftAt(hp, az, levelFrac) + 0.05;
-  const zApex = A.rvApexFrac * L;
+  const rEpi = rCav + wallThicknessAt(m, thickK, az, levelFrac, amp) * lvRadialOffsetFactor(sh, prof, az, z);
+  const rIn = rEpi - septalShiftAt(septalShiftCm, az, levelFrac) + 0.05;
+  res[0] = rIn;
+  res[1] = u;
+  if (u <= 0 || u >= 1) {
+    res[2] = rIn;
+    res[3] = 0;
+    return;
+  }
+  const tvPlane = A.tvCenter.z + tvZ;
+  let t = A.rvT * rvAzProfile(A, u) * rvAxialTaper(tvPlane, A.rvApexFrac * L, z) * (1 - 0.35 * contraction);
+  // tamponade: early-diastolic inward collapse of the anterior/outflow free wall
+  if (rvCollapse > 0 && u < 0.55) t *= 1 - 0.65 * rvCollapse * (1 - u / 0.55);
+  res[2] = rIn + t;
+  res[3] = t;
+}
+
+/**
+ * RV crescent: the cavity lies between the LV epicardium (+ a small gap) and the free-wall endocardium at
+ * radial distance rIn + t(az, z): triangular in long axis (widest at the tricuspid plane, rounded apex at
+ * rvApexFrac·L), a crescent in short axis whose tips close smoothly at the interventricular grooves, the
+ * infundibulum rising above the tricuspid plane in the anterior third, and a coarse trabecular mesh
+ * (material coordinates) that fills in the apical third. Writes [signedDistance, rIn, rOut] into `res`.
+ */
+function rvCrescent(m: HeartModel, hp: HeartPose, A: AnchorsCached, x: number, y: number, z: number, az: number, res: Float64Array): void {
+  rvRadii(m, A, hp.prof, hp.thickK, hp.zAnn, hp.lengthNow, hp.tvZ, hp.state.contraction, hp.septalShiftCm, hp.rvCollapse, az, z, rvRad);
+  const rIn = rvRad[0]!,
+    u = rvRad[1]!;
   if (u <= 0 || u >= 1) {
     res[0] = 1e3;
     res[1] = rIn;
     res[2] = rIn;
     return;
   }
+  const L = m.lv.lengthCm;
   const tvPlane = A.tvCenter.z + hp.tvZ;
-  // basal boundary: tricuspid plane for the inflow, rising infundibulum for the anterior third
-  const zBase = u >= 0.35 ? tvPlane : tvPlane - 2.2 * (1 - u / 0.35);
-  // axial taper: elliptical from the tricuspid plane to the RV apex (the RV is widest at its base)
-  let fz = 1;
-  if (z > tvPlane) {
-    const q = (z - tvPlane) / Math.max(0.5, zApex - tvPlane);
-    fz = q >= 1 ? 0 : Math.sqrt(1 - q * q);
+  const zApex = A.rvApexFrac * L;
+  // basal boundary: tricuspid plane for the inflow, rising smoothly into the infundibulum for the anterior third
+  const uInf = 0.35;
+  const zBase = u >= uInf ? tvPlane : tvPlane - 2.6 * (1 - u / uInf);
+  let t = rvRad[3]!;
+  // trabeculae: longitudinal ridges that coarsen toward the apex, where the mesh narrows the cavity
+  if (z > 0.25 * L) {
+    const w = Math.min(1, (z - 0.25 * L) / (0.35 * L));
+    const rs = 1 - 0.3 * hp.state.contraction;
+    const n = latticeNoise3((x / rs) * 1.4 + 3.1, (y / rs) * 1.4 + 9.7, z * 0.9 + 5.3, m.wallNoise) - 0.5;
+    t += (0.25 + 0.25 * w) * n - 0.12 * w * w;
   }
-  // azimuthal profile: rises quickly from each groove to a plateau (0.8·T), with the inflow (tricuspid
-  // direction, seen in A4C) at the full basal diameter T
-  const plateau = Math.min(1, Math.sin(Math.PI * u) / 0.7071);
-  const uIn = (Math.PI + 0.04 - A.rvAzA) / (A.rvAzP - A.rvAzA);
-  const inflow = Math.exp(-((u - uIn) * (u - uIn)) / (2 * 0.15 * 0.15));
-  const prof = 0.8 * plateau + 0.2 * inflow;
-  let t = A.rvT * prof * fz * (1 - 0.35 * hp.state.contraction);
-  // tamponade: early-diastolic inward collapse of the anterior/outflow free wall
-  if (hp.rvCollapse > 0 && u < 0.55) t *= 1 - 0.65 * hp.rvCollapse * (1 - u / 0.55);
-  // trabeculated endocardium toward the apex
-  if (z > 0.3 * L) t += 0.22 * Math.min(1, (z - 0.3 * L) / (0.3 * L)) * (latticeNoise3(x * 1.7 + 3.1, y * 1.7 + 9.7, z * 1.7 + 5.3, m.wallNoise) - 0.5);
   const rOut = rIn + Math.max(0, t);
-  let d = Math.max(rIn - r, r - rOut, zBase - z, z - zApex);
-  if (u < 0.08 || u > 0.92) d = Math.max(d, 0.35 - t); // close the tips smoothly at the grooves
-  res[0] = d;
+  const r = Math.hypot(x, y);
+  res[0] = Math.max(rIn - r, r - rOut, zBase - z, z - zApex);
   res[1] = rIn;
   res[2] = rOut;
 }
@@ -854,6 +943,24 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
       }
     }
   }
+  // pulmonary cusps (three, hinged at the outflow–trunk junction; clipped to the trunk lumen)
+  if (sdCapsule(x, y, z, A.rvotM.x, A.rvotM.y, A.rvotM.z, A.paEnd.x, A.paEnd.y, A.paEnd.z, A.paR + 0.02) < 0) {
+    for (let i = 0; i < 3; i++) {
+      const wx = V.pvWidths[i * 3]!,
+        wy = V.pvWidths[i * 3 + 1]!,
+        wz = V.pvWidths[i * 3 + 2]!;
+      sdSegmentChain(x, y, z, V.pvSegs, i * 12, 2, V.pvSegLen, wx, wy, wz, V.pvHalf, hit, 0.75);
+      const t = V.pvThickness * (1 - 0.3 * hit.frac) * 0.5 + 0.03;
+      if (hit.d < t) {
+        const o = i * 12 + Math.min(1, Math.floor(hit.frac * 2)) * 6;
+        const dx = V.pvSegs[o + 3]!,
+          dy = V.pvSegs[o + 4]!,
+          dz = V.pvSegs[o + 5]!;
+        setSample(out, Tissue.Valve, hit.d - t, dy * wz - dz * wy, dz * wx - dx * wz, dx * wy - dy * wx, x, y, z, 0, Structure.PulmonaryValve);
+        return true;
+      }
+    }
+  }
   // tricuspid skirt
   {
     const t = skirtDistance(x, y, z, V.tv);
@@ -897,7 +1004,7 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
   const levelFrac = Math.min(1, Math.max(0, (z - zAnn) / Math.max(hp.lengthNow, 1)));
   // septal flattening (D-shape): the septum is pushed toward the LV centre by the RV; the LV ellipsoids are
   // evaluated at x − shift so that both endocardium and epicardium move (the RV crescent uses the same shift)
-  const septalShift = septalShiftAt(hp, az, levelFrac);
+  const septalShift = septalShiftAt(hp.septalShiftCm, az, levelFrac);
   const xs = x - septalShift;
   const sh = lv.shape;
   const dProf = lvCavitySdf(hp.prof, sh.ratio, xs, y, z);
@@ -918,7 +1025,7 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
   const dCavR = dCav - regional + trab;
   // wall thickness: interpolate septal (az≈π, i.e. x<0) vs free wall
   const septalness = 0.5 - 0.5 * Math.cos(az); // 1 at septum (az=π), 0 at lateral
-  const tNow = wallThicknessAt(m, hp, az, levelFrac, amp);
+  const tNow = wallThicknessAt(m, hp.thickK, az, levelFrac, amp);
 
   // Papillary muscles inside the cavity (round cones rooted in the wall, see computeHeartPose)
   if (dCavR < 0) {
@@ -1082,52 +1189,62 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
     }
   }
 
-  // ---------- RV: crescent around the septum, infundibulum, moderator band, RVOT, pulmonary trunk ----------
+  // ---------- RV: crescent around the septum, infundibulum, outflow, pulmonary trunk and branches ----------
   {
     const s = hp.state.contraction;
     rvCrescent(m, hp, A, x, y, z, az, rvTmp);
     const dRv = rvTmp[0]!;
     const fw = m.anatomy.rv.freeWallThicknessCm * (1 + 0.35 * s);
-    const dRvot = sdCapsule(x, y, z, A.rvotA.x, A.rvotA.y, A.rvotA.z, A.rvotB.x, A.rvotB.y, A.rvotB.z, A.rvotR * (0.85 + 0.15 * (1 - s)));
-    // main pulmonary artery: continues the RVOT beyond the pulmonary valve plane (annular ring of fibrous tissue)
+    const k = 0.85 + 0.15 * (1 - s);
+    // outflow: infundibulum → subpulmonary region as two tapering segments bowed anteriorly over the aortic root
+    const dRvot = Math.min(
+      sdRoundCone(x, y, z, A.rvotA.x, A.rvotA.y, A.rvotA.z, A.rvotM.x, A.rvotM.y, A.rvotM.z, A.rvotRa * k, A.rvotRm * k),
+      sdRoundCone(x, y, z, A.rvotM.x, A.rvotM.y, A.rvotM.z, A.rvotB.x, A.rvotB.y, A.rvotB.z, A.rvotRm * k, A.rvotR * k),
+    );
+    // pulmonary trunk from the valve to the bifurcation; right branch behind the ascending aorta, left branch
     const dPa = sdCapsule(x, y, z, A.rvotB.x, A.rvotB.y, A.rvotB.z, A.paEnd.x, A.paEnd.y, A.paEnd.z, A.paR);
-    const dCavRv = Math.min(dRv, dRvot, dPa);
-    if (dPa < 0 && dRvot > -0.02) {
-      // pulmonary valve plane: thin ring at the RVOT/PA junction
-      const vx = x - A.rvotB.x,
-        vy = y - A.rvotB.y,
-        vz = z - A.rvotB.z;
-      const along = vx * A.paDir.x + vy * A.paDir.y + vz * A.paDir.z;
-      if (Math.abs(along) < 0.08 && !(hp.state.pvOpen > 0.3)) {
-        setSample(out, Tissue.Valve, -0.05, A.paDir.x, A.paDir.y, A.paDir.z, x, y, z, 0, Structure.PulmonaryValve);
-        return true;
-      }
-      if (dPa > -0.2) {
-        setSample(out, Tissue.VesselWall, dPa, vx, vy, vz, x, y, z, 0, Structure.Rvot);
-        return true;
-      }
+    const dRpa = sdCapsule(x, y, z, A.paEnd.x, A.paEnd.y, A.paEnd.z, A.rpaEnd.x, A.rpaEnd.y, A.rpaEnd.z, A.rpaR);
+    const dLpa = sdCapsule(x, y, z, A.paEnd.x, A.paEnd.y, A.paEnd.z, A.lpaEnd.x, A.lpaEnd.y, A.lpaEnd.z, A.lpaR);
+    const dTrunk = Math.min(dPa, dRpa, dLpa);
+    const vx = x - A.rvotB.x,
+      vy = y - A.rvotB.y,
+      vz = z - A.rvotB.z;
+    if (dTrunk < 0) {
+      setSample(out, Tissue.Blood, dTrunk, vx, vy, vz, x, y, z, 0, Structure.PulmonaryArtery);
+      return true;
     }
+    if (dTrunk < 0.18 && dRvot > 0) {
+      setSample(out, Tissue.VesselWall, -Math.min(dTrunk, 0.18 - dTrunk), vx, vy, vz, x, y, z, 0, Structure.PulmonaryArtery);
+      return true;
+    }
+    const dCavRv = Math.min(dRv, dRvot);
     if (dCavRv < 0) {
       if (dRv < 0) {
-        // moderator band: from the mid septum to the anterior free wall (base of the anterior papillary muscle)
+        // moderator band: from the lower septum to the anterior free wall at the base of the anterior papillary muscle
         const L = m.lv.lengthCm;
         const rIn = rvTmp[1]!;
         const rOut = rvTmp[2]!;
         const bx0 = -(rIn + 0.12),
           by0 = -0.2,
-          bz0 = L * 0.56;
+          bz0 = L * 0.6;
         const rB = rOut - fw * 1.2;
-        const bx1 = rB * Math.cos(2.75),
-          by1 = rB * Math.sin(2.75),
-          bz1 = L * 0.66;
+        const bx1 = rB * Math.cos(A.rvPapAz),
+          by1 = rB * Math.sin(A.rvPapAz),
+          bz1 = L * 0.68;
         const dBand = sdCapsule(x, y, z, bx0, by0, bz0, bx1, by1, bz1, 0.28);
         if (dBand < 0) {
           setSample(out, Tissue.Myocardium, dBand, 0, 0, 1, x, y, z, 0, Structure.ModeratorBand);
           return true;
         }
+        const P = hp.rvPap;
+        const dRp = sdRoundCone(x, y, z, P[0]!, P[1]!, P[2]!, P[3]!, P[4]!, P[5]!, P[6]!, P[7]!);
+        if (dRp < 0) {
+          setSample(out, Tissue.Myocardium, dRp, x, y, 0, x, y, z, 0, Structure.RvPapillary);
+          return true;
+        }
       }
       const rr = Math.hypot(x, y) || 1;
-      setSample(out, Tissue.Blood, dCavRv, x / rr, y / rr, 0, x / (1 - 0.3 * s), y / (1 - 0.3 * s), z, 0, dRvot < dRv || dPa < dRv ? Structure.Rvot : Structure.RvCavity);
+      setSample(out, Tissue.Blood, dCavRv, x / rr, y / rr, 0, x / (1 - 0.3 * s), y / (1 - 0.3 * s), z, 0, dRvot < dRv ? Structure.Rvot : Structure.RvCavity);
       return true;
     }
     if (dCavRv < fw) {
@@ -1148,7 +1265,7 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
     const ra = A.raCenter,
       rar = A.raR;
     const dRaEpi = sdEllipsoid(x, y, z, ra.x, ra.y, ra.z, rar.x + 0.22, rar.y + 0.22, rar.z + 0.22);
-    const dRvotEpi = sdCapsule(x, y, z, A.rvotA.x, A.rvotA.y, A.rvotA.z, A.rvotB.x, A.rvotB.y, A.rvotB.z, A.rvotR + fw);
+    const dRvotEpi = sdCapsule(x, y, z, A.rvotA.x, A.rvotA.y, A.rvotA.z, A.rvotB.x, A.rvotB.y, A.rvotB.z, A.rvotRa + fw);
     const dPaEpi = sdCapsule(x, y, z, A.rvotB.x, A.rvotB.y, A.rvotB.z, A.paEnd.x, A.paEnd.y, A.paEnd.z, A.paR + 0.2);
     const dEpi = Math.min(dLvEpi, dRvEpi, dLaEpi, dRaEpi, dRvotEpi, dPaEpi);
     const eff = hp.effusion;
@@ -1173,6 +1290,9 @@ interface AnchorsCached extends Anchors {
   avE2: Vec3;
   /** unit direction (⊥ root axis) of the ascending aorta's curvature */
   avBend: Vec3;
+  /** basis ⊥ the pulmonary trunk axis (pulmonary cusps) */
+  pvE1: Vec3;
+  pvE2: Vec3;
 }
 const chainHit: ChainHit = { d: 0, frac: 0 };
 
@@ -1186,7 +1306,10 @@ function anchorsCached(m: HeartModel): AnchorsCached {
     const e2 = cross(ax, e1);
     const bendRaw = v3(-0.866, -0.5, 0.35);
     const avBend = normalize(sub(bendRaw, scale(ax, dot(bendRaw, ax))));
-    a = { ...base, avE1: e1, avE2: e2, avBend };
+    const helperP = Math.abs(base.paDir.y) < 0.9 ? v3(0, 1, 0) : v3(1, 0, 0);
+    const pvE1 = normalize(cross(helperP, base.paDir));
+    const pvE2 = cross(base.paDir, pvE1);
+    a = { ...base, avE1: e1, avE2: e2, avBend, pvE1, pvE2 };
     (m as HeartModel & { _anchors?: AnchorsCached })._anchors = a;
   }
   return a;
@@ -1287,5 +1410,5 @@ export function lvCavityRadiusAt(m: HeartModel, hp: HeartPose, az: number, z: nu
 export function lvEpicardialRadiusAt(m: HeartModel, hp: HeartPose, az: number, z: number): number {
   const levelFrac = Math.min(1, Math.max(0, (z - hp.zAnn) / Math.max(hp.lengthNow, 1)));
   const amp = m.segAmp[ahaSegment(az, levelFrac)] ?? 1;
-  return lvCavityRadius(m.lv.shape, hp.prof, az, z) + wallThicknessAt(m, hp, az, levelFrac, amp) * lvRadialOffsetFactor(m.lv.shape, hp.prof, az, z);
+  return lvCavityRadius(m.lv.shape, hp.prof, az, z) + wallThicknessAt(m, hp.thickK, az, levelFrac, amp) * lvRadialOffsetFactor(m.lv.shape, hp.prof, az, z);
 }

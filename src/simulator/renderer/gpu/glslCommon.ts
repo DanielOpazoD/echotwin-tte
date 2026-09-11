@@ -56,6 +56,8 @@ export function enumDefinesGlsl(): string {
     S_LAA: Structure.LaAppendage,
     S_PVEIN: Structure.PulmonaryVein,
     S_CS: Structure.CoronarySinus,
+    S_PA: Structure.PulmonaryArtery,
+    S_RV_PAP: Structure.RvPapillary,
     S_CHEST: Structure.ChestWall,
     S_STERNUM: Structure.Sternum,
     S_RIB: Structure.Rib,
