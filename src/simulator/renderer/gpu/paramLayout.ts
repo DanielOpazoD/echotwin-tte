@@ -18,7 +18,7 @@ const SCALARS = [
   // beam
   'B_OX', 'B_OY', 'B_OZ', 'B_FX', 'B_FY', 'B_FZ', 'B_LX', 'B_LY', 'B_LZ', 'B_NX', 'B_NY', 'B_NZ',
   // spec / physics
-  'LINES', 'SAMPLES', 'SECTOR', 'DEPTH', 'F_ATTEN', 'GRAIN_LAT', 'GRAIN_AX', 'HARM', 'CLUTTER', 'CONTACT', 'WINDOW_ATTEN', 'ELEV_OFFSET',
+  'LINES', 'SAMPLES', 'SECTOR', 'DEPTH', 'F_ATTEN', 'GRAIN_LAT', 'GRAIN_AX', 'HARM', 'CLUTTER', 'CONTACT', 'WINDOW_ATTEN', 'ELEV_OFFSET', 'ELEV_N', 'FOCUS',
   // LV geometry & pose
   'BOUND_CX', 'BOUND_CY', 'BOUND_CZ', 'BOUND_R', 'LV_RMAX_ED', 'LV_G0', 'LV_ZETAMAX', 'LV_ZETATOP', 'LV_N', 'LV_RATIO', 'LV_LEN', 'LV_IVSD', 'LV_LVPWD', 'APEX_T', 'LVOT_D',
   'ZANN', 'LV_RMAX', 'LV_PZC', 'LV_THICK_K', 'LENGTH_NOW', 'RADIAL_SCALE', 'LONG_SCALE', 'CONTRACTION', 'AV_OPEN', 'PV_OPEN', 'TVZ', 'LA_BOOSTER', 'EFFUSION',
@@ -132,6 +132,8 @@ export function packScene(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, o
   set('CONTACT', contactQuality(beam.contact));
   set('WINDOW_ATTEN', physics.windowAttenuation);
   set('ELEV_OFFSET', elevationOffsetCm);
+  set('ELEV_N', spec.elevationSamples);
+  set('FOCUS', spec.focusCm);
   const lv = heart.lv;
   set('BOUND_CX', heart.boundCenter.x);
   set('BOUND_CY', heart.boundCenter.y);

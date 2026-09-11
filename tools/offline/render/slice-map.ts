@@ -66,6 +66,7 @@ const colours: Partial<Record<Structure, [number, number, number]>> = {
   [Structure.Ivc]: [35, 60, 100],
   [Structure.HepaticVein]: [60, 80, 120],
   [Structure.Diaphragm]: [240, 230, 200],
+  [Structure.EpicardialFat]: [205, 175, 95],
   [Structure.LaWall]: [200, 90, 140],
   [Structure.RaWall]: [120, 90, 160],
 };

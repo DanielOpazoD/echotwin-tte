@@ -1,7 +1,7 @@
 import type { AnatomyConfig, PhysiologyConfig } from '@/cases/schema';
 import type { CycleState } from '@/simulator/cardiac-cycle/cycleModel';
 import { Structure, Tissue, type TissueSample } from './tissue';
-import { sdCapsule, sdEllipsoid, sdRoundCone, sdSegmentChain, sdTorusZ, smax, type ChainHit } from './sdf';
+import { sdCapsule, sdEllipsoid, sdRoundCone, sdSegmentChain, sdTorusZ, smax, smin, type ChainHit } from './sdf';
 import { allocLvProfileTable, axialWallFactor, buildLvProfile, lvCavityRadius, lvCavitySdf, lvProfileG, lvRadialOffsetFactor, lvSdfNormal, lvShapeFor, lvShellVolume, solveThickening, type LvProfileTable, type LvShape } from './lvShape';
 import { fastAtan2, latticeNoise3, noiseLattice } from '@/core/noise';
 import type { Vec3 } from '@/core/vec3';
@@ -1453,8 +1453,14 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
     const dRaEpi = sdEllipsoid(x, y, z, ra.x, ra.y, ra.z, rar.x + 0.22, rar.y + 0.22, rar.z + 0.22);
     const dRvotEpi = sdCapsule(x, y, z, A.rvotA.x, A.rvotA.y, A.rvotA.z, A.rvotB.x, A.rvotB.y, A.rvotB.z, A.rvotRa + fw);
     const dPaEpi = sdCapsule(x, y, z, A.rvotB.x, A.rvotB.y, A.rvotB.z, A.paEnd.x, A.paEnd.y, A.paEnd.z, A.paR + 0.2);
-    const dEpi = Math.min(dLvEpi, dRvEpi, dLaEpi, dRaEpi, dRvotEpi, dPaEpi);
+    // the cardiac silhouette is the smooth union of the epicardial surfaces: the grooves between chambers and
+    // the space between outflow and root are filled with epicardial fat, and one pericardium wraps the whole heart
+    const dEpi = smin(smin(smin(dLvEpi, dRvEpi, 0.8), smin(dLaEpi, dRaEpi, 0.8), 0.8), smin(dRvotEpi, dPaEpi, 0.8), 0.8);
     const eff = hp.effusion;
+    if (dEpi < 0) {
+      setSample(out, Tissue.Fat, dEpi, nx0, ny0, nz0, x, y, z, 0, Structure.EpicardialFat);
+      return true;
+    }
     if (dEpi < 0.12) {
       setSample(out, Tissue.Pericardium, -Math.min(Math.max(dEpi, 0), 0.12 - Math.max(dEpi, 0)), nx0, ny0, nz0, x, y, z, 0, Structure.Pericardium);
       return true;

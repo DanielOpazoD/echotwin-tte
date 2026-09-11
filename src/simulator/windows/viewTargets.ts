@@ -426,7 +426,9 @@ export function canonicalControl(view: ViewTarget, heart: HeartModel, thorax: Th
   if (view.window === 'apical') {
     const apex = heartToTorso(heart.frame, v3(0, 0, heart.lv.lengthCm));
     preferred = { u: apex.x, v: apex.y };
-    skin = skinPointOnPlane(thorax, plane, preferred, 3.5);
+    // rotate at the apex and slide at most 2 cm: the exact 60° planes through the long axis would need a 3.4 cm
+    // lateral slide for A2C (among the lateral ribs); a real A2C accepts a few degrees of obliquity instead
+    skin = skinPointOnPlane(thorax, plane, preferred, 2.0);
   } else if (view.id === 'plax') {
     skin = skinPointOnPlane(thorax, plane, preferred, 1.5);
   } else if (view.window === 'parasternal') {

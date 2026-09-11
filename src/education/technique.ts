@@ -200,6 +200,7 @@ export function structureName(id: number): string {
     [Structure.Ivc]: 'vena cava inferior',
     [Structure.HepaticVein]: 'vena hepática',
     [Structure.Diaphragm]: 'diafragma',
+    [Structure.EpicardialFat]: 'grasa epicárdica',
     [Structure.RvPapillary]: 'músculo papilar del VD',
     [Structure.LaCavity]: 'aurícula izquierda',
     [Structure.LaWall]: 'pared de la AI',

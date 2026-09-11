@@ -2,7 +2,7 @@ import type { BeamFrame } from '@/simulator/probe/pose';
 import type { PolarFrame, PolarFrameSpec, RendererBackend, Scene } from '../types';
 import { classifyHeart } from '@/simulator/anatomy/heartModel';
 import { classifyThorax, isAnteriorLung } from '@/simulator/anatomy/thoraxModel';
-import { makeSample, TISSUE_PROPS, Tissue, Structure } from '@/simulator/anatomy/tissue';
+import { makeSample, TISSUE_PROPS, Tissue, Structure, type TissueSample } from '@/simulator/anatomy/tissue';
 import { latticeNoise3, noiseLattice } from '@/core/noise';
 import { hash3 } from '@/core/random';
 import { contactQuality } from '@/simulator/probe/pose';
@@ -20,6 +20,7 @@ import { contactQuality } from '@/simulator/probe/pose';
 export class ProceduralSliceRenderer implements RendererBackend {
   readonly id = 'procedural' as const;
   private sample = makeSample();
+  private sample2 = makeSample();
   private lastMs = 0;
   private lastSamples = 0;
 
@@ -79,7 +80,10 @@ export class ProceduralSliceRenderer implements RendererBackend {
     const { heart, heartPose } = ctx.scene;
     const hf = heart.frame;
     const s = this.sample;
+    const s2 = this.sample2;
     const samples = spec.samples;
+    const nElev = spec.elevationSamples;
+    const focus = spec.focusCm;
     const ox = beam.origin.x,
       oy = beam.origin.y,
       oz = beam.origin.z;
@@ -97,11 +101,66 @@ export class ProceduralSliceRenderer implements RendererBackend {
     const tlx = beam.lateral.x * ct - beam.forward.x * sn,
       tly = beam.lateral.y * ct - beam.forward.y * sn,
       tlz = beam.lateral.z * ct - beam.forward.z * sn;
+    const nX = beam.normal.x,
+      nY = beam.normal.y,
+      nZ = beam.normal.z;
     const lineDrop = hash3(li, 7, 0, seed) > contact ? 0.08 : 1;
     let transmission = lineDrop;
     let lungEntryR = -1;
     let lungEntryT = 0;
     let dead = false;
+    /** Classify a torso point into `q`: 0 outside the body, 1 thorax, 2 heart (anterior lung wins over the heart). */
+    const classifyAt = (px: number, py: number, pz: number, q: TissueSample): number => {
+      if (isAnteriorLung(thorax, px, py, pz)) {
+        q.tissue = Tissue.Lung;
+        q.structure = Structure.Lung;
+        q.sdf = -1;
+        q.nx = 0;
+        q.ny = 0;
+        q.nz = 1;
+        q.mx = px;
+        q.my = py;
+        q.mz = pz;
+        q.extraReflect = 0;
+        return 1;
+      }
+      const hx = (px - hf.origin.x) * hf.ex.x + (py - hf.origin.y) * hf.ex.y + (pz - hf.origin.z) * hf.ex.z;
+      const hy = (px - hf.origin.x) * hf.ey.x + (py - hf.origin.y) * hf.ey.y + (pz - hf.origin.z) * hf.ey.z;
+      const hz = (px - hf.origin.x) * hf.ez.x + (py - hf.origin.y) * hf.ez.y + (pz - hf.origin.z) * hf.ez.z;
+      if (classifyHeart(heart, heartPose, hx, hy, hz, q)) return 2;
+      return classifyThorax(thorax, px, py, pz, q) ? 1 : 0;
+    };
+    /** Local echo (before attenuation): tissue backscatter with tissue-attached speckle, specular interface, calcification. */
+    const localEcho = (q: TissueSample, inH: boolean, latRes: number): number => {
+      const props = TISSUE_PROPS[q.tissue]!;
+      let u: number, v: number, w: number;
+      if (inH) {
+        u = q.mx * lhx + q.my * lhy + q.mz * lhz;
+        v = q.mx * norH.x + q.my * norH.y + q.mz * norH.z;
+        w = q.mx * dhx + q.my * dhy + q.mz * dhz;
+      } else {
+        u = q.mx * tlx + q.my * tly + q.mz * tlz;
+        v = q.mx * nX + q.my * nY + q.mz * nZ;
+        w = q.mx * dx + q.my * dy + q.mz * dz;
+      }
+      // lateral speckle cells coarsen away from the focus (beam width), axial resolution stays
+      const gl = props.grain * grainLatScale * latRes;
+      const ga = props.grain * grainAxScale;
+      const n1 = latticeNoise3(u * gl, v * gl, w * ga, latA);
+      const n2 = latticeNoise3(u * gl * 2.1 + 11.7, v * gl * 2.1 + 3.3, w * ga * 2.1 + 7.9, latB);
+      const spk = (n1 * 0.6 + n2 * 0.4) * 2;
+      const speckle = spk * spk * 0.8 + 0.2;
+      let reflect = props.reflect;
+      if (q.tissue === Tissue.Blood && harm) reflect *= 0.6;
+      let echo = reflect * speckle;
+      if (props.specular > 0) {
+        const ad = Math.abs(inH ? q.nx * dhx + q.ny * dhy + q.nz * dhz : q.nx * dx + q.ny * dy + q.nz * dz);
+        const fall = Math.max(0, 1 - Math.abs(q.sdf) / 0.16);
+        echo += props.specular * ad * ad * ad * fall * (harm ? 1.25 : 1.0) * 1.35;
+      }
+      if (q.extraReflect > 0) echo += q.extraReflect * 1.5 * (0.6 + 0.8 * latticeNoise3(u * 6 + 3.3, v * 6 + 1.1, w * 6 + 9.2, latB));
+      return echo;
+    };
     for (let si = 0; si < samples; si++) {
       const r = (si + 0.5) * dr;
       const idx = base + si;
@@ -122,61 +181,34 @@ export class ProceduralSliceRenderer implements RendererBackend {
       const px = ox + dx * r,
         py = oy + dy * r,
         pz = oz + dz * r;
-      const hx = (px - hf.origin.x) * hf.ex.x + (py - hf.origin.y) * hf.ex.y + (pz - hf.origin.z) * hf.ex.z;
-      const hy = (px - hf.origin.x) * hf.ey.x + (py - hf.origin.y) * hf.ey.y + (pz - hf.origin.z) * hf.ey.z;
-      const hz = (px - hf.origin.x) * hf.ez.x + (py - hf.origin.y) * hf.ez.y + (pz - hf.origin.z) * hf.ez.z;
-      // lung interposed between chest wall and heart occludes everything behind it
-      let inHeart = false;
-      let inBody = true;
-      if (isAnteriorLung(thorax, px, py, pz)) {
-        s.tissue = Tissue.Lung;
-        s.structure = Structure.Lung;
-        s.sdf = -1;
-        s.nx = 0;
-        s.ny = 0;
-        s.nz = 1;
-        s.mx = px;
-        s.my = py;
-        s.mz = pz;
-        s.extraReflect = 0;
-      } else {
-        inHeart = classifyHeart(heart, heartPose, hx, hy, hz, s);
-        if (!inHeart) inBody = classifyThorax(thorax, px, py, pz, s);
-      }
-      if (!inBody) {
+      const kind = classifyAt(px, py, pz, s);
+      if (kind === 0) {
         amp[idx] = 0;
         st[idx] = Structure.None;
         tr[idx] = transmission;
         ti[idx] = Tissue.None;
         continue;
       }
+      const inHeart = kind === 2;
       const tissue = s.tissue;
       const props = TISSUE_PROPS[tissue]!;
-      let u: number, v: number, w: number;
-      if (inHeart) {
-        u = s.mx * lhx + s.my * lhy + s.mz * lhz;
-        v = s.mx * norH.x + s.my * norH.y + s.mz * norH.z;
-        w = s.mx * dhx + s.my * dhy + s.mz * dhz;
-      } else {
-        u = s.mx * tlx + s.my * tly + s.mz * tlz;
-        v = s.mx * beam.normal.x + s.my * beam.normal.y + s.mz * beam.normal.z;
-        w = s.mx * dx + s.my * dy + s.mz * dz;
+      const latRes = 1 / (1 + 0.06 * Math.abs(r - focus));
+      let echo = localEcho(s, inHeart, latRes);
+      if (nElev > 1 && tissue !== Tissue.Lung) {
+        // slice thickness: the beam's elevational width grows away from the focus; the echo is the weighted mean
+        // over the slice, which blurs obliquely cut structures and softens speckle (in-plane geometry unchanged)
+        const e = 0.2 + 0.04 * Math.abs(r - focus);
+        let acc = echo * 0.5,
+          wsum = 0.5;
+        for (let k = -1; k <= 1; k += 2) {
+          const kk = classifyAt(px + nX * k * e, py + nY * k * e, pz + nZ * k * e, s2);
+          if (kk > 0 && s2.tissue !== Tissue.Lung) {
+            acc += 0.25 * localEcho(s2, kk === 2, latRes);
+            wsum += 0.25;
+          }
+        }
+        echo = acc / wsum;
       }
-      const gl = props.grain * grainLatScale;
-      const ga = props.grain * grainAxScale;
-      const n1 = latticeNoise3(u * gl, v * gl, w * ga, latA);
-      const n2 = latticeNoise3(u * gl * 2.1 + 11.7, v * gl * 2.1 + 3.3, w * ga * 2.1 + 7.9, latB);
-      const spk = (n1 * 0.6 + n2 * 0.4) * 2;
-      const speckle = spk * spk * 0.8 + 0.2;
-      let reflect = props.reflect;
-      if (tissue === Tissue.Blood && harm) reflect *= 0.6;
-      let echo = reflect * speckle;
-      if (props.specular > 0) {
-        const ad = Math.abs(inHeart ? s.nx * dhx + s.ny * dhy + s.nz * dhz : s.nx * dx + s.ny * dy + s.nz * dz);
-        const fall = Math.max(0, 1 - Math.abs(s.sdf) / 0.16);
-        echo += props.specular * ad * ad * ad * fall * (harm ? 1.25 : 1.0) * 1.35;
-      }
-      if (s.extraReflect > 0) echo += s.extraReflect * 1.5 * (0.6 + 0.8 * latticeNoise3(u * 6 + 3.3, v * 6 + 1.1, w * 6 + 9.2, latB));
       if (r < 4.5 && clutter > 0) {
         const cn = latticeNoise3(px * 2.3, py * 2.3, r * 5.0, latC);
         echo += clutter * Math.exp(-r / 1.8) * (0.15 + 0.5 * cn);

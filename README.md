@@ -84,7 +84,7 @@ src/
   workers/        sim.worker.ts
   simulator/
     core/         SimulatorCore (headless), protocol, client
-    anatomy/      heartModel (SDF), thoraxModel, tissue, sdf
+    anatomy/      heartModel (SDF), lvShape (perfil «bala» del VI), thoraxModel, tissue, sdf, measureModel
     cardiac-cycle/ timing, cycleModel (tablas de latido), clock, ecg
     hemodynamics/ groundTruth
     probe/        pose (ProbeControl → ProbePose → BeamFrame)

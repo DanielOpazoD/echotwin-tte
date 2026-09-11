@@ -27,8 +27,14 @@ export class Webgl2Renderer implements RendererBackend {
   private texA1: WebGLTexture | null = null;
   private texB0: WebGLTexture | null = null;
   private texB1: WebGLTexture | null = null;
+  /** Side elevation planes of pass A (slice thickness) and a scratch id target for those passes. */
+  private texS0: WebGLTexture | null = null;
+  private texS1: WebGLTexture | null = null;
+  private texSIds: WebGLTexture | null = null;
   private fbA: WebGLFramebuffer | null = null;
   private fbB: WebGLFramebuffer | null = null;
+  private fbS0: WebGLFramebuffer | null = null;
+  private fbS1: WebGLFramebuffer | null = null;
   private fbW = 0;
   private fbH = 0;
   private packed: PackedScene = allocPacked();
@@ -36,6 +42,7 @@ export class Webgl2Renderer implements RendererBackend {
   private readIds = new Uint8Array(0);
   private lastMs = 0;
   private uTissueA: WebGLUniformLocation | null;
+  private uElevK: WebGLUniformLocation | null;
   private vao: WebGLVertexArrayObject;
 
   constructor(gl: WebGL2RenderingContext) {
@@ -55,6 +62,7 @@ export class Webgl2Renderer implements RendererBackend {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, PARAM_TEXELS, 1, 0, gl.RGBA, gl.FLOAT, null);
     this.noiseTex = gl.createTexture()!;
     this.uTissueA = gl.getUniformLocation(this.progA, 'uTissue');
+    this.uElevK = gl.getUniformLocation(this.progA, 'uElevK');
     gl.useProgram(this.progA);
     const tp = new Float32Array(20 * 4);
     for (let t = 0; t < 20; t++) {
@@ -73,6 +81,8 @@ export class Webgl2Renderer implements RendererBackend {
     gl.uniform1i(gl.getUniformLocation(this.progB, 'uNoise'), 1);
     gl.uniform1i(gl.getUniformLocation(this.progB, 'uPassA'), 2);
     gl.uniform1i(gl.getUniformLocation(this.progB, 'uPassB'), 3);
+    gl.uniform1i(gl.getUniformLocation(this.progB, 'uSideA'), 4);
+    gl.uniform1i(gl.getUniformLocation(this.progB, 'uSideB'), 5);
   }
 
   stats(): Record<string, number | string> {
@@ -90,11 +100,10 @@ export class Webgl2Renderer implements RendererBackend {
 
   private disposeTargets(): void {
     const gl = this.gl;
-    for (const t of [this.texA0, this.texA1, this.texB0, this.texB1]) if (t) gl.deleteTexture(t);
-    if (this.fbA) gl.deleteFramebuffer(this.fbA);
-    if (this.fbB) gl.deleteFramebuffer(this.fbB);
-    this.texA0 = this.texA1 = this.texB0 = this.texB1 = null;
-    this.fbA = this.fbB = null;
+    for (const t of [this.texA0, this.texA1, this.texB0, this.texB1, this.texS0, this.texS1, this.texSIds]) if (t) gl.deleteTexture(t);
+    for (const f of [this.fbA, this.fbB, this.fbS0, this.fbS1]) if (f) gl.deleteFramebuffer(f);
+    this.texA0 = this.texA1 = this.texB0 = this.texB1 = this.texS0 = this.texS1 = this.texSIds = null;
+    this.fbA = this.fbB = this.fbS0 = this.fbS1 = null;
   }
 
   private ensureNoise(seed: number): void {
@@ -151,8 +160,13 @@ export class Webgl2Renderer implements RendererBackend {
       if (status !== gl.FRAMEBUFFER_COMPLETE) throw new Error(`framebuffer incomplete: ${status}`);
       return fb;
     };
+    this.texS0 = mk(gl.RGBA32F, gl.RGBA, gl.FLOAT);
+    this.texS1 = mk(gl.RGBA32F, gl.RGBA, gl.FLOAT);
+    this.texSIds = mk(gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE);
     this.fbA = mkFb(this.texA0, this.texA1);
     this.fbB = mkFb(this.texB0, this.texB1);
+    this.fbS0 = mkFb(this.texS0, this.texSIds);
+    this.fbS1 = mkFb(this.texS1, this.texSIds);
     this.fbW = w;
     this.fbH = h;
     this.readAmp = new Float32Array(w * h * 4);
@@ -176,9 +190,20 @@ export class Webgl2Renderer implements RendererBackend {
     gl.disable(gl.DEPTH_TEST);
     gl.disable(gl.BLEND);
     gl.bindVertexArray(this.vao);
-    // pass A
-    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbA);
+    // pass A: the side elevation planes first (slice thickness, high tier; one classifier call per shader,
+    // because a shader with two inlined copies of the classifier silently fails under SwiftShader), then the
+    // central plane whose ids, attenuation and lung entry are the ones kept
     gl.useProgram(this.progA);
+    if (spec.elevationSamples > 1) {
+      gl.uniform1f(this.uElevK, -1);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbS0);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      gl.uniform1f(this.uElevK, 1);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbS1);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    }
+    gl.uniform1f(this.uElevK, 0);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbA);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     // pass B
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbB);
@@ -187,6 +212,10 @@ export class Webgl2Renderer implements RendererBackend {
     gl.bindTexture(gl.TEXTURE_2D, this.texA0);
     gl.activeTexture(gl.TEXTURE3);
     gl.bindTexture(gl.TEXTURE_2D, this.texA1);
+    gl.activeTexture(gl.TEXTURE4);
+    gl.bindTexture(gl.TEXTURE_2D, this.texS0);
+    gl.activeTexture(gl.TEXTURE5);
+    gl.bindTexture(gl.TEXTURE_2D, this.texS1);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     // read back
     gl.readBuffer(gl.COLOR_ATTACHMENT0);

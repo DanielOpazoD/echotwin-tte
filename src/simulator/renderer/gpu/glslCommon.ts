@@ -62,6 +62,7 @@ export function enumDefinesGlsl(): string {
     S_IVC: Structure.Ivc,
     S_HV: Structure.HepaticVein,
     S_DIAPH: Structure.Diaphragm,
+    S_EPI_FAT: Structure.EpicardialFat,
     S_CHEST: Structure.ChestWall,
     S_STERNUM: Structure.Sternum,
     S_RIB: Structure.Rib,

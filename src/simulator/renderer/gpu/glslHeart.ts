@@ -631,9 +631,13 @@ bool classifyHeart(vec3 p0, out Sample s) {
     vec3 paEnd = vec3(PA_EX, PA_EY, PA_EZ);
     float dRvotEpi = sdCapsule(p, rvotA, rvotB, RVOT_RA + fw);
     float dPaEpi = sdCapsule(p, rvotB, paEnd, PA_R + 0.2);
-    float dEpi = min(min(dLvEpi, dRvEpi), min(min(dLaEpi, dRaEpi), min(dRvotEpi, dPaEpi)));
+    float dEpi = smin(smin(smin(dLvEpi, dRvEpi, 0.8), smin(dLaEpi, dRaEpi, 0.8), 0.8), smin(dRvotEpi, dPaEpi, 0.8), 0.8);
     float eff = EFFUSION;
     vec3 nEpi = n0;
+    if (dEpi < 0.0) {
+      setSample(s, T_FAT, dEpi, nEpi, p, 0.0, S_EPI_FAT);
+      return true;
+    }
     if (dEpi < 0.12) {
       float de = max(dEpi, 0.0);
       setSample(s, T_PERI, -min(de, 0.12 - de), nEpi, p, 0.0, S_PERI);

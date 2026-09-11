@@ -63,6 +63,14 @@ Referencia = con qué se compara (valor analítico, consistencia interna o rango
 | `tests/goldens.test.ts` | Determinismo por semilla (500 muestras iguales) | — | exacto | pasa |
 | | Goldens: rejilla 12×12 de medias para PLAX/PSAX-PM/A4C/A2C a fases 0 y 0,3 (tier low) | `src/tests/goldens/frames.json` (regenerado a las 20:09) | ≤ 6 niveles por celda | pasa |
 
+## Reconstrucción anatómica (2026-09-11)
+| Aspecto | Referencia | Comprobación | Resultado |
+|---|---|---|---|
+| Perfil «bala» del VI, tabla polar y engrosamiento por conservación de masa | `lvShape.ts` (decisiones 38–39) | `lvShape.test.ts` (4), `heartModel.test.ts` (volúmenes MC ±10 %, papilares enraizados, engrosamiento 1,25–2,2) | pasa |
+| Proporciones de los 12 casos tras cada fase | ASE/EACVI (`measureModel.ts`) | `proportions.test.ts` con desviaciones declaradas | pasa (44 medidas × 12 casos) |
+| Espejo GLSL de cada fase | `e2e/gpu-equivalence.spec.ts` | acuerdo de estructura/tejido > 99,5 % en 21 combinaciones (incluye subcostal y tier alto con grosor de corte) | pasa |
+| Planos canónicos (incl. subcostal 4C y VCI) | `audit-views.ts` | error de plano ≤ 7° (ejes cortos oblicuos por ventana), rotación ≤ 7° | pasa |
+
 ## Pruebas E2E (`e2e/core-flow.spec.ts`, Playwright + `vite preview`)
 | Prueba | Qué verifica |
 |---|---|

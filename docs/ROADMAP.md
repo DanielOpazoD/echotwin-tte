@@ -15,7 +15,7 @@ Estado real según el código el 2026-09-10. Los hitos M0–M6 siguen la especif
 ## M1 — Anatomía y ciclo cardíaco
 | Entregable | Estado | Evidencia |
 |---|---|---|
-| Corazón paramétrico SDF con contracción volumétrica, válvulas (faldones sobre anillos en silla + cúspides curvas con zonas de coaptación), anillos, cuerdas, aurículas con tabique, orejuela, venas pulmonares, seno coronario, VD en semiluna con infundíbulo y banda moderadora, papilares, pericardio | hecho | `heartModel.ts`, `heartModel.test.ts`, `proportions.test.ts` |
+| Corazón paramétrico SDF: VI «bala» con pared de espesor variable y engrosamiento por conservación de masa, VD triangular con infundíbulo, banda moderadora y papilar anterior, TSVD/tronco pulmonar con bifurcación, válvula pulmonar de tres cúspides, aurículas aplanadas con fosa oval, cavas y vena hepática, valvas mitrales con línea de coaptación y festones, tricúspide de tres valvas, cuerdas, senos en trébol, grasa epicárdica y pericardio único | hecho | `heartModel.ts`, `lvShape.ts`, `heartModel.test.ts`, `lvShape.test.ts`, `proportions.test.ts`, `docs/ANATOMY_AUDIT.md` |
 | Proporciones de cámaras y vasos medidas contra rangos de referencia por sexo, con desviaciones declaradas por caso | hecho | `measureModel.ts`, `proportions.test.ts`, `npm run measure` (44 medidas, sin exenciones) |
 | Mapas de estructuras por plano y auditoría de planos canónicos | hecho | `tools/offline/render/slice-map.ts`, `audit-views.ts` |
 | Tórax con costillas, esternón, pulmones, hígado, columna, aorta descendente; posición/respiración | hecho | `thoraxModel.ts` (sin prueba propia) |

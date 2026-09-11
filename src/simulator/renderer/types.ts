@@ -46,6 +46,10 @@ export interface PolarFrameSpec {
   samples: number;
   sectorRad: number;
   depthCm: number;
+  /** Elevation samples per point (1 = infinitely thin slice, 3 = weighted mean over the slice thickness). */
+  elevationSamples: number;
+  /** Focus depth (cm): lateral and elevational resolution degrade away from it. */
+  focusCm: number;
 }
 
 export interface PolarFrame {
@@ -108,5 +112,6 @@ export function polarSpecFor(settings: AcquisitionSettings, tier: 'low' | 'mediu
   const tierMul = tier === 'low' ? 0.75 : tier === 'high' ? 1.35 : 1;
   const lines = Math.round((baseLines * tierMul * settings.sectorDeg) / 75);
   const samples = Math.round((tier === 'low' ? 160 : tier === 'high' ? 320 : 224) * Math.sqrt(settings.depthCm / 16));
-  return { lines: Math.max(32, lines), samples: Math.max(96, samples), sectorRad: (settings.sectorDeg * Math.PI) / 180, depthCm: settings.depthCm };
+  // slice-thickness averaging triples the classification work, so it is reserved for the high tier (GPU / offline)
+  return { lines: Math.max(32, lines), samples: Math.max(96, samples), sectorRad: (settings.sectorDeg * Math.PI) / 180, depthCm: settings.depthCm, elevationSamples: tier === 'high' ? 3 : 1, focusCm: settings.focusCm };
 }

@@ -3,6 +3,7 @@
 Este documento existe para que nadie use el simulador más allá de lo que hace. Cada punto está verificado en el código al 2026-09-10.
 
 ## Física no simulada
+- El grosor de corte es un promedio de tres planos de elevación con anchura fija por profundidad (sin perfil real del haz ni foco de elevación configurable) y sólo en el tier alto; en los tiers bajo y medio el corte es infinitamente fino (bordes más nítidos de lo real).
 - Sin propagación de ondas, difracción, interferencia, fase ni RF; el «haz» es un rayo recto por línea y el speckle es ruido de valor en coordenadas materiales, no interferencia de dispersores.
 - Sin lóbulos laterales/de rejilla, sin grosor de corte (el trazador GPU admite un desplazamiento de elevación `ELEV_OFFSET` pero todavía no promedia varios), sin zonas focales múltiples, sin refracción, sin imagen en espejo, sin cola de cometa/ring-down, sin artefactos de movimiento de color.
 - Velocidad del sonido uniforme (1540 m/s) y sólo para el frame rate; atenuación en escala relativa, no en dB/cm/MHz medidos; «armónicos» = multiplicadores fijos.

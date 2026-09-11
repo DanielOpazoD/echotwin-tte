@@ -23,7 +23,7 @@ test.beforeEach(async ({ page }) => {
   await page.waitForFunction(() => Boolean((window as unknown as { __echotwin?: { compareBackends?: unknown } }).__echotwin?.compareBackends));
 });
 
-const MATRIX: [string, string[], number[]][] = [
+const MATRIX: [string, string[], number[], ('low' | 'medium' | 'high')?][] = [
   ['normal-excellent-window', ['plax', 'a4c', 'psax-av'], [0, 0.35]],
   ['aortic-stenosis-severe', ['plax', 'a4c', 'psax-av'], [0, 0.35]],
   // septal flattening (D-shape) and tamponade collapse/swing exercise the newest GLSL paths
@@ -32,14 +32,16 @@ const MATRIX: [string, string[], number[]][] = [
   ['hocm-sam', ['plax'], [0.35]],
   // subcostal window: liver dome, diaphragm, venae cavae and the clipped atria in GLSL
   ['normal-excellent-window', ['subcostal-4c', 'subcostal-ivc'], [0]],
+  // high tier: slice-thickness averaging (three elevation samples) on both backends
+  ['normal-excellent-window', ['plax', 'a4c'], [0.35], 'high'],
 ];
-for (const [caseId, views, phases] of MATRIX) {
+for (const [caseId, views, phases, tier] of MATRIX) {
   for (const viewId of views) {
     for (const phase of phases) {
-      test(`${caseId} ${viewId} @${phase}: GPU frame matches the CPU reference`, async ({ page }) => {
+      test(`${caseId} ${viewId} @${phase}${tier ? ` (${tier})` : ''}: GPU frame matches the CPU reference`, async ({ page }) => {
         const r = (await page.evaluate(
-          ([v, p, c]) => (window as unknown as { __echotwin: { compareBackends: (v: string, p: number, c: string) => Comparison } }).__echotwin.compareBackends(v as string, p as number, c as string),
-          [viewId, phase, caseId] as const,
+          ([v, p, c, t]) => (window as unknown as { __echotwin: { compareBackends: (v: string, p: number, c: string, t?: string) => Comparison } }).__echotwin.compareBackends(v as string, p as number, c as string, t as string | undefined),
+          [viewId, phase, caseId, tier ?? 'medium'] as const,
         )) as Comparison;
         expect(r.error, 'WebGL2 must be available in the test browser').toBeUndefined();
         expect(r.lines).toBeGreaterThan(60);
