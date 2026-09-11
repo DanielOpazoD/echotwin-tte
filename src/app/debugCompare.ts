@@ -20,6 +20,10 @@ export interface BackendComparison {
   transDiff: number;
   cpuMs: number;
   gpuMs: number;
+  /** Most frequent structure disagreements as "cpu>gpu": count (diagnostic). */
+  mismatches?: Record<string, number>;
+  /** A few mismatched samples with their heart-frame coordinates (diagnostic). */
+  examples?: { line: number; sample: number; cpu: number; gpu: number; hx: number; hy: number; hz: number }[];
 }
 
 /**
@@ -64,12 +68,31 @@ export function compareBackends(viewId: string, phase: number, caseId = 'normal-
     ampDiff = 0,
     ampSum = 0,
     trDiff = 0;
+  const mm = new Map<string, number>();
+  const examples: NonNullable<BackendComparison['examples']> = [];
   for (let i = 0; i < n; i++) {
     if (fa.structure[i] === fb.structure[i]) sAgree++;
+    else {
+      const k = `${fa.structure[i]}>${fb.structure[i]}`;
+      mm.set(k, (mm.get(k) ?? 0) + 1);
+      if (examples.length < 40 && i % 3 === 0) {
+        const li = Math.floor(i / spec.samples), si = i % spec.samples;
+        const theta = -spec.sectorRad / 2 + (spec.sectorRad * (li + 0.5)) / spec.lines;
+        const r = (si + 0.5) * (spec.depthCm / spec.samples);
+        const ct = Math.cos(theta), sn = Math.sin(theta);
+        const px = beam.origin.x + (beam.forward.x * ct + beam.lateral.x * sn) * r;
+        const py = beam.origin.y + (beam.forward.y * ct + beam.lateral.y * sn) * r;
+        const pz = beam.origin.z + (beam.forward.z * ct + beam.lateral.z * sn) * r;
+        const hf = heart.frame;
+        const dx = px - hf.origin.x, dy = py - hf.origin.y, dz = pz - hf.origin.z;
+        examples.push({ line: li, sample: si, cpu: fa.structure[i]!, gpu: fb.structure[i]!, hx: +(dx * hf.ex.x + dy * hf.ex.y + dz * hf.ex.z).toFixed(2), hy: +(dx * hf.ey.x + dy * hf.ey.y + dz * hf.ey.z).toFixed(2), hz: +(dx * hf.ez.x + dy * hf.ez.y + dz * hf.ez.z).toFixed(2) });
+      }
+    }
     if (fa.tissue[i] === fb.tissue[i]) tAgree++;
     ampDiff += Math.abs(fa.amplitude[i]! - fb.amplitude[i]!);
     ampSum += fa.amplitude[i]!;
     trDiff += Math.abs(fa.transmission[i]! - fb.transmission[i]!);
   }
-  return { lines: spec.lines, samples: spec.samples, structureAgreement: sAgree / n, tissueAgreement: tAgree / n, ampRelDiff: ampDiff / Math.max(ampSum, 1e-6), transDiff: trDiff / n, cpuMs, gpuMs };
+  const mismatches = Object.fromEntries([...mm.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8));
+  return { lines: spec.lines, samples: spec.samples, structureAgreement: sAgree / n, tissueAgreement: tAgree / n, ampRelDiff: ampDiff / Math.max(ampSum, 1e-6), transDiff: trDiff / n, cpuMs, gpuMs, mismatches, examples };
 }

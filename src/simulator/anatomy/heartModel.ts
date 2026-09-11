@@ -125,9 +125,11 @@ export interface HeartModel {
   wallNoise: Uint8Array;
   /** Surface-weighted mean of (1 − amplitude) over the 17 segments: the outward cavity shift that akinetic segments add. */
   regionalMeanFrac: number;
+  /** Inferior vena cava diameter reduction 0..1 for the current respiratory state (sniff / inspiration). */
+  ivcCollapse: number;
 }
 
-export function createHeartModel(anatomy: AnatomyConfig, physiology: PhysiologyConfig, offset: Vec3 = v3(), seed = 1): HeartModel {
+export function createHeartModel(anatomy: AnatomyConfig, physiology: PhysiologyConfig, offset: Vec3 = v3(), seed = 1, ivcCollapse = 0): HeartModel {
   const lv = lvGeometryFromVolume(physiology.edvMl, anatomy.lv.lengthEdCm, anatomy.lv.sphericity, anatomy.lv);
   return {
     anatomy,
@@ -139,6 +141,7 @@ export function createHeartModel(anatomy: AnatomyConfig, physiology: PhysiologyC
     boundCenter: v3(-1.2, 0.2, lv.lengthCm * 0.5 - 1.5),
     wallNoise: noiseLattice(seed ^ 0x5157),
     regionalMeanFrac: regionalMeanFraction(segmentAmplitudes(anatomy)),
+    ivcCollapse: Math.min(0.95, Math.max(0, ivcCollapse)),
   };
 }
 
@@ -538,7 +541,7 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
     tvAnglePost,
     rvScale: 1 - 0.3 * state.contraction,
     tvZ: m.physiology.tapseCm * long,
-    laBooster: 1 - 0.06 * state.atrialContraction,
+    laBooster: 1 - 0.06 * Math.max(state.atrialContraction, state.atrialHold),
     effusion: m.anatomy.pericardium.effusionCm,
     rvCollapse,
     raCollapse: tamp * raCollapseWindow(state),
@@ -588,6 +591,21 @@ interface Anchors {
   rvPapAz: number;
   rvPapZetaBase: number;
   rvPapZetaTip: number;
+  /** Minimal radial fraction of the atria (end-diastole): a dilated, remodelled atrium empties less. */
+  laReservoir: number;
+  /** Interatrial septal plane (x) and fossa ovalis centre (y, z). */
+  iasX: number;
+  fossaY: number;
+  fossaZ: number;
+  /** Venae cavae and a hepatic vein as capsules (heart frame; directions follow the patient's torso). */
+  svcA: Vec3;
+  svcB: Vec3;
+  svcR: number;
+  ivcA: Vec3;
+  ivcB: Vec3;
+  ivcR: number;
+  hvA: Vec3;
+  hvB: Vec3;
   /** Papillary muscles: azimuth of each, level fractions of the wall root and of the tip, tip radius fraction, radius. */
   papAzAL: number;
   papAzPM: number;
@@ -603,12 +621,18 @@ function anchors(m: HeartModel): Anchors {
   // Atria: ellipsoids scaled from the case volume (maximal volume, end-systole) with the proportions of a
   // normal LA (AP < transverse < long) and RA; the long axis follows the annulus (reservoir stretch).
   const laK = Math.cbrt(a.la.volumeMl / 48);
-  const laRx = 2.4 * laK,
-    laRy = 1.8 * laK,
-    laRz = 2.55 * laK;
+  const laRx = 2.5 * laK,
+    laRy = 2.08 * laK,
+    laRz = 2.65 * laK;
   const raK = Math.cbrt(a.ra.volumeMl / 44);
-  const raR = 2.2 * raK;
+  const raRx = 2.15 * raK,
+    raRy = 1.93 * raK,
+    raRz = 1.86 * raK;
   const rvR = a.rv.basalDiameterCm / 2;
+  // both atria overlap the interatrial plane by 0.35 cm and are clipped flat against it (classifyHeart)
+  const iasX = -2.35;
+  const laCenter = v3(iasX - 0.35 + laRx, -1.3, -laRz * 0.85);
+  const raCenter = v3(iasX + 0.35 - raRx, -0.5 - raRx * 0.1, -raRz * 0.72 + 0.05);
   // LV hypertrophy must not crush the right heart: the RV/RVOT anchors move with the septal thickness
   const dWall = (a.lv.ivsdCm - 0.9) * 1.5;
   const paDir = normalize(v3(0.6, 0.35, -0.72));
@@ -619,7 +643,14 @@ function anchors(m: HeartModel): Anchors {
   const tRight = dirH(v3(-1, 0, 0)),
     tLeft = dirH(v3(1, 0, 0)),
     tPost = dirH(v3(0, 0, -1)),
-    tSup = dirH(v3(0, 1, 0));
+    tSup = dirH(v3(0, 1, 0)),
+    tInf = dirH(v3(0, -1, 0));
+  // venae cavae: SVC from the posterior RA roof upward, IVC from the posterior RA floor downward and back
+  const tvZ0 = 0.7;
+  const svcA = v3(raCenter.x + 0.1, raCenter.y - 0.35 * raRy, raCenter.z - raRz + 0.6);
+  const ivcA = v3(raCenter.x + 0.3, raCenter.y - 0.45 * raRy, tvZ0 + 0.25 - 0.4);
+  const ivcDir = normalize(add(tInf, scale(tPost, 0.25)));
+  const hvA = add(ivcA, scale(ivcDir, 2.4));
   return {
     mvCenter: v3(0.2, -0.9, 0),
     mvR: a.mitral.annulusDiameterCm / 2,
@@ -629,10 +660,10 @@ function anchors(m: HeartModel): Anchors {
     sinusR: a.aorta.sinusCm / 2,
     ascR: a.aorta.ascendingCm / 2,
     // both atria hang from the interatrial plane (x ≈ −2.3) so that enlarging one never swallows the septum
-    laCenter: v3(-2.15 + laRx * 0.94, -1.3, -laRz * 0.85),
+    laCenter,
     laR: v3(laRx, laRy, laRz * 0.88),
-    raCenter: v3(-2.5 - raR * 0.95 * 0.94, -0.5 - raR * 0.1, -raR * 0.6 + 0.05),
-    raR: v3(raR * 0.95, raR * 0.85, raR * 0.82),
+    raCenter,
+    raR: v3(raRx, raRy, raRz),
     // RV modelled as a large ellipsoid carved by the LV epicardium → crescent wrapping the septum;
     // it reaches medially (RV/LV basal ratio ≈ 0.6 in A4C) and its apex sits ~0.85 of the LV length
     // RV as a crescent wrapped around the septum between the interventricular grooves (see rvCrescent);
@@ -664,6 +695,18 @@ function anchors(m: HeartModel): Anchors {
     rvPapAz: 2.35,
     rvPapZetaBase: 0.68,
     rvPapZetaTip: 0.46,
+    laReservoir: 0.84 + 0.1 * Math.min(1, Math.max(0, (a.la.volumeMl - 60) / 60)),
+    iasX,
+    fossaY: -1.6,
+    fossaZ: -2.3,
+    svcA,
+    svcB: add(svcA, scale(tSup, 4.2)),
+    svcR: 0.9,
+    ivcA,
+    ivcB: add(ivcA, scale(ivcDir, 5.0)),
+    ivcR: a.ivc.diameterCm / 2,
+    hvA,
+    hvB: add(hvA, scale(normalize(add(add(scale(tPost, 0.6), scale(tRight, 0.5)), scale(tInf, 0.3))), 2.5)),
     // papillary azimuths (model frame = AHA − 28°): anterolateral at the lateral wall (AHA ≈ 0°, 3 o'clock in
     // PSAX), posteromedial at the inferior / inferoseptal junction (AHA ≈ 250°, 7–8 o'clock)
     papAzAL: -0.5,
@@ -709,6 +752,8 @@ export function heartLandmarks(m: HeartModel): Landmark[] {
     { id: 'pa-bifurcation', label: 'Bifurcación pulmonar', p: A.paEnd, radius: 1.0 },
     { id: 'rv-anterior', label: 'Ventrículo derecho (anterior)', p: v3((a + 0.6) * Math.cos(2.1), (b + 0.6) * Math.sin(2.1) + 0.5, L * 0.35), radius: 0.9 },
     { id: 'rvot', label: 'TSVD', p: v3(-1.7, 4.7, -1.2), radius: 1.0 },
+    // RV inflow near the inferior (diaphragmatic) wall: what the subcostal window cuts first
+    { id: 'rv-inferior', label: 'Ventrículo derecho (inferior)', p: v3(-(a + 1.8) * 0.94, -(a + 1.8) * 0.35 - 0.2, L * 0.3), radius: 1.2 },
     { id: 'tv', label: 'Válvula tricúspide', p: v3(A.tvCenter.x, A.tvCenter.y, A.tvCenter.z + 0.7), radius: 1.2 },
     { id: 'ivs-anteroseptal', label: 'Septum anteroseptal', p: v3(-a * 0.5, b * 0.87, L * 0.45), radius: 0.9 },
     { id: 'ivs-inferoseptal', label: 'Septum inferoseptal', p: v3(-a * 1.0, -b * 0.1, L * 0.45), radius: 0.9 },
@@ -720,7 +765,10 @@ export function heartLandmarks(m: HeartModel): Landmark[] {
     { id: 'pap-al', label: 'Papilar anterolateral', p: papAt(A.papAzAL), radius: 0.7 },
     { id: 'desc-aorta', label: 'Aorta descendente', p: v3(1.5, -6.2, -2.5), radius: 1.0 },
     { id: 'pap-pm', label: 'Papilar posteromedial', p: papAt(A.papAzPM), radius: 0.7 },
-    { id: 'ias', label: 'Septum interauricular', p: v3(-2.5, -1.6, -2.2), radius: 1.0 },
+    { id: 'ias', label: 'Septum interauricular', p: v3(A.iasX, -1.6, -2.2), radius: 1.0 },
+    { id: 'svc', label: 'Vena cava superior', p: add(A.svcA, scale(sub(A.svcB, A.svcA), 0.4)), radius: 0.9 },
+    { id: 'ivc', label: 'Vena cava inferior', p: add(A.ivcA, scale(sub(A.ivcB, A.ivcA), 0.4)), radius: 0.9 },
+    { id: 'hepatic-vein', label: 'Vena hepática', p: add(A.hvA, scale(sub(A.hvB, A.hvA), 0.5)), radius: 0.7 },
   ];
 }
 
@@ -1098,21 +1146,31 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
   {
     const la = A.laCenter,
       lr = A.laR;
-    const zTop = la.z - lr.z; // fixed superior boundary
+    const zTop = la.z - lr.z; // fixed superior boundary (roof, under the pulmonary bifurcation)
     const zBottom = zAnn + 0.25;
     const czL = (zTop + zBottom) / 2,
       rzL = (zBottom - zTop) / 2;
-    // reservoir/conduit/booster: radial size follows LV contraction (max at end-systole) and the atrial kick
-    const bo = hp.laBooster * (0.84 + 0.16 * hp.state.contraction);
-    const d = sdEllipsoid(x, y, z, la.x, la.y, czL, lr.x * bo, lr.y * bo, rzL);
+    // reservoir / conduit / booster: radial size follows LV contraction (maximal at end-systole); the atrial
+    // kick and its hold until ejection shrink it further (laBooster)
+    const bo = hp.laBooster * (A.laReservoir + (1 - A.laReservoir) * hp.state.contraction);
+    const xIas = A.iasX;
+    // interatrial septum: muscular septum ~0.55 cm with a thicker limbus around the thin fossa ovalis membrane
+    const fo = Math.hypot((y - A.fossaY) / 0.6, (z - A.fossaZ) / 0.7);
+    const tIas = fo < 1 ? 0.12 : fo < 1.3 ? 0.7 : 0.55;
+    // LA: ellipsoid flattened against the septum (medial clip), against the oesophagus / descending aorta
+    // (posterior clip) and under the pulmonary bifurcation (roof clip)
+    const dEllLa = sdEllipsoid(x, y, z, la.x, la.y, czL, lr.x * bo, lr.y * bo, rzL);
+    const dFreeLa = smax(smax(dEllLa, la.y - 0.72 * lr.y * bo - y, 0.6), zTop + 0.15 * rzL - z, 0.5);
+    const d = smax(dFreeLa, xIas + tIas / 2 - x, 0.3);
     if (d < 0) {
       setSample(out, Tissue.Blood, d, (x - la.x) / lr.x, (y - la.y) / lr.y, (z - czL) / rzL, x, y, z, 0, Structure.LaCavity);
       return true;
     }
-    if (d < 0.25) {
-      setSample(out, Tissue.Myocardium, -Math.min(d, 0.25 - d), (x - la.x) / lr.x, (y - la.y) / lr.y, (z - czL) / rzL, x, y, z, 0, Structure.LaWall);
+    if (dFreeLa < 0.25 && x > xIas + tIas / 2) {
+      setSample(out, Tissue.Myocardium, -Math.min(dFreeLa, 0.25 - dFreeLa), (x - la.x) / lr.x, (y - la.y) / lr.y, (z - czL) / rzL, x, y, z, 0, Structure.LaWall);
       return true;
     }
+    // RA: rounder, flattened against the septum and posteriorly
     const ra = A.raCenter,
       rr = A.raR;
     const zTopR = ra.z - rr.z;
@@ -1120,25 +1178,24 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
     const czR = (zTopR + zBotR) / 2,
       rzR = (zBotR - zTopR) / 2;
     const raC = 1 - 0.35 * hp.raCollapse; // tamponade: late-diastolic RA collapse
-    const dR = sdEllipsoid(x, y, z, ra.x, ra.y, czR, rr.x * bo * raC, rr.y * bo * raC, rzR);
+    const dEllRa = sdEllipsoid(x, y, z, ra.x, ra.y, czR, rr.x * bo * raC, rr.y * bo * raC, rzR);
+    const dFreeRa = smax(dEllRa, ra.y - 0.8 * rr.y * bo - y, 0.6);
+    const dR = smax(dFreeRa, x - (xIas - tIas / 2), 0.3);
     if (dR < 0) {
       setSample(out, Tissue.Blood, dR, (x - ra.x) / rr.x, (y - ra.y) / rr.y, (z - czR) / rzR, x, y, z, 0, Structure.RaCavity);
       return true;
     }
-    if (dR < 0.22) {
-      setSample(out, Tissue.Myocardium, -Math.min(dR, 0.22 - dR), (x - ra.x) / rr.x, (y - ra.y) / rr.y, (z - czR) / rzR, x, y, z, 0, Structure.RaWall);
+    if (dFreeRa < 0.22 && x < xIas - tIas / 2) {
+      setSample(out, Tissue.Myocardium, -Math.min(dFreeRa, 0.22 - dFreeRa), (x - ra.x) / rr.x, (y - ra.y) / rr.y, (z - czR) / rzR, x, y, z, 0, Structure.RaWall);
       return true;
     }
-    // interatrial septum: tissue bridging the two atria (≈0.4–0.7 cm), continued as a thin plane between
-    // the expanded atria so that it is present behind the aortic root (PSAX-AV) as well as in A4C
-    if (d < 0.75 && dR < 0.75 && z < zAnn + 0.4) {
-      setSample(out, Tissue.Myocardium, -Math.min(0.75 - d, 0.75 - dR), 1, 0, 0, x, y, z, 0, Structure.InteratrialSeptum);
-      return true;
-    }
-    const xIas = (la.x - lr.x + ra.x + rr.x) / 2;
-    if (Math.abs(x - xIas) < 0.3 && z < zAnn + 0.4 && sdEllipsoid(x, y, z, la.x, la.y, czL, lr.x + 1.3, lr.y + 0.9, rzL + 0.6) < 0 && sdEllipsoid(x, y, z, ra.x, ra.y, czR, rr.x + 1.3, rr.y + 0.9, rzR + 0.6) < 0) {
-      setSample(out, Tissue.Myocardium, -(0.3 - Math.abs(x - xIas)), 1, 0, 0, x, y, z, 0, Structure.InteratrialSeptum);
-      return true;
+    // interatrial septum: slab between the clipped atria wherever either atrium reaches the septal plane
+    // (behind the aortic root in PSAX-AV as well as in A4C and subcostal views)
+    if (Math.abs(x - xIas) <= tIas / 2 && z < zAnn + 0.4) {
+      if (sdEllipsoid(xIas, y, z, la.x, la.y, czL, lr.x * bo, lr.y * bo, rzL) < 0.45 || sdEllipsoid(xIas, y, z, ra.x, ra.y, czR, rr.x * bo * raC, rr.y * bo * raC, rzR) < 0.45) {
+        setSample(out, Tissue.Myocardium, -(tIas / 2 - Math.abs(x - xIas)), 1, 0, 0, x, y, z, 0, Structure.InteratrialSeptum);
+        return true;
+      }
     }
     // left atrial appendage: lobulated pouch on the anterolateral LA, pointing anteriorly (A2C/PSAX-AV)
     {
@@ -1159,18 +1216,51 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
         return true;
       }
     }
-    // pulmonary veins: four ostia on the posterior LA (two superior, two inferior)
+    // pulmonary veins: four ostia on the flat posterior wall (two superior, two inferior), the right pair behind the septum
     for (let i = 0; i < 4; i++) {
-      const px = la.x + (i % 2 === 0 ? -1 : 1) * lr.x * 0.6;
+      const sx = i % 2 === 0 ? -1 : 1;
+      const px = la.x + sx * lr.x * 0.6;
       const pz = czL + (i < 2 ? -0.7 : 0.6);
-      const py0 = la.y - lr.y * 0.8;
-      const dPv = sdCapsule(x, y, z, px, py0, pz, px + (i % 2 === 0 ? -0.9 : 0.9), py0 - 1.6, pz + (i < 2 ? -0.5 : 0.4), 0.42);
+      const py0 = la.y - lr.y * 0.7;
+      const dPv = sdCapsule(x, y, z, px, py0, pz, px + sx * 1.2, py0 - 2.2, pz + (i < 2 ? -0.6 : 0.5), 0.45);
       if (dPv < 0) {
         setSample(out, Tissue.Blood, dPv, 0, -1, 0, x, y, z, 0, Structure.PulmonaryVein);
         return true;
       }
       if (dPv < 0.12) {
         setSample(out, Tissue.VesselWall, -Math.min(dPv, 0.12 - dPv), 0, -1, 0, x, y, z, 0, Structure.PulmonaryVein);
+        return true;
+      }
+    }
+    // venae cavae: the superior enters the RA roof from above (torso superior), the inferior its floor from
+    // below and behind through the liver, joined by a hepatic vein (subcostal views); the IVC narrows with the sniff
+    {
+      const dSvc = sdCapsule(x, y, z, A.svcA.x, A.svcA.y, A.svcA.z, A.svcB.x, A.svcB.y, A.svcB.z, A.svcR);
+      if (dSvc < 0) {
+        setSample(out, Tissue.Blood, dSvc, 0, 0, -1, x, y, z, 0, Structure.Svc);
+        return true;
+      }
+      if (dSvc < 0.12) {
+        setSample(out, Tissue.VesselWall, -Math.min(dSvc, 0.12 - dSvc), 0, 0, -1, x, y, z, 0, Structure.Svc);
+        return true;
+      }
+      const rI = A.ivcR * (1 - m.ivcCollapse);
+      const dIvc = sdCapsule(x, y, z, A.ivcA.x, A.ivcA.y, A.ivcA.z, A.ivcB.x, A.ivcB.y, A.ivcB.z, rI);
+      if (dIvc < 0) {
+        setSample(out, Tissue.Blood, dIvc, 0, 0, 1, x, y, z, 0, Structure.Ivc);
+        return true;
+      }
+      if (dIvc < 0.12) {
+        setSample(out, Tissue.VesselWall, -Math.min(dIvc, 0.12 - dIvc), 0, 0, 1, x, y, z, 0, Structure.Ivc);
+        return true;
+      }
+      const dHv = sdCapsule(x, y, z, A.hvA.x, A.hvA.y, A.hvA.z, A.hvB.x, A.hvB.y, A.hvB.z, 0.4);
+      if (dHv < 0) {
+        setSample(out, Tissue.Blood, dHv, 0, 0, 1, x, y, z, 0, Structure.HepaticVein);
+        return true;
+      }
+      if (dHv < 0.08) {
+        setSample(out, Tissue.VesselWall, -Math.min(dHv, 0.08 - dHv), 0, 0, 1, x, y, z, 0, Structure.HepaticVein);
         return true;
       }
     }

@@ -62,6 +62,10 @@ const colours: Partial<Record<Structure, [number, number, number]>> = {
   [Structure.CoronarySinus]: [60, 30, 80],
   [Structure.PulmonaryArtery]: [50, 50, 120],
   [Structure.RvPapillary]: [255, 170, 100],
+  [Structure.Svc]: [35, 45, 90],
+  [Structure.Ivc]: [35, 60, 100],
+  [Structure.HepaticVein]: [60, 80, 120],
+  [Structure.Diaphragm]: [240, 230, 200],
   [Structure.LaWall]: [200, 90, 140],
   [Structure.RaWall]: [120, 90, 160],
 };

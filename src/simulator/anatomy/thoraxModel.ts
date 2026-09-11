@@ -27,16 +27,27 @@ export interface ThoraxModel {
   ribSlope: number;
   lungShiftCm: number; // extra medial shift of the left lung border (inspiration, hyperinflation)
   heartOffset: Vec3; // torso-frame displacement of the heart due to position/respiration
+  /** How fast the abdominal wall recedes below the costal margin (cm per cm; relaxed abdomen recedes less). */
+  abdomenSlope: number;
+  /** Extra height of the liver dome / diaphragm (cm): the heart rests on it in the subcostal position. */
+  diaphragmRiseCm: number;
+  /** IVC diameter reduction 0..1 for the respiratory state (the sniff collapses a normal IVC). */
+  ivcCollapse: number;
 }
 
-export function createThoraxModel(habitus: BodyHabitusConfig, window: AcousticWindowConfig, patient: PatientState): ThoraxModel {
+export function createThoraxModel(habitus: BodyHabitusConfig, window: AcousticWindowConfig, patient: PatientState, ivcCollapsePct = 0): ThoraxModel {
   const ribRadius = Math.max(0.35, (habitus.ribSpacingCm - habitus.intercostalWidthCm) / 2);
   let lungShift = window.lungOverlapCm;
   const heartOffset = v3(0, 0, 0);
+  let abdomenSlope = 0.18;
+  let diaphragmRise = 0;
+  let ivcCollapse = 0;
   if (patient.respiration === 'inspiration') {
     lungShift += 1.4;
     heartOffset.y -= 0.8;
     heartOffset.z -= 0.4;
+    diaphragmRise -= 0.6; // the diaphragm descends
+    ivcCollapse = ivcCollapsePct / 100;
   } else if (patient.respiration === 'breath-hold') {
     lungShift += 0.4;
   }
@@ -46,6 +57,12 @@ export function createThoraxModel(habitus: BodyHabitusConfig, window: AcousticWi
   } else if (patient.position === 'left-lateral') {
     heartOffset.x += 0.6;
     heartOffset.z += 0.4;
+  } else if (patient.position === 'subcostal-supine') {
+    // supine with the knees bent: the abdomen relaxes and the liver dome rises against the heart
+    heartOffset.z -= 0.6;
+    lungShift += 0.5;
+    abdomenSlope = 0.08;
+    diaphragmRise += 0.8;
   }
   heartOffset.y += window.cardiacRotationDeg * 0.02;
   // a thicker chest wall pushes the heart deeper (the anatomy is defined for a 2 cm wall)
@@ -64,7 +81,17 @@ export function createThoraxModel(habitus: BodyHabitusConfig, window: AcousticWi
     ribSlope: 0.15,
     lungShiftCm: lungShift,
     heartOffset,
+    abdomenSlope,
+    diaphragmRiseCm: diaphragmRise,
+    ivcCollapse,
   };
+}
+
+/** Upper surface (y) of the liver dome at (x, z): a paraboloid peaking under the right heart. */
+export function liverDomeY(t: ThoraxModel, x: number, z: number): number {
+  const ex = (x + 2) / 7,
+    ez = (z + 7) / 8;
+  return -8.5 + 3.5 * Math.max(0, 1 - ex * ex - ez * ez) + t.diaphragmRiseCm;
 }
 
 /** Anterior skin surface height z_s(x, y). */
@@ -73,7 +100,7 @@ export function skinZ(t: ThoraxModel, x: number, y: number): number {
   const inner = 1 - Math.pow(ax, t.n);
   let z = -t.bDepth * (1 - Math.pow(inner, 1 / t.n));
   if (y > 8) z -= 0.12 * (y - 8) * (y - 8); // toward the neck / suprasternal notch
-  if (y < -8) z -= 0.18 * (-8 - y); // below the costal margin the abdomen recedes
+  if (y < -8) z -= t.abdomenSlope * (-8 - y); // below the costal margin the abdomen recedes
   return z;
 }
 
@@ -200,12 +227,19 @@ export function classifyThorax(t: ThoraxModel, x: number, y: number, z: number, 
     out.sdf = -Math.min(depth - 0.2, T - depth);
     return true;
   }
-  // Below the diaphragm: liver (subcostal window)
-  if (y < -8.5 && z > -14) {
-    out.tissue = Tissue.Liver;
-    out.structure = Structure.Liver;
-    out.sdf = -1;
-    return true;
+  // Below the diaphragm: the liver dome (highest to the right of the midline, under the right heart) with the
+  // diaphragm as a bright fibrous layer on top; the subcostal window images the heart through it
+  {
+    const yDome = liverDomeY(t, x, z);
+    if (y < yDome && z > -14) {
+      const fibrous = y > yDome - 0.25;
+      out.tissue = fibrous ? Tissue.Fibrous : Tissue.Liver;
+      out.structure = fibrous ? Structure.Diaphragm : Structure.Liver;
+      out.sdf = fibrous ? -0.1 : -1;
+      out.ny = 1;
+      out.nz = 0;
+      return true;
+    }
   }
   // Spine
   {

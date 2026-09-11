@@ -30,6 +30,8 @@ const MATRIX: [string, string[], number[]][] = [
   ['pulmonary-hypertension-rv', ['psax-pm', 'a4c'], [0.35]],
   ['pericardial-effusion-tamponade', ['plax', 'a4c'], [0.5]],
   ['hocm-sam', ['plax'], [0.35]],
+  // subcostal window: liver dome, diaphragm, venae cavae and the clipped atria in GLSL
+  ['normal-excellent-window', ['subcostal-4c', 'subcostal-ivc'], [0]],
 ];
 for (const [caseId, views, phases] of MATRIX) {
   for (const viewId of views) {

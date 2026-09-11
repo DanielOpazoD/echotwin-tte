@@ -21,7 +21,7 @@ Estado real según el código el 2026-09-10. Los hitos M0–M6 siguen la especif
 | Tórax con costillas, esternón, pulmones, hígado, columna, aorta descendente; posición/respiración | hecho | `thoraxModel.ts` (sin prueba propia) |
 | Tablas de latido (V, Q_ao, Q_mv, longitudinal), reloj RR sinusal/FA, ECG | hecho | `cycle.test.ts` |
 | Verdad de terreno estructurada | hecho | `groundTruth.test.ts` |
-| Posición `subcostal-supine`, VCI, venas hepáticas, cavas | pendiente | la posición no altera nada; `Structure.Ivc` sin uso |
+| Posición `subcostal-supine`, VCI, venas hepáticas, cavas, cúpula hepática | hecho | `thoraxModel.ts`, `heartModel.ts` (decisión 44); sin Doppler venoso |
 
 ## M2 — Render 2D y consola
 | Entregable | Estado | Evidencia |
@@ -41,7 +41,8 @@ Estado real según el código el 2026-09-10. Los hitos M0–M6 siguen la especif
 | 10 vistas paraesternales/apicales derivadas de la anatomía (incluye PSAX apical) | hecho | `viewTargets.ts` |
 | Score por componentes con gating y hints deterministas | hecho | `viewQuality.test.ts` |
 | Modo guiado con vista objetivo y vistas predeterminadas (movimiento continuo de la sonda) | hecho | `PresetViews.tsx`, `interpolate.test.ts`, prueba E2E |
-| Vistas subcostal y supraesternal | pendiente | ventana detectada sin `ViewTarget` |
+| Vistas subcostal (4C y VCI) | hecho | `viewTargets.ts`, `audit-views.ts` (decisión 44) |
+| Vista supraesternal | pendiente | ventana detectada sin `ViewTarget`; no hay arco aórtico |
 | Tutorial de 8 pasos (saltable, reiniciable) | hecho | `src/ui/Tutorial.tsx`, prueba E2E |
 
 ## M4 — Doppler

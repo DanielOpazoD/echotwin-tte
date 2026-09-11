@@ -59,7 +59,7 @@ export interface MeasurementContext {
 
 const LEVEL_FACTOR: Record<FindingLevel, number> = { ok: 1, warn: 0.75, invalid: 0.3 };
 
-const BLOOD_STRUCTURES = new Set<number>([Structure.LvCavity, Structure.RvCavity, Structure.LaCavity, Structure.RaCavity, Structure.Lvot, Structure.AorticRoot, Structure.Rvot, Structure.LaAppendage, Structure.PulmonaryVein, Structure.CoronarySinus, Structure.DescendingAorta, Structure.PulmonaryArtery]);
+const BLOOD_STRUCTURES = new Set<number>([Structure.LvCavity, Structure.RvCavity, Structure.LaCavity, Structure.RaCavity, Structure.Lvot, Structure.AorticRoot, Structure.Rvot, Structure.LaAppendage, Structure.PulmonaryVein, Structure.CoronarySinus, Structure.DescendingAorta, Structure.PulmonaryArtery, Structure.Svc, Structure.Ivc, Structure.HepaticVein]);
 
 function phaseWindow(req: PhaseRequirement, m: PhaseMarks): { lo: number; hi: number; label: string } | null {
   switch (req) {
@@ -196,6 +196,10 @@ export function structureName(id: number): string {
     [Structure.RvWall]: 'pared libre del VD',
     [Structure.Rvot]: 'TSVD',
     [Structure.PulmonaryArtery]: 'arteria pulmonar',
+    [Structure.Svc]: 'vena cava superior',
+    [Structure.Ivc]: 'vena cava inferior',
+    [Structure.HepaticVein]: 'vena hepática',
+    [Structure.Diaphragm]: 'diafragma',
     [Structure.RvPapillary]: 'músculo papilar del VD',
     [Structure.LaCavity]: 'aurícula izquierda',
     [Structure.LaWall]: 'pared de la AI',

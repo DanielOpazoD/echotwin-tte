@@ -48,5 +48,5 @@ export const aorticStenosisModerateCase: CaseDefinitionInput = {
     'Hipertrofia concéntrica leve con función sistólica conservada.',
     'Alteración de la relajación.',
   ],
-  expectedDeviations: ['ivsd', 'lvpwd'],
+  expectedDeviations: ['ivsd', 'lvpwd', 'lavi'], // mildly enlarged LA with impaired relaxation
 };

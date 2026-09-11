@@ -116,6 +116,9 @@ export const enum Structure {
   CoronarySinus,
   PulmonaryArtery,
   RvPapillary,
+  Svc,
+  HepaticVein,
+  Diaphragm,
 }
 
 export function makeSample(): TissueSample {

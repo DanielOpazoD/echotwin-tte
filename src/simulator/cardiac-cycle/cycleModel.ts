@@ -206,6 +206,8 @@ export interface CycleState {
   longitudinal: number;
   /** Atrial contraction 0..1 (0 in AF). */
   atrialContraction: number;
+  /** 1 from the end of the A wave until ejection starts (the atria stay at their minimal volume), 0 in AF. */
+  atrialHold: number;
   mitralFlowMlps: number;
   aorticFlowMlps: number;
   edvMl: number;
@@ -227,6 +229,7 @@ export function cycleStateAt(tables: BeatTables, phase: number): CycleState {
   const tm = tables.timings;
   let atrial = 0;
   if (tm.hasAWave && t > tm.aStartS && t < tm.aEndS) atrial = Math.sin((Math.PI * (t - tm.aStartS)) / (tm.aEndS - tm.aStartS));
+  const atrialHold = tm.hasAWave && (t >= tm.aEndS || t < tm.ejectionStartS) ? 1 : 0;
   const mvOpen = Math.min(1, Math.pow(qmv / qmvMax, 0.6));
   const avOpen = Math.min(1, Math.pow(qao / qaoMax, 0.5));
   return {
@@ -241,6 +244,7 @@ export function cycleStateAt(tables: BeatTables, phase: number): CycleState {
     pvOpen: Math.min(1, Math.pow(sampleTable(tables.aorticFlowMlps, p + 0.01) / qaoMax, 0.5)),
     longitudinal: sampleTable(tables.longitudinal, p),
     atrialContraction: atrial,
+    atrialHold,
     mitralFlowMlps: qmv,
     aorticFlowMlps: qao,
     edvMl: tables.edvMl,

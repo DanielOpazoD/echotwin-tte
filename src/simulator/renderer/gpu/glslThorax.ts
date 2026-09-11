@@ -5,8 +5,12 @@ float skinZ(float x, float y) {
   float inner = 1.0 - pow(ax, TH_N);
   float z = -TH_BDEPTH * (1.0 - pow(inner, 1.0 / TH_N));
   if (y > 8.0) z -= 0.12 * (y - 8.0) * (y - 8.0);
-  if (y < -8.0) z -= 0.18 * (-8.0 - y);
+  if (y < -8.0) z -= TH_ABD * (-8.0 - y);
   return z;
+}
+float liverDomeY(float x, float z) {
+  float ex = (x + 2.0) / 7.0, ez = (z + 7.0) / 8.0;
+  return -8.5 + 3.5 * max(0.0, 1.0 - ex * ex - ez * ez) + TH_DIAPH;
 }
 float leftLungBorderX(float y) {
   float base = 2.4 + max(0.0, 3.5 - y) * 0.75;
@@ -59,7 +63,15 @@ bool classifyThorax(vec3 p, out Sample s) {
     }
   }
   if (depth < T) { s.tissue = depth < T * 0.5 ? T_FAT : T_MUSCLE; s.structure = S_CHEST; s.sdf = -min(depth - 0.2, T - depth); return true; }
-  if (y < -8.5 && z > -14.0) { s.tissue = T_LIVER; s.structure = S_LIVER; s.sdf = -1.0; return true; }
+  {
+    float yDome = liverDomeY(x, z);
+    if (y < yDome && z > -14.0) {
+      bool fibrous = y > yDome - 0.25;
+      s.tissue = fibrous ? T_FIBROUS : T_LIVER; s.structure = fibrous ? S_DIAPH : S_LIVER; s.sdf = fibrous ? -0.1 : -1.0;
+      s.n = vec3(0.0, 1.0, 0.0);
+      return true;
+    }
+  }
   {
     float dx = x, dz = z + 17.3;
     float d = sqrt(dx * dx + dz * dz) - 2.2;

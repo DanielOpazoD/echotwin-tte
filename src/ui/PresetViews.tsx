@@ -19,6 +19,8 @@ const SECONDARY: { id: string; label: string; title: string }[] = [
   { id: 'a2c', label: 'A2C', title: 'Apical dos cámaras' },
   { id: 'a3c', label: 'A3C', title: 'Apical tres cámaras' },
   { id: 'rv-focused', label: 'VD', title: 'Apical enfocada en VD' },
+  { id: 'subcostal-4c', label: 'SC 4C', title: 'Subcostal cuatro cámaras' },
+  { id: 'subcostal-ivc', label: 'SC VCI', title: 'Subcostal vena cava inferior' },
 ];
 
 /** Module-level component: a stable element type so re-renders never remount the buttons. */

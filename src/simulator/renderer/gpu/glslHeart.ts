@@ -440,13 +440,18 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float zBottom = zAnn + 0.25;
     czL = (zTop + zBottom) / 2.0;
     rzL = (zBottom - zTop) / 2.0;
-    float d = sdEllipsoid(p, vec3(la.x, la.y, czL), vec3(lr.x * bo, lr.y * bo, rzL));
+    float xIas = IAS_X;
+    float fo = length(vec2((y - FOSSA_Y) / 0.6, (z - FOSSA_Z) / 0.7));
+    float tIas = fo < 1.0 ? 0.12 : (fo < 1.3 ? 0.7 : 0.55);
+    float dEllLa = sdEllipsoid(p, vec3(la.x, la.y, czL), vec3(lr.x * bo, lr.y * bo, rzL));
+    float dFreeLa = smax(smax(dEllLa, la.y - 0.72 * lr.y * bo - y, 0.6), zTop + 0.15 * rzL - z, 0.5);
+    float d = smax(dFreeLa, xIas + tIas / 2.0 - x, 0.3);
     if (d < 0.0) {
       setSample(s, T_BLOOD, d, vec3((x - la.x) / lr.x, (y - la.y) / lr.y, (z - czL) / rzL), p, 0.0, S_LA_CAV);
       return true;
     }
-    if (d < 0.25) {
-      setSample(s, T_MYO, -min(d, 0.25 - d), vec3((x - la.x) / lr.x, (y - la.y) / lr.y, (z - czL) / rzL), p, 0.0, S_LA_WALL);
+    if (dFreeLa < 0.25 && x > xIas + tIas / 2.0) {
+      setSample(s, T_MYO, -min(dFreeLa, 0.25 - dFreeLa), vec3((x - la.x) / lr.x, (y - la.y) / lr.y, (z - czL) / rzL), p, 0.0, S_LA_WALL);
       return true;
     }
     float zTopR = ra.z - rar.z;
@@ -454,23 +459,22 @@ bool classifyHeart(vec3 p0, out Sample s) {
     czR = (zTopR + zBotR) / 2.0;
     rzR = (zBotR - zTopR) / 2.0;
     float raC = 1.0 - 0.35 * RA_COLLAPSE;
-    float dR = sdEllipsoid(p, vec3(ra.x, ra.y, czR), vec3(rar.x * bo * raC, rar.y * bo * raC, rzR));
+    float dEllRa = sdEllipsoid(p, vec3(ra.x, ra.y, czR), vec3(rar.x * bo * raC, rar.y * bo * raC, rzR));
+    float dFreeRa = smax(dEllRa, ra.y - 0.8 * rar.y * bo - y, 0.6);
+    float dR = smax(dFreeRa, x - (xIas - tIas / 2.0), 0.3);
     if (dR < 0.0) {
       setSample(s, T_BLOOD, dR, vec3((x - ra.x) / rar.x, (y - ra.y) / rar.y, (z - czR) / rzR), p, 0.0, S_RA_CAV);
       return true;
     }
-    if (dR < 0.22) {
-      setSample(s, T_MYO, -min(dR, 0.22 - dR), vec3((x - ra.x) / rar.x, (y - ra.y) / rar.y, (z - czR) / rzR), p, 0.0, S_RA_WALL);
+    if (dFreeRa < 0.22 && x < xIas - tIas / 2.0) {
+      setSample(s, T_MYO, -min(dFreeRa, 0.22 - dFreeRa), vec3((x - ra.x) / rar.x, (y - ra.y) / rar.y, (z - czR) / rzR), p, 0.0, S_RA_WALL);
       return true;
     }
-    if (d < 0.75 && dR < 0.75 && z < zAnn + 0.4) {
-      setSample(s, T_MYO, -min(0.75 - d, 0.75 - dR), vec3(1.0, 0.0, 0.0), p, 0.0, S_IAS);
-      return true;
-    }
-    float xIas = (la.x - lr.x + ra.x + rar.x) / 2.0;
-    if (abs(x - xIas) < 0.3 && z < zAnn + 0.4 && sdEllipsoid(p, vec3(la.x, la.y, czL), vec3(lr.x + 1.3, lr.y + 0.9, rzL + 0.6)) < 0.0 && sdEllipsoid(p, vec3(ra.x, ra.y, czR), vec3(rar.x + 1.3, rar.y + 0.9, rzR + 0.6)) < 0.0) {
-      setSample(s, T_MYO, -(0.3 - abs(x - xIas)), vec3(1.0, 0.0, 0.0), p, 0.0, S_IAS);
-      return true;
+    if (abs(x - xIas) <= tIas / 2.0 && z < zAnn + 0.4) {
+      if (sdEllipsoid(vec3(xIas, y, z), vec3(la.x, la.y, czL), vec3(lr.x * bo, lr.y * bo, rzL)) < 0.45 || sdEllipsoid(vec3(xIas, y, z), vec3(ra.x, ra.y, czR), vec3(rar.x * bo * raC, rar.y * bo * raC, rzR)) < 0.45) {
+        setSample(s, T_MYO, -(tIas / 2.0 - abs(x - xIas)), vec3(1.0, 0.0, 0.0), p, 0.0, S_IAS);
+        return true;
+      }
     }
     // appendage
     {
@@ -492,8 +496,8 @@ bool classifyHeart(vec3 p0, out Sample s) {
       float sx = (i == 0 || i == 2) ? -1.0 : 1.0;
       float px = la.x + sx * lr.x * 0.6;
       float pz = czL + (i < 2 ? -0.7 : 0.6);
-      float py0 = la.y - lr.y * 0.8;
-      float dPv = sdCapsule(p, vec3(px, py0, pz), vec3(px + sx * 0.9, py0 - 1.6, pz + (i < 2 ? -0.5 : 0.4)), 0.42);
+      float py0 = la.y - lr.y * 0.7;
+      float dPv = sdCapsule(p, vec3(px, py0, pz), vec3(px + sx * 1.2, py0 - 2.2, pz + (i < 2 ? -0.6 : 0.5)), 0.45);
       if (dPv < 0.0) {
         setSample(s, T_BLOOD, dPv, vec3(0.0, -1.0, 0.0), p, 0.0, S_PVEIN);
         return true;
@@ -502,6 +506,18 @@ bool classifyHeart(vec3 p0, out Sample s) {
         setSample(s, T_VESSEL, -min(dPv, 0.12 - dPv), vec3(0.0, -1.0, 0.0), p, 0.0, S_PVEIN);
         return true;
       }
+    }
+    // venae cavae and hepatic vein
+    {
+      float dSvc = sdCapsule(p, vec3(SVC_AX, SVC_AY, SVC_AZ), vec3(SVC_BX, SVC_BY, SVC_BZ), SVC_R);
+      if (dSvc < 0.0) { setSample(s, T_BLOOD, dSvc, vec3(0.0, 0.0, -1.0), p, 0.0, S_SVC); return true; }
+      if (dSvc < 0.12) { setSample(s, T_VESSEL, -min(dSvc, 0.12 - dSvc), vec3(0.0, 0.0, -1.0), p, 0.0, S_SVC); return true; }
+      float dIvc = sdCapsule(p, vec3(IVC_AX, IVC_AY, IVC_AZ), vec3(IVC_BX, IVC_BY, IVC_BZ), IVC_R);
+      if (dIvc < 0.0) { setSample(s, T_BLOOD, dIvc, vec3(0.0, 0.0, 1.0), p, 0.0, S_IVC); return true; }
+      if (dIvc < 0.12) { setSample(s, T_VESSEL, -min(dIvc, 0.12 - dIvc), vec3(0.0, 0.0, 1.0), p, 0.0, S_IVC); return true; }
+      float dHv = sdCapsule(p, vec3(HV_AX, HV_AY, HV_AZ), vec3(HV_BX, HV_BY, HV_BZ), 0.4);
+      if (dHv < 0.0) { setSample(s, T_BLOOD, dHv, vec3(0.0, 0.0, 1.0), p, 0.0, S_HV); return true; }
+      if (dHv < 0.08) { setSample(s, T_VESSEL, -min(dHv, 0.08 - dHv), vec3(0.0, 0.0, 1.0), p, 0.0, S_HV); return true; }
     }
     // coronary sinus
     {

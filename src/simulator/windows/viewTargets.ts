@@ -296,6 +296,67 @@ export function buildViewTargets(): ViewTarget[] {
       tolerance: { planeAngleDeg: 15, inPlaneRotationDeg: 20, offsetCm: 1.5 },
     },
     {
+      id: 'subcostal-4c',
+      name: 'Subcostal cuatro cámaras',
+      window: 'subcostal',
+      // the plane through the subxiphoid window, the crux and the midpoint between the atria: from this window
+      // the atrial centres cannot both lie in one plane with the probe, so the view cuts each atrium off-centre
+      // and the LV obliquely (foreshortened), as real subcostal four-chamber images do
+      // plane through the subxiphoid window, the crux and the midpoint between the RV and LA centres: from this
+      // window the four chamber centres cannot share a plane with the probe, so the view cuts the RV inflow and
+      // the LA off-centre and the LV obliquely (foreshortened), as real subcostal four-chamber images do
+      planeRight: R(v3(0.66, 0.36, 0.66)), // screen right ⊥ beam, apex to the upper right, atria to the lower left
+      planeDown: R(v3(0.57, 0.34, -0.75)), // screen down = the beam from the subxiphoid window toward the crux
+      target: v3(-2.2, -0.5, 1.5), // the crux: both AV valves and the interatrial septum
+      skin: { u: 0.5, v: -9.5 },
+      requiredLandmarks: [
+        { landmarkId: 'rv-inferior', weight: 1.2, required: true },
+        { landmarkId: 'ra', weight: 1.2, required: true },
+        { landmarkId: 'ias', weight: 1.2, required: true },
+        { landmarkId: 'lv-mid', weight: 1, required: true },
+        { landmarkId: 'la', weight: 0.6, required: false },
+        { landmarkId: 'tv', weight: 0.6, required: false },
+        { landmarkId: 'mv', weight: 0.5, required: false },
+      ],
+      penaltyLandmarks: [
+        { landmarkId: 'av', weight: 0.6, required: false },
+        { landmarkId: 'ivc', weight: 0.5, required: false },
+      ],
+      recommendedDepthRangeCm: [18, 24],
+      recommendedFocusCm: 12,
+      hints: [
+        'Sonda bajo el apéndice xifoides, casi plana sobre el abdomen y con el marcador hacia la izquierda del paciente; el haz atraviesa el hígado hacia el hombro izquierdo.',
+        'El hígado ocupa el campo cercano; debajo aparecen el VD y la AD y, más profundos, el VI y la AI con el tabique interauricular perpendicular al haz.',
+      ],
+      commonErrors: ['Sonda demasiado inclinada: sólo hígado', 'Plano anterior: TSVI en vez de las aurículas (subcostal 5C)', 'Abdomen tenso (rodillas sin flexionar)'],
+      tolerance: { planeAngleDeg: 20, inPlaneRotationDeg: 25, offsetCm: 2.0 },
+    },
+    {
+      id: 'subcostal-ivc',
+      name: 'Subcostal vena cava inferior',
+      window: 'subcostal',
+      // plane containing the cava axis, the RA and the subxiphoid window (an oblique sagittal cut)
+      planeRight: R(v3(-0.09, 0.97, 0.21)), // screen right ⊥ beam, along the cava toward the RA (patient's head)
+      planeDown: R(v3(0.43, 0.23, -0.87)), // screen down = the beam from the subxiphoid window to the cavo-atrial junction
+      target: v3(-3.8, -1.7, 0.7), // cavo-atrial junction
+      skin: { u: 0.0, v: -9.5 },
+      requiredLandmarks: [
+        { landmarkId: 'ivc', weight: 1.5, required: true },
+        { landmarkId: 'ra', weight: 1.0, required: true },
+        { landmarkId: 'hepatic-vein', weight: 0.6, required: false },
+      ],
+      penaltyLandmarks: [
+        { landmarkId: 'lv-mid', weight: 1, required: false },
+        { landmarkId: 'mv', weight: 0.8, required: false },
+        { landmarkId: 'la', weight: 0.6, required: false },
+      ],
+      recommendedDepthRangeCm: [14, 20],
+      recommendedFocusCm: 8,
+      hints: ['Desde la subcostal de cuatro cámaras rota ~90° antihorario (marcador hacia la cabeza) y angula hacia la derecha del paciente hasta ver la vena cava inferior entrando en la aurícula derecha, con la vena hepática.', 'Mide el diámetro 1–2 cm antes de la desembocadura y observa el colapso con la inspiración brusca.'],
+      commonErrors: ['Confundir la aorta abdominal (pulsátil, a la izquierda) con la cava', 'Corte oblicuo de la cava: diámetro falsamente pequeño'],
+      tolerance: { planeAngleDeg: 20, inPlaneRotationDeg: 30, offsetCm: 2.0 },
+    },
+    {
       id: 'rv-focused',
       name: 'Apical enfocada en VD',
       window: 'apical',
@@ -373,9 +434,13 @@ export function canonicalControl(view: ViewTarget, heart: HeartModel, thorax: Th
     // accepting some obliquity, rather than climbing toward the 2nd space; never over the sternum
     const p = skinPointOnPlane(thorax, plane, preferred, 1.0);
     skin = { u: Math.max(2.2, p.u), v: p.v };
+  } else if (view.window === 'subcostal') {
+    // slide along the costal margin (never above it) until the plane passes through the window
+    const p = skinPointOnPlane(thorax, plane, preferred, 2.0);
+    skin = { u: p.u, v: Math.min(-8.5, p.v) };
   }
-  // a sonographer always sits in an intercostal space, never on a rib
-  skin = snapToIntercostal(thorax, skin.u, skin.v);
+  // a sonographer always sits in an intercostal space, never on a rib (the subcostal window has none)
+  if (view.window !== 'subcostal') skin = snapToIntercostal(thorax, skin.u, skin.v);
   return controlAimingAt(thorax, skin.u, skin.v, plane.target, plane.right, 0.6);
 }
 

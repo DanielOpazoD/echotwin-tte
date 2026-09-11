@@ -30,12 +30,13 @@ const SCALARS = [
   'RV_T', 'RV_AZA', 'RV_AZP', 'RV_APEX_FRAC', 'TV_CX', 'TV_CY', 'TV_CZ', 'TV_R',
   'RVOT_AX', 'RVOT_AY', 'RVOT_AZ', 'RVOT_MX', 'RVOT_MY', 'RVOT_MZ', 'RVOT_BX', 'RVOT_BY', 'RVOT_BZ', 'RVOT_RA', 'RVOT_RM', 'RVOT_R', 'PA_DX', 'PA_DY', 'PA_DZ', 'PA_EX', 'PA_EY', 'PA_EZ', 'PA_R',
   'RPA_EX', 'RPA_EY', 'RPA_EZ', 'RPA_R', 'LPA_EX', 'LPA_EY', 'LPA_EZ', 'LPA_R', 'RV_PAP_AZ', 'PV_HALF', 'PV_SEGLEN', 'PV_T',
+  'LA_RESERVOIR', 'IAS_X', 'FOSSA_Y', 'FOSSA_Z', 'SVC_AX', 'SVC_AY', 'SVC_AZ', 'SVC_BX', 'SVC_BY', 'SVC_BZ', 'SVC_R', 'IVC_AX', 'IVC_AY', 'IVC_AZ', 'IVC_BX', 'IVC_BY', 'IVC_BZ', 'IVC_R', 'HV_AX', 'HV_AY', 'HV_AZ', 'HV_BX', 'HV_BY', 'HV_BZ',
   // valves
   'CUSP_COUNT', 'CUSP_HALF', 'CUSP_SEGLEN', 'CUSP_T', 'MV_RING_X', 'MV_RING_Y', 'MV_RING_Z', 'MV_RING_R', 'TV_RING_X', 'TV_RING_Y', 'TV_RING_Z', 'TV_RING_R',
   'MVS_CX', 'MVS_CY', 'MVS_CZ', 'MVS_R', 'MVS_PHIA', 'MVS_HALFSPAN', 'MVS_BLEND', 'MVS_T', 'MVS_SADDLE',
   'TVS_CX', 'TVS_CY', 'TVS_CZ', 'TVS_R', 'TVS_PHIA', 'TVS_HALFSPAN', 'TVS_BLEND', 'TVS_T', 'TVS_SADDLE',
   // thorax
-  'TH_AW', 'TH_BDEPTH', 'TH_N', 'TH_CHESTWALL', 'TH_RIBR', 'TH_RIBSP', 'TH_RIB2Y', 'TH_RIBSLOPE', 'TH_LUNGSHIFT',
+  'TH_AW', 'TH_BDEPTH', 'TH_N', 'TH_CHESTWALL', 'TH_RIBR', 'TH_RIBSP', 'TH_RIB2Y', 'TH_RIBSLOPE', 'TH_LUNGSHIFT', 'TH_ABD', 'TH_DIAPH',
 ] as const;
 type ScalarName = (typeof SCALARS)[number];
 
@@ -235,6 +236,30 @@ export function packScene(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, o
   set('LPA_EZ', A.lpaEnd.z);
   set('LPA_R', A.lpaR);
   set('RV_PAP_AZ', A.rvPapAz);
+  set('LA_RESERVOIR', A.laReservoir);
+  set('IAS_X', A.iasX);
+  set('FOSSA_Y', A.fossaY);
+  set('FOSSA_Z', A.fossaZ);
+  set('SVC_AX', A.svcA.x);
+  set('SVC_AY', A.svcA.y);
+  set('SVC_AZ', A.svcA.z);
+  set('SVC_BX', A.svcB.x);
+  set('SVC_BY', A.svcB.y);
+  set('SVC_BZ', A.svcB.z);
+  set('SVC_R', A.svcR);
+  set('IVC_AX', A.ivcA.x);
+  set('IVC_AY', A.ivcA.y);
+  set('IVC_AZ', A.ivcA.z);
+  set('IVC_BX', A.ivcB.x);
+  set('IVC_BY', A.ivcB.y);
+  set('IVC_BZ', A.ivcB.z);
+  set('IVC_R', A.ivcR * (1 - heart.ivcCollapse));
+  set('HV_AX', A.hvA.x);
+  set('HV_AY', A.hvA.y);
+  set('HV_AZ', A.hvA.z);
+  set('HV_BX', A.hvB.x);
+  set('HV_BY', A.hvB.y);
+  set('HV_BZ', A.hvB.z);
   set('PA_DX', A.paDir.x);
   set('PA_DY', A.paDir.y);
   set('PA_DZ', A.paDir.z);
@@ -290,6 +315,8 @@ export function packScene(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, o
   set('TH_RIB2Y', thorax.rib2Y);
   set('TH_RIBSLOPE', thorax.ribSlope);
   set('TH_LUNGSHIFT', thorax.lungShiftCm);
+  set('TH_ABD', thorax.abdomenSlope);
+  set('TH_DIAPH', thorax.diaphragmRiseCm);
   const contact = contactQuality(beam.contact);
   const ld = PARAM_OFFSET['LINE_DROP']!;
   for (let li = 0; li < 256; li++) d[ld + li] = li < spec.lines ? (hash3(li, 7, 0, physics.seed) > contact ? 0.08 : 1) : 1;
