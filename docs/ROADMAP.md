@@ -16,6 +16,7 @@ Estado real según el código el 2026-09-10. Los hitos M0–M6 siguen la especif
 | Entregable | Estado | Evidencia |
 |---|---|---|
 | Corazón paramétrico SDF con contracción volumétrica, válvulas (faldones + cúspides curvas), anillos, cuerdas, aurículas, VD, papilares, pericardio | hecho | `heartModel.ts`, `heartModel.test.ts` (volumen MC ±10–12 %) |
+| Proporciones de cámaras y vasos medidas contra rangos de referencia por sexo, con desviaciones declaradas por caso | hecho | `measureModel.ts`, `proportions.test.ts`, `npm run measure` (volumen del VD exento, ver LIMITATIONS) |
 | Tórax con costillas, esternón, pulmones, hígado, columna, aorta descendente; posición/respiración | hecho | `thoraxModel.ts` (sin prueba propia) |
 | Tablas de latido (V, Q_ao, Q_mv, longitudinal), reloj RR sinusal/FA, ECG | hecho | `cycle.test.ts` |
 | Verdad de terreno estructurada | hecho | `groundTruth.test.ts` |

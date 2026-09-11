@@ -16,7 +16,7 @@ export const normalExcellentCase: CaseDefinitionInput = {
     la: { apDiameterCm: 3.5, volumeMl: 52 },
     rv: { basalDiameterCm: 3.4, lengthCm: 7.4, freeWallThicknessCm: 0.4 },
     ra: { volumeMl: 45 },
-    aorta: { lvotDiameterCm: 2.1, annulusCm: 2.3, sinusCm: 3.2, ascendingCm: 3.0 },
+    aorta: { lvotDiameterCm: 2.1, annulusCm: 2.4, sinusCm: 3.2, ascendingCm: 3.0 },
     mitral: {
       annulusDiameterCm: 3.0,
       anteriorLeafletLengthCm: 2.4,

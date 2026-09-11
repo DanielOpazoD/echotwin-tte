@@ -12,6 +12,7 @@ Este documento existe para que nadie use el simulador más allá de lo que hace.
 
 ## Anatomía y patologías simplificadas
 - Corazón analítico (elipsoides, tubos, parches): sin trabéculas, sin banda moderadora, sin orejuela, sin venas pulmonares ni VCI/venas hepáticas, sin arco aórtico, sin seno coronario; VD en semiluna sin infundíbulo realista; aurículas elipsoidales.
+- Proporciones: `proportions.test.ts` mide 43 magnitudes por caso contra rangos adultos por sexo; todas están en rango o declaradas por el caso salvo el **volumen del VD**, que el elipsoide recortado por el VI deja ~30 % alto (≈ 110 mL/m² frente a ≤ 87 en hombres) aun con diámetro basal, longitud y dimensión anteroposterior correctos; está exento en la prueba (`KNOWN_MODEL_LIMITATIONS`) hasta rehacer el primitivo del VD. Los rangos marcados «≈» en el medidor son aproximaciones sin cifra de guía (longitud del VD, anillos, tronco pulmonar, fracción de vaciado auricular).
 - Válvulas como faldones de revolución (mitral, tricúspide) y cúspides de dos segmentos (aórtica): perfiles poligonales rígidos por tramos, sin prolapso, sin vegetaciones, sin comisuras reales; la inserción de las cúspides es un anillo plano y no una corona, por lo que el PSAX aórtico en diástole muestra un triángulo central pequeño en vez del signo de Mercedes clásico; cuatro cuerdas tendinosas simplificadas; la calcificación es un brillo más atenuación (~10 dB/cm) sin geometría propia.
 - Estenosis aórtica: la severidad viene de `avEffectiveAreaCm2` (vena contracta) y de la fracción de apertura, sin relación mecánica entre ambas; el caso incluido usa un área efectiva de 0,95 cm² que, según `computeGroundTruth`, produce Vmax 4,35 m/s, gradiente medio 38 mmHg, VTI 82 cm e índice VTI 0,27: cumple «severa» por Vmax ≥ 4 y AVA < 1,0, pero el gradiente medio queda por debajo de los 40 mmHg que enuncian el comentario del archivo («≈ 45») y su `impressionTruth` («≥ 40»).
 - Sin regurgitaciones (salvo un chorro de IT paramétrico derivado de PASP), sin estenosis mitral, sin miocardiopatías más allá de amplitud segmentaria (que ningún caso usa), sin prótesis, sin congénitas, sin pericarditis constrictiva (el derrame existe como capa de líquido sin fisiología).
@@ -34,7 +35,7 @@ Este documento existe para que nadie use el simulador más allá de lo que hace.
 - Sin fallback si `Worker` existe pero falla al cargar el módulo (sólo se captura la excepción del constructor); el modo inline usa `setInterval` de 33 ms.
 - Audio Doppler con 48 osciladores siempre activos mientras está encendido; `AudioContext` requiere gesto del usuario en algunos navegadores.
 - UI pensada para escritorio con ratón (1440×900 en Playwright); sin soporte táctil ni accesibilidad más allá de etiquetas ARIA básicas; preferencias en `localStorage` sin versionado más allá del sufijo `v1`.
-- 8 pruebas E2E y un flujo de CI (`.github/workflows/ci.yml`) que nunca se ha ejecutado: el repositorio sigue sin commits.
+- 9 pruebas E2E y un flujo de CI (`.github/workflows/ci.yml`) que nunca se ha ejecutado en remoto: el repositorio tiene commits locales pero no tiene remoto.
 
 ## Qué falta para uso en investigación
 - Validación cuantitativa contra un simulador físico (PyMUST/OpenBCSim/i4h) y contra imágenes reales anonimizadas; hoy sólo hay goldens internos y rangos fisiológicos.

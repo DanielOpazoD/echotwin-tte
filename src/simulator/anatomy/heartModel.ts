@@ -506,6 +506,8 @@ function anchors(m: HeartModel): Anchors {
   const raK = Math.cbrt(a.ra.volumeMl / 44);
   const raR = 2.2 * raK;
   const rvR = a.rv.basalDiameterCm / 2;
+  // LV hypertrophy must not crush the right heart: the RV/RVOT anchors move with the septal thickness
+  const dWall = (a.lv.ivsdCm - 0.9) * 1.5;
   return {
     mvCenter: v3(0.2, -0.9, 0),
     mvR: a.mitral.annulusDiameterCm / 2,
@@ -520,15 +522,15 @@ function anchors(m: HeartModel): Anchors {
     raR: v3(raR * 0.95, raR * 0.85, raR * 0.82),
     // RV modelled as a large ellipsoid carved by the LV epicardium → crescent wrapping the septum;
     // it reaches medially (RV/LV basal ratio ≈ 0.6 in A4C) and its apex sits ~0.85 of the LV length
-    rvCenter: v3(-3.3, 1.4, a.rv.lengthCm * 0.5 - 0.3),
-    rvR: v3(2.35 + rvR, 2.5 + rvR, a.rv.lengthCm * 0.5 + 0.3),
-    tvCenter: v3(-4.9, -0.2, 0.3),
+    rvCenter: v3(-(m.lv.a + a.lv.ivsdCm), 1.7 + dWall, a.rv.lengthCm * 0.5 - 0.3),
+    rvR: v3(2.5 * rvR, 2.2 * rvR + 0.35, a.rv.lengthCm * 0.5 + 0.3),
+    tvCenter: v3(-4.9 - 0.5 * dWall, -0.2, 0.3),
     tvR: a.tricuspid.annulusDiameterCm / 2,
-    rvotA: v3(-2.8, 3.6, 0.3),
-    rvotB: v3(-0.6, 5.7, -2.6),
+    rvotA: v3(-2.8, 3.6 + dWall, 0.3),
+    rvotB: v3(-0.6, 5.7 + dWall, -2.6),
     rvotR: 1.1,
     paDir: normalize(v3(0.6, 0.35, -0.72)),
-    paEnd: v3(-0.6 + 0.6 * 3.4, 5.7 + 0.35 * 3.4, -2.6 - 0.72 * 3.4),
+    paEnd: v3(-0.6 + 0.6 * 3.4, 5.7 + dWall + 0.35 * 3.4, -2.6 - 0.72 * 3.4),
     paR: 1.1,
     papAL: v3(m.lv.a * 0.55, m.lv.b * 0.35, L * 0.58),
     papPM: v3(-m.lv.a * 0.25, -m.lv.b * 0.72, L * 0.58),
@@ -593,6 +595,37 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x: number, y: number
   const lv = m.lv;
   const zAnn = hp.zAnn;
 
+  // ---------- Aortic root coordinates (tube along avAxis; also carves the LV base) ----------
+  let rootT = -99,
+    rootRr = 0,
+    rootR = 0,
+    rootQx = 0,
+    rootQy = 0,
+    rootQz = 0;
+  {
+    const c = A.avCenter;
+    const ax = A.avAxis;
+    const czz = c.z + zAnn * 0.5;
+    const dx = x - c.x,
+      dy = y - c.y,
+      dz = z - czz;
+    const t = dx * ax.x + dy * ax.y + dz * ax.z; // along axis, 0 at annulus, negative toward LV
+    if (t > -1.6 && t < 7.5) {
+      rootQx = dx - ax.x * t;
+      rootQy = dy - ax.y * t;
+      rootQz = dz - ax.z * t;
+      rootRr = Math.sqrt(rootQx * rootQx + rootQy * rootQy + rootQz * rootQz);
+      rootT = t;
+      // radius profile: LVOT (t<0) → annulus → sinuses (t≈1) → STJ → ascending
+      if (t < 0) rootR = A.avR * 0.95 + (m.anatomy.aorta.lvotDiameterCm / 2 - A.avR * 0.95) * Math.min(1, -t / 1.2);
+      else if (t < 2.2) rootR = A.avR + (A.sinusR - A.avR) * Math.sin((Math.PI * t) / 2.2);
+      else if (t < 3.2) rootR = Math.min(A.ascR, A.sinusR * 0.88); // sinotubular junction
+      else rootR = A.ascR;
+    }
+  }
+  // the aortic lumen from the annulus upward is never LV wall or fibrous skeleton
+  const inRootLumen = rootT >= -0.05 && rootRr < rootR;
+
   // ---------- Valves, annuli and chordae (thin, highest priority) ----------
   const V = hp.valves;
   const hit = chainHit;
@@ -616,7 +649,7 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x: number, y: number
       wz = V.cuspWidths[i * 3 + 2]!;
     sdSegmentChain(x, y, z, V.segs, V.cuspOffsets[i]!, 2, V.cuspSegLen, wx, wy, wz, V.cuspHalf, hit, 0.75);
     const t = V.cuspThickness * (1 - 0.3 * hit.frac) * 0.5 + 0.03;
-    if (hit.d < t) {
+    if (hit.d < t && rootRr < rootR + 0.02) {
       const o = V.cuspOffsets[i]! + Math.min(1, Math.floor(hit.frac * 2)) * 6;
       const dx = V.segs[o + 3]!,
         dy = V.segs[o + 4]!,
@@ -705,7 +738,7 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x: number, y: number
   // Ventricular wall: shell around the *unclipped* ellipsoid, apical to (slightly above) the annulus.
   // The annular plane itself is not a wall: it holds the mitral orifice, the LVOT and fibrous tissue.
   const dEllR = dEll - regional;
-  if (dEllR >= 0 && dEllR < wallT && z >= zAnn - 0.25) {
+  if (dEllR >= 0 && dEllR < wallT && z >= zAnn - 0.25 && !inRootLumen) {
     const s = hp.radialScale;
     const ls = hp.longScale;
     let structure = Structure.LvWallLateral;
@@ -721,7 +754,7 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x: number, y: number
   }
   // Annular plane region (inside the ellipsoid but basal to the annulus): mitral orifice is blood
   // continuous with the LA; the LVOT is handled by the aortic tube below; the rest is fibrous tissue.
-  const inAnnularRegion = dEllR < 0 && z < zAnn;
+  const inAnnularRegion = dEllR < 0 && z < zAnn && !inRootLumen;
   if (inAnnularRegion) {
     const mdx = x - A.mvCenter.x,
       mdy = y - A.mvCenter.y;
@@ -732,35 +765,19 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x: number, y: number
   }
 
   // ---------- Aortic root / LVOT (tube along avAxis) ----------
-  {
-    const c = A.avCenter;
-    const ax = A.avAxis;
-    const czz = c.z + zAnn * 0.5;
-    const dx = x - c.x,
-      dy = y - c.y,
-      dz = z - czz;
-    const t = dx * ax.x + dy * ax.y + dz * ax.z; // along axis, 0 at annulus, negative toward LV
-    if (t > -1.6 && t < 7.5) {
-      const qx = dx - ax.x * t,
-        qy = dy - ax.y * t,
-        qz = dz - ax.z * t;
-      const rr = Math.sqrt(qx * qx + qy * qy + qz * qz);
-      // radius profile: LVOT (t<0) → annulus → sinuses (t≈1) → STJ → ascending
-      let R: number;
-      if (t < 0) R = A.avR * 0.95 + (m.anatomy.aorta.lvotDiameterCm / 2 - A.avR * 0.95) * Math.min(1, -t / 1.2);
-      else if (t < 2.2) R = A.avR + (A.sinusR - A.avR) * Math.sin((Math.PI * t) / 2.2);
-      else if (t < 3.2) R = Math.min(A.ascR, A.sinusR * 0.88); // sinotubular junction
-      else R = A.ascR;
-      const wall = 0.2;
-      if (rr < R) {
-        setSample(out, Tissue.Blood, rr - R, qx / rr, qy / rr, qz / rr, x, y, z - zAnn * 0.5, 0, t < 0 ? Structure.Lvot : Structure.AorticRoot);
-        return true;
-      }
-      if (rr < R + wall) {
-        const dIn = -Math.min(rr - R, R + wall - rr);
-        setSample(out, Tissue.VesselWall, dIn, qx / rr, qy / rr, qz / rr, x, y, z, 0, Structure.AorticRoot);
-        return true;
-      }
+  if (rootT > -1.6) {
+    const t = rootT,
+      rr = rootRr,
+      R = rootR;
+    const wall = 0.2;
+    if (rr < R) {
+      setSample(out, Tissue.Blood, rr - R, rootQx / rr, rootQy / rr, rootQz / rr, x, y, z - zAnn * 0.5, 0, t < 0 ? Structure.Lvot : Structure.AorticRoot);
+      return true;
+    }
+    if (rr < R + wall) {
+      const dIn = -Math.min(rr - R, R + wall - rr);
+      setSample(out, Tissue.VesselWall, dIn, rootQx / rr, rootQy / rr, rootQz / rr, x, y, z, 0, Structure.AorticRoot);
+      return true;
     }
   }
 
@@ -905,6 +922,12 @@ function anchorsCached(m: HeartModel): AnchorsCached {
   }
   return a;
 }
+
+/** Anchor points of the model (heart frame at ED) for measurement and debugging tools. */
+export function heartAnchors(m: HeartModel): Readonly<AnchorsCached> {
+  return anchorsCached(m);
+}
+export type HeartAnchors = Readonly<AnchorsCached>;
 
 function setSample(
   out: TissueSample,

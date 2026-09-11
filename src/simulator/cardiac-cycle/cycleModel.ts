@@ -102,7 +102,10 @@ export function buildBeatTables(
       const target = contraction[i] ?? 0;
       const t = (i + 0.5) * dt;
       const inSystole = t < timings.ejectionEndS;
-      const tau = inSystole ? 0.03 : tauS;
+      // systole: the annulus follows the volume curve closely; early diastole: recoil limited by relaxation
+      // (τ from e′); atrial systole (A′) pulls the annulus back to its basal position by end-diastole
+      const inAtrial = timings.hasAWave && t > timings.aStartS;
+      const tau = inSystole ? 0.03 : inAtrial ? 0.035 : tauS;
       l += ((target - l) * dt) / tau;
       longitudinal[i] = l;
     }

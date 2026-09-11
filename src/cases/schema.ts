@@ -174,6 +174,8 @@ export const CaseDefinitionSchema = z.object({
   references: z.array(GuidelineRefLinkSchema),
   /** Free-text impression the report scorer compares against (structured truth is derived from physiology). */
   impressionTruth: z.array(z.string().max(300)),
+  /** Measurement ids (see measureModel) that this case intentionally drives out of the reference range. */
+  expectedDeviations: z.array(z.string()).default([]),
 });
 
 export type CaseDefinition = z.infer<typeof CaseDefinitionSchema>;

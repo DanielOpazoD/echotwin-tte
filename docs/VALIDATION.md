@@ -1,6 +1,6 @@
 # Validación
 
-Estado observado el **2026-09-10 a las 20:07 (hora local)** con `npx vitest run`: **13 archivos, 70 pruebas, todas pasan**. Playwright: 9 pruebas en `e2e/core-flow.spec.ts`; `test-results/.last-run.json` registra la última ejecución local como `passed`. Lint y typecheck en verde. El árbol se estaba editando activamente mientras se escribía esto (nuevos `doppler.test.ts`, `atlas.test.ts`, `goldens.test.ts`, `scoring.test.ts`, E2E y CI aparecieron durante la sesión): vuelve a ejecutar `npm test` y `npm run test:e2e` antes de fiarte de esta tabla. `.github/workflows/ci.yml` (lint → typecheck → test → build → Playwright en Chromium) existe pero nunca se ha ejecutado porque el repositorio no tiene commits ni remoto.
+Estado observado el **2026-09-10 a las 22:05 (hora local)** con `npx vitest run`: **14 archivos, 73 pruebas, todas pasan**. Playwright: 9 pruebas en `e2e/core-flow.spec.ts`; `test-results/.last-run.json` registra la última ejecución local como `passed`. Lint y typecheck en verde. El árbol se estaba editando activamente mientras se escribía esto (nuevos `doppler.test.ts`, `atlas.test.ts`, `goldens.test.ts`, `scoring.test.ts`, E2E y CI aparecieron durante la sesión): vuelve a ejecutar `npm test` y `npm run test:e2e` antes de fiarte de esta tabla. `.github/workflows/ci.yml` (lint → typecheck → test → build → Playwright en Chromium) existe pero nunca se ha ejecutado porque el repositorio no tiene commits ni remoto.
 
 ## Feature → referencia → tolerancia → resultado
 Referencia = con qué se compara (valor analítico, consistencia interna o rango fisiológico). Ninguna prueba compara con datos de pacientes reales.
@@ -50,6 +50,7 @@ Referencia = con qué se compara (valor analítico, consistencia interna o rango
 | | Medición correcta (+3 %) con vista 20 → inválida, < 50 puntos; con vista 80 → 100 | — | — | pasa |
 | | VTI con +40 % pierde puntos (0 < p < 100); `mitral-e` no medida = 0 | — | — | pasa |
 | | Resumen reproducible; lista A4C omitida; total < 60 | — | igualdad profunda | pasa |
+| `anatomy/proportions.test.ts` | 43 medidas geométricas por caso (volúmenes MC, diámetros en planos estándar, grosores, raíz, anillos, índices por BSA) contra rangos adultos por sexo (ASE/EACVI 2015, corazón derecho 2025; «≈» = aproximado); sólo salen de rango las desviaciones declaradas por el caso (`expectedDeviations`) y las limitaciones conocidas del modelo (volumen del VD); una declaración obsoleta falla | rangos de guía | rango | pasa (3 casos) |
 | `tests/goldens.test.ts` | Determinismo por semilla (500 muestras iguales) | — | exacto | pasa |
 | | Goldens: rejilla 12×12 de medias para PLAX/PSAX-PM/A4C/A2C a fases 0 y 0,3 (tier low) | `src/tests/goldens/frames.json` (regenerado a las 20:09) | ≤ 6 niveles por celda | pasa |
 
@@ -71,7 +72,7 @@ El `beforeEach` de las siete primeras marca `tutorialDone` en `localStorage` par
 - Comparación contra imágenes reales o contra un simulador físico (PyMUST/OpenBCSim/i4h): `tools/offline/{pymust-validation,optional-cuda-reference,optical-flow}` están vacías (`atlas-generation/build-atlas.ts` sólo produce hojas de contacto para inspección visual).
 - Precisión numérica de las herramientas frente a la verdad de terreno a través de la UI: el E2E sólo comprueba que un caliper produce un valor > 0,5 cm; no hay prueba unitaria del mapeo píxel↔cm ni de velocidad/VTI/tiempo.
 - Color Doppler en imagen (aliasing, blooming, sombra) y M-mode: sólo humo.
-- Caso de estenosis aórtica: ninguna prueba comprueba su Vmax/gradientes/AVA ni la graduación del informe; ninguna prueba usa el caso de ventana difícil.
+- Caso de estenosis aórtica: ninguna prueba comprueba su Vmax/gradientes/AVA ni la graduación del informe (sus proporciones y su válvula sí se prueban).
 - Worker (contrapresión, reciclaje), reloj/ECG en la app, audio Doppler.
 - Rendimiento: `bench.ts` se ejecuta a mano; sin umbral automatizado.
 - CI nunca ejecutada.

@@ -19,7 +19,7 @@ export const aorticStenosisSevereCase: CaseDefinitionInput = {
     ...normalExcellentCase.anatomy,
     lv: { eddCm: 4.7, lengthEdCm: 8.5, ivsdCm: 1.3, lvpwdCm: 1.25, sphericity: 0.5, apexWallThicknessCm: 0.8 },
     la: { apDiameterCm: 4.2, volumeMl: 78 },
-    aorta: { lvotDiameterCm: 2.1, annulusCm: 2.3, sinusCm: 3.4, ascendingCm: 3.8 },
+    aorta: { lvotDiameterCm: 2.1, annulusCm: 2.4, sinusCm: 3.4, ascendingCm: 3.8 },
     aorticValve: { maxOpeningFraction: 0.3, calcification: 0.85, cuspThicknessCm: 0.25, bicuspid: false },
     mitral: { ...normalExcellentCase.anatomy.mitral, calcification: 0.3 },
   },
@@ -27,6 +27,7 @@ export const aorticStenosisSevereCase: CaseDefinitionInput = {
     ...normalExcellentCase.physiology,
     edvMl: 125,
     esvMl: 47,
+    mapseCm: 1.0, // reduced longitudinal function with preserved EF (concentric LVH)
     ePeakMps: 0.65,
     aPeakMps: 0.85,
     decelerationTimeMs: 240,
@@ -83,5 +84,16 @@ export const aorticStenosisSevereCase: CaseDefinitionInput = {
     'Estenosis aórtica severa (Vmax ≥ 4 m/s, gradiente medio ≥ 40 mmHg, AVA ≤ 1,0 cm²) con flujo conservado.',
     'Hipertrofia concéntrica leve del ventrículo izquierdo con función sistólica conservada.',
     'Disfunción diastólica compatible con alteración de la relajación; aurícula izquierda dilatada.',
+  ],
+  // intended departures from the adult reference ranges (checked by proportions.test.ts)
+  expectedDeviations: [
+    'ivsd', // concentric hypertrophy
+    'lvpwd',
+    'la-ap', // enlarged left atrium (chronic pressure overload, diastolic dysfunction)
+    'la-transverse',
+    'la-long',
+    'lavi',
+    'lv-mass', // increased mass from the thick walls
+    'ao-ascending', // post-stenotic dilation of the ascending aorta
   ],
 };

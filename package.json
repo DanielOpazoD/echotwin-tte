@@ -16,6 +16,7 @@
     "test:e2e": "playwright test",
     "check": "npm run lint && npm run typecheck && npm run test && npm run build",
     "atlas:build": "tsx tools/offline/atlas-generation/build-atlas.ts",
+    "measure": "tsx tools/offline/render/measure-model.ts",
     "golden:update": "UPDATE_GOLDENS=1 vitest run src/tests/goldens.test.ts"
   },
   "dependencies": {

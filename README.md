@@ -28,6 +28,7 @@ Requiere Node ≥ 20 (`engines` en `package.json`). Dependencias de ejecución: 
 | `npm run typecheck` | `tsc -p tsconfig.json --noEmit` (strict, `noUncheckedIndexedAccess`). |
 | `npm run check` | lint → typecheck → test → build, en ese orden. |
 | `npm run golden:update` | Regenera `src/tests/goldens/frames.json` (ver `docs/validation/README.md`). |
+| `npm run measure -- <caseId>` | Mide el modelo geométrico del caso (43 magnitudes: volúmenes, diámetros, grosores, raíz, anillos, índices) contra rangos adultos por sexo y marca ok/LOW/HIGH; es la misma tabla que comprueba `proportions.test.ts`. |
 | `npm run atlas:build` | Renderiza los cines de 16 fases de cada vista canónica (una hoja de contacto PNG por vista) con la fuente de anclas procedimental: `tools/offline/atlas-generation/build-atlas.ts [outDir] [caseId]`. |
 
 ## Controles de la sonda
@@ -99,7 +100,7 @@ e2e/                    core-flow.spec.ts (9 pruebas Playwright) + helpers.ts
 ```
 
 ## Estado actual (observado el 2026-09-10 hacia las 20:15; el código se estaba editando activamente)
-Corte vertical funcionando: ventanas paraesternal y apical de un corazón normal, Doppler paramétrico coherente con la verdad de terreno, un caso de estenosis aórtica severa y puntuación de examen. Vitest: 13 archivos / 70 pruebas, todas en verde a las 20:07; Playwright: 9 pruebas, última ejecución local `passed`; lint y typecheck en verde. Hay un flujo de CI en `.github/workflows/ci.yml` que nunca se ha ejecutado: el repositorio tiene `.git` inicializado pero **sin commits**. Detalle y avisos en [docs/VALIDATION.md](docs/VALIDATION.md).
+Corte vertical funcionando: ventanas paraesternal y apical de un corazón normal, Doppler paramétrico coherente con la verdad de terreno, un caso de estenosis aórtica severa y puntuación de examen. Vitest: 14 archivos / 73 pruebas, todas en verde a las 22:05; Playwright: 9 pruebas, última ejecución local `passed`; lint y typecheck en verde. Hay un flujo de CI en `.github/workflows/ci.yml` que nunca se ha ejecutado: el repositorio tiene commits locales pero **sin remoto**. Detalle y avisos en [docs/VALIDATION.md](docs/VALIDATION.md).
 
 ## Documentación
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — capas, flujo de datos, worker, backends, tiers.
