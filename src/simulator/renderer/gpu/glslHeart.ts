@@ -433,7 +433,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
   vec3 lr = vec3(LA_RX, LA_RY, LA_RZ);
   vec3 ra = vec3(RA_CX, RA_CY, RA_CZ);
   vec3 rar = vec3(RA_RX, RA_RY, RA_RZ);
-  float bo = LA_BOOSTER * (0.84 + 0.16 * CONTRACTION);
+  float bo = LA_BOOSTER * (LA_RESERVOIR + (1.0 - LA_RESERVOIR) * CONTRACTION);
   float czL, rzL, czR, rzR;
   {
     float zTop = la.z - lr.z;
