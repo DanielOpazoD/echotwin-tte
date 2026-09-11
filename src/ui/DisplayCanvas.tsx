@@ -4,8 +4,10 @@ import type { SimOutput } from '@/simulator/core/protocol';
 import { pixelToPolar, polarToPixel } from '@/simulator/renderer/scanConvert';
 import { tgcAtDepth } from '@/simulator/renderer/postprocess/consolePipeline';
 import type { Measurement } from '@/simulator/measurements/types';
-import { vtiFromEnvelope } from '@/clinical/formulas';
+import { simpsonSinglePlaneVolume, vtiFromEnvelope } from '@/clinical/formulas';
 import { frameBus } from '@/app/frameBus';
+import { discProfileFromContour } from '@/simulator/measurements/simpson';
+import { evaluateCapture, specFor, type CaptureExtras } from '@/app/measurementCapture';
 
 /**
  * Ultrasound display: draws the composite frame from the simulator and the overlays (depth scale,
@@ -147,9 +149,15 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
     const m = hud.sector;
     const strip = hud.strip;
     const pend = pendingRef.current;
-    const commit = (ms: Omit<Measurement, 'id' | 'createdAt' | 'frameId' | 'phase' | 'timeS' | 'sourceViewId' | 'viewScore' | 'imageQualityScore' | 'userAssisted' | 'referenceGuidelineIds'>) => {
+    const spec = specFor(st.activeMeasurementId);
+    const modality = st.modality === 'color' ? '2d' : st.modality;
+    const redraw = () => useHudStore.getState().setHud({ ...hud });
+    const commit = (ms: Omit<Measurement, 'id' | 'createdAt' | 'frameId' | 'phase' | 'timeS' | 'sourceViewId' | 'viewScore' | 'imageQualityScore' | 'userAssisted' | 'referenceGuidelineIds' | 'measurementId' | 'technique'>, extras: CaptureExtras = {}) => {
       st.addMeasurement({
         ...ms,
+        label: spec ? spec.label : ms.label,
+        measurementId: spec ? spec.id : null,
+        technique: evaluateCapture(spec, hud, modality, st.phaseMarks, extras),
         id: `m${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`,
         createdAt: new Date().toISOString(),
         frameId: hud.frameId,
@@ -158,26 +166,30 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
         sourceViewId: hud.view?.bestViewId ?? null,
         viewScore: hud.view?.score ?? null,
         imageQualityScore: hud.view ? Math.round(hud.view.components.gain * 100) : null,
-        userAssisted: false,
-        referenceGuidelineIds: ['ase-tte-2019'],
+        userAssisted: extras.userAssisted ?? false,
+        referenceGuidelineIds: spec ? spec.referenceIds : ['ase-tte-2019'],
       });
       pend.points = [];
+      if (spec) st.setActiveMeasurement(null);
     };
+    const stripVelocity = (y: number) => strip.topValue + ((y - strip.y) / strip.height) * (strip.bottomValue - strip.topValue);
+    const velocityUnits = modality === 'tdi' ? 'cm/s' : 'm/s';
+    const velocityScale = modality === 'tdi' ? 100 : 1;
     if (st.activeTool === 'caliper') {
       if (p.y >= m.height) return;
       pend.points.push(p);
       if (pend.points.length === 2) {
         const [a, b] = pend.points as [{ x: number; y: number }, { x: number; y: number }];
         const cm = Math.hypot(a.x - b.x, a.y - b.y) / m.pxPerCm;
-        commit({ kind: 'linear', label: 'Distancia', value: cm, units: 'cm', modality: st.modality === 'color' ? '2d' : st.modality, geometry: [a, b] });
+        commit({ kind: 'linear', label: 'Distancia', value: cm, units: 'cm', modality, geometry: [a, b] }, { segment: [a, b] });
       }
-      useHudStore.getState().setHud({ ...hud }); // trigger overlay redraw
+      redraw();
       return;
     }
     if (st.activeTool === 'velocity') {
       if (strip.kind !== 'spectral' || p.y < strip.y) return;
-      const v = strip.topValue + ((p.y - strip.y) / strip.height) * (strip.bottomValue - strip.topValue);
-      commit({ kind: 'velocity', label: 'Velocidad', value: Math.abs(v), units: 'm/s', modality: st.modality, geometry: [p], derived: { gradientMmHg: 4 * v * v } });
+      const v = Math.abs(stripVelocity(p.y));
+      commit({ kind: 'velocity', label: 'Velocidad', value: v * velocityScale, units: velocityUnits, modality, geometry: [p], derived: { gradientMmHg: 4 * v * v } });
       return;
     }
     if (st.activeTool === 'time') {
@@ -186,9 +198,82 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
       if (pend.points.length === 2) {
         const [a, b] = pend.points as [{ x: number; y: number }, { x: number; y: number }];
         const ms = Math.abs(a.x - b.x) * strip.secondsPerColumn * 1000;
-        commit({ kind: 'time', label: 'Tiempo', value: ms, units: 'ms', modality: st.modality, geometry: [a, b] });
+        commit({ kind: 'time', label: 'Tiempo', value: ms, units: 'ms', modality, geometry: [a, b] });
       }
-      useHudStore.getState().setHud({ ...hud });
+      redraw();
+      return;
+    }
+    if (st.activeTool === 'slope') {
+      // deceleration time: first click on the peak, second on the slope; extrapolated to the baseline
+      if (strip.kind !== 'spectral' || p.y < strip.y) return;
+      pend.points.push(p);
+      if (pend.points.length === 2) {
+        const [a, b] = pend.points as [{ x: number; y: number }, { x: number; y: number }];
+        const v0 = Math.abs(stripVelocity(a.y)),
+          v1 = Math.abs(stripVelocity(b.y));
+        const t0 = a.x * strip.secondsPerColumn,
+          t1 = b.x * strip.secondsPerColumn;
+        if (v0 > v1 && t1 > t0) {
+          const tInt = t1 + (v1 * (t1 - t0)) / (v0 - v1);
+          const yBase = strip.y + ((0 - strip.topValue) / (strip.bottomValue - strip.topValue)) * strip.height;
+          const intercept = { x: tInt / strip.secondsPerColumn, y: yBase };
+          commit({ kind: 'time', label: 'Tiempo de desaceleración', value: (tInt - t0) * 1000, units: 'ms', modality, geometry: [a, b, intercept], derived: { peakMps: v0 } });
+        } else pend.points = [];
+      }
+      redraw();
+      return;
+    }
+    if (st.activeTool === 'tapse') {
+      if (strip.kind !== 'm-mode' || p.y < strip.y) return;
+      pend.points.push(p);
+      if (pend.points.length === 2) {
+        const [a, b] = pend.points as [{ x: number; y: number }, { x: number; y: number }];
+        const cm = (Math.abs(a.y - b.y) / strip.height) * Math.abs(strip.bottomValue - strip.topValue);
+        commit({ kind: 'linear', label: 'Excursión (modo M)', value: cm, units: 'cm', modality, geometry: [a, b] });
+      }
+      redraw();
+      return;
+    }
+    if (st.activeTool === 'simpson') {
+      if (p.y >= m.height) return;
+      if (detail >= 2 && pend.points.length >= 5) {
+        const pts = [...pend.points];
+        const prof = discProfileFromContour(pts, m.pxPerCm);
+        if (prof) {
+          const vol = simpsonSinglePlaneVolume(prof.diametersCm, prof.longAxisCm);
+          const trueL = st.lvLengthCm !== null ? (spec?.phase === 'es' ? st.lvLengthCm - 1.2 : st.lvLengthCm) : null;
+          commit(
+            { kind: 'volume', label: 'Volumen VI (Simpson monoplano)', value: vol, units: 'mL', modality, geometry: pts, derived: { longAxisCm: prof.longAxisCm, discs: prof.diametersCm.length } },
+            { contour: pts, longAxisCm: prof.longAxisCm, trueLongAxisCm: trueL },
+          );
+        } else pend.points = [];
+        redraw();
+        return;
+      }
+      pend.points.push(p);
+      redraw();
+      return;
+    }
+    if (st.activeTool === 'auto-vti') {
+      if (strip.kind !== 'spectral' || p.y < strip.y) return;
+      pend.points.push(p);
+      if (pend.points.length === 2) {
+        const [a, b] = pend.points as [{ x: number; y: number }, { x: number; y: number }];
+        pend.points = [];
+        const x0 = Math.min(a.x, b.x),
+          x1 = Math.max(a.x, b.x);
+        void frameBus.request({ kind: 'autoTrace', x0: Math.round(x0 - strip.x), x1: Math.round(x1 - strip.x) }).then((res) => {
+          if (!res || res.kind !== 'autoTrace' || res.velocitiesMps.length < 2) return;
+          const vel = res.velocitiesMps.map((v) => Math.abs(v));
+          const vti = vtiFromEnvelope(vel, res.secondsPerColumn);
+          const vmax = Math.max(...vel);
+          const mean = vel.reduce((acc, v) => acc + 4 * v * v, 0) / vel.length;
+          const geometry = res.velocitiesMps.map((v, i) => ({ x: strip.x + res.x0 + i, y: strip.y + ((v - strip.topValue) / (strip.bottomValue - strip.topValue)) * strip.height }));
+          commit({ kind: 'vti', label: 'VTI (envolvente automática)', value: vti, units: 'cm', modality, geometry, derived: { vmaxMps: vmax, meanGradientMmHg: mean, peakGradientMmHg: 4 * vmax * vmax } }, { userAssisted: true });
+          redraw();
+        });
+      }
+      redraw();
       return;
     }
     if (st.activeTool === 'vti') {
@@ -206,17 +291,16 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
             b = pts[i + 1]!;
           const t = b.x === a.x ? 0 : (x - a.x) / (b.x - a.x);
           const y = a.y + (b.y - a.y) * t;
-          const v = strip.topValue + ((y - strip.y) / strip.height) * (strip.bottomValue - strip.topValue);
-          vel.push(Math.abs(v));
+          vel.push(Math.abs(stripVelocity(y)));
         }
         const vti = vtiFromEnvelope(vel, strip.secondsPerColumn);
         const vmax = Math.max(...vel);
-        const mean = vel.reduce((s, v) => s + 4 * v * v, 0) / vel.length;
-        commit({ kind: 'vti', label: 'VTI', value: vti, units: 'cm', modality: st.modality, geometry: pts, derived: { vmaxMps: vmax, meanGradientMmHg: mean, peakGradientMmHg: 4 * vmax * vmax } });
+        const mean = vel.reduce((acc, v) => acc + 4 * v * v, 0) / vel.length;
+        commit({ kind: 'vti', label: 'VTI', value: vti, units: 'cm', modality, geometry: pts, derived: { vmaxMps: vmax, meanGradientMmHg: mean, peakGradientMmHg: 4 * vmax * vmax } });
         return;
       }
       pend.points.push(p);
-      useHudStore.getState().setHud({ ...hud });
+      redraw();
     }
   };
 
@@ -429,15 +513,13 @@ function drawOverlay(canvas: HTMLCanvasElement, hud: SimOutput, st: SimStore, pe
       ctx.fillText(`${ms.label}: ${ms.value.toFixed(ms.kind === 'time' ? 0 : ms.kind === 'vti' ? 1 : 2)} ${ms.units}`, p.x + 6, p.y - 8);
     }
   }
-  if (pending.length) drawGeometry(ctx, pending, activeTool === 'caliper' ? 'linear' : activeTool === 'vti' ? 'vti' : 'time', '#5cc8ff');
+  if (pending.length) drawGeometry(ctx, pending, activeTool === 'caliper' || activeTool === 'tapse' ? 'linear' : activeTool === 'vti' || activeTool === 'simpson' ? 'vti' : 'time', '#5cc8ff');
   ctx.lineWidth = 1;
   if (activeTool !== 'none') {
     ctx.fillStyle = '#5cc8ff';
-    ctx.fillText(
-      activeTool === 'caliper' ? 'Caliper: clic en 2 puntos' : activeTool === 'velocity' ? 'Velocidad: clic sobre el espectro' : activeTool === 'vti' ? 'VTI: clic a lo largo del envelope, doble clic para cerrar' : 'Tiempo: clic en 2 puntos',
-      8,
-      14,
-    );
+    const spec = st.activeMeasurementId ? specFor(st.activeMeasurementId) : undefined;
+    const prefix = spec ? `${spec.shortLabel} · ` : '';
+    ctx.fillText(prefix + TOOL_HINT[activeTool], 8, 14);
   }
 }
 
@@ -472,6 +554,18 @@ function drawArcBox(ctx: CanvasRenderingContext2D, m: SimOutput['sector'], t0: n
   ctx.lineWidth = 1;
 }
 
+const TOOL_HINT: Record<SimStore['activeTool'], string> = {
+  none: '',
+  caliper: 'Caliper: clic en 2 puntos (borde interno a borde interno)',
+  velocity: 'Velocidad: clic sobre el pico del espectro',
+  vti: 'VTI: clic a lo largo de la envolvente, doble clic para cerrar',
+  'auto-vti': 'VTI automático: clic al inicio y al final del latido sobre el espectro',
+  time: 'Tiempo: clic en 2 puntos',
+  slope: 'Tiempo de desaceleración: clic en el pico de E y luego sobre la pendiente',
+  simpson: 'Simpson: clic a lo largo del endocardio de anillo a anillo por el ápex, doble clic para cerrar',
+  tapse: 'TAPSE: clic en la posición telediastólica y telesistólica del anillo en el modo M',
+};
+
 function drawGeometry(ctx: CanvasRenderingContext2D, pts: { x: number; y: number }[], kind: string, color: string): void {
   ctx.strokeStyle = color;
   ctx.fillStyle = color;
@@ -483,10 +577,11 @@ function drawGeometry(ctx: CanvasRenderingContext2D, pts: { x: number; y: number
     ctx.lineTo(p.x, p.y + 4);
     ctx.stroke();
   }
-  if (pts.length >= 2 && (kind === 'linear' || kind === 'time' || kind === 'vti')) {
+  if (pts.length >= 2 && (kind === 'linear' || kind === 'time' || kind === 'vti' || kind === 'volume')) {
     ctx.beginPath();
     ctx.moveTo(pts[0]!.x, pts[0]!.y);
     for (const p of pts.slice(1)) ctx.lineTo(p.x, p.y);
+    if (kind === 'volume') ctx.closePath();
     ctx.stroke();
   }
 }

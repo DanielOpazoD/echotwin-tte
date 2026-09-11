@@ -55,7 +55,7 @@ self.onmessage = (ev: MessageEvent<MainToWorker>) => {
       input = msg.input;
       lastTick = 0;
       outstanding = 0;
-      post({ type: 'ready', truth: core.truth, caseId: msg.caseDef.id });
+      post({ type: 'ready', truth: core.truth, caseId: msg.caseDef.id, phaseMarks: core.phaseMarks(), lvLengthCm: core.lvLengthCm() });
       schedule(1);
       return;
     }
@@ -68,6 +68,10 @@ self.onmessage = (ev: MessageEvent<MainToWorker>) => {
     if (msg.type === 'input') {
       input = msg.input;
       core.setInput(msg.input);
+      return;
+    }
+    if (msg.type === 'request') {
+      post({ type: 'response', id: msg.id, res: core.request(msg.req) });
     }
   } catch (e) {
     post({ type: 'error', message: e instanceof Error ? e.message + '\n' + (e.stack ?? '') : String(e) });

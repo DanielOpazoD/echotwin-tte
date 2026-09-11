@@ -1,5 +1,5 @@
 import type { CaseDefinition } from '@/cases/schema';
-import type { MainToWorker, SimInput, SimOutput, WorkerToMain } from './protocol';
+import type { MainToWorker, PhaseMarks, SimInput, SimOutput, SimRequest, SimResponse, WorkerToMain } from './protocol';
 import { SimulatorCore } from './simulatorCore';
 import type { StructuredEchoTruth } from '@/simulator/hemodynamics/groundTruth';
 
@@ -10,7 +10,7 @@ import type { StructuredEchoTruth } from '@/simulator/hemodynamics/groundTruth';
  */
 export interface SimClientHandlers {
   onFrame: (out: SimOutput) => void;
-  onReady: (truth: StructuredEchoTruth, caseId: string) => void;
+  onReady: (truth: StructuredEchoTruth, caseId: string, phaseMarks: PhaseMarks, lvLengthCm: number) => void;
   onError: (message: string) => void;
 }
 
@@ -39,10 +39,32 @@ export class SimClient {
     this.mode = 'inline';
   }
 
+  private pending = new Map<number, (r: SimResponse | null) => void>();
+  private nextId = 1;
+
   private handle(msg: WorkerToMain): void {
     if (msg.type === 'frame') this.handlers.onFrame(msg.output);
-    else if (msg.type === 'ready') this.handlers.onReady(msg.truth, msg.caseId);
-    else if (msg.type === 'error') this.handlers.onError(msg.message);
+    else if (msg.type === 'ready') this.handlers.onReady(msg.truth, msg.caseId, msg.phaseMarks, msg.lvLengthCm);
+    else if (msg.type === 'response') {
+      const cb = this.pending.get(msg.id);
+      if (cb) {
+        this.pending.delete(msg.id);
+        cb(msg.res);
+      }
+    } else if (msg.type === 'error') this.handlers.onError(msg.message);
+  }
+
+  /** On-demand request to the simulator (auto-trace etc.). */
+  request(req: SimRequest): Promise<SimResponse | null> {
+    if (this.worker) {
+      const id = this.nextId++;
+      return new Promise((resolve) => {
+        this.pending.set(id, resolve);
+        const m: MainToWorker = { type: 'request', id, req };
+        this.worker!.postMessage(m);
+      });
+    }
+    return Promise.resolve(this.inline ? this.inline.request(req) : null);
   }
 
   loadCase(caseDef: CaseDefinition, input: SimInput): void {
@@ -53,7 +75,7 @@ export class SimClient {
       return;
     }
     this.inline = new SimulatorCore(caseDef, input);
-    this.handlers.onReady(this.inline.truth, caseDef.id);
+    this.handlers.onReady(this.inline.truth, caseDef.id, this.inline.phaseMarks(), this.inline.lvLengthCm());
     if (this.inlineTimer) clearInterval(this.inlineTimer);
     this.inlineLast = performance.now();
     this.inlineTimer = setInterval(() => {

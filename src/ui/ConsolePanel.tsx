@@ -3,6 +3,7 @@ import { Section, Slider, Segmented, Toggle } from './controls';
 import { VIEW_TARGETS } from '@/simulator/windows/viewTargets';
 import { listCases } from '@/cases';
 import { PresetViews } from './PresetViews';
+import { MeasurementPanel } from './MeasurementPanel';
 
 /** Right-hand console: controls grouped by modality (spec 29.2). Every control alters the render. */
 export function ConsolePanel() {
@@ -140,17 +141,23 @@ export function ConsolePanel() {
         </Section>
       )}
       <Section title="Mediciones">
+        <MeasurementPanel />
+        <div className="small">Herramientas libres (sin evaluación de técnica):</div>
         <div className="row">
           <Segmented
             ariaLabel="Herramienta de medición"
-            value={s.activeTool}
+            value={s.activeMeasurementId ? 'none' : s.activeTool}
             onChange={(v) => s.setActiveTool(v)}
             options={[
               { id: 'none', label: '—' },
               { id: 'caliper', label: 'Caliper', title: 'Distancia lineal (2D)' },
               { id: 'velocity', label: 'Vel', title: 'Velocidad pico sobre el espectro' },
-              { id: 'vti', label: 'VTI', title: 'Trazado del envelope' },
+              { id: 'vti', label: 'VTI', title: 'Trazado manual del envelope' },
+              { id: 'auto-vti', label: 'VTI auto', title: 'Envolvente automática entre dos instantes' },
               { id: 'time', label: 't', title: 'Intervalo de tiempo' },
+              { id: 'slope', label: 'TD', title: 'Tiempo de desaceleración (pico → pendiente)' },
+              { id: 'simpson', label: 'Simpson', title: 'Volumen del VI por discos (trazado del endocardio)' },
+              { id: 'tapse', label: 'TAPSE', title: 'Excursión vertical en modo M' },
             ]}
           />
         </div>
@@ -162,7 +169,7 @@ export function ConsolePanel() {
                 {m.label} ({m.modality}{m.sourceViewId ? `, ${m.sourceViewId}` : ''})
               </span>
               <span>
-                {m.value.toFixed(m.kind === 'time' ? 0 : 2)} {m.units}
+                {m.value.toFixed(m.kind === 'time' || m.kind === 'volume' ? 0 : 2)} {m.units}
                 {m.derived?.gradientMmHg !== undefined ? ` · ${m.derived.gradientMmHg.toFixed(0)} mmHg` : ''}
                 {m.derived?.meanGradientMmHg !== undefined ? ` · media ${m.derived.meanGradientMmHg.toFixed(0)} mmHg` : ''}
               </span>

@@ -57,11 +57,12 @@ Estado real según el código el 2026-09-10. Los hitos M0–M6 siguen la especif
 ## M5 — Mediciones, informe y casos
 | Entregable | Estado | Evidencia |
 |---|---|---|
-| Caliper, velocidad, VTI, tiempo con procedencia | hecho | `DisplayCanvas.tsx`, `measurements/types.ts` (sin prueba) |
-| Informe educativo con verdad y desviación; modo examen que las oculta hasta finalizar | parcial | tabla de mediciones por heurística; el puntuador empareja por tipo e id requerido |
+| Caliper, velocidad, VTI (manual y automático), tiempo, pendiente (TD), Simpson monoplano, TAPSE en modo M, con procedencia | hecho | `DisplayCanvas.tsx`, `measurements/{types,protocol,simpson}.ts`, `simpson.test.ts`, `measurementSupport.test.ts`, `e2e/measurements.spec.ts` |
+| Protocolo de mediciones semánticas con evaluación de técnica (vista, fase, colocación, alineación, acortamiento) | hecho | `education/technique.ts` + `technique.test.ts`, `ui/MeasurementPanel.tsx` |
+| Informe educativo con verdad, desviación, técnica y cálculos derivados; modo examen que oculta la verdad hasta finalizar | hecho | `clinical/reporting/report.ts`, `ReportScreen.tsx`; el puntuador empareja por id y pondera por técnica |
 | Casos: normal, ventana difícil, EA severa | hecho | `src/cases` (la EA queda con gradiente medio 38 mmHg, por debajo de lo que enuncia su `impressionTruth`) |
 | Exportación PNG con marca de agua sintética | hecho | `src/app/exportImage.ts` (sin prueba) |
-| Simpson, TAPSE, FAC, áreas, PHT | pendiente | fórmulas sí, herramientas no |
+| Simpson biplano, FAC, áreas, PHT, IVRT | pendiente | monoplano y TD existen; el resto no |
 | Puntuación de examen (`requiredViews`, `requiredMeasurements`) | hecho | `src/education/scoring` + `scoring.test.ts` + «Finalizar examen» en `ReportScreen`; `impressionTruth` sigue sin uso |
 | Casos con FA, alteraciones segmentarias, derrame, SAM, bicúspide | pendiente | el modelo los soporta; no hay casos |
 
@@ -71,7 +72,7 @@ Estado real según el código el 2026-09-10. Los hitos M0–M6 siguen la especif
 | Atlas pose-condicionado (32 fases, anclas construidas con la sonda quieta, kNN/RBF, relleno, cuadros compactos) | hecho | `atlasRenderer.ts`, `atlas.test.ts` |
 | Generación offline de atlas (`atlas:build`) | parcial | `build-atlas.ts` genera hojas de contacto de 16 fases por vista para inspección; no exporta un paquete de anclas cargable |
 | Goldens por semilla y renders offline | hecho | `goldens.test.ts`, `render-views.ts` |
-| Pruebas E2E | hecho | 9 pruebas Playwright en `e2e/core-flow.spec.ts`; última ejecución local `passed` |
+| Pruebas E2E | hecho | 23 pruebas Playwright (`core-flow`, `measurements`, `gpu-equivalence`); última ejecución local `passed` |
 | Validación contra PyMUST / OpenBCSim / referencia CUDA | pendiente | carpetas vacías |
 | Rendimiento objetivo en navegador (render < 16 ms a calidad media) | parcial | trazador ≈ 10 ms en Node (ruido de retícula); en el navegador, con ancla completa, `stepMs` ≈ 2–3 ms; barridos ≈ 15–30 ms según núcleo |
 | Documentación | hecho | `docs/` (este conjunto) |

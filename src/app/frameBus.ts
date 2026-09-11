@@ -1,4 +1,4 @@
-import type { SimOutput } from '@/simulator/core/protocol';
+import type { SimOutput, SimRequest, SimResponse } from '@/simulator/core/protocol';
 
 /**
  * Hand-off between the simulation loop and the display canvas. The latest composite frame is
@@ -10,6 +10,8 @@ const listeners = new Set<Listener>();
 export const frameBus = {
   latest: null as SimOutput | null,
   recycle: (_b: ArrayBuffer): void => {},
+  /** On-demand request to the simulator (auto-trace); wired by useSimulation. */
+  request: (_req: SimRequest): Promise<SimResponse | null> => Promise.resolve(null),
   subscribe(fn: Listener): () => void {
     listeners.add(fn);
     return () => {

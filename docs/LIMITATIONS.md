@@ -21,11 +21,12 @@ Este documento existe para que nadie use el simulador más allá de lo que hace.
 - Diástole y corazón derecho parametrizados (E, A, DT, IVRT, e′, S′, TAPSE, PASP) sin acoplamiento entre parámetros: un caso puede ser físicamente incoherente si se escribe mal (sólo cuatro validaciones cruzadas).
 - Tórax de superelipse; la posición `subcostal-supine` no cambia nada; la elevación de la cabeza (`headElevationDeg`) se ignora.
 
-## Mediciones no validadas
-- Las herramientas sólo tienen una prueba E2E (un caliper que produce > 0,5 cm); el mapeo píxel↔cm y las herramientas de velocidad/VTI/tiempo no tienen prueba unitaria.
-- Las mediciones no llevan etiqueta semántica; el informe empareja con la verdad «más cercana», así que la desviación puede ser engañosa; el puntuador de examen hace lo mismo por tipo de herramienta.
-- Sin Simpson, TAPSE, FAC, áreas, PHT, corrección de ángulo, DT/IVRT sobre el espectro, ni cálculos compuestos (VS, AVA) desde mediciones del usuario.
-- Velocidad y VTI dependen de la envolvente dibujada por el usuario sobre un histograma con ruido; no hay trazado automático.
+## Mediciones: alcance de la evaluación de técnica
+- Las mediciones del protocolo (18 en `protocol.ts`) llevan id semántico y calificación de técnica; las herramientas libres no se califican y el informe sigue emparejándolas con la verdad «más cercana».
+- La evaluación de técnica es geométrica y por reglas: comprueba modalidad, vista (id y score), fase (ventanas fijas alrededor de los hitos del latido), colocación (estructura en el volumen de muestra, en la línea del cursor o a lo largo del segmento del caliper mediante el mapa polar de estructuras del cuadro) y ángulo haz–flujo (calculado con el campo de flujo paramétrico, no medido en la imagen). No valora la ganancia, el zoom ni la colocación fina del caliper respecto al borde anterior (leading edge); los umbrales (35/55 de score, ±5–6 % del ciclo, 20°+12°, 82/92 % de longitud) son elecciones de diseño sin validación con expertos.
+- Simpson es monoplano (A4C o A2C) desde un trazado manual; el biplano, el trazado automático del endocardio y el área del VD/FAC no existen. TAPSE se mide como excursión vertical en el modo M sin corregir el ángulo del cursor. El tiempo de desaceleración extrapola una pendiente entre dos clics; no hay IVRT ni PHT.
+- La envolvente automática del VTI es un umbral sobre el espectro sintético (0,35 del máximo de la columna, mancha contigua a la línea de base): funciona en espectros limpios y puede fallar con aliasing o con ganancia Doppler alta; la revisión sigue siendo del usuario.
+- El mapeo píxel↔cm y las herramientas siguen sin prueba unitaria directa; hay pruebas del motor de técnica, del método de discos, del soporte del núcleo (mapa de estructuras, gate, auto-trace) y dos E2E del flujo.
 - Los valores de referencia están marcados `recalled`; los cortes de e′ son los de 2016 (ver `docs/REFERENCES.md`). No hay graduación diastólica ni del corazón derecho; la graduación de EA de `report.ts` lee `AORTIC_STENOSIS_RULES` de `reference-values` (valores marcados `recalled`).
 
 ## Navegador y rendimiento
@@ -36,7 +37,7 @@ Este documento existe para que nadie use el simulador más allá de lo que hace.
 - Sin fallback si `Worker` existe pero falla al cargar el módulo (sólo se captura la excepción del constructor); el modo inline usa `setInterval` de 33 ms.
 - Audio Doppler con 48 osciladores siempre activos mientras está encendido; `AudioContext` requiere gesto del usuario en algunos navegadores.
 - UI pensada para escritorio con ratón (1440×900 en Playwright); sin soporte táctil ni accesibilidad más allá de etiquetas ARIA básicas; preferencias en `localStorage` sin versionado más allá del sufijo `v1`.
-- 9 pruebas E2E y un flujo de CI (`.github/workflows/ci.yml`) que nunca se ha ejecutado en remoto: el repositorio tiene commits locales pero no tiene remoto.
+- 23 pruebas E2E y un flujo de CI (`.github/workflows/ci.yml`) que nunca se ha ejecutado en remoto: el repositorio tiene commits locales pero no tiene remoto.
 
 ## Qué falta para uso en investigación
 - Validación cuantitativa contra un simulador físico (PyMUST/OpenBCSim/i4h) y contra imágenes reales anonimizadas; hoy sólo hay goldens internos y rangos fisiológicos.

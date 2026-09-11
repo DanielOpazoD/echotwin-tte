@@ -46,6 +46,33 @@ export function ReportScreen() {
       </table>
       <h3>Calidad del estudio</h3>
       <p>{report.studyQuality}</p>
+      {report.derived.length > 0 && (
+        <>
+          <h3>Cálculos derivados de tus mediciones</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Cálculo</th>
+                <th>Valor</th>
+                <th>Fórmula</th>
+                <th>Entradas</th>
+              </tr>
+            </thead>
+            <tbody>
+              {report.derived.map((d) => (
+                <tr key={d.id} data-derived={d.id}>
+                  <td>{d.label}</td>
+                  <td>{d.value}</td>
+                  <td>
+                    <code>{d.formula}</code>
+                  </td>
+                  <td className="small">{d.inputs}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
       <h3>Mediciones adquiridas</h3>
       <table>
         <thead>
@@ -54,13 +81,14 @@ export function ReportScreen() {
             <th>Valor</th>
             <th>Modalidad / vista</th>
             <th>Calidad vista</th>
+            <th>Técnica</th>
             {s.mode !== 'exam' && <th>Modelo (verdad)</th>}
             {s.mode !== 'exam' && <th>Desviación</th>}
           </tr>
         </thead>
         <tbody>
           {report.rows.map((r) => (
-            <tr key={r.id}>
+            <tr key={r.id} data-technique={r.technique?.level ?? 'free'}>
               <td>{r.label}</td>
               <td>{r.value}</td>
               <td>
@@ -68,13 +96,29 @@ export function ReportScreen() {
                 {r.view ? ` / ${r.view}` : ''}
               </td>
               <td>{r.viewScore ?? '—'}</td>
+              <td>
+                {r.technique ? (
+                  <>
+                    <span className={`pill ${r.technique.level === 'ok' ? 'ok' : r.technique.level === 'warn' ? 'warn' : 'bad'}`}>{r.technique.score}/100</span>
+                    {r.technique.notes.length > 0 && (
+                      <ul className="small technique-notes">
+                        {r.technique.notes.map((n, i) => (
+                          <li key={i}>{n}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </>
+                ) : (
+                  <span className="small">libre</span>
+                )}
+              </td>
               {s.mode !== 'exam' && <td>{r.truth ?? '—'}</td>}
               {s.mode !== 'exam' && <td>{r.deviation ?? '—'}</td>}
             </tr>
           ))}
           {report.rows.length === 0 && (
             <tr>
-              <td colSpan={6} className="small">
+              <td colSpan={7} className="small">
                 Sin mediciones todavía.
               </td>
             </tr>

@@ -28,14 +28,16 @@ export function useSimulation(displaySize: { width: number; height: number }, on
       onFrame: (out) => {
         onFrameRef.current(out);
       },
-      onReady: (truth, id) => {
+      onReady: (truth, id, phaseMarks, lvLengthCm) => {
         useSimStore.getState().setTruth(truth, id);
+        useSimStore.getState().setCycleInfo(phaseMarks, lvLengthCm);
         useSimStore.getState().setWorkerMode(client.mode);
       },
       onError: (m) => useSimStore.getState().setError(m),
     });
     clientRef.current = client;
     frameBus.recycle = (b) => client.recycle(b);
+    frameBus.request = (req) => client.request(req);
     const caseDef = loadCaseById(store.caseId);
     client.loadCase(caseDef, buildInput(sizeRef.current));
     // Inputs are pushed on store changes (independent of rAF, which browsers pause in hidden tabs).

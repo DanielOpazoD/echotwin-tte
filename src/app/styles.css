@@ -101,3 +101,15 @@ select { background: var(--panel-2); border: 1px solid var(--border); border-rad
 .preset-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-bottom: 4px; }
 .preset-grid.secondary { grid-template-columns: repeat(4, 1fr); }
 .preset-grid button { padding: 5px 4px; font-size: 12px; }
+
+/* measurement protocol panel (spec 16/28) */
+.pill.bad { color: #ff7b7b; }
+.protocol { display: flex; flex-direction: column; gap: 2px; margin-bottom: 6px; }
+.protocol-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 1px 0; border-bottom: 1px solid #1c2330; font-size: 11px; }
+.protocol-row button { min-width: 64px; font-size: 10px; padding: 1px 6px; }
+.protocol-row.active { background: #16202b; }
+.protocol-value { font-family: var(--mono); display: flex; gap: 6px; align-items: center; }
+.protocol-instruction { background: #16202b; border: 1px solid #2a3a4c; border-radius: 6px; padding: 6px; margin-bottom: 4px; font-size: 11px; }
+.protocol-instruction button { margin-top: 4px; font-size: 10px; }
+.protocol details summary { cursor: pointer; margin-top: 4px; }
+.technique-notes { margin: 2px 0 0 12px; padding: 0; max-width: 320px; }

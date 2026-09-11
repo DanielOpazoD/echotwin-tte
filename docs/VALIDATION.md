@@ -1,6 +1,6 @@
 # Validación
 
-Estado observado el **2026-09-10 a las 22:05 (hora local)** con `npx vitest run`: **14 archivos, 73 pruebas, todas pasan**. Playwright: 9 pruebas en `e2e/core-flow.spec.ts`; `test-results/.last-run.json` registra la última ejecución local como `passed`. Lint y typecheck en verde. El árbol se estaba editando activamente mientras se escribía esto (nuevos `doppler.test.ts`, `atlas.test.ts`, `goldens.test.ts`, `scoring.test.ts`, E2E y CI aparecieron durante la sesión): vuelve a ejecutar `npm test` y `npm run test:e2e` antes de fiarte de esta tabla. `.github/workflows/ci.yml` (lint → typecheck → test → build → Playwright en Chromium) existe pero nunca se ha ejecutado porque el repositorio no tiene commits ni remoto.
+Estado observado el **2026-09-11 a la 01:40 (hora local)** con `npx vitest run`: **17 archivos, 86 pruebas, todas pasan**. Playwright: 23 pruebas (`core-flow` 9, `measurements` 2, `gpu-equivalence` 12); `test-results/.last-run.json` registra la última ejecución local como `passed`. Lint y typecheck en verde. Vuelve a ejecutar `npm test` y `npm run test:e2e` antes de fiarte de esta tabla. `.github/workflows/ci.yml` (lint → typecheck → test → build → Playwright en Chromium) existe pero nunca se ha ejecutado en remoto: el repositorio tiene commits locales y no tiene remoto.
 
 ## Feature → referencia → tolerancia → resultado
 Referencia = con qué se compara (valor analítico, consistencia interna o rango fisiológico). Ninguna prueba compara con datos de pacientes reales.
@@ -51,6 +51,9 @@ Referencia = con qué se compara (valor analítico, consistencia interna o rango
 | | VTI con +40 % pierde puntos (0 < p < 100); `mitral-e` no medida = 0 | — | — | pasa |
 | | Resumen reproducible; lista A4C omitida; total < 60 | — | igualdad profunda | pasa |
 | `anatomy/proportions.test.ts` | 44 medidas geométricas por caso (volúmenes MC, diámetros en planos estándar, grosores, raíz, anillos, índices por BSA) contra rangos adultos por sexo (ASE/EACVI 2015, corazón derecho 2025; «≈» = aproximado); sólo salen de rango las desviaciones declaradas por el caso (`expectedDeviations`); una declaración obsoleta falla | rangos de guía | rango | pasa (3 casos) |
+| `education/technique.test.ts` | Motor de técnica: TSVI en PLAX/mesosístole/segmento en el TSVI = 1,0; A4C inválida; fase errónea; caliper con pared o extremos dentro de la cavidad; gate en VD inválido; 45° de ángulo = inválido con «29 %» de subestimación; CW sin cruzar la válvula; TAPSE con línea por el anillo; Simpson acortado; todo id requerido de todo caso tiene spec y verdad | reglas del protocolo | exacto | pasa (6) |
+| `measurements/simpson.test.ts` | Discos desde un contorno: media elipsoide → 2/3·π·a²·L | analítico | 3 %; invariante a rotación 2 % | pasa (2) |
+| `core/measurementSupport.test.ts` | Mapa polar de estructuras en cada cuadro; hitos de fase ordenados; gate PW en el TSVI reporta estructura, flujo y ángulo < 40°; auto-trace del espectro del TSVI: Vmax 0,5–1,8 m/s y > 40 % de columnas sin flujo | fisiológico | rango | pasa (3) |
 | `tests/goldens.test.ts` | Determinismo por semilla (500 muestras iguales) | — | exacto | pasa |
 | | Goldens: rejilla 12×12 de medias para PLAX/PSAX-PM/A4C/A2C a fases 0 y 0,3 (tier low) | `src/tests/goldens/frames.json` (regenerado a las 20:09) | ≤ 6 niveles por celda | pasa |
 
@@ -65,13 +68,14 @@ Referencia = con qué se compara (valor analítico, consistencia interna o rango
 | Modo examen | Texto «Modo examen…»; botones Dev, Física y Referencias deshabilitados |
 | Preferencias | Tras recargar, `showTorso` persiste; mediciones y pose no |
 | Tutorial | En un perfil nuevo aparece el diálogo «Tutorial de controles»; «Siguiente» muestra el paso 2; «Saltar» lo cierra y no reaparece tras recargar |
+| Mediciones (`e2e/measurements.spec.ts`, 2 pruebas) | «Medir Diámetro del TSVI» arma el caliper con id semántico; tras PLAX predeterminada, freeze y dos clics, la medición lleva `measurementId`, técnica con ≥ 4 hallazgos (modalidad, fase, colocación…) y score en (0, 1]; el panel muestra la píldora de técnica y el informe la columna «Técnica» y el área del TSVI derivada. Las herramientas libres siguen registrando mediciones sin id ni técnica |
 | Equivalencia GPU (`e2e/gpu-equivalence.spec.ts`, 12 pruebas) | Para dos casos × PLAX/A4C/PSAX-AV × fases 0 y 0,35, el cuadro polar del trazador WebGL2 coincide con el de CPU: estructura y tejido > 99,5 %, amplitud < 1 % relativa, transmisión < 0,001 (medido: 100 %, ~10⁻⁵, ~10⁻⁷) |
 
 El `beforeEach` de las siete primeras marca `tutorialDone` en `localStorage` para que el tutorial no tape la interfaz. Los helpers usan el gancho `window.__echotwin` (`src/main.tsx`) para leer los stores; el buffer RGBA no se serializa.
 
 ## Pendiente de validar
 - Comparación contra imágenes reales o contra un simulador físico (PyMUST/OpenBCSim/i4h): `tools/offline/{pymust-validation,optional-cuda-reference,optical-flow}` están vacías (`atlas-generation/build-atlas.ts` sólo produce hojas de contacto para inspección visual).
-- Precisión numérica de las herramientas frente a la verdad de terreno a través de la UI: el E2E sólo comprueba que un caliper produce un valor > 0,5 cm; no hay prueba unitaria del mapeo píxel↔cm ni de velocidad/VTI/tiempo.
+- Precisión numérica de las herramientas frente a la verdad de terreno a través de la UI: los E2E comprueban el flujo y la procedencia, no el valor; no hay prueba unitaria del mapeo píxel↔cm ni de velocidad/VTI/tiempo manuales.
 - Color Doppler en imagen (aliasing, blooming, sombra) y M-mode: sólo humo.
 - Caso de estenosis aórtica: ninguna prueba comprueba su Vmax/gradientes/AVA ni la graduación del informe (sus proporciones y su válvula sí se prueban).
 - Worker (contrapresión, reciclaje), reloj/ECG en la app, audio Doppler.

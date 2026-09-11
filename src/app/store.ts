@@ -7,6 +7,8 @@ import { DEFAULT_SPECTRAL, type SpectralSettings } from '@/simulator/doppler/spe
 import type { SimOutput, QualityTier } from '@/simulator/core/protocol';
 import type { StructuredEchoTruth } from '@/simulator/hemodynamics/groundTruth';
 import type { Measurement } from '@/simulator/measurements/types';
+import { getMeasurementSpec } from '@/simulator/measurements/protocol';
+import type { PhaseMarks } from '@/simulator/core/protocol';
 import { getCaseModels } from './caseModels';
 import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
 import { easeInOut, lerpControl, presetDurationMs } from '@/simulator/probe/interpolate';
@@ -43,7 +45,12 @@ export interface SimStore {
   ui: UiPrefs;
   truth: StructuredEchoTruth | null;
   measurements: Measurement[];
-  activeTool: 'none' | 'caliper' | 'velocity' | 'vti' | 'time';
+  activeTool: 'none' | 'caliper' | 'velocity' | 'vti' | 'auto-vti' | 'time' | 'slope' | 'simpson' | 'tapse';
+  /** Semantic measurement being captured (protocol id) or null for a free measurement. */
+  activeMeasurementId: string | null;
+  /** Cardiac phase landmarks and LV length of the loaded case (from the simulator). */
+  phaseMarks: PhaseMarks | null;
+  lvLengthCm: number | null;
   /** Best view-quality score reached per view id during this case (drives acquisition scoring). */
   viewProgress: Record<string, number>;
   /** Preset view in progress: the probe is moved continuously to the canonical pose (never teleported). */
@@ -73,6 +80,9 @@ export interface SimStore {
   removeMeasurement: (id: string) => void;
   clearMeasurements: () => void;
   setActiveTool: (t: SimStore['activeTool']) => void;
+  /** Start capturing a protocol measurement: selects its tool and remembers the semantic id. */
+  setActiveMeasurement: (id: string | null) => void;
+  setCycleInfo: (marks: PhaseMarks, lvLengthCm: number) => void;
   recordViewScore: (viewId: string, score: number) => void;
   /** Start moving the probe to a predefined view (disabled in exam mode). */
   startPresetView: (viewId: string) => void;
@@ -135,6 +145,9 @@ export const useSimStore = create<SimStore>((set) => ({
   truth: null,
   measurements: [],
   activeTool: 'none',
+  activeMeasurementId: null,
+  phaseMarks: null,
+  lvLengthCm: null,
   viewProgress: {},
   presetAnim: null,
   examFinished: false,
@@ -183,7 +196,14 @@ export const useSimStore = create<SimStore>((set) => ({
   addMeasurement: (m) => set((s) => ({ measurements: [...s.measurements, m] })),
   removeMeasurement: (id) => set((s) => ({ measurements: s.measurements.filter((m) => m.id !== id) })),
   clearMeasurements: () => set({ measurements: [] }),
-  setActiveTool: (t) => set({ activeTool: t }),
+  setActiveTool: (t) => set({ activeTool: t, activeMeasurementId: null }),
+  setActiveMeasurement: (id) => {
+    if (!id) return set({ activeMeasurementId: null, activeTool: 'none' });
+    const spec = getMeasurementSpec(id);
+    if (!spec) return set({ activeMeasurementId: null, activeTool: 'none' });
+    set({ activeMeasurementId: id, activeTool: spec.tool });
+  },
+  setCycleInfo: (marks, lvLengthCm) => set({ phaseMarks: marks, lvLengthCm }),
   startPresetView: (viewId) =>
     set((s) => {
       if (s.mode === 'exam') return {};

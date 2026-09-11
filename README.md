@@ -8,7 +8,7 @@ Simulador educativo de ecocardiografía transtorácica (ETT) del adulto escrito 
 - Renderiza en tiempo real un sector 2D de un corazón analítico (funciones de distancia con signo) que late según tablas de latido derivadas de la fisiología del caso (`src/simulator/cardiac-cycle`).
 - Modalidades: 2D, Color Doppler, M-mode, Doppler pulsado (PW), continuo (CW) y tisular (TDI), con audio Doppler sintetizado a partir del mismo espectro que se dibuja.
 - Reconoce la vista (PLAX, PSAX ×4, A4C, A5C, A2C, A3C, apical enfocada en VD) y puntúa la adquisición con componentes explícitos y consejos deterministas de manipulación. Botones de **vistas predeterminadas** que mueven la sonda de forma continua hasta la pose canónica (deshabilitados en examen).
-- Herramientas de medición (caliper, velocidad, VTI, tiempo) con procedencia (vista, cuadro, fase) e informe educativo comparado con la verdad de terreno del modelo; en modo examen, puntuación de adquisición y mediciones (`src/education/scoring`).
+- Protocolo de 18 mediciones semánticas (`src/simulator/measurements/protocol.ts`) con evaluación de técnica (modalidad, vista y calidad, fase del ciclo, colocación del volumen de muestra o del caliper sobre el mapa de estructuras del cuadro, ángulo haz–flujo, acortamiento apical) en `src/education/technique.ts`; herramientas: caliper, velocidad, VTI manual y automático, tiempo, tiempo de desaceleración, Simpson monoplano y TAPSE en modo M, todas con procedencia (vista, cuadro, fase); informe educativo con la verdad del modelo, la columna de técnica y los cálculos derivados de las mediciones del alumno; en modo examen, puntuación de adquisición y mediciones ponderada por técnica (`src/education/scoring`).
 - Tres casos sintéticos: normal con ventana excelente, normal con ventana difícil y estenosis aórtica severa.
 
 Lo que **no** hace todavía está en [docs/LIMITATIONS.md](docs/LIMITATIONS.md) y [docs/CLINICAL_SCOPE.md](docs/CLINICAL_SCOPE.md).
@@ -23,7 +23,7 @@ Requiere Node ≥ 20 (`engines` en `package.json`). Dependencias de ejecución: 
 | `npm run build` | `tsc --noEmit` y después `vite build` (salida en `dist/`, chunks separados para three y react). |
 | `npm run preview` | Sirve `dist/` (Playwright lo usa en el puerto 4173). |
 | `npm test` | Suite Vitest (`src/**/*.test.ts`, entorno node). |
-| `npm run test:e2e` | Playwright (Chromium, 1440×900) contra `npm run preview` en el puerto 4173: 9 pruebas en `e2e/core-flow.spec.ts` y 12 de equivalencia CPU/GPU en `e2e/gpu-equivalence.spec.ts`. Requiere `npx playwright install chromium` la primera vez. |
+| `npm run test:e2e` | Playwright (Chromium, 1440×900) contra `npm run preview` en el puerto 4173: 9 pruebas en `e2e/core-flow.spec.ts`, 2 del protocolo de mediciones en `e2e/measurements.spec.ts` y 12 de equivalencia CPU/GPU en `e2e/gpu-equivalence.spec.ts`. Requiere `npx playwright install chromium` la primera vez. |
 | `npm run lint` | ESLint (incluye la regla que prohíbe importar `clinical/formulas/*` desde `src/ui`). |
 | `npm run typecheck` | `tsc -p tsconfig.json --noEmit` (strict, `noUncheckedIndexedAccess`). |
 | `npm run check` | lint → typecheck → test → build, en ese orden. |
@@ -101,7 +101,7 @@ e2e/                    core-flow.spec.ts (9 pruebas Playwright) + helpers.ts
 ```
 
 ## Estado actual (observado el 2026-09-10 hacia las 20:15; el código se estaba editando activamente)
-Corte vertical funcionando: ventanas paraesternal y apical de un corazón normal, Doppler paramétrico coherente con la verdad de terreno, un caso de estenosis aórtica severa y puntuación de examen. Vitest: 14 archivos / 73 pruebas, todas en verde a las 22:05; Playwright: 9 pruebas, última ejecución local `passed`; lint y typecheck en verde. Hay un flujo de CI en `.github/workflows/ci.yml` que nunca se ha ejecutado: el repositorio tiene commits locales pero **sin remoto**. Detalle y avisos en [docs/VALIDATION.md](docs/VALIDATION.md).
+Corte vertical funcionando: ventanas paraesternal y apical de un corazón normal, Doppler paramétrico coherente con la verdad de terreno, un caso de estenosis aórtica severa y puntuación de examen. Vitest: 17 archivos / 86 pruebas, todas en verde; Playwright: 23 pruebas (flujo, mediciones, equivalencia GPU), última ejecución local `passed`; lint y typecheck en verde. Hay un flujo de CI en `.github/workflows/ci.yml` que nunca se ha ejecutado: el repositorio tiene commits locales pero **sin remoto**. Detalle y avisos en [docs/VALIDATION.md](docs/VALIDATION.md).
 
 ## Documentación
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — capas, flujo de datos, worker, backends, tiers.

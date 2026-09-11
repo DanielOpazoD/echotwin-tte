@@ -20,7 +20,7 @@ import { buildSpectralColumn, SPECTRAL_BINS, spectralRange, type VelocitySample 
 import { computeGroundTruth, type StructuredEchoTruth } from '@/simulator/hemodynamics/groundTruth';
 import { makeSample, Tissue } from '@/simulator/anatomy/tissue';
 import { createRng } from '@/core/random';
-import type { EcgPoint, SimInput, SimOutput, StripInfo } from './protocol';
+import type { EcgPoint, GateInfo, PhaseMarks, SimInput, SimOutput, SimRequest, SimResponse, StripInfo } from './protocol';
 
 /**
  * Headless simulator (spec 32 data flow). Runs in a Web Worker in the app and directly in tests.
@@ -33,6 +33,7 @@ const STRIP_MM_WIDTH = 100; // physical width represented by the strip (mm)
 
 interface CineFrame {
   display: Uint8ClampedArray;
+  structure: Uint8Array;
   spec: PolarFrameSpec;
   phase: number;
   timeS: number;
@@ -266,6 +267,7 @@ export class SimulatorCore {
       this.timing.analysisMs = performance.now() - ta;
     }
     const cf: CineFrame = {
+      structure: new Uint8Array(this.frame!.structure),
       display: new Uint8ClampedArray(this.display!),
       spec,
       phase,
@@ -434,6 +436,143 @@ export class SimulatorCore {
     this.lastColumn = column;
   }
 
+  /** Structures at the Doppler/M-mode cursor and the beam–flow angle at the PW/TDI gate (technique checks). */
+  private gateInfo(beam: BeamFrame, spec: PolarFrameSpec, phase: number, structure: Uint8Array): GateInfo {
+    const inp = this.input;
+    const theta = Math.max(-spec.sectorRad / 2, Math.min(spec.sectorRad / 2, inp.cursorThetaRad));
+    const li = Math.min(spec.lines - 1, Math.max(0, Math.round(((theta + spec.sectorRad / 2) / spec.sectorRad) * spec.lines - 0.5)));
+    const lineStructures: number[] = [];
+    if (structure.length === spec.lines * spec.samples) {
+      for (let si = 0; si < spec.samples; si++) {
+        const st = structure[li * spec.samples + si]!;
+        if (st !== 0 && !lineStructures.includes(st)) lineStructures.push(st);
+      }
+    }
+    const ct = Math.cos(theta),
+      sn = Math.sin(theta);
+    const r = inp.gateDepthCm;
+    const dx = beam.forward.x * ct + beam.lateral.x * sn;
+    const dy = beam.forward.y * ct + beam.lateral.y * sn;
+    const dz = beam.forward.z * ct + beam.lateral.z * sn;
+    const px = beam.origin.x + dx * r,
+      py = beam.origin.y + dy * r,
+      pz = beam.origin.z + dz * r;
+    const hf = this.heart.frame;
+    const hx = (px - hf.origin.x) * hf.ex.x + (py - hf.origin.y) * hf.ex.y + (pz - hf.origin.z) * hf.ex.z;
+    const hy = (px - hf.origin.x) * hf.ey.x + (py - hf.origin.y) * hf.ey.y + (pz - hf.origin.z) * hf.ey.z;
+    const hz = (px - hf.origin.x) * hf.ez.x + (py - hf.origin.y) * hf.ez.y + (pz - hf.origin.z) * hf.ez.z;
+    const hp = computeHeartPose(this.heart, cycleStateAt(this.tables, phase));
+    const ts = this.tissueSample;
+    const inHeart = classifyHeart(this.heart, hp, hx, hy, hz, ts);
+    let flowPresent = false;
+    let flowAngleDeg: number | null = null;
+    if (inHeart && ts.tissue === Tissue.Blood) {
+      // flow direction at the gate over the cycle: use the instant of maximal speed so the angle does not depend on the frame
+      let best = 0;
+      let bx = 0,
+        by = 0,
+        bz = 0;
+      const fs = this.flowSample;
+      for (let k = 0; k < 16; k++) {
+        const ph = k / 16;
+        sampleFlow(this.flow, this.tables, computeHeartPose(this.heart, cycleStateAt(this.tables, ph)), ph, hx, hy, hz, fs);
+        const sp = Math.hypot(fs.vx, fs.vy, fs.vz);
+        if (fs.present && sp > best) {
+          best = sp;
+          bx = fs.vx;
+          by = fs.vy;
+          bz = fs.vz;
+        }
+      }
+      if (best > 0.05) {
+        flowPresent = true;
+        const dhx = dx * hf.ex.x + dy * hf.ex.y + dz * hf.ex.z;
+        const dhy = dx * hf.ey.x + dy * hf.ey.y + dz * hf.ey.z;
+        const dhz = dx * hf.ez.x + dy * hf.ez.y + dz * hf.ez.z;
+        const cos = Math.abs((bx * dhx + by * dhy + bz * dhz) / best);
+        flowAngleDeg = (Math.acos(Math.min(1, cos)) * 180) / Math.PI;
+      }
+    } else if (inHeart && ts.tissue === Tissue.Myocardium && inp.modality === 'tdi') {
+      flowPresent = true;
+      // tissue moves along the LV long axis: angle between the beam and the heart z axis
+      const dhz = dx * hf.ez.x + dy * hf.ez.y + dz * hf.ez.z;
+      flowAngleDeg = (Math.acos(Math.min(1, Math.abs(dhz))) * 180) / Math.PI;
+    }
+    return { thetaRad: theta, depthCm: r, structure: inHeart ? ts.structure : 0, tissue: inHeart ? ts.tissue : 0, flowPresent, flowAngleDeg, lineStructures };
+  }
+
+  /** Cardiac phase landmarks as fractions of RR (for phase checks in the technique engine). */
+  phaseMarks(): PhaseMarks {
+    const t = this.tables.timings;
+    const rr = this.tables.rrS;
+    return {
+      ejectionStart: t.ejectionStartS / rr,
+      ejectionEnd: t.ejectionEndS / rr,
+      mitralOpen: t.mitralOpenS / rr,
+      eEnd: (t.mitralOpenS + t.eAccelS + t.eDecelS) / rr,
+      aStart: t.hasAWave ? t.aStartS / rr : 1,
+      aEnd: t.hasAWave ? t.aEndS / rr : 1,
+      hasAWave: t.hasAWave,
+    };
+  }
+
+  /** LV length at end-diastole (cm), the reference for Simpson foreshortening checks. */
+  lvLengthCm(): number {
+    return this.heart.lv.lengthCm;
+  }
+
+  /** Answer an on-demand request (auto-trace of the spectral envelope between two strip columns). */
+  request(req: SimRequest): SimResponse | null {
+    if (req.kind === 'autoTrace') {
+      const strip = this.stripSpectral;
+      if (!strip || this.stripKind !== 'spectral') return null;
+      const { vMin, vMax } = spectralRange(this.input.spectral);
+      const cols = this.stripCols;
+      const secondsShown = STRIP_MM_WIDTH / this.input.spectral.sweepSpeedMmPerS;
+      const spc = cols ? secondsShown / cols : 0;
+      const x0 = Math.max(0, Math.min(cols - 1, Math.round(Math.min(req.x0, req.x1))));
+      const x1 = Math.max(0, Math.min(cols - 1, Math.round(Math.max(req.x0, req.x1))));
+      const baselineBin = ((vMax / (vMax - vMin)) * SPECTRAL_BINS);
+      const velocitiesMps: number[] = [];
+      for (let x = x0; x <= x1; x++) {
+        let max = 0;
+        for (let b = 0; b < SPECTRAL_BINS; b++) max = Math.max(max, strip[x * SPECTRAL_BINS + b] ?? 0);
+        const thr = Math.max(0.12, 0.35 * max);
+        // dominant side: the side of the baseline with more energy
+        let above = 0,
+          below = 0;
+        for (let b = 0; b < SPECTRAL_BINS; b++) {
+          const v = strip[x * SPECTRAL_BINS + b] ?? 0;
+          if (b < baselineBin) above += v;
+          else below += v;
+        }
+        // walk from the baseline outward through the contiguous signal blob (gaps ≤ 2 bins), so that
+        // isolated noise far from the baseline does not pull the envelope to the top of the scale
+        let edgeBin = baselineBin;
+        if (above >= below) {
+          let gap = 0;
+          for (let b = Math.floor(baselineBin) - 1; b >= 0; b--) {
+            if ((strip[x * SPECTRAL_BINS + b] ?? 0) > thr) {
+              edgeBin = b;
+              gap = 0;
+            } else if (++gap > 2) break;
+          }
+        } else {
+          let gap = 0;
+          for (let b = Math.ceil(baselineBin); b < SPECTRAL_BINS; b++) {
+            if ((strip[x * SPECTRAL_BINS + b] ?? 0) > thr) {
+              edgeBin = b + 1;
+              gap = 0;
+            } else if (++gap > 2) break;
+          }
+        }
+        velocitiesMps.push(vMax - (edgeBin / SPECTRAL_BINS) * (vMax - vMin));
+      }
+      return { kind: 'autoTrace', velocitiesMps, secondsPerColumn: spc, x0 };
+    }
+    return null;
+  }
+
   private frozenOutput(): SimOutput | null {
     const inp = this.input;
     if (!this.cine.length) return null;
@@ -482,6 +621,8 @@ export class SimulatorCore {
     if (isStrip) strip = this.drawStrip(rgba, W, H, sectorH, fspec);
     const view = cf ? cf.analysis : this.lastAnalysis;
     const c = this.clock.current;
+    const structure = cf ? cf.structure : this.frame ? this.frame.structure : new Uint8Array(0);
+    const gate = isStrip ? this.gateInfo(beam, fspec, cf ? cf.phase : c.phase, structure) : null;
     const ecgTail = this.ecg.slice(Math.max(0, this.ecg.length - 1200));
     this.lastOutputBeam = beam;
     const sector = { ...mapping, x: 0, y: 0 };
@@ -495,6 +636,9 @@ export class SimulatorCore {
       rgba: buffer,
       sector,
       strip,
+      polar: { lines: fspec.lines, samples: fspec.samples, sectorRad: fspec.sectorRad, depthCm: fspec.depthCm },
+      structure: new Uint8Array(structure),
+      gate,
       timeS: this.timeS,
       phase: cf ? cf.phase : c.phase,
       beatIndex: c.beatIndex,

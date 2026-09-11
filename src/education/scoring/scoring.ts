@@ -72,11 +72,16 @@ export interface MeasurementScore {
 
 const MIN_VIEW_SCORE_FOR_VALID = 50;
 
-/** Best matching user measurement (closest to the truth) of the right kind. */
-function bestMatch(kind: Measurement['kind'], truth: number, ms: Measurement[]): Measurement | null {
+/**
+ * Matching user measurement: by semantic id when the protocol panel was used (the last one taken
+ * wins, as on a real machine); otherwise the closest free measurement of the right kind.
+ */
+function bestMatch(id: string, kind: Measurement['kind'], truth: number, ms: Measurement[]): Measurement | null {
+  const semantic = ms.filter((m) => m.measurementId === id);
+  if (semantic.length) return semantic[semantic.length - 1]!;
   let best: Measurement | null = null;
   for (const m of ms) {
-    if (m.kind !== kind) continue;
+    if (m.kind !== kind || m.measurementId) continue;
     if (!best || Math.abs(m.value - truth) < Math.abs(best.value - truth)) best = m;
   }
   return best;
@@ -87,18 +92,27 @@ export function scoreMeasurements(caseDef: CaseDefinition, truth: StructuredEcho
   for (const req of caseDef.requiredMeasurements) {
     const t = truthFor(req.measurementId, truth);
     if (!t) continue;
-    const m = bestMatch(t.kind, t.value, measurements);
+    const m = bestMatch(req.measurementId, t.kind, t.value, measurements);
     if (!m) {
       rows.push({ measurementId: req.measurementId, label: t.label, truth: t.value, units: t.units, measured: null, errorPct: null, tolerancePct: req.tolerancePct, viewScore: null, technicallyValid: false, points: 0, comment: 'No medida.' });
       continue;
     }
     const errorPct = (Math.abs(m.value - t.value) / t.value) * 100;
-    const technicallyValid = (m.viewScore ?? 0) >= MIN_VIEW_SCORE_FOR_VALID;
     let points = errorPct <= req.tolerancePct ? 100 : Math.max(0, 100 - (errorPct - req.tolerancePct) * 3);
     let comment = errorPct <= req.tolerancePct ? 'Dentro de tolerancia.' : `Error ${errorPct.toFixed(0)} % (tolerancia ${req.tolerancePct} %).`;
-    if (!technicallyValid) {
-      points *= 0.4;
-      comment += ' Medición tomada con una vista de baja calidad: técnicamente inválida aunque el número coincida.';
+    let technicallyValid: boolean;
+    if (m.technique) {
+      // technique-graded measurement: the number only counts as much as the technique allows
+      technicallyValid = !m.technique.findings.some((f) => f.level === 'invalid');
+      points *= m.technique.score;
+      const problems = m.technique.findings.filter((f) => f.level !== 'ok').map((f) => f.message);
+      if (problems.length) comment += ' Técnica: ' + problems.join(' ');
+    } else {
+      technicallyValid = (m.viewScore ?? 0) >= MIN_VIEW_SCORE_FOR_VALID;
+      if (!technicallyValid) {
+        points *= 0.4;
+        comment += ' Medición tomada con una vista de baja calidad: técnicamente inválida aunque el número coincida.';
+      }
     }
     rows.push({ measurementId: req.measurementId, label: t.label, truth: t.value, units: t.units, measured: m.value, errorPct, tolerancePct: req.tolerancePct, viewScore: m.viewScore, technicallyValid, points: Math.round(points), comment });
   }
