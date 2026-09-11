@@ -49,6 +49,16 @@ Puntos de diseño que el código impone:
 - **Pose canónica alcanzable.** `canonicalControl` resuelve cada vista desde un punto de piel ajustado al centro del espacio intercostal (`snapToIntercostal`) y `canonicalBeam` la cachea por (corazón, vista, tórax); el score compara contra esa pose, no contra el plano anatómico ideal.
 - **Mapas auxiliares por muestra.** `structure`, `tissue` y `transmission` viajan con el cuadro y alimentan el reconocimiento de vista (sombras), el Doppler (máscara de sangre, sombra) y las mediciones.
 
+## Formación de la imagen acústica (decisión 52)
+Los dos trazadores (CPU de referencia y WebGL2) producen el mismo cuadro polar por etapas:
+1. **Muestreo de escena**: por muestra (línea, profundidad y, en el tier alto, tres planos de elevación) se clasifica el tejido y se obtienen estructura, distancia con signo a la interfaz, normal y coordenadas materiales.
+2. **Acústica local**: retrodispersión incoherente σ (reflectividad × anisotropía miocárdica × heterogeneidad) y eco especular coherente sólo en la muestra que cruza la interfaz (∝ |n·d|⁴).
+3. **Propagación**: transmisión de ida y vuelta acumulada a lo largo de la línea (sombras), entrada en pulmón con reverberación, clutter de campo cercano fijo a la sonda.
+4. **Señal compleja**: σ × fasor de dispersores anclado al tejido + eco especular, por la transmisión.
+5. **PSF y envolvente** (`renderer/acoustic/psf.ts`): pulso axial y haz lateral de ida y vuelta según profundidad, foco, frecuencia y armónicos, con núcleos de energía unidad; después, módulo de la señal. El resultado es la amplitud lineal del `PolarFrame`.
+
+La consola trabaja sobre esa envolvente (ganancia, TGC, ruido electrónico Rayleigh, compresión, realce, persistencia y mapa de grises) y ya no aplica resolución. En la GPU las etapas 1–2 son la pasada A (tres destinos: σ/atenuación, identificadores, especular/fasor), la 3–4 la pasada B, y la 5 las pasadas C (axial) y D (lateral y envolvente), que leen la misma tabla de núcleos Float32 que la CPU desde una textura. `acoustic/acoustics.ts` define las constantes compartidas y las exporta a GLSL como `#define`.
+
 ## Worker y protocolo
 - `SimClient` (`core/client.ts`) crea `new Worker(sim.worker.ts, { type: 'module' })`; si `Worker` no existe, cae a un `SimulatorCore` inline con `setInterval` de 33 ms.
 - Mensajes (`protocol.ts`): `init` / `loadCase` (caso + `SimInput`), `input`, `recycle` (devuelve el `ArrayBuffer` transferido); respuestas `ready` (con la verdad de terreno), `frame` (`SimOutput`, con `rgba` transferido) y `error`.
@@ -70,7 +80,7 @@ interface RendererBackend {
   dispose(): void;
 }
 ```
-Implementados: `ProceduralSliceRenderer` (`procedural`), su port `webgl2-procedural` y `AtlasRenderer` (`atlas`, el predeterminado en el store, que envuelve a uno de los dos). Los ids `webgpu-procedural` y `remote-cuda` están reservados en el tipo pero no existen.
+Implementados: `ProceduralSliceRenderer` (`procedural`), su port `webgl2-procedural` y `AtlasRenderer` (`atlas`, el predeterminado en el store, que envuelve a uno de los dos). El port sólo se crea con WebGL2 por hardware: con un rasterizador por software el núcleo usa el trazador CPU (decisión 53). Los ids `webgpu-procedural` y `remote-cuda` están reservados en el tipo pero no existen.
 
 **Atlas: caché de pose idéntica (decisión 50).** La imagen mostrada es siempre la de la pose actual. `AtlasRenderer` envuelve la fuente (WebGL2 si está disponible, si no el trazador CPU) y mide su coste. Si cabe en `budgetMs` (0,6 del intervalo de cuadro simulado, calculado por el núcleo), renderiza directamente la pose y la fase exactas y no guarda nada (histéresis ×1,25/×0,75 sobre el coste medido; los cines se liberan tras 120 cuadros directos seguidos). Si la fuente es más lenta, y sólo mientras la sonda descansa (6 cuadros con desplazamiento < 0,03), cada cuadro es el de su ranura de fase (32 por latido) para esa pose exacta (0,1 mm / 0,08°): la ranura guardada se sirve y la vacía se renderiza una vez en su fase y se guarda, de modo que el cine se llena en torno a un latido y el movimiento en reposo queda cuantizado a 32 fases. Cualquier desplazamiento renderiza la nueva pose: nunca se sustituye una pose vecina ni se mezclan anclas. Guarda hasta 4 cines y desaloja primero los incompletos. El nombre «atlas» se conserva porque el mismo contrato admitiría cines grabados de una pose idéntica; hoy no existe ninguno.
 

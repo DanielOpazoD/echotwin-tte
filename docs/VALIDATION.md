@@ -79,6 +79,26 @@ Referencia = con qué se compara (valor analítico, consistencia interna o rango
 | Fuente rápida | `atlas.test.ts`: render de la fase exacta y ningún cine guardado | pasa |
 | Barrido PLAX→PSAX con un cine presente | `atlas.test.ts`: diferencia máxima entre cuadros < 3,5 veces la media | pasa |
 
+## Formación acústica de la imagen (2026-09-11)
+Medido con `tools/offline/render/image-metrics.ts` en el caso normal, fase 0,35, trazador CPU (antes → después de la decisión 52):
+
+| Magnitud | Tier medio | Tier alto | Referencia |
+|---|---|---|---|
+| SNR local del speckle miocárdico | 2,5–2,8 → 2,0 | 4,2–4,6 → 2,0–2,1 | 1,91 (Rayleigh) |
+| Celda lateral a 3–5 / 7–9 / 11–13 cm | 0,7–0,9 / 1,1–2,2 / 2,6 mm → 1,1–1,3 / 1,6–2,0 / 2,3 mm | → 1,1–1,3 / 1,5–2,0 / 2,7 mm | crece con la profundidad, ≥ 2× la axial a media profundidad |
+| Celda axial | 0,7–0,8 mm → 0,7–0,9 mm | igual | ≈ 0,9 mm a 2,5 MHz con armónicos |
+| Miocardio sobre sangre alejada de paredes | 35–37 dB → 28–36 dB | 28–36 dB → 23,5–34 dB | 25–35 dB |
+| Septo en A4C respecto de PLAX | −1,0 dB → −7,7 dB | −0,7 dB → −8,5 dB | 6–10 dB más oscuro con el haz a lo largo de las fibras |
+| Gris por defecto miocardio / sangre / pericardio p95 | 79–108 / 1 / 144–224 → 85–132 / 11–12 / 196–255 | → 86–136 / 13–19 / 194–255 | sangre oscura pero no negra |
+| Saturación con +12 dB | 0,1–0,6 % → 8–11 % | 0–0,2 % → 9–13 % | la ganancia excesiva quema |
+
+| Aspecto | Comprobación | Resultado |
+|---|---|---|
+| Núcleos de energía unidad, haz que se ensancha con la profundidad y con el artefacto de anchura de haz | `psf.test.ts` | pasa |
+| Speckle Rayleigh con dispersores gaussianos sintéticos (media ≈ σ, SNR 1,8–2,03) | `psf.test.ts` | pasa |
+| Fasor de dispersores de media nula, potencia unidad y partes incorreladas | `psf.test.ts` | pasa |
+| SNR local, celda anisótropa creciente, contraste, anisotropía y grises en PLAX/A4C | `imageFormation.test.ts` | pasa |
+
 ## Pruebas E2E (`e2e/core-flow.spec.ts`, Playwright + `vite preview`)
 | Prueba | Qué verifica |
 |---|---|

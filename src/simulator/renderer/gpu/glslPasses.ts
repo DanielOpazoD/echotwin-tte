@@ -1,8 +1,11 @@
 /**
- * Pass A (per line × sample, parallel): classify the sample point and compute the local echo before
- * attenuation, the local attenuation (Np) and the lung flag. Pass B (per sample, loops over the
- * samples before it on the same line): two-way transmission, lung dead zone with reverberation.
- * Both mirror ProceduralSliceRenderer.renderLine.
+ * WebGL2 image formation, mirroring ProceduralSliceRenderer and acoustic/psf.ts (decision 52):
+ *  - pass A (per line × sample, parallel): classify the sample, incoherent backscatter σ, coherent specular
+ *    echo, tissue-anchored scatterer phasor, local attenuation (Np) and lung flag;
+ *  - pass B (per sample, marches the samples before it on the same line): two-way transmission, lung dead
+ *    zone with reverberation, slice-thickness mean, near-field clutter → complex signal (re, im);
+ *  - pass C: axial PSF along samples; pass D: lateral PSF across lines and envelope detection.
+ * The PSF taps come from the same Float32 kernel table as the CPU renderer (uPsf).
  */
 export const GLSL_VERT = /* glsl */ `#version 300 es
 void main() {
@@ -15,35 +18,28 @@ void main() {
 export const GLSL_PASS_A_MAIN = /* glsl */ `
 uniform vec4 uTissue[20]; // reflect, specular, attenuation, grain per tissue id
 uniform float uElevK;     // elevation plane: -1 / 0 / +1 (slice-thickness passes)
-layout(location = 0) out vec4 outA; // local echo (before clutter and attenuation), attenNp, lungFlag, inBody
-layout(location = 1) out vec4 outB; // structure/255, tissue/255, extra, 0
+layout(location = 0) out vec4 outA; // backscatter σ, attenNp, lungFlag, inBody
+layout(location = 1) out vec4 outB; // structure/255, tissue/255, extra, 1
+layout(location = 2) out vec4 outC; // specular echo, scatterer phasor re, im, 0
 
-// local echo before attenuation: tissue backscatter with attached speckle, specular interface, calcification
-float localEcho(int tissue, vec3 sn, vec3 sm, float sdf, float extra, bool inHeart, vec3 dirH, vec3 latH, vec3 norH, vec3 dirT, vec3 latT, vec3 bN, float latRes) {
+float heteroDb(int t) {
+  if (t == T_MYO) return HETERO_DB_MYO;
+  if (t == T_LIVER) return HETERO_DB_LIVER;
+  if (t == T_MUSCLE) return HETERO_DB_MUSCLE;
+  return 0.0;
+}
+
+// incoherent backscatter σ and coherent interface echo of a classified sample, before attenuation
+void acoustic(int tissue, float sdf, float extra, float nd, vec3 m, out float sigma, out float specular) {
   vec4 props = uTissue[tissue];
-  float u, v, w;
-  if (inHeart) {
-    u = dot(sm, latH); v = dot(sm, norH); w = dot(sm, dirH);
-  } else {
-    u = dot(sm, latT); v = dot(sm, bN); w = dot(sm, dirT);
-  }
-  float gl = props.w * GRAIN_LAT * latRes;
-  float ga = props.w * GRAIN_AX;
-  float n1 = lat(vec3(u * gl, v * gl, w * ga), 0);
-  float n2 = lat(vec3(u * gl * 2.1 + 11.7, v * gl * 2.1 + 3.3, w * ga * 2.1 + 7.9), 1);
-  float spk = (n1 * 0.6 + n2 * 0.4) * 2.0;
-  float speckle = spk * spk * 0.8 + 0.2;
-  bool harm = HARM > 0.5;
-  float reflect = props.x;
-  if (tissue == T_BLOOD && harm) reflect *= 0.6;
-  float echo = reflect * speckle;
-  if (props.y > 0.0) {
-    float ad = abs(inHeart ? dot(sn, dirH) : dot(sn, dirT));
-    float fall = max(0.0, 1.0 - abs(sdf) / 0.16);
-    echo += props.y * ad * ad * ad * fall * (harm ? 1.25 : 1.0) * 1.35;
-  }
-  if (extra > 0.0) echo += extra * 1.5 * (0.6 + 0.8 * lat(vec3(u * 6.0 + 3.3, v * 6.0 + 1.1, w * 6.0 + 9.2), 1));
-  return echo;
+  sigma = props.x;
+  if (tissue == T_BLOOD && HARM > 0.5) sigma *= 0.6;
+  if (tissue == T_MYO) sigma *= MYO_ANISO_FLOOR + (1.0 - MYO_ANISO_FLOOR) * nd * nd;
+  float het = heteroDb(tissue);
+  if (het > 0.0) sigma *= pow(10.0, ((lat(vec3(m.x * HETERO_FREQ + 5.3, m.y * HETERO_FREQ + 1.7, m.z * HETERO_FREQ + 9.1), 2) - 0.5) * het) / 20.0);
+  if (extra > 0.0) sigma += extra * 1.5 * (0.6 + 0.8 * lat(vec3(m.x * 6.0 + 3.3, m.y * 6.0 + 1.1, m.z * 6.0 + 9.2), 1));
+  specular = 0.0;
+  if (props.y > 0.0 && abs(sdf) < max(nd, SPECULAR_WINDOW_MIN) * (DEPTH / SAMPLES)) specular = props.y * SPECULAR_GAIN * nd * nd * nd * nd * (HARM > 0.5 ? SPECULAR_HARMONIC : 1.0);
 }
 
 void main() {
@@ -54,11 +50,8 @@ void main() {
   float ct = cos(theta), sn = sin(theta);
   vec3 bF = vec3(B_FX, B_FY, B_FZ), bL = vec3(B_LX, B_LY, B_LZ), bN = vec3(B_NX, B_NY, B_NZ);
   vec3 dirT = bF * ct + bL * sn;           // torso-frame line direction
-  vec3 latT = bL * ct - bF * sn;           // in-plane lateral
   vec3 ex = vec3(HF_EXX, HF_EXY, HF_EXZ), ey = vec3(HF_EYX, HF_EYY, HF_EYZ), ez = vec3(HF_EZX, HF_EZY, HF_EZZ);
   vec3 dirH = vec3(dot(dirT, ex), dot(dirT, ey), dot(dirT, ez));
-  vec3 latH = vec3(dot(latT, ex), dot(latT, ey), dot(latT, ez));
-  vec3 norH = vec3(dot(bN, ex), dot(bN, ey), dot(bN, ez));
   float r = (float(si) + 0.5) * dr;
   // slice thickness: the side passes sample the planes at ±(0.2 + 0.04·|r − focus|) cm (elevation beam width)
   float e = 0.2 + 0.04 * abs(r - FOCUS);
@@ -75,29 +68,39 @@ void main() {
     if (!inHeart) inBody = classifyThorax(pT, s);
   }
   if (!inBody) {
-    outA = vec4(0.0, 0.0, 0.0, 0.0);
+    outA = vec4(0.0);
     outB = vec4(0.0, 0.0, 0.0, 1.0);
+    outC = vec4(0.0);
     return;
   }
   vec4 props = uTissue[s.tissue];
-  float latRes = 1.0 / (1.0 + 0.06 * abs(r - FOCUS));
-  float echo = localEcho(s.tissue, s.n, s.m, s.sdf, s.extra, inHeart, dirH, latH, norH, dirT, latT, bN, latRes);
+  float nd = abs(inHeart ? dot(s.n, dirH) : dot(s.n, dirT));
+  float sigma, specular;
+  acoustic(s.tissue, s.sdf, s.extra, nd, s.m, sigma, specular);
+  // complex scatterer phasor anchored in tissue coordinates (moves with the tissue, independent of the probe)
+  vec3 q = s.m * SCATTER_FREQ;
+  float zr = (lat(q, 0) + lat(q * SCATTER_FREQ_RATIO + vec3(37.3, 11.9, 23.7), 1) - 1.0) * PHASOR_NORM;
+  float zi = (lat(q + vec3(71.1, 53.5, 5.3), 2) + lat(q * SCATTER_FREQ_RATIO + vec3(17.9, 91.1, 43.3), 0) - 1.0) * PHASOR_NORM;
   float lungFlag = s.tissue == T_LUNG ? 1.0 : 0.0;
   float attenNp = 0.23 * props.z * F_ATTEN * dr;
   if (s.tissue == T_BONE || s.tissue == T_CALC || s.tissue == T_SPINE) attenNp = 1.2;
   else if (s.extra > 0.4) attenNp += 0.09 * s.extra * (dr / 0.07);
   if (!inHeart && (s.tissue == T_FAT || s.tissue == T_MUSCLE || s.tissue == T_SKIN)) attenNp *= 1.0 + 1.5 * WINDOW_ATTEN;
-  outA = vec4(echo, attenNp, lungFlag, 1.0);
+  outA = vec4(sigma, attenNp, lungFlag, 1.0);
   outB = vec4(float(s.structure) / 255.0, float(s.tissue) / 255.0, s.extra, 1.0);
+  outC = vec4(specular, zr, zi, 0.0);
 }
 `;
 
 export const GLSL_PASS_B_MAIN = /* glsl */ `
 uniform sampler2D uPassA;
 uniform sampler2D uPassB;
-uniform sampler2D uSideA;   // pass A on the elevation plane −e (slice thickness, high tier)
-uniform sampler2D uSideB;   // pass A on the elevation plane +e
-layout(location = 0) out vec4 outAmp;   // amplitude, transmission, 0, 1
+uniform sampler2D uPassC;
+uniform sampler2D uSideA;   // pass A (σ, …) on the elevation plane −e (slice thickness, high tier)
+uniform sampler2D uSideB;   // pass A (σ, …) on the elevation plane +e
+uniform sampler2D uSideCA;  // pass A attachment C (specular, …) on −e
+uniform sampler2D uSideCB;  // pass A attachment C (specular, …) on +e
+layout(location = 0) out vec4 outSig;   // complex signal re, transmission, im, 1
 layout(location = 1) out vec4 outIds;   // structure/255, tissue/255, 0, 1
 
 void main() {
@@ -132,42 +135,97 @@ void main() {
     float band = exp(-pow((min(frac, 1.0 - frac) * period) / 0.12, 2.0));
     float decay = pow(0.55, floor(k) + 1.0);
     float n = 0.4 + 0.6 * lat(vec3(float(li) * 0.7, r * 4.0, 3.1), 2);
-    outAmp = vec4(lungEntryT * (band * decay * 0.9 + 0.06 * decay * n), 0.0, 0.0, 1.0);
+    float amp = lungEntryT * (band * decay * 0.9 + 0.02 * decay * n);
+    // reverberation energy is incoherent: a phasor tied to the line and the depth
+    float px2 = float(li) * 0.9, pr = r * SCATTER_FREQ;
+    float zr2 = (lat(vec3(px2, pr, 17.3), 0) + lat(vec3(px2 + 5.1, pr * SCATTER_FREQ_RATIO + 2.3, 29.9), 1) - 1.0) * PHASOR_NORM;
+    float zi2 = (lat(vec3(px2 + 9.7, pr + 13.1, 41.3), 2) + lat(vec3(px2 + 3.3, pr * SCATTER_FREQ_RATIO + 7.7, 53.9), 0) - 1.0) * PHASOR_NORM;
+    outSig = vec4(amp * zr2, 0.0, amp * zi2, 1.0);
     outIds = vec4(float(S_LUNG) / 255.0, float(T_LUNG) / 255.0, 0.0, 1.0);
     return;
   }
   if (a.w < 0.5) {
-    outAmp = vec4(0.0, transmission, 0.0, 1.0);
+    outSig = vec4(0.0, transmission, 0.0, 1.0);
     outIds = vec4(0.0, 0.0, 0.0, 1.0);
     return;
   }
   if (a.z > 0.5) {
-    // the lung entry sample itself: bright pleural line
-    outAmp = vec4(transmission * (1.2 + 0.4 * lat(vec3(float(li) * 0.8, r * 3.0, 1.0), 0)), transmission, 0.0, 1.0);
+    // the pleural line itself: a strong coherent reflector
+    outSig = vec4(transmission * (1.2 + 0.4 * lat(vec3(float(li) * 0.8, r * 3.0, 1.0), 0)), transmission, 0.0, 1.0);
     outIds = b;
     return;
   }
-  float echo = a.x;
+  vec4 c = texelFetch(uPassC, ivec2(si, li), 0);
+  float sigma = a.x;
+  float specular = c.x;
   if (ELEV_N > 1.5) {
-    // slice thickness: weighted mean over the three elevation planes (¼ ½ ¼); side samples outside the body
-    // or in lung are dropped and the weights renormalised, as in the CPU renderer
+    // slice thickness: weighted mean of σ and specular over the three elevation planes (¼ ½ ¼); side samples
+    // outside the body or in lung are dropped and the weights renormalised, as in the CPU renderer
     vec4 sa = texelFetch(uSideA, ivec2(si, li), 0);
     vec4 sb = texelFetch(uSideB, ivec2(si, li), 0);
-    float acc = echo * 0.5, wsum = 0.5;
-    if (sa.w > 0.5 && sa.z < 0.5) { acc += 0.25 * sa.x; wsum += 0.25; }
-    if (sb.w > 0.5 && sb.z < 0.5) { acc += 0.25 * sb.x; wsum += 0.25; }
-    echo = acc / wsum;
+    float accS = sigma * 0.5, accP = specular * 0.5, wsum = 0.5;
+    if (sa.w > 0.5 && sa.z < 0.5) { accS += 0.25 * sa.x; accP += 0.25 * texelFetch(uSideCA, ivec2(si, li), 0).x; wsum += 0.25; }
+    if (sb.w > 0.5 && sb.z < 0.5) { accS += 0.25 * sb.x; accP += 0.25 * texelFetch(uSideCB, ivec2(si, li), 0).x; wsum += 0.25; }
+    sigma = accS / wsum;
+    specular = accP / wsum;
   }
-  // near-field clutter and transducer ring-down, added after the slice mean (central plane position)
+  float sRe = sigma * c.y + specular;
+  float sIm = sigma * c.z;
   if (r < 4.5 && CLUTTER > 0.0) {
-    float theta = -SECTOR / 2.0 + SECTOR * (float(li) + 0.5) / LINES;
-    vec3 dirT = vec3(B_FX, B_FY, B_FZ) * cos(theta) + vec3(B_LX, B_LY, B_LZ) * sin(theta);
-    vec3 pT = vec3(B_OX, B_OY, B_OZ) + dirT * r + vec3(B_NX, B_NY, B_NZ) * ELEV_OFFSET;
-    float cn = lat(vec3(pT.x * 2.3, pT.y * 2.3, r * 5.0), 2);
-    echo += CLUTTER * exp(-r / 1.8) * (0.15 + 0.5 * cn);
+    // near-field clutter: reverberation in the chest wall under the footprint, incoherent, fixed to the probe position
+    float cm = CLUTTER * exp(-r / 1.8) * (0.15 + 0.5 * lat(vec3(B_OX * 6.0 + float(li) * 0.7, B_OY * 6.0 + B_OZ * 6.0, r * 5.0), 2));
+    float cx = B_OX * 25.0 + float(li) * 0.9, cy = B_OY * 25.0 + B_OZ * 25.0, cz = r * SCATTER_FREQ;
+    sRe += cm * (lat(vec3(cx + 3.1, cy, cz), 0) + lat(vec3(cx * SCATTER_FREQ_RATIO + 8.3, cy + 1.9, cz * SCATTER_FREQ_RATIO), 1) - 1.0) * PHASOR_NORM;
+    sIm += cm * (lat(vec3(cx + 61.7, cy + 5.5, cz + 3.3), 2) + lat(vec3(cx * SCATTER_FREQ_RATIO + 21.1, cy + 44.4, cz * SCATTER_FREQ_RATIO + 9.9), 0) - 1.0) * PHASOR_NORM;
   }
-  if (r < 0.35) echo += 0.6 * (1.0 - r / 0.35);
-  outAmp = vec4(echo * transmission, transmission, 0.0, 1.0);
+  if (r < 0.35) sRe += 0.6 * (1.0 - r / 0.35); // transducer ring-down
+  outSig = vec4(sRe * transmission, transmission, sIm * transmission, 1.0);
   outIds = b;
+}
+`;
+
+/** Axial PSF along samples (row 0 of uPsf: taps centred on column MAX_LATERAL_RADIUS, radius in .g). */
+export const GLSL_PASS_C_MAIN = /* glsl */ `
+uniform sampler2D uSig;
+uniform sampler2D uPsf;
+layout(location = 0) out vec4 outSig;
+
+void main() {
+  int si = int(gl_FragCoord.x);
+  int li = int(gl_FragCoord.y);
+  int R = int(texelFetch(uPsf, ivec2(8, 0), 0).g + 0.5);
+  int last = int(SAMPLES) - 1;
+  float sr = 0.0, sm = 0.0;
+  for (int j = -4; j <= 4; j++) {
+    if (j < -R || j > R) continue;
+    vec4 v = texelFetch(uSig, ivec2(clamp(si + j, 0, last), li), 0);
+    float w = texelFetch(uPsf, ivec2(8 + j, 0), 0).r;
+    sr += w * v.x;
+    sm += w * v.z;
+  }
+  outSig = vec4(sr, texelFetch(uSig, ivec2(si, li), 0).y, sm, 1.0);
+}
+`;
+
+/** Lateral PSF across lines (row 1 + sample of uPsf) and envelope detection. */
+export const GLSL_PASS_D_MAIN = /* glsl */ `
+uniform sampler2D uAx;
+uniform sampler2D uPsf;
+layout(location = 0) out vec4 outAmp;   // amplitude, transmission, 0, 1
+
+void main() {
+  int si = int(gl_FragCoord.x);
+  int li = int(gl_FragCoord.y);
+  int R = int(texelFetch(uPsf, ivec2(8, si + 1), 0).g + 0.5);
+  int last = int(LINES) - 1;
+  float sr = 0.0, sm = 0.0;
+  for (int j = -8; j <= 8; j++) {
+    if (j < -R || j > R) continue;
+    vec4 v = texelFetch(uAx, ivec2(si, clamp(li + j, 0, last)), 0);
+    float w = texelFetch(uPsf, ivec2(8 + j, si + 1), 0).r;
+    sr += w * v.x;
+    sm += w * v.z;
+  }
+  outAmp = vec4(sqrt(sr * sr + sm * sm) * ENVELOPE_NORM, texelFetch(uAx, ivec2(si, li), 0).y, 0.0, 1.0);
 }
 `;

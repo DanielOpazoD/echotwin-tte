@@ -54,7 +54,7 @@ export function compareBackends(viewId: string, phase: number, caseId = 'normal-
   const t0 = performance.now();
   cpu.render(scene, beam, spec, phase, fa);
   const cpuMs = performance.now() - t0;
-  const g = createWebgl2Renderer();
+  const g = createWebgl2Renderer(undefined, { allowSoftware: true }); // the check runs on SwiftShader in Playwright
   if (!g.renderer) return { ...empty, error: g.reason, cpuMs };
   const fb = allocPolarFrame(spec);
   g.renderer.render(scene, beam, spec, phase, fb); // warm-up (shader compile, textures)

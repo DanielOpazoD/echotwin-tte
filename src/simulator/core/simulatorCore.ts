@@ -239,6 +239,7 @@ export class SimulatorCore {
         clutterLevel: Math.min(1, this.caseDef.acousticWindow.clutterLevel + 0.6 * this.clutterBoost) + this.caseDef.acousticWindow.emphysemaScatter * 0.5,
         windowAttenuation: this.caseDef.acousticWindow.chestWallAttenuation,
         seed: this.caseDef.seed,
+        beamWidth: this.artifacts.beamWidth,
       },
     };
   }

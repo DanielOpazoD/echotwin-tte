@@ -2,16 +2,23 @@ import type { AcquisitionSettings, PolarFrame } from '../types';
 import { hash3 } from '@/core/random';
 
 /**
- * Console post-processing (spec 7.7): raw linear polar amplitude → displayed polar intensity 0..255.
- * Steps: baseline depth compensation + user TGC + gain → electronic noise floor → axial resolution
- * (frequency-dependent) → log compression / dynamic range → lateral resolution by focus →
- * persistence → gray map. Pure CPU, deterministic per (frameIndex, seed).
+ * Console post-processing (spec 7.7): linear envelope amplitude → displayed polar intensity 0..255.
+ * Steps: baseline depth compensation + user TGC + gain → Rayleigh electronic noise (amplified with the
+ * compensation, so it rises with depth and gain) → log compression / dynamic range → edge enhancement →
+ * persistence → gray map. Axial and lateral resolution are not console effects: the renderer forms them
+ * with the PSF before envelope detection (decision 52). Pure CPU, deterministic per (frameIndex, seed).
  */
 export interface ConsoleState {
   prev: Float32Array | null; // persistence buffer (0..1)
   frameIndex: number;
   seed: number;
 }
+
+/** Electronic noise before amplification (mean envelope, amplitude units). */
+export const NOISE_FLOOR = 0.0018;
+/** White point: envelope amplitude 10^(REF_DB/20) maps to full white at 0 dB gain. */
+export const REF_DB = 8;
+const RAYLEIGH_MEAN = Math.sqrt(Math.PI / 2);
 
 export function createConsoleState(seed: number): ConsoleState {
   return { prev: null, frameIndex: 0, seed };
@@ -37,8 +44,8 @@ export function tgcAtDepth(settings: AcquisitionSettings, r: number): number {
 /**
  * Case-configurable artifacts applied in the polar domain (spec 12, case 12): intensities 0..1.
  * side-lobe: strong reflectors leak into neighbouring lines; mirror: the image beyond a strong
- * specular interface (pericardium/lung) repeats the shallower image; beam-width: the lateral beam
- * widens away from the focus (smearing of point-like structures at depth).
+ * specular interface (pericardium/lung) repeats the shallower image; beam-width is applied by the renderer
+ * PSF (it widens the lateral beam away from the focus) and is carried here only for completeness.
  */
 export interface ArtifactSettings {
   sideLobe: number;
@@ -53,10 +60,8 @@ export function applyConsole(frame: PolarFrame, settings: AcquisitionSettings, s
   const dr = depthCm / samples;
   const f = settings.frequencyMHz;
   const baselineDbPerCm = 0.38 * f; // default depth compensation of the (fictional) console
-  const REF_DB = 15; // white point: amplitude 10^(15/20) ≈ 5.6 maps to full white at 0 dB gain
   const gainLin = Math.pow(10, settings.gainDb / 20);
   const dr_ = settings.dynamicRangeDb;
-  const noiseFloor = 0.0035; // electronic noise before amplification: TGC/gain raise it with depth as on a real console
   const a = ensure(scratchA, n);
   const b = ensure(scratchB, n);
   const fi = state.frameIndex;
@@ -67,7 +72,8 @@ export function applyConsole(frame: PolarFrame, settings: AcquisitionSettings, s
     const comp = Math.pow(10, Math.min(compDb, 60) / 20) * gainLin;
     for (let li = 0; li < lines; li++) {
       const idx = li * samples + si;
-      const noise = noiseFloor * (0.5 + hash3(li, si, fi, state.seed));
+      // Rayleigh-distributed envelope of complex Gaussian receiver noise, new every frame
+      const noise = (NOISE_FLOOR / RAYLEIGH_MEAN) * Math.sqrt(-2 * Math.log(1 - 0.999999 * hash3(li, si, fi, state.seed)));
       a[idx] = ((frame.amplitude[idx] ?? 0) + noise) * comp;
     }
   }
@@ -114,64 +120,16 @@ export function applyConsole(frame: PolarFrame, settings: AcquisitionSettings, s
     }
     a.set(b);
   }
-  // 2) axial resolution: box blur along samples with width ∝ 1/f
-  const axialCm = 0.09 * (2.5 / f) * (settings.harmonics ? 0.75 : 1);
-  const k = Math.max(0, Math.round(axialCm / dr / 2));
-  if (k > 0) {
-    for (let li = 0; li < lines; li++) {
-      const base = li * samples;
-      for (let si = 0; si < samples; si++) {
-        let sum = 0,
-          cnt = 0;
-        for (let j = -k; j <= k; j++) {
-          const q = si + j;
-          if (q >= 0 && q < samples) {
-            sum += a[base + q] ?? 0;
-            cnt++;
-          }
-        }
-        b[base + si] = sum / cnt;
-      }
-    }
-  } else b.set(a);
+  // 2) axial resolution is formed by the renderer PSF (decision 52)
+  b.set(a);
   // 3) log compression / dynamic range → 0..1
   for (let i = 0; i < n; i++) {
     const db = 20 * Math.log10((b[i] ?? 0) + 1e-6) - REF_DB;
     const y = (db + dr_) / dr_;
     a[i] = y < 0 ? 0 : y > 1 ? 1 : y;
   }
-  // 4) lateral resolution by focus: blur across lines, width grows away from the focal depth
-  const focus = settings.focusCm;
-  for (let si = 0; si < samples; si++) {
-    const r = (si + 0.5) * dr;
-    const dist = Math.abs(r - focus);
-    // beam width (in lines) ≈ base + growth; wider sector → fewer lines per degree → more visible
-    const linesPerDeg = lines / ((frame.spec.sectorRad * 180) / Math.PI);
-    // beam width grows away from the focal depth; kept moderate so speckle stays granular, not streaky
-    const widthDeg = (0.55 + 0.2 * dist * (2.5 / f) * (settings.harmonics ? 0.85 : 1)) * (1 + 1.6 * artifacts.beamWidth * Math.min(1, dist / 6));
-    const sigma = Math.max(0.3, widthDeg * linesPerDeg * 0.5);
-    const kk = Math.min(6, Math.ceil(sigma * 1.5));
-    if (kk < 1) {
-      for (let li = 0; li < lines; li++) b[li * samples + si] = a[li * samples + si] ?? 0;
-      continue;
-    }
-    // gaussian weights
-    let wsum = 0;
-    const w: number[] = [];
-    for (let j = -kk; j <= kk; j++) {
-      const g = Math.exp(-(j * j) / (2 * sigma * sigma));
-      w.push(g);
-      wsum += g;
-    }
-    for (let li = 0; li < lines; li++) {
-      let sum = 0;
-      for (let j = -kk; j <= kk; j++) {
-        const q = Math.min(lines - 1, Math.max(0, li + j));
-        sum += (a[q * samples + si] ?? 0) * (w[j + kk] ?? 0);
-      }
-      b[li * samples + si] = sum / wsum;
-    }
-  }
+  // 4) lateral resolution and beam width are formed by the renderer PSF (decision 52)
+  b.set(a);
   // 5) edge enhancement (unsharp along samples, mild)
   if (settings.edgeEnhance > 0) {
     const e = settings.edgeEnhance * 0.8;

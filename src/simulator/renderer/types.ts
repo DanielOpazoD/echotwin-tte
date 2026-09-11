@@ -74,6 +74,8 @@ export interface ScenePhysics {
   clutterLevel: number; // 0..1 from case + window
   windowAttenuation: number; // 0..1 extra chest-wall attenuation
   seed: number;
+  /** Case "beam-width" artifact 0..1: widens the lateral beam away from the focus (renderer PSF). */
+  beamWidth?: number;
 }
 
 export interface Scene {

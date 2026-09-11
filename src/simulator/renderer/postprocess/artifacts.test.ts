@@ -3,7 +3,7 @@ import { applyConsole, createConsoleState, NO_ARTIFACTS } from './consolePipelin
 import { allocPolarFrame, DEFAULT_ACQUISITION } from '../types';
 import { Tissue } from '@/simulator/anatomy/tissue';
 
-/** Case-configurable artifacts (spec 12): side lobes, mirror image and beam width act on the polar frame. */
+/** Case-configurable artifacts (spec 12): side lobes and mirror image act on the polar frame (beam width: psf.test.ts). */
 function frameWithReflector(): ReturnType<typeof allocPolarFrame> {
   const spec = { lines: 41, samples: 160, sectorRad: 1.2, depthCm: 16, elevationSamples: 1, focusCm: 9 };
   const f = allocPolarFrame(spec);
@@ -41,18 +41,5 @@ describe('console artifacts', () => {
     expect(out1[mirrored]!).toBeGreaterThan(out0[mirrored]! + 25);
     // a line without the point reflector shows no mirrored point at that depth
     expect(Math.abs(out1[5 * 160 + 100]! - out0[5 * 160 + 100]!)).toBeLessThan(12);
-  });
-  it('beam-width artifact widens the lateral blur away from the focus', () => {
-    const f = frameWithReflector();
-    const out0 = new Uint8ClampedArray(41 * 160);
-    applyConsole(f, { ...settings, focusCm: 2 }, createConsoleState(1), out0, NO_ARTIFACTS);
-    const out1 = new Uint8ClampedArray(41 * 160);
-    applyConsole(f, { ...settings, focusCm: 2 }, createConsoleState(1), out1, { ...NO_ARTIFACTS, beamWidth: 1 });
-    const width = (o: Uint8ClampedArray) => {
-      let w = 0;
-      for (let li = 0; li < 41; li++) if (o[li * 160 + 60]! > 60) w++;
-      return w;
-    };
-    expect(width(out1)).toBeGreaterThan(width(out0));
   });
 });

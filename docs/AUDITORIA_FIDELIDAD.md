@@ -189,3 +189,35 @@ Analysis        : visibilidad por modelo, score, mediciones (cadencia reducida)
 **Coste.** Con GPU y la sonda quieta se renderiza en lugar de copiar. Con la máquina muy cargada (carga media 26–90 por otro proyecto) la app entregó 25 cuadros/s a calidad media (36,9 simulados) y 18–20 a calidad alta (27,3). El cuello de botella restante es la consola y la composición en CPU, objetivo de la iteración 3.
 
 **Comparación con ecografía real.** Un ecógrafo nunca muestra la imagen de una pose vecina: cada cuadro sale de la adquisición actual y los loops de cine sólo existen al congelar. Con GPU el simulador cumple ahora esa propiedad en todos los cuadros. Con CPU lenta y la sonda quieta muestra un cine de la pose exacta, equivalente a un loop cuantizado a 32 fases por latido.
+
+### Iteración 2 — Formación acústica de la imagen
+
+**Problema.** El trazador multiplicaba la reflectividad de cada tejido por un factor de ruido de valor positivo y la consola simulaba la resolución con una media móvil axial y un desenfoque gaussiano lateral aplicado **después** de la compresión logarítmica. Resultado medido: celdas de speckle isótropas de 0,3–0,9 mm, estrías a lo largo del haz, estadística lejos de Rayleigh (SNR local 2,5–2,8 en tier medio y 4,2–4,6 en alto), una banda especular gruesa en todas las interfaces, sangre en negro absoluto, ninguna diferencia entre paredes perpendiculares y paralelas al haz (septo en A4C −1 dB respecto de PLAX) y una ganancia alta que no saturaba.
+
+**Solución** (decisión 52).
+- Cada muestra aporta una señal compleja: retrodispersión incoherente (reflectividad × anisotropía miocárdica × heterogeneidad) por un fasor de dispersores anclado al tejido, más el eco coherente de la interfaz sólo en la muestra que la cruza (∝ |n·d|⁴), por la transmisión de ida y vuelta.
+- Una PSF separable de energía unidad (pulso axial según frecuencia y armónicos; haz lateral de ida y vuelta según profundidad, foco, frecuencia, armónicos y artefacto de anchura de haz) y la detección de envolvente producen la amplitud. El speckle, su tamaño y su crecimiento con la profundidad salen de ahí.
+- CPU y GPU comparten constantes y tabla de núcleos; la GPU gana dos pasadas (C axial, D lateral y envolvente).
+- La consola ya no desenfoca: ruido electrónico Rayleigh que crece con la compensación, punto blanco +7 dB. La grasa pasa a hipoecoica y la reverberación difusa entre líneas A se reduce, para que el fondo no se llene de ruido.
+
+**Verificación.**
+
+| Magnitud (caso normal, tier medio) | Antes | Después | Objetivo |
+|---|---|---|---|
+| SNR local del speckle miocárdico | 2,5–2,8 | 2,0 | 1,91 |
+| Celda lateral a 3–5 / 7–9 / 11–13 cm | 0,7–0,9 / 1,1–2,2 / 2,6 mm | 1,1–1,3 / 1,6–2,0 / 2,3 mm | crece con la profundidad |
+| Celda axial | 0,7–0,8 mm | 0,7–0,9 mm | ≈ 0,9 mm |
+| Miocardio sobre sangre alejada de paredes | 35–37 dB | 28–36 dB | 25–35 dB |
+| Septo en A4C respecto de PLAX | −1,0 dB | −7,7 dB | 6–10 dB más oscuro |
+| Gris miocardio / sangre / pericardio p95 | 79–108 / 1 / 144–224 | 85–132 / 11–12 / 196–255 | sangre oscura, no negra |
+| Saturación con +12 dB | 0,1–0,6 % | 8–11 % | quema como un equipo |
+
+- `psf.test.ts` (4 pruebas) e `imageFormation.test.ts` (4 pruebas) fijan esos números.
+- Equivalencia CPU↔GPU: 21/21 comparaciones, incluidas las de tier alto.
+- Unitarias: 141/142 antes de regenerar los goldens, cuyo cambio es el esperado tras revisar las imágenes; después, 142/142. Lint y tipos sin errores.
+- E2E: los 13 de flujo (core-flow, learning, measurements) pasan sin reintentos tras la decisión 53, en 4,7 min frente a 12 min y 3 fallos antes de ella; equivalencia CPU↔GPU 21/21 otra vez con SwiftShader forzado.
+- Rendimiento. Trazador CPU en Node (tier medio, PLAX, dos rondas alternas): render 27–33 ms antes y 33–34 ms después (+1 a +6 ms por las cuatro consultas de ruido del fasor y la PSF). WebGL2 con GPU real en la app (carga media 13–19): render 8,4 ms de mediana en tier medio y 17,7 ms en tier alto con la sonda oscilando ±1°, 28,6 y 23,6 cuadros entregados por segundo frente a 36,9 y 27,3 simulados. Chromium sin GPU (SwiftShader, el de Playwright): los tres primeros cuadros llegan a los 19–27 s frente a 18–21 s con la iteración 1, casi todo compilación del sombreador del corazón, y con carga los E2E dejaron de recibir cuadros incluso con 60 s de espera. Por eso el WebGL por software pasa a usar el trazador CPU (decisión 53), que además es lo más rápido para quien no tiene aceleración gráfica.
+
+**Evaluación visual** (`docs/validation/iteracion-2/antes-despues-*.png`, izquierda antes, derecha después). El miocardio tiene grano de speckle que se alarga lateralmente con la profundidad y ya no hay estrías radiales. El endocardio deja de ser un contorno brillante continuo. El septo y la pared lateral se apagan donde el haz corre a lo largo de ellos. Las válvulas siguen finas y visibles. La sangre muestra un suelo oscuro con grano. Las líneas A del pulmón quedan sobre fondo oscuro.
+
+**Comparación con ecografía real.** Textura miocárdica, sangre y comportamiento de la ganancia se parecen ahora a un equipo: speckle de celda lateral de 1–3 mm, cavidades casi negras con ruido, saturación con ganancia alta y dropout de paredes paralelas al haz. Lo que todavía delata la simulación ya no es la textura sino la escena: grasa y pulmón del tórax con caras planas, campo cercano demasiado brillante, aurículas elipsoidales y papilares desprendidos (iteraciones 4 y 6).

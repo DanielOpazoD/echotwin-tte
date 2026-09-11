@@ -6,13 +6,17 @@ import { makeSample, TISSUE_PROPS, Tissue, Structure, type TissueSample } from '
 import { latticeNoise3, noiseLattice } from '@/core/noise';
 import { hash3 } from '@/core/random';
 import { contactQuality } from '@/simulator/probe/pose';
+import { buildPsfKernels, formEnvelope, formEnvelopeLine, psfKey, type PsfKernels } from '../acoustic/psf';
+import { HETERO_FREQ, heteroDb, MYO_ANISO_FLOOR, PHASOR_NORM, SCATTER_FREQ, SCATTER_FREQ_RATIO, SPECULAR_GAIN, SPECULAR_HARMONIC, SPECULAR_WINDOW_MIN } from '../acoustic/acoustics';
 
 /**
- * Procedural slice renderer: marches every scanline through the parametric thorax + heart model.
- * Physics is deliberately reduced to what teaches (spec 7, 82): tissue-dependent backscatter +
- * tissue-attached speckle, specular interfaces (∝ |n·d|³), two-way frequency-dependent attenuation,
- * shadowing behind bone/calcium, pleural reverberation (A-lines at multiples of the pleural depth),
- * partial coupling dropout and near-field clutter. No wave propagation, no RF.
+ * Procedural slice renderer: marches every scanline through the parametric thorax + heart model and forms
+ * the image the way a scanner does (decision 52). Per sample it computes the incoherent tissue backscatter σ
+ * (tissue reflectivity × myocardial anisotropy × heterogeneity), the coherent specular echo of an interface
+ * crossing the sample (∝ |n·d|⁴) and a complex scatterer phasor anchored in tissue coordinates; the complex
+ * signal σ·z + specular is multiplied by the two-way frequency-dependent transmission (shadowing), pleural
+ * reverberation and near-field clutter are added, and the separable PSF + envelope detection of
+ * `acoustic/psf.ts` produces the linear amplitude. No wave propagation, no RF carrier.
  *
  * Output amplitude is linear and *pre-console*: gain/TGC/compression/persistence are applied later
  * so every console control remains causal on this same frame.
@@ -23,28 +27,63 @@ export class ProceduralSliceRenderer implements RendererBackend {
   private sample2 = makeSample();
   private lastMs = 0;
   private lastSamples = 0;
+  private re = new Float32Array(0);
+  private im = new Float32Array(0);
+  private tmpRe = new Float32Array(0);
+  private tmpIm = new Float32Array(0);
+  private lineRe = new Float32Array(0);
+  private lineIm = new Float32Array(0);
+  private lineTmpRe = new Float32Array(0);
+  private lineTmpIm = new Float32Array(0);
+  private psf: PsfKernels | null = null;
+  private acA = { sigma: 0, spec: 0 };
+  private acB = { sigma: 0, spec: 0 };
 
   stats(): Record<string, number | string> {
     return { renderMs: Number(this.lastMs.toFixed(2)), samplesPerFrame: this.lastSamples };
   }
   dispose(): void {}
 
+  /** PSF kernels for this frame geometry and probe settings (also uploaded by the GPU port). */
+  kernels(scene: Scene, spec: PolarFrameSpec): PsfKernels {
+    const { frequencyMHz, harmonics } = scene.physics;
+    const bw = scene.physics.beamWidth ?? 0;
+    if (!this.psf || this.psf.key !== psfKey(spec, frequencyMHz, harmonics, bw)) this.psf = buildPsfKernels(spec, frequencyMHz, harmonics, bw);
+    return this.psf;
+  }
+
   render(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, _phase: number, out: PolarFrame): void {
     const t0 = performance.now();
+    const n = spec.lines * spec.samples;
+    if (this.re.length !== n) {
+      this.re = new Float32Array(n);
+      this.im = new Float32Array(n);
+      this.tmpRe = new Float32Array(n);
+      this.tmpIm = new Float32Array(n);
+    }
     const ctx = this.prepare(scene, beam, spec);
     for (let li = 0; li < spec.lines; li++) {
       const theta = -spec.sectorRad / 2 + (spec.sectorRad * (li + 0.5)) / spec.lines;
-      this.renderLine(ctx, theta, li, li * spec.samples, out.amplitude, out.structure, out.transmission, out.tissue);
+      this.renderLine(ctx, theta, li, li * spec.samples, this.re, this.im, out.structure, out.transmission, out.tissue);
     }
+    formEnvelope(this.re, this.im, spec.lines, spec.samples, this.kernels(scene, spec), out.amplitude, this.tmpRe, this.tmpIm);
     this.lastMs = performance.now() - t0;
-    this.lastSamples = spec.lines * spec.samples;
+    this.lastSamples = n;
   }
 
-  /** Render one scanline at angle theta (rad) into the given arrays at offset `base`. Used by M-mode. */
+  /** Render one scanline at angle theta (rad): axial PSF and envelope only (a single beam has no lateral neighbours). Used by M-mode. */
   renderSingleLine(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, theta: number, amp: Float32Array, st: Uint8Array, tr: Float32Array, ti: Uint8Array): void {
+    const N = spec.samples;
+    if (this.lineRe.length !== N) {
+      this.lineRe = new Float32Array(N);
+      this.lineIm = new Float32Array(N);
+      this.lineTmpRe = new Float32Array(N);
+      this.lineTmpIm = new Float32Array(N);
+    }
     const ctx = this.prepare(scene, beam, spec);
     const li = Math.round(((theta + spec.sectorRad / 2) / spec.sectorRad) * spec.lines);
-    this.renderLine(ctx, theta, li, 0, amp, st, tr, ti);
+    this.renderLine(ctx, theta, li, 0, this.lineRe, this.lineIm, st, tr, ti);
+    formEnvelopeLine(this.lineRe, this.lineIm, N, this.kernels(scene, spec), amp, this.lineTmpRe, this.lineTmpIm);
   }
 
   private prepare(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec): LineContext {
@@ -58,15 +97,12 @@ export class ProceduralSliceRenderer implements RendererBackend {
       spec,
       dr: spec.depthCm / spec.samples,
       fAtten: f * (harm ? 1.2 : 1),
-      grainLatScale: Math.sqrt(f / 2.5),
-      grainAxScale: (f / 2.5) * 2.2 * (harm ? 1.25 : 1),
       seed: physics.seed,
       harm,
       clutter: (physics.clutterLevel * 2.5 + physics.windowAttenuation * 0.8) * (harm ? 0.35 : 1) * Math.sqrt(2.5 / f),
       contact: contactQuality(beam.contact),
       fwdH: torsoToHeartDir(hf, beam.forward),
       latH: torsoToHeartDir(hf, beam.lateral),
-      norH: torsoToHeartDir(hf, beam.normal),
       windowAttenuation: physics.windowAttenuation,
       thorax,
       latA: noiseLattice(physics.seed),
@@ -75,12 +111,14 @@ export class ProceduralSliceRenderer implements RendererBackend {
     };
   }
 
-  private renderLine(ctx: LineContext, theta: number, li: number, base: number, amp: Float32Array, st: Uint8Array, tr: Float32Array, ti: Uint8Array): void {
-    const { beam, spec, dr, fAtten, grainLatScale, grainAxScale, seed, harm, clutter, contact, fwdH, latH, norH, thorax, latA, latB, latC } = ctx;
+  private renderLine(ctx: LineContext, theta: number, li: number, base: number, re: Float32Array, im: Float32Array, st: Uint8Array, tr: Float32Array, ti: Uint8Array): void {
+    const { beam, spec, dr, fAtten, seed, harm, clutter, contact, fwdH, latH, thorax, latA, latB, latC } = ctx;
     const { heart, heartPose } = ctx.scene;
     const hf = heart.frame;
     const s = this.sample;
     const s2 = this.sample2;
+    const acA = this.acA;
+    const acB = this.acB;
     const samples = spec.samples;
     const nElev = spec.elevationSamples;
     const focus = spec.focusCm;
@@ -95,15 +133,10 @@ export class ProceduralSliceRenderer implements RendererBackend {
     const dhx = fwdH.x * ct + latH.x * sn,
       dhy = fwdH.y * ct + latH.y * sn,
       dhz = fwdH.z * ct + latH.z * sn;
-    const lhx = latH.x * ct - fwdH.x * sn,
-      lhy = latH.y * ct - fwdH.y * sn,
-      lhz = latH.z * ct - fwdH.z * sn;
-    const tlx = beam.lateral.x * ct - beam.forward.x * sn,
-      tly = beam.lateral.y * ct - beam.forward.y * sn,
-      tlz = beam.lateral.z * ct - beam.forward.z * sn;
     const nX = beam.normal.x,
       nY = beam.normal.y,
       nZ = beam.normal.z;
+    const R = SCATTER_FREQ_RATIO;
     const lineDrop = hash3(li, 7, 0, seed) > contact ? 0.08 : 1;
     let transmission = lineDrop;
     let lungEntryR = -1;
@@ -130,36 +163,22 @@ export class ProceduralSliceRenderer implements RendererBackend {
       if (classifyHeart(heart, heartPose, hx, hy, hz, q)) return 2;
       return classifyThorax(thorax, px, py, pz, q) ? 1 : 0;
     };
-    /** Local echo (before attenuation): tissue backscatter with tissue-attached speckle, specular interface, calcification. */
-    const localEcho = (q: TissueSample, inH: boolean, latRes: number): number => {
+    /** Incoherent backscatter σ and coherent specular echo of a classified sample, before attenuation. */
+    const acoustic = (q: TissueSample, inH: boolean, a: { sigma: number; spec: number }): void => {
       const props = TISSUE_PROPS[q.tissue]!;
-      let u: number, v: number, w: number;
-      if (inH) {
-        u = q.mx * lhx + q.my * lhy + q.mz * lhz;
-        v = q.mx * norH.x + q.my * norH.y + q.mz * norH.z;
-        w = q.mx * dhx + q.my * dhy + q.mz * dhz;
-      } else {
-        u = q.mx * tlx + q.my * tly + q.mz * tlz;
-        v = q.mx * nX + q.my * nY + q.mz * nZ;
-        w = q.mx * dx + q.my * dy + q.mz * dz;
-      }
-      // lateral speckle cells coarsen away from the focus (beam width), axial resolution stays
-      const gl = props.grain * grainLatScale * latRes;
-      const ga = props.grain * grainAxScale;
-      const n1 = latticeNoise3(u * gl, v * gl, w * ga, latA);
-      const n2 = latticeNoise3(u * gl * 2.1 + 11.7, v * gl * 2.1 + 3.3, w * ga * 2.1 + 7.9, latB);
-      const spk = (n1 * 0.6 + n2 * 0.4) * 2;
-      const speckle = spk * spk * 0.8 + 0.2;
-      let reflect = props.reflect;
-      if (q.tissue === Tissue.Blood && harm) reflect *= 0.6;
-      let echo = reflect * speckle;
-      if (props.specular > 0) {
-        const ad = Math.abs(inH ? q.nx * dhx + q.ny * dhy + q.nz * dhz : q.nx * dx + q.ny * dy + q.nz * dz);
-        const fall = Math.max(0, 1 - Math.abs(q.sdf) / 0.16);
-        echo += props.specular * ad * ad * ad * fall * (harm ? 1.25 : 1.0) * 1.35;
-      }
-      if (q.extraReflect > 0) echo += q.extraReflect * 1.5 * (0.6 + 0.8 * latticeNoise3(u * 6 + 3.3, v * 6 + 1.1, w * 6 + 9.2, latB));
-      return echo;
+      const nd = Math.abs(inH ? q.nx * dhx + q.ny * dhy + q.nz * dhz : q.nx * dx + q.ny * dy + q.nz * dz);
+      let sigma = props.reflect;
+      if (q.tissue === Tissue.Blood && harm) sigma *= 0.6;
+      // myocardial backscatter is strongest with the beam across the fibres (perpendicular to the wall)
+      if (q.tissue === Tissue.Myocardium) sigma *= MYO_ANISO_FLOOR + (1 - MYO_ANISO_FLOOR) * nd * nd;
+      const het = heteroDb(q.tissue);
+      if (het > 0) sigma *= Math.pow(10, ((latticeNoise3(q.mx * HETERO_FREQ + 5.3, q.my * HETERO_FREQ + 1.7, q.mz * HETERO_FREQ + 9.1, latC) - 0.5) * het) / 20);
+      if (q.extraReflect > 0) sigma += q.extraReflect * 1.5 * (0.6 + 0.8 * latticeNoise3(q.mx * 6 + 3.3, q.my * 6 + 1.1, q.mz * 6 + 9.2, latB));
+      let specular = 0;
+      // the interface echo belongs to the sample the interface crosses (distance along the line < one sample)
+      if (props.specular > 0 && Math.abs(q.sdf) < Math.max(nd, SPECULAR_WINDOW_MIN) * dr) specular = props.specular * SPECULAR_GAIN * nd * nd * nd * nd * (harm ? SPECULAR_HARMONIC : 1);
+      a.sigma = sigma;
+      a.spec = specular;
     };
     for (let si = 0; si < samples; si++) {
       const r = (si + 0.5) * dr;
@@ -171,8 +190,13 @@ export class ProceduralSliceRenderer implements RendererBackend {
         const frac = k - Math.floor(k);
         const band = Math.exp(-Math.pow((Math.min(frac, 1 - frac) * period) / 0.12, 2));
         const decay = Math.pow(0.55, Math.floor(k) + 1);
-        const n = 0.4 + 0.6 * latticeNoise3(li * 0.7, r * 4, 3.1, latC);
-        amp[idx] = lungEntryT * (band * decay * 0.9 + 0.06 * decay * n);
+        const nn = 0.4 + 0.6 * latticeNoise3(li * 0.7, r * 4, 3.1, latC);
+        const a = lungEntryT * (band * decay * 0.9 + 0.02 * decay * nn);
+        // reverberation energy is incoherent: a phasor tied to the line and the depth
+        const px2 = li * 0.9,
+          pr = r * SCATTER_FREQ;
+        re[idx] = a * (latticeNoise3(px2, pr, 17.3, latA) + latticeNoise3(px2 + 5.1, pr * R + 2.3, 29.9, latB) - 1) * PHASOR_NORM;
+        im[idx] = a * (latticeNoise3(px2 + 9.7, pr + 13.1, 41.3, latC) + latticeNoise3(px2 + 3.3, pr * R + 7.7, 53.9, latA) - 1) * PHASOR_NORM;
         st[idx] = Structure.Lung;
         tr[idx] = 0;
         ti[idx] = Tissue.Lung;
@@ -183,7 +207,8 @@ export class ProceduralSliceRenderer implements RendererBackend {
         pz = oz + dz * r;
       const kind = classifyAt(px, py, pz, s);
       if (kind === 0) {
-        amp[idx] = 0;
+        re[idx] = 0;
+        im[idx] = 0;
         st[idx] = Structure.None;
         tr[idx] = transmission;
         ti[idx] = Tissue.None;
@@ -192,42 +217,63 @@ export class ProceduralSliceRenderer implements RendererBackend {
       const inHeart = kind === 2;
       const tissue = s.tissue;
       const props = TISSUE_PROPS[tissue]!;
-      const latRes = 1 / (1 + 0.06 * Math.abs(r - focus));
-      let echo = localEcho(s, inHeart, latRes);
-      if (nElev > 1 && tissue !== Tissue.Lung) {
-        // slice thickness: the beam's elevational width grows away from the focus; the echo is the weighted mean
-        // over the slice, which blurs obliquely cut structures and softens speckle (in-plane geometry unchanged)
-        const e = 0.2 + 0.04 * Math.abs(r - focus);
-        let acc = echo * 0.5,
-          wsum = 0.5;
-        for (let k = -1; k <= 1; k += 2) {
-          const kk = classifyAt(px + nX * k * e, py + nY * k * e, pz + nZ * k * e, s2);
-          if (kk > 0 && s2.tissue !== Tissue.Lung) {
-            acc += 0.25 * localEcho(s2, kk === 2, latRes);
-            wsum += 0.25;
-          }
-        }
-        echo = acc / wsum;
-      }
-      if (r < 4.5 && clutter > 0) {
-        const cn = latticeNoise3(px * 2.3, py * 2.3, r * 5.0, latC);
-        echo += clutter * Math.exp(-r / 1.8) * (0.15 + 0.5 * cn);
-      }
-      if (r < 0.35) echo += 0.6 * (1 - r / 0.35);
-      amp[idx] = echo * transmission;
       st[idx] = s.structure;
       tr[idx] = transmission;
       ti[idx] = tissue;
       if (tissue === Tissue.Lung) {
+        // pleural line: a strong coherent reflector; everything behind it is reverberation
         lungEntryR = r;
         lungEntryT = transmission;
-        amp[idx] = transmission * (1.2 + 0.4 * latticeNoise3(li * 0.8, r * 3, 1, latA));
+        re[idx] = transmission * (1.2 + 0.4 * latticeNoise3(li * 0.8, r * 3, 1, latA));
+        im[idx] = 0;
         dead = true;
         continue;
       }
+      acoustic(s, inHeart, acA);
+      let sigma = acA.sigma;
+      let specular = acA.spec;
+      if (nElev > 1) {
+        // slice thickness: the beam's elevational width grows away from the focus; backscatter and interface
+        // echo are the weighted mean over the slice (¼ ½ ¼), which blurs obliquely cut structures
+        const e = 0.2 + 0.04 * Math.abs(r - focus);
+        let accS = sigma * 0.5,
+          accP = specular * 0.5,
+          wsum = 0.5;
+        for (let k = -1; k <= 1; k += 2) {
+          const kk = classifyAt(px + nX * k * e, py + nY * k * e, pz + nZ * k * e, s2);
+          if (kk > 0 && s2.tissue !== Tissue.Lung) {
+            acoustic(s2, kk === 2, acB);
+            accS += 0.25 * acB.sigma;
+            accP += 0.25 * acB.spec;
+            wsum += 0.25;
+          }
+        }
+        sigma = accS / wsum;
+        specular = accP / wsum;
+      }
+      // complex scatterer phasor of the central plane, anchored in tissue coordinates (moves with the tissue)
+      const qx = s.mx * SCATTER_FREQ,
+        qy = s.my * SCATTER_FREQ,
+        qz = s.mz * SCATTER_FREQ;
+      const zr = (latticeNoise3(qx, qy, qz, latA) + latticeNoise3(qx * R + 37.3, qy * R + 11.9, qz * R + 23.7, latB) - 1) * PHASOR_NORM;
+      const zi = (latticeNoise3(qx + 71.1, qy + 53.5, qz + 5.3, latC) + latticeNoise3(qx * R + 17.9, qy * R + 91.1, qz * R + 43.3, latA) - 1) * PHASOR_NORM;
+      let sRe = sigma * zr + specular;
+      let sIm = sigma * zi;
+      if (r < 4.5 && clutter > 0) {
+        // near-field clutter: reverberation in the chest wall under the footprint, incoherent, fixed to the probe position
+        const cm = clutter * Math.exp(-r / 1.8) * (0.15 + 0.5 * latticeNoise3(ox * 6 + li * 0.7, oy * 6 + oz * 6, r * 5, latC));
+        const cx = ox * 25 + li * 0.9,
+          cy = oy * 25 + oz * 25,
+          cz = r * SCATTER_FREQ;
+        sRe += cm * (latticeNoise3(cx + 3.1, cy, cz, latA) + latticeNoise3(cx * R + 8.3, cy + 1.9, cz * R, latB) - 1) * PHASOR_NORM;
+        sIm += cm * (latticeNoise3(cx + 61.7, cy + 5.5, cz + 3.3, latC) + latticeNoise3(cx * R + 21.1, cy + 44.4, cz * R + 9.9, latA) - 1) * PHASOR_NORM;
+      }
+      if (r < 0.35) sRe += 0.6 * (1 - r / 0.35); // transducer ring-down
+      re[idx] = sRe * transmission;
+      im[idx] = sIm * transmission;
       let attenNp = 0.23 * props.attenuation * fAtten * dr;
       if (tissue === Tissue.Bone || tissue === Tissue.Calcium || tissue === Tissue.Spine) attenNp = 1.2;
-      else if (s.extraReflect > 0.4) attenNp += 0.09 * s.extraReflect * (dr / 0.07); // calcified tissue ≈ 10 dB/cm at 2.5 MHz: partial shadow, total only over long in-plane paths
+      else if (s.extraReflect > 0.4) attenNp += 0.09 * s.extraReflect * (dr / 0.07); // calcified tissue ≈ 10 dB/cm at 2.5 MHz
       if (!inHeart && (tissue === Tissue.Fat || tissue === Tissue.Muscle || tissue === Tissue.Skin)) attenNp *= 1 + 1.5 * ctx.windowAttenuation;
       transmission *= Math.exp(-attenNp);
       if (transmission < 1e-4) transmission = 1e-4;
@@ -241,15 +287,12 @@ interface LineContext {
   spec: PolarFrameSpec;
   dr: number;
   fAtten: number;
-  grainLatScale: number;
-  grainAxScale: number;
   seed: number;
   harm: boolean;
   clutter: number;
   contact: number;
   fwdH: { x: number; y: number; z: number };
   latH: { x: number; y: number; z: number };
-  norH: { x: number; y: number; z: number };
   windowAttenuation: number;
   thorax: Scene['thorax'];
   latA: Uint8Array;

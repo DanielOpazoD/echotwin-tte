@@ -1,5 +1,7 @@
 import { Structure, Tissue } from '@/simulator/anatomy/tissue';
 import { paramDefinesGlsl } from './paramLayout';
+import { acousticDefinesGlsl } from '../acoustic/acoustics';
+import { ENVELOPE_NORM } from '../acoustic/psf';
 
 /** GLSL defines for the tissue and structure ids used by the shaders (kept in sync with tissue.ts). */
 export function enumDefinesGlsl(): string {
@@ -84,6 +86,7 @@ uniform sampler3D uNoise;    // RGBA8 128^3: latA, latB, latC, wallNoise
 float P(int i) { return texelFetch(uParams, ivec2(i >> 2, 0), 0)[i & 3]; }
 ${paramDefinesGlsl()}
 ${enumDefinesGlsl()}
+${acousticDefinesGlsl(ENVELOPE_NORM)}
 const float PI = 3.14159265358979;
 const float TWO_PI = 6.28318530717959;
 
