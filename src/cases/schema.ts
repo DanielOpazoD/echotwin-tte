@@ -45,6 +45,8 @@ export const AnatomySchema = z.object({
     basalDiameterCm: z.number().min(2).max(6),
     lengthCm: z.number().min(5).max(11),
     freeWallThicknessCm: z.number().min(0.2).max(1.2),
+    /** Interventricular septal flattening toward the LV (D-shaped LV in short axis) 0..1, from RV pressure/volume overload. */
+    septalFlattening: unit01.default(0),
   }),
   ra: z.object({ volumeMl: z.number().min(15).max(200) }),
   aorta: z.object({
@@ -61,6 +63,8 @@ export const AnatomySchema = z.object({
     calcification: unit01.default(0),
     thickeningCm: z.number().min(0.05).max(0.5).default(0.1),
     samSeverity: unit01.default(0),
+    /** Leaflet body displacement beyond the annulus into the LA in systole (prolapse), 0 = none. */
+    prolapse: unit01.default(0),
   }),
   aorticValve: z.object({
     maxOpeningFraction: unit01, // 1 = normal full opening
@@ -70,7 +74,11 @@ export const AnatomySchema = z.object({
   }),
   tricuspid: z.object({ annulusDiameterCm: z.number().min(2).max(5.5) }),
   ivc: z.object({ diameterCm: z.number().min(0.8).max(3.5), collapsePct: pct }),
-  pericardium: z.object({ effusionCm: z.number().min(0).max(4).default(0) }),
+  pericardium: z.object({
+    effusionCm: z.number().min(0).max(4).default(0),
+    /** Tamponade physiology 0..1: RV early-diastolic collapse, RA late-diastolic collapse and swinging heart. */
+    tamponade: unit01.default(0),
+  }),
   heartPosition: z.object({
     // Position of the mitral annulus centre in torso frame (cm; x=left, y=superior, z=anterior)
     baseCm: z.object({ x: z.number(), y: z.number(), z: z.number() }),
@@ -113,10 +121,12 @@ export const HemodynamicsSchema = z.object({
   avEffectiveAreaCm2: z.number().min(0.3).max(5),
   mvEffectiveAreaCm2: z.number().min(0.5).max(8).optional(), // derived from E/A when omitted
   trPresent: z.boolean().default(true),
+  /** Peak LVOT gradient (mmHg) from a subaortic obstruction; dynamic (late-peaking) when mitral.samSeverity > 0. */
+  lvotPeakGradientMmHg: z.number().min(0).max(150).default(0),
   regurgitation: z
     .object({
       mr: z.object({ eroaCm2: z.number().min(0).max(1.2), jetDirectionDeg: z.number().min(-60).max(60) }).optional(),
-      ar: z.object({ eroaCm2: z.number().min(0).max(1.0) }).optional(),
+      ar: z.object({ eroaCm2: z.number().min(0).max(1.0), phtMs: z.number().min(100).max(1000).default(450) }).optional(),
       tr: z.object({ eroaCm2: z.number().min(0).max(1.5) }).optional(),
     })
     .default({}),

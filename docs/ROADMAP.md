@@ -51,7 +51,9 @@ Estado real según el código el 2026-09-10. Los hitos M0–M6 siguen la especif
 | Color con aliasing, filtro de pared, blooming, sombra, varianza, persistencia | parcial | funciona; sólo humo |
 | PW/CW/TDI con gate, ensanchamiento, aliasing/recorte, sombra en CW | hecho | `doppler.test.ts` (cosine law, aliasing, CW sin resolución de rango) |
 | Audio Doppler | parcial | sin prueba (requiere `AudioContext`) |
-| Regurgitaciones (IM, IAo, IT por ERO), venas pulmonares | pendiente | sitios en el enum sin código |
+| Regurgitaciones (IM, IAo, IT por ORE) con PISA; obstrucción dinámica del TSVI | hecho | `flowField.ts`, `regurgitation.test.ts` |
+| Flujo de venas pulmonares (S/D/Ar), modo M color, laboratorio de artefactos | hecho | `flowField.ts`, `simulatorCore.ts` (`cmm`), `ArtifactLab.tsx`, `pulmonaryVein.test.ts` |
+| Ejercicios de PRF/alineación, Vp en modo M color | pendiente | se implementan como tareas del currículo |
 | PRF ligada a la profundidad, corrección de ángulo | pendiente | fórmulas presentes, no conectadas |
 
 ## M5 — Mediciones, informe y casos
@@ -60,11 +62,11 @@ Estado real según el código el 2026-09-10. Los hitos M0–M6 siguen la especif
 | Caliper, velocidad, VTI (manual y automático), tiempo, pendiente (TD), Simpson monoplano, TAPSE en modo M, con procedencia | hecho | `DisplayCanvas.tsx`, `measurements/{types,protocol,simpson}.ts`, `simpson.test.ts`, `measurementSupport.test.ts`, `e2e/measurements.spec.ts` |
 | Protocolo de mediciones semánticas con evaluación de técnica (vista, fase, colocación, alineación, acortamiento) | hecho | `education/technique.ts` + `technique.test.ts`, `ui/MeasurementPanel.tsx` |
 | Informe educativo con verdad, desviación, técnica y cálculos derivados; modo examen que oculta la verdad hasta finalizar | hecho | `clinical/reporting/report.ts`, `ReportScreen.tsx`; el puntuador empareja por id y pondera por técnica |
-| Casos: normal, ventana difícil, EA severa | hecho | `src/cases` (la EA queda con gradiente medio 38 mmHg, por debajo de lo que enuncia su `impressionTruth`) |
+| Los 12 casos de la especificación (normal ×2, ICFEr con IM funcional, ASM inferior, EA moderada y severa, MCH obstructiva con SAM, prolapso con IM primaria, hipertensión pulmonar con VD, derrame con taponamiento, FA, desafío de artefactos) | hecho | `src/cases/*.ts`, `cases.test.ts`, `proportions.test.ts` (desviaciones declaradas por caso), `regurgitation.test.ts`, `artifacts.test.ts` |
 | Exportación PNG con marca de agua sintética | hecho | `src/app/exportImage.ts` (sin prueba) |
 | Simpson biplano, FAC, áreas, PHT, IVRT | pendiente | monoplano y TD existen; el resto no |
 | Puntuación de examen (`requiredViews`, `requiredMeasurements`) | hecho | `src/education/scoring` + `scoring.test.ts` + «Finalizar examen» en `ReportScreen`; `impressionTruth` sigue sin uso |
-| Casos con FA, alteraciones segmentarias, derrame, SAM, bicúspide | pendiente | el modelo los soporta; no hay casos |
+| Casos con bicúspide, estenosis mitral, prótesis, congénitas | pendiente | el esquema admite `bicuspid`; el resto no está modelado |
 
 ## M6 — Atlas, validación y rendimiento
 | Entregable | Estado | Evidencia |

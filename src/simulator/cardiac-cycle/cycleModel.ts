@@ -17,6 +17,10 @@ export interface BeatTables {
   aorticFlowMlps: Float32Array; // Q_ao(φ) ≥ 0 during ejection
   mitralFlowMlps: Float32Array; // Q_mv(φ) ≥ 0 during filling
   mvEffectiveAreaCm2: number; // solved so that ∫Q_mv = SV with the requested E and A peak velocities
+  /** Regurgitant flows (mL/s) through the mitral (systole) and aortic (diastole) valves; zero when absent. */
+  mrFlowMlps: Float32Array;
+  arFlowMlps: Float32Array;
+  regurgitation: { mrVolumeMl: number; mrVmaxMps: number; mrVtiCm: number; arVolumeMl: number; arVmaxMps: number; arVtiCm: number; arPhtMs: number };
   /** Longitudinal (annular) displacement toward apex as a fraction of MAPSE, [0,1]. */
   longitudinal: Float32Array;
   /** Longitudinal annular velocity in units of MAPSE per second (s⁻¹); multiply by MAPSE(cm) → cm/s. */
@@ -42,8 +46,41 @@ export function buildBeatTables(
   const timings = computeCycleTimings(rrS, physiology, { ...rhythm, type: opts.aWave === false ? 'atrial-fibrillation' : rhythm.type });
   const edv = physiology.edvMl * (0.85 + 0.15 * preload);
   const svNominal = physiology.edvMl - physiology.esvMl;
-  const sv = svNominal * preload;
+  const svTotal = svNominal * preload; // EDV − ESV: everything that leaves the LV in systole (forward + regurgitant)
   const dt = rrS / n;
+
+  // Regurgitant jets (spec 63): velocity from the simplified Bernoulli pressure difference, volume = ERO × VTI.
+  // MR follows the systolic shape; AR decays through diastole with the case's pressure half-time.
+  const mrFlow = new Float32Array(n);
+  const arFlow = new Float32Array(n);
+  const mr = hemo.regurgitation.mr;
+  const ar = hemo.regurgitation.ar;
+  const mrVmax = mr && mr.eroaCm2 > 0 ? Math.sqrt(Math.max(1, hemo.systolicBpMmHg - 15) / 4) : 0;
+  const arVmax = ar && ar.eroaCm2 > 0 ? Math.sqrt(Math.max(1, hemo.diastolicBpMmHg - 12) / 4) : 0;
+  const arPht = ar?.phtMs ?? 450;
+  let mrVti = 0,
+    arVti = 0;
+  for (let i = 0; i < n; i++) {
+    const t = (i + 0.5) * dt;
+    if (mrVmax > 0) {
+      const u = (t - timings.ejectionStartS + 0.02) / (timings.ejectionEndS - timings.ejectionStartS + 0.04);
+      const v = u > 0 && u < 1 ? mrVmax * Math.pow(Math.sin(Math.PI * u), 0.8) : 0;
+      mrFlow[i] = v * 100 * mr!.eroaCm2;
+      mrVti += v * 100 * dt;
+    }
+    if (arVmax > 0) {
+      const tDia = t >= timings.ejectionEndS ? t - timings.ejectionEndS : t + rrS - timings.ejectionEndS; // time since AV closure
+      const inDiastole = t >= timings.ejectionEndS || t < timings.ejectionStartS;
+      const v = inDiastole ? arVmax * Math.pow(2, -tDia / (2 * arPht / 1000)) : 0;
+      arFlow[i] = v * 100 * ar!.eroaCm2;
+      arVti += v * 100 * dt;
+    }
+  }
+  const rvolMr = mrVmax > 0 ? mr!.eroaCm2 * mrVti : 0;
+  const rvolAr = arVmax > 0 ? ar!.eroaCm2 * arVti : 0;
+  // forward (aortic) ejection = total − MR; mitral inflow = total − AR (the AR volume enters through the aorta)
+  const sv = Math.max(5, svTotal - rvolMr);
+  const svMitral = Math.max(5, svTotal - rvolAr);
 
   // Ejection: Q_ao = k·shape(u), ∫ = SV
   const et = timings.ejectionEndS - timings.ejectionStartS;
@@ -61,8 +98,8 @@ export function buildBeatTables(
   let aInt = 0;
   for (let i = 0; i < 200; i++) aInt += aWaveShape((i + 0.5) / 200) * (aDur / 200);
   const velIntegralCm = eCm * eInt + aCm * aInt; // cm (VTI of mitral inflow)
-  const mvArea = hemo.mvEffectiveAreaCm2 ?? sv / Math.max(velIntegralCm, 1e-6);
-  const scaleMv = hemo.mvEffectiveAreaCm2 ? sv / Math.max(mvArea * velIntegralCm, 1e-6) : 1; // enforce ∫=SV if area forced
+  const mvArea = hemo.mvEffectiveAreaCm2 ?? svMitral / Math.max(velIntegralCm, 1e-6);
+  const scaleMv = hemo.mvEffectiveAreaCm2 ? svMitral / Math.max(mvArea * velIntegralCm, 1e-6) : 1; // enforce ∫=SV if area forced
 
   const aorticFlow = new Float32Array(n);
   const mitralFlow = new Float32Array(n);
@@ -80,13 +117,17 @@ export function buildBeatTables(
   const vol = new Float32Array(n);
   let v = edv;
   for (let i = 0; i < n; i++) {
-    v += ((mitralFlow[i] ?? 0) - (aorticFlow[i] ?? 0)) * dt;
+    v += ((mitralFlow[i] ?? 0) + (arFlow[i] ?? 0) - (aorticFlow[i] ?? 0) - (mrFlow[i] ?? 0)) * dt;
     vol[i] = v;
   }
   const drift = v - edv;
   for (let i = 0; i < n; i++) vol[i] = (vol[i] ?? 0) - (drift * (i + 1)) / n;
-  let minV = Infinity;
-  for (let i = 0; i < n; i++) minV = Math.min(minV, vol[i] ?? 0);
+  let minV = Infinity,
+    maxV = -Infinity;
+  for (let i = 0; i < n; i++) {
+    minV = Math.min(minV, vol[i] ?? 0);
+    maxV = Math.max(maxV, vol[i] ?? 0); // with AR the LV keeps filling until the aortic valve opens
+  }
 
   // Longitudinal annular displacement: follows contraction fraction with a first-order relaxation lag
   // in diastole (τ from e′). e′ ≈ MAPSE·(peak of d(long)/dt during early filling).
@@ -104,7 +145,7 @@ export function buildBeatTables(
       const inSystole = t < timings.ejectionEndS;
       // systole: the annulus follows the volume curve closely; early diastole: recoil limited by relaxation
       // (τ from e′); atrial systole (A′) pulls the annulus back to its basal position by end-diastole
-      const inAtrial = timings.hasAWave && t > timings.aStartS;
+      const inAtrial = timings.hasAWave ? t > timings.aStartS : t > timings.mitralOpenS + timings.eAccelS + timings.eDecelS; // AF: passive return in diastasis
       const tau = inSystole ? 0.03 : inAtrial ? 0.035 : tauS;
       l += ((target - l) * dt) / tau;
       longitudinal[i] = l;
@@ -120,13 +161,16 @@ export function buildBeatTables(
     n,
     timings,
     rrS,
-    edvMl: edv,
+    edvMl: maxV,
     esvMl: minV,
-    strokeVolumeMl: edv - minV,
+    strokeVolumeMl: maxV - minV,
     lvVolumeMl: vol,
     aorticFlowMlps: aorticFlow,
     mitralFlowMlps: mitralFlow,
     mvEffectiveAreaCm2: mvArea * scaleMv,
+    mrFlowMlps: mrFlow,
+    arFlowMlps: arFlow,
+    regurgitation: { mrVolumeMl: rvolMr, mrVmaxMps: mrVmax, mrVtiCm: mrVti, arVolumeMl: rvolAr, arVmaxMps: arVmax, arVtiCm: arVti, arPhtMs: arPht },
     longitudinal,
     longitudinalVelocity: longVel,
   };

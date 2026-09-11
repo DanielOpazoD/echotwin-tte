@@ -134,6 +134,8 @@ export interface HeartModel {
   boundCenter: Vec3;
   /** Lattice for wall-thickness modulation (seeded). */
   wallNoise: Uint8Array;
+  /** Surface-weighted mean of (1 − amplitude) over the 17 segments: the outward cavity shift that akinetic segments add. */
+  regionalMeanFrac: number;
 }
 
 export function createHeartModel(anatomy: AnatomyConfig, physiology: PhysiologyConfig, offset: Vec3 = v3(), seed = 1): HeartModel {
@@ -147,7 +149,18 @@ export function createHeartModel(anatomy: AnatomyConfig, physiology: PhysiologyC
     boundRadius: lv.lengthCm * 0.5 + 8.5,
     boundCenter: v3(-1.2, 0.2, lv.lengthCm * 0.5 - 1.5),
     wallNoise: noiseLattice(seed ^ 0x5157),
+    regionalMeanFrac: regionalMeanFraction(segmentAmplitudes(anatomy)),
   };
+}
+
+/** Surface fractions of the AHA segments (basal/mid 1/18 each, apical 1/16 each, apex 1/12), weighted by hypokinesia. */
+function regionalMeanFraction(amp: SegmentAmplitudes): number {
+  let sum = 0;
+  for (let seg = 1; seg <= 17; seg++) {
+    const frac = seg <= 12 ? 1 / 18 : seg <= 16 ? 1 / 16 : 1 / 12;
+    sum += (1 - Math.min(1, amp[seg] ?? 1)) * frac;
+  }
+  return sum;
 }
 
 /** Per-frame deformation parameters derived from the cycle state (computed once per frame). */
@@ -172,6 +185,12 @@ export interface HeartPose {
   tvZ: number; // tricuspid annulus displacement (TAPSE)
   laBooster: number; // atrial contraction radial scale (1 = none)
   effusion: number;
+  /** Tamponade signs this frame: RV free-wall inward collapse (0..1), RA collapse (0..1) and heart swing (cm, x). */
+  rvCollapse: number;
+  raCollapse: number;
+  swingX: number;
+  /** Interventricular septal flattening amplitude (cm) toward the LV. */
+  septalShiftCm: number;
   /** Precomputed per-frame valve geometry (avoids trig per sample). */
   valves: ValveGeometry;
 }
@@ -287,8 +306,24 @@ function skirtDistance(x: number, y: number, z: number, k: SkirtDesc): number {
   return k.thickness * (1 - 0.45 * bestFrac) * 0.5 + 0.035;
 }
 
+/** Early-diastolic RV free-wall collapse window (tamponade): after AV closure, before the mitral E peak. */
+function rvCollapseWindow(state: CycleState): number {
+  const p = state.phase;
+  // window centred just after ejection end (≈ 0.42–0.6 of the cycle for typical timings)
+  const c = 0.5;
+  const w = 0.1;
+  return Math.exp(-((p - c) * (p - c)) / (2 * w * w));
+}
+/** Late-diastolic / early-systolic RA collapse window (tamponade). */
+function raCollapseWindow(state: CycleState): number {
+  const p = state.phase;
+  const d = Math.min(Math.abs(p - 0.02), Math.abs(p - 1.02));
+  return Math.exp(-(d * d) / (2 * 0.06 * 0.06));
+}
+
 export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
   const { lv } = m;
+  const tamp = m.anatomy.pericardium.tamponade;
   const long = state.longitudinal;
   const zAnn = m.physiology.mapseCm * long;
   const lengthNow = lv.lengthCm - zAnn;
@@ -299,7 +334,12 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
   const I = clippedEllipsoidIntegral(lengthNow, zcCav, cCav) - (zAnn > 0 ? 0 : 0);
   // cavity: integrate from zAnn to L (annulus moved). Approximate by scaling with the same integral over [0,L] shape.
   const ratio = lv.b / lv.a;
-  const aCav = Math.sqrt(Math.max(volNow, 5) / (Math.PI * ratio * Math.max(I, 1e-3)));
+  const aCav0 = Math.sqrt(Math.max(volNow, 5) / (Math.PI * ratio * Math.max(I, 1e-3)));
+  // regional wall-motion abnormalities keep their segments at the end-diastolic radius; the remaining
+  // segments contract more (compensatory hyperkinesia) so that the surface-averaged radius — and the
+  // cavity volume — still follow the tables: aCav·(1 − F) + F·a = aCav0
+  const F = Math.min(0.6, m.regionalMeanFrac);
+  const aCav = aCav0 < lv.a && F > 0 ? Math.max(0.5, Math.sqrt(Math.max(0.25, (aCav0 * aCav0 - F * lv.a * lv.a) / (1 - F)))) : aCav0;
   const bCav = aCav * ratio;
   // epicardium: incompressible wall
   const epiVol = volNow + lv.wallVolumeMl;
@@ -318,7 +358,9 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
   // angles from +z (apical) toward inward (−ρ); positive = pointing to the orifice centre
   const antClosed = [1.2 - samShift, 1.1 - samShift, 0.8 - samShift];
   const antOpen = [-0.61 * openScale, -0.7 * openScale, -0.79 * openScale];
-  const postClosed = [0.95, 0.7, 0.45];
+  const prol = m.anatomy.mitral.prolapse;
+  // prolapse: the closed leaflet body billows beyond the annular plane into the LA (angles beyond π/2 point basally)
+  const postClosed = [0.95 + 1.1 * prol, 0.7 + 1.5 * prol, 0.45 + 1.7 * prol];
   const postOpen = [-0.61 * openScale, -0.79 * openScale, -0.96 * openScale];
   const mvAngleAnt = antClosed[1]! + (antOpen[1]! - antClosed[1]!) * open;
   const mvAnglePost = postClosed[1]! + (postOpen[1]! - postClosed[1]!) * open;
@@ -476,6 +518,10 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
     tvZ: m.physiology.tapseCm * long,
     laBooster: 1 - 0.06 * state.atrialContraction,
     effusion: m.anatomy.pericardium.effusionCm,
+    rvCollapse: tamp * rvCollapseWindow(state),
+    raCollapse: tamp * raCollapseWindow(state),
+    swingX: tamp * 0.45 * Math.sin(TWO_PI * state.phase),
+    septalShiftCm: m.anatomy.rv.septalFlattening * 0.9,
     valves,
   };
 }
@@ -535,9 +581,10 @@ function anchors(m: HeartModel): Anchors {
     avR: a.aorta.annulusCm / 2,
     sinusR: a.aorta.sinusCm / 2,
     ascR: a.aorta.ascendingCm / 2,
-    laCenter: v3(0.3, -1.3, -laRz * 0.85),
+    // both atria hang from the interatrial plane (x ≈ −2.3) so that enlarging one never swallows the septum
+    laCenter: v3(-2.15 + laRx * 0.94, -1.3, -laRz * 0.85),
     laR: v3(laRx, laRy, laRz * 0.88),
-    raCenter: v3(-4.2 - raR * 0.1, -0.5 - raR * 0.1, -raR * 0.6 - 0.3), // medial enough for a thin interatrial septum
+    raCenter: v3(-2.5 - raR * 0.95 * 0.94, -0.5 - raR * 0.1, -raR * 0.6 - 0.3),
     raR: v3(raR * 0.95, raR * 0.85, raR * 0.82),
     // RV modelled as a large ellipsoid carved by the LV epicardium → crescent wrapping the septum;
     // it reaches medially (RV/LV basal ratio ≈ 0.6 in A4C) and its apex sits ~0.85 of the LV length
@@ -549,7 +596,8 @@ function anchors(m: HeartModel): Anchors {
     rvAzA: 1.6, // anterior interventricular groove (92°: junction of the anterior and anteroseptal segments)
     rvAzP: 3.7, // inferior (posterior) interventricular groove (212°: junction of the inferoseptal and inferior segments)
     rvApexFrac: Math.min(0.9, Math.max(0.7, (a.rv.lengthCm + 0.8) / L)),
-    tvCenter: v3(-4.9 - 0.5 * dWall, -0.2, 0.3),
+    // tricuspid annulus: its medial edge sits on the RV side of the septum, whatever the LV size or wall thickness
+    tvCenter: v3(-(m.lv.a + a.lv.ivsdCm + 0.25 + a.tricuspid.annulusDiameterCm / 2), -0.2, 0.3),
     tvR: a.tricuspid.annulusDiameterCm / 2,
     rvotA: v3(-2.8, 3.6 + dWall, 0.3),
     rvotB: v3(-0.6, 5.7 + dWall, -2.6),
@@ -606,6 +654,30 @@ export function heartLandmarks(m: HeartModel): Landmark[] {
   ];
 }
 
+/**
+ * Local LV wall thickness (cm) at azimuth/level: end-diastolic thickness interpolated between the
+ * septal and free-wall values, systolic thickening from wall incompressibility scaled by the segment's
+ * motion (akinetic segments barely thicken), and a low-frequency modulation around the wall.
+ */
+function wallThicknessAt(m: HeartModel, hp: HeartPose, az: number, levelFrac: number, amp: number): number {
+  const lv = m.lv;
+  const septalness = 0.5 - 0.5 * Math.cos(az);
+  const tED = lv.lvpwd + (lv.ivsd - lv.lvpwd) * septalness;
+  const thickFactor = (hp.aEpi - hp.aCav) / Math.max(lv.a + (lv.ivsd + lv.lvpwd) / 2 - lv.a, 0.2);
+  const wallMod = 0.86 + 0.28 * latticeNoise3(Math.cos(az) * 1.6 + 7.3, Math.sin(az) * 1.6 + 2.1, levelFrac * 2.4, m.wallNoise);
+  return tED * Math.max(0.6, 1 + (thickFactor - 1) * (0.35 + 0.65 * amp)) * wallMod;
+}
+
+/** Septal shift toward the LV (cm) at azimuth/level: maximal at the mid septum, zero at the free wall, base and apex. */
+function septalShiftAt(hp: HeartPose, az: number, levelFrac: number): number {
+  if (hp.septalShiftCm <= 0) return 0;
+  const c = -Math.cos(az); // 1 at the septum (az = π)
+  if (c <= 0) return 0;
+  const zw = 1 - Math.pow((levelFrac - 0.45) / 0.45, 2);
+  if (zw <= 0) return 0;
+  return hp.septalShiftCm * c * c * zw;
+}
+
 const rvTmp = new Float64Array(3);
 /**
  * RV crescent: the cavity lies between the LV epicardium (+ a small gap) and an outer surface at
@@ -622,13 +694,16 @@ function rvCrescent(m: HeartModel, hp: HeartPose, A: AnchorsCached, x: number, y
   const u = (azN - A.rvAzA) / (A.rvAzP - A.rvAzA);
   const r = Math.hypot(x, y);
   // LV epicardial radius at this azimuth and level (ellipsoid cross-section)
-  const cE = hp.cCav + apexThick * 0.7;
-  const zeta = (z - hp.zcCav) / cE;
+  const zeta = (z - hp.zcCav) / hp.cCav;
   const ellFac = Math.sqrt(Math.max(0, 1 - zeta * zeta));
   const cosA = Math.cos(az),
     sinA = Math.sin(az);
-  const rEpi = ((hp.aEpi * hp.bEpi) / Math.sqrt(hp.bEpi * cosA * (hp.bEpi * cosA) + hp.aEpi * sinA * (hp.aEpi * sinA))) * ellFac;
-  const rIn = rEpi + 0.05;
+  // cavity radius at this azimuth/level plus the local wall thickness = local epicardial radius
+  const rCav = ((hp.aCav * hp.bCav) / Math.sqrt(hp.bCav * cosA * (hp.bCav * cosA) + hp.aCav * sinA * (hp.aCav * sinA))) * ellFac;
+  const levelFrac = Math.min(1, Math.max(0, (z - hp.zAnn) / Math.max(hp.lengthNow, 1)));
+  const amp = m.segAmp[ahaSegment(az, levelFrac)] ?? 1;
+  const rEpi = rCav + (z > L - 0.5 ? apexThick : wallThicknessAt(m, hp, az, levelFrac, amp)) * ellFac;
+  const rIn = rEpi - septalShiftAt(hp, az, levelFrac) + 0.05;
   const zApex = A.rvApexFrac * L;
   if (u <= 0 || u >= 1) {
     res[0] = 1e3;
@@ -652,6 +727,8 @@ function rvCrescent(m: HeartModel, hp: HeartPose, A: AnchorsCached, x: number, y
   const inflow = Math.exp(-((u - uIn) * (u - uIn)) / (2 * 0.15 * 0.15));
   const prof = 0.8 * plateau + 0.2 * inflow;
   let t = A.rvT * prof * fz * (1 - 0.35 * hp.state.contraction);
+  // tamponade: early-diastolic inward collapse of the anterior/outflow free wall
+  if (hp.rvCollapse > 0 && u < 0.55) t *= 1 - 0.65 * hp.rvCollapse * (1 - u / 0.55);
   // trabeculated endocardium toward the apex
   if (z > 0.3 * L) t += 0.22 * Math.min(1, (z - 0.3 * L) / (0.3 * L)) * (latticeNoise3(x * 1.7 + 3.1, y * 1.7 + 9.7, z * 1.7 + 5.3, m.wallNoise) - 0.5);
   const rOut = rIn + Math.max(0, t);
@@ -666,7 +743,9 @@ function rvCrescent(m: HeartModel, hp: HeartPose, A: AnchorsCached, x: number, y
  * Classify a heart-frame point. Writes into `out` and returns true when the point belongs to a
  * cardiac structure (including pericardium/effusion); false when outside the heart.
  */
-export function classifyHeart(m: HeartModel, hp: HeartPose, x: number, y: number, z: number, out: TissueSample): boolean {
+export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: number, z: number, out: TissueSample): boolean {
+  // swinging heart (tamponade): rigid translation of the whole heart inside the pericardial sac
+  const x = x0 - hp.swingX;
   const bc = m.boundCenter;
   const bdx = x - bc.x,
     bdy = y - bc.y,
@@ -803,12 +882,16 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x: number, y: number
   }
 
   // ---------- LV cavity & wall ----------
-  const dEll = sdEllipsoid(x, y, z, 0, 0, hp.zcCav, hp.aCav, hp.bCav, hp.cCav);
-  // clip at annulus plane (z ≥ zAnn) with a smooth max
-  const dCav = smax(dEll, zAnn - z, 0.6);
   // local wall thickness by azimuth (septal thicker if IVS > PW) & level, regional motion by segment
   const az = fastAtan2(y, x);
   const levelFrac = Math.min(1, Math.max(0, (z - zAnn) / Math.max(hp.lengthNow, 1)));
+  // septal flattening (D-shape): the septum is pushed toward the LV centre by the RV; the LV ellipsoids are
+  // evaluated at x − shift so that both endocardium and epicardium move (the RV crescent uses the same shift)
+  const septalShift = septalShiftAt(hp, az, levelFrac);
+  const xs = x - septalShift;
+  const dEll = sdEllipsoid(xs, y, z, 0, 0, hp.zcCav, hp.aCav, hp.bCav, hp.cCav);
+  // clip at annulus plane (z ≥ zAnn) with a smooth max
+  const dCav = smax(dEll, zAnn - z, 0.6);
   const seg = ahaSegment(az, levelFrac);
   const amp = m.segAmp[seg] ?? 1;
   // Regional wall motion: reduce local inward displacement → local cavity SDF shifted outward
@@ -818,12 +901,7 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x: number, y: number
   const dCavR = dCav - regional + trab;
   // wall thickness: interpolate septal (az≈π, i.e. x<0) vs free wall
   const septalness = 0.5 - 0.5 * Math.cos(az); // 1 at septum (az=π), 0 at lateral
-  const tED = lv.lvpwd + (lv.ivsd - lv.lvpwd) * septalness;
-  // thickening: epicardial radius growth from incompressibility (approx uniform thickening factor)
-  const thickFactor = (hp.aEpi - hp.aCav) / Math.max((lv.a + (lv.ivsd + lv.lvpwd) / 2) - lv.a, 0.2);
-  // low-frequency thickness modulation around the wall (trabeculation / non-uniform myocardium)
-  const wallMod = 0.86 + 0.28 * latticeNoise3(Math.cos(az) * 1.6 + 7.3, Math.sin(az) * 1.6 + 2.1, levelFrac * 2.4, m.wallNoise);
-  const tNow = tED * Math.max(0.6, thickFactor * (0.6 + 0.4 * amp) + (1 - amp) * 0.0) * wallMod;
+  const tNow = wallThicknessAt(m, hp, az, levelFrac, amp);
   const apexThick = m.anatomy.lv.apexWallThicknessCm;
 
   // Papillary muscles inside the cavity
@@ -921,7 +999,8 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x: number, y: number
     const zBotR = A.tvCenter.z + hp.tvZ * 0.7 + 0.25; // the caval junction moves a little with TAPSE
     const czR = (zTopR + zBotR) / 2,
       rzR = (zBotR - zTopR) / 2;
-    const dR = sdEllipsoid(x, y, z, ra.x, ra.y, czR, rr.x * bo, rr.y * bo, rzR);
+    const raC = 1 - 0.35 * hp.raCollapse; // tamponade: late-diastolic RA collapse
+    const dR = sdEllipsoid(x, y, z, ra.x, ra.y, czR, rr.x * bo * raC, rr.y * bo * raC, rzR);
     if (dR < 0) {
       setSample(out, Tissue.Blood, dR, (x - ra.x) / rr.x, (y - ra.y) / rr.y, (z - czR) / rzR, x, y, z, 0, Structure.RaCavity);
       return true;

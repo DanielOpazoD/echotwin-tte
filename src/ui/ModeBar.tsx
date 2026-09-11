@@ -7,6 +7,7 @@ const MODES: { id: ImagingModality; label: string; key: string }[] = [
   { id: '2d', label: '2D', key: '2' },
   { id: 'color', label: 'Color', key: 'C' },
   { id: 'm-mode', label: 'M', key: 'M' },
+  { id: 'cmm', label: 'CMM', key: 'Shift+M' },
   { id: 'pw', label: 'PW', key: 'P' },
   { id: 'cw', label: 'CW', key: 'X' },
   { id: 'tdi', label: 'TDI', key: 'T' },

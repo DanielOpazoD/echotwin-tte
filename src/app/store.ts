@@ -46,6 +46,9 @@ export interface SimStore {
   truth: StructuredEchoTruth | null;
   measurements: Measurement[];
   activeTool: 'none' | 'caliper' | 'velocity' | 'vti' | 'auto-vti' | 'time' | 'slope' | 'simpson' | 'tapse';
+  /** Artifact laboratory overrides (null = case defaults). */
+  artifactLab: { sideLobe: number; mirror: number; beamWidth: number; clutter: number } | null;
+  setArtifactLab: (v: { sideLobe: number; mirror: number; beamWidth: number; clutter: number } | null) => void;
   /** Semantic measurement being captured (protocol id) or null for a free measurement. */
   activeMeasurementId: string | null;
   /** Cardiac phase landmarks and LV length of the loaded case (from the simulator). */
@@ -146,6 +149,7 @@ export const useSimStore = create<SimStore>((set) => ({
   measurements: [],
   activeTool: 'none',
   activeMeasurementId: null,
+  artifactLab: null,
   phaseMarks: null,
   lvLengthCm: null,
   viewProgress: {},
@@ -204,6 +208,7 @@ export const useSimStore = create<SimStore>((set) => ({
     set({ activeMeasurementId: id, activeTool: spec.tool });
   },
   setCycleInfo: (marks, lvLengthCm) => set({ phaseMarks: marks, lvLengthCm }),
+  setArtifactLab: (v) => set({ artifactLab: v }),
   startPresetView: (viewId) =>
     set((s) => {
       if (s.mode === 'exam') return {};

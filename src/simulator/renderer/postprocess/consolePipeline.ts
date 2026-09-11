@@ -34,7 +34,20 @@ export function tgcAtDepth(settings: AcquisitionSettings, r: number): number {
   return (bands[i0] ?? 0) * (1 - t) + (bands[i1] ?? 0) * t;
 }
 
-export function applyConsole(frame: PolarFrame, settings: AcquisitionSettings, state: ConsoleState, outU8: Uint8ClampedArray): void {
+/**
+ * Case-configurable artifacts applied in the polar domain (spec 12, case 12): intensities 0..1.
+ * side-lobe: strong reflectors leak into neighbouring lines; mirror: the image beyond a strong
+ * specular interface (pericardium/lung) repeats the shallower image; beam-width: the lateral beam
+ * widens away from the focus (smearing of point-like structures at depth).
+ */
+export interface ArtifactSettings {
+  sideLobe: number;
+  mirror: number;
+  beamWidth: number;
+}
+export const NO_ARTIFACTS: ArtifactSettings = { sideLobe: 0, mirror: 0, beamWidth: 0 };
+
+export function applyConsole(frame: PolarFrame, settings: AcquisitionSettings, state: ConsoleState, outU8: Uint8ClampedArray, artifacts: ArtifactSettings = NO_ARTIFACTS): void {
   const { lines, samples, depthCm } = frame.spec;
   const n = lines * samples;
   const dr = depthCm / samples;
@@ -57,6 +70,49 @@ export function applyConsole(frame: PolarFrame, settings: AcquisitionSettings, s
       const noise = noiseFloor * (0.5 + hash3(li, si, fi, state.seed));
       a[idx] = ((frame.amplitude[idx] ?? 0) + noise) * comp;
     }
+  }
+  // 1b) mirror artifact: beyond the first strong specular interface deeper than 5 cm (pericardium / pleura)
+  // the shallower image is duplicated at mirrored depth, attenuated
+  if (artifacts.mirror > 0) {
+    const minSi = Math.floor(5 / dr);
+    for (let li = 0; li < lines; li++) {
+      const base = li * samples;
+      let s0 = -1;
+      for (let si = minSi; si < samples; si++) {
+        const ti = frame.tissue[base + si] ?? 0;
+        if ((ti === 4 || ti === 9) && (frame.amplitude[base + si] ?? 0) > 0.3) {
+          s0 = si;
+          break;
+        }
+      }
+      if (s0 < 0) continue;
+      const gain = 0.45 * artifacts.mirror;
+      for (let si = s0 + 1; si < samples; si++) {
+        const src = 2 * s0 - si;
+        if (src < 0) break;
+        a[base + si] = (a[base + si] ?? 0) + (a[base + src] ?? 0) * gain * Math.exp(-(si - s0) * dr * 0.12);
+      }
+    }
+  }
+  // 1c) side lobes: strong reflectors leak into neighbouring lines (±3), decaying with distance
+  if (artifacts.sideLobe > 0) {
+    const thr = 1.2;
+    const leak = 0.18 * artifacts.sideLobe;
+    b.set(a);
+    for (let li = 0; li < lines; li++) {
+      for (let si = 0; si < samples; si++) {
+        const v = a[li * samples + si] ?? 0;
+        if (v < thr) continue;
+        for (let j = -3; j <= 3; j++) {
+          if (j === 0) continue;
+          const q = li + j;
+          if (q < 0 || q >= lines) continue;
+          const idx = q * samples + si;
+          b[idx] = Math.max(b[idx] ?? 0, v * leak * (1 - Math.abs(j) / 4));
+        }
+      }
+    }
+    a.set(b);
   }
   // 2) axial resolution: box blur along samples with width ∝ 1/f
   const axialCm = 0.09 * (2.5 / f) * (settings.harmonics ? 0.75 : 1);
@@ -92,7 +148,7 @@ export function applyConsole(frame: PolarFrame, settings: AcquisitionSettings, s
     // beam width (in lines) ≈ base + growth; wider sector → fewer lines per degree → more visible
     const linesPerDeg = lines / ((frame.spec.sectorRad * 180) / Math.PI);
     // beam width grows away from the focal depth; kept moderate so speckle stays granular, not streaky
-    const widthDeg = 0.55 + 0.2 * dist * (2.5 / f) * (settings.harmonics ? 0.85 : 1);
+    const widthDeg = (0.55 + 0.2 * dist * (2.5 / f) * (settings.harmonics ? 0.85 : 1)) * (1 + 1.6 * artifacts.beamWidth * Math.min(1, dist / 6));
     const sigma = Math.max(0.3, widthDeg * linesPerDeg * 0.5);
     const kk = Math.min(6, Math.ceil(sigma * 1.5));
     if (kk < 1) {

@@ -154,7 +154,8 @@ export function measureModel(c: CaseDefinition, patient: PatientState = DEFAULT_
   const lvLenED = maxZ(edPose, cav, [0, 0, 4]) - edPose.zAnn;
   const lvLenES = maxZ(longPose, cav, [0, 0, 4]) - longPose.zAnn;
   const yA4C = -0.4;
-  const rvBasal = runAt(edPose, [Structure.RvCavity], [-5.2, yA4C, 2.2], 0);
+  // basal third, apical of the open tricuspid leaflet tips (which hang to z ≈ 2.2 in early diastole)
+  const rvBasal = runAt(edPose, [Structure.RvCavity], [-(edPose.aEpi + 1.8), yA4C, 2.7], 0);
   const rvMid = runAt(edPose, [Structure.RvCavity], [-5.0, yA4C, L * 0.5], 0);
   // RV length in A4C: from the tricuspid annulus plane to the most apical RV cavity point in the A4C plane
   const rvLen = ((): number => {
@@ -178,10 +179,22 @@ export function measureModel(c: CaseDefinition, patient: PatientState = DEFAULT_
   const rvPlax = runDir(edPose, rvStructs, [-0.5 * (edPose.bEpi + 0.9), 0.866 * (edPose.bEpi + 0.9), 3.0], [-0.5, 0.866, 0], 4);
   const laAP = runAt(esPose, [Structure.LaCavity], [A.laCenter.x, A.laCenter.y, A.laCenter.z], 1);
   const laTr = runAt(esPose, [Structure.LaCavity], [A.laCenter.x, A.laCenter.y, A.laCenter.z], 0);
-  const laLong = runAt(esPose, [Structure.LaCavity], [A.laCenter.x, A.laCenter.y, A.laCenter.z], 2);
+  const laLong = runAt(esPose, [Structure.LaCavity], [A.laCenter.x + 0.7, A.laCenter.y, A.laCenter.z], 2); // lateral of the leaflet coaptation
   const raTr = runAt(esPose, [Structure.RaCavity], [A.raCenter.x, A.raCenter.y, A.raCenter.z], 0);
   const raLong = runAt(esPose, [Structure.RaCavity], [A.raCenter.x, A.raCenter.y, A.raCenter.z], 2);
-  const iasT = runAt(edPose, [Structure.InteratrialSeptum], [(A.laCenter.x - A.laR.x + A.raCenter.x + A.raR.x) / 2, -1.6, -2.2], 0, 3);
+  // interatrial septum: thinnest run along x found on a small grid behind the annulus (its position depends on the atrial sizes)
+  const iasT = ((): number => {
+    const xc = (A.laCenter.x - A.laR.x + A.raCenter.x + A.raR.x) / 2;
+    const runs: number[] = [];
+    for (const yy of [-2.2, -1.6, -1.0])
+      for (const zz of [-3.0, -2.2, -1.4]) {
+        const t = runAt(edPose, [Structure.InteratrialSeptum], [xc, yy, zz], 0, 1.5);
+        if (t > 0) runs.push(t);
+      }
+    if (!runs.length) return 0;
+    runs.sort((a, b) => a - b);
+    return runs[Math.floor(runs.length / 2)]!; // median: tangential grazes and bridging bulges cancel out
+  })();
   const ax = A.avAxis,
     e1 = A.avE1;
   const rootAt = (t: number, pose: HeartPose) => {

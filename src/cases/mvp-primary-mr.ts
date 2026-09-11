@@ -1,0 +1,62 @@
+import type { CaseDefinitionInput } from './schema';
+import { normalExcellentCase } from './normal-excellent';
+
+/** Case 8 — Primary MR from posterior leaflet prolapse: eccentric anteromedially directed jet, ERO ≈ 0.45 cm², volume-loaded hyperdynamic LV, dilated LA. */
+export const mvpPrimaryMrCase: CaseDefinitionInput = {
+  ...normalExcellentCase,
+  id: 'mvp-primary-mr',
+  title: 'Prolapso mitral con insuficiencia mitral primaria moderada-severa',
+  seed: 808,
+  history: 'Paciente sintética de 52 años con soplo holosistólico apical y disnea progresiva. Sin datos reales de paciente.',
+  demographics: { ageYears: 52, sexForReference: 'female', heightCm: 165, weightKg: 62 },
+  bodyHabitus: { chestWallThicknessCm: 2.0, chestWidthCm: 31, chestDepthCm: 20, ribSpacingCm: 2.5, intercostalWidthCm: 1.6 },
+  rhythm: { type: 'sinus', heartRateBpm: 74, rrVariabilityPct: 2, pvcProbability: 0.01 },
+  anatomy: {
+    ...normalExcellentCase.anatomy,
+    lv: { eddCm: 5.6, lengthEdCm: 8.8, ivsdCm: 0.85, lvpwdCm: 0.85, sphericity: 0.6, apexWallThicknessCm: 0.65 },
+    la: { apDiameterCm: 4.5, volumeMl: 86 },
+    rv: { basalDiameterCm: 2.9, lengthCm: 7.2, freeWallThicknessCm: 0.35, septalFlattening: 0 },
+    ra: { volumeMl: 42 },
+    aorta: { lvotDiameterCm: 2.0, annulusCm: 2.2, sinusCm: 3.0, ascendingCm: 2.9 },
+    mitral: { ...normalExcellentCase.anatomy.mitral, annulusDiameterCm: 3.6, posteriorLeafletLengthCm: 1.9, thickeningCm: 0.16, prolapse: 0.7 },
+    tricuspid: { annulusDiameterCm: 3.2 },
+  },
+  physiology: { ...normalExcellentCase.physiology, edvMl: 165, esvMl: 58, mapseCm: 1.5, ePeakMps: 1.2, aPeakMps: 0.55, decelerationTimeMs: 170, ivrtMs: 65, ePrimeSeptalCmps: 9, ePrimeLateralCmps: 12 },
+  hemodynamics: {
+    systolicBpMmHg: 125,
+    diastolicBpMmHg: 72,
+    rapMmHg: 5,
+    paspMmHg: 42,
+    avEffectiveAreaCm2: 3.0,
+    trPresent: true,
+    lvotPeakGradientMmHg: 0,
+    regurgitation: { mr: { eroaCm2: 0.45, jetDirectionDeg: -35 } },
+  },
+  flowPrimitives: [...normalExcellentCase.flowPrimitives, { id: 'mr', site: 'mr-jet', enabled: true, turbulence: 0.4 }],
+  learningObjectives: [
+    'Reconocer el prolapso de la valva posterior en PLAX (desplazamiento del cuerpo de la valva más de 2 mm por debajo del plano anular en sístole).',
+    'Caracterizar un chorro excéntrico de IM: color, PISA, vena contracta y Doppler continuo; no subestimar por la excentricidad.',
+    'Interpretar el VI hiperdinámico con volumen telediastólico aumentado y la AI dilatada como signos de sobrecarga crónica de volumen.',
+  ],
+  requiredViews: [
+    { viewId: 'plax', minScore: 65 },
+    { viewId: 'a4c', minScore: 65 },
+    { viewId: 'a2c', minScore: 55 },
+    { viewId: 'a3c', minScore: 55 },
+  ],
+  requiredMeasurements: [
+    { measurementId: 'la-ap', tolerancePct: 10 },
+    { measurementId: 'lv-edd', tolerancePct: 10 },
+    { measurementId: 'lv-edv-simpson', tolerancePct: 15 },
+    { measurementId: 'lv-esv-simpson', tolerancePct: 18 },
+    { measurementId: 'mitral-e', tolerancePct: 12 },
+  ],
+  difficulty: 4,
+  references: [{ referenceId: 'ase-eacvi-chamber-2015', usage: 'volúmenes del VI y de la AI en sobrecarga de volumen' }],
+  impressionTruth: [
+    'Prolapso de la valva posterior mitral con insuficiencia mitral primaria excéntrica (dirigida anteromedialmente) de grado moderado-severo (ORE ≈ 0,45 cm²).',
+    'Ventrículo izquierdo dilatado e hiperdinámico (FEVI ≈ 65 %) por sobrecarga de volumen; aurícula izquierda severamente dilatada.',
+    'Presión sistólica pulmonar levemente elevada.',
+  ],
+  expectedDeviations: ['lv-edv', 'lv-esv', 'lv-edvi', 'lv-idd', 'lv-ids', 'la-ap', 'la-transverse', 'la-long', 'lavi', 'la-ao', 'mv-annulus', 'tv-mv-ratio'],
+};

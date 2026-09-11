@@ -91,5 +91,6 @@ export function buildInput(display: { width: number; height: number }): SimInput
     quality: s.quality,
     display,
     rendererBackend: s.rendererBackend,
+    artifactOverrides: s.artifactLab,
   };
 }

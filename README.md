@@ -62,6 +62,8 @@ Límites (`clampProbe`, `clampSettings` en `src/app/store.ts`): u ±14 cm, v −
 ## Modalidades
 | Modalidad | Implementación (resumen) |
 |---|---|
+| Modo M color (`cmm`, Mayús+M) | Modo M gris con la velocidad axial de flujo a lo largo del cursor superpuesta en color (plegada con la escala de color). |
+| Laboratorio de artefactos | Sección del panel de consola con deslizadores de clutter, lóbulos laterales, espejo y anchura de haz que anulan los del caso y explican causa y remedio. |
 | 2D | Marcha por línea de barrido a través de tórax + corazón (`renderer/procedural/sliceRenderer.ts` en CPU, referencia; `renderer/gpu/` es el mismo modelo en WebGL2 y alimenta el atlas cuando está disponible), consola (`postprocess/consolePipeline.ts`) y scan conversion por tabla de búsqueda. |
 | Color | Campo de flujo paramétrico proyectado sobre cada línea, aliasing por Nyquist, filtro de pared, blooming por ganancia, sombra acústica; se recalcula cada dos cuadros 2D. |
 | M-mode | Una línea por columna renderizada con el mismo trazador, sin persistencia. |

@@ -22,6 +22,7 @@ export function baseInput(over: Partial<SimInput> = {}): SimInput {
     quality: 'low',
     display: { width: 320, height: 260 },
     rendererBackend: 'procedural',
+    artifactOverrides: null,
     ...over,
   };
 }

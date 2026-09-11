@@ -4,6 +4,7 @@ import { VIEW_TARGETS } from '@/simulator/windows/viewTargets';
 import { listCases } from '@/cases';
 import { PresetViews } from './PresetViews';
 import { MeasurementPanel } from './MeasurementPanel';
+import { ArtifactLab } from './ArtifactLab';
 
 /** Right-hand console: controls grouped by modality (spec 29.2). Every control alters the render. */
 export function ConsolePanel() {
@@ -140,6 +141,9 @@ export function ConsolePanel() {
           </select>
         </Section>
       )}
+      <Section title="Laboratorio de artefactos">
+        <ArtifactLab />
+      </Section>
       <Section title="Mediciones">
         <MeasurementPanel />
         <div className="small">Herramientas libres (sin evaluación de técnica):</div>

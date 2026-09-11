@@ -3,7 +3,7 @@ import { normalExcellentCase } from './normal-excellent';
 
 /**
  * Case 6 — Severe aortic stenosis with preserved flow. Ground truth emerges from the SAME model:
- * effective AVA 0.95 cm² with SV ~78 mL gives Vmax ≈ 4.3 m/s, mean gradient ≈ 45 mmHg, VTI ratio ≈ 0.3
+ * effective AVA 0.88 cm² with SV ~78 mL gives Vmax ≈ 4.7 m/s, mean gradient ≈ 44 mmHg, VTI ratio ≈ 0.25
  * (values are computed by `computeGroundTruth`, never typed by hand; see docs/CASE_SCHEMA.md).
  */
 export const aorticStenosisSevereCase: CaseDefinitionInput = {
@@ -40,7 +40,7 @@ export const aorticStenosisSevereCase: CaseDefinitionInput = {
     diastolicBpMmHg: 80,
     rapMmHg: 3,
     paspMmHg: 38,
-    avEffectiveAreaCm2: 0.95,
+    avEffectiveAreaCm2: 0.88, // computeGroundTruth: Vmax 4.69 m/s, mean 44 mmHg, AVA 0.88 cm² (all three severe criteria)
     trPresent: true,
     regurgitation: {},
   },
@@ -91,7 +91,6 @@ export const aorticStenosisSevereCase: CaseDefinitionInput = {
     'lvpwd',
     'la-ap', // enlarged left atrium (chronic pressure overload, diastolic dysfunction)
     'la-transverse',
-    'la-long',
     'lavi',
     'lv-mass', // increased mass from the thick walls
     'ao-ascending', // post-stenotic dilation of the ascending aorta

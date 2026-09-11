@@ -23,9 +23,17 @@ test.beforeEach(async ({ page }) => {
   await page.waitForFunction(() => Boolean((window as unknown as { __echotwin?: { compareBackends?: unknown } }).__echotwin?.compareBackends));
 });
 
-for (const caseId of ['normal-excellent-window', 'aortic-stenosis-severe']) {
-  for (const viewId of ['plax', 'a4c', 'psax-av']) {
-    for (const phase of [0, 0.35]) {
+const MATRIX: [string, string[], number[]][] = [
+  ['normal-excellent-window', ['plax', 'a4c', 'psax-av'], [0, 0.35]],
+  ['aortic-stenosis-severe', ['plax', 'a4c', 'psax-av'], [0, 0.35]],
+  // septal flattening (D-shape) and tamponade collapse/swing exercise the newest GLSL paths
+  ['pulmonary-hypertension-rv', ['psax-pm', 'a4c'], [0.35]],
+  ['pericardial-effusion-tamponade', ['plax', 'a4c'], [0.5]],
+  ['hocm-sam', ['plax'], [0.35]],
+];
+for (const [caseId, views, phases] of MATRIX) {
+  for (const viewId of views) {
+    for (const phase of phases) {
       test(`${caseId} ${viewId} @${phase}: GPU frame matches the CPU reference`, async ({ page }) => {
         const r = (await page.evaluate(
           ([v, p, c]) => (window as unknown as { __echotwin: { compareBackends: (v: string, p: number, c: string) => Comparison } }).__echotwin.compareBackends(v as string, p as number, c as string),

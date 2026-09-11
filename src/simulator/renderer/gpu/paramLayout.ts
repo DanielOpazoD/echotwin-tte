@@ -21,7 +21,7 @@ const SCALARS = [
   // LV geometry & pose
   'BOUND_CX', 'BOUND_CY', 'BOUND_CZ', 'BOUND_R', 'LV_A', 'LV_B', 'LV_C', 'LV_ZC', 'LV_LEN', 'LV_IVSD', 'LV_LVPWD', 'APEX_T', 'LVOT_D',
   'ZANN', 'ACAV', 'BCAV', 'LENGTH_NOW', 'AEPI', 'BEPI', 'CCAV', 'ZCCAV', 'RADIAL_SCALE', 'LONG_SCALE', 'CONTRACTION', 'AV_OPEN', 'PV_OPEN', 'TVZ', 'LA_BOOSTER', 'EFFUSION',
-  'MV_CALC', 'AV_CALC', 'RV_FW',
+  'MV_CALC', 'AV_CALC', 'RV_FW', 'RV_COLLAPSE', 'RA_COLLAPSE', 'SWING_X', 'SEPTAL_SHIFT',
   // anchors
   'MV_CX', 'MV_CY', 'MV_CZ', 'MV_R', 'AV_CX', 'AV_CY', 'AV_CZ', 'AV_AXX', 'AV_AXY', 'AV_AXZ', 'AV_R', 'SINUS_R', 'ASC_R',
   'AV_E1X', 'AV_E1Y', 'AV_E1Z', 'AV_E2X', 'AV_E2Y', 'AV_E2Z', 'AV_BX', 'AV_BY', 'AV_BZ',
@@ -157,6 +157,10 @@ export function packScene(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, o
   set('MV_CALC', heart.anatomy.mitral.calcification);
   set('AV_CALC', heart.anatomy.aorticValve.calcification);
   set('RV_FW', heart.anatomy.rv.freeWallThicknessCm);
+  set('RV_COLLAPSE', hp.rvCollapse);
+  set('RA_COLLAPSE', hp.raCollapse);
+  set('SWING_X', hp.swingX);
+  set('SEPTAL_SHIFT', hp.septalShiftCm);
   const A = heartAnchors(heart);
   set('MV_CX', A.mvCenter.x);
   set('MV_CY', A.mvCenter.y);

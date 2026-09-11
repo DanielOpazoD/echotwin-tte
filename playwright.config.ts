@@ -2,8 +2,10 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
-  timeout: 60_000,
+  timeout: 120_000,
   fullyParallel: false,
+  // one worker: the GPU-equivalence comparisons render on SwiftShader and starve parallel browsers
+  workers: 1,
   retries: 0,
   reporter: [['list']],
   use: {

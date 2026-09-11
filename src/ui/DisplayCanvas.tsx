@@ -110,7 +110,7 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
       }
       return;
     }
-    if ((st.modality === 'pw' || st.modality === 'cw' || st.modality === 'tdi' || st.modality === 'm-mode') && inSector) {
+    if ((st.modality === 'pw' || st.modality === 'cw' || st.modality === 'tdi' || st.modality === 'm-mode' || st.modality === 'cmm') && inSector) {
       const { rCm, thetaRad } = pixelToPolar(m, p.x, p.y);
       st.setCursor(Math.max(-m.sectorRad / 2, Math.min(m.sectorRad / 2, thetaRad)), st.modality === 'pw' || st.modality === 'tdi' ? Math.max(1, Math.min(m.depthCm - 0.5, rCm)) : undefined);
       dragRef.current = { kind: 'cursor', startX: p.x, startY: p.y };
@@ -402,10 +402,10 @@ function drawOverlay(canvas: HTMLCanvasElement, hud: SimOutput, st: SimStore, pe
     ctx.fillText('↓ desde', bx - 44, by + bh / 2 + 8);
     ctx.font = '11px system-ui';
   }
-  if (modality === 'pw' || modality === 'cw' || modality === 'tdi' || modality === 'm-mode') {
+  if (modality === 'pw' || modality === 'cw' || modality === 'tdi' || modality === 'm-mode' || modality === 'cmm') {
     const p0 = polarToPixel(m, 0.3, cursorTheta);
     const p1 = polarToPixel(m, m.depthCm, cursorTheta);
-    ctx.strokeStyle = modality === 'm-mode' ? '#5cc8ff' : '#ffc857';
+    ctx.strokeStyle = modality === 'm-mode' || modality === 'cmm' ? '#5cc8ff' : '#ffc857';
     ctx.setLineDash([4, 4]);
     ctx.beginPath();
     ctx.moveTo(p0.x, p0.y);

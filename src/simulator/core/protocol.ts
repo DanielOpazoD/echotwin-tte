@@ -27,6 +27,8 @@ export interface SimInput {
   quality: QualityTier;
   display: { width: number; height: number };
   rendererBackend: 'atlas' | 'procedural' | 'webgl2';
+  /** Artifact laboratory: live overrides of the case artifacts (0..1 each); null = as defined by the case. */
+  artifactOverrides: { sideLobe: number; mirror: number; beamWidth: number; clutter: number } | null;
 }
 
 export interface EcgPoint {

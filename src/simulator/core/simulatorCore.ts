@@ -9,13 +9,14 @@ import { createWebgl2Renderer } from '@/simulator/renderer/gpu/webgl2Renderer';
 import { AtlasRenderer } from '@/simulator/renderer/atlas/atlasRenderer';
 import { allocPolarFrame, polarSpecFor, type PolarFrame, type PolarFrameSpec, type RendererBackend, type RenderHints, type Scene } from '@/simulator/renderer/types';
 import { AtlasRenderer as AtlasBackend } from '@/simulator/renderer/atlas/atlasRenderer';
-import { applyConsole, createConsoleState, type ConsoleState } from '@/simulator/renderer/postprocess/consolePipeline';
+import { applyConsole, createConsoleState, type ArtifactSettings, type ConsoleState } from '@/simulator/renderer/postprocess/consolePipeline';
 import { buildScanLut, computeSectorMapping, lutKey, scanConvertLut, type ScanLut, type SectorMapping } from '@/simulator/renderer/scanConvert';
 import { simulatedFrameRate } from '@/simulator/renderer/frameRate';
 import { beamFrameFromPose, contactQuality, poseFromControl, type BeamFrame } from '@/simulator/probe/pose';
 import { analyzeView, type ViewAnalysis } from '@/simulator/view-recognition/viewQuality';
 import { buildFlowParams, sampleFlow, sampleTissueVelocity, type FlowFieldParams, type FlowSample } from '@/simulator/doppler/flow-primitives/flowField';
 import { allocColorField, colorMap, computeColorField, type ColorField } from '@/simulator/doppler/color/colorDoppler';
+import { aliasVelocity } from '@/clinical/formulas';
 import { buildSpectralColumn, SPECTRAL_BINS, spectralRange, type VelocitySample } from '@/simulator/doppler/spectral/spectrum';
 import { computeGroundTruth, type StructuredEchoTruth } from '@/simulator/hemodynamics/groundTruth';
 import { makeSample, Tissue } from '@/simulator/anatomy/tissue';
@@ -59,6 +60,15 @@ export class SimulatorCore {
   private gpu: RendererBackend | null;
   private gpuReason: string;
   private consoleState: ConsoleState;
+  private artifacts: ArtifactSettings = { sideLobe: 0, mirror: 0, beamWidth: 0 };
+  private clutterBoost = 0;
+  private caseArtifacts = { sideLobe: 0, mirror: 0, beamWidth: 0, clutter: 0 };
+
+  private applyArtifactOverrides(o: SimInput['artifactOverrides']): void {
+    const a = o ?? this.caseArtifacts;
+    this.artifacts = { sideLobe: a.sideLobe, mirror: a.mirror, beamWidth: a.beamWidth };
+    this.clutterBoost = a.clutter;
+  }
   private input: SimInput;
   private frame: PolarFrame | null = null;
   private display: Uint8ClampedArray | null = null;
@@ -75,6 +85,8 @@ export class SimulatorCore {
   private ecg: EcgPoint[] = [];
   private ecgAccum = 0;
   private stripSpectral: Float32Array | null = null;
+  /** colour M-mode: aliased axial velocity per (sample, column), NaN where no flow */
+  private stripCmm: Float32Array | null = null;
   private stripMmode: Uint8ClampedArray | null = null;
   private stripCols = 0;
   private stripHead = 0;
@@ -107,6 +119,11 @@ export class SimulatorCore {
     this.clock = new CardiacClock(caseDef.rhythm, caseDef.seed);
     this.truth = computeGroundTruth(caseDef, this.tables);
     this.consoleState = createConsoleState(caseDef.seed);
+    // case-configurable artifacts (spec 12): geometric ones (rib/lung/calcium shadow) come from the anatomy;
+    // these three are applied in the console pipeline and the near-field clutter boosts the physics term
+    const art = (type: string) => caseDef.artifacts.filter((x) => x.enabled && x.type === type).reduce((m, x) => Math.max(m, x.intensity), 0);
+    this.caseArtifacts = { sideLobe: art('side-lobe'), mirror: art('mirror'), beamWidth: art('beam-width'), clutter: art('near-field-clutter') };
+    this.applyArtifactOverrides(input.artifactOverrides);
     // the GPU port (same frames, ~10× faster) feeds the atlas when available; the CPU renderer stays the
     // reference and the fallback (Node tests, browsers without WebGL2 float targets)
     const g = createWebgl2Renderer();
@@ -141,6 +158,7 @@ export class SimulatorCore {
     if (input.rendererBackend !== this.input.rendererBackend) {
       this.backend = this.pickBackend(input.rendererBackend);
     }
+    if (JSON.stringify(input.artifactOverrides) !== JSON.stringify(this.input.artifactOverrides)) this.applyArtifactOverrides(input.artifactOverrides);
     if (input.modality !== this.input.modality) {
       this.stripHead = 0;
       this.stripAccum = 0;
@@ -161,7 +179,7 @@ export class SimulatorCore {
     const dt = Math.min(0.1, Math.max(0, dtS));
     if (inp.frozen) return this.frozenOutput();
     const spec = polarSpecFor(inp.settings, inp.quality);
-    const isStrip = inp.modality === 'm-mode' || inp.modality === 'pw' || inp.modality === 'cw' || inp.modality === 'tdi';
+    const isStrip = inp.modality === 'm-mode' || inp.modality === 'cmm' || inp.modality === 'pw' || inp.modality === 'cw' || inp.modality === 'tdi';
     const colorLines = inp.modality === 'color' ? Math.round(((inp.color.boxThetaMaxRad - inp.color.boxThetaMinRad) / spec.sectorRad) * spec.lines) : 0;
     const fps = simulatedFrameRate(spec, { colorLines, packetSize: 8 });
     this.colorFps = inp.modality === 'color' ? fps : 0;
@@ -215,7 +233,7 @@ export class SimulatorCore {
       physics: {
         frequencyMHz: s.frequencyMHz,
         harmonics: s.harmonics,
-        clutterLevel: this.caseDef.acousticWindow.clutterLevel + this.caseDef.acousticWindow.emphysemaScatter * 0.5,
+        clutterLevel: Math.min(1, this.caseDef.acousticWindow.clutterLevel + 0.6 * this.clutterBoost) + this.caseDef.acousticWindow.emphysemaScatter * 0.5,
         windowAttenuation: this.caseDef.acousticWindow.chestWallAttenuation,
         seed: this.caseDef.seed,
       },
@@ -244,7 +262,7 @@ export class SimulatorCore {
     };
     this.backend.render(scene, beam, spec, phase, this.frame, hints);
     const tc = performance.now();
-    applyConsole(this.frame, inp.settings, this.consoleState, this.display!);
+    applyConsole(this.frame, inp.settings, this.consoleState, this.display!, this.artifacts);
     this.timing.consoleMs = performance.now() - tc;
     let colorVel: Float32Array | null = null;
     let colorVar: Float32Array | null = null;
@@ -325,7 +343,7 @@ export class SimulatorCore {
 
   private advanceStrip(dt: number, beam: BeamFrame, spec: PolarFrameSpec): void {
     const inp = this.input;
-    const kind: 'spectral' | 'm-mode' = inp.modality === 'm-mode' ? 'm-mode' : 'spectral';
+    const kind: 'spectral' | 'm-mode' = inp.modality === 'm-mode' || inp.modality === 'cmm' ? 'm-mode' : 'spectral';
     const stripWidth = Math.max(64, inp.display.width);
     const secondsShown = STRIP_MM_WIDTH / inp.spectral.sweepSpeedMmPerS;
     const cps = stripWidth / secondsShown;
@@ -336,6 +354,7 @@ export class SimulatorCore {
       this.stripHead = 0;
       this.stripSpectral = kind === 'spectral' ? new Float32Array(SPECTRAL_BINS * stripWidth) : null;
       this.stripMmode = kind === 'm-mode' ? new Uint8ClampedArray(spec.samples * stripWidth) : null;
+      this.stripCmm = inp.modality === 'cmm' ? new Float32Array(spec.samples * stripWidth).fill(NaN) : null;
       this.lineAmp = new Float32Array(spec.samples);
       this.lineSt = new Uint8Array(spec.samples);
       this.lineTr = new Float32Array(spec.samples);
@@ -367,6 +386,47 @@ export class SimulatorCore {
     applyConsole(oneLine, { ...this.input.settings, persistence: 0 }, st, disp);
     const strip = this.stripMmode!;
     for (let s = 0; s < spec.samples; s++) strip[s * this.stripCols + col] = disp[s] ?? 0;
+    if (this.stripCmm) this.sampleCmmColumn(beam, spec, phase, col, scene);
+  }
+
+  /** Colour M-mode: axial flow velocity along the cursor line for this column (aliased at the colour scale). */
+  private sampleCmmColumn(beam: BeamFrame, spec: PolarFrameSpec, phase: number, col: number, scene: Scene): void {
+    const inp = this.input;
+    const hf = this.heart.frame;
+    const theta = Math.max(-spec.sectorRad / 2, Math.min(spec.sectorRad / 2, inp.cursorThetaRad));
+    const ct = Math.cos(theta),
+      sn = Math.sin(theta);
+    const dx = beam.forward.x * ct + beam.lateral.x * sn;
+    const dy = beam.forward.y * ct + beam.lateral.y * sn;
+    const dz = beam.forward.z * ct + beam.lateral.z * sn;
+    const dhx = dx * hf.ex.x + dy * hf.ex.y + dz * hf.ex.z;
+    const dhy = dx * hf.ey.x + dy * hf.ey.y + dz * hf.ey.z;
+    const dhz = dx * hf.ez.x + dy * hf.ez.y + dz * hf.ez.z;
+    const fs = this.flowSample;
+    const strip = this.stripCmm!;
+    const dr = spec.depthCm / spec.samples;
+    const scale = inp.color.scaleMps;
+    for (let si = 0; si < spec.samples; si++) {
+      const idx = si * this.stripCols + col;
+      if (this.lineTi[si] !== Tissue.Blood || (this.lineTr[si] ?? 0) < 0.05) {
+        strip[idx] = NaN;
+        continue;
+      }
+      const r = (si + 0.5) * dr;
+      const px = beam.origin.x + dx * r,
+        py = beam.origin.y + dy * r,
+        pz = beam.origin.z + dz * r;
+      const hx = (px - hf.origin.x) * hf.ex.x + (py - hf.origin.y) * hf.ex.y + (pz - hf.origin.z) * hf.ex.z;
+      const hy = (px - hf.origin.x) * hf.ey.x + (py - hf.origin.y) * hf.ey.y + (pz - hf.origin.z) * hf.ey.z;
+      const hz = (px - hf.origin.x) * hf.ez.x + (py - hf.origin.y) * hf.ez.y + (pz - hf.origin.z) * hf.ez.z;
+      sampleFlow(this.flow, this.tables, scene.heartPose, phase, hx, hy, hz, fs);
+      if (!fs.present) {
+        strip[idx] = NaN;
+        continue;
+      }
+      const v = -(fs.vx * dhx + fs.vy * dhy + fs.vz * dhz); // + toward the transducer
+      strip[idx] = Math.abs(v) < inp.color.wallFilterMps ? NaN : aliasVelocity(v, scale, inp.color.baselineShiftMps);
+    }
   }
 
   private sampleSpectralColumn(beam: BeamFrame, spec: PolarFrameSpec, phase: number, col: number): void {
@@ -596,7 +656,7 @@ export class SimulatorCore {
     const inp = this.input;
     const W = Math.max(64, inp.display.width);
     const H = Math.max(64, inp.display.height);
-    const isStrip = inp.modality === 'm-mode' || inp.modality === 'pw' || inp.modality === 'cw' || inp.modality === 'tdi';
+    const isStrip = inp.modality === 'm-mode' || inp.modality === 'cmm' || inp.modality === 'pw' || inp.modality === 'cw' || inp.modality === 'tdi';
     const sectorH = isStrip ? Math.round(H * 0.42) : H;
     const buffer = this.takeBuffer(W * H * 4);
     const rgba = new Uint8ClampedArray(buffer);
@@ -718,6 +778,23 @@ export class SimulatorCore {
           rgba[o + 1] = g;
           rgba[o + 2] = g;
           rgba[o + 3] = 255;
+        }
+      }
+      if (this.stripCmm) {
+        const rgb: [number, number, number] = [0, 0, 0];
+        const scale = inp.color.scaleMps;
+        for (let y = 0; y < h; y++) {
+          const s = Math.min(rows - 1, Math.floor((y / h) * rows));
+          for (let x = 0; x < W; x++) {
+            const col = x < cols ? x : cols - 1;
+            const v = this.stripCmm[s * cols + col];
+            if (v === undefined || Number.isNaN(v)) continue;
+            colorMap(inp.color.invert ? -v : v, scale, 0, false, rgb);
+            const o = ((y0 + y) * W + x) * 4;
+            rgba[o] = rgb[0];
+            rgba[o + 1] = rgb[1];
+            rgba[o + 2] = rgb[2];
+          }
         }
       }
       this.drawSweepMarker(rgba, W, y0, h, head);

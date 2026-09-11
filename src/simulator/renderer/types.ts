@@ -2,7 +2,7 @@ import type { BeamFrame } from '@/simulator/probe/pose';
 import type { HeartModel, HeartPose } from '@/simulator/anatomy/heartModel';
 import type { ThoraxModel } from '@/simulator/anatomy/thoraxModel';
 
-export type ImagingModality = '2d' | 'm-mode' | 'color' | 'pw' | 'cw' | 'tdi';
+export type ImagingModality = '2d' | 'm-mode' | 'cmm' | 'color' | 'pw' | 'cw' | 'tdi';
 export type LineDensity = 'low' | 'medium' | 'high';
 
 /** Console settings that alter pixels (spec 7.8). Every field has an observable effect. */

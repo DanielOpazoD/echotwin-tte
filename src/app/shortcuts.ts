@@ -78,7 +78,7 @@ export function useShortcuts(): void {
           break;
         case 'm':
         case 'M':
-          s.setModality('m-mode');
+          s.setModality(e.shiftKey ? 'cmm' : 'm-mode');
           break;
         case 'p':
         case 'P':
