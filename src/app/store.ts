@@ -37,7 +37,7 @@ export interface SimStore {
   cursorThetaRad: number;
   gateDepthCm: number;
   quality: QualityTier;
-  rendererBackend: 'atlas' | 'procedural';
+  rendererBackend: 'atlas' | 'procedural' | 'webgl2';
   mode: ProductMode;
   targetViewId: string | null;
   ui: UiPrefs;
@@ -64,7 +64,7 @@ export interface SimStore {
   setSpectral: (s: Partial<SpectralSettings>) => void;
   setCursor: (theta: number, depth?: number) => void;
   setQuality: (q: QualityTier) => void;
-  setBackend: (b: 'atlas' | 'procedural') => void;
+  setBackend: (b: 'atlas' | 'procedural' | 'webgl2') => void;
   setMode: (m: ProductMode) => void;
   setTargetView: (id: string | null) => void;
   setUi: (u: Partial<UiPrefs>) => void;

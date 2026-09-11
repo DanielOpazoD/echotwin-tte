@@ -23,7 +23,7 @@ Requiere Node ≥ 20 (`engines` en `package.json`). Dependencias de ejecución: 
 | `npm run build` | `tsc --noEmit` y después `vite build` (salida en `dist/`, chunks separados para three y react). |
 | `npm run preview` | Sirve `dist/` (Playwright lo usa en el puerto 4173). |
 | `npm test` | Suite Vitest (`src/**/*.test.ts`, entorno node). |
-| `npm run test:e2e` | Playwright (Chromium, 1440×900) contra `npm run preview` en el puerto 4173: 9 pruebas en `e2e/core-flow.spec.ts`. Requiere `npx playwright install chromium` la primera vez. |
+| `npm run test:e2e` | Playwright (Chromium, 1440×900) contra `npm run preview` en el puerto 4173: 9 pruebas en `e2e/core-flow.spec.ts` y 12 de equivalencia CPU/GPU en `e2e/gpu-equivalence.spec.ts`. Requiere `npx playwright install chromium` la primera vez. |
 | `npm run lint` | ESLint (incluye la regla que prohíbe importar `clinical/formulas/*` desde `src/ui`). |
 | `npm run typecheck` | `tsc -p tsconfig.json --noEmit` (strict, `noUncheckedIndexedAccess`). |
 | `npm run check` | lint → typecheck → test → build, en ese orden. |
@@ -62,7 +62,7 @@ Límites (`clampProbe`, `clampSettings` en `src/app/store.ts`): u ±14 cm, v −
 ## Modalidades
 | Modalidad | Implementación (resumen) |
 |---|---|
-| 2D | Marcha por línea de barrido a través de tórax + corazón (`renderer/procedural/sliceRenderer.ts`), consola (`postprocess/consolePipeline.ts`) y scan conversion por tabla de búsqueda. |
+| 2D | Marcha por línea de barrido a través de tórax + corazón (`renderer/procedural/sliceRenderer.ts` en CPU, referencia; `renderer/gpu/` es el mismo modelo en WebGL2 y alimenta el atlas cuando está disponible), consola (`postprocess/consolePipeline.ts`) y scan conversion por tabla de búsqueda. |
 | Color | Campo de flujo paramétrico proyectado sobre cada línea, aliasing por Nyquist, filtro de pared, blooming por ganancia, sombra acústica; se recalcula cada dos cuadros 2D. |
 | M-mode | Una línea por columna renderizada con el mismo trazador, sin persistencia. |
 | PW / TDI | 20 muestras dentro del gate (PW: sangre; TDI: miocardio), histograma de 128 bins con ensanchamiento intrínseco y por turbulencia, aliasing. |
@@ -85,7 +85,7 @@ src/
     probe/        pose (ProbeControl → ProbePose → BeamFrame)
     windows/      viewTargets (vistas canónicas derivadas de la anatomía)
     view-recognition/ viewQuality (score + hints)
-    renderer/     types (RendererBackend), procedural/, atlas/, postprocess/, scanConvert, frameRate
+    renderer/     types (RendererBackend), procedural/ (CPU), gpu/ (WebGL2: paramLayout, glsl*, webgl2Renderer), atlas/, postprocess/, scanConvert, frameRate
     doppler/      flow-primitives, color, spectral, audio
     measurements/ types
   clinical/       formulas, guidelines/references, reference-values, reporting

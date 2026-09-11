@@ -32,6 +32,7 @@ Estado real según el código el 2026-09-10. Los hitos M0–M6 siguen la especif
 | Worker con reloj propio, contrapresión y reciclaje de buffers | hecho | `sim.worker.ts`, `client.ts` (sin prueba) |
 | Sonda: pose por cuaternión, torso 3D (caja torácica completa, esternón, clavículas, transductor con marcador arrastrable y dial), atajos | hecho | `pose.ts`, `TorsoView.tsx`, `RotationDial.tsx`, `shortcuts.ts` |
 | M-mode | parcial | funciona; sólo prueba de humo |
+| Trazador en GPU (WebGL2, dos pases, equivalente al de CPU) | hecho | `src/simulator/renderer/gpu/`, `e2e/gpu-equivalence.spec.ts` |
 | WebGPU / backend remoto | pendiente | ids reservados en `RendererBackend` |
 
 ## M3 — Reconocimiento de vista y guía

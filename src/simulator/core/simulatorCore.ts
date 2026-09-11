@@ -5,6 +5,7 @@ import { buildBeatTables, cycleStateAt, type BeatTables } from '@/simulator/card
 import { CardiacClock } from '@/simulator/cardiac-cycle/clock';
 import { ecgSample } from '@/simulator/cardiac-cycle/ecg';
 import { ProceduralSliceRenderer } from '@/simulator/renderer/procedural/sliceRenderer';
+import { createWebgl2Renderer } from '@/simulator/renderer/gpu/webgl2Renderer';
 import { AtlasRenderer } from '@/simulator/renderer/atlas/atlasRenderer';
 import { allocPolarFrame, polarSpecFor, type PolarFrame, type PolarFrameSpec, type RendererBackend, type RenderHints, type Scene } from '@/simulator/renderer/types';
 import { AtlasRenderer as AtlasBackend } from '@/simulator/renderer/atlas/atlasRenderer';
@@ -53,6 +54,9 @@ export class SimulatorCore {
   private procedural = new ProceduralSliceRenderer();
   private atlas: AtlasRenderer;
   private backend: RendererBackend;
+  /** WebGL2 port of the procedural renderer; null when unavailable (reason in `gpuReason`). */
+  private gpu: RendererBackend | null;
+  private gpuReason: string;
   private consoleState: ConsoleState;
   private input: SimInput;
   private frame: PolarFrame | null = null;
@@ -102,9 +106,20 @@ export class SimulatorCore {
     this.clock = new CardiacClock(caseDef.rhythm, caseDef.seed);
     this.truth = computeGroundTruth(caseDef, this.tables);
     this.consoleState = createConsoleState(caseDef.seed);
-    this.atlas = new AtlasRenderer(this.procedural, caseDef.seed);
-    this.backend = input.rendererBackend === 'procedural' ? this.procedural : this.atlas;
+    // the GPU port (same frames, ~10× faster) feeds the atlas when available; the CPU renderer stays the
+    // reference and the fallback (Node tests, browsers without WebGL2 float targets)
+    const g = createWebgl2Renderer();
+    this.gpu = g.renderer;
+    this.gpuReason = g.reason;
+    this.atlas = new AtlasRenderer(this.gpu ?? this.procedural, caseDef.seed);
+    this.backend = this.pickBackend(input.rendererBackend);
     this.flow = this.buildFlow();
+  }
+
+  private pickBackend(kind: SimInput['rendererBackend']): RendererBackend {
+    if (kind === 'procedural') return this.procedural;
+    if (kind === 'webgl2') return this.gpu ?? this.procedural;
+    return this.atlas;
   }
 
   private buildFlow(): FlowFieldParams {
@@ -123,7 +138,7 @@ export class SimulatorCore {
       this.patientKey = key;
     }
     if (input.rendererBackend !== this.input.rendererBackend) {
-      this.backend = input.rendererBackend === 'procedural' ? this.procedural : this.atlas;
+      this.backend = this.pickBackend(input.rendererBackend);
     }
     if (input.modality !== this.input.modality) {
       this.stripHead = 0;
@@ -498,6 +513,7 @@ export class SimulatorCore {
       stats: {
         ...this.backend.stats(),
         backend: this.backend.id,
+        gpu: this.gpuReason,
         lines: spec.lines,
         samples: spec.samples,
         renderFrameMs: Number(this.timing.renderFrameMs.toFixed(1)),

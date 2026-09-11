@@ -1,7 +1,6 @@
 import type { BeamFrame } from '@/simulator/probe/pose';
 import type { PolarFrame, PolarFrameSpec, RenderHints, RendererBackend, Scene } from '../types';
 import { allocPolarFrame } from '../types';
-import type { ProceduralSliceRenderer } from '../procedural/sliceRenderer';
 import { qAngleBetween } from '@/core/quat';
 import { qFromBasis } from '@/core/quat';
 import { distance } from '@/core/vec3';
@@ -58,7 +57,7 @@ export class AtlasRenderer implements RendererBackend {
   private scratch: PolarFrame | null = null;
 
   constructor(
-    private source: ProceduralSliceRenderer,
+    private source: RendererBackend,
     seed: number,
   ) {
     this.seed = seed;

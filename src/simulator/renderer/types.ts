@@ -96,7 +96,7 @@ export interface RenderHints {
 }
 
 export interface RendererBackend {
-  readonly id: 'atlas' | 'procedural' | 'webgpu-procedural' | 'remote-cuda';
+  readonly id: 'atlas' | 'procedural' | 'webgl2-procedural' | 'webgpu-procedural' | 'remote-cuda';
   render(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, phase: number, out: PolarFrame, hints?: RenderHints): void;
   /** Optional diagnostics for the dev HUD. */
   stats(): Record<string, number | string>;

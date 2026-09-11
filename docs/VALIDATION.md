@@ -65,6 +65,7 @@ Referencia = con qué se compara (valor analítico, consistencia interna o rango
 | Modo examen | Texto «Modo examen…»; botones Dev, Física y Referencias deshabilitados |
 | Preferencias | Tras recargar, `showTorso` persiste; mediciones y pose no |
 | Tutorial | En un perfil nuevo aparece el diálogo «Tutorial de controles»; «Siguiente» muestra el paso 2; «Saltar» lo cierra y no reaparece tras recargar |
+| Equivalencia GPU (`e2e/gpu-equivalence.spec.ts`, 12 pruebas) | Para dos casos × PLAX/A4C/PSAX-AV × fases 0 y 0,35, el cuadro polar del trazador WebGL2 coincide con el de CPU: estructura y tejido > 99,5 %, amplitud < 1 % relativa, transmisión < 0,001 (medido: 100 %, ~10⁻⁵, ~10⁻⁷) |
 
 El `beforeEach` de las siete primeras marca `tutorialDone` en `localStorage` para que el tutorial no tape la interfaz. Los helpers usan el gancho `window.__echotwin` (`src/main.tsx`) para leer los stores; el buffer RGBA no se serializa.
 

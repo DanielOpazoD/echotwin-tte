@@ -26,7 +26,7 @@ export interface SimInput {
   gateDepthCm: number;
   quality: QualityTier;
   display: { width: number; height: number };
-  rendererBackend: 'atlas' | 'procedural';
+  rendererBackend: 'atlas' | 'procedural' | 'webgl2';
 }
 
 export interface EcgPoint {

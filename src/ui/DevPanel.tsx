@@ -52,6 +52,9 @@ export function DevPanel() {
         <button className={s.rendererBackend === 'procedural' ? 'active' : ''} onClick={() => s.setBackend('procedural')}>
           procedural
         </button>
+        <button className={s.rendererBackend === 'webgl2' ? 'active' : ''} onClick={() => s.setBackend('webgl2')} title="Trazador en GPU (WebGL2); vuelve al procedimental si no está disponible">
+          webgl2
+        </button>
       </div>
       <h4>Verdad de terreno (modelo)</h4>
       <table>

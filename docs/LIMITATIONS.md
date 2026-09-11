@@ -4,7 +4,7 @@ Este documento existe para que nadie use el simulador más allá de lo que hace.
 
 ## Física no simulada
 - Sin propagación de ondas, difracción, interferencia, fase ni RF; el «haz» es un rayo recto por línea y el speckle es ruido de valor en coordenadas materiales, no interferencia de dispersores.
-- Sin lóbulos laterales/de rejilla, sin grosor de corte, sin zonas focales múltiples, sin refracción, sin imagen en espejo, sin cola de cometa/ring-down, sin artefactos de movimiento de color.
+- Sin lóbulos laterales/de rejilla, sin grosor de corte (el trazador GPU admite un desplazamiento de elevación `ELEV_OFFSET` pero todavía no promedia varios), sin zonas focales múltiples, sin refracción, sin imagen en espejo, sin cola de cometa/ring-down, sin artefactos de movimiento de color.
 - Velocidad del sonido uniforme (1540 m/s) y sólo para el frame rate; atenuación en escala relativa, no en dB/cm/MHz medidos; «armónicos» = multiplicadores fijos.
 - La sombra por Doppler color y el umbral de visibilidad de referencias usan una atenuación esperada con 2,5 MHz fijo (color) o la frecuencia actual (scoring), no la del cuadro real.
 - `caseDef.artifacts` no se lee: los artefactos no se pueden activar/desactivar ni graduar por caso; dependen de geometría y `acousticWindow`.
@@ -29,7 +29,7 @@ Este documento existe para que nadie use el simulador más allá de lo que hace.
 - Los valores de referencia están marcados `recalled`; los cortes de e′ son los de 2016 (ver `docs/REFERENCES.md`). No hay graduación diastólica ni del corazón derecho; la graduación de EA de `report.ts` lee `AORTIC_STENOSIS_RULES` de `reference-values` (valores marcados `recalled`).
 
 ## Navegador y rendimiento
-- Render procedimental en el worker de **~10 ms por cuadro a calidad media** en Node (`bench.ts`; en el navegador el panel Dev muestra `renderFrameMs`); en núcleos de eficiencia puede duplicarse y la cadencia real quedar por debajo del frame rate simulado; el worker acota su paso a 12–50 ms.
+- Render procedimental en CPU de **~10 ms por cuadro a calidad media** en Node (`bench.ts`); en el navegador el trazador WebGL2 (misma imagen, ver DECISIONS #29) tarda ~3 ms con lectura de vuelta incluida y alimenta el atlas por defecto; sin WebGL2 o sin `EXT_color_buffer_float` (navegadores antiguos, algunos entornos sin GPU) todo vuelve a la CPU y el panel Dev muestra la razón en `gpu`. La lectura de vuelta es síncrona (`readPixels`) y el worker sigue acotando su paso a 12–50 ms.
 - El atlas construye anclas sólo cuando la sonda está quieta (32 fases, ~1 s); durante un barrido se renderiza directamente (~10 ms por cuadro en Node, más en núcleos de eficiencia). El movimiento reproducido desde un ancla está cuantizado a 32 fases por latido (fase más cercana, sin fundido). No hay atlas pre-generado.
 - Color duplica el coste cada dos cuadros; los strips añaden hasta 10 columnas por paso (PW/CW clasifican 20 muestras por columna; M-mode renderiza una línea completa por columna).
 - `requestAnimationFrame` se pausa en pestañas ocultas: el worker sigue simulando, pero el canvas no se actualiza y los buffers pendientes se limitan a 2 (se descartan cuadros).
