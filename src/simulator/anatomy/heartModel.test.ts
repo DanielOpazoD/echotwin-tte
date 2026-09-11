@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createHeartModel, computeHeartPose, classifyHeart, estimateStructureVolume, heartLandmarks, heartToTorso, ahaSegment } from './heartModel';
+import { createHeartModel, computeHeartPose, classifyHeart, estimateStructureVolume, heartLandmarks, heartToTorso, ahaSegment, lvCavityRadiusAt } from './heartModel';
 import { makeSample, Structure, Tissue } from './tissue';
 import { normalExcellentCase } from '@/cases/normal-excellent';
 import { validateCase } from '@/cases/schema';
@@ -23,7 +23,7 @@ describe('heart model geometry', () => {
     expect(s.tissue).toBe(Tissue.Blood);
     expect(s.structure).toBe(Structure.LvCavity);
     // lateral wall at radius a + half thickness
-    expect(classifyHeart(model, edPose, model.lv.a + 0.4, 0, L * 0.5, s)).toBe(true);
+    expect(classifyHeart(model, edPose, lvCavityRadiusAt(model, edPose, 0, L * 0.5) + 0.4, 0, L * 0.5, s)).toBe(true);
     expect(s.tissue).toBe(Tissue.Myocardium);
     expect(classifyHeart(model, edPose, 25, 25, 25, s)).toBe(false);
   });
@@ -40,7 +40,18 @@ describe('heart model geometry', () => {
     expect(vES).toBeLessThan(vED * 0.5);
   });
   it('wall thickens in systole (incompressible myocardium)', () => {
-    expect(esPose.aEpi - esPose.aCav).toBeGreaterThan(edPose.aEpi - edPose.aCav);
+    expect(edPose.thickK).toBeCloseTo(1, 1);
+    expect(esPose.thickK).toBeGreaterThan(1.25);
+    expect(esPose.thickK).toBeLessThan(2.2);
+    // the papillary muscles stay rooted in the wall and their tips inside the cavity in both phases
+    for (const hp of [edPose, esPose]) {
+      const P = hp.paps;
+      const s = makeSample();
+      expect(classifyHeart(model, hp, (P[0]! + P[3]!) / 2, (P[1]! + P[4]!) / 2, (P[2]! + P[5]!) / 2, s)).toBe(true);
+      expect(s.structure).toBe(Structure.PapillaryMuscle);
+      classifyHeart(model, hp, P[0]! * 1.06, P[1]! * 1.06, P[2]!, s);
+      expect([Structure.LvWallLateral, Structure.LvWallInferior, Structure.LvWallAnterior, Structure.LvWallSeptal, Structure.PapillaryMuscle]).toContain(s.structure);
+    }
   });
   it('mitral valve open in early diastole, closed in systole; aortic the opposite', () => {
     expect(esPose.mvAngleAnt).toBeGreaterThan(0.6); // closed: leaflet points inward to the coaptation

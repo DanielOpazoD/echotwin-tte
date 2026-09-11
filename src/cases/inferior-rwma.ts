@@ -50,5 +50,5 @@ export const inferiorRwmaCase: CaseDefinitionInput = {
     'Función sistólica global levemente reducida (FEVI ≈ 46 %); ventrículo izquierdo de tamaño normal.',
     'Alteración de la relajación (E/A < 1).',
   ],
-  expectedDeviations: ['lv-esv', 'lv-ef', 'lv-edvi', 'la-emptying'],
+  expectedDeviations: ['lv-esv', 'lv-ef'],
 };

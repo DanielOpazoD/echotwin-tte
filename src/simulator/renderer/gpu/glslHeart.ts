@@ -2,7 +2,10 @@
  * GLSL port of `classifyHeart` (heartModel.ts). Mirrors the CPU classifier block by block; the
  * equivalence test (e2e/gpu-equivalence.spec.ts) compares both on the canonical views.
  */
+import { LV_PROF_BINS } from '@/simulator/anatomy/lvShape';
+
 export const GLSL_HEART = /* glsl */ `
+const int LV_PROF_BINS = ${LV_PROF_BINS};
 struct Sample {
   int tissue;
   int structure;
@@ -95,12 +98,85 @@ int ahaSegment(float az, float levelFrac) {
   return base + 5;
 }
 
+// ---- LV bullet profile (lvShape.ts) ----
+float lvProfileG(float zeta) {
+  if (zeta < 0.0) {
+    float v = zeta / LV_ZETATOP;
+    return v >= 1.0 ? 0.0 : LV_G0 * sqrt(1.0 - v * v);
+  }
+  if (zeta <= LV_ZETAMAX) {
+    float u = 1.0 - zeta / LV_ZETAMAX;
+    return max(0.0, 1.0 - (1.0 - LV_G0) * u * u);
+  }
+  if (zeta >= 1.0) return 0.0;
+  float s = (zeta - LV_ZETAMAX) / (1.0 - LV_ZETAMAX);
+  return sqrt(max(0.0, 1.0 - pow(s, LV_N)));
+}
+float lvProfileDG(float zeta) {
+  if (zeta < 0.0) {
+    float v = zeta / LV_ZETATOP;
+    if (v >= 0.999) return 6.0;
+    return -LV_G0 * v / LV_ZETATOP / sqrt(1.0 - v * v);
+  }
+  if (zeta <= LV_ZETAMAX) {
+    float u = 1.0 - zeta / LV_ZETAMAX;
+    return 2.0 * (1.0 - LV_G0) * u / LV_ZETAMAX;
+  }
+  if (zeta >= 1.0) return -6.0;
+  float s = (zeta - LV_ZETAMAX) / (1.0 - LV_ZETAMAX);
+  float sn = pow(s, LV_N);
+  float d = -((LV_N / 2.0) * pow(s, LV_N - 1.0)) / sqrt(max(1e-9, 1.0 - sn)) / (1.0 - LV_ZETAMAX);
+  return max(-6.0, d);
+}
+float ellipseFactor(float az) {
+  float c = cos(az), s = sin(az) / LV_RATIO;
+  return 1.0 / sqrt(c * c + s * s);
+}
+float lvCavityRadius(float az, float z) {
+  float zeta = (z - ZANN) / max(LENGTH_NOW, 1e-3);
+  return LV_RMAX * lvProfileG(zeta) * ellipseFactor(az);
+}
+float lvRadialOffsetFactor(float az, float z) {
+  float zeta = (z - ZANN) / max(LENGTH_NOW, 1e-3);
+  float drdz = LV_RMAX * lvProfileDG(zeta) * ellipseFactor(az) / max(LENGTH_NOW, 1e-3);
+  return sqrt(1.0 + min(9.0, drdz * drdz));
+}
+float axialWallFactor(float zeta, float apexFrac) {
+  if (zeta <= 0.5) return 1.0;
+  float u = min(1.0, (zeta - 0.5) / 0.5);
+  return 1.0 - (1.0 - apexFrac) * u * u;
+}
+// signed distance to the tabulated cavity surface (polar table from the centre LV_PZC); writes the normal
+float lvCavitySdf(float xs, float y, float z, out vec3 n) {
+  float ys = y / LV_RATIO;
+  float rho2 = xs * xs + ys * ys;
+  float rho = sqrt(rho2);
+  float dz = z - LV_PZC;
+  float phi = rho > 1e-9 ? atan(rho, dz) : (dz >= 0.0 ? 0.0 : PI);
+  float rad = sqrt(rho2 + dz * dz);
+  float nb = float(LV_PROF_BINS - 1);
+  float fk = clamp(phi / PI * nb, 0.0, nb - 1.0001);
+  int k = int(floor(fk));
+  float t = fk - float(k);
+  float R = P(LV_PROF_R_BASE + k) + (P(LV_PROF_R_BASE + k + 1) - P(LV_PROF_R_BASE + k)) * t;
+  float S = P(LV_PROF_S_BASE + k) + (P(LV_PROF_S_BASE + k + 1) - P(LV_PROF_S_BASE + k)) * t;
+  float f = 1.0 / sqrt(1.0 + S * S);
+  float sinP = rad > 1e-9 ? rho / rad : 0.0;
+  float cosP = rad > 1e-9 ? dz / rad : 1.0;
+  float nr = sinP - S * cosP, nz = cosP + S * sinP;
+  float ir = rho > 1e-9 ? 1.0 / rho : 0.0;
+  n = vec3(nr * xs * ir, nr * ys * ir / LV_RATIO, nz);
+  float q = rho2 > 1e-12 ? sqrt((xs * xs + LV_RATIO * LV_RATIO * ys * ys) / rho2) : 1.0;
+  float corr = 1.0 - (1.0 - q) * sinP * sinP;
+  return (rad - R) * f * corr;
+}
+
 float wallThicknessAt(float az, float levelFrac, float amp) {
   float septalness = 0.5 - 0.5 * cos(az);
-  float tED = LV_LVPWD + (LV_IVSD - LV_LVPWD) * septalness;
-  float thickFactor = (AEPI - ACAV) / max(LV_A + (LV_IVSD + LV_LVPWD) / 2.0 - LV_A, 0.2);
-  float wallMod = 0.86 + 0.28 * lat(vec3(cos(az) * 1.6 + 7.3, sin(az) * 1.6 + 2.1, levelFrac * 2.4), 3);
-  return tED * max(0.6, 1.0 + (thickFactor - 1.0) * (0.35 + 0.65 * amp)) * wallMod;
+  float tBase = LV_LVPWD + (LV_IVSD - LV_LVPWD) * septalness;
+  float tED = tBase * axialWallFactor(levelFrac, APEX_T / tBase);
+  float wallMod = 1.0 + 0.28 * (lat(vec3(cos(az) * 1.6 + 7.3, sin(az) * 1.6 + 2.1, levelFrac * 2.4), 3) - 0.5) * (1.0 - levelFrac * levelFrac);
+  return tED * max(0.6, 1.0 + (LV_THICK_K - 1.0) * (0.35 + 0.65 * amp)) * wallMod;
 }
 
 float septalShiftAt(float az, float levelFrac) {
@@ -113,18 +189,15 @@ float septalShiftAt(float az, float levelFrac) {
 }
 
 // RV crescent: returns [signed distance, rIn, rOut]
-vec3 rvCrescent(vec3 p, float az, float apexThick) {
+vec3 rvCrescent(vec3 p, float az) {
   float L = LV_LEN;
   float azN = az < 0.0 ? az + TWO_PI : az;
   float u = (azN - RV_AZA) / (RV_AZP - RV_AZA);
   float r = length(p.xy);
-  float zeta = (p.z - ZCCAV) / CCAV;
-  float ellFac = sqrt(max(0.0, 1.0 - zeta * zeta));
-  float cosA = cos(az), sinA = sin(az);
-  float rCav = (ACAV * BCAV / sqrt(BCAV * cosA * (BCAV * cosA) + ACAV * sinA * (ACAV * sinA))) * ellFac;
+  float rCav = lvCavityRadius(az, p.z);
   float levelFracR = clamp((p.z - ZANN) / max(LENGTH_NOW, 1.0), 0.0, 1.0);
   float ampR = P(SEG_AMP_BASE + ahaSegment(az, levelFracR));
-  float rEpi = rCav + (p.z > L - 0.5 ? apexThick : wallThicknessAt(az, levelFracR, ampR)) * ellFac;
+  float rEpi = rCav + wallThicknessAt(az, levelFracR, ampR) * lvRadialOffsetFactor(az, p.z);
   float rIn = rEpi - septalShiftAt(az, levelFracR) + 0.05;
   float zApex = RV_APEX_FRAC * L;
   if (u <= 0.0 || u >= 1.0) return vec3(1e3, rIn, rIn);
@@ -261,34 +334,31 @@ bool classifyHeart(vec3 p0, out Sample s) {
   float levelFrac = clamp((z - zAnn) / max(LENGTH_NOW, 1.0), 0.0, 1.0);
   float septalShift = septalShiftAt(az, levelFrac);
   float xs = x - septalShift;
-  float dEll = sdEllipsoid(vec3(xs, y, z), vec3(0.0, 0.0, ZCCAV), vec3(ACAV, BCAV, CCAV));
-  float dCav = smax(dEll, zAnn - z, 0.6);
+  vec3 n0;
+  float dProf = lvCavitySdf(xs, y, z, n0);
+  float dCav = smax(dProf, zAnn - z, 0.6);
   int seg = ahaSegment(az, levelFrac);
   float amp = P(SEG_AMP_BASE + seg);
-  float regional = (1.0 - amp) * (LV_A - ACAV);
-  float trab = levelFrac > 0.55 ? 0.16 * min(1.0, (levelFrac - 0.55) / 0.3) * (lat(vec3(x * 2.2 + 11.3, y * 2.2 + 2.9, z * 2.2 + 6.1), 3) - 0.5) : 0.0;
+  float regional = (1.0 - amp) * (LV_RMAX_ED - LV_RMAX) * lvProfileG(levelFrac);
+  float rs = RADIAL_SCALE, ls = LONG_SCALE;
+  float trab = levelFrac > 0.45 ? 0.2 * min(1.0, (levelFrac - 0.45) / 0.35) * (lat(vec3((x / rs) * 2.6 + 11.3, (y / rs) * 2.6 + 2.9, ((z - LV_LEN) / ls) * 1.1 + 6.1), 3) - 0.5) : 0.0;
   float dCavR = dCav - regional + trab;
   float septalness = 0.5 - 0.5 * cos(az);
   float tNow = wallThicknessAt(az, levelFrac, amp);
-  float apexThick = APEX_T;
-  float rs = RADIAL_SCALE, ls = LONG_SCALE;
   if (dCavR < 0.0) {
-    vec3 pa = vec3(PAP_ALX, PAP_ALY, PAP_ALZ);
-    vec3 pm = vec3(PAP_PMX, PAP_PMY, PAP_PMZ);
-    float pr = PAP_R * (0.9 + 0.3 * CONTRACTION);
-    float dPa = sdCapsule(p, vec3(pa.x * rs, pa.y * rs, pa.z * ls), vec3(pa.x * rs * 0.9, pa.y * rs * 0.9, pa.z * ls - 1.6 * ls), pr);
-    float dPm = sdCapsule(p, vec3(pm.x * rs, pm.y * rs, pm.z * ls), vec3(pm.x * rs * 0.9, pm.y * rs * 0.9, pm.z * ls - 1.6 * ls), pr);
+    float dPa = sdRoundCone(p, vec3(P(PAPS_BASE), P(PAPS_BASE + 1), P(PAPS_BASE + 2)), vec3(P(PAPS_BASE + 3), P(PAPS_BASE + 4), P(PAPS_BASE + 5)), P(PAPS_BASE + 6), P(PAPS_BASE + 7));
+    float dPm = sdRoundCone(p, vec3(P(PAPS_BASE + 8), P(PAPS_BASE + 9), P(PAPS_BASE + 10)), vec3(P(PAPS_BASE + 11), P(PAPS_BASE + 12), P(PAPS_BASE + 13)), P(PAPS_BASE + 14), P(PAPS_BASE + 15));
     float dPap = min(dPa, dPm);
     if (dPap < 0.0) {
       setSample(s, T_MYO, dPap, vec3(x, y, 0.0), vec3(x / rs, y / rs, z / ls), 0.0, S_PAP);
       return true;
     }
-    setSample(s, T_BLOOD, dCavR, vec3(x / ACAV, y / BCAV, (z - ZCCAV) / CCAV), vec3(x / rs, y / rs, (z - LV_LEN) / ls), 0.0, S_LV_CAV);
+    setSample(s, T_BLOOD, dCavR, n0, vec3(x / rs, y / rs, (z - LV_LEN) / ls), 0.0, S_LV_CAV);
     return true;
   }
-  float wallT = z > LV_LEN - 0.5 ? apexThick : tNow;
-  float dEllR = dEll - regional;
-  if (dEllR >= 0.0 && dEllR < wallT && z >= zAnn - 0.25 && !inRootLumen) {
+  float wallT = tNow;
+  float dEllR = dProf - regional;
+  if (dEllR + trab >= 0.0 && dEllR < wallT && z >= zAnn - 0.25 && !inRootLumen) {
     int structure = S_LV_LAT;
     if (z > LV_LEN - 0.6) structure = S_LV_APEX;
     else if (septalness > 0.7) structure = S_LV_SEPT;
@@ -296,14 +366,14 @@ bool classifyHeart(vec3 p0, out Sample s) {
     else if (sin(az) < -0.5) structure = S_LV_INF;
     float dIn = -min(dEllR, wallT - dEllR);
     float sg = (wallT - dEllR < dEllR) ? 1.0 : -1.0;
-    setSample(s, T_MYO, dIn, sg * vec3(x / ACAV, y / BCAV, (z - ZCCAV) / CCAV), vec3(x / rs, y / rs, (z - LV_LEN) / ls), 0.0, structure);
+    setSample(s, T_MYO, dIn, sg * n0, vec3(x / rs, y / rs, (z - LV_LEN) / ls), 0.0, structure);
     return true;
   }
   bool inAnnularRegion = dEllR < 0.0 && z < zAnn && !inRootLumen;
   if (inAnnularRegion) {
     vec2 md = vec2(x - MV_CX, y - MV_CY);
     if (length(md) < MV_R * 0.98) {
-      setSample(s, T_BLOOD, -0.3, vec3(0.0, 0.0, 1.0), p, 0.0, S_LV_CAV);
+      setSample(s, T_BLOOD, -0.3, vec3(0.0, 0.0, 1.0), p, 0.0, S_LA_CAV);
       return true;
     }
   }
@@ -331,7 +401,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
   vec3 lr = vec3(LA_RX, LA_RY, LA_RZ);
   vec3 ra = vec3(RA_CX, RA_CY, RA_CZ);
   vec3 rar = vec3(RA_RX, RA_RY, RA_RZ);
-  float bo = LA_BOOSTER * (0.88 + 0.12 * CONTRACTION);
+  float bo = LA_BOOSTER * (0.84 + 0.16 * CONTRACTION);
   float czL, rzL, czR, rzR;
   {
     float zTop = la.z - lr.z;
@@ -403,7 +473,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     }
     // coronary sinus
     {
-      float gy = -(BEPI + 0.4);
+      float gy = -(lvCavityRadius(-PI / 2.0, zAnn + 0.6) + LV_LVPWD * LV_THICK_K + 0.4);
       float dCs = sdCapsule(p, vec3(2.2, gy * 0.85, zAnn + 0.35), vec3(ra.x + rar.x * 0.4, gy * 0.7, zAnn + 0.1), 0.33);
       if (dCs < 0.0) {
         setSample(s, T_BLOOD, dCs, vec3(0.0, -1.0, 0.0), p, 0.0, S_CS);
@@ -417,7 +487,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
   }
 
   // ---------- RV ----------
-  vec3 rvc = rvCrescent(p, az, apexThick);
+  vec3 rvc = rvCrescent(p, az);
   float dRv = rvc.x;
   {
     float sc = CONTRACTION;
@@ -468,7 +538,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
 
   // ---------- pericardium & effusion ----------
   {
-    float dLvEpi = sdEllipsoid(p, vec3(0.0, 0.0, ZCCAV), vec3(AEPI, BEPI, CCAV + apexThick * 0.7));
+    float dLvEpi = dEllR - wallT;
     float fw = RV_FW;
     float dRvEpi = dRv - fw;
     float dLaEpi = sdEllipsoid(p, la, lr + 0.25);
@@ -480,7 +550,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float dPaEpi = sdCapsule(p, rvotB, paEnd, PA_R + 0.2);
     float dEpi = min(min(dLvEpi, dRvEpi), min(min(dLaEpi, dRaEpi), min(dRvotEpi, dPaEpi)));
     float eff = EFFUSION;
-    vec3 nEpi = vec3(x / AEPI, y / BEPI, (z - ZCCAV) / CCAV);
+    vec3 nEpi = n0;
     if (dEpi < 0.12) {
       float de = max(dEpi, 0.0);
       setSample(s, T_PERI, -min(de, 0.12 - de), nEpi, p, 0.0, S_PERI);

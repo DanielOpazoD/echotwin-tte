@@ -1,5 +1,5 @@
 import type { CaseDefinition } from '@/cases/schema';
-import { classifyHeart, computeHeartPose, createHeartModel, estimateStructureVolume, heartAnchors, heartLandmarks, type HeartPose } from './heartModel';
+import { classifyHeart, computeHeartPose, createHeartModel, estimateStructureVolume, heartAnchors, heartLandmarks, lvCavityRadiusAt, lvEpicardialRadiusAt, type HeartPose } from './heartModel';
 import { createThoraxModel, type PatientState } from './thoraxModel';
 import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { makeSample, Structure, Tissue } from './tissue';
@@ -145,17 +145,21 @@ export function measureModel(c: CaseDefinition, patient: PatientState = DEFAULT_
   const myo = vol(edPose, myoStructs, [-5.5, -5.5, -1.5], [5.5, 5.5, L + 1.4]);
 
   const zEDD = 2.0;
-  const lvIDd = runAt(edPose, cav, [0, 0, zEDD], 0);
-  const lvIDs = runAt(esPose, cav, [0, 0, 3.2], 0);
-  const ivsD = runAt(edPose, [Structure.LvWallSeptal, Structure.LvWallAnterior], [-(edPose.aCav + 0.3), 0.2, zEDD], 0, 3);
-  const pwD = runAt(edPose, [Structure.LvWallLateral, Structure.LvWallInferior], [0, -edPose.bCav - 0.3, zEDD], 1, 3);
-  const ivsS = runAt(esPose, [Structure.LvWallSeptal, Structure.LvWallAnterior], [-(esPose.aCav + 0.3), 0.2, zEDD], 0, 3);
+  // internal diameters: thin chordae crossing the cavity do not interrupt a caliper
+  const cavRun = [...cav, Structure.Chordae];
+  const lvIDd = runAt(edPose, cavRun, [0, 0, zEDD], 0);
+  const lvIDs = runAt(esPose, cavRun, [0, 0, 3.2], 0);
+  const ivsD = runAt(edPose, [Structure.LvWallSeptal, Structure.LvWallAnterior], [-(lvCavityRadiusAt(heart, edPose, Math.PI, zEDD) + 0.3), 0.2, zEDD], 0, 3);
+  const pwD = runAt(edPose, [Structure.LvWallLateral, Structure.LvWallInferior], [0, -(lvCavityRadiusAt(heart, edPose, -Math.PI / 2, zEDD) + 0.3), zEDD], 1, 3);
+  // systolic septal thickness at the same material level (the base descends with the annulus)
+  const zEDS = esPose.zAnn + (zEDD / L) * esPose.lengthNow;
+  const ivsS = runAt(esPose, [Structure.LvWallSeptal, Structure.LvWallAnterior], [-(lvCavityRadiusAt(heart, esPose, Math.PI, zEDS) + 0.3), 0.2, zEDS], 0, 3);
   const apexT = runAt(edPose, [Structure.LvApex, ...myoStructs], [0, 0, L + 0.2], 2, 3);
   const lvLenED = maxZ(edPose, cav, [0, 0, 4]) - edPose.zAnn;
   const lvLenES = maxZ(longPose, cav, [0, 0, 4]) - longPose.zAnn;
   const yA4C = -0.4;
   // basal third, apical of the open tricuspid leaflet tips (which hang to z ≈ 2.2 in early diastole)
-  const rvBasal = runAt(edPose, [Structure.RvCavity], [-(edPose.aEpi + 1.8), yA4C, 2.7], 0);
+  const rvBasal = runAt(edPose, [Structure.RvCavity], [-(lvEpicardialRadiusAt(heart, edPose, Math.PI, 2.7) + 1.8), yA4C, 2.7], 0);
   const rvMid = runAt(edPose, [Structure.RvCavity], [-5.0, yA4C, L * 0.5], 0);
   // RV length in A4C: from the tricuspid annulus plane to the most apical RV cavity point in the A4C plane
   const rvLen = ((): number => {
@@ -171,12 +175,12 @@ export function measureModel(c: CaseDefinition, patient: PatientState = DEFAULT_
     }
     return zMax - (A.tvCenter.z + 0.3);
   })();
-  const lvBasalA4C = 2 * edPose.aCav * Math.sqrt(Math.max(0, 1 - ((2.2 - edPose.zcCav) / edPose.cCav) ** 2));
-  // RV free wall measured perpendicular to the anterior wall (as in PLAX/subcostal), not obliquely in A4C
+  const lvBasalA4C = lvCavityRadiusAt(heart, edPose, 0, 2.2) + lvCavityRadiusAt(heart, edPose, Math.PI, 2.2);
   // RV free wall measured radially at the inflow (azimuth 180°, mid level) where the wall is perpendicular to x
-  const rvWall = runAt(edPose, [Structure.RvWall], [-(edPose.aEpi * 0.97 + A.rvT + 0.2), 0, L * 0.4], 0, 2);
+  const rvWall = runAt(edPose, [Structure.RvWall], [-(lvEpicardialRadiusAt(heart, edPose, Math.PI, L * 0.4) + A.rvT + 0.2), 0, L * 0.4], 0, 2);
   // RV anteroposterior dimension in the PLAX plane (anteroseptal direction, azimuth 120°), at the LVOT level
-  const rvPlax = runDir(edPose, rvStructs, [-0.5 * (edPose.bEpi + 0.9), 0.866 * (edPose.bEpi + 0.9), 3.0], [-0.5, 0.866, 0], 4);
+  const rPlax = lvEpicardialRadiusAt(heart, edPose, 2.094, 3.0) + 0.9;
+  const rvPlax = runDir(edPose, rvStructs, [-0.5 * rPlax, 0.866 * rPlax, 3.0], [-0.5, 0.866, 0], 4);
   const laAP = runAt(esPose, [Structure.LaCavity], [A.laCenter.x, A.laCenter.y, A.laCenter.z], 1);
   const laTr = runAt(esPose, [Structure.LaCavity], [A.laCenter.x, A.laCenter.y, A.laCenter.z], 0);
   const laLong = runAt(esPose, [Structure.LaCavity], [A.laCenter.x + 0.7, A.laCenter.y, A.laCenter.z], 2); // lateral of the leaflet coaptation
@@ -216,7 +220,7 @@ export function measureModel(c: CaseDefinition, patient: PatientState = DEFAULT_
 
   const rows: MeasureRow[] = [];
   const add = (id: string, label: string, value: number, units: string, lo: number, hi: number, referenceId: string, approx = false) =>
-    rows.push({ id, label, value, units, lo, hi, verdict: value < lo ? 'LOW' : value > hi ? 'HIGH' : 'ok', approx, referenceId });
+    rows.push({ id, label, value, units, lo, hi, verdict: value < lo - 1e-3 ? 'LOW' : value > hi + 1e-3 ? 'HIGH' : 'ok', approx, referenceId });
   const CQ = 'ase-eacvi-chamber-2015';
   const RH = 'ase-right-heart-2025';
   add('lv-edv', 'LV EDV', lvED, 'mL', female ? 46 : 62, female ? 106 : 150, CQ);

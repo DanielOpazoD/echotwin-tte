@@ -17,7 +17,7 @@ export const aorticStenosisSevereCase: CaseDefinitionInput = {
   rhythm: { type: 'sinus', heartRateBpm: 68, rrVariabilityPct: 2, pvcProbability: 0 },
   anatomy: {
     ...normalExcellentCase.anatomy,
-    lv: { eddCm: 4.7, lengthEdCm: 8.5, ivsdCm: 1.3, lvpwdCm: 1.25, sphericity: 0.5, apexWallThicknessCm: 0.8 },
+    lv: { eddCm: 4.7, lengthEdCm: 8.5, ivsdCm: 1.4, lvpwdCm: 1.3, sphericity: 0.5, apexWallThicknessCm: 0.9 },
     la: { apDiameterCm: 4.2, volumeMl: 78 },
     aorta: { lvotDiameterCm: 2.1, annulusCm: 2.4, sinusCm: 3.4, ascendingCm: 3.8 },
     aorticValve: { maxOpeningFraction: 0.3, calcification: 0.85, cuspThicknessCm: 0.25, bicuspid: false },
@@ -93,6 +93,7 @@ export const aorticStenosisSevereCase: CaseDefinitionInput = {
     'la-transverse',
     'lavi',
     'lv-mass', // increased mass from the thick walls
+    'apex-thickness', // the hypertrophy reaches the apex
     'ao-ascending', // post-stenotic dilation of the ascending aorta
   ],
 };

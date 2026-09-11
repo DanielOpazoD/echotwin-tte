@@ -12,7 +12,7 @@ export const pericardialEffusionTamponadeCase: CaseDefinitionInput = {
   rhythm: { type: 'sinus-tachycardia', heartRateBpm: 108, rrVariabilityPct: 2, pvcProbability: 0 },
   anatomy: {
     ...normalExcellentCase.anatomy,
-    lv: { eddCm: 4.3, lengthEdCm: 8.2, ivsdCm: 0.9, lvpwdCm: 0.9, sphericity: 0.5, apexWallThicknessCm: 0.7 },
+    lv: { eddCm: 4.2, lengthEdCm: 8.2, ivsdCm: 0.9, lvpwdCm: 0.9, sphericity: 0.5, apexWallThicknessCm: 0.7 },
     la: { apDiameterCm: 3.2, volumeMl: 42 },
     rv: { basalDiameterCm: 3.0, lengthCm: 7.0, freeWallThicknessCm: 0.35, septalFlattening: 0 },
     ra: { volumeMl: 40 },
@@ -42,5 +42,6 @@ export const pericardialEffusionTamponadeCase: CaseDefinitionInput = {
     'Corazón oscilante; ventrículo izquierdo pequeño e hiperdinámico con taquicardia sinusal.',
     'Vena cava inferior dilatada sin colapso inspiratorio (presión de la AD elevada).',
   ],
-  expectedDeviations: [],
+  // the compressed LV is small in diastole (classic tamponade finding)
+  expectedDeviations: ['lv-idd'],
 };

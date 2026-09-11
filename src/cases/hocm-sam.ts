@@ -60,5 +60,5 @@ export const hocmSamCase: CaseDefinitionInput = {
     'Movimiento sistólico anterior de la mitral con obstrucción dinámica del TSVI (gradiente pico ≈ 64 mmHg, pico tardío) e insuficiencia mitral leve posterior.',
     'Aurícula izquierda dilatada; alteración de la relajación.',
   ],
-  expectedDeviations: ['ivsd', 'lvpwd', 'lv-mass', 'la-ap', 'la-transverse', 'lavi', 'la-ao'],
+  expectedDeviations: ['ivsd', 'lvpwd', 'ivs-thickening', 'apex-thickness', 'lv-mass', 'la-ap', 'la-transverse', 'lavi', 'la-ao'],
 };

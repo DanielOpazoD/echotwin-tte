@@ -1,5 +1,6 @@
 import type { HeartModel, HeartPose } from '@/simulator/anatomy/heartModel';
 import { heartAnchors } from '@/simulator/anatomy/heartModel';
+import { LV_PROF_BINS } from '@/simulator/anatomy/lvShape';
 import type { ThoraxModel } from '@/simulator/anatomy/thoraxModel';
 import type { BeamFrame } from '@/simulator/probe/pose';
 import { contactQuality } from '@/simulator/probe/pose';
@@ -19,8 +20,8 @@ const SCALARS = [
   // spec / physics
   'LINES', 'SAMPLES', 'SECTOR', 'DEPTH', 'F_ATTEN', 'GRAIN_LAT', 'GRAIN_AX', 'HARM', 'CLUTTER', 'CONTACT', 'WINDOW_ATTEN', 'ELEV_OFFSET',
   // LV geometry & pose
-  'BOUND_CX', 'BOUND_CY', 'BOUND_CZ', 'BOUND_R', 'LV_A', 'LV_B', 'LV_C', 'LV_ZC', 'LV_LEN', 'LV_IVSD', 'LV_LVPWD', 'APEX_T', 'LVOT_D',
-  'ZANN', 'ACAV', 'BCAV', 'LENGTH_NOW', 'AEPI', 'BEPI', 'CCAV', 'ZCCAV', 'RADIAL_SCALE', 'LONG_SCALE', 'CONTRACTION', 'AV_OPEN', 'PV_OPEN', 'TVZ', 'LA_BOOSTER', 'EFFUSION',
+  'BOUND_CX', 'BOUND_CY', 'BOUND_CZ', 'BOUND_R', 'LV_RMAX_ED', 'LV_G0', 'LV_ZETAMAX', 'LV_ZETATOP', 'LV_N', 'LV_RATIO', 'LV_LEN', 'LV_IVSD', 'LV_LVPWD', 'APEX_T', 'LVOT_D',
+  'ZANN', 'LV_RMAX', 'LV_PZC', 'LV_THICK_K', 'LENGTH_NOW', 'RADIAL_SCALE', 'LONG_SCALE', 'CONTRACTION', 'AV_OPEN', 'PV_OPEN', 'TVZ', 'LA_BOOSTER', 'EFFUSION',
   'MV_CALC', 'AV_CALC', 'RV_FW', 'RV_COLLAPSE', 'RA_COLLAPSE', 'SWING_X', 'SEPTAL_SHIFT',
   // anchors
   'MV_CX', 'MV_CY', 'MV_CZ', 'MV_R', 'AV_CX', 'AV_CY', 'AV_CZ', 'AV_AXX', 'AV_AXY', 'AV_AXZ', 'AV_R', 'SINUS_R', 'ASC_R',
@@ -28,7 +29,6 @@ const SCALARS = [
   'LA_CX', 'LA_CY', 'LA_CZ', 'LA_RX', 'LA_RY', 'LA_RZ', 'RA_CX', 'RA_CY', 'RA_CZ', 'RA_RX', 'RA_RY', 'RA_RZ',
   'RV_T', 'RV_AZA', 'RV_AZP', 'RV_APEX_FRAC', 'TV_CX', 'TV_CY', 'TV_CZ', 'TV_R',
   'RVOT_AX', 'RVOT_AY', 'RVOT_AZ', 'RVOT_BX', 'RVOT_BY', 'RVOT_BZ', 'RVOT_R', 'PA_DX', 'PA_DY', 'PA_DZ', 'PA_EX', 'PA_EY', 'PA_EZ', 'PA_R',
-  'PAP_ALX', 'PAP_ALY', 'PAP_ALZ', 'PAP_PMX', 'PAP_PMY', 'PAP_PMZ', 'PAP_R',
   // valves
   'CUSP_COUNT', 'CUSP_HALF', 'CUSP_SEGLEN', 'CUSP_T', 'MV_RING_X', 'MV_RING_Y', 'MV_RING_Z', 'MV_RING_R', 'TV_RING_X', 'TV_RING_Y', 'TV_RING_Z', 'TV_RING_R',
   'MVS_CX', 'MVS_CY', 'MVS_CZ', 'MVS_R', 'MVS_PHIA', 'MVS_HALFSPAN', 'MVS_BLEND', 'MVS_T', 'MVS_SADDLE',
@@ -41,6 +41,9 @@ type ScalarName = (typeof SCALARS)[number];
 /** Array blocks (contiguous floats) after the scalars. */
 const ARRAYS: [string, number][] = [
   ['SEG_AMP', 18],
+  ['LV_PROF_R', LV_PROF_BINS],
+  ['LV_PROF_S', LV_PROF_BINS],
+  ['PAPS', 16],
   ['CUSP_SEGS', 3 * 2 * 6],
   ['CUSP_W', 9],
   ['CHORDAE', 4 * 6],
@@ -129,23 +132,25 @@ export function packScene(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, o
   set('BOUND_CY', heart.boundCenter.y);
   set('BOUND_CZ', heart.boundCenter.z);
   set('BOUND_R', heart.boundRadius);
-  set('LV_A', lv.a);
-  set('LV_B', lv.b);
-  set('LV_C', lv.c);
-  set('LV_ZC', lv.zc);
+  set('LV_RMAX_ED', lv.rMax);
+  set('LV_G0', lv.shape.g0);
+  set('LV_ZETAMAX', lv.shape.zetaMax);
+  set('LV_ZETATOP', lv.shape.zetaTop);
+  set('LV_N', lv.shape.n);
+  set('LV_RATIO', lv.shape.ratio);
   set('LV_LEN', lv.lengthCm);
   set('LV_IVSD', lv.ivsd);
   set('LV_LVPWD', lv.lvpwd);
   set('APEX_T', heart.anatomy.lv.apexWallThicknessCm);
   set('LVOT_D', heart.anatomy.aorta.lvotDiameterCm);
   set('ZANN', hp.zAnn);
-  set('ACAV', hp.aCav);
-  set('BCAV', hp.bCav);
+  set('LV_RMAX', hp.rMax);
+  set('LV_PZC', hp.prof.zc);
+  set('LV_THICK_K', hp.thickK);
   set('LENGTH_NOW', hp.lengthNow);
-  set('AEPI', hp.aEpi);
-  set('BEPI', hp.bEpi);
-  set('CCAV', hp.cCav);
-  set('ZCCAV', hp.zcCav);
+  d.set(hp.prof.R, PARAM_OFFSET['LV_PROF_R']!);
+  d.set(hp.prof.S, PARAM_OFFSET['LV_PROF_S']!);
+  d.set(hp.paps, PARAM_OFFSET['PAPS']!);
   set('RADIAL_SCALE', hp.radialScale);
   set('LONG_SCALE', hp.longScale);
   set('CONTRACTION', hp.state.contraction);
@@ -218,13 +223,6 @@ export function packScene(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, o
   set('PA_EY', A.paEnd.y);
   set('PA_EZ', A.paEnd.z);
   set('PA_R', A.paR);
-  set('PAP_ALX', A.papAL.x);
-  set('PAP_ALY', A.papAL.y);
-  set('PAP_ALZ', A.papAL.z);
-  set('PAP_PMX', A.papPM.x);
-  set('PAP_PMY', A.papPM.y);
-  set('PAP_PMZ', A.papPM.z);
-  set('PAP_R', A.papR);
   const V = hp.valves;
   set('CUSP_COUNT', V.cuspCount);
   set('CUSP_HALF', V.cuspHalf);

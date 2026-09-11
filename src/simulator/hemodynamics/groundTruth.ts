@@ -1,5 +1,7 @@
 import type { CaseDefinition } from '@/cases/schema';
 import { buildBeatTables, type BeatTables } from '@/simulator/cardiac-cycle/cycleModel';
+import { lvGeometryFromVolume } from '@/simulator/anatomy/heartModel';
+import { lvProfileG } from '@/simulator/anatomy/lvShape';
 import { lvotNarrowing, pulmonaryVeinPeaks, solveLvotObstruction } from '@/simulator/doppler/flow-primitives/flowField';
 import {
   bsaMosteller,
@@ -68,6 +70,12 @@ export interface StructuredEchoTruth {
   pericardium: { effusionCm: number; tamponade: number };
 }
 
+/** LV internal diameter (cm) of the geometric model at end diastole, 2 cm below the annulus on the lateral axis (what the image shows). */
+export function geometricEdd(c: CaseDefinition, edvMl: number): number {
+  const g = lvGeometryFromVolume(edvMl, c.anatomy.lv.lengthEdCm, c.anatomy.lv.sphericity, c.anatomy.lv);
+  return 2 * g.rMax * lvProfileG(g.shape, 2.0 / g.lengthCm);
+}
+
 export function computeGroundTruth(c: CaseDefinition, tables?: BeatTables): StructuredEchoTruth {
   const rr = 60 / c.rhythm.heartRateBpm;
   const t = tables ?? buildBeatTables(rr, c.physiology, c.rhythm, c.hemodynamics);
@@ -113,7 +121,7 @@ export function computeGroundTruth(c: CaseDefinition, tables?: BeatTables): Stru
   const abnormal = c.anatomy.wallMotion.filter((w) => w.amplitude < 0.85).map((w) => w.segment);
   const pvPeaks = pulmonaryVeinPeaks(c);
   // ESD from EDD and contraction geometry (radial fractional shortening ~ derived from volumes)
-  const esd = c.anatomy.lv.eddCm * Math.cbrt(t.esvMl / t.edvMl) * 0.93;
+  const esd = geometricEdd(c, t.edvMl) * Math.cbrt(t.esvMl / t.edvMl) * 0.93;
   const tr = c.hemodynamics.trPresent ? Math.sqrt(Math.max(0, (c.hemodynamics.paspMmHg - c.hemodynamics.rapMmHg) / 4)) : null;
   const eOverA = t.timings.hasAWave && c.physiology.aPeakMps > 0 ? c.physiology.ePeakMps / c.physiology.aPeakMps : null;
   const ePrimeAvg = (c.physiology.ePrimeSeptalCmps + c.physiology.ePrimeLateralCmps) / 2;
@@ -122,7 +130,7 @@ export function computeGroundTruth(c: CaseDefinition, tables?: BeatTables): Stru
     heartRateBpm: c.rhythm.heartRateBpm,
     rhythm: c.rhythm.type,
     lv: {
-      eddCm: c.anatomy.lv.eddCm,
+      eddCm: geometricEdd(c, t.edvMl),
       esdCm: esd,
       ivsdCm: c.anatomy.lv.ivsdCm,
       lvpwdCm: c.anatomy.lv.lvpwdCm,
