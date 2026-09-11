@@ -44,13 +44,13 @@ Referencia = con qué se compara (valor analítico, consistencia interna o rango
 | | Ley del coseno (0°, 20°, 60°) | 1, 0,94, 0,5 | ±0,005 | pasa |
 | | PW pliega 1,0 m/s con escala 0,6 → −0,2; CW recorta | — | ±0,05 | pasa |
 | | Filtro de pared elimina 0,1 m/s; turbulencia ensancha > 1,5× | — | — | pasa |
-| | PW en TSVI desde 9 posiciones de sonda (ajustadas al espacio intercostal): ≥ 6 con señal; mejor pico 0,45–1,6 m/s; pico ≈ \|v·d\| en el gate; la peor alineación (> 12° más) mide < 0,8× la mejor | cos θ | error < 0,35 m/s | pasa (sustituye a una versión que rockeaba desde el mismo origen y no podía cambiar el ángulo) |
+| | PW en TSVI desde 9 posiciones de sonda (ajustadas al espacio intercostal, sonda re-apuntada al TSVI desde cada una para que quede en el plano): ≥ 6 con señal; mejor pico 0,45–1,6 m/s; pico ≈ \|v·d\| en el gate; la peor alineación (> 12° más) mide < 0,8× la mejor | cos θ | error < 0,35 m/s | pasa (una versión anterior mantenía la orientación y desde posiciones mediales el gate proyectado caía en los senos aórticos sin flujo) |
 | | CW independiente del gate (Δ < 0,08); PW en campo cercano < PW en TSVI | — | — | pasa |
 | `education/scoring/scoring.test.ts` | Adquisición 100 con las 4 vistas sobre el mínimo; < 70 con PLAX 90 + A4C 35 | — | — | pasa |
 | | Medición correcta (+3 %) con vista 20 → inválida, < 50 puntos; con vista 80 → 100 | — | — | pasa |
 | | VTI con +40 % pierde puntos (0 < p < 100); `mitral-e` no medida = 0 | — | — | pasa |
 | | Resumen reproducible; lista A4C omitida; total < 60 | — | igualdad profunda | pasa |
-| `anatomy/proportions.test.ts` | 43 medidas geométricas por caso (volúmenes MC, diámetros en planos estándar, grosores, raíz, anillos, índices por BSA) contra rangos adultos por sexo (ASE/EACVI 2015, corazón derecho 2025; «≈» = aproximado); sólo salen de rango las desviaciones declaradas por el caso (`expectedDeviations`) y las limitaciones conocidas del modelo (volumen del VD); una declaración obsoleta falla | rangos de guía | rango | pasa (3 casos) |
+| `anatomy/proportions.test.ts` | 44 medidas geométricas por caso (volúmenes MC, diámetros en planos estándar, grosores, raíz, anillos, índices por BSA) contra rangos adultos por sexo (ASE/EACVI 2015, corazón derecho 2025; «≈» = aproximado); sólo salen de rango las desviaciones declaradas por el caso (`expectedDeviations`); una declaración obsoleta falla | rangos de guía | rango | pasa (3 casos) |
 | `tests/goldens.test.ts` | Determinismo por semilla (500 muestras iguales) | — | exacto | pasa |
 | | Goldens: rejilla 12×12 de medias para PLAX/PSAX-PM/A4C/A2C a fases 0 y 0,3 (tier low) | `src/tests/goldens/frames.json` (regenerado a las 20:09) | ≤ 6 niveles por celda | pasa |
 

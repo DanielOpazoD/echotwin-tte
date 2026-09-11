@@ -107,6 +107,24 @@ export function measureModel(c: CaseDefinition, patient: PatientState = DEFAULT_
     while (b < span && inside(b + step)) b += step;
     return b - a;
   };
+  /** contiguous run of a structure set along a unit direction through p (nearest inside point first) */
+  const runDir = (pose: HeartPose, structs: Structure[], p0: [number, number, number], d: [number, number, number], span = 4): number => {
+    const step = 0.02;
+    const inside = (t: number) => classifyHeart(heart, pose, p0[0] + d[0] * t, p0[1] + d[1] * t, p0[2] + d[2] * t, s) && structs.includes(s.structure);
+    let t0 = NaN;
+    if (inside(0)) t0 = 0;
+    else
+      for (let t = step; t <= span && Number.isNaN(t0); t += step) {
+        if (inside(t)) t0 = t;
+        else if (inside(-t)) t0 = -t;
+      }
+    if (Number.isNaN(t0)) return 0;
+    let a = t0,
+      b = t0;
+    while (a > t0 - span && inside(a - step)) a -= step;
+    while (b < t0 + span && inside(b + step)) b += step;
+    return b - a;
+  };
   const maxZ = (pose: HeartPose, structs: Structure[], p: [number, number, number]): number => {
     let hi = -Infinity;
     for (let t = -10; t <= 10; t += 0.02) if (classifyHeart(heart, pose, p[0], p[1], p[2] + t, s) && structs.includes(s.structure)) hi = Math.max(hi, p[2] + t);
@@ -138,12 +156,26 @@ export function measureModel(c: CaseDefinition, patient: PatientState = DEFAULT_
   const yA4C = -0.4;
   const rvBasal = runAt(edPose, [Structure.RvCavity], [-5.2, yA4C, 2.2], 0);
   const rvMid = runAt(edPose, [Structure.RvCavity], [-5.0, yA4C, L * 0.5], 0);
-  // RV long axis in A4C: from the tricuspid annulus plane to the RV apex, which lies close to the septum
-  const rvLen = maxZ(edPose, rvStructs, [A.rvCenter.x - 0.9, yA4C, 2]) - (A.tvCenter.z + 0.3);
+  // RV length in A4C: from the tricuspid annulus plane to the most apical RV cavity point in the A4C plane
+  const rvLen = ((): number => {
+    let zMax = -Infinity;
+    const structs = [...rvStructs, Structure.ModeratorBand];
+    for (let zz = A.tvCenter.z + 0.3; zz <= L; zz += 0.05) {
+      for (let xx = -8; xx <= 0; xx += 0.05) {
+        if (classifyHeart(heart, edPose, xx, yA4C, zz, s) && structs.includes(s.structure)) {
+          zMax = zz;
+          break;
+        }
+      }
+    }
+    return zMax - (A.tvCenter.z + 0.3);
+  })();
   const lvBasalA4C = 2 * edPose.aCav * Math.sqrt(Math.max(0, 1 - ((2.2 - edPose.zcCav) / edPose.cCav) ** 2));
   // RV free wall measured perpendicular to the anterior wall (as in PLAX/subcostal), not obliquely in A4C
-  const rvWall = runAt(edPose, [Structure.RvWall], [A.rvCenter.x, A.rvCenter.y + A.rvR.y + 0.1, A.rvCenter.z], 1, 2);
-  const rvPlax = runAt(edPose, rvStructs, [-1.2, edPose.bCav + heart.lv.ivsd + 0.8, 3.0], 1, 4);
+  // RV free wall measured radially at the inflow (azimuth 180°, mid level) where the wall is perpendicular to x
+  const rvWall = runAt(edPose, [Structure.RvWall], [-(edPose.aEpi * 0.97 + A.rvT + 0.2), 0, L * 0.4], 0, 2);
+  // RV anteroposterior dimension in the PLAX plane (anteroseptal direction, azimuth 120°), at the LVOT level
+  const rvPlax = runDir(edPose, rvStructs, [-0.5 * (edPose.bEpi + 0.9), 0.866 * (edPose.bEpi + 0.9), 3.0], [-0.5, 0.866, 0], 4);
   const laAP = runAt(esPose, [Structure.LaCavity], [A.laCenter.x, A.laCenter.y, A.laCenter.z], 1);
   const laTr = runAt(esPose, [Structure.LaCavity], [A.laCenter.x, A.laCenter.y, A.laCenter.z], 0);
   const laLong = runAt(esPose, [Structure.LaCavity], [A.laCenter.x, A.laCenter.y, A.laCenter.z], 2);

@@ -28,7 +28,7 @@ for (const view of VIEW_TARGETS) {
   const off = Math.hypot(dot(rel, beam.lateral), dot(rel, beam.normal));
   const lat = dot(rel, beam.lateral);
   const elev = dot(rel, beam.normal);
-  console.log(`\n${view.id.padEnd(11)} plane ${planeAngle.toFixed(1).padStart(5)}°  in-plane ${inPlane.toFixed(1).padStart(5)}°  target off ${off.toFixed(2)} cm (lat ${lat.toFixed(2)}, elev ${elev.toFixed(2)}) at depth ${along.toFixed(1)}  ctrl u=${ctrl.u.toFixed(1)} v=${ctrl.v.toFixed(1)} rot=${ctrl.rotationDeg.toFixed(0)} tilt=${ctrl.tiltDeg.toFixed(0)} rock=${ctrl.rockDeg.toFixed(0)}`);
+  process.stdout.write(`\n${view.id.padEnd(11)} plane ${planeAngle.toFixed(1).padStart(5)}°  in-plane ${inPlane.toFixed(1).padStart(5)}°  target off ${off.toFixed(2)} cm (lat ${lat.toFixed(2)}, elev ${elev.toFixed(2)}) at depth ${along.toFixed(1)}  ctrl u=${ctrl.u.toFixed(1)} v=${ctrl.v.toFixed(1)} rot=${ctrl.rotationDeg.toFixed(0)} tilt=${ctrl.tiltDeg.toFixed(0)} rock=${ctrl.rockDeg.toFixed(0)}\n`);
   const req = view.requiredLandmarks.map((r) => r.landmarkId);
   const rows: string[] = [];
   for (const id of req) {
@@ -42,6 +42,6 @@ for (const view of VIEW_TARGETS) {
     const ang = deg(Math.atan2(l, f));
     rows.push(`${id}: elev ${e.toFixed(2)} (r ${lm.radius}) lat ${ang.toFixed(0)}° depth ${f.toFixed(1)}`);
   }
-  console.log('  ' + rows.join(' | '));
+  process.stdout.write("  " + rows.join(" | ") + "\n");
   void cross;
 }

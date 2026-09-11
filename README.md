@@ -29,6 +29,7 @@ Requiere Node ≥ 20 (`engines` en `package.json`). Dependencias de ejecución: 
 | `npm run check` | lint → typecheck → test → build, en ese orden. |
 | `npm run golden:update` | Regenera `src/tests/goldens/frames.json` (ver `docs/validation/README.md`). |
 | `npm run measure -- <caseId>` | Mide el modelo geométrico del caso (43 magnitudes: volúmenes, diámetros, grosores, raíz, anillos, índices) contra rangos adultos por sexo y marca ok/LOW/HIGH; es la misma tabla que comprueba `proportions.test.ts`. |
+| `npx tsx tools/offline/render/slice-map.ts [outDir] [vistas] [caseId]` | Mapa de estructuras del plano canónico de cada vista (colores por estructura, sin acústica) para control anatómico; `audit-views.ts` imprime el error de plano/rotación de cada vista canónica frente al plano anatómico y la distancia de cada referencia al plano. |
 | `npm run atlas:build` | Renderiza los cines de 16 fases de cada vista canónica (una hoja de contacto PNG por vista) con la fuente de anclas procedimental: `tools/offline/atlas-generation/build-atlas.ts [outDir] [caseId]`. |
 
 ## Controles de la sonda

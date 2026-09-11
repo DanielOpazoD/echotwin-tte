@@ -11,10 +11,7 @@ import { CASE_INPUTS, loadCaseById } from '@/cases';
  * Measures the current geometric primitives cannot satisfy for any case yet. Each entry must name the
  * limitation in docs/LIMITATIONS.md; remove it when the anatomy pass fixes the primitive.
  */
-const KNOWN_MODEL_LIMITATIONS: ReadonlySet<string> = new Set([
-  'rv-edv', // RV as a carved ellipsoid: correct basal diameter and length but ~30 % too much volume
-  'rv-edvi',
-]);
+const KNOWN_MODEL_LIMITATIONS: ReadonlySet<string> = new Set([]);
 
 describe('model proportions against reference ranges', () => {
   for (const input of CASE_INPUTS) {

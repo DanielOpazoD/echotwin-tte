@@ -110,6 +110,10 @@ export const enum Structure {
   MitralAnnulus,
   TricuspidAnnulus,
   Chordae,
+  ModeratorBand,
+  LaAppendage,
+  PulmonaryVein,
+  CoronarySinus,
 }
 
 export function makeSample(): TissueSample {

@@ -7,8 +7,8 @@ import { createThoraxModel, snapToIntercostal } from '@/simulator/anatomy/thorax
 import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { SimulatorCore } from '@/simulator/core/simulatorCore';
 import { baseInput } from '@/simulator/core/simulatorCore.test';
-import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
-import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
+import { canonicalControl, canonicalPlane, getViewTarget } from '@/simulator/windows/viewTargets';
+import { beamFrameFromPose, controlAimingAt, poseFromControl } from '@/simulator/probe/pose';
 import { dot, sub } from '@/core/vec3';
 
 const c = loadCaseById('normal-excellent-window');
@@ -130,10 +130,12 @@ describe('Doppler through the simulator core', () => {
     const flowDir = { x: f.ex.x * fs.vx + f.ey.x * fs.vy + f.ez.x * fs.vz, y: f.ex.y * fs.vx + f.ey.y * fs.vy + f.ez.y * fs.vz, z: f.ex.z * fs.vx + f.ey.z * fs.vy + f.ez.z * fs.vz };
     const fl = Math.hypot(flowDir.x, flowDir.y, flowDir.z);
     const results: { angleDeg: number; peak: number; expected: number }[] = [];
-    // the beam–flow angle is set by where the probe sits on the chest (the cursor always re-aims at the LVOT)
+    // the beam–flow angle is set by where the probe sits on the chest; from each position the probe is
+    // re-aimed so that the LVOT stays in the imaging plane (as a sonographer does) and the cursor targets it
+    const plane = canonicalPlane(getViewTarget('a5c'), heart);
     for (const [du, dv] of [[0, 0], [-4, 0], [4, 0], [0, 4], [0, -4], [-4, 4], [4, -4], [-5, -3], [5, 3]] as const) {
       const snapped = snapToIntercostal(thorax, a5c.u + du, a5c.v + dv);
-      const ctrl = { ...a5c, u: snapped.u, v: snapped.v };
+      const ctrl = controlAimingAt(thorax, snapped.u, snapped.v, lvotP, plane.right, 0.6);
       const beam = beamFrameFromPose(poseFromControl(thorax, ctrl));
       const g = aimGate(ctrl);
       const dir = { x: beam.forward.x * Math.cos(g.theta) + beam.lateral.x * Math.sin(g.theta), y: beam.forward.y * Math.cos(g.theta) + beam.lateral.y * Math.sin(g.theta), z: beam.forward.z * Math.cos(g.theta) + beam.lateral.z * Math.sin(g.theta) };

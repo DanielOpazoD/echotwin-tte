@@ -1,7 +1,7 @@
 import type { Vec3 } from '@/core/vec3';
 import { dot, normalize, scale, sub, v3 } from '@/core/vec3';
 import type { HeartModel } from '@/simulator/anatomy/heartModel';
-import { heartDirToTorso, heartToTorso } from '@/simulator/anatomy/heartModel';
+import { AV_AXIS, heartDirToTorso, heartToTorso } from '@/simulator/anatomy/heartModel';
 import { skinZ, snapToIntercostal, type ThoraxModel } from '@/simulator/anatomy/thoraxModel';
 import { beamFrameFromPose, controlAimingAt, poseFromControl, type BeamFrame, type ProbeControl } from '@/simulator/probe/pose';
 
@@ -42,6 +42,15 @@ const R = (v: Vec3): Vec3 => normalize(v);
 
 /** Heart-frame direction that PLAX sweeps across: anteroseptal (+) ↔ inferolateral (−). */
 const PLAX_AP = R(v3(-0.5, 0.866, 0)); // from lateral(x)/anterior(y): anteroseptal direction
+/** A2C plane: 60° from A4C (which lies at azimuth ~2°, through the tricuspid inflow) and 60° from A3C/PLAX (122°). */
+const A2C_RIGHT = R(v3(Math.cos(1.082), Math.sin(1.082), 0)); // 62°
+/** PSAX-AV plane: perpendicular to the aortic root axis; screen right ≈ toward the patient's left/anterior. */
+const AV_RIGHT = ((): Vec3 => {
+  const r0 = v3(0.847, 0.488, 0.212);
+  return R(sub(r0, scale(AV_AXIS, dot(r0, AV_AXIS))));
+})();
+const AV_DOWN = R(v3(AV_AXIS.y * AV_RIGHT.z - AV_AXIS.z * AV_RIGHT.y, AV_AXIS.z * AV_RIGHT.x - AV_AXIS.x * AV_RIGHT.z, AV_AXIS.x * AV_RIGHT.y - AV_AXIS.y * AV_RIGHT.x));
+const AV_CENTER = v3(-0.7, 1.35, -0.25);
 
 export function buildViewTargets(): ViewTarget[] {
   return [
@@ -86,9 +95,9 @@ export function buildViewTargets(): ViewTarget[] {
       window: 'parasternal',
       // the AV short axis is perpendicular to the AORTIC ROOT axis (tilted ~39° from the LV long axis),
       // which is why the probe is angled toward the base to make the valve appear round
-      planeRight: R(v3(0.847, 0.488, 0.212)),
-      planeDown: R(v3(0.51, -0.63, -0.585)),
-      target: v3(-0.78, 1.65, -0.64), // mid-cusp level (0.5 cm above the annular nadir along the root axis)
+      planeRight: AV_RIGHT,
+      planeDown: AV_DOWN,
+      target: v3(AV_CENTER.x + AV_AXIS.x * 0.5, AV_CENTER.y + AV_AXIS.y * 0.5, AV_CENTER.z + AV_AXIS.z * 0.5), // mid-cusp level
       skin: { u: 2.6, v: 1.6 },
       requiredLandmarks: [
         { landmarkId: 'av', weight: 1.5, required: true },
@@ -237,7 +246,7 @@ export function buildViewTargets(): ViewTarget[] {
       id: 'a2c',
       name: 'Apical dos cámaras (A2C)',
       window: 'apical',
-      planeRight: R(v3(0, 1, 0)), // screen right = anterior wall
+      planeRight: A2C_RIGHT, // screen right = anterior wall (60° from A4C)
       planeDown: R(v3(0, 0, -1)),
       target: v3(0, 0, 1.5),
       skin: { u: 6.8, v: -2.8 },
@@ -360,8 +369,9 @@ export function canonicalControl(view: ViewTarget, heart: HeartModel, thorax: Th
   } else if (view.id === 'plax') {
     skin = skinPointOnPlane(thorax, plane, preferred, 1.5);
   } else if (view.window === 'parasternal') {
-    // short-axis planes are reached by sliding down/laterally along the sternal border; never over the sternum
-    const p = skinPointOnPlane(thorax, plane, preferred, 3.5);
+    // short-axis planes: a sonographer stays close to the PLAX window (3rd–4th space) and tilts the probe,
+    // accepting some obliquity, rather than climbing toward the 2nd space; never over the sternum
+    const p = skinPointOnPlane(thorax, plane, preferred, 1.0);
     skin = { u: Math.max(2.2, p.u), v: p.v };
   }
   // a sonographer always sits in an intercostal space, never on a rib

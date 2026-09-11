@@ -15,12 +15,13 @@ Estado real según el código el 2026-09-10. Los hitos M0–M6 siguen la especif
 ## M1 — Anatomía y ciclo cardíaco
 | Entregable | Estado | Evidencia |
 |---|---|---|
-| Corazón paramétrico SDF con contracción volumétrica, válvulas (faldones + cúspides curvas), anillos, cuerdas, aurículas, VD, papilares, pericardio | hecho | `heartModel.ts`, `heartModel.test.ts` (volumen MC ±10–12 %) |
-| Proporciones de cámaras y vasos medidas contra rangos de referencia por sexo, con desviaciones declaradas por caso | hecho | `measureModel.ts`, `proportions.test.ts`, `npm run measure` (volumen del VD exento, ver LIMITATIONS) |
+| Corazón paramétrico SDF con contracción volumétrica, válvulas (faldones sobre anillos en silla + cúspides curvas con zonas de coaptación), anillos, cuerdas, aurículas con tabique, orejuela, venas pulmonares, seno coronario, VD en semiluna con infundíbulo y banda moderadora, papilares, pericardio | hecho | `heartModel.ts`, `heartModel.test.ts`, `proportions.test.ts` |
+| Proporciones de cámaras y vasos medidas contra rangos de referencia por sexo, con desviaciones declaradas por caso | hecho | `measureModel.ts`, `proportions.test.ts`, `npm run measure` (44 medidas, sin exenciones) |
+| Mapas de estructuras por plano y auditoría de planos canónicos | hecho | `tools/offline/render/slice-map.ts`, `audit-views.ts` |
 | Tórax con costillas, esternón, pulmones, hígado, columna, aorta descendente; posición/respiración | hecho | `thoraxModel.ts` (sin prueba propia) |
 | Tablas de latido (V, Q_ao, Q_mv, longitudinal), reloj RR sinusal/FA, ECG | hecho | `cycle.test.ts` |
 | Verdad de terreno estructurada | hecho | `groundTruth.test.ts` |
-| Posición `subcostal-supine`, VCI, venas hepáticas | pendiente | la posición no altera nada; `Structure.Ivc` sin uso |
+| Posición `subcostal-supine`, VCI, venas hepáticas, cavas | pendiente | la posición no altera nada; `Structure.Ivc` sin uso |
 
 ## M2 — Render 2D y consola
 | Entregable | Estado | Evidencia |
