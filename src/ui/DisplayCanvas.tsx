@@ -1,0 +1,492 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useHudStore, useSimStore, type SimStore } from '@/app/store';
+import type { SimOutput } from '@/simulator/core/protocol';
+import { pixelToPolar, polarToPixel } from '@/simulator/renderer/scanConvert';
+import { tgcAtDepth } from '@/simulator/renderer/postprocess/consolePipeline';
+import type { Measurement } from '@/simulator/measurements/types';
+import { vtiFromEnvelope } from '@/clinical/formulas';
+import { frameBus } from '@/app/frameBus';
+
+/**
+ * Ultrasound display: draws the composite frame from the simulator and the overlays (depth scale,
+ * orientation marker, focus, TGC curve, ECG, colour box, Doppler cursor/gate, calipers). Direct
+ * manipulation of box/cursor/gate/calipers happens here (spec 29.3).
+ */
+export interface DisplayHandle {
+  pushFrame: (out: SimOutput) => void;
+}
+
+interface Pending {
+  points: { x: number; y: number }[];
+}
+
+export function DisplayCanvas(props: { onSize: (s: { width: number; height: number }) => void }) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const imgRef = useRef<HTMLCanvasElement>(null);
+  const ovRef = useRef<HTMLCanvasElement>(null);
+  const [size, setSize] = useState({ width: 640, height: 520 });
+  const pendingRef = useRef<Pending>({ points: [] });
+  const lastOutRef = useRef<SimOutput | null>(null);
+  const dragRef = useRef<{ kind: 'box-move' | 'box-resize' | 'cursor' | 'none'; startX: number; startY: number; box?: { t0: number; t1: number; r0: number; r1: number } }>({ kind: 'none', startX: 0, startY: 0 });
+  const onSize = props.onSize;
+
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      const r = el.getBoundingClientRect();
+      const width = Math.max(320, Math.min(1024, Math.round(r.width)));
+      const height = Math.max(240, Math.min(820, Math.round(r.height)));
+      setSize({ width, height });
+      onSize({ width, height });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [onSize]);
+
+  // Imperative drawing: image on every frame, overlay on every frame and on relevant store changes.
+  useEffect(() => {
+    const drawImage = (out: SimOutput) => {
+      const canvas = imgRef.current;
+      if (!canvas) return;
+      if (canvas.width !== out.width || canvas.height !== out.height) {
+        canvas.width = out.width;
+        canvas.height = out.height;
+      }
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.putImageData(new ImageData(new Uint8ClampedArray(out.rgba), out.width, out.height), 0, 0);
+    };
+    const redrawOverlay = () => {
+      const out = lastOutRef.current;
+      const canvas = ovRef.current;
+      if (!out || !canvas) return;
+      drawOverlay(canvas, out, useSimStore.getState(), pendingRef.current.points);
+    };
+    const unsubFrame = frameBus.subscribe((out) => {
+      drawImage(out);
+      frameBus.latest = null;
+      frameBus.recycle(out.rgba);
+      lastOutRef.current = out;
+      redrawOverlay();
+    });
+    const unsubStore = useSimStore.subscribe(redrawOverlay);
+    return () => {
+      unsubFrame();
+      unsubStore();
+    };
+  }, []);
+
+  const toLocal = useCallback((e: React.MouseEvent): { x: number; y: number } => {
+    const r = ovRef.current!.getBoundingClientRect();
+    const out = lastOutRef.current;
+    const sx = (out?.width ?? r.width) / r.width;
+    const sy = (out?.height ?? r.height) / r.height;
+    return { x: (e.clientX - r.left) * sx, y: (e.clientY - r.top) * sy };
+  }, []);
+
+  const onMouseDown = (e: React.MouseEvent) => {
+    const hud = lastOutRef.current;
+    if (!hud) return;
+    const p = toLocal(e);
+    const st = useSimStore.getState();
+    const m = hud.sector;
+    const inSector = p.y < m.height;
+    if (st.activeTool !== 'none') {
+      handleToolClick(p, e.detail);
+      return;
+    }
+    if (st.modality === 'color' && inSector) {
+      const { rCm, thetaRad } = pixelToPolar(m, p.x, p.y);
+      const c = st.color;
+      const inside = rCm >= c.boxRMinCm && rCm <= c.boxRMaxCm && thetaRad >= c.boxThetaMinRad && thetaRad <= c.boxThetaMaxRad;
+      dragRef.current = { kind: inside && !e.shiftKey ? 'box-move' : 'box-resize', startX: p.x, startY: p.y, box: { t0: c.boxThetaMinRad, t1: c.boxThetaMaxRad, r0: c.boxRMinCm, r1: c.boxRMaxCm } };
+      if (!inside && !e.shiftKey) {
+        // start a new box centred on the click
+        st.setColor({ boxThetaMinRad: thetaRad - 0.25, boxThetaMaxRad: thetaRad + 0.25, boxRMinCm: Math.max(0.5, rCm - 3), boxRMaxCm: Math.min(m.depthCm, rCm + 3) });
+        dragRef.current.kind = 'none';
+      }
+      return;
+    }
+    if ((st.modality === 'pw' || st.modality === 'cw' || st.modality === 'tdi' || st.modality === 'm-mode') && inSector) {
+      const { rCm, thetaRad } = pixelToPolar(m, p.x, p.y);
+      st.setCursor(Math.max(-m.sectorRad / 2, Math.min(m.sectorRad / 2, thetaRad)), st.modality === 'pw' || st.modality === 'tdi' ? Math.max(1, Math.min(m.depthCm - 0.5, rCm)) : undefined);
+      dragRef.current = { kind: 'cursor', startX: p.x, startY: p.y };
+    }
+  };
+  const onMouseMove = (e: React.MouseEvent) => {
+    const hud = lastOutRef.current;
+    if (!hud || dragRef.current.kind === 'none') return;
+    const p = toLocal(e);
+    const st = useSimStore.getState();
+    const m = hud.sector;
+    if (dragRef.current.kind === 'cursor') {
+      const { rCm, thetaRad } = pixelToPolar(m, p.x, Math.min(p.y, m.height - 1));
+      st.setCursor(Math.max(-m.sectorRad / 2, Math.min(m.sectorRad / 2, thetaRad)), st.modality === 'pw' || st.modality === 'tdi' ? Math.max(1, Math.min(m.depthCm - 0.5, rCm)) : undefined);
+    } else if (dragRef.current.kind === 'box-move' && dragRef.current.box) {
+      const a = pixelToPolar(m, dragRef.current.startX, dragRef.current.startY);
+      const b = pixelToPolar(m, p.x, p.y);
+      const dt = b.thetaRad - a.thetaRad,
+        dr = b.rCm - a.rCm;
+      const bx = dragRef.current.box;
+      st.setColor({ boxThetaMinRad: bx.t0 + dt, boxThetaMaxRad: bx.t1 + dt, boxRMinCm: Math.max(0.5, bx.r0 + dr), boxRMaxCm: Math.min(m.depthCm, bx.r1 + dr) });
+    } else if (dragRef.current.kind === 'box-resize' && dragRef.current.box) {
+      const b = pixelToPolar(m, p.x, p.y);
+      const bx = dragRef.current.box;
+      st.setColor({ boxThetaMaxRad: Math.max(bx.t0 + 0.08, b.thetaRad), boxRMaxCm: Math.max(bx.r0 + 1, Math.min(m.depthCm, b.rCm)) });
+    }
+  };
+  const onMouseUp = () => {
+    dragRef.current = { kind: 'none', startX: 0, startY: 0 };
+  };
+
+  const handleToolClick = (p: { x: number; y: number }, detail: number) => {
+    const hud = lastOutRef.current;
+    if (!hud) return;
+    const st = useSimStore.getState();
+    const m = hud.sector;
+    const strip = hud.strip;
+    const pend = pendingRef.current;
+    const commit = (ms: Omit<Measurement, 'id' | 'createdAt' | 'frameId' | 'phase' | 'timeS' | 'sourceViewId' | 'viewScore' | 'imageQualityScore' | 'userAssisted' | 'referenceGuidelineIds'>) => {
+      st.addMeasurement({
+        ...ms,
+        id: `m${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`,
+        createdAt: new Date().toISOString(),
+        frameId: hud.frameId,
+        phase: hud.phase,
+        timeS: hud.timeS,
+        sourceViewId: hud.view?.bestViewId ?? null,
+        viewScore: hud.view?.score ?? null,
+        imageQualityScore: hud.view ? Math.round(hud.view.components.gain * 100) : null,
+        userAssisted: false,
+        referenceGuidelineIds: ['ase-tte-2019'],
+      });
+      pend.points = [];
+    };
+    if (st.activeTool === 'caliper') {
+      if (p.y >= m.height) return;
+      pend.points.push(p);
+      if (pend.points.length === 2) {
+        const [a, b] = pend.points as [{ x: number; y: number }, { x: number; y: number }];
+        const cm = Math.hypot(a.x - b.x, a.y - b.y) / m.pxPerCm;
+        commit({ kind: 'linear', label: 'Distancia', value: cm, units: 'cm', modality: st.modality === 'color' ? '2d' : st.modality, geometry: [a, b] });
+      }
+      useHudStore.getState().setHud({ ...hud }); // trigger overlay redraw
+      return;
+    }
+    if (st.activeTool === 'velocity') {
+      if (strip.kind !== 'spectral' || p.y < strip.y) return;
+      const v = strip.topValue + ((p.y - strip.y) / strip.height) * (strip.bottomValue - strip.topValue);
+      commit({ kind: 'velocity', label: 'Velocidad', value: Math.abs(v), units: 'm/s', modality: st.modality, geometry: [p], derived: { gradientMmHg: 4 * v * v } });
+      return;
+    }
+    if (st.activeTool === 'time') {
+      if (strip.kind === null || p.y < strip.y) return;
+      pend.points.push(p);
+      if (pend.points.length === 2) {
+        const [a, b] = pend.points as [{ x: number; y: number }, { x: number; y: number }];
+        const ms = Math.abs(a.x - b.x) * strip.secondsPerColumn * 1000;
+        commit({ kind: 'time', label: 'Tiempo', value: ms, units: 'ms', modality: st.modality, geometry: [a, b] });
+      }
+      useHudStore.getState().setHud({ ...hud });
+      return;
+    }
+    if (st.activeTool === 'vti') {
+      if (strip.kind !== 'spectral' || p.y < strip.y) return;
+      if (detail >= 2 && pend.points.length >= 2) {
+        const pts = [...pend.points].sort((a, b) => a.x - b.x);
+        // resample envelope per column
+        const vel: number[] = [];
+        const x0 = pts[0]!.x,
+          x1 = pts[pts.length - 1]!.x;
+        for (let x = x0; x <= x1; x += 1) {
+          let i = 0;
+          while (i < pts.length - 2 && pts[i + 1]!.x < x) i++;
+          const a = pts[i]!,
+            b = pts[i + 1]!;
+          const t = b.x === a.x ? 0 : (x - a.x) / (b.x - a.x);
+          const y = a.y + (b.y - a.y) * t;
+          const v = strip.topValue + ((y - strip.y) / strip.height) * (strip.bottomValue - strip.topValue);
+          vel.push(Math.abs(v));
+        }
+        const vti = vtiFromEnvelope(vel, strip.secondsPerColumn);
+        const vmax = Math.max(...vel);
+        const mean = vel.reduce((s, v) => s + 4 * v * v, 0) / vel.length;
+        commit({ kind: 'vti', label: 'VTI', value: vti, units: 'cm', modality: st.modality, geometry: pts, derived: { vmaxMps: vmax, meanGradientMmHg: mean, peakGradientMmHg: 4 * vmax * vmax } });
+        return;
+      }
+      pend.points.push(p);
+      useHudStore.getState().setHud({ ...hud });
+    }
+  };
+
+  return (
+    <div className="display-wrap" ref={wrapRef}>
+      <canvas ref={imgRef} width={size.width} height={size.height} aria-label="Imagen ecográfica simulada" />
+      <canvas
+        ref={ovRef}
+        className="overlay"
+        style={{ width: '100%', height: '100%' }}
+        onMouseDown={onMouseDown}
+        onMouseMove={onMouseMove}
+        onMouseUp={onMouseUp}
+        onMouseLeave={onMouseUp}
+        aria-label="Superposiciones y herramientas de medición"
+      />
+      <div className="disclaimer">Simulador educacional con pacientes sintéticos. No utilizar para diagnóstico ni toma de decisiones clínicas reales.</div>
+    </div>
+  );
+}
+
+function drawOverlay(canvas: HTMLCanvasElement, hud: SimOutput, st: SimStore, pending: { x: number; y: number }[]): void {
+  const { modality, color, settings, cursorThetaRad: cursorTheta, gateDepthCm: gateDepth, spectral, ui, activeTool, measurements } = st;
+  const dpr = window.devicePixelRatio || 1;
+  const W = hud.width,
+    H = hud.height;
+  if (canvas.width !== W * dpr || canvas.height !== H * dpr) {
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+  }
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  const m = hud.sector;
+  ctx.font = '11px system-ui, sans-serif';
+  ctx.textBaseline = 'middle';
+  const sectorH = m.height;
+  const half = m.sectorRad / 2;
+  const rightX = Math.min(W - 6, m.apexX + m.depthCm * m.pxPerCm * Math.sin(half) + 10);
+  ctx.strokeStyle = '#9aa4b5';
+  ctx.fillStyle = '#9aa4b5';
+  ctx.lineWidth = 1;
+  const stepCm = m.depthCm > 20 ? 5 : m.depthCm > 12 ? 2 : 1;
+  for (let d = 0; d <= m.depthCm + 1e-6; d += stepCm) {
+    const y = m.apexY + d * m.pxPerCm;
+    if (y > sectorH - 2) break;
+    ctx.beginPath();
+    ctx.moveTo(rightX, y);
+    ctx.lineTo(rightX + 6, y);
+    ctx.stroke();
+    if (d % (stepCm * 2) === 0) ctx.fillText(String(d), rightX + 9, y);
+  }
+  const fy = m.apexY + settings.focusCm * m.pxPerCm;
+  if (fy < sectorH) {
+    ctx.fillStyle = '#ffc857';
+    ctx.beginPath();
+    ctx.moveTo(rightX - 2, fy);
+    ctx.lineTo(rightX - 8, fy - 4);
+    ctx.lineTo(rightX - 8, fy + 4);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.fillStyle = '#5cc8ff';
+  ctx.beginPath();
+  ctx.arc(m.apexX + 16, m.apexY + 4, 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#9aa4b5';
+  ctx.fillText('R', m.apexX + 24, m.apexY + 4);
+  ctx.strokeStyle = 'rgba(92,200,255,0.5)';
+  ctx.beginPath();
+  for (let i = 0; i <= 20; i++) {
+    const d = (i / 20) * m.depthCm;
+    const y = m.apexY + d * m.pxPerCm;
+    const db = tgcAtDepth(settings, d);
+    const x = 14 + (db / 15) * 10;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  if (modality === 'color') {
+    drawArcBox(ctx, m, color.boxThetaMinRad, color.boxThetaMaxRad, color.boxRMinCm, color.boxRMaxCm, '#57d38c');
+    const bx = W - 22,
+      by = m.apexY + 20,
+      bh = 90;
+    const grad = ctx.createLinearGradient(0, by, 0, by + bh);
+    grad.addColorStop(0, '#ffd23c');
+    grad.addColorStop(0.45, '#c81e1e');
+    grad.addColorStop(0.5, '#000');
+    grad.addColorStop(0.55, '#1e3cc8');
+    grad.addColorStop(1, '#3ce0ff');
+    ctx.fillStyle = grad;
+    ctx.fillRect(bx, by, 8, bh);
+    ctx.fillStyle = '#9aa4b5';
+    ctx.font = '10px system-ui';
+    ctx.fillText(`${color.scaleMps.toFixed(2)}`, bx - 32, by);
+    ctx.fillText(`−${color.scaleMps.toFixed(2)}`, bx - 36, by + bh);
+    ctx.fillText('↑ hacia', bx - 44, by + bh / 2 - 8);
+    ctx.fillText('↓ desde', bx - 44, by + bh / 2 + 8);
+    ctx.font = '11px system-ui';
+  }
+  if (modality === 'pw' || modality === 'cw' || modality === 'tdi' || modality === 'm-mode') {
+    const p0 = polarToPixel(m, 0.3, cursorTheta);
+    const p1 = polarToPixel(m, m.depthCm, cursorTheta);
+    ctx.strokeStyle = modality === 'm-mode' ? '#5cc8ff' : '#ffc857';
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(p0.x, p0.y);
+    ctx.lineTo(p1.x, p1.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    if (modality === 'pw' || modality === 'tdi') {
+      const g0 = polarToPixel(m, gateDepth - spectral.gateLengthCm / 2, cursorTheta);
+      const g1 = polarToPixel(m, gateDepth + spectral.gateLengthCm / 2, cursorTheta);
+      ctx.strokeStyle = '#ffc857';
+      ctx.lineWidth = 2;
+      const nx = -(g1.y - g0.y),
+        ny = g1.x - g0.x;
+      const nl = Math.hypot(nx, ny) || 1;
+      for (const g of [g0, g1]) {
+        ctx.beginPath();
+        ctx.moveTo(g.x - (nx / nl) * 6, g.y - (ny / nl) * 6);
+        ctx.lineTo(g.x + (nx / nl) * 6, g.y + (ny / nl) * 6);
+        ctx.stroke();
+      }
+      ctx.lineWidth = 1;
+    }
+    const strip = hud.strip;
+    if (strip.kind === 'spectral') {
+      ctx.fillStyle = '#9aa4b5';
+      ctx.textAlign = 'right';
+      const n = 4;
+      for (let i = 0; i <= n; i++) {
+        const v = strip.topValue + ((strip.bottomValue - strip.topValue) * i) / n;
+        const y = strip.y + (strip.height * i) / n;
+        ctx.fillText(`${v.toFixed(2)}`, W - 4, Math.min(H - 8, Math.max(strip.y + 6, y)));
+      }
+      ctx.textAlign = 'left';
+      ctx.fillText(`${modality.toUpperCase()}  ${spectral.sweepSpeedMmPerS} mm/s  escala ±${spectral.scaleMps.toFixed(2)} m/s  WF ${Math.round(spectral.wallFilterMps * 100)} cm/s`, 6, strip.y + 8);
+      const cols1s = strip.secondsPerColumn > 0 ? 1 / strip.secondsPerColumn : 0;
+      if (cols1s > 0) {
+        ctx.strokeStyle = 'rgba(154,164,181,0.35)';
+        for (let x = 0; x < strip.width; x += cols1s) {
+          ctx.beginPath();
+          ctx.moveTo(strip.x + x, strip.y + strip.height - 8);
+          ctx.lineTo(strip.x + x, strip.y + strip.height);
+          ctx.stroke();
+        }
+      }
+    } else if (strip.kind === 'm-mode') {
+      ctx.fillStyle = '#9aa4b5';
+      ctx.textAlign = 'right';
+      for (let d = 0; d <= strip.bottomValue; d += 5) {
+        const y = strip.y + (d / strip.bottomValue) * strip.height;
+        ctx.fillText(`${d}`, W - 4, Math.min(H - 8, Math.max(strip.y + 6, y)));
+      }
+      ctx.textAlign = 'left';
+      ctx.fillText(`M-MODE  ${spectral.sweepSpeedMmPerS} mm/s`, 6, strip.y + 8);
+    }
+  }
+  if (ui.showPhysics) {
+    ctx.strokeStyle = 'rgba(92,200,255,0.25)';
+    const lines = Number(hud.stats['lines'] ?? 0);
+    const n = Math.max(8, Math.min(48, Math.round(lines / 4)));
+    for (let i = 0; i <= n; i++) {
+      const th = -half + (m.sectorRad * i) / n;
+      const p1 = polarToPixel(m, m.depthCm, th);
+      ctx.beginPath();
+      ctx.moveTo(m.apexX, m.apexY);
+      ctx.lineTo(p1.x, p1.y);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = 'rgba(255,200,87,0.6)';
+    drawArc(ctx, m, settings.focusCm - 1.5, -half, half);
+    drawArc(ctx, m, settings.focusCm + 1.5, -half, half);
+    ctx.fillStyle = '#ffc857';
+    ctx.fillText('zona focal', m.apexX - 30, m.apexY + (settings.focusCm + 2.2) * m.pxPerCm);
+  }
+  if (ui.showEcg && hud.ecg.length > 1) {
+    const eh = 34;
+    const ey = (modality === '2d' || modality === 'color' ? sectorH : H) - eh - 4;
+    const span = 3;
+    const t0 = hud.ecgHead - span;
+    ctx.strokeStyle = '#57d38c';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    let first = true;
+    for (const p of hud.ecg) {
+      if (p.t < t0) continue;
+      const x = 8 + ((p.t - t0) / span) * (W - 16);
+      const y = ey + eh - 6 - p.v * (eh - 10);
+      if (first) {
+        ctx.moveTo(x, y);
+        first = false;
+      } else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.lineWidth = 1;
+    ctx.fillStyle = '#ffc857';
+    ctx.fillRect(W - 9, ey, 2, eh);
+  }
+  ctx.lineWidth = 1.5;
+  for (const ms of measurements) {
+    const sameFamily = ms.modality === modality || (ms.modality === '2d' && modality === 'color') || (ms.modality === 'color' && modality === '2d');
+    if (!sameFamily) continue;
+    drawGeometry(ctx, ms.geometry, ms.kind, '#ffc857');
+    const p = ms.geometry[ms.geometry.length - 1];
+    if (p) {
+      ctx.fillStyle = '#ffc857';
+      ctx.fillText(`${ms.label}: ${ms.value.toFixed(ms.kind === 'time' ? 0 : ms.kind === 'vti' ? 1 : 2)} ${ms.units}`, p.x + 6, p.y - 8);
+    }
+  }
+  if (pending.length) drawGeometry(ctx, pending, activeTool === 'caliper' ? 'linear' : activeTool === 'vti' ? 'vti' : 'time', '#5cc8ff');
+  ctx.lineWidth = 1;
+  if (activeTool !== 'none') {
+    ctx.fillStyle = '#5cc8ff';
+    ctx.fillText(
+      activeTool === 'caliper' ? 'Caliper: clic en 2 puntos' : activeTool === 'velocity' ? 'Velocidad: clic sobre el espectro' : activeTool === 'vti' ? 'VTI: clic a lo largo del envelope, doble clic para cerrar' : 'Tiempo: clic en 2 puntos',
+      8,
+      14,
+    );
+  }
+}
+
+function drawArc(ctx: CanvasRenderingContext2D, m: SimOutput['sector'], rCm: number, t0: number, t1: number): void {
+  ctx.beginPath();
+  const n = 24;
+  for (let i = 0; i <= n; i++) {
+    const th = t0 + ((t1 - t0) * i) / n;
+    const p = polarToPixel(m, rCm, th);
+    if (i === 0) ctx.moveTo(p.x, p.y);
+    else ctx.lineTo(p.x, p.y);
+  }
+  ctx.stroke();
+}
+
+function drawArcBox(ctx: CanvasRenderingContext2D, m: SimOutput['sector'], t0: number, t1: number, r0: number, r1: number, color: string): void {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  const n = 16;
+  for (let i = 0; i <= n; i++) {
+    const p = polarToPixel(m, r0, t0 + ((t1 - t0) * i) / n);
+    if (i === 0) ctx.moveTo(p.x, p.y);
+    else ctx.lineTo(p.x, p.y);
+  }
+  for (let i = n; i >= 0; i--) {
+    const p = polarToPixel(m, r1, t0 + ((t1 - t0) * i) / n);
+    ctx.lineTo(p.x, p.y);
+  }
+  ctx.closePath();
+  ctx.stroke();
+  ctx.lineWidth = 1;
+}
+
+function drawGeometry(ctx: CanvasRenderingContext2D, pts: { x: number; y: number }[], kind: string, color: string): void {
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  for (const p of pts) {
+    ctx.beginPath();
+    ctx.moveTo(p.x - 4, p.y);
+    ctx.lineTo(p.x + 4, p.y);
+    ctx.moveTo(p.x, p.y - 4);
+    ctx.lineTo(p.x, p.y + 4);
+    ctx.stroke();
+  }
+  if (pts.length >= 2 && (kind === 'linear' || kind === 'time' || kind === 'vti')) {
+    ctx.beginPath();
+    ctx.moveTo(pts[0]!.x, pts[0]!.y);
+    for (const p of pts.slice(1)) ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+  }
+}

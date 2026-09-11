@@ -1,0 +1,11 @@
+node_modules
+dist
+dist-ssr
+coverage
+playwright-report
+test-results
+e2e/.auth
+.DS_Store
+*.local
+public/atlas/*.bin
+.claude/settings.local.json

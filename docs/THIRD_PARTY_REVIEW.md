@@ -1,0 +1,46 @@
+# Revisión de simuladores de terceros
+
+Observación del 2026-09-10 (~20:07 UTC) mediante la API REST de GitHub y los archivos README/LICENSE/NOTICE en crudo. «Último commit» = punta de la rama por defecto en ese momento. **Ninguno se vendoriza ni es dependencia de este repositorio**; `package.json` sólo declara react, react-dom, three, zod y zustand. Las licencias de componentes que esos repos incluyen a su vez (gsplat, glm, numpy-boost) no se recomprobaron.
+
+| Repositorio | Rama / último commit | Licencia declarada | NOTICE | Qué se estudió | Decisión |
+|---|---|---|---|---|---|
+| isaac-for-healthcare/i4h-sensor-simulation | `main` / `0477e1f` (2026-09-02) | Apache-2.0 | sí (`NOTICE.txt`) | Trazado de rayos rectos sobre mallas etiquetadas (Burger 2013) en OptiX: reflexión especular por impedancia, atenuación Beer-Lambert por frecuencia, dispersión volumétrica por material, PSF gaussiana-coseno, TGC, envolvente Hilbert, compresión log, scan conversion; sonda como transformación 4×4 con geometrías lineal/curva/sectorial; `examples/server.py` como patrón de UI web sobre simulador | **Sólo estudio** (opcionalmente herramienta offline si hay GPU NVIDIA: CUDA 12.6+, OptiX 8.1). La cadena tabla de materiales → marcha por línea → postproceso es la que EchoTwin implementa en CPU |
+| jakobkla/UltraG-Ray | `main` / `e4f62dd` (2026-03-23) | Apache-2.0 (copia modificada de gsplat, cuya licencia upstream es Apache-2.0 FROM-MEMORY) | no | Síntesis de vistas B-mode nuevas por ray casting sobre un campo 3D de gaussianas aprendido de cuadros con pose (MIDL 2026); formato de datos `images_*.npy` + `poses_*.npy` (4×4) + `conf.json`; los autores reconocen una «brecha de realismo sustancial» | **Sólo estudio**: referencia conceptual del render condicionado por pose (el atlas de EchoTwin es la versión sin aprendizaje); entrenar requiere CUDA + PyTorch |
+| sigurdstorve/OpenBCSim | `master` / `500025c` (2018-08-19; inactivo ~8 años) | GitHub: NOASSERTION por plantillas BSD sin rellenar; el texto es BSD 3-clause (Sigurd Storve, 2015) | sí | Algoritmo COLE (Gao 2009): dispersores puntuales (fijos o dinámicos por B-splines para un corazón latiendo) proyectados a líneas de barrido y convolucionados con una PSF separable → IQ; geometrías lineal/sector; GUI Qt5 | **Estudiar y reimplementar** en TypeScript/WebGPU con atribución (BSD lo permite); no compilar el C++ Boost/Qt5. Todavía no hay implementación de COLE en este repositorio |
+| creatis-ULTIM/PyMUST | `main` / `c605195` (2026-03-02; `pushed_at` 2026-09-09 en otras ramas) | LGPL-2.1 | no | Reimplementación Python de MUST: `getparam`, `txdelay`, `pfield`, `simus` (Rayleigh-Sommerfeld), `rf2iq`, `das`, `tgc`, `bmode`, `iq2doppler`, speckle tracking | **Herramienta offline** (no vendorizar en el bundle por LGPL): generar cuadros «oro» y validar PSF/postproceso. La carpeta `tools/offline/pymust-validation` existe pero está vacía |
+| ahastava/moculus | `moculus-web-simulator` (única rama) / `c8bfcfa` (2026-05-15) | **Ninguna** (sin LICENSE; `/license` → 404) | no | DDPM con ControlNet entrenado en ~14 000 cuadros POCUS pulmonares; UI web con mapa de zonas BLUE, «sonda libre» que interpola entre zonas, modos práctica/examen, sonda física por IMU vía Web Bluetooth, caché de cuadros pre-renderizados para CPU; proyecto de tesis personal (contiene `.env`, `CLAUDE.md`) | **Sólo estudio del patrón de producto**; sin reutilización de código (todos los derechos reservados) |
+
+## Notas transversales
+- Sólo Apache-2.0 (i4h, UltraG-Ray) y BSD (OpenBCSim) son compatibles con copiar código a una app de navegador permisiva; Apache exige propagar los avisos de NOTICE si se copia algo. LGPL-2.1 (PyMUST) vale como herramienta separada. moculus no tiene licencia.
+- Ninguno corre en el navegador tal cual; i4h (`server.py`) y moculus tienen UI web respaldada por servidor.
+- La idea de formación de imagen más portable es COLE (dispersores → líneas → convolución PSF); la más moderna, el render condicionado por pose de UltraG-Ray. EchoTwin hoy no usa ninguna: su trazador es de reglas por tejido sobre SDF y su atlas mezcla cuadros procedimentales por cercanía de pose.
+- Límites de la revisión: SHAs, fechas y metadatos de licencia provienen de la API de GitHub en el momento de la observación.
+
+## Detalle por repositorio
+
+### 1. isaac-for-healthcare/i4h-sensor-simulation
+- NVIDIA «Isaac for Healthcare», Python + C++/CUDA, 49 estrellas, no archivado. Último commit «Sync 0.8 release candidate…».
+- Dos simuladores GPU; el de ultrasonido es un renderizador B-mode geométrico (sin ondas) sobre OptiX: los rayos golpean mallas de superficie etiquetadas (OBJ/STL); la intensidad combina reflexión especular por impedancia (Snell), atenuación Beer-Lambert dependiente de la frecuencia y dispersión volumétrica muestreada de texturas con parámetros por material (mu0, sigma); después convolución con PSF gaussiana-coseno invariante en profundidad, TGC, envolvente Hilbert, compresión logarítmica y scan conversion. El README declara explícitamente que no modela difracción, interferencia, fase, zonas focales, lóbulos ni la física real del speckle — el mismo nivel de aproximación que EchoTwin.
+- Sonda como transformación 4×4 con geometrías curvilínea, lineal y sectorial y muestreo elevacional configurable. También incluye un simulador diferenciable de rayos X desde TC (no relevante aquí).
+- Por qué interesa: (a) la cadena tabla acústica → marcha de rayos → línea → postproceso es exactamente lo que un shader WebGL/WebGPU puede permitirse en tiempo real; (b) la parametrización de la sonda; (c) `ultrasound-simulator/examples/server.py` + `templates/` como patrón de UI web sobre un simulador (puerto 8000).
+- Requisitos: CUDA 12.6+, driver 555+, OptiX 8.1 — no portable al navegador.
+
+### 2. jakobkla/UltraG-Ray
+- Código del artículo MIDL 2026 «UltraG-Ray: Physics-Based Gaussian Ray Casting for Novel Ultrasound View Synthesis» (Duelmer, Klaushofer, Wysocki, Navab, Azampour; TU Múnich). CUDA/Python, 12 estrellas.
+- Aprende un campo 3D de gaussianas a partir de cuadros B-mode con pose y sintetiza vistas nuevas para poses arbitrarias mediante ray casting con un módulo físico de atenuación y reflexión (núcleos CUDA propios `RasterizeToPixelsUltrasound3DGSFwd/Bwd.cu`, submódulo `glm`). Datos: hombro porcino ex vivo y fantoma de columna, en `images_*.npy` (N×H×W uint8) + `poses_*.npy` (N×4×4 cámara→mundo) + `conf.json`. Mejora reportada de hasta ~15 % MS-SSIM sobre trabajos previos.
+- Por qué interesa: el ejemplo más limpio de síntesis de vistas condicionada por pose desde una representación compacta, y un formato de dataset con pose que EchoTwin podría adoptar para sus propias grabaciones. Renderizar un campo entrenado en WebGPU es concebible, pero los núcleos ultrasónicos (atenuación ordenada a lo largo del haz, no composición alfa hacia la cámara) tendrían que rederivarse.
+
+### 3. sigurdstorve/OpenBCSim
+- Implementación C++ (OpenMP; CUDA experimental) del algoritmo COLE con enlaces Boost.Python, GUI Qt5 y scripts de fantomas; 25 estrellas; inactivo desde 2018.
+- Fantomas de dispersores puntuales (fijos o dinámicos por B-splines para un corazón latiendo) se proyectan sobre líneas de barrido y se convolucionan con una PSF separable para producir IQ (con decimación radial opcional); geometrías lineal y sectorial.
+- Por qué interesa: COLE es el modelo de formación de imagen más amigable con el navegador (proyección por línea + convolución 1-D/2-D encaja en una pasada de cómputo WebGPU) y el modelo de dispersores dinámicos por B-splines es un diseño listo para el movimiento cardíaco de un fantoma sintético. Si se copia código, conservar el texto BSD original literal.
+
+### 4. creatis-ULTIM/PyMUST
+- Reimplementación Python de MUST (MATLAB UltraSound Toolbox, D. Garcia, CREATIS); 83 estrellas; en PyPI (`pymust`) y conda-forge. Ramas activas (`gbernardino-devel`, `refactor/param-nested-structure`, `sphinx`, `ci/add-github-actions-tests`, `fix/sptrack`).
+- La API replica la de MATLAB, así que la documentación de MUST aplica. Hoja de ruta: aceleración GPU, imagen armónica, render diferenciable.
+- Por qué interesa: referencia físicamente fundamentada para la PSF (frecuencia, apertura, foco, geometría sectorial) y la cadena de postproceso, para validar las aproximaciones baratas del navegador contra un simulador «de verdad» y generar cuadros oro desde los mismos fantomas de dispersores. Las reglas de derivación de LGPL para JS empaquetado son confusas: reimplementar algoritmos, no copiar código.
+
+### 5. ahastava/moculus
+- «MoCoLUS», simulador de entrenamiento POCUS pulmonar generado por IA; 1 estrella; servidor web tipo FastAPI con streaming por WebSocket (GUI PyQt6 marcada como obsoleta).
+- 10 clases de patología en 15 escenarios; mapa SVG del tórax con las 8 zonas del protocolo BLUE; modo «sonda libre» que interpola cuadros entre zonas al arrastrar; modos práctica y examen con casos aleatorios; reproducción/congelado; sonda física con IMU BLE vía Web Bluetooth; imagen Docker para CPU con caché de cuadros pre-renderizados.
+- Por qué interesa: sólo el patrón de producto — mapa de zonas + interpolación continua, sonda física por Web Bluetooth, práctica/examen y «pre-render en GPU, servir desde caché en CPU», que encaja con una caché de cuadros/volúmenes indexada por pose para un simulador de ETT en navegador.

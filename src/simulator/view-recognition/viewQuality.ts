@@ -1,0 +1,372 @@
+import type { Vec3 } from '@/core/vec3';
+import { dot, normalize, radToDeg, sub, v3 } from '@/core/vec3';
+import type { HeartModel } from '@/simulator/anatomy/heartModel';
+import { heartDirToTorso, heartLandmarks, heartRootAxis, heartToTorso } from '@/simulator/anatomy/heartModel';
+import type { ThoraxModel } from '@/simulator/anatomy/thoraxModel';
+import type { BeamFrame, ProbeControl } from '@/simulator/probe/pose';
+import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
+import { canonicalBeam, canonicalPlane, VIEW_TARGETS, type ViewTarget, type WindowId } from '@/simulator/windows/viewTargets';
+import type { AcquisitionSettings, PolarFrame } from '@/simulator/renderer/types';
+import { Tissue } from '@/simulator/anatomy/tissue';
+
+/**
+ * ViewQualityEngine (spec 5.11, 28.1, 52). Scores are 0–100 with explicit components; landmark
+ * presence is tested geometrically against the SAME model that renders the image (plane distance,
+ * sector, depth, and shadowing from the frame's transmission map). Hints are deterministic rules,
+ * never a classifier. The view never "snaps": this only measures.
+ */
+export interface ViewComponentScores {
+  plane: number; // 0..1 geometric similarity of the imaging plane
+  landmarks: number; // 0..1 weighted presence of required landmarks minus penalties
+  geometry: number; // 0..1 foreshortening / truncation
+  centering: number;
+  depth: number;
+  gain: number;
+  artifacts: number;
+}
+
+export interface ViewAnalysis {
+  window: WindowId | 'none';
+  bestViewId: string | null;
+  bestViewName: string;
+  score: number; // 0..100
+  components: ViewComponentScores;
+  visibleLandmarks: string[];
+  missingLandmarks: string[];
+  penaltyLandmarksPresent: string[];
+  foreshorteningDeg: number;
+  planeAngleDeg: number;
+  inPlaneRotationDeg: number;
+  offsetCm: number;
+  hints: string[];
+  perView: { id: string; score: number }[];
+  heartCoverage: number; // fraction of sector samples that hit cardiac tissue
+  shadowFraction: number; // fraction of cardiac samples with poor transmission
+}
+
+const WEIGHTS: Record<keyof ViewComponentScores, number> = {
+  plane: 0.2,
+  landmarks: 0.3,
+  geometry: 0.15,
+  centering: 0.1,
+  depth: 0.1,
+  gain: 0.1,
+  artifacts: 0.05,
+};
+
+export function windowFromSkin(u: number, v: number): WindowId | 'none' {
+  if (v > 8) return 'suprasternal';
+  if (v < -7.5) return 'subcostal';
+  if (u >= 0 && u < 5.2 && v > -2.5) return 'parasternal';
+  if (u >= 4.2 && v <= 0.5) return 'apical';
+  return 'none';
+}
+
+interface LandmarkTest {
+  id: string;
+  visible: boolean;
+  planeDistCm: number;
+  inSector: boolean;
+  transmission: number;
+}
+
+/** Two-way transmission expected through average soft tissue (≈0.5 dB/cm/MHz) at depth r. */
+export function expectedTransmission(rCm: number, frequencyMHz: number): number {
+  return Math.exp(-0.23 * 0.5 * frequencyMHz * 1.2 * rCm);
+}
+
+function testLandmark(
+  p: Vec3,
+  radius: number,
+  beam: BeamFrame,
+  frame: PolarFrame,
+  frequencyMHz: number,
+): LandmarkTest & { thetaRad: number; rCm: number } {
+  const d = sub(p, beam.origin);
+  const depth = dot(d, beam.forward);
+  const lateral = dot(d, beam.lateral);
+  const elev = dot(d, beam.normal);
+  const r = Math.hypot(depth, lateral);
+  const theta = Math.atan2(lateral, depth);
+  const { lines, samples, sectorRad, depthCm } = frame.spec;
+  const inSector = depth > 0.4 && Math.abs(theta) < sectorRad / 2 - 0.02 && r < depthCm - 0.3;
+  let transmission = 0;
+  if (inSector) {
+    const li = Math.min(lines - 1, Math.max(0, Math.floor(((theta + sectorRad / 2) / sectorRad) * lines)));
+    const si = Math.min(samples - 1, Math.max(0, Math.floor((r / depthCm) * samples)));
+    transmission = frame.transmission[li * samples + si] ?? 0;
+  }
+  const planeDist = Math.abs(elev);
+  const tol = 0.45 + radius * 0.55;
+  // shadow test is relative to the expected soft-tissue attenuation at this depth
+  const expected = expectedTransmission(r, frequencyMHz);
+  const lit = transmission > 0.2 * expected;
+  return { id: '', visible: inSector && planeDist < tol && lit, planeDistCm: planeDist, inSector, transmission: lit ? 1 : 0, thetaRad: theta, rCm: r };
+}
+
+export interface AnalyzeInput {
+  heart: HeartModel;
+  thorax: ThoraxModel;
+  control: ProbeControl;
+  beam: BeamFrame;
+  frame: PolarFrame;
+  display: Uint8ClampedArray | null; // post-console polar intensities for gain checks
+  settings: AcquisitionSettings;
+}
+
+export function analyzeView(input: AnalyzeInput): ViewAnalysis {
+  const { heart, control, beam, frame, settings } = input;
+  const window = windowFromSkin(control.u, control.v);
+  const landmarks = heartLandmarks(heart);
+  const lmTorso = new Map<string, { p: Vec3; radius: number }>();
+  for (const l of landmarks) lmTorso.set(l.id, { p: heartToTorso(heart.frame, l.p), radius: l.radius });
+  const lmTests = new Map<string, ReturnType<typeof testLandmark>>();
+  for (const [id, l] of lmTorso) {
+    const t = testLandmark(l.p, l.radius, beam, frame, settings.frequencyMHz);
+    t.id = id;
+    lmTests.set(id, t);
+  }
+  // frame statistics: coverage & shadowing & gain
+  const { lines, samples } = frame.spec;
+  let cardiac = 0,
+    shadowed = 0,
+    bloodSum = 0,
+    bloodN = 0,
+    myoSum = 0,
+    myoN = 0;
+  const n = lines * samples;
+  const dr = frame.spec.depthCm / samples;
+  for (let i = 0; i < n; i += 3) {
+    const t = frame.tissue[i];
+    const st = frame.structure[i] ?? 0;
+    if (st !== 0 && st < 25) {
+      cardiac++;
+      const r = ((i % samples) + 0.5) * dr;
+      if ((frame.transmission[i] ?? 0) < 0.2 * expectedTransmission(r, settings.frequencyMHz)) shadowed++;
+      if (input.display) {
+        const y = (input.display[i] ?? 0) / 255;
+        if (t === Tissue.Blood) {
+          bloodSum += y;
+          bloodN++;
+        } else if (t === Tissue.Myocardium) {
+          myoSum += y;
+          myoN++;
+        }
+      }
+    }
+  }
+  const heartCoverage = cardiac / (n / 3);
+  const shadowFraction = cardiac ? shadowed / cardiac : 1;
+  const bloodMean = bloodN ? bloodSum / bloodN : 0;
+  const myoMean = myoN ? myoSum / myoN : 0;
+  let gainScore = 1;
+  if (bloodMean > 0.22) gainScore -= Math.min(0.7, (bloodMean - 0.22) * 3); // overgain
+  if (myoMean < 0.32 && myoN > 0) gainScore -= Math.min(0.7, (0.32 - myoMean) * 3); // undergain
+  gainScore = Math.max(0, gainScore);
+  const artifactsScore = Math.max(0, 1 - shadowFraction * 1.6);
+
+  // candidate views in this window
+  const candidates = VIEW_TARGETS.filter((v) => v.window === window);
+  const perView: { id: string; score: number; analysis: Partial<ViewAnalysis> & { components: ViewComponentScores } }[] = [];
+  for (const view of candidates) {
+    const plane = canonicalPlane(view, heart);
+    // similarity is measured against the pose an expert can actually reach from this window in this
+    // synthetic thorax (canonical beam); obliquity vs the ideal anatomical plane is reported separately
+    const canon = canonicalBeam(view, heart, input.thorax);
+    const planeAngle = radToDeg(Math.acos(Math.min(1, Math.abs(dot(canon.normal, beam.normal)))));
+    // in-plane rotation: compare the lateral axis with the canonical pose's lateral axis projected on the current plane
+    const rightProj = normalize(sub(canon.lateral, scaleV(beam.normal, dot(canon.lateral, beam.normal))));
+    const inPlane = radToDeg(Math.acos(Math.min(1, Math.max(-1, dot(rightProj, beam.lateral)))));
+    // offset: distance of the target from the beam centre line
+    const d = sub(plane.target, beam.origin);
+    const along = dot(d, beam.forward);
+    const off = Math.hypot(dot(d, beam.lateral), dot(d, beam.normal));
+    const tol = view.tolerance;
+    const planeScore = clamp01(1 - planeAngle / (tol.planeAngleDeg * 2)) * clamp01(1 - inPlane / (tol.inPlaneRotationDeg * 2.5));
+    // landmarks
+    let got = 0,
+      total = 0;
+    const visible: string[] = [];
+    const missing: string[] = [];
+    for (const req of view.requiredLandmarks) {
+      const t = lmTests.get(req.landmarkId);
+      total += req.weight;
+      if (t?.visible) {
+        got += req.weight;
+        visible.push(req.landmarkId);
+      } else if (t && t.inSector && t.planeDistCm < 1.6 && t.transmission > 0.5) {
+        got += req.weight * 0.4; // partially in the slice
+        missing.push(req.landmarkId);
+      } else missing.push(req.landmarkId);
+    }
+    const penaltyPresent: string[] = [];
+    let penalty = 0;
+    for (const pen of view.penaltyLandmarks) {
+      const t = lmTests.get(pen.landmarkId);
+      if (t?.visible) {
+        penalty += pen.weight * 0.12;
+        penaltyPresent.push(pen.landmarkId);
+      }
+    }
+    const landmarkScore = clamp01(total ? got / total - penalty : 0);
+    // geometry: foreshortening for apical views = angle between plane and LV long axis + apex plane distance
+    const lvAxis = heartDirToTorso(heart.frame, v3(0, 0, 1));
+    const axisPlaneAngle = radToDeg(Math.asin(Math.min(1, Math.abs(dot(lvAxis, beam.normal)))));
+    const apexT = lmTests.get('lv-apex');
+    let geometryScore = 1;
+    let foreshorteningDeg = axisPlaneAngle;
+    if (view.window === 'apical') {
+      const apexDist = apexT ? apexT.planeDistCm : 5;
+      foreshorteningDeg = axisPlaneAngle + apexDist * 12;
+      geometryScore = clamp01(1 - foreshorteningDeg / 40);
+    } else if (view.id === 'plax') {
+      geometryScore = clamp01(1 - axisPlaneAngle / 35);
+    } else {
+      // short axis: obliquity = deviation from perpendicular to the reference axis (LV long axis, or the
+      // aortic root axis for the AV level); mild penalty because some obliquity is normal
+      const refAxis = view.id === 'psax-av' ? heartDirToTorso(heart.frame, heartRootAxis(heart)) : lvAxis;
+      const refAngle = radToDeg(Math.asin(Math.min(1, Math.abs(dot(refAxis, beam.normal)))));
+      const obliquity = 90 - refAngle;
+      geometryScore = clamp01(1 - Math.max(0, obliquity - 12) / 50);
+      foreshorteningDeg = obliquity;
+    }
+    const centeringScore = clamp01(1 - off / 3.5) * (along > 0 ? 1 : 0);
+    const [dLo, dHi] = view.recommendedDepthRangeCm;
+    const depthScore = settings.depthCm < dLo ? clamp01(1 - (dLo - settings.depthCm) / 5) : settings.depthCm > dHi ? clamp01(1 - (settings.depthCm - dHi) / 8) : 1;
+    const comps: ViewComponentScores = {
+      plane: planeScore,
+      landmarks: landmarkScore,
+      geometry: geometryScore,
+      centering: centeringScore,
+      depth: depthScore,
+      gain: gainScore,
+      artifacts: artifactsScore,
+    };
+    let score = 0;
+    for (const k of Object.keys(WEIGHTS) as (keyof ViewComponentScores)[]) score += WEIGHTS[k] * comps[k];
+    // gates: a wrong plane cannot be rescued by landmarks that happen to be shared between views,
+    // and a pose cannot score high with < 40% of its landmarks
+    score *= 0.35 + 0.65 * planeScore;
+    if (landmarkScore < 0.4) score *= 0.5 + landmarkScore;
+    perView.push({
+      id: view.id,
+      score: Math.round(score * 100),
+      analysis: {
+        components: comps,
+        visibleLandmarks: visible,
+        missingLandmarks: missing,
+        penaltyLandmarksPresent: penaltyPresent,
+        foreshorteningDeg,
+        planeAngleDeg: planeAngle,
+        inPlaneRotationDeg: inPlane,
+        offsetCm: off,
+      },
+    });
+  }
+  perView.sort((a, b) => b.score - a.score);
+  const best = perView[0];
+  const view = best ? VIEW_TARGETS.find((v) => v.id === best.id)! : null;
+  const hints: string[] = [];
+  if (!best || !view) {
+    hints.push(window === 'none' ? 'Sonda fuera de una ventana acústica útil: acércate al borde esternal izquierdo o al ápex.' : 'Ventana sin vistas definidas en esta versión.');
+    return {
+      window,
+      bestViewId: null,
+      bestViewName: '—',
+      score: 0,
+      components: { plane: 0, landmarks: 0, geometry: 0, centering: 0, depth: 0, gain: gainScore, artifacts: artifactsScore },
+      visibleLandmarks: [],
+      missingLandmarks: [],
+      penaltyLandmarksPresent: [],
+      foreshorteningDeg: 0,
+      planeAngleDeg: 0,
+      inPlaneRotationDeg: 0,
+      offsetCm: 0,
+      hints,
+      perView: [],
+      heartCoverage,
+      shadowFraction,
+    };
+  }
+  const a = best.analysis;
+  hints.push(...poseHints(view, heart, input.thorax, control, a.planeAngleDeg ?? 0, a.inPlaneRotationDeg ?? 0, a.offsetCm ?? 0));
+  if (shadowFraction > 0.35) hints.push('Gran parte del corazón está en sombra: probablemente hay costilla o pulmón en el trayecto. Desplaza la sonda al espacio intercostal o pide espiración.');
+  if (heartCoverage < 0.08) hints.push('Casi no hay tejido cardíaco en el sector: reposiciona la sonda sobre la ventana.');
+  if ((a.missingLandmarks?.length ?? 0) > 0 && (a.planeAngleDeg ?? 0) < 12) {
+    const names = a.missingLandmarks!.slice(0, 3).map((id) => landmarks.find((l) => l.id === id)?.label ?? id);
+    hints.push(`Faltan referencias: ${names.join(', ')}.`);
+  }
+  if (view.window === 'apical' && (a.foreshorteningDeg ?? 0) > 15) hints.push('El ápex está acortado: desplaza la sonda un espacio más abajo/lateral y angula hacia la base para alargar el VI.');
+  if (settings.depthCm > view.recommendedDepthRangeCm[1]) hints.push('Demasiada profundidad para esta vista: reduce la profundidad para ganar resolución y frame rate.');
+  if (settings.depthCm < view.recommendedDepthRangeCm[0]) hints.push('Profundidad insuficiente: las estructuras posteriores quedan fuera del sector.');
+  if (gainScore < 0.7) hints.push(bloodMean > 0.22 ? 'Exceso de ganancia: la sangre se ve gris. Baja la ganancia o ajusta TGC.' : 'Ganancia insuficiente: el miocardio se ve oscuro. Sube la ganancia.');
+  return {
+    window,
+    bestViewId: view.id,
+    bestViewName: view.name,
+    score: best.score,
+    components: a.components,
+    visibleLandmarks: a.visibleLandmarks ?? [],
+    missingLandmarks: a.missingLandmarks ?? [],
+    penaltyLandmarksPresent: a.penaltyLandmarksPresent ?? [],
+    foreshorteningDeg: a.foreshorteningDeg ?? 0,
+    planeAngleDeg: a.planeAngleDeg ?? 0,
+    inPlaneRotationDeg: a.inPlaneRotationDeg ?? 0,
+    offsetCm: a.offsetCm ?? 0,
+    hints,
+    perView: perView.map((p) => ({ id: p.id, score: p.score })),
+    heartCoverage,
+    shadowFraction,
+  };
+}
+
+function scaleV(v: Vec3, s: number): Vec3 {
+  return v3(v.x * s, v.y * s, v.z * s);
+}
+const clamp01 = (x: number): number => (x < 0 ? 0 : x > 1 ? 1 : x);
+
+/** Pose error used for hints: plane normal angle + lateral angle + target offset (radians/cm mix). */
+function poseError(view: ViewTarget, heart: HeartModel, thorax: ThoraxModel, c: ProbeControl): number {
+  const plane = canonicalPlane(view, heart);
+  const canon = canonicalBeam(view, heart, thorax);
+  const beam = beamFrameFromPose(poseFromControl(thorax, c));
+  const e1 = Math.acos(Math.min(1, Math.abs(dot(canon.normal, beam.normal))));
+  const rightProj = normalize(sub(canon.lateral, scaleV(beam.normal, dot(canon.lateral, beam.normal))));
+  const e2 = Math.acos(Math.min(1, Math.max(-1, dot(rightProj, beam.lateral))));
+  const d = sub(plane.target, beam.origin);
+  const off = Math.hypot(dot(d, beam.lateral), dot(d, beam.normal));
+  return e1 * 1.2 + e2 * 0.8 + off * 0.25;
+}
+
+/** Deterministic manipulation hints: try small moves, report the ones that reduce the pose error most. */
+export function poseHints(
+  view: ViewTarget,
+  heart: HeartModel,
+  thorax: ThoraxModel,
+  c: ProbeControl,
+  planeAngleDeg: number,
+  inPlaneDeg: number,
+  offsetCm: number,
+): string[] {
+  const hints: string[] = [];
+  if (planeAngleDeg < 8 && inPlaneDeg < 10 && offsetCm < 1.2) return hints;
+  const base = poseError(view, heart, thorax, c);
+  const moves: { label: (d: number) => string; apply: (d: number) => ProbeControl; step: number }[] = [
+    { label: (d) => `Rota ${Math.abs(d)}° en sentido ${d > 0 ? 'horario' : 'antihorario'}`, apply: (d) => ({ ...c, rotationDeg: c.rotationDeg + d }), step: 10 },
+    { label: (d) => `Inclina (abanica) ${Math.abs(d)}° ${d > 0 ? 'hacia el marcador/arriba' : 'en sentido contrario/abajo'}`, apply: (d) => ({ ...c, tiltDeg: c.tiltDeg + d }), step: 8 },
+    { label: (d) => `Rockea ${Math.abs(d)}° ${d > 0 ? 'hacia el lado del marcador' : 'en contra del marcador'}`, apply: (d) => ({ ...c, rockDeg: c.rockDeg + d }), step: 8 },
+    { label: (d) => `Desliza ${Math.abs(d).toFixed(1)} cm ${d > 0 ? 'hacia la izquierda del paciente' : 'hacia el esternón'}`, apply: (d) => ({ ...c, u: c.u + d }), step: 1 },
+    { label: (d) => `Desliza ${Math.abs(d).toFixed(1)} cm ${d > 0 ? 'hacia la cabeza' : 'hacia los pies'} (otro espacio intercostal)`, apply: (d) => ({ ...c, v: c.v + d }), step: 1 },
+  ];
+  const results: { gain: number; text: string }[] = [];
+  for (const m of moves) {
+    for (const sgn of [1, -1]) {
+      const d = sgn * m.step;
+      const e = poseError(view, heart, thorax, m.apply(d));
+      if (e < base - 0.01) results.push({ gain: base - e, text: m.label(d) });
+    }
+  }
+  results.sort((a, b) => b.gain - a.gain);
+  for (const r of results.slice(0, 2)) hints.push(r.text + '.');
+  return hints;
+}

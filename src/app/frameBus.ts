@@ -1,0 +1,22 @@
+import type { SimOutput } from '@/simulator/core/protocol';
+
+/**
+ * Hand-off between the simulation loop and the display canvas. The latest composite frame is
+ * delivered imperatively to listeners (the canvas draws it immediately, outside React) and its
+ * buffer is recycled back to the worker after drawing. React only receives a throttled HUD.
+ */
+type Listener = (out: SimOutput) => void;
+const listeners = new Set<Listener>();
+export const frameBus = {
+  latest: null as SimOutput | null,
+  recycle: (_b: ArrayBuffer): void => {},
+  subscribe(fn: Listener): () => void {
+    listeners.add(fn);
+    return () => {
+      listeners.delete(fn);
+    };
+  },
+  emit(out: SimOutput): void {
+    for (const l of listeners) l(out);
+  },
+};

@@ -1,0 +1,10 @@
+{
+  "name": "EchoTwin TTE Simulator",
+  "short_name": "EchoTwin",
+  "description": "Simulador educacional de ecocardiografía transtorácica con pacientes sintéticos.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b0e12",
+  "theme_color": "#0b0e12",
+  "icons": []
+}

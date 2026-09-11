@@ -1,0 +1,51 @@
+{
+  "name": "echotwin-tte-simulator",
+  "version": "0.1.0",
+  "private": true,
+  "description": "EchoTwin TTE Simulator — educational adult transthoracic echocardiography simulator with continuous probe-pose imaging (synthetic patients only).",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -p tsconfig.json --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"e2e/**/*.ts\" \"tools/**/*.ts\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "check": "npm run lint && npm run typecheck && npm run test && npm run build",
+    "atlas:build": "tsx tools/offline/atlas-generation/build-atlas.ts",
+    "golden:update": "UPDATE_GOLDENS=1 vitest run src/tests/goldens.test.ts"
+  },
+  "dependencies": {
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "three": "0.186.0",
+    "zod": "4.6.1",
+    "zustand": "5.0.15"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "@playwright/test": "1.63.0",
+    "@types/node": "22.20.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/three": "0.185.4",
+    "@vitejs/plugin-react": "5.2.0",
+    "@vitest/coverage-v8": "4.1.11",
+    "eslint": "9.39.5",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "16.3.0",
+    "jsdom": "30.0.1",
+    "prettier": "3.9.6",
+    "tsx": "4.20.5",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.70.0",
+    "vite": "7.3.6",
+    "vitest": "4.1.11"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,75 @@
+import { SimulatorCore } from '@/simulator/core/simulatorCore';
+import type { MainToWorker, SimInput, WorkerToMain } from '@/simulator/core/protocol';
+
+/**
+ * Web Worker entry. The worker drives its own clock (setTimeout at the simulated frame interval)
+ * so the simulation keeps running independently of main-thread rAF throttling; the main thread
+ * only sends inputs when they change and recycles buffers (which doubles as back-pressure ack).
+ */
+let core: SimulatorCore | null = null;
+let input: SimInput | null = null;
+let lastTick = 0;
+let outstanding = 0;
+let timer: ReturnType<typeof setTimeout> | null = null;
+
+const post = (m: WorkerToMain, transfer?: Transferable[]): void => {
+  (self as unknown as Worker).postMessage(m, transfer ?? []);
+};
+
+function schedule(delayMs: number): void {
+  if (timer) clearTimeout(timer);
+  timer = setTimeout(tick, delayMs);
+}
+
+function tick(): void {
+  timer = null;
+  if (!core || !input) return;
+  const now = performance.now() / 1000;
+  const dt = lastTick ? now - lastTick : 1 / 60;
+  lastTick = now;
+  try {
+    const t0 = performance.now();
+    const out = core.step(dt);
+    const stepMs = performance.now() - t0;
+    if (out && outstanding < 2) {
+      out.stats = { ...out.stats, stepMs: Number(stepMs.toFixed(1)) };
+      outstanding++;
+      post({ type: 'frame', output: out }, [out.rgba]);
+    } else if (out) {
+      core.recycle(out.rgba); // main thread is behind: drop the frame, keep simulating
+    }
+    // pace at the simulated frame rate (or 30 Hz for strips), never faster than the work allows
+    const targetMs = input.frozen ? 80 : Math.max(12, Math.min(50, 1000 / (out?.simulatedFps ?? 30)));
+    schedule(Math.max(4, targetMs - stepMs));
+  } catch (e) {
+    post({ type: 'error', message: e instanceof Error ? e.message + '\n' + (e.stack ?? '') : String(e) });
+    schedule(500);
+  }
+}
+
+self.onmessage = (ev: MessageEvent<MainToWorker>) => {
+  const msg = ev.data;
+  try {
+    if (msg.type === 'init' || msg.type === 'loadCase') {
+      core = new SimulatorCore(msg.caseDef, msg.input);
+      input = msg.input;
+      lastTick = 0;
+      outstanding = 0;
+      post({ type: 'ready', truth: core.truth, caseId: msg.caseDef.id });
+      schedule(1);
+      return;
+    }
+    if (!core) return;
+    if (msg.type === 'recycle') {
+      core.recycle(msg.buffer);
+      outstanding = Math.max(0, outstanding - 1);
+      return;
+    }
+    if (msg.type === 'input') {
+      input = msg.input;
+      core.setInput(msg.input);
+    }
+  } catch (e) {
+    post({ type: 'error', message: e instanceof Error ? e.message + '\n' + (e.stack ?? '') : String(e) });
+  }
+};
