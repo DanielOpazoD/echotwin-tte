@@ -8,6 +8,10 @@ import type { SimOutput, QualityTier } from '@/simulator/core/protocol';
 import type { StructuredEchoTruth } from '@/simulator/hemodynamics/groundTruth';
 import type { Measurement } from '@/simulator/measurements/types';
 import { getMeasurementSpec } from '@/simulator/measurements/protocol';
+import { addEvent, completeTask, emptyProgress, loadProgress, saveProgress, type ProgressEvent, type ProgressState } from '@/education/progress';
+import { expectedFindings, getFinding, scoreImpression } from '@/education/impression';
+import { buildExamSummary } from '@/education/scoring/scoring';
+import { loadCaseById } from '@/cases';
 import type { PhaseMarks } from '@/simulator/core/protocol';
 import { getCaseModels } from './caseModels';
 import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
@@ -23,7 +27,7 @@ export interface UiPrefs {
   devPanel: boolean;
   showEcg: boolean;
   tutorialDone: boolean;
-  screen: 'simulator' | 'references' | 'report';
+  screen: 'simulator' | 'references' | 'report' | 'curriculum' | 'progress';
 }
 
 export interface SimStore {
@@ -46,6 +50,14 @@ export interface SimStore {
   truth: StructuredEchoTruth | null;
   measurements: Measurement[];
   activeTool: 'none' | 'caliper' | 'velocity' | 'vti' | 'auto-vti' | 'time' | 'slope' | 'simpson' | 'tapse';
+  /** Local learning progress (events + completed curriculum tasks), persisted in localStorage. */
+  progress: ProgressState;
+  recordEvent: (e: ProgressEvent) => void;
+  completeTasks: (taskIds: string[]) => void;
+  resetLearningProgress: () => void;
+  /** Structured impression selected by the learner for the current case. */
+  impressionSelection: string[];
+  toggleFinding: (id: string) => void;
   /** Artifact laboratory overrides (null = case defaults). */
   artifactLab: { sideLobe: number; mirror: number; beamWidth: number; clutter: number } | null;
   setArtifactLab: (v: { sideLobe: number; mirror: number; beamWidth: number; clutter: number } | null) => void;
@@ -149,6 +161,8 @@ export const useSimStore = create<SimStore>((set) => ({
   measurements: [],
   activeTool: 'none',
   activeMeasurementId: null,
+  progress: loadProgress(typeof localStorage !== 'undefined' ? localStorage : null),
+  impressionSelection: [],
   artifactLab: null,
   phaseMarks: null,
   lvLengthCm: null,
@@ -197,7 +211,12 @@ export const useSimStore = create<SimStore>((set) => ({
       return { ui };
     }),
   setTruth: (t, caseId) => set({ truth: t, caseId }),
-  addMeasurement: (m) => set((s) => ({ measurements: [...s.measurements, m] })),
+  addMeasurement: (m) =>
+    set((s) => {
+      const progress = addEvent(s.progress, { t: Date.now(), kind: 'measurement', caseId: s.caseId, measurementId: m.measurementId ?? m.label, techniqueScore: m.technique?.score ?? null, value: m.value });
+      saveProgress(typeof localStorage !== 'undefined' ? localStorage : null, progress);
+      return { measurements: [...s.measurements, m], progress };
+    }),
   removeMeasurement: (id) => set((s) => ({ measurements: s.measurements.filter((m) => m.id !== id) })),
   clearMeasurements: () => set({ measurements: [] }),
   setActiveTool: (t) => set({ activeTool: t, activeMeasurementId: null }),
@@ -209,6 +228,37 @@ export const useSimStore = create<SimStore>((set) => ({
   },
   setCycleInfo: (marks, lvLengthCm) => set({ phaseMarks: marks, lvLengthCm }),
   setArtifactLab: (v) => set({ artifactLab: v }),
+  recordEvent: (e) =>
+    set((s) => {
+      const progress = addEvent(s.progress, e);
+      saveProgress(typeof localStorage !== 'undefined' ? localStorage : null, progress);
+      return { progress };
+    }),
+  completeTasks: (ids) =>
+    set((s) => {
+      let progress = s.progress;
+      const now = Date.now();
+      for (const id of ids) progress = completeTask(progress, id, now);
+      if (progress === s.progress) return {};
+      saveProgress(typeof localStorage !== 'undefined' ? localStorage : null, progress);
+      return { progress };
+    }),
+  resetLearningProgress: () => {
+    const progress = emptyProgress();
+    saveProgress(typeof localStorage !== 'undefined' ? localStorage : null, progress);
+    set({ progress });
+  },
+  toggleFinding: (id) =>
+    set((s) => {
+      const f = getFinding(id);
+      let sel = s.impressionSelection.filter((x) => x !== id);
+      if (!s.impressionSelection.includes(id)) {
+        // exclusive groups: selecting one deselects the others of the group
+        if (f?.exclusive) sel = sel.filter((x) => getFinding(x)?.exclusive !== f.exclusive);
+        sel.push(id);
+      }
+      return { impressionSelection: sel };
+    }),
   startPresetView: (viewId) =>
     set((s) => {
       if (s.mode === 'exam') return {};
@@ -228,13 +278,29 @@ export const useSimStore = create<SimStore>((set) => ({
     }),
   recordViewScore: (viewId, score) =>
     set((s) => ((s.viewProgress[viewId] ?? 0) >= score ? {} : { viewProgress: { ...s.viewProgress, [viewId]: score } })),
-  finishExam: () => set({ examFinished: true, frozen: true, ui: { ...useSimStore.getState().ui, screen: 'report' } }),
+  finishExam: () =>
+    set((s) => {
+      let progress = s.progress;
+      if (s.truth) {
+        const caseDef = loadCaseById(s.caseId);
+        const impression = scoreImpression(s.impressionSelection, expectedFindings(s.truth)).score;
+        const summary = buildExamSummary(caseDef, s.truth, s.viewProgress, s.measurements, impression);
+        progress = addEvent(progress, { t: Date.now(), kind: 'exam', caseId: s.caseId, total: summary.total, acquisition: summary.acquisition.total, measurements: summary.measurements.total, impression });
+        saveProgress(typeof localStorage !== 'undefined' ? localStorage : null, progress);
+      }
+      return { examFinished: true, frozen: true, progress, ui: { ...s.ui, screen: 'report' } };
+    }),
   resetProgress: () => set({ viewProgress: {}, examFinished: false, measurements: [] }),
   setError: (e) => set({ error: e }),
   setWorkerMode: (m) => set({ workerMode: m }),
   setFpsUi: (f) => set({ fpsUi: f }),
   resetProbe: () => set({ probe: { ...START_PROBE }, presetAnim: null }),
-  loadCase: (id) => set({ caseId: id, measurements: [], frozen: false, cineOffset: 0, probe: { ...START_PROBE }, viewProgress: {}, examFinished: false, presetAnim: null }),
+  loadCase: (id) =>
+    set((s) => {
+      const progress = addEvent(s.progress, { t: Date.now(), kind: 'case', caseId: id });
+      saveProgress(typeof localStorage !== 'undefined' ? localStorage : null, progress);
+      return { caseId: id, measurements: [], frozen: false, cineOffset: 0, probe: { ...START_PROBE }, viewProgress: {}, examFinished: false, presetAnim: null, impressionSelection: [], artifactLab: null, progress };
+    }),
 }));
 
 function clampProbe(p: ProbeControl): ProbeControl {

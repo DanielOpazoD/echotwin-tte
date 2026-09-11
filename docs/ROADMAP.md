@@ -65,7 +65,8 @@ Estado real según el código el 2026-09-10. Los hitos M0–M6 siguen la especif
 | Los 12 casos de la especificación (normal ×2, ICFEr con IM funcional, ASM inferior, EA moderada y severa, MCH obstructiva con SAM, prolapso con IM primaria, hipertensión pulmonar con VD, derrame con taponamiento, FA, desafío de artefactos) | hecho | `src/cases/*.ts`, `cases.test.ts`, `proportions.test.ts` (desviaciones declaradas por caso), `regurgitation.test.ts`, `artifacts.test.ts` |
 | Exportación PNG con marca de agua sintética | hecho | `src/app/exportImage.ts` (sin prueba) |
 | Simpson biplano, FAC, áreas, PHT, IVRT | pendiente | monoplano y TD existen; el resto no |
-| Puntuación de examen (`requiredViews`, `requiredMeasurements`) | hecho | `src/education/scoring` + `scoring.test.ts` + «Finalizar examen» en `ReportScreen`; `impressionTruth` sigue sin uso |
+| Puntuación de examen (`requiredViews`, `requiredMeasurements`, impresión estructurada 40/40/20) | hecho | `src/education/scoring` + `scoring.test.ts`, `impression.ts` + `impression.test.ts`; `impressionTruth` (texto) sigue sin comparación automática: la impresión se evalúa por catálogo de hallazgos |
+| Currículo por etapas con tareas verificadas automáticamente, explicaciones causales, progreso local exportable | hecho | `education/{curriculum,causes,progress}.ts`, `CurriculumScreen`, `ProgressScreen`, `e2e/learning.spec.ts` |
 | Casos con bicúspide, estenosis mitral, prótesis, congénitas | pendiente | el esquema admite `bicuspid`; el resto no está modelado |
 
 ## M6 — Atlas, validación y rendimiento
@@ -74,7 +75,7 @@ Estado real según el código el 2026-09-10. Los hitos M0–M6 siguen la especif
 | Atlas pose-condicionado (32 fases, anclas construidas con la sonda quieta, kNN/RBF, relleno, cuadros compactos) | hecho | `atlasRenderer.ts`, `atlas.test.ts` |
 | Generación offline de atlas (`atlas:build`) | parcial | `build-atlas.ts` genera hojas de contacto de 16 fases por vista para inspección; no exporta un paquete de anclas cargable |
 | Goldens por semilla y renders offline | hecho | `goldens.test.ts`, `render-views.ts` |
-| Pruebas E2E | hecho | 23 pruebas Playwright (`core-flow`, `measurements`, `gpu-equivalence`); última ejecución local `passed` |
+| Pruebas E2E | hecho | 30 pruebas Playwright (`core-flow`, `measurements`, `learning`, `gpu-equivalence`); última ejecución local `passed` |
 | Validación contra PyMUST / OpenBCSim / referencia CUDA | pendiente | carpetas vacías |
 | Rendimiento objetivo en navegador (render < 16 ms a calidad media) | parcial | trazador ≈ 10 ms en Node (ruido de retícula); en el navegador, con ancla completa, `stepMs` ≈ 2–3 ms; barridos ≈ 15–30 ms según núcleo |
 | Documentación | hecho | `docs/` (este conjunto) |

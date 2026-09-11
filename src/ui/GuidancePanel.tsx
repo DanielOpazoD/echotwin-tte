@@ -1,5 +1,6 @@
 import { useHudStore, useSimStore } from '@/app/store';
 import { getViewTarget } from '@/simulator/windows/viewTargets';
+import { explainAnalysis } from '@/education/causes';
 
 /** Left-bottom guidance: recognised view, score components and deterministic hints (spec 27.2, 52). */
 export function GuidancePanel() {
@@ -7,6 +8,7 @@ export function GuidancePanel() {
   const ui = useSimStore((s) => s.ui);
   const mode = useSimStore((s) => s.mode);
   const targetId = useSimStore((s) => s.targetViewId);
+  const settings = useSimStore((s) => s.settings);
   const v = hud?.view;
   if (mode === 'exam') {
     return (
@@ -28,6 +30,7 @@ export function GuidancePanel() {
     ['Artefactos', comps.artifacts],
   ];
   const color = v.score >= 75 ? 'var(--ok)' : v.score >= 50 ? 'var(--warn)' : 'var(--bad)';
+  const causes = ui.showHints ? explainAnalysis(v, settings) : [];
   return (
     <div className="guidance" aria-live="polite">
       <div className="score">
@@ -67,6 +70,16 @@ export function GuidancePanel() {
               <li key={i}>{h}</li>
             ))}
           </ul>
+          {causes.length > 0 && (
+            <details className="causes" open={false}>
+              <summary className="small">Por qué ({causes.length})</summary>
+              {causes.map((c) => (
+                <div key={c.code} className="small cause" data-cause={c.code}>
+                  <b>Causa:</b> {c.cause} <b>Efecto:</b> {c.effect} <b>Remedio:</b> {c.remedy}
+                </div>
+              ))}
+            </details>
+          )}
           {targetId && (
             <ul>
               {getViewTarget(targetId).hints.map((h, i) => (

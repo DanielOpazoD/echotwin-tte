@@ -3,6 +3,7 @@ import { formatClinical } from '@/clinical/reference-values';
 import { buildEducationalReport } from '@/clinical/reporting/report';
 import { buildExamSummary, scoreAcquisition } from '@/education/scoring/scoring';
 import { loadCaseById } from '@/cases';
+import { expectedFindings, FINDINGS, getFinding, scoreImpression, type FindingDomain } from '@/education/impression';
 
 /** Educational structured report (spec 26) + exam summary (spec 28.4). Learning mode shows ground truth; exam mode hides it until finished. */
 export function ReportScreen() {
@@ -11,7 +12,19 @@ export function ReportScreen() {
   const report = buildEducationalReport(s.measurements, s.truth, hideTruth);
   const caseDef = loadCaseById(s.caseId);
   const acquisition = scoreAcquisition(caseDef, s.viewProgress);
-  const summary = s.truth && (s.mode !== 'exam' || s.examFinished) ? buildExamSummary(caseDef, s.truth, s.viewProgress, s.measurements) : null;
+  const expected = s.truth ? expectedFindings(s.truth) : [];
+  const impression = s.impressionSelection.length ? scoreImpression(s.impressionSelection, expected) : null;
+  const summary = s.truth && (s.mode !== 'exam' || s.examFinished) ? buildExamSummary(caseDef, s.truth, s.viewProgress, s.measurements, impression?.score ?? null) : null;
+  const domains: { id: FindingDomain; label: string }[] = [
+    { id: 'global', label: 'Global' },
+    { id: 'lv', label: 'Ventrículo izquierdo' },
+    { id: 'valves', label: 'Válvulas y TSVI' },
+    { id: 'right', label: 'Corazón derecho' },
+    { id: 'atria', label: 'Aurículas' },
+    { id: 'pericardium', label: 'Pericardio' },
+    { id: 'rhythm-diastole', label: 'Ritmo y diástole' },
+  ];
+  const showImpressionTruth = s.mode !== 'exam' || s.examFinished;
   return (
     <div className="screen">
       <h2>Informe educacional — {s.caseId}</h2>
@@ -44,6 +57,33 @@ export function ReportScreen() {
           ))}
         </tbody>
       </table>
+      <h3>Impresión estructurada</h3>
+      <p className="small">Marca los hallazgos que sustentan tu impresión. Se comparan con los que el modelo del caso implica (umbrales de las guías); la puntuación es la F1 entre ambos conjuntos.</p>
+      <div className="impression-form" data-impression-score={impression?.score ?? ''}>
+        {domains.map((d) => (
+          <fieldset key={d.id}>
+            <legend className="small">{d.label}</legend>
+            {FINDINGS.filter((f) => f.domain === d.id).map((f) => {
+              const checked = s.impressionSelection.includes(f.id);
+              const isExpected = expected.includes(f.id);
+              const cls = showImpressionTruth && s.impressionSelection.length ? (checked && isExpected ? 'ok' : checked && !isExpected ? 'bad' : !checked && isExpected ? 'missed' : '') : '';
+              return (
+                <label key={f.id} className={`finding ${cls}`} data-finding={f.id}>
+                  <input type="checkbox" checked={checked} onChange={() => s.toggleFinding(f.id)} />
+                  {f.label}
+                </label>
+              );
+            })}
+          </fieldset>
+        ))}
+      </div>
+      {impression && showImpressionTruth && (
+        <p data-impression-result="1">
+          Impresión: <b>{impression.score}/100</b> · correctos {impression.correct.length} · omitidos {impression.missed.length} · sobrantes {impression.wrong.length}
+          {impression.missed.length > 0 && <span className="small"> — omitidos: {impression.missed.map((id) => getFinding(id)?.label ?? id).join('; ')}</span>}
+        </p>
+      )}
+      {impression && !showImpressionTruth && <p className="small">Impresión registrada ({s.impressionSelection.length} hallazgos); se evalúa al finalizar el examen.</p>}
       <h3>Calidad del estudio</h3>
       <p>{report.studyQuality}</p>
       {report.derived.length > 0 && (
@@ -154,7 +194,7 @@ export function ReportScreen() {
         <>
           <h3>Puntuación {s.mode === 'exam' ? 'del examen' : '(progreso)'}: {summary.total}/100</h3>
           <p className="small">
-            Adquisición {summary.acquisition.total}/100 · Mediciones {summary.measurements.total}/100. Tolerancias y pesos en <code>src/education/scoring</code>.
+            Adquisición {summary.acquisition.total}/100 · Mediciones {summary.measurements.total}/100{summary.impression !== null ? ` · Impresión ${summary.impression}/100` : ''}. Tolerancias y pesos en <code>src/education/scoring</code>.
           </p>
           <table>
             <thead>

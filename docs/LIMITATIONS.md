@@ -29,6 +29,11 @@ Este documento existe para que nadie use el simulador más allá de lo que hace.
 - El mapeo píxel↔cm y las herramientas siguen sin prueba unitaria directa; hay pruebas del motor de técnica, del método de discos, del soporte del núcleo (mapa de estructuras, gate, auto-trace) y dos E2E del flujo.
 - Los valores de referencia están marcados `recalled`; los cortes de e′ son los de 2016 (ver `docs/REFERENCES.md`). No hay graduación diastólica ni del corazón derecho; la graduación de EA de `report.ts` lee `AORTIC_STENOSIS_RULES` de `reference-values` (valores marcados `recalled`).
 
+## Capa instruccional
+- Las tareas del currículo se verifican con criterios automáticos gruesos (scores, modalidad, estructura del gate, técnica ≥ 0,75, impresión ≥ 70): no evalúan el proceso (tiempo, número de intentos) ni detectan atajos como usar la vista predeterminada; los módulos no tienen prerrequisitos obligatorios.
+- La impresión es un catálogo cerrado de 29 hallazgos: no admite texto libre ni matices (grados intermedios, mecanismos); los umbrales de derivación son los mismos de las guías usadas en la app y no cubren todas las situaciones (p. ej. disfunción diastólica con FA se marca por E/e′ y AI).
+- La analítica es local (localStorage, máx. 2000 eventos) y se pierde al borrar el sitio; la exportación es manual. No hay perfiles de alumno ni sincronización.
+
 ## Navegador y rendimiento
 - Render procedimental en CPU de **~10 ms por cuadro a calidad media** en Node (`bench.ts`); en el navegador el trazador WebGL2 (misma imagen, ver DECISIONS #29) tarda ~3 ms con lectura de vuelta incluida y alimenta el atlas por defecto; sin WebGL2 o sin `EXT_color_buffer_float` (navegadores antiguos, algunos entornos sin GPU) todo vuelve a la CPU y el panel Dev muestra la razón en `gpu`. La lectura de vuelta es síncrona (`readPixels`) y el worker sigue acotando su paso a 12–50 ms.
 - El atlas construye anclas sólo cuando la sonda está quieta (32 fases, ~1 s); durante un barrido se renderiza directamente (~10 ms por cuadro en Node, más en núcleos de eficiencia). El movimiento reproducido desde un ancla está cuantizado a 32 fases por latido (fase más cercana, sin fundido). No hay atlas pre-generado.
@@ -37,7 +42,7 @@ Este documento existe para que nadie use el simulador más allá de lo que hace.
 - Sin fallback si `Worker` existe pero falla al cargar el módulo (sólo se captura la excepción del constructor); el modo inline usa `setInterval` de 33 ms.
 - Audio Doppler con 48 osciladores siempre activos mientras está encendido; `AudioContext` requiere gesto del usuario en algunos navegadores.
 - UI pensada para escritorio con ratón (1440×900 en Playwright); sin soporte táctil ni accesibilidad más allá de etiquetas ARIA básicas; preferencias en `localStorage` sin versionado más allá del sufijo `v1`.
-- 23 pruebas E2E y un flujo de CI (`.github/workflows/ci.yml`) que nunca se ha ejecutado en remoto: el repositorio tiene commits locales pero no tiene remoto.
+- 30 pruebas E2E y un flujo de CI (`.github/workflows/ci.yml`) que nunca se ha ejecutado en remoto: el repositorio tiene commits locales pero no tiene remoto.
 
 ## Qué falta para uso en investigación
 - Validación cuantitativa contra un simulador físico (PyMUST/OpenBCSim/i4h) y contra imágenes reales anonimizadas; hoy sólo hay goldens internos y rangos fisiológicos.

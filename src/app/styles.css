@@ -120,3 +120,18 @@ select { background: var(--panel-2); border: 1px solid var(--border); border-rad
 .artifact-row label > span:first-child { min-width: 130px; }
 .artifact-row input[type='range'] { flex: 1; }
 .artifact-row .mono { font-family: var(--mono); min-width: 32px; text-align: right; }
+
+/* curriculum, progress, impression */
+.curriculum .module { margin-bottom: 14px; }
+.curriculum .tasks { list-style: none; padding: 0; margin: 4px 0; }
+.curriculum .tasks li { padding: 4px 0; border-bottom: 1px solid #1c2330; }
+.curriculum .tasks li.done b { color: var(--ok); }
+.curriculum .why { margin: 2px 0 4px 0; max-width: 720px; }
+.impression-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
+.impression-form fieldset { border: 1px solid #2a3a4c; border-radius: 6px; padding: 6px 8px; }
+.impression-form .finding { display: block; font-size: 12px; padding: 1px 0; }
+.impression-form .finding.ok { color: var(--ok); }
+.impression-form .finding.bad { color: #ff7b7b; }
+.impression-form .finding.missed { color: var(--warn); }
+.pill.missed { color: var(--warn); }
+.guidance .causes .cause { margin: 3px 0; }

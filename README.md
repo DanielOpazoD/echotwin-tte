@@ -23,7 +23,7 @@ Requiere Node ≥ 20 (`engines` en `package.json`). Dependencias de ejecución: 
 | `npm run build` | `tsc --noEmit` y después `vite build` (salida en `dist/`, chunks separados para three y react). |
 | `npm run preview` | Sirve `dist/` (Playwright lo usa en el puerto 4173). |
 | `npm test` | Suite Vitest (`src/**/*.test.ts`, entorno node). |
-| `npm run test:e2e` | Playwright (Chromium, 1440×900) contra `npm run preview` en el puerto 4173: 9 pruebas en `e2e/core-flow.spec.ts`, 2 del protocolo de mediciones en `e2e/measurements.spec.ts` y 12 de equivalencia CPU/GPU en `e2e/gpu-equivalence.spec.ts`. Requiere `npx playwright install chromium` la primera vez. |
+| `npm run test:e2e` | Playwright (Chromium, 1440×900) contra `npm run preview` en el puerto 4173: 9 pruebas en `e2e/core-flow.spec.ts`, 2 del protocolo de mediciones en `e2e/measurements.spec.ts`, 2 de la capa instruccional en `e2e/learning.spec.ts` y 17 de equivalencia CPU/GPU en `e2e/gpu-equivalence.spec.ts`. Requiere `npx playwright install chromium` la primera vez. |
 | `npm run lint` | ESLint (incluye la regla que prohíbe importar `clinical/formulas/*` desde `src/ui`). |
 | `npm run typecheck` | `tsc -p tsconfig.json --noEmit` (strict, `noUncheckedIndexedAccess`). |
 | `npm run check` | lint → typecheck → test → build, en ese orden. |
@@ -62,6 +62,8 @@ Límites (`clampProbe`, `clampSettings` en `src/app/store.ts`): u ±14 cm, v −
 ## Modalidades
 | Modalidad | Implementación (resumen) |
 |---|---|
+| Currículo y progreso | Pantallas «Currículo» (5 módulos, 23 tareas verificadas automáticamente con su «por qué») y «Progreso» (mejor score por vista, técnica media, exámenes, exportación JSON local); «Por qué» en el panel de guía explica causa, efecto y remedio de cada problema de la vista. |
+| Impresión estructurada | En el informe, catálogo de 29 hallazgos por dominio comparado con los que implica la verdad del caso (F1); el examen pondera adquisición 40 %, mediciones 40 %, impresión 20 %. |
 | Modo M color (`cmm`, Mayús+M) | Modo M gris con la velocidad axial de flujo a lo largo del cursor superpuesta en color (plegada con la escala de color). |
 | Laboratorio de artefactos | Sección del panel de consola con deslizadores de clutter, lóbulos laterales, espejo y anchura de haz que anulan los del caso y explican causa y remedio. |
 | 2D | Marcha por línea de barrido a través de tórax + corazón (`renderer/procedural/sliceRenderer.ts` en CPU, referencia; `renderer/gpu/` es el mismo modelo en WebGL2 y alimenta el atlas cuando está disponible), consola (`postprocess/consolePipeline.ts`) y scan conversion por tabla de búsqueda. |
@@ -103,7 +105,7 @@ e2e/                    core-flow.spec.ts (9 pruebas Playwright) + helpers.ts
 ```
 
 ## Estado actual (observado el 2026-09-10 hacia las 20:15; el código se estaba editando activamente)
-Corte vertical funcionando: ventanas paraesternal y apical de un corazón normal, Doppler paramétrico coherente con la verdad de terreno, un caso de estenosis aórtica severa y puntuación de examen. Vitest: 17 archivos / 86 pruebas, todas en verde; Playwright: 23 pruebas (flujo, mediciones, equivalencia GPU), última ejecución local `passed`; lint y typecheck en verde. Hay un flujo de CI en `.github/workflows/ci.yml` que nunca se ha ejecutado: el repositorio tiene commits locales pero **sin remoto**. Detalle y avisos en [docs/VALIDATION.md](docs/VALIDATION.md).
+Corte vertical funcionando: ventanas paraesternal y apical de un corazón normal, Doppler paramétrico coherente con la verdad de terreno, un caso de estenosis aórtica severa y puntuación de examen. Vitest: 23 archivos / 128 pruebas, todas en verde; Playwright: 30 pruebas (flujo, mediciones, aprendizaje, equivalencia GPU), última ejecución local `passed`; lint y typecheck en verde. Hay un flujo de CI en `.github/workflows/ci.yml` que nunca se ha ejecutado: el repositorio tiene commits locales pero **sin remoto**. Detalle y avisos en [docs/VALIDATION.md](docs/VALIDATION.md).
 
 ## Documentación
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — capas, flujo de datos, worker, backends, tiers.

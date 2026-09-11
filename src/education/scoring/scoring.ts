@@ -124,6 +124,8 @@ export interface ExamSummary {
   total: number;
   acquisition: AcquisitionScore;
   measurements: MeasurementScore;
+  /** structured impression score (0..100) when the learner submitted one; null otherwise */
+  impression: number | null;
   strengths: string[];
   mainErrors: string[];
   omittedViews: string[];
@@ -131,10 +133,11 @@ export interface ExamSummary {
   recommendations: string[];
 }
 
-export function buildExamSummary(caseDef: CaseDefinition, truth: StructuredEchoTruth, progress: ViewProgress, measurements: Measurement[]): ExamSummary {
+export function buildExamSummary(caseDef: CaseDefinition, truth: StructuredEchoTruth, progress: ViewProgress, measurements: Measurement[], impression: number | null = null): ExamSummary {
   const acquisition = scoreAcquisition(caseDef, progress);
   const ms = scoreMeasurements(caseDef, truth, measurements);
-  const total = Math.round(acquisition.total * 0.5 + ms.total * 0.5);
+  // acquisition 40 % · measurements 40 % · impression 20 % (50/50 when no impression was submitted)
+  const total = impression === null ? Math.round(acquisition.total * 0.5 + ms.total * 0.5) : Math.round(acquisition.total * 0.4 + ms.total * 0.4 + impression * 0.2);
   const strengths: string[] = [];
   const mainErrors: string[] = [];
   const recommendations: string[] = [];
@@ -152,5 +155,9 @@ export function buildExamSummary(caseDef: CaseDefinition, truth: StructuredEchoT
     else mainErrors.push(`${r.label}: ${r.comment}`);
   }
   if (ms.rows.some((r) => r.measured === null)) recommendations.push('Completa las mediciones requeridas por el caso antes de cerrar el informe.');
-  return { total, acquisition, measurements: ms, strengths, mainErrors, omittedViews, invalidMeasurements, recommendations };
+  if (impression !== null) {
+    if (impression >= 80) strengths.push(`Impresión estructurada concordante (${impression}/100).`);
+    else mainErrors.push(`Impresión estructurada con discrepancias (${impression}/100): revisa hallazgos omitidos y sobrantes en el informe.`);
+  }
+  return { total, acquisition, measurements: ms, impression, strengths, mainErrors, omittedViews, invalidMeasurements, recommendations };
 }

@@ -43,6 +43,12 @@ export function TopBar() {
       <button className={s.ui.screen === 'report' ? 'active' : ''} onClick={() => s.setUi({ screen: 'report' })}>
         Informe
       </button>
+      <button className={s.ui.screen === 'curriculum' ? 'active' : ''} onClick={() => s.setUi({ screen: 'curriculum' })} disabled={s.mode === 'exam'}>
+        Currículo
+      </button>
+      <button className={s.ui.screen === 'progress' ? 'active' : ''} onClick={() => s.setUi({ screen: 'progress' })} disabled={s.mode === 'exam'}>
+        Progreso
+      </button>
       <button className={s.ui.screen === 'references' ? 'active' : ''} onClick={() => s.setUi({ screen: 'references' })} disabled={s.mode === 'exam'}>
         Referencias
       </button>
