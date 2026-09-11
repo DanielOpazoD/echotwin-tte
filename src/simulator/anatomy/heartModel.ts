@@ -809,8 +809,8 @@ function anchors(m: HeartModel): Anchors {
     // PSAX), posteromedial at the inferior / inferoseptal junction (AHA ≈ 250°, 7–8 o'clock)
     papAzAL: -0.5,
     papAzPM: -2.4,
-    papZetaBase: 0.72,
-    papZetaTip: 0.42,
+    papZetaBase: 0.68,
+    papZetaTip: 0.4,
     papTipFrac: 0.5,
     papR: 0.55,
   };
