@@ -69,7 +69,15 @@ Referencia = con qué se compara (valor analítico, consistencia interna o rango
 | Perfil «bala» del VI, tabla polar y engrosamiento por conservación de masa | `lvShape.ts` (decisiones 38–39) | `lvShape.test.ts` (4), `heartModel.test.ts` (volúmenes MC ±10 %, papilares enraizados, engrosamiento 1,25–2,2) | pasa |
 | Proporciones de los 12 casos tras cada fase | ASE/EACVI (`measureModel.ts`) | `proportions.test.ts` con desviaciones declaradas | pasa (44 medidas × 12 casos) |
 | Espejo GLSL de cada fase | `e2e/gpu-equivalence.spec.ts` | acuerdo de estructura/tejido > 99,5 % en 21 combinaciones (incluye subcostal y tier alto con grosor de corte) | pasa |
-| Planos canónicos (incl. subcostal 4C y VCI) | `audit-views.ts` | error de plano ≤ 7° (ejes cortos oblicuos por ventana), rotación ≤ 7° | pasa |
+| Planos canónicos (incl. subcostal 4C y VCI) | `audit-views.ts` | error de plano ≤ 7,1° salvo PSAX-VAo (16,6°) y PSAX-MV (24,3°); rotación en el plano ≤ 6,6° salvo PLAX (31,1°) y PSAX apical (19,5°); detalle en `EVALUACION_PANEL.md` | medido, con esas excepciones |
+
+## Continuidad sonda→imagen (2026-09-11)
+| Aspecto | Comprobación | Resultado |
+|---|---|---|
+| Sin zona muerta ni mezcla con un cine construido | `atlas.test.ts`: rotación +0,5°, +1° y +3°, tilt +3°, rock +3° y deslizamientos de 1 y 3 mm dan exactamente el render directo de la nueva pose (diferencia media < 1e-9) y una imagen distinta del cine | pasa |
+| Llenar el cine no añade trabajo | `atlas.test.ts`: con la fase avanzando media ranura por cuadro, el cine se completa en ≤ 65 cuadros con ≤ 33 renders y después se sirve sin renders | pasa |
+| Fuente rápida | `atlas.test.ts`: render de la fase exacta y ningún cine guardado | pasa |
+| Barrido PLAX→PSAX con un cine presente | `atlas.test.ts`: diferencia máxima entre cuadros < 3,5 veces la media | pasa |
 
 ## Pruebas E2E (`e2e/core-flow.spec.ts`, Playwright + `vite preview`)
 | Prueba | Qué verifica |

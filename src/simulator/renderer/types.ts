@@ -91,11 +91,11 @@ export interface Scene {
  */
 /** Optional per-frame hints from the simulator (a backend may ignore them). */
 export interface RenderHints {
-  /** True when the probe has rested for a few frames: safe to spend budget on anchor building. */
+  /** True when the probe has rested for a few frames: a render cache may keep frames only then. */
   stationary: boolean;
-  /** Milliseconds the backend may spend beyond the frame itself. */
+  /** Time the render of this frame may take (ms): 0.6 of the simulated frame interval. */
   budgetMs?: number;
-  /** Scene (heart pose) for an arbitrary phase, needed to build cine anchors. */
+  /** Scene (heart pose) at an arbitrary phase, so a render cache can fill the phase slots of a cine. */
   sceneAtPhase?: (phase: number) => Scene;
 }
 

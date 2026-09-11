@@ -43,6 +43,13 @@ export function polarToPixel(m: SectorMapping, rCm: number, thetaRad: number): {
 export interface ScanLut {
   key: string;
   idx: Int32Array; // polar index of the (l0,s0) corner, −1 outside the sector
+  /** Compact gather lists over the pixels inside the sector (per-frame fast path). */
+  inPix: Int32Array; // pixel index
+  inIdx: Int32Array; // polar index of the (l0,s0) corner
+  inWl: Uint16Array; // line weight × 1024
+  inWs: Uint16Array; // sample weight × 1024
+  inDl: Uint8Array; // 1 when a next line exists and carries weight
+  inDs: Uint8Array; // 1 when a next sample exists and carries weight
   wl: Float32Array; // line interpolation weight
   ws: Float32Array; // sample interpolation weight
   li: Int16Array; // nearest line index (for colour/masks)
@@ -70,6 +77,13 @@ export function buildScanLut(spec: PolarFrameSpec, m: SectorMapping): ScanLut {
   const si = new Int16Array(n);
   const rArr = new Float32Array(n);
   const thArr = new Float32Array(n);
+  const inPix = new Int32Array(n);
+  const inIdx = new Int32Array(n);
+  const inWl = new Uint16Array(n);
+  const inWs = new Uint16Array(n);
+  const inDl = new Uint8Array(n);
+  const inDs = new Uint8Array(n);
+  let count = 0;
   const invPx = 1 / m.pxPerCm;
   const maxR = depthCm;
   const tanHalf = Math.tan(half);
@@ -111,17 +125,77 @@ export function buildScanLut(spec: PolarFrameSpec, m: SectorMapping): ScanLut {
       idx[p] = l0 * samples + s0;
       wl[p] = lt;
       ws[p] = st;
+      // 10-bit fixed-point weights keep the whole bilinear sum inside int32 (255·1024² < 2³¹)
+      const wlQ = Math.floor(lt * 1024);
+      const wsQ = Math.floor(st * 1024);
+      inPix[count] = p;
+      inIdx[count] = l0 * samples + s0;
+      inWl[count] = wlQ;
+      inWs[count] = wsQ;
+      inDl[count] = wlQ > 0 && l0 < lines - 1 ? 1 : 0;
+      inDs[count] = wsQ > 0 && s0 < samples - 1 ? 1 : 0;
+      count++;
       li[p] = Math.min(lines - 1, Math.round(lf));
       si[p] = Math.min(samples - 1, Math.round(sf));
       rArr[p] = r;
       thArr[p] = th;
     }
   }
-  return { key: lutKey(spec, m), idx, wl, ws, li, si, rCm: rArr, theta: thArr, samples, lines };
+  return {
+    key: lutKey(spec, m),
+    idx,
+    wl,
+    ws,
+    li,
+    si,
+    rCm: rArr,
+    theta: thArr,
+    samples,
+    lines,
+    inPix: inPix.slice(0, count),
+    inIdx: inIdx.slice(0, count),
+    inWl: inWl.slice(0, count),
+    inWs: inWs.slice(0, count),
+    inDl: inDl.slice(0, count),
+    inDs: inDs.slice(0, count),
+  };
 }
 
-/** Gather polar intensities into RGBA using a prebuilt LUT. Pixels outside the sector are black. */
+const LITTLE_ENDIAN = new Uint8Array(new Uint32Array([1]).buffer)[0] === 1;
+
+/**
+ * Gather polar intensities into RGBA using a prebuilt LUT. Pixels outside the sector are black.
+ * Fast path: one native fill for the background and a fixed-point bilinear gather over the in-sector
+ * list written as 32-bit pixels (≤ 1 gray level from the float reference).
+ */
 export function scanConvertLut(polar: Uint8ClampedArray, lut: ScanLut, rgba: Uint8ClampedArray): void {
+  const n = lut.idx.length;
+  if (LITTLE_ENDIAN && rgba.byteOffset % 4 === 0 && rgba.length >= n * 4) {
+    const px = new Uint32Array(rgba.buffer, rgba.byteOffset, n);
+    px.fill(0xff000000);
+    const S = lut.samples;
+    const { inPix, inIdx, inWl, inWs, inDl, inDs } = lut;
+    const m = inPix.length;
+    for (let k = 0; k < m; k++) {
+      const i = inIdx[k]!;
+      const dl = inDl[k]! * S;
+      const ds = inDs[k]!;
+      const lt = inWl[k]!;
+      const st = inWs[k]!;
+      const v00 = polar[i]!;
+      const v10 = polar[i + dl]!;
+      const v01 = polar[i + ds]!;
+      const v11 = polar[i + dl + ds]!;
+      const g = ((v00 * (1024 - lt) + v10 * lt) * (1024 - st) + (v01 * (1024 - lt) + v11 * lt) * st) >>> 20;
+      px[inPix[k]!] = (0xff000000 | (g * 0x010101)) >>> 0;
+    }
+    return;
+  }
+  scanConvertLutReference(polar, lut, rgba);
+}
+
+/** Float bilinear gather (reference for the fast path and fallback on big-endian hosts). */
+export function scanConvertLutReference(polar: Uint8ClampedArray, lut: ScanLut, rgba: Uint8ClampedArray): void {
   const n = lut.idx.length;
   const S = lut.samples;
   const lines = lut.lines;

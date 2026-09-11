@@ -108,6 +108,8 @@ export class SimulatorCore {
   private lut: ScanLut | null = null;
   private prevBeam: BeamFrame | null = null;
   private stationaryFrames = 0;
+  /** Render budget of the current frame (ms): 0.6 of the simulated frame interval. */
+  private frameBudgetMs = 25;
 
   constructor(caseDef: CaseDefinition, input: SimInput) {
     this.caseDef = caseDef;
@@ -191,6 +193,7 @@ export class SimulatorCore {
     if (isStrip) this.advanceStrip(dt, beam, spec);
     this.frameAccumulator += dt;
     const frameInterval = 1 / fps;
+    this.frameBudgetMs = 600 * frameInterval;
     let produced = false;
     // the worker paces itself at the simulated frame interval; tolerate timer jitter so the cadence
     // stays even instead of skipping every few frames
@@ -251,15 +254,11 @@ export class SimulatorCore {
     }
     const phase = this.clock.current.phase;
     const scene = this.scene(phase);
-    // stationary detection for the atlas: build cine anchors only while the probe rests
+    // stationary detection: a render cache (atlas) may keep frames only while the probe rests
     const moved = this.prevBeam ? AtlasBackend.poseDistance(this.prevBeam, beam) : Infinity;
     this.stationaryFrames = moved < 0.03 ? this.stationaryFrames + 1 : 0;
     this.prevBeam = beam;
-    const hints: RenderHints = {
-      stationary: this.stationaryFrames >= 6,
-      budgetMs: 25,
-      sceneAtPhase: (ph) => this.scene(ph),
-    };
+    const hints: RenderHints = { stationary: this.stationaryFrames >= 6, budgetMs: this.frameBudgetMs, sceneAtPhase: (ph) => this.scene(ph) };
     this.backend.render(scene, beam, spec, phase, this.frame, hints);
     const tc = performance.now();
     applyConsole(this.frame, inp.settings, this.consoleState, this.display!, this.artifacts);
