@@ -470,41 +470,73 @@ function buildHeartGhost(heart: HeartModel): THREE.Group {
   return g;
 }
 
-/** Phased-array cardiac transducer: small footprint head, ergonomic handle, index marker ridge, cable. Local frame: x lateral (marker side), y elevation, z beam (into the body). */
+/**
+ * Phased-array cardiac transducer. The footprint is taken from published probe specifications — 17×28 mm
+ * on a GE M5S-D, 19×27 on a 3S-RS, 20×28 on an M4S-RS, 24×17 on an M3S — so the head is 2,85 cm along the
+ * array (the imaging plane) by 1,90 cm in elevation, small enough to sit between two ribs. The length is
+ * *not* a measured figure: no manufacturer sheet found gives it, so the 11,4 cm from the lens to the end of
+ * the strain relief is plausible ergonomics (a barrel held like a thick pen), not a specification. Real probes also carry an index marker on
+ * one side of the head and a tapered strain relief where the cable leaves the handle; here the marker is
+ * also the pickable handle that rotates the probe, so it stays blue and grabbable on purpose.
+ * Local frame: x lateral (marker side), y elevation, z away from the patient, lens at z = 0.
+ */
 function buildProbe(): { probe: THREE.Group; marker: THREE.Group } {
   const probe = new THREE.Group();
-  const shell = new THREE.MeshStandardMaterial({ color: 0x2f3a46, roughness: 0.45, metalness: 0.15 });
-  const grip = new THREE.MeshStandardMaterial({ color: 0x4a86c8, roughness: 0.55 });
-  const lens = new THREE.MeshStandardMaterial({ color: 0x1d2229, roughness: 0.3 });
-  // head (footprint ≈ 2.0 × 1.3 cm) with the acoustic lens at z = 0
-  const head = new THREE.Mesh(new RoundedBoxGeometry(2.1, 1.35, 1.2, 3, 0.25), shell);
-  head.position.z = 0.65;
-  const lensMesh = new THREE.Mesh(new RoundedBoxGeometry(1.9, 1.15, 0.12, 2, 0.05), lens);
-  lensMesh.position.z = 0.03;
-  // neck and handle (oval section) along −z beyond the head
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.95, 0.7, 20), shell);
-  neck.rotation.x = Math.PI / 2;
-  neck.scale.set(1.25, 1, 0.75);
-  neck.position.z = 1.55;
-  const profile: THREE.Vector2[] = [];
-  const rs = [0.85, 1.05, 1.22, 1.3, 1.3, 1.22, 1.05, 0.9];
-  for (let i = 0; i < rs.length; i++) profile.push(new THREE.Vector2(rs[i]!, (i / (rs.length - 1)) * 5.2));
-  const handle = new THREE.Mesh(new THREE.LatheGeometry(profile, 28), grip);
-  handle.rotation.x = Math.PI / 2; // lathe axis (y) → local z
-  handle.scale.set(1, 0.68, 1);
-  handle.position.z = 1.9;
-  const handleGrip = new THREE.Mesh(new RoundedBoxGeometry(1.6, 0.4, 2.6, 2, 0.15), shell);
-  handleGrip.position.set(0, 0.62, 4.2);
-  // cable exiting the handle end
-  const cable = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([new THREE.Vector3(0, 0, 7.1), new THREE.Vector3(0.2, 0.6, 9.5), new THREE.Vector3(0.6, 2.4, 12)]), 12, 0.28, 8, false), new THREE.MeshStandardMaterial({ color: 0x20242a, roughness: 0.7 }));
-  // index marker: ridge + emissive dot on the +x (screen-right) side
+  const shell = new THREE.MeshStandardMaterial({ color: 0xd7dbe0, roughness: 0.5, metalness: 0.05 });
+  const collar = new THREE.MeshStandardMaterial({ color: 0x8b939c, roughness: 0.55, metalness: 0.1 });
+  const lens = new THREE.MeshStandardMaterial({ color: 0x23282e, roughness: 0.25 });
+  const rubber = new THREE.MeshStandardMaterial({ color: 0x2a2e34, roughness: 0.8 });
+  // head: 2,8 × 1,8 cm footprint, the array running along x
+  const head = new THREE.Mesh(new RoundedBoxGeometry(2.85, 1.9, 1.5, 4, 0.3), shell);
+  head.position.z = 0.76;
+  // the acoustic lens is convex, not flat: a shallow spherical cap flattened in elevation
+  const capR = 2.4;
+  const lensMesh = new THREE.Mesh(new THREE.SphereGeometry(capR, 32, 12, 0, Math.PI * 2, 0, Math.asin(1.36 / capR)), lens);
+  lensMesh.rotation.x = -Math.PI / 2; // the cap sits around +y: a negative turn points it at −z, the patient
+  lensMesh.scale.set(1, 1, 0.66); // scale is applied before the rotation, so local z becomes elevation: 1,8 cm
+  lensMesh.position.z = capR - 0.04;
+  // shoulders: the head widens into the barrel instead of meeting it in a step
+  const shoulder = new THREE.Mesh(new THREE.LatheGeometry([new THREE.Vector2(1.4, 0), new THREE.Vector2(1.34, 0.3), new THREE.Vector2(1.2, 0.7), new THREE.Vector2(1.04, 1.15)], 28), shell);
+  shoulder.rotation.x = Math.PI / 2; // lathe axis (+y) → +z, away from the patient
+  shoulder.scale.set(1, 1, 0.72); // oval section, flattened in elevation
+  shoulder.position.z = 1.5;
+  // barrel with a waist where the fingers sit
+  const rs = [1.04, 1.12, 1.1, 1.0, 0.93, 0.93, 1.0, 1.06, 1.02, 0.86];
+  const profile = rs.map((r, i) => new THREE.Vector2(r, (i / (rs.length - 1)) * 7.4));
+  // close the far end: a lathe has no caps, and seen end-on the barrel is a black hole where the cable leaves
+  profile.push(new THREE.Vector2(0.6, 7.5), new THREE.Vector2(0, 7.56));
+  const handle = new THREE.Mesh(new THREE.LatheGeometry(profile, 32), shell);
+  handle.rotation.x = Math.PI / 2;
+  handle.scale.set(1, 1, 0.74);
+  handle.position.z = 2.65;
+  // strain relief: the tapered, ribbed collar that takes the pull of the cable
+  const relief = new THREE.Group();
+  for (let i = 0; i < 5; i++) {
+    const t = i / 4;
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.62 - t * 0.28, 0.12 - t * 0.04, 8, 20), rubber);
+    ring.position.z = 10.15 + t * 1.15;
+    relief.add(ring);
+  }
+  const reliefCone = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.68, 1.35, 20), rubber);
+  reliefCone.rotation.x = Math.PI / 2;
+  reliefCone.position.z = 10.75;
+  relief.add(reliefCone);
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.86, 0.32, 24), collar);
+  band.rotation.x = Math.PI / 2;
+  band.scale.set(1, 1, 0.78);
+  band.position.z = 9.95;
+  const cable = new THREE.Mesh(
+    new THREE.TubeGeometry(new THREE.CatmullRomCurve3([new THREE.Vector3(0, 0, 11.4), new THREE.Vector3(0.2, 0.5, 13.2), new THREE.Vector3(0.7, 2.2, 15.4)]), 14, 0.3, 10, false),
+    rubber,
+  );
+  // index marker: the ridge and dot on the +x (screen-right) side, and the handle the mouse grabs to rotate
   const marker = new THREE.Group();
-  const ridge = new THREE.Mesh(new RoundedBoxGeometry(0.32, 0.55, 1.5, 2, 0.1), new THREE.MeshStandardMaterial({ color: 0x5cc8ff, emissive: 0x1b6f9a, roughness: 0.4 }));
-  ridge.position.set(1.15, 0, 0.95);
-  const dot = new THREE.Mesh(new THREE.SphereGeometry(0.34, 16, 12), new THREE.MeshStandardMaterial({ color: 0x8fe0ff, emissive: 0x3aa0d8, roughness: 0.3 }));
-  dot.position.set(1.28, 0, 1.9);
+  const ridge = new THREE.Mesh(new RoundedBoxGeometry(0.26, 0.62, 1.0, 2, 0.1), new THREE.MeshStandardMaterial({ color: 0x2f7fd0, roughness: 0.45 }));
+  ridge.position.set(1.42, 0, 0.8);
+  const dot = new THREE.Mesh(new THREE.SphereGeometry(0.26, 16, 12), new THREE.MeshStandardMaterial({ color: 0x5cb0ee, emissive: 0x123c5e, roughness: 0.35 }));
+  dot.position.set(1.32, 0, 2.1);
   marker.add(ridge, dot);
-  probe.add(head, lensMesh, neck, handle, handleGrip, cable, marker);
+  probe.add(head, lensMesh, shoulder, handle, relief, band, cable, marker);
   return { probe, marker };
 }
 
