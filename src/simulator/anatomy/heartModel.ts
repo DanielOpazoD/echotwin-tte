@@ -1295,7 +1295,11 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
     const ra = A.raCenter,
       rr = A.raR;
     const zTopR = ra.z - rr.z;
-    const zBotR = A.tvCenter.z + hp.tvZ * 0.7 + 0.25; // the caval junction moves a little with TAPSE
+    // The atrium ends AT the annulus: it used to run 0.25 cm past it, with its own 0.22 cm wall sealing the
+    // orifice and hiding the excess, so the cavity measured 5.60 cm (the top of the 3.5-5.6 range) while the
+    // ellipsoid was really 5.82 cm long. Opening the orifice exposed that, so the ellipsoid is shortened by
+    // the same amount instead of letting a wall trim it.
+    const zBotR = A.tvCenter.z + hp.tvZ * 0.7 + 0.03; // the caval junction moves a little with TAPSE
     const czR = (zTopR + zBotR) / 2,
       rzR = (zBotR - zTopR) / 2;
     const raC = 1 - 0.35 * hp.raCollapse; // tamponade: late-diastolic RA collapse
@@ -1307,6 +1311,19 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
       return true;
     }
     if (dFreeRa < 0.22 && x < xIas - tIas / 2) {
+      // No wall across the tricuspid orifice: there the atrium opens into the ventricle, and the annulus and
+      // leaflets are emitted by the valve block above. Both atria end 0.25 cm past their annulus, but on the
+      // left the LV cavity is classified first and claims the orifice, while on the right nothing did — so
+      // the atrial wall filled the gap and drew a 2.6 mm echogenic line splitting RA from RV in every A4C.
+      // Reported from the images by a cardiologist; measured as RaCavity -> RaWall 0.28 -> RvCavity along a
+      // line straight through the annulus centre.
+      if (Math.hypot(x - A.tvCenter.x, y - A.tvCenter.y) < A.tvR) {
+        // past the annulus the blood belongs to the ventricle, as it does on the left where the LV cavity
+        // claims the mitral orifice: calling it atrium instead stretched ra-long past its reference range
+        const past = z > A.tvCenter.z + hp.tvZ * 0.7;
+        setSample(out, Tissue.Blood, dFreeRa - 0.22, (x - ra.x) / rr.x, (y - ra.y) / rr.y, (z - czR) / rzR, x, y, z, 0, past ? Structure.RvCavity : Structure.RaCavity);
+        return true;
+      }
       setSample(out, Tissue.Myocardium, -Math.min(dFreeRa, 0.22 - dFreeRa), (x - ra.x) / rr.x, (y - ra.y) / rr.y, (z - czR) / rzR, x, y, z, 0, Structure.RaWall);
       return true;
     }
