@@ -67,7 +67,13 @@ export function createThoraxModel(habitus: BodyHabitusConfig, window: AcousticWi
   heartOffset.y += window.cardiacRotationDeg * 0.02;
   // a thicker chest wall pushes the heart deeper (the anatomy is defined for a 2 cm wall)
   const chestWall = habitus.chestWallThicknessCm * (1 + 0.8 * window.obesityAttenuation);
-  heartOffset.z -= Math.max(0, chestWall - 2.0);
+  // The heart must sit BEHIND the chest wall. With a threshold of 2.0 cm it was only pushed back when the
+  // wall was thicker than that, so in the normal case (2.08 cm of wall) it moved 0.08 cm and intruded 1.96 cm
+  // into the wall in systole — in the 3D navigator the epicardial fat came out through the chest, and in the
+  // PLAX only 0.36 cm of tissue preceded the heart in diastole and none in systole, so the RV free wall
+  // started at the sector apex and could only be told apart when contraction pulled it away. Both were
+  // reported from the app by a cardiologist ("the heart is too anterior", "the near field is missing").
+  heartOffset.z -= Math.max(0, chestWall - 0.8);
   return {
     habitus,
     window,

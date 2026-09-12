@@ -128,6 +128,29 @@ function cellMm(f: PolarFrame, s: PolarFrameSpec, d0: number, d1: number, latera
   return 2 * lag * pitchMm;
 }
 
+/**
+ * The three depth bands, measured from where the myocardium starts instead of from the transducer.
+ *
+ * They were nailed at 3-5, 7-9 and 11-13 cm. The myocardium currently begins at 0.36 cm, so those are the
+ * same bands this returns today (2.6, 6.6 and 10.6 cm past its leading edge) — but anchored to the tissue
+ * they follow the heart if it moves, instead of filling with different tissue and breaking a PHYSICS test.
+ * That coupling blocked a measured correction of the heart's position inside the chest wall: even a 0.48 cm
+ * push-back failed this test (decision 65). What the test checks and how strictly is unchanged.
+ */
+function myocardialBands(f: PolarFrame, s: PolarFrameSpec): [[number, number], [number, number], [number, number]] {
+  const { lines: L, samples: N } = s;
+  const dr = s.depthCm / N;
+  let lead = s.depthCm;
+  for (let li = 0; li < L; li++)
+    for (let si = 0; si < N; si++)
+      if (f.tissue[li * N + si] === Tissue.Myocardium) {
+        lead = Math.min(lead, si * dr);
+        break;
+      }
+  const at = (from: number): [number, number] => [lead + from, lead + from + 2];
+  return [at(2.6), at(6.6), at(10.6)];
+}
+
 describe('acoustic image formation', () => {
   const plax = render('plax');
   const a4c = render('a4c');
@@ -141,10 +164,11 @@ describe('acoustic image formation', () => {
   });
 
   it('the speckle cell is longer laterally than axially and grows laterally with depth', () => {
-    const latNear = cellMm(plax, spec, 3, 5, true);
-    const latMid = cellMm(plax, spec, 7, 9, true);
-    const latFar = cellMm(plax, spec, 11, 13, true);
-    const axMid = cellMm(plax, spec, 7, 9, false);
+    const [near, mid, far] = myocardialBands(plax, spec);
+    const latNear = cellMm(plax, spec, near[0], near[1], true);
+    const latMid = cellMm(plax, spec, mid[0], mid[1], true);
+    const latFar = cellMm(plax, spec, far[0], far[1], true);
+    const axMid = cellMm(plax, spec, mid[0], mid[1], false);
     expect(latMid).toBeGreaterThan(latNear);
     expect(latFar).toBeGreaterThan(latMid);
     expect(latMid).toBeGreaterThan(2 * axMid);

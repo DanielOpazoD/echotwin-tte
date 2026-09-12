@@ -44,7 +44,10 @@ function ensure(s: { buf: Float32Array }, n: number): Float32Array {
  */
 export function consoleCompensation(settings: AcquisitionSettings, spec: PolarFrameSpec, out: Float32Array | Float64Array): void {
   const dr = spec.depthCm / spec.samples;
-  const baselineDbPerCm = 0.38 * settings.frequencyMHz; // default depth compensation of the (fictional) console
+  // 0.45, raised from 0.38 when the heart was moved behind the chest wall (decision 66): the extra 1.2 cm of
+  // chest wall on the path attenuate more than the old compensation returned, and myocardial grey fell from
+  // 100+ to 94 at 0 dB gain. The compensation has to cover the real path, chest wall included.
+  const baselineDbPerCm = 0.45 * settings.frequencyMHz; // default depth compensation of the (fictional) console
   const gainLin = Math.pow(10, settings.gainDb / 20);
   for (let si = 0; si < spec.samples; si++) {
     const r = (si + 0.5) * dr;
