@@ -22,6 +22,14 @@ export type ProductMode = 'sandbox' | 'guided' | 'exam';
 export interface UiPrefs {
   showTorso: boolean;
   showSkeleton: boolean;
+  /** 3D navigator layers and aids (spec 4.3): each one can be turned off to read the anatomy underneath. */
+  navSkin: boolean;
+  navHeart: boolean;
+  navChambers: boolean;
+  navValves: boolean;
+  navVessels: boolean;
+  navAxes: boolean;
+  navCut: boolean;
   showHints: boolean;
   showPhysics: boolean;
   devPanel: boolean;
@@ -130,8 +138,8 @@ function loadPrefs(): Partial<UiPrefs> {
 }
 function savePrefs(ui: UiPrefs): void {
   try {
-    const { showTorso, showSkeleton, showHints, showEcg, tutorialDone } = ui;
-    localStorage.setItem(PREF_KEY, JSON.stringify({ showTorso, showSkeleton, showHints, showEcg, tutorialDone }));
+    const { showTorso, showSkeleton, showHints, showEcg, tutorialDone, navSkin, navHeart, navChambers, navValves, navVessels, navAxes, navCut } = ui;
+    localStorage.setItem(PREF_KEY, JSON.stringify({ showTorso, showSkeleton, showHints, showEcg, tutorialDone, navSkin, navHeart, navChambers, navValves, navVessels, navAxes, navCut }));
   } catch {
     /* storage unavailable */
   }
@@ -156,7 +164,7 @@ export const useSimStore = create<SimStore>((set) => ({
   rendererBackend: 'atlas',
   mode: 'sandbox',
   targetViewId: null,
-  ui: { showTorso: true, showSkeleton: true, showHints: true, showPhysics: false, devPanel: false, showEcg: true, tutorialDone: false, screen: 'simulator', ...loadPrefs() },
+  ui: { showTorso: true, showSkeleton: true, navSkin: true, navHeart: true, navChambers: true, navValves: true, navVessels: true, navAxes: true, navCut: false, showHints: true, showPhysics: false, devPanel: false, showEcg: true, tutorialDone: false, screen: 'simulator', ...loadPrefs() },
   truth: null,
   measurements: [],
   activeTool: 'none',

@@ -5,6 +5,7 @@ import { useSimStore } from '@/app/store';
 import { getCaseModels } from '@/app/caseModels';
 import { ribCenterY, ribDepth, ribRadiusAt, skinZ, type ThoraxModel } from '@/simulator/anatomy/thoraxModel';
 import { heartGhostPrimitives, heartToTorso, heartDirToTorso, type HeartModel } from '@/simulator/anatomy/heartModel';
+import type { MeshReply, MeshRequest } from '@/workers/heartMesh.worker';
 import { beamFrameFromPose, poseFromControl, type BeamFrame } from '@/simulator/probe/pose';
 import { RotationDial } from './RotationDial';
 
@@ -20,6 +21,7 @@ export function TorsoView() {
   const caseId = useSimStore((s) => s.caseId);
   const patient = useSimStore((s) => s.patient);
   const showSkeleton = useSimStore((s) => s.ui.showSkeleton);
+  const nav = useSimStore((s) => s.ui);
   const setUi = useSimStore((s) => s.setUi);
   const zoomRef = useRef<{ zoomBy: (f: number) => void; center: () => void } | null>(null);
 
@@ -28,6 +30,7 @@ export function TorsoView() {
     if (!el) return;
     const { thorax, heart } = getCaseModels(caseId, patient);
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    renderer.localClippingEnabled = true; // the heart is cut by the imaging plane (decision 57)
     renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
     renderer.setClearColor(0x0f1319);
     el.appendChild(renderer.domElement);
@@ -46,7 +49,46 @@ export function TorsoView() {
     scene.add(skin);
     const skeleton = buildSkeleton(thorax);
     scene.add(skeleton);
-    scene.add(buildHeartGhost(heart));
+    // the imaging plane doubles as a clipping plane: the 3D heart is split exactly where the beam cuts
+    const cutPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+    const ghost = buildHeartGhost(heart);
+    scene.add(ghost);
+    // surfaces extracted from the same implicit model the beam samples, so navigator and image cannot disagree
+    const heartMeshes = new THREE.Group();
+    scene.add(heartMeshes);
+    const meshMaterials: THREE.MeshStandardMaterial[] = [];
+    const meshByGroup = new Map<string, THREE.Mesh>();
+    // extraction samples the implicit model hundreds of thousands of times: off the UI thread, with the
+    // ghost showing until the surfaces arrive
+    const meshWorker = new Worker(new URL('../workers/heartMesh.worker.ts', import.meta.url), { type: 'module' });
+    meshWorker.onmessage = (ev: MessageEvent<MeshReply>) => {
+      const f = heart.frame;
+      const basis = new THREE.Matrix4().makeBasis(new THREE.Vector3(f.ex.x, f.ex.y, f.ex.z), new THREE.Vector3(f.ey.x, f.ey.y, f.ey.z), new THREE.Vector3(f.ez.x, f.ez.y, f.ez.z));
+      const placement = new THREE.Matrix4().makeTranslation(f.origin.x, f.origin.y, f.origin.z).multiply(basis);
+      for (const g of ev.data.groups) {
+        if (!g.indices.length) continue;
+        const geom = new THREE.BufferGeometry();
+        geom.setAttribute('position', new THREE.BufferAttribute(g.positions, 3));
+        geom.setIndex(new THREE.BufferAttribute(g.indices, 1));
+        geom.setAttribute('normal', new THREE.BufferAttribute(g.normals, 3));
+        const mat = new THREE.MeshStandardMaterial({ color: g.color, roughness: 0.55, metalness: 0.05, transparent: g.opacity < 1, opacity: g.opacity, depthWrite: g.opacity >= 1, side: THREE.DoubleSide });
+        meshMaterials.push(mat);
+        const mesh = new THREE.Mesh(geom, mat);
+        mesh.applyMatrix4(placement);
+        meshByGroup.set(g.id, mesh);
+        heartMeshes.add(mesh);
+      }
+      ghost.visible = false;
+    };
+    meshWorker.postMessage({ caseId, patient, stepCm: 0.28, phase: 0 } satisfies MeshRequest);
+    // examination axes: beam axis, elevation normal and the in-plane lateral direction
+    const axisGroup = new THREE.Group();
+    const axisLine = (color: number): THREE.Line => new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.9 }));
+    const beamAxis = axisLine(0xffc857);
+    const elevAxis = axisLine(0x7ce8a0);
+    const latAxis = axisLine(0x5cc8ff);
+    axisGroup.add(beamAxis, elevAxis, latAxis);
+    scene.add(axisGroup);
 
     // ---- probe ----
     const { probe, marker } = buildProbe();
@@ -196,13 +238,42 @@ export function TorsoView() {
       );
       probe.quaternion.setFromRotationMatrix(m);
       updateFan(fan, fanEdges, beam, st.settings.depthCm, st.settings.sectorDeg);
+      // clip the heart with the imaging plane, and point the axes along the probe
+      cutPlane.normal.set(beam.normal.x, beam.normal.y, beam.normal.z);
+      cutPlane.constant = -(beam.normal.x * beam.origin.x + beam.normal.y * beam.origin.y + beam.normal.z * beam.origin.z);
+      const clip = st.ui.navCut ? [cutPlane] : [];
+      for (const m of meshMaterials) m.clippingPlanes = clip;
+      const vis: Record<string, boolean> = {
+        'lv-myocardium': st.ui.navHeart,
+        'rv-myocardium': st.ui.navHeart,
+        'lv-cavity': st.ui.navChambers,
+        'rv-cavity': st.ui.navChambers,
+        atria: st.ui.navChambers,
+        valves: st.ui.navValves,
+        'great-vessels': st.ui.navVessels,
+      };
+      for (const [id, mesh] of meshByGroup) mesh.visible = vis[id] ?? true;
+      axisGroup.visible = st.ui.navAxes;
+      if (st.ui.navAxes) {
+        const o = new THREE.Vector3(beam.origin.x, beam.origin.y, beam.origin.z);
+        const set = (line: THREE.Line, dir: { x: number; y: number; z: number }, len: number): void => {
+          const p = new THREE.Vector3(o.x + dir.x * len, o.y + dir.y * len, o.z + dir.z * len);
+          line.geometry.setFromPoints([o, p]);
+        };
+        set(beamAxis, beam.forward, st.settings.depthCm);
+        set(elevAxis, beam.normal, 4);
+        set(latAxis, beam.lateral, 4);
+      }
       skeleton.visible = st.ui.showSkeleton;
-      (skin.material as THREE.MeshStandardMaterial).opacity = st.ui.showSkeleton ? 0.55 : 0.92;
+      // the skin is a layer of its own: hiding the bones used to make it opaque, which hid the heart
+      skin.visible = st.ui.navSkin;
+      (skin.material as THREE.MeshStandardMaterial).opacity = st.ui.navHeart || st.ui.navChambers || st.ui.navVessels ? 0.32 : 0.85;
       renderer.render(scene, camera);
     };
     tick();
     return () => {
       cancelAnimationFrame(raf);
+      meshWorker.terminate();
       ro.disconnect();
       dom.removeEventListener('mousedown', onDown);
       window.removeEventListener('mousemove', onMove);
@@ -230,6 +301,27 @@ export function TorsoView() {
           </button>
           <button className={showSkeleton ? 'active' : ''} onClick={() => setUi({ showSkeleton: !showSkeleton })} title="Mostrar/ocultar costillas y esternón bajo la piel">
             Hueso
+          </button>
+          <button className={nav.navSkin ? 'active' : ''} onClick={() => setUi({ navSkin: !nav.navSkin })} title="Mostrar/ocultar la piel del tórax">
+            Piel
+          </button>
+          <button className={nav.navHeart ? 'active' : ''} onClick={() => setUi({ navHeart: !nav.navHeart })} title="Miocardio del modelo 3D">
+            Miocardio
+          </button>
+          <button className={nav.navChambers ? 'active' : ''} onClick={() => setUi({ navChambers: !nav.navChambers })} title="Cavidades y aurículas">
+            Cavidades
+          </button>
+          <button className={nav.navValves ? 'active' : ''} onClick={() => setUi({ navValves: !nav.navValves })} title="Válvulas y cuerdas">
+            Válvulas
+          </button>
+          <button className={nav.navVessels ? 'active' : ''} onClick={() => setUi({ navVessels: !nav.navVessels })} title="Raíz aórtica, pulmonar, cavas y venas pulmonares">
+            Vasos
+          </button>
+          <button className={nav.navAxes ? 'active' : ''} onClick={() => setUi({ navAxes: !nav.navAxes })} title="Ejes de examinación: haz, elevación y lateral">
+            Ejes
+          </button>
+          <button className={nav.navCut ? 'active' : ''} onClick={() => setUi({ navCut: !nav.navCut })} title="Cortar el corazón 3D por el plano de imagen">
+            Corte
           </button>
         </div>
       </div>

@@ -46,6 +46,9 @@ Este documento existe para que nadie use el simulador más allá de lo que hace.
 - Audio Doppler con 48 osciladores siempre activos mientras está encendido; `AudioContext` requiere gesto del usuario en algunos navegadores.
 - UI pensada para escritorio con ratón (1440×900 en Playwright); sin soporte táctil ni accesibilidad más allá de etiquetas ARIA básicas; preferencias en `localStorage` sin versionado más allá del sufijo `v1`.
 - 42 pruebas E2E (4 de ellas sólo con GPU real) y un flujo de CI (`.github/workflows/ci.yml`) que nunca se ha ejecutado en remoto: el repositorio tiene commits locales pero no tiene remoto.
+- El corazón del navegador 3D se extrae en la fase 0 del ciclo y **no late**: la imagen se mueve y la malla no. Sólo se vuelve a extraer al cambiar de caso o de paciente (516 ms en Node a 0,28 cm), con el fantasma de elipsoides a la vista mientras tanto.
+- Surface nets da un vértice por celda, así que donde la pared mide lo mismo que la celda ese vértice sirve a sus dos superficies y las normales de una cara y otra se cancelan: quedan puntos oscuros en la pared libre del VD y en las valvas. Medido a 0,28 cm, afecta al 2,3% de los vértices del VD y al 11,4% de los de las válvulas; a 0,22 cm baja al 1,2% por ×1,8 de coste y a 0,15 cm al 0,9% por ×4,6, y las válvulas se quedan en 11–15% a cualquier paso porque una valva de 0,18 cm mide una celda siempre. Dos pasadas de promediado de las normales lo reducen a puntos pequeños, no lo eliminan (decisión 57).
+- El transductor del navegador es un esquema (casco, empuñadura y lente), no una sonda realista.
 
 ## Qué falta para uso en investigación
 - Validación cuantitativa contra un simulador físico (PyMUST/OpenBCSim/i4h) y contra imágenes reales anonimizadas; hoy sólo hay goldens internos y rangos fisiológicos.
