@@ -478,7 +478,8 @@ function buildHeartGhost(heart: HeartModel): THREE.Group {
  * the strain relief is plausible ergonomics (a barrel held like a thick pen), not a specification. Real probes also carry an index marker on
  * one side of the head and a tapered strain relief where the cable leaves the handle; here the marker is
  * also the pickable handle that rotates the probe, so it stays blue and grabbable on purpose.
- * Local frame: x lateral (marker side), y elevation, z away from the patient, lens at z = 0.
+ * Local frame: x lateral (marker side), y elevation, z ALONG THE BEAM, into the patient (the probe group's
+ * third basis vector is beam.forward), so the lens sits at z = 0 and the whole body extends along −z.
  */
 function buildProbe(): { probe: THREE.Group; marker: THREE.Group } {
   const probe = new THREE.Group();
@@ -488,53 +489,53 @@ function buildProbe(): { probe: THREE.Group; marker: THREE.Group } {
   const rubber = new THREE.MeshStandardMaterial({ color: 0x2a2e34, roughness: 0.8 });
   // head: 2,8 × 1,8 cm footprint, the array running along x
   const head = new THREE.Mesh(new RoundedBoxGeometry(2.85, 1.9, 1.5, 4, 0.3), shell);
-  head.position.z = 0.76;
+  head.position.z = -0.76;
   // the acoustic lens is convex, not flat: a shallow spherical cap flattened in elevation
   const capR = 2.4;
   const lensMesh = new THREE.Mesh(new THREE.SphereGeometry(capR, 32, 12, 0, Math.PI * 2, 0, Math.asin(1.36 / capR)), lens);
-  lensMesh.rotation.x = -Math.PI / 2; // the cap sits around +y: a negative turn points it at −z, the patient
+  lensMesh.rotation.x = Math.PI / 2; // the cap sits around +y: a positive turn points it at +z, into the patient
   lensMesh.scale.set(1, 1, 0.66); // scale is applied before the rotation, so local z becomes elevation: 1,8 cm
-  lensMesh.position.z = capR - 0.04;
+  lensMesh.position.z = -capR + 0.04; // cap apex ends up 0.4 mm proud of the contact face
   // shoulders: the head widens into the barrel instead of meeting it in a step
   const shoulder = new THREE.Mesh(new THREE.LatheGeometry([new THREE.Vector2(1.4, 0), new THREE.Vector2(1.34, 0.3), new THREE.Vector2(1.2, 0.7), new THREE.Vector2(1.04, 1.15)], 28), shell);
-  shoulder.rotation.x = Math.PI / 2; // lathe axis (+y) → +z, away from the patient
+  shoulder.rotation.x = -Math.PI / 2; // lathe axis (+y) → −z, out of the patient
   shoulder.scale.set(1, 1, 0.72); // oval section, flattened in elevation
-  shoulder.position.z = 1.5;
+  shoulder.position.z = -1.5;
   // barrel with a waist where the fingers sit
   const rs = [1.04, 1.12, 1.1, 1.0, 0.93, 0.93, 1.0, 1.06, 1.02, 0.86];
   const profile = rs.map((r, i) => new THREE.Vector2(r, (i / (rs.length - 1)) * 7.4));
   // close the far end: a lathe has no caps, and seen end-on the barrel is a black hole where the cable leaves
   profile.push(new THREE.Vector2(0.6, 7.5), new THREE.Vector2(0, 7.56));
   const handle = new THREE.Mesh(new THREE.LatheGeometry(profile, 32), shell);
-  handle.rotation.x = Math.PI / 2;
+  handle.rotation.x = -Math.PI / 2;
   handle.scale.set(1, 1, 0.74);
-  handle.position.z = 2.65;
+  handle.position.z = -2.65;
   // strain relief: the tapered, ribbed collar that takes the pull of the cable
   const relief = new THREE.Group();
   for (let i = 0; i < 5; i++) {
     const t = i / 4;
     const ring = new THREE.Mesh(new THREE.TorusGeometry(0.62 - t * 0.28, 0.12 - t * 0.04, 8, 20), rubber);
-    ring.position.z = 10.15 + t * 1.15;
+    ring.position.z = -(10.15 + t * 1.15);
     relief.add(ring);
   }
   const reliefCone = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.68, 1.35, 20), rubber);
-  reliefCone.rotation.x = Math.PI / 2;
-  reliefCone.position.z = 10.75;
+  reliefCone.rotation.x = -Math.PI / 2;
+  reliefCone.position.z = -10.75;
   relief.add(reliefCone);
   const band = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.86, 0.32, 24), collar);
   band.rotation.x = Math.PI / 2;
   band.scale.set(1, 1, 0.78);
-  band.position.z = 9.95;
+  band.position.z = -9.95;
   const cable = new THREE.Mesh(
-    new THREE.TubeGeometry(new THREE.CatmullRomCurve3([new THREE.Vector3(0, 0, 11.4), new THREE.Vector3(0.2, 0.5, 13.2), new THREE.Vector3(0.7, 2.2, 15.4)]), 14, 0.3, 10, false),
+    new THREE.TubeGeometry(new THREE.CatmullRomCurve3([new THREE.Vector3(0, 0, -11.4), new THREE.Vector3(0.2, 0.5, -13.2), new THREE.Vector3(0.7, 2.2, -15.4)]), 14, 0.3, 10, false),
     rubber,
   );
   // index marker: the ridge and dot on the +x (screen-right) side, and the handle the mouse grabs to rotate
   const marker = new THREE.Group();
   const ridge = new THREE.Mesh(new RoundedBoxGeometry(0.26, 0.62, 1.0, 2, 0.1), new THREE.MeshStandardMaterial({ color: 0x2f7fd0, roughness: 0.45 }));
-  ridge.position.set(1.42, 0, 0.8);
+  ridge.position.set(1.42, 0, -0.8);
   const dot = new THREE.Mesh(new THREE.SphereGeometry(0.26, 16, 12), new THREE.MeshStandardMaterial({ color: 0x5cb0ee, emissive: 0x123c5e, roughness: 0.35 }));
-  dot.position.set(1.32, 0, 2.1);
+  dot.position.set(1.32, 0, -2.1);
   marker.add(ridge, dot);
   probe.add(head, lensMesh, shoulder, handle, relief, band, cable, marker);
   return { probe, marker };
