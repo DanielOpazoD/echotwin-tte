@@ -36,10 +36,18 @@ export function TorsoView() {
     el.appendChild(renderer.domElement);
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(35, 1, 1, 300);
+    // Filmic tone mapping and a rim light: the anatomy is read by its volume, and flat linear output made
+    // the myocardial shells look like cut-outs. The geometry itself stays the one the beam cuts — importing
+    // a sculpted heart mesh would look better and stop matching the image, which is the whole point.
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.15;
     scene.add(new THREE.HemisphereLight(0xe8eef5, 0x1a1f28, 1.0));
     const key = new THREE.DirectionalLight(0xffffff, 1.4);
     key.position.set(-12, 25, 40);
     scene.add(key);
+    const rim = new THREE.DirectionalLight(0xcfe4ff, 0.85); // behind and above: separates the shells from the background
+    rim.position.set(-6, 9, -12);
+    scene.add(rim);
     const fill = new THREE.DirectionalLight(0x9fc0ff, 0.5);
     fill.position.set(20, -10, 30);
     scene.add(fill);
@@ -80,7 +88,10 @@ export function TorsoView() {
       }
       ghost.visible = false;
     };
-    meshWorker.postMessage({ caseId, patient, stepCm: 0.28, phase: 0 } satisfies MeshRequest);
+    // 0.20 cm: extraction runs in a worker so the cost is off the UI thread (~1.2 s against 0.5 s at 0.28),
+    // and the finer grid halves the folded vertices that shade as black facets on thin walls (2.3% -> 1.2%
+    // on the RV wall, measured in decision 57)
+    meshWorker.postMessage({ caseId, patient, stepCm: 0.2, phase: 0 } satisfies MeshRequest);
     // examination axes: beam axis, elevation normal and the in-plane lateral direction
     const axisGroup = new THREE.Group();
     const axisLine = (color: number): THREE.Line => new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.9 }));
