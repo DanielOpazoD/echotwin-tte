@@ -49,7 +49,7 @@ Estado real según el código el 2026-09-10. Los hitos M0–M6 siguen la especif
 | Entregable | Estado | Evidencia |
 |---|---|---|
 | Campo de flujo paramétrico (mitral, TSVI/VAo, tricúspide, TSVD, IT) | hecho | `flowField.ts`, `doppler.test.ts` |
-| Color con aliasing, filtro de pared, blooming, sombra, varianza, persistencia | parcial | funciona; sólo humo |
+| Color con aliasing, filtro de pared, blooming, sombra, varianza, persistencia | parcial | funciona; sólo humo salvo la persistencia (`colorDoppler.test.ts`, decisión 56) |
 | PW/CW/TDI con gate, ensanchamiento, aliasing/recorte, sombra en CW | hecho | `doppler.test.ts` (cosine law, aliasing, CW sin resolución de rango) |
 | Audio Doppler | parcial | sin prueba (requiere `AudioContext`) |
 | Regurgitaciones (IM, IAo, IT por ORE) con PISA; obstrucción dinámica del TSVI | hecho | `flowField.ts`, `regurgitation.test.ts` |

@@ -72,7 +72,12 @@ export class SimulatorCore {
   private input: SimInput;
   private frame: PolarFrame | null = null;
   private display: Uint8ClampedArray | null = null;
-  private color: ColorField | null = null;
+  /** The two colour field buffers: each update writes the one that does not hold `colorPrev` (decision 56). */
+  private colorBuffers: [ColorField, ColorField] | null = null;
+  /**
+   * Field of the latest colour update: the composite, the cine and the GPU present pass show it, and the next update
+   * blends it (persistence). Null until the first update after a polar spec or modality change.
+   */
   private colorPrev: ColorField | null = null;
   private colorFrameCounter = 0;
   private colorFps = 0;
@@ -266,7 +271,7 @@ export class SimulatorCore {
       this.frame = allocPolarFrame(spec);
       this.display = new Uint8ClampedArray(spec.lines * spec.samples);
       this.consoleState = createConsoleState(this.caseDef.seed);
-      this.color = allocColorField(spec.lines * spec.samples);
+      this.colorBuffers = [allocColorField(spec.lines * spec.samples), allocColorField(spec.lines * spec.samples)];
       this.colorPrev = null;
     }
     const phase = this.clock.current.phase;
@@ -289,10 +294,7 @@ export class SimulatorCore {
     if (inp.modality === 'color') {
       this.colorFrameCounter++;
       // colour packets cost frames: update the colour field every other B-mode frame
-      if (this.colorFrameCounter % 2 === 0 || !this.colorPrev) {
-        this.computeColor(scene, beam, spec, phase);
-        this.colorPrev = this.color;
-      }
+      if (this.colorFrameCounter % 2 === 0 || !this.colorPrev) this.computeColor(scene, beam, spec, phase);
       if (this.colorPrev) {
         colorVel = this.colorPrev.vel;
         colorVar = this.colorPrev.variance;
@@ -354,7 +356,9 @@ export class SimulatorCore {
     const flow = this.flow;
     const tables = this.tables;
     const hp = scene.heartPose;
-    const out = this.color!;
+    // write into the buffer that does not hold the previous field, which persistence blends
+    const [a, b] = this.colorBuffers!;
+    const out = this.colorPrev === a ? b : a;
     computeColorField(
       frame,
       this.input.color,
@@ -383,6 +387,7 @@ export class SimulatorCore {
       },
       out,
     );
+    this.colorPrev = out;
     this.colorVersion++;
   }
 
@@ -889,6 +894,10 @@ export class SimulatorCore {
   }
   get lastFrame(): PolarFrame | null {
     return this.frame;
+  }
+  /** Colour field of the latest update (null before the first) and its version, which keys the GPU present upload. */
+  get lastColorField(): { field: ColorField | null; version: number } {
+    return { field: this.colorPrev, version: this.colorVersion };
   }
   get currentPhase(): number {
     return this.clock.current.phase;

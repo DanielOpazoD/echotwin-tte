@@ -46,6 +46,7 @@ Referencia = con qué se compara (valor analítico, consistencia interna o rango
 | | Filtro de pared elimina 0,1 m/s; turbulencia ensancha > 1,5× | — | — | pasa |
 | | PW en TSVI desde 9 posiciones de sonda (ajustadas al espacio intercostal, sonda re-apuntada al TSVI desde cada una para que quede en el plano): ≥ 6 con señal; mejor pico 0,45–1,6 m/s; pico ≈ \|v·d\| en el gate; la peor alineación (> 12° más) mide < 0,8× la mejor | cos θ | error < 0,35 m/s | pasa (una versión anterior mantenía la orientación y desde posiciones mediales el gate proyectado caía en los senos aórticos sin flujo) |
 | | CW independiente del gate (Δ < 0,08); PW en campo cercano < PW en TSVI | — | — | pasa |
+| `doppler/color/colorDoppler.test.ts` | Persistencia del color (decisión 56): con 0,5 la segunda actualización de un cuadro sintético mezcla velocidad y varianza con la primera, y con 0 es el campo crudo; a través del núcleo, cada actualización es la mezcla del campo crudo con el anterior, la versión sube una vez por actualización y el cine muestra el mismo color que el cuadro en vivo | analítico; el mismo núcleo sin persistencia | ±10⁻⁵ | pasa (3) |
 | `education/scoring/scoring.test.ts` | Adquisición 100 con las 4 vistas sobre el mínimo; < 70 con PLAX 90 + A4C 35 | — | — | pasa |
 | | Medición correcta (+3 %) con vista 20 → inválida, < 50 puntos; con vista 80 → 100 | — | — | pasa |
 | | VTI con +40 % pierde puntos (0 < p < 100); `mitral-e` no medida = 0 | — | — | pasa |
@@ -126,6 +127,18 @@ Con sólo la cadena en GPU, antes de programar el worker contra un horario absol
 | Camino completo con GPU real (`e2e/gpu-live.spec.ts`, Chromium completo headless) | cuadros en vivo en 2D y color frente a los mismos cuadros compuestos en CPU al congelar; tiras, cine y artefactos; ida y vuelta a Referencias | 4/4 con GPU real (Chromium completo en modo headless, ANGLE Metal sobre Apple M4): los cuadros en vivo en 2D (7,7 s) y en color (5,4 s) llegan como `ImageBitmap` y son idénticos a los mismos cuadros compuestos en CPU al congelar; las tiras, el cine y los artefactos van por CPU y los cuadros vuelven a la GPU al quitarlos (11,7 s); los cuadros siguen llegando tras visitar otra pantalla (5,0 s) |
 | Imagen tras visitar otra pantalla | app, 2,5 s en Referencias y vuelta al simulador | antes: 55 cuadros en 1,5 s y ninguno al volver (imagen congelada); después: los cuadros siguen llegando en Referencias (95 cuadros en 2,5 s) y al volver llegan 93 en 2,5 s, todos formados en la GPU |
 
+## Persistencia del Doppler color (2026-09-11)
+Decisión 56. Pruebas en `src/simulator/doppler/color/colorDoppler.test.ts`. Cada fila se comprobó contra copias del núcleo alteradas en un directorio aparte (la corrección revertida, cada reinicio suprimido, y los lectores apuntando al buffer viejo): todas hacen fallar la prueba, ninguna copia se escribió en el árbol.
+
+| Aspecto | Comprobación | Resultado |
+|---|---|---|
+| Mezcla en `computeColorField` | cuadro sintético con sangre en todas las muestras y transmisión 1; dos actualizaciones a 0,2 y 0,5 m/s con dispersión 0,1 y 0,4 | persistencia 0,5: 0,35 m/s y varianza 0,40 en toda la caja, sin escribir el campo anterior; persistencia 0: idéntica al campo crudo |
+| Persistencia a través de `SimulatorCore` | caso normal, A4C canónica, tier bajo, pasos de 0,1 s: 6 actualizaciones con persistencia 0,5 frente al mismo núcleo con 0 | cada campo es la mezcla del crudo con el anterior (0 discrepancias > 10⁻⁵; 379 muestras mezcladas con un cambio > 0,05 m/s) y la versión sube una vez por actualización; con la corrección revertida, 412 discrepancias y la prueba falla |
+| El compuesto muestra el campo de la última actualización | en cada actualización, R−B de cada píxel del compuesto frente al del campo nuevo y el anterior dibujados aparte (el gris se cancela en esa diferencia), sobre los píxeles que distinguen ambos campos | 9845 píxeles los distinguen y ninguno discrepa (± 2 niveles); con los lectores apuntando al buffer viejo discrepan los 9845 y la prueba falla |
+| Cine frente a cuadro en vivo | los 10 cuadros de esa corrida, congelados y revisados uno a uno | 0 bytes distintos; 11 927 píxeles con color. Este par no distingue el buffer viejo —cine y vivo envejecen juntos—, por eso la fila anterior compara contra el campo de la última actualización |
+| Reinicio al cambiar de modalidad y al realojarse el cuadro polar | 4 intentos en fases distintas: color → 2D → color, y alternando 16 y 13 cm de profundidad; la primera actualización tras cada cambio se compara con la del núcleo sin persistencia | idénticas en las 8 comparaciones; 290 y 442 muestras habrían cambiado de haberse mezclado. Sin el reinicio de modalidad la prueba falla con 1385 muestras distintas; sin el del cuadro polar, con 447 |
+| Clave de la subida del color a la GPU (`colorVersion`) | `core/gpuPath.test.ts` (iteración 3) y `e2e/gpu-live.spec.ts` con GPU real | la versión sube exactamente una vez por actualización y no en los cuadros intermedios; en GPU real los cuadros de color en vivo son idénticos a los compuestos en CPU al congelar (4/4, con la persistencia por defecto de 0,3) |
+
 ## Pruebas E2E (`e2e/core-flow.spec.ts`, Playwright + `vite preview`)
 | Prueba | Qué verifica |
 |---|---|
@@ -149,7 +162,7 @@ El protocolo preregistrado (tres estudios: puntuación experta por vista y versi
 ## Pendiente de validar
 - Comparación contra imágenes reales o contra un simulador físico (PyMUST/OpenBCSim/i4h): `tools/offline/{pymust-validation,optional-cuda-reference,optical-flow}` están vacías (`atlas-generation/build-atlas.ts` sólo produce hojas de contacto para inspección visual).
 - Precisión numérica de las herramientas frente a la verdad de terreno a través de la UI: los E2E comprueban el flujo y la procedencia, no el valor; no hay prueba unitaria del mapeo píxel↔cm ni de velocidad/VTI/tiempo manuales.
-- Color Doppler en imagen (aliasing, blooming, sombra) y M-mode: sólo humo.
+- Color Doppler en imagen (aliasing, blooming, sombra) y M-mode: sólo humo; la persistencia del color sí tiene prueba (decisión 56).
 - Caso de estenosis aórtica: ninguna prueba comprueba su Vmax/gradientes/AVA ni la graduación del informe (sus proporciones y su válvula sí se prueban).
 - Worker (contrapresión, reciclaje), reloj/ECG en la app, audio Doppler.
 - Rendimiento: `bench.ts` se ejecuta a mano; sin umbral automatizado.

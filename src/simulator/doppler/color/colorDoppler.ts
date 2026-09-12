@@ -46,7 +46,8 @@ export function allocColorField(n: number): ColorField {
  * Compute colour for samples inside the box. `axialVelocity(idx)` returns the projected velocity
  * (m/s, +toward) and dispersion for a polar sample, computed by the caller from the flow field.
  * Blooming: gain above 0 extends colour into adjacent non-blood samples (dilation). Shadowing:
- * samples with low transmission get no colour.
+ * samples with low transmission get no colour. Persistence blends each coloured sample with `prev`,
+ * the field of the previous update: it must be a different buffer from `out`, which is cleared first.
  */
 export function computeColorField(
   frame: PolarFrame,
