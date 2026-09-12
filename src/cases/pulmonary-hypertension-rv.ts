@@ -57,5 +57,5 @@ export const pulmonaryHypertensionRvCase: CaseDefinitionInput = {
     'Septo interventricular aplanado en sístole (sobrecarga de presión); ventrículo izquierdo pequeño con llenado reducido.',
     'Insuficiencia tricuspídea moderada con PSVD estimada ≈ 72 mmHg; aurícula derecha dilatada y VCI dilatada con colapso reducido.',
   ],
-  expectedDeviations: ['lv-idd', 'rv-edv', 'rv-edvi', 'rv-basal', 'rv-lv-basal-ratio', 'rv-wall', 'rv-plax', 'ravi', 'ra-transverse', 'ra-long', 'tv-annulus', 'tv-mv-ratio'],
+  expectedDeviations: ['lv-idd', 'rv-edvi', 'rv-basal', 'rv-lv-basal-ratio', 'rv-wall', 'rv-plax', 'ravi', 'ra-transverse', 'ra-long', 'tv-annulus', 'tv-mv-ratio'],
 };

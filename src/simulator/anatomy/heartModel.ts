@@ -741,7 +741,18 @@ function anchors(m: HeartModel): Anchors {
   // missed it by 3.73 cm, the trunk by 6.25 cm and the infundibular mid point by 2.31 cm, so that view showed
   // the aorta floating with no outflow tract, no pulmonary valve and no trunk. The root reaches y ~ 2.85,
   // so the infundibulum still passes in front of it.
-  const rvotB = v3(-0.55, 3.8 + dWall, -1.75);
+  // Septal hypertrophy pushes the right heart forward, but not uniformly: the infundibular inlet sits on the
+  // septum and takes the whole displacement, while the pulmonary annulus is tethered to the fibrous skeleton
+  // and the trunk and barely moves. Applying dWall whole along the outflow tract separated the semilunar
+  // valves by 4.51 cm in the HOCM case and 3.54 in severe aortic stenosis (2.88 in the normal heart, adult
+  // reference 2.5-3.0) — caught by the new av-pv-distance measure, not by eye.
+  // Placed from TORSO coordinates, not from the heart frame: the pulmonary valve sits ~1.5 cm cranial,
+  // ~1.5 cm anterior and ~1.0 cm to the patient's left of the aortic one (it points at the left shoulder).
+  // The first attempt at this put those 1.5 cm along the heart's base-apex axis, which is tilted with
+  // respect to the body, and left the valve 2.78 cm cranial, 0.53 cm to the RIGHT and barely anterior —
+  // the plane through the three valve centres then sat 64° from the aortic root axis instead of under 30°,
+  // which is why no probe angle could show a round aorta ringed by the other valves.
+  const rvotB = v3(-0.48, 3.57 + dWall * 0.2, 0.47);
   const paDir = normalize(v3(0.6, 0.35, -0.72));
   const paEnd = add(rvotB, scale(paDir, 3.6));
   // torso directions in the heart frame: the pulmonary branches run horizontally in the patient
@@ -785,8 +796,11 @@ function anchors(m: HeartModel): Anchors {
     // the tricuspid annulus is ~0.7 cm more apical than the mitral (normal apical offset 0.5–1 cm)
     tvCenter: v3(-(m.lv.rMax * lvProfileG(m.lv.shape, 0.12) + a.lv.ivsdCm + 0.25 + a.tricuspid.annulusDiameterCm / 2), -0.2, 0.7),
     tvR: a.tricuspid.annulusDiameterCm / 2,
-    rvotA: v3(-2.8, 3.3 + dWall, 0.3),
-    rvotM: v3(-1.9, 4.05 + dWall, -0.4),
+    // the inlet sits deep in the anterior RV: pulling the whole tract up to the repositioned pulmonary valve
+    // shortened it from 4.3 to 2.6 cm and cost the right ventricle 13% of its volume (162 -> 141 mL in the
+    // pulmonary hypertension case), because the outflow tract is part of the chamber
+    rvotA: v3(-3.25, 3.05 + dWall, 1.25),
+    rvotM: v3(-1.7, 3.95 + dWall * 0.55, 0.4),
     rvotB,
     rvotRa: 1.3,
     rvotRm: 1.2,
@@ -858,7 +872,9 @@ export function heartLandmarks(m: HeartModel): Landmark[] {
     { id: 'pa', label: 'Tronco pulmonar', p: add(A.rvotB, scale(A.paDir, 1.5)), radius: 1.0 },
     { id: 'pa-bifurcation', label: 'Bifurcación pulmonar', p: A.paEnd, radius: 1.0 },
     { id: 'rv-anterior', label: 'Ventrículo derecho (anterior)', p: v3((a + 0.6) * Math.cos(2.1), (b + 0.6) * Math.sin(2.1) + 0.5, L * 0.35), radius: 0.9 },
-    { id: 'rvot', label: 'TSVD', p: v3(-1.7, 4.7, -1.2), radius: 1.0 },
+    // derived from the infundibular anchor instead of fixed coordinates: pinned at (-1.7, 4.7, -1.2) it was
+    // left behind in the pericardium the moment the outflow tract moved (decision 62)
+    { id: 'rvot', label: 'TSVD', p: A.rvotM, radius: 1.0 },
     // RV inflow near the inferior (diaphragmatic) wall: what the subcostal window cuts first
     { id: 'rv-inferior', label: 'Ventrículo derecho (inferior)', p: v3(-(a + 1.8) * 0.94, -(a + 1.8) * 0.35 - 0.2, L * 0.3), radius: 1.2 },
     { id: 'tv', label: 'Válvula tricúspide', p: v3(A.tvCenter.x, A.tvCenter.y, A.tvCenter.z + 0.7), radius: 1.2 },

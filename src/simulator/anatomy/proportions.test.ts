@@ -11,7 +11,15 @@ import { CASE_INPUTS, loadCaseById } from '@/cases';
  * Measures the current geometric primitives cannot satisfy for any case yet. Each entry must name the
  * limitation in docs/LIMITATIONS.md; remove it when the anatomy pass fixes the primitive.
  */
-const KNOWN_MODEL_LIMITATIONS: ReadonlySet<string> = new Set([]);
+const KNOWN_MODEL_LIMITATIONS: ReadonlySet<string> = new Set([
+  // The four valve rings are not arranged as one fibrous skeleton: the plane through the aortic, pulmonary
+  // and tricuspid centres sits 64° from the aortic root axis (should be under 30°, since the parasternal
+  // short axis of the great vessels shows a round aorta surrounded by the other valves), and the tricuspid
+  // centre is 4.65 cm from the aortic one against 3.0–4.5. This is why that view cannot hold the aorta and
+  // the pulmonary valve at the same time whatever the probe does (decision 59, docs/LIMITATIONS.md).
+  'valve-plane-tilt',
+  'av-tv-distance',
+]);
 
 describe('model proportions against reference ranges', () => {
   for (const input of CASE_INPUTS) {

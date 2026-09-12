@@ -1,5 +1,6 @@
 import type { CaseDefinition } from '@/cases/schema';
-import { classifyHeart, computeHeartPose, createHeartModel, estimateStructureVolume, heartAnchors, heartLandmarks, lvCavityRadiusAt, lvEpicardialRadiusAt, type HeartPose } from './heartModel';
+import { AV_AXIS, classifyHeart, computeHeartPose, createHeartModel, estimateStructureVolume, heartAnchors, heartLandmarks, heartToTorso, lvCavityRadiusAt, lvEpicardialRadiusAt, type HeartPose } from './heartModel';
+import { cross, dot, normalize, sub, type Vec3 } from '@/core/vec3';
 import { createThoraxModel, type PatientState } from './thoraxModel';
 import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { makeSample, Structure, Tissue } from './tissue';
@@ -214,7 +215,13 @@ export function measureModel(c: CaseDefinition, patient: PatientState = DEFAULT_
   const paDir = A.paDir;
   const paPerp: [number, number, number] = [-paDir.y, paDir.x, 0];
   const pl = Math.hypot(paPerp[0], paPerp[1]) || 1;
-  const paD = runAlong(edPose, [Structure.PulmonaryArtery], [A.rvotB.x + paDir.x * 1.5, A.rvotB.y + paDir.y * 1.5, A.rvotB.z + paDir.z * 1.5], [paPerp[0] / pl, paPerp[1] / pl, 0]);
+  // Sample along the trunk and keep the widest cut, the way a sonographer slides until the vessel looks
+  // widest: measuring at one fixed point made the value depend on whether that point happened to fall on the
+  // infundibular junction — it read 1.22 cm in severe aortic stenosis and 2.28 cm with a thicker septum in
+  // HOCM, which is a property of the sampling, not of the anatomy.
+  let paD = 0;
+  for (let t = 1.0; t <= 2.2; t += 0.2)
+    paD = Math.max(paD, runAlong(edPose, [Structure.PulmonaryArtery], [A.rvotB.x + paDir.x * t, A.rvotB.y + paDir.y * t, A.rvotB.z + paDir.z * t], [paPerp[0] / pl, paPerp[1] / pl, 0]));
   const mvAnn = 2 * A.mvR;
   const tvAnn = 2 * A.tvR;
 
@@ -266,6 +273,35 @@ export function measureModel(c: CaseDefinition, patient: PatientState = DEFAULT_
   add('tv-annulus', 'Tricuspid annulus diameter', tvAnn, 'cm', 2.8, 4.0, RH);
   add('tv-mv-ratio', 'TV/MV annulus ratio', tvAnn / mvAnn, '', 1.0, 1.3, RH, true);
   add('rv-lv-length', 'RV/LV length ratio', rvLen / lvLenED, '', 0.65, 0.95, RH, true);
+
+  // ---- spatial relations between the valve rings (the fibrous skeleton) ----
+  // Sizes alone never catch a structure placed in the wrong spot. The pulmonary valve sat 5.30 cm from the
+  // aortic one — nearly twice the adult distance — for twenty iterations without a single measure
+  // complaining, and the result was a parasternal short axis of the great vessels holding no pulmonary
+  // valve, no trunk and no outflow tract at all (decision 59). These ranges are approximate: no guideline
+  // tabulates them, they come from the anatomy literature (the pulmonary annulus sits ~1.5 cm above the
+  // aortic one, the subpulmonary infundibulum crosses the front of the aortic root, and the anterior mitral
+  // leaflet is in fibrous continuity with the aortic valve) and from what the standard views require.
+  const FS = 'cardiac-fibrous-skeleton';
+  const dist = (p: Vec3, q: Vec3): number => Math.hypot(p.x - q.x, p.y - q.y, p.z - q.z);
+  add('av-pv-distance', 'Aortic–pulmonary valve centres', dist(A.avCenter, A.rvotB), 'cm', 2.3, 3.2, FS, true);
+  // «Higher» is craniocaudal in the BODY, so this is measured in the torso frame (+y superior). Written
+  // first as a difference along the heart's base-apex axis, it accused correct anatomy of being wrong: that
+  // axis is tilted with respect to the body, and a measure in the wrong frame is worse than no measure.
+  const avTorso = heartToTorso(heart.frame, A.avCenter);
+  const pvTorso = heartToTorso(heart.frame, A.rvotB);
+  add('pv-above-av', 'Pulmonary annulus above aortic', pvTorso.y - avTorso.y, 'cm', 1.0, 2.0, FS, true);
+  add('pv-anterior-av', 'Pulmonary annulus anterior to aortic', pvTorso.z - avTorso.z, 'cm', 0.8, 2.2, FS, true);
+  add('pv-left-av', "Pulmonary annulus left of aortic", pvTorso.x - avTorso.x, 'cm', 0.4, 1.6, FS, true);
+  add('av-tv-distance', 'Aortic–tricuspid valve centres', dist(A.avCenter, A.tvCenter), 'cm', 3.0, 4.5, FS, true);
+  add('av-mv-distance', 'Aortic–mitral valve centres', dist(A.avCenter, A.mvCenter), 'cm', 1.5, 2.8, FS, true);
+  // The parasternal short axis of the great vessels shows a ROUND aorta surrounded by the other two valves,
+  // which is only possible if the plane through the three valve centres is close to perpendicular to the
+  // aortic root axis. Measured at 62° when this check was written: that single number explains why the view
+  // could not show the aorta and the pulmonary valve at the same time, whatever the probe did.
+  const valvePlane = normalize(cross(sub(A.rvotB, A.tvCenter), sub(A.avCenter, A.tvCenter)));
+  const tilt = (Math.acos(Math.min(1, Math.abs(dot(valvePlane, normalize(AV_AXIS))))) * 180) / Math.PI;
+  add('valve-plane-tilt', 'Three-valve plane vs aortic axis', tilt, '°', 0, 30, FS, true);
   return { caseId: c.id, bsaM2: bsa, rows };
 }
 
