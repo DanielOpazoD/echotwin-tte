@@ -44,12 +44,6 @@ const R = (v: Vec3): Vec3 => normalize(v);
 const PLAX_AP = R(v3(-0.5, 0.866, 0)); // from lateral(x)/anterior(y): anteroseptal direction
 /** A2C plane: 60° from A4C (which lies at azimuth ~2°, through the tricuspid inflow) and 60° from A3C/PLAX (122°). */
 const A2C_RIGHT = R(v3(Math.cos(1.082), Math.sin(1.082), 0)); // 62°
-/** PSAX-AV plane: perpendicular to the aortic root axis; screen right ≈ toward the patient's left/anterior. */
-const AV_RIGHT = ((): Vec3 => {
-  const r0 = v3(0.847, 0.488, 0.212);
-  return R(sub(r0, scale(AV_AXIS, dot(r0, AV_AXIS))));
-})();
-const AV_DOWN = R(v3(AV_AXIS.y * AV_RIGHT.z - AV_AXIS.z * AV_RIGHT.y, AV_AXIS.z * AV_RIGHT.x - AV_AXIS.x * AV_RIGHT.z, AV_AXIS.x * AV_RIGHT.y - AV_AXIS.y * AV_RIGHT.x));
 const AV_CENTER = v3(-0.7, 1.35, -0.25);
 
 export function buildViewTargets(): ViewTarget[] {
@@ -93,10 +87,16 @@ export function buildViewTargets(): ViewTarget[] {
       id: 'psax-av',
       name: 'PSAX nivel válvula aórtica',
       window: 'parasternal',
-      // the AV short axis is perpendicular to the AORTIC ROOT axis (tilted ~39° from the LV long axis),
-      // which is why the probe is angled toward the base to make the valve appear round
-      planeRight: AV_RIGHT,
-      planeDown: AV_DOWN,
+      // The great-vessel short axis belongs to the same plane family as psax-mv and psax-pm — perpendicular to
+      // the LV long axis — and is reached by rotating 90° from the PLAX in the same intercostal space; the
+      // aortic valve looks round because the root itself is tilted, not because the plane chases its axis.
+      // Until 2026-09-12 this view was defined perpendicular to the AORTIC ROOT axis, 62° away from the plane
+      // through the three valves. Measured against that definition, the plane missed the pulmonary valve by
+      // 2.02 cm, the infundibular mid point by 1.22 cm and the trunk by 4.53 cm, and the rendered view held
+      // zero pixels of RVOT, pulmonary valve and pulmonary artery: the aorta floated with nothing around it.
+      // Perpendicular to the long axis those fall at -1.08, 0.27 and -3.67 cm.
+      planeRight: R(v3(0.866, 0.5, 0)),
+      planeDown: R(v3(0.5, -0.866, 0)),
       target: v3(AV_CENTER.x + AV_AXIS.x * 0.5, AV_CENTER.y + AV_AXIS.y * 0.5, AV_CENTER.z + AV_AXIS.z * 0.5), // mid-cusp level
       skin: { u: 2.6, v: 1.6 },
       requiredLandmarks: [

@@ -733,8 +733,17 @@ function anchors(m: HeartModel): Anchors {
   const raCenter = v3(iasX + 0.35 - raRx, -0.5 - raRx * 0.1, -raRz * 0.72 + 0.05);
   // LV hypertrophy must not crush the right heart: the RV/RVOT anchors move with the septal thickness
   const dWall = (a.lv.ivsdCm - 0.9) * 1.5;
+  // The subpulmonary infundibulum winds across the FRONT of the aortic root and the pulmonary annulus sits
+  // about 1.5 cm above the aortic one, pointing posteriorly, superiorly and to the left. Both semilunar
+  // valves therefore fall close to one oblique plane, which is what makes the parasternal short axis of the
+  // great vessels possible at all. Until 2026-09-12 the pulmonary valve sat 4.65 cm anterior and 2.35 cm
+  // superior to the aortic one (centres 5.3 cm apart, against 2.5-3 cm in the adult): the PSAX-AV plane then
+  // missed it by 3.73 cm, the trunk by 6.25 cm and the infundibular mid point by 2.31 cm, so that view showed
+  // the aorta floating with no outflow tract, no pulmonary valve and no trunk. The root reaches y ~ 2.85,
+  // so the infundibulum still passes in front of it.
+  const rvotB = v3(-0.55, 3.8 + dWall, -1.75);
   const paDir = normalize(v3(0.6, 0.35, -0.72));
-  const paEnd = v3(-0.6 + paDir.x * 3.6, 5.7 + dWall + paDir.y * 3.6, -2.6 + paDir.z * 3.6);
+  const paEnd = add(rvotB, scale(paDir, 3.6));
   // torso directions in the heart frame: the pulmonary branches run horizontally in the patient
   const f = m.frame;
   const dirH = (d: Vec3): Vec3 => v3(dot(d, f.ex), dot(d, f.ey), dot(d, f.ez));
@@ -776,9 +785,9 @@ function anchors(m: HeartModel): Anchors {
     // the tricuspid annulus is ~0.7 cm more apical than the mitral (normal apical offset 0.5–1 cm)
     tvCenter: v3(-(m.lv.rMax * lvProfileG(m.lv.shape, 0.12) + a.lv.ivsdCm + 0.25 + a.tricuspid.annulusDiameterCm / 2), -0.2, 0.7),
     tvR: a.tricuspid.annulusDiameterCm / 2,
-    rvotA: v3(-2.8, 3.6 + dWall, 0.3),
-    rvotM: v3(-1.95, 5.0 + dWall, -1.1),
-    rvotB: v3(-0.6, 5.7 + dWall, -2.6),
+    rvotA: v3(-2.8, 3.3 + dWall, 0.3),
+    rvotM: v3(-1.9, 4.05 + dWall, -0.4),
+    rvotB,
     rvotRa: 1.3,
     rvotRm: 1.2,
     rvotR: 1.1,

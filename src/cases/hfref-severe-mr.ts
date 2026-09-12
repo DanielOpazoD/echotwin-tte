@@ -77,5 +77,5 @@ export const hfrefSevereMrCase: CaseDefinitionInput = {
     'Insuficiencia mitral funcional central de grado moderado (ORE ≈ 0,25 cm²) por dilatación anular.',
     'Aurícula izquierda severamente dilatada; patrón de llenado restrictivo con presiones de llenado elevadas; hipertensión pulmonar moderada por IT.',
   ],
-  expectedDeviations: ['lv-edv', 'lv-esv', 'lv-ef', 'lv-edvi', 'lv-idd', 'lv-ids', 'lv-shortening', 'ivs-thickening', 'apex-thickness', 'rv-edv', 'rv-edvi', 'la-ap', 'la-transverse', 'la-long', 'lavi', 'la-emptying', 'la-ao', 'mv-annulus'],
+  expectedDeviations: ['lv-edv', 'lv-esv', 'lv-ef', 'lv-edvi', 'lv-idd', 'lv-ids', 'lv-shortening', 'ivs-thickening', 'apex-thickness', 'rv-edvi', 'la-ap', 'la-transverse', 'la-long', 'lavi', 'la-emptying', 'la-ao', 'mv-annulus'],
 };
