@@ -21,7 +21,7 @@ Este método existe porque casi todos los errores de una sesión larga sobre la 
 
 6. **Con la máquina cargada, los E2E no son interpretables.** Mira `uptime`; si la carga es alta, vuelve a correr sólo lo que falla y compara contra HEAD antes de culpar al cambio. Espera a que baje antes que commitear sin verificar.
 
-7. **Cada clase de defecto se convierte en prueba permanente, validada por mutación.** Vacía la lista de limitaciones conocidas y confirma que la prueba falla exactamente donde debe; si no falla, es vacua. Una limitación declarada que ya no falla debe detectarse como obsoleta, porque desactiva un requisito que sí se cumple.
+7. **Cada clase de defecto se convierte en prueba permanente, validada por mutación.** Vacía la lista de limitaciones conocidas y confirma que la prueba falla exactamente donde debe; si no falla, es vacua. Una limitación declarada que ya no falla debe detectarse como obsoleta, porque desactiva un requisito que sí se cumple. Si el defecto se ve en la app, la prueba debe recorrer la cadena de la app (`SimulatorCore` con `core/baseInput.ts`): la primera prueba de la puntuación de ganancia analizaba un cuadro estático con otra semilla y otra fase, y pasaba también con el umbral antiguo.
 
 8. **No ajustes una prueba para que pase.** Si una prueba de física depende de la posición de la anatomía, desacóplala sin rebajar lo que exige —por ejemplo, anclando las bandas de medida al tejido y no a profundidades fijas—. Probar parámetros hasta que el test pase es maquillaje.
 

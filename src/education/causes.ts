@@ -52,8 +52,8 @@ export function explainAnalysis(v: ViewAnalysis, settings: AcquisitionSettings):
     out.push({
       code: over ? 'over-gain' : 'under-gain',
       cause: over ? 'Ganancia global excesiva: se amplifica también el ruido electrónico.' : 'Ganancia insuficiente: los ecos débiles del miocardio quedan bajo el umbral de la escala.',
-      effect: over ? 'La sangre se vuelve gris, los bordes endocárdicos se pierden y las medidas de borde interno crecen.' : 'Las paredes se ven oscuras y discontinuas; los bordes son difíciles de seguir.',
-      remedy: over ? 'Baja la ganancia hasta que la cavidad sea negra y ajusta la TGC por profundidad.' : 'Sube la ganancia o la TGC en la zona oscura; usa armónicos para mejorar la relación señal/ruido.',
+      effect: over ? 'La sangre se aclara hasta acercarse al gris del miocardio, los bordes endocárdicos se pierden y las medidas de borde interno crecen.' : 'Las paredes se ven oscuras y discontinuas; los bordes son difíciles de seguir.',
+      remedy: over ? 'Baja la ganancia hasta que la cavidad quede gris oscura, claramente más oscura que el miocardio, y ajusta la TGC por profundidad.' : 'Sube la ganancia o la TGC en la zona oscura; usa armónicos para mejorar la relación señal/ruido.',
     });
   }
   if (c.depth < 0.7) {

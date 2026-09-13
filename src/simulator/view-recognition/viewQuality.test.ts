@@ -9,7 +9,10 @@ import { ProceduralSliceRenderer } from '@/simulator/renderer/procedural/sliceRe
 import { allocPolarFrame, DEFAULT_ACQUISITION, polarSpecFor, type Scene } from '@/simulator/renderer/types';
 import { applyConsole, createConsoleState } from '@/simulator/renderer/postprocess/consolePipeline';
 import { beamFrameFromPose, poseFromControl, type ProbeControl } from '@/simulator/probe/pose';
-import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
+import { canonicalControl, getViewTarget, VIEW_TARGETS } from '@/simulator/windows/viewTargets';
+import { loadCaseById } from '@/cases';
+import { SimulatorCore } from '@/simulator/core/simulatorCore';
+import { baseInput } from '@/simulator/core/baseInput';
 
 const c = validateCase(normalExcellentCase).case!;
 const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, { position: 'left-lateral', respiration: 'expiration', headElevationDeg: 0 });
@@ -95,5 +98,25 @@ describe('view quality engine', () => {
     const a = analyze({ ...plax, rotationDeg: plax.rotationDeg + 25 });
     expect(a.score).toBeLessThan(analyze(plax).score);
     expect(a.hints.join(' ')).toMatch(/Rota|Inclina|Rockea|Desliza/);
+  });
+  // Decision 73: the gain check is calibrated on CAMUS apical images rated Good. Its old threshold — blood above 22% of
+  // white is overgain — came from textbook anechoic blood and put the gain hint on the clinically calibrated default
+  // console. Measured through the simulator core, as the app shows it: the static analysis above, with other seeds,
+  // phase and no frame history, did not reproduce the regression (the old check passed there).
+  it('gain hints follow clinical optimal-window images: none at the default console, overgain at +12 dB, undergain at −18 dB in apical views', { timeout: 120_000 }, () => {
+    const c0 = loadCaseById('normal-excellent-window');
+    const models = new SimulatorCore(c0, baseInput()).models;
+    const gainHint = (id: string, gainDb: number): string => {
+      const probe = canonicalControl(getViewTarget(id), models.heart, models.thorax);
+      const core = new SimulatorCore(c0, baseInput({ probe, quality: 'medium', settings: { ...DEFAULT_ACQUISITION, tgcDb: [...DEFAULT_ACQUISITION.tgcDb], gainDb } }));
+      for (let i = 0; i < 8; i++) core.step(1 / 30);
+      const h = core.lastView?.hints.find((t) => /ganancia/i.test(t)) ?? '';
+      return h.startsWith('Exceso') ? 'over' : h ? 'under' : 'none';
+    };
+    const ids = VIEW_TARGETS.map((v) => v.id);
+    expect(ids.map((id) => `${id}:${gainHint(id, 0)}`)).toEqual(ids.map((id) => `${id}:none`));
+    expect(ids.map((id) => `${id}:${gainHint(id, 12)}`)).toEqual(ids.map((id) => `${id}:over`));
+    const apical = ['a4c', 'a5c', 'a2c', 'a3c'];
+    expect(apical.map((id) => `${id}:${gainHint(id, -18)}`)).toEqual(apical.map((id) => `${id}:under`));
   });
 });

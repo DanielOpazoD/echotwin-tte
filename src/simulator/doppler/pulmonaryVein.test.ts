@@ -5,7 +5,7 @@ import { computeHeartPose, createHeartModel, heartAnchors, heartLandmarks } from
 import { createThoraxModel } from '@/simulator/anatomy/thoraxModel';
 import { buildFlowParams, pulmonaryVeinPeaks, sampleFlow } from './flow-primitives/flowField';
 import { SimulatorCore } from '@/simulator/core/simulatorCore';
-import { baseInput } from '@/simulator/core/simulatorCore.test';
+import { baseInput } from '@/simulator/core/baseInput';
 import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
 
 function setup(id: string) {

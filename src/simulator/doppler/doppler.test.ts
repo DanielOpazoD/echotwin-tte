@@ -6,7 +6,7 @@ import { createHeartModel, computeHeartPose, heartLandmarks, heartToTorso } from
 import { createThoraxModel, snapToIntercostal } from '@/simulator/anatomy/thoraxModel';
 import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { SimulatorCore } from '@/simulator/core/simulatorCore';
-import { baseInput } from '@/simulator/core/simulatorCore.test';
+import { baseInput } from '@/simulator/core/baseInput';
 import { canonicalControl, canonicalPlane, getViewTarget } from '@/simulator/windows/viewTargets';
 import { beamFrameFromPose, controlAimingAt, poseFromControl } from '@/simulator/probe/pose';
 import { dot, sub } from '@/core/vec3';

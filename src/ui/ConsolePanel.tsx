@@ -60,7 +60,7 @@ export function ConsolePanel() {
       </Section>
       <Section title="2D">
         <Slider label="Profundidad" value={s.settings.depthCm} min={6} max={30} unit=" cm" onChange={(v) => s.setSettings({ depthCm: v })} title={tip('Más profundidad = menos frame rate y resolución.')} />
-        <Slider label="Ganancia" value={s.settings.gainDb} min={-30} max={30} unit=" dB" onChange={(v) => s.setSettings({ gainDb: v })} title={tip('Exceso: la sangre se ve gris y sube el ruido.')} />
+        <Slider label="Ganancia" value={s.settings.gainDb} min={-30} max={30} unit=" dB" onChange={(v) => s.setSettings({ gainDb: v })} title={tip('Exceso: la sangre se aclara hacia el gris del miocardio y sube el ruido.')} />
         <Slider label="Rango dinámico" value={s.settings.dynamicRangeDb} min={30} max={90} unit=" dB" onChange={(v) => s.setSettings({ dynamicRangeDb: v })} title={tip('Menor RD = imagen más contrastada.')} />
         <Slider label="Frecuencia" value={s.settings.frequencyMHz} min={1.5} max={5} step={0.25} unit=" MHz" format={(v) => `${v.toFixed(2)} MHz`} onChange={(v) => s.setSettings({ frequencyMHz: v })} title={tip('Mayor frecuencia = más resolución, menos penetración.')} />
         <Toggle label="Armónicos (THI)" value={s.settings.harmonics} onChange={(v) => s.setSettings({ harmonics: v })} title={tip('Reduce clutter y mejora bordes; algo menos de penetración.')} />

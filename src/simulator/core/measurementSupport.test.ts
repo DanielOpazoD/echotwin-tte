@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SimulatorCore } from './simulatorCore';
-import { baseInput } from './simulatorCore.test';
+import { baseInput } from './baseInput';
 import { loadCaseById } from '@/cases';
 import { createHeartModel, heartLandmarks, heartToTorso } from '@/simulator/anatomy/heartModel';
 import { createThoraxModel } from '@/simulator/anatomy/thoraxModel';

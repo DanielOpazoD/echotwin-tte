@@ -1,31 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { SimulatorCore } from './simulatorCore';
 import { loadCaseById } from '@/cases';
-import type { SimInput } from './protocol';
-import { DEFAULT_ACQUISITION } from '@/simulator/renderer/types';
-import { DEFAULT_COLOR } from '@/simulator/doppler/color/colorDoppler';
-import { DEFAULT_SPECTRAL } from '@/simulator/doppler/spectral/spectrum';
+import { baseInput } from './baseInput';
 import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
-
-export function baseInput(over: Partial<SimInput> = {}): SimInput {
-  return {
-    probe: { u: 3.4, v: 0.4, rotationDeg: 25, tiltDeg: 6, rockDeg: -4, pressure: 0.55 },
-    patient: { position: 'left-lateral', respiration: 'expiration', headElevationDeg: 0 },
-    settings: { ...DEFAULT_ACQUISITION, tgcDb: [...DEFAULT_ACQUISITION.tgcDb] },
-    modality: '2d',
-    frozen: false,
-    cineOffset: 0,
-    color: { ...DEFAULT_COLOR },
-    spectral: { ...DEFAULT_SPECTRAL },
-    cursorThetaRad: 0,
-    gateDepthCm: 9,
-    quality: 'low',
-    display: { width: 320, height: 260 },
-    rendererBackend: 'procedural',
-    artifactOverrides: null,
-    ...over,
-  };
-}
 
 describe('SimulatorCore smoke', () => {
   it('produces frames in 2D, colour, PW, CW and M-mode without throwing', { timeout: 30_000 }, () => {

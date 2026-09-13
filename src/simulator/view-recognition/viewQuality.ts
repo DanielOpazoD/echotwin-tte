@@ -7,7 +7,39 @@ import type { BeamFrame, ProbeControl } from '@/simulator/probe/pose';
 import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
 import { canonicalBeam, canonicalPlane, VIEW_TARGETS, type ViewTarget, type WindowId } from '@/simulator/windows/viewTargets';
 import type { AcquisitionSettings, PolarFrame } from '@/simulator/renderer/types';
-import { Tissue } from '@/simulator/anatomy/tissue';
+import { Structure, Tissue } from '@/simulator/anatomy/tissue';
+import { CAMUS_GOOD } from '@/clinical/reference-values/camusImageStats';
+
+/**
+ * Gain check against clinical optimal-window images (decision 73). The reference is the median grey of the LV cavity
+ * and of the LV myocardium in CAMUS apical images rated Good, over the four view/phase conditions: inside their
+ * interquartile range the gain is right, and the hint appears once the image is further out than the brightest (or
+ * darkest) tenth of those images. It replaced a check calibrated on textbook "anechoic blood" (blood mean above 22%
+ * of white was overgain), which flagged half of the clinical optimal-window images — and the calibrated default — as
+ * overgained.
+ */
+const GOOD = Object.values(CAMUS_GOOD);
+const BLOOD_OK = Math.max(...GOOD.map((q) => q.cavityGrey.p75)) / 255;
+const BLOOD_HINT = Math.max(...GOOD.map((q) => q.cavityGrey.p90)) / 255;
+const MYO_OK = Math.min(...GOOD.map((q) => q.myocardiumGrey.p25)) / 255;
+const MYO_HINT = Math.min(...GOOD.map((q) => q.myocardiumGrey.p10)) / 255;
+/** Score lost at the p10/p90 fence: 0.3 puts the gain component at the 0.7 below which the hint is shown. */
+const GAIN_PENALTY_AT_FENCE = 0.3;
+/**
+ * Fewer LV samples than this means a view without the LV (PSAX-AV, subcostal IVC). Blood is the same tissue in every
+ * chamber, so overgain falls back to all cardiac blood; the myocardium there is thin atrial or right-heart wall, not
+ * the LV myocardium the reference measured, so undergain is not judged (it flagged the subcostal IVC at −6 dB).
+ */
+const MIN_LV_SAMPLES = 30;
+
+function histogramMedian(h: Uint32Array, n: number): number {
+  let acc = 0;
+  for (let g = 0; g < h.length; g++) {
+    acc += h[g]!;
+    if (acc * 2 >= n) return g / 255;
+  }
+  return 0;
+}
 
 /**
  * ViewQualityEngine (spec 5.11, 28.1, 52). Scores are 0–100 with explicit components; landmark
@@ -129,11 +161,15 @@ export function analyzeView(input: AnalyzeInput): ViewAnalysis {
   // frame statistics: coverage & shadowing & gain
   const { lines, samples } = frame.spec;
   let cardiac = 0,
-    shadowed = 0,
-    bloodSum = 0,
-    bloodN = 0,
-    myoSum = 0,
-    myoN = 0;
+    shadowed = 0;
+  // grey histograms of the post-console display: LV cavity and LV walls, as CAMUS labels them, and all cardiac
+  // blood for views without the LV
+  const hLvBlood = new Uint32Array(256),
+    hLvMyo = new Uint32Array(256),
+    hBlood = new Uint32Array(256);
+  let lvBloodN = 0,
+    lvMyoN = 0,
+    bloodN = 0;
   const n = lines * samples;
   const dr = frame.spec.depthCm / samples;
   for (let i = 0; i < n; i += 3) {
@@ -144,24 +180,31 @@ export function analyzeView(input: AnalyzeInput): ViewAnalysis {
       const r = ((i % samples) + 0.5) * dr;
       if ((frame.transmission[i] ?? 0) < 0.2 * expectedTransmission(r, settings.frequencyMHz)) shadowed++;
       if (input.display) {
-        const y = (input.display[i] ?? 0) / 255;
+        const g = input.display[i] ?? 0;
         if (t === Tissue.Blood) {
-          bloodSum += y;
+          hBlood[g]!++;
           bloodN++;
+          if (st === Structure.LvCavity) {
+            hLvBlood[g]!++;
+            lvBloodN++;
+          }
         } else if (t === Tissue.Myocardium) {
-          myoSum += y;
-          myoN++;
+          if (st >= Structure.LvWallSeptal && st <= Structure.LvApex) {
+            hLvMyo[g]!++;
+            lvMyoN++;
+          }
         }
       }
     }
   }
   const heartCoverage = cardiac / (n / 3);
   const shadowFraction = cardiac ? shadowed / cardiac : 1;
-  const bloodMean = bloodN ? bloodSum / bloodN : 0;
-  const myoMean = myoN ? myoSum / myoN : 0;
+  const bloodMedian = lvBloodN >= MIN_LV_SAMPLES ? histogramMedian(hLvBlood, lvBloodN) : bloodN ? histogramMedian(hBlood, bloodN) : 0;
+  const myoMedian = lvMyoN >= MIN_LV_SAMPLES ? histogramMedian(hLvMyo, lvMyoN) : 1;
   let gainScore = 1;
-  if (bloodMean > 0.22) gainScore -= Math.min(0.7, (bloodMean - 0.22) * 3); // overgain
-  if (myoMean < 0.32 && myoN > 0) gainScore -= Math.min(0.7, (0.32 - myoMean) * 3); // undergain
+  const overgain = bloodMedian > BLOOD_OK;
+  if (overgain) gainScore -= Math.min(0.7, (GAIN_PENALTY_AT_FENCE * (bloodMedian - BLOOD_OK)) / (BLOOD_HINT - BLOOD_OK));
+  if (myoMedian < MYO_OK) gainScore -= Math.min(0.7, (GAIN_PENALTY_AT_FENCE * (MYO_OK - myoMedian)) / (MYO_OK - MYO_HINT));
   gainScore = Math.max(0, gainScore);
   const artifactsScore = Math.max(0, 1 - shadowFraction * 1.6);
 
@@ -299,7 +342,7 @@ export function analyzeView(input: AnalyzeInput): ViewAnalysis {
   if (view.window === 'apical' && (a.foreshorteningDeg ?? 0) > 15) hints.push('El ápex está acortado: desplaza la sonda un espacio más abajo/lateral y angula hacia la base para alargar el VI.');
   if (settings.depthCm > view.recommendedDepthRangeCm[1]) hints.push('Demasiada profundidad para esta vista: reduce la profundidad para ganar resolución y frame rate.');
   if (settings.depthCm < view.recommendedDepthRangeCm[0]) hints.push('Profundidad insuficiente: las estructuras posteriores quedan fuera del sector.');
-  if (gainScore < 0.7) hints.push(bloodMean > 0.22 ? 'Exceso de ganancia: la sangre se ve gris. Baja la ganancia o ajusta TGC.' : 'Ganancia insuficiente: el miocardio se ve oscuro. Sube la ganancia.');
+  if (gainScore < 0.7) hints.push(overgain ? 'Exceso de ganancia: la sangre se aclara hacia el gris del miocardio. Baja la ganancia o ajusta TGC.' : 'Ganancia insuficiente: el miocardio se ve oscuro. Sube la ganancia.');
   return {
     window,
     bestViewId: view.id,
