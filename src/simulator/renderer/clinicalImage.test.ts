@@ -37,13 +37,13 @@ const CONDITIONS = [
  * are the same brightness pattern crossing the quartile by 1 or 2 grey levels; A2C end-systole myocardium joined them
  * when the basal inferior wall began to reach the mitral annulus (decisions 76-77: 4 % more myocardium, deeper, grey
  * median 92 → 90 against a quartile of 91). A declaration that holds no longer fails the test, so the list cannot
- * outlive the defect.
+ * outlive the defect. A2C end-systole atrium grey left the list when the A2C preset stopped sliding under the lung and
+ * the anterior wall came into the image (decision 83: atrium 81 → 79 against a quartile of 79).
  */
 const KNOWN_DEVIATIONS: ReadonlySet<string> = new Set([
   '4CH-ED:myocardiumGrey',
   '4CH-ED:contrast',
   '2CH-ES:myocardiumGrey',
-  '2CH-ES:atriumGrey',
   '2CH-ES:contrast',
   // Texture (decision 74, docs/LIMITATIONS.md): the speckle cell is 1.2-1.5 × 0.9 mm against 2.1 × 1.7 mm, and the
   // myocardium's grey std against its ±4 mm local mean is ~13 against ~21 — the console adds receiver noise as an

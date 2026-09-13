@@ -1,6 +1,7 @@
 import type { Vec3 } from '@/core/vec3';
 import { add, dot, normalize, scale, sub, v3 } from '@/core/vec3';
 import type { HeartModel } from '@/simulator/anatomy/heartModel';
+import { lvProfileG } from '@/simulator/anatomy/lvShape';
 import { AV_AXIS, heartDirToTorso, heartToTorso } from '@/simulator/anatomy/heartModel';
 import { isAnteriorLung, ribSpacingAt, skinZ, snapToIntercostal, type ThoraxModel } from '@/simulator/anatomy/thoraxModel';
 import { beamFrameFromPose, controlAimingAt, poseFromControl, type BeamFrame, type ProbeControl } from '@/simulator/probe/pose';
@@ -441,6 +442,41 @@ export function lungOcclusion(thorax: ThoraxModel, control: ProbeControl, target
   return blocked / RAYS;
 }
 
+/**
+ * Share of the left ventricular wall drawn by a probe control that lies behind lung: the mid-wall surface of the resting
+ * ventricle, sampled within 0.5 cm of the image plane and inside the 80° sector, with lung anywhere between the probe
+ * and the sample. The renderer shows only reverberation behind the pleura, so this is the wall the image loses.
+ */
+export function ventricleHiddenShare(heart: HeartModel, thorax: ThoraxModel, control: ProbeControl): number {
+  const beam = beamFrameFromPose(poseFromControl(thorax, control), 1);
+  const { lengthCm: L, rMax, shape } = heart.lv;
+  const halfSector = (40 * Math.PI) / 180;
+  let seen = 0,
+    hidden = 0;
+  for (let zi = 1; zi <= 12; zi++) {
+    const zeta = zi / 13;
+    const r = rMax * lvProfileG(shape, zeta) + 0.45;
+    for (let k = 0; k < 48; k++) {
+      const phi = (k / 48) * 2 * Math.PI;
+      const pT = heartToTorso(heart.frame, v3(r * Math.cos(phi), r * shape.ratio * Math.sin(phi), zeta * L));
+      const d = sub(pT, beam.origin);
+      if (Math.abs(dot(d, beam.normal)) > 0.5) continue;
+      const dep = dot(d, beam.forward);
+      if (dep <= 0 || Math.abs(Math.atan2(dot(d, beam.lateral), dep)) > halfSector) continue;
+      seen++;
+      const len = Math.hypot(d.x, d.y, d.z);
+      for (let t = 0.25; t < len; t += 0.25) {
+        const q = add(beam.origin, scale(d, t / len));
+        if (isAnteriorLung(thorax, q.x, q.y, q.z)) {
+          hidden++;
+          break;
+        }
+      }
+    }
+  }
+  return seen ? hidden / seen : 0;
+}
+
 /** Canonical probe control for a view target, computed from the case anatomy (for scoring/ghost only). */
 export function canonicalControl(view: ViewTarget, heart: HeartModel, thorax: ThoraxModel): ProbeControl {
   const plane = canonicalPlane(view, heart);
@@ -463,6 +499,22 @@ export function canonicalControl(view: ViewTarget, heart: HeartModel, thorax: Th
     const other = snapToIntercostal(thorax, slid.u, near.v + (slid.v > near.v ? spacing : -spacing));
     const hidden = (p: { u: number; v: number }): number => lungOcclusion(thorax, controlAimingAt(thorax, p.u, p.v, plane.target, plane.right, 0.6), plane.target);
     skin = hidden(other) < hidden(near) - 0.1 ? other : near;
+    // Within that space the slide toward the plane stops before the lung covers the ventricle. Sliding the full 2 cm put
+    // the A2C probe over the lung border: the lingula hid 35% of the LV wall in the normal case — the anterior wall — and
+    // 23-50% in all twelve, while 1-1.5 cm back toward the apex the wall lay clear (decision 83). The probe keeps the
+    // longest slide, the least obliquity, that leaves at most a tenth of the wall behind lung, or failing that no more
+    // than 5 points above the clearest position this window allows.
+    const back = Math.sign(preferred.u - skin.u);
+    const stops = [skin];
+    for (let d = 0.5; d < Math.abs(preferred.u - skin.u); d += 0.5) stops.push(snapToIntercostal(thorax, skin.u + back * d, skin.v));
+    if (Math.abs(preferred.u - skin.u) > 0.25) stops.push(snapToIntercostal(thorax, preferred.u, skin.v));
+    const hiddenAt = (p: { u: number; v: number }): number => ventricleHiddenShare(heart, thorax, controlAimingAt(thorax, p.u, p.v, plane.target, plane.right, 0.6));
+    // a clear first position needs no search: it is the longest slide and within any tolerance
+    if (stops.length > 1 && hiddenAt(skin) > 0.1) {
+      const hid = stops.map(hiddenAt);
+      const tolerated = Math.max(0.1, Math.min(...hid) + 0.05);
+      skin = stops[hid.findIndex((h) => h <= tolerated + 1e-9)]!;
+    }
   } else if (view.id === 'plax') {
     skin = skinPointOnPlane(thorax, plane, preferred, 1.5);
   } else if (view.window === 'parasternal') {
