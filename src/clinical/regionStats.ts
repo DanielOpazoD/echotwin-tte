@@ -37,7 +37,11 @@ export interface ImageStats {
   tissueBloodContrast: number;
   /** Median grey std in 5×5 windows lying entirely inside the eroded myocardium. */
   myocardialLocalStd: number;
-  /** Speckle cell: twice the lag (mm) at which the grey autocorrelation inside the myocardium falls to 0.5. */
+  /** Grey std inside the eroded myocardium after removing the ±4 mm local mean: speckle-scale texture contrast. */
+  myocardialDetrendedStd: number;
+  /** The same inside the eroded LV cavity: how granular the blood pool looks. */
+  cavityDetrendedStd: number;
+  /** Speckle cell: twice the lag (mm) at which the autocorrelation of detrended grey inside the myocardium falls to 0.5. */
   speckleCellMm: { horizontal: number; vertical: number };
 }
 
@@ -152,43 +156,92 @@ export function orientApical(img: RegionImage): RegionImage {
   return out;
 }
 
-function cellMm(img: RegionImage, mask: Uint8Array, horizontal: boolean): number {
+/** Half-width (mm) of the local-mean window that speckle residuals are taken against. */
+const DETREND_MM = 4;
+
+/** Grey minus the mean of the same region within ±4 mm, for every pixel of the mask (0 elsewhere). */
+function detrendedResiduals(img: RegionImage, mask: Uint8Array): Float32Array {
   const { width: w, height: h, grey } = img;
-  const maxLag = 12;
-  const acc = new Float64Array(maxLag + 1);
-  const cnt = new Float64Array(maxLag + 1);
-  const outer = horizontal ? h : w;
-  const inner = horizontal ? w : h;
-  for (let o = 0; o < outer; o++) {
-    let run: number[] = [];
-    const flush = (): void => {
-      if (run.length >= 12) {
-        const m = run.reduce((a, b) => a + b, 0) / run.length;
-        const d = run.map((v) => v - m);
-        const v0 = d.reduce((a, b) => a + b * b, 0) / d.length;
-        if (v0 > 0)
-          for (let lag = 0; lag <= maxLag && lag < d.length; lag++) {
-            let s = 0;
-            for (let k = 0; k + lag < d.length; k++) s += d[k]! * d[k + lag]!;
-            acc[lag] = acc[lag]! + s / (d.length - lag) / v0;
-            cnt[lag] = cnt[lag]! + 1;
-          }
+  const rx = Math.max(1, Math.round(DETREND_MM / img.mmPerPx[0]));
+  const ry = Math.max(1, Math.round(DETREND_MM / img.mmPerPx[1]));
+  const W1 = w + 1;
+  const sumG = new Float64Array(W1 * (h + 1));
+  const sumC = new Float64Array(W1 * (h + 1));
+  for (let y = 0; y < h; y++) {
+    let rowG = 0,
+      rowC = 0;
+    for (let x = 0; x < w; x++) {
+      const i = x + y * w;
+      if (mask[i]) {
+        rowG += grey[i]!;
+        rowC++;
       }
-      run = [];
-    };
-    for (let i = 0; i < inner; i++) {
-      const idx = horizontal ? i + o * w : o + i * w;
-      if (mask[idx]) run.push(grey[idx]!);
-      else flush();
+      sumG[x + 1 + (y + 1) * W1] = sumG[x + 1 + y * W1]! + rowG;
+      sumC[x + 1 + (y + 1) * W1] = sumC[x + 1 + y * W1]! + rowC;
     }
-    flush();
   }
-  const acf = Array.from(acc, (a, i) => a / Math.max(1, cnt[i]!));
-  for (let k = 1; k <= maxLag; k++)
-    if (acf[k]! <= 0.5) {
-      const lag = k - 1 + (acf[k - 1]! - 0.5) / Math.max(1e-9, acf[k - 1]! - acf[k]!);
-      return 2 * lag * (horizontal ? img.mmPerPx[0] : img.mmPerPx[1]);
+  const box = (t: Float64Array, x0: number, y0: number, x1: number, y1: number): number => t[x1 + y1 * W1]! - t[x0 + y1 * W1]! - t[x1 + y0 * W1]! + t[x0 + y0 * W1]!;
+  const res = new Float32Array(w * h);
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const i = x + y * w;
+      if (!mask[i]) continue;
+      const x0 = Math.max(0, x - rx),
+        x1 = Math.min(w, x + rx + 1),
+        y0 = Math.max(0, y - ry),
+        y1 = Math.min(h, y + ry + 1);
+      res[i] = grey[i]! - box(sumG, x0, y0, x1, y1) / box(sumC, x0, y0, x1, y1);
     }
+  return res;
+}
+
+/** Standard deviation of the detrended grey inside the mask: speckle-scale texture contrast, free of regional trends. */
+function detrendedStd(res: Float32Array, mask: Uint8Array): number {
+  let s = 0,
+    s2 = 0,
+    n = 0;
+  for (let i = 0; i < mask.length; i++)
+    if (mask[i]) {
+      s += res[i]!;
+      s2 += res[i]! * res[i]!;
+      n++;
+    }
+  return n > 1 ? Math.sqrt(Math.max(0, s2 / n - (s / n) ** 2)) : NaN;
+}
+
+/**
+ * Speckle cell (mm): twice the lag at which the autocorrelation of grey residuals inside the region falls to 0.5.
+ * Residuals are taken against the mean of the same region within ±4 mm (summed-area tables), and the correlation
+ * pairs pixels across the whole mask. The first version subtracted the mean of every horizontal or vertical run
+ * instead: across a wall only 8–9 mm wide that removes most of the correlation of a 2–3 mm cell, so the horizontal
+ * cell read the wall thickness as much as the texture — on synthetic speckle a 3 mm PSF measured 1.62 mm in a 9 mm
+ * wall and 2.05 mm in a 20 mm one (2.16 and 2.23 mm now), and 4 mm read 2.00 and 2.44 (2.92 and 2.87) (decision 74).
+ */
+function cellMm(img: RegionImage, mask: Uint8Array, res: Float32Array, horizontal: boolean): number {
+  const { width: w, height: h } = img;
+  const maxLag = 16;
+  const acf: number[] = [];
+  for (let lag = 0; lag <= maxLag; lag++) {
+    let sum = 0,
+      n = 0;
+    const dx = horizontal ? lag : 0,
+      dy = horizontal ? 0 : lag;
+    for (let y = 0; y + dy < h; y++)
+      for (let x = 0; x + dx < w; x++) {
+        const i = x + y * w,
+          j = x + dx + (y + dy) * w;
+        if (!mask[i] || !mask[j]) continue;
+        sum += res[i]! * res[j]!;
+        n++;
+      }
+    acf.push(n > 0 ? sum / n : NaN);
+  }
+  if (!(acf[0]! > 0)) return NaN;
+  for (let k = 1; k <= maxLag; k++) {
+    const a = acf[k]! / acf[0]!,
+      b = acf[k - 1]! / acf[0]!;
+    if (a <= 0.5) return 2 * (k - 1 + (b - 0.5) / Math.max(1e-9, b - a)) * (horizontal ? img.mmPerPx[0] : img.mmPerPx[1]);
+  }
   return NaN;
 }
 
@@ -221,12 +274,15 @@ export function imageStats(img: RegionImage, erodePx = 2): ImageStats {
       stds.push(Math.sqrt(vals.reduce((a, b) => a + (b - m) ** 2, 0) / vals.length));
     }
   stds.sort((a, b) => a - b);
+  const residuals = detrendedResiduals(img, myoMask);
   return {
     cavity,
     myocardium,
     atrium,
     tissueBloodContrast: myocardium.median - cavity.median,
     myocardialLocalStd: stds.length ? stds[Math.floor(stds.length / 2)]! : NaN,
-    speckleCellMm: { horizontal: cellMm(img, myoMask, true), vertical: cellMm(img, myoMask, false) },
+    myocardialDetrendedStd: detrendedStd(residuals, myoMask),
+    cavityDetrendedStd: detrendedStd(detrendedResiduals(img, masks[0]!), masks[0]!),
+    speckleCellMm: { horizontal: cellMm(img, myoMask, residuals, true), vertical: cellMm(img, myoMask, residuals, false) },
   };
 }

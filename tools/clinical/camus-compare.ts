@@ -80,6 +80,8 @@ const METRICS: [string, string, Scalar][] = [
   ['atriumGrey', 'Left atrium grey (median)', (s) => s.atrium.median],
   ['contrast', 'Tissue/blood contrast (grey levels)', (s) => s.tissueBloodContrast],
   ['myocardialLocalStd', 'Myocardial local std (grey)', (s) => s.myocardialLocalStd],
+  ['myocardialDetrendedStd', 'Myocardial detrended std (grey)', (s) => s.myocardialDetrendedStd],
+  ['cavityDetrendedStd', 'Cavity detrended std (grey)', (s) => s.cavityDetrendedStd],
   ['speckleCellHorizontalMm', 'Speckle cell horizontal (mm)', (s) => s.speckleCellMm.horizontal],
   ['speckleCellVerticalMm', 'Speckle cell vertical (mm)', (s) => s.speckleCellMm.vertical],
 ];
@@ -232,7 +234,7 @@ if (referenceOut) {
     ` * Displayed grey-level statistics of CAMUS apical images rated Good — the optimal window — per view and phase:\n` +
     ` * median, interquartile range and 10th/90th percentiles across images of each per-image statistic in\n` +
     ` * src/clinical/regionStats.ts (region medians after a 2-pixel erosion, contrast = myocardium − cavity, 5×5 local\n` +
-    ` * std, speckle cell by ACF).\n` +
+    ` * std, grey std against the ±4 mm local mean in myocardium and cavity, speckle cell by ACF of those residuals).\n` +
     ` * ${patients.length} patients read, ${rejected} frames rejected by the label check. Aggregate statistics only.\n` +
     ` *\n` +
     ` * Source: CAMUS — S. Leclerc et al., "Deep Learning for Segmentation Using an Open Large-Scale Dataset in 2D\n` +

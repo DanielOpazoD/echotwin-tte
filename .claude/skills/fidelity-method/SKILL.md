@@ -39,6 +39,8 @@ Este método existe porque casi todos los errores de una sesión larga sobre la 
 
 15. **Los E2E prueban `dist/`, no el código.** `playwright.config.ts` sirve la app con `vite preview`, que publica el último build sin reconstruir, y reutiliza un servidor que ya esté escuchando. Corridos sin `vite build` delante, dieron 42 verdes sobre un build viejo mientras la GPU seguía dibujando una pared auricular que el clasificador de CPU ya no emitía (decisión 64 sin espejo en `glslHeart.ts`). Construye siempre antes de los E2E.
 
+16. **Valida la métrica antes de calibrar contra ella, y mira el resultado.** Pásala por un fantoma de verdad conocida, variando lo que no debería importar: el estimador de la celda de speckle leía el grosor de la pared (una PSF de 3 mm medía 1,62 mm en 9 mm de pared y 2,05 en 20). Y un ajuste que iguala las cifras puede ser falso a la vista: ensanchar la PSF dejó 24 de 32 valores en rango clínico con nulos en forma de gusano y sangre granulosa. Compara recortes ampliados a la misma escala física antes de aceptar un modelo.
+
 ## Herramientas
 
 - `npx tsx tools/offline/render/slice-map.ts <salida> <vistas> [caso]` — mapa de estructuras por plano.

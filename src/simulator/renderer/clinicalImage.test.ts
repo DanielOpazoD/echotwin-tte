@@ -4,13 +4,11 @@ import { CAMUS_GOOD, type CamusMetric } from '@/clinical/reference-values/camusI
 import { presentApical, renderApical } from './clinicalImage';
 
 /**
- * The default console against clinical optimal-window images (decision 70). The excellent-window case, rendered and
+ * The simulator against clinical optimal-window images (decisions 70 and 74). The excellent-window case, rendered and
  * measured exactly as tools/clinical/camus-compare.ts does, must fall inside the interquartile range of CAMUS apical
- * images rated Good for LV cavity, myocardium and left atrium grey, tissue/blood contrast and myocardial local
- * texture, in both apical views at end-diastole and end-systole.
- *
- * The speckle cell is not checked: the simulator's is about half the clinical one (≈1 mm against ≈2 mm), a texture
- * defect of image formation and post-processing tracked in docs/LIMITATIONS.md, not something a console can set.
+ * images rated Good for LV cavity, myocardium and left atrium grey, tissue/blood contrast, myocardial local std,
+ * speckle-scale texture contrast of myocardium and blood pool, and speckle cell size, in both apical views at
+ * end-diastole and end-systole.
  */
 const CHECKED: [CamusMetric, (s: ImageStats) => number][] = [
   ['cavityGrey', (s) => s.cavity.median],
@@ -18,6 +16,10 @@ const CHECKED: [CamusMetric, (s: ImageStats) => number][] = [
   ['atriumGrey', (s) => s.atrium.median],
   ['contrast', (s) => s.tissueBloodContrast],
   ['myocardialLocalStd', (s) => s.myocardialLocalStd],
+  ['myocardialDetrendedStd', (s) => s.myocardialDetrendedStd],
+  ['cavityDetrendedStd', (s) => s.cavityDetrendedStd],
+  ['speckleCellHorizontalMm', (s) => s.speckleCellMm.horizontal],
+  ['speckleCellVerticalMm', (s) => s.speckleCellMm.vertical],
 ];
 
 const CONDITIONS = [
@@ -35,7 +37,21 @@ const CONDITIONS = [
  * are the same brightness pattern crossing the quartile by 2 and 1 grey levels. A declaration that holds no longer
  * fails the test, so the list cannot outlive the defect.
  */
-const KNOWN_DEVIATIONS: ReadonlySet<string> = new Set(['4CH-ED:myocardiumGrey', '4CH-ED:contrast', '2CH-ES:atriumGrey', '2CH-ES:contrast']);
+const KNOWN_DEVIATIONS: ReadonlySet<string> = new Set([
+  '4CH-ED:myocardiumGrey',
+  '4CH-ED:contrast',
+  '2CH-ES:atriumGrey',
+  '2CH-ES:contrast',
+  // Texture (decision 74, docs/LIMITATIONS.md): the speckle cell is 1.2-1.5 × 0.9 mm against 2.1 × 1.7 mm, and the
+  // myocardium's grey std against its ±4 mm local mean is ~13 against ~21 — the console adds receiver noise as an
+  // envelope 14 dB under the myocardium and flattens a 5.2 dB speckle to ~4 dB. The blood pool is slightly smoother
+  // than clinical. Widening the PSF matched these numbers and looked false (dark worm-like nulls, granular blood);
+  // smoothing after detection lost the texture contrast. Declared until a texture model passes both tests.
+  ...['4CH-ED', '4CH-ES', '2CH-ED', '2CH-ES'].flatMap((k) => [`${k}:myocardialDetrendedStd`, `${k}:speckleCellHorizontalMm`, `${k}:speckleCellVerticalMm`]),
+  '4CH-ED:cavityDetrendedStd',
+  '2CH-ED:cavityDetrendedStd',
+  '2CH-ES:cavityDetrendedStd',
+]);
 
 describe('the default console against clinical optimal-window images (CAMUS Good)', () => {
   it('declared deviations name real conditions and metrics', () => {

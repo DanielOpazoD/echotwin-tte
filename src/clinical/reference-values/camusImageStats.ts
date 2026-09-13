@@ -4,7 +4,7 @@
  * Displayed grey-level statistics of CAMUS apical images rated Good — the optimal window — per view and phase:
  * median, interquartile range and 10th/90th percentiles across images of each per-image statistic in
  * src/clinical/regionStats.ts (region medians after a 2-pixel erosion, contrast = myocardium − cavity, 5×5 local
- * std, speckle cell by ACF).
+ * std, grey std against the ±4 mm local mean in myocardium and cavity, speckle cell by ACF of those residuals).
  * 500 patients read, 0 frames rejected by the label check. Aggregate statistics only.
  *
  * Source: CAMUS — S. Leclerc et al., "Deep Learning for Segmentation Using an Open Large-Scale Dataset in 2D
@@ -19,7 +19,7 @@ export interface Quartiles {
   n: number;
 }
 
-export type CamusMetric = 'cavityGrey' | 'myocardiumGrey' | 'atriumGrey' | 'contrast' | 'myocardialLocalStd' | 'speckleCellHorizontalMm' | 'speckleCellVerticalMm';
+export type CamusMetric = 'cavityGrey' | 'myocardiumGrey' | 'atriumGrey' | 'contrast' | 'myocardialLocalStd' | 'myocardialDetrendedStd' | 'cavityDetrendedStd' | 'speckleCellHorizontalMm' | 'speckleCellVerticalMm';
 
 export const CAMUS_GOOD: Record<'4CH-ED' | '4CH-ES' | '2CH-ED' | '2CH-ES', Record<CamusMetric, Quartiles>> = {
   '4CH-ED': {
@@ -28,8 +28,10 @@ export const CAMUS_GOOD: Record<'4CH-ED' | '4CH-ES' | '2CH-ED' | '2CH-ES', Recor
     atriumGrey: { median: 91, p10: 55, p25: 70, p75: 117, p90: 154, n: 288 },
     contrast: { median: 40, p10: 27, p25: 33, p75: 47, p90: 53, n: 288 },
     myocardialLocalStd: { median: 9.96, p10: 8.67, p25: 9.27, p75: 10.83, p90: 12, n: 288 },
-    speckleCellHorizontalMm: { median: 2.09, p10: 1.74, p25: 1.87, p75: 2.31, p90: 2.64, n: 288 },
-    speckleCellVerticalMm: { median: 1.91, p10: 1.52, p25: 1.68, p75: 2.22, p90: 2.6, n: 288 },
+    myocardialDetrendedStd: { median: 21.62, p10: 17.7, p25: 19.44, p75: 24, p90: 25.75, n: 288 },
+    cavityDetrendedStd: { median: 13.26, p10: 11, p25: 11.94, p75: 15, p90: 16.86, n: 288 },
+    speckleCellHorizontalMm: { median: 2.12, p10: 1.84, p25: 1.98, p75: 2.27, p90: 2.42, n: 288 },
+    speckleCellVerticalMm: { median: 1.81, p10: 1.59, p25: 1.68, p75: 1.99, p90: 2.18, n: 288 },
   },
   '4CH-ES': {
     cavityGrey: { median: 58, p10: 40, p25: 47, p75: 72, p90: 86, n: 288 },
@@ -37,8 +39,10 @@ export const CAMUS_GOOD: Record<'4CH-ED' | '4CH-ES' | '2CH-ED' | '2CH-ES', Recor
     atriumGrey: { median: 60, p10: 36, p25: 48, p75: 78, p90: 97, n: 288 },
     contrast: { median: 43, p10: 30, p25: 36, p75: 49, p90: 57, n: 288 },
     myocardialLocalStd: { median: 10.21, p10: 8.86, p25: 9.5, p75: 11.3, p90: 12.62, n: 288 },
-    speckleCellHorizontalMm: { median: 2.26, p10: 1.8, p25: 2.03, p75: 2.53, p90: 2.97, n: 288 },
-    speckleCellVerticalMm: { median: 1.87, p10: 1.5, p25: 1.67, p75: 2.24, p90: 2.58, n: 288 },
+    myocardialDetrendedStd: { median: 20.88, p10: 17.19, p25: 18.94, p75: 23.08, p90: 25.01, n: 288 },
+    cavityDetrendedStd: { median: 14.23, p10: 11.38, p25: 12.48, p75: 15.97, p90: 18.02, n: 288 },
+    speckleCellHorizontalMm: { median: 2.14, p10: 1.84, p25: 2, p75: 2.28, p90: 2.45, n: 288 },
+    speckleCellVerticalMm: { median: 1.68, p10: 1.48, p25: 1.58, p75: 1.84, p90: 2.04, n: 288 },
   },
   '2CH-ED': {
     cavityGrey: { median: 58, p10: 37, p25: 45, p75: 71, p90: 89, n: 217 },
@@ -46,8 +50,10 @@ export const CAMUS_GOOD: Record<'4CH-ED' | '4CH-ES' | '2CH-ED' | '2CH-ES', Recor
     atriumGrey: { median: 82, p10: 50, p25: 65, p75: 109, p90: 133, n: 216 },
     contrast: { median: 44, p10: 30, p25: 36, p75: 53, p90: 62, n: 217 },
     myocardialLocalStd: { median: 9.36, p10: 8.17, p25: 8.75, p75: 10.1, p90: 11.01, n: 217 },
-    speckleCellHorizontalMm: { median: 2.37, p10: 1.95, p25: 2.14, p75: 2.64, p90: 3.01, n: 217 },
-    speckleCellVerticalMm: { median: 2.44, p10: 1.82, p25: 2.07, p75: 2.88, p90: 3.32, n: 217 },
+    myocardialDetrendedStd: { median: 20.89, p10: 17.44, p25: 19.21, p75: 23.87, p90: 25.88, n: 217 },
+    cavityDetrendedStd: { median: 14.24, p10: 11.35, p25: 12.84, p75: 16.23, p90: 17.63, n: 217 },
+    speckleCellHorizontalMm: { median: 2.08, p10: 1.87, p25: 1.98, p75: 2.23, p90: 2.38, n: 217 },
+    speckleCellVerticalMm: { median: 1.74, p10: 1.5, p25: 1.61, p75: 1.89, p90: 2.04, n: 217 },
   },
   '2CH-ES': {
     cavityGrey: { median: 60, p10: 39, p25: 47, p75: 74, p90: 88, n: 217 },
@@ -55,7 +61,9 @@ export const CAMUS_GOOD: Record<'4CH-ED' | '4CH-ES' | '2CH-ED' | '2CH-ES', Recor
     atriumGrey: { median: 61, p10: 32, p25: 43, p75: 79, p90: 98, n: 217 },
     contrast: { median: 44, p10: 31, p25: 38, p75: 51, p90: 59, n: 217 },
     myocardialLocalStd: { median: 9.88, p10: 8.65, p25: 9.14, p75: 10.76, p90: 11.82, n: 217 },
-    speckleCellHorizontalMm: { median: 2.53, p10: 2.08, p25: 2.25, p75: 2.86, p90: 3.25, n: 217 },
-    speckleCellVerticalMm: { median: 2.33, p10: 1.78, p25: 1.98, p75: 2.74, p90: 3.46, n: 217 },
+    myocardialDetrendedStd: { median: 20.74, p10: 16.83, p25: 18.37, p75: 23.05, p90: 25.2, n: 217 },
+    cavityDetrendedStd: { median: 14.56, p10: 11.77, p25: 12.92, p75: 16.61, p90: 18.22, n: 217 },
+    speckleCellHorizontalMm: { median: 2.09, p10: 1.83, p25: 1.98, p75: 2.2, p90: 2.36, n: 217 },
+    speckleCellVerticalMm: { median: 1.64, p10: 1.44, p25: 1.52, p75: 1.77, p90: 1.88, n: 217 },
   },
 };
