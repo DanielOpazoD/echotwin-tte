@@ -484,7 +484,8 @@ bool classifyHeart(vec3 p0, out Sample s) {
       return true;
     }
     float zTopR = ra.z - rar.z;
-    float zBotR = TV_CZ + TVZ * 0.7 + 0.25;
+    // the atrium ends at the annulus (decision 64): mirrors classifyHeart
+    float zBotR = TV_CZ + TVZ * 0.7 + 0.03;
     czR = (zTopR + zBotR) / 2.0;
     rzR = (zBotR - zTopR) / 2.0;
     float raC = 1.0 - 0.35 * RA_COLLAPSE;
@@ -496,6 +497,11 @@ bool classifyHeart(vec3 p0, out Sample s) {
       return true;
     }
     if (dFreeRa < 0.22 && x < xIas - tIas / 2.0) {
+      // no wall across the tricuspid orifice (decision 64): atrial blood up to the annular plane, ventricular past it
+      if (length(vec2(x - TV_CX, y - TV_CY)) < TV_R) {
+        setSample(s, T_BLOOD, dFreeRa - 0.22, vec3((x - ra.x) / rar.x, (y - ra.y) / rar.y, (z - czR) / rzR), p, 0.0, z > TV_CZ + TVZ * 0.7 ? S_RV_CAV : S_RA_CAV);
+        return true;
+      }
       setSample(s, T_MYO, -min(dFreeRa, 0.22 - dFreeRa), vec3((x - ra.x) / rar.x, (y - ra.y) / rar.y, (z - czR) / rzR), p, 0.0, S_RA_WALL);
       return true;
     }

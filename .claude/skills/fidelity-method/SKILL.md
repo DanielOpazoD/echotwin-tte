@@ -37,6 +37,8 @@ Este método existe porque casi todos los errores de una sesión larga sobre la 
 
 14. **Que las medianas coincidan no significa que la imagen parezca clínica.** Tras calibrar, pon la imagen del simulador junto a varias clínicas a la misma escala física (mm por píxel). Con 16 de 20 estadísticas dentro del rango clínico seguían viéndose un speckle de grano fino, un miocardio hecho de dos líneas especulares, un entorno gris uniforme y bandas imposibles en el A2C. La hoja con imágenes clínicas se genera sólo en el scratchpad: no se commitea ni se envía.
 
+15. **Los E2E prueban `dist/`, no el código.** `playwright.config.ts` sirve la app con `vite preview`, que publica el último build sin reconstruir, y reutiliza un servidor que ya esté escuchando. Corridos sin `vite build` delante, dieron 42 verdes sobre un build viejo mientras la GPU seguía dibujando una pared auricular que el clasificador de CPU ya no emitía (decisión 64 sin espejo en `glslHeart.ts`). Construye siempre antes de los E2E.
+
 ## Herramientas
 
 - `npx tsx tools/offline/render/slice-map.ts <salida> <vistas> [caso]` — mapa de estructuras por plano.
@@ -59,6 +61,6 @@ Este método existe porque casi todos los errores de una sesión larga sobre la 
 
 1. `npm run lint` y `npx tsc --noEmit -p tsconfig.json` limpios.
 2. `npx vitest run --testTimeout=180000 --maxWorkers=3` en verde. Si cambias anatomía, revisa la imagen afectada antes de `npm run golden:update`.
-3. `npx playwright test` en verde con la máquina tranquila.
+3. `npx vite build` y después `npx playwright test`, en verde y con la máquina tranquila (regla 15).
 4. Documenta la decisión con sus números en `docs/DECISIONS.md` y los defectos abiertos en `docs/LIMITATIONS.md`, incluidos los errores propios que la medición destapó.
 5. El mensaje de commit termina con la línea `Co-Authored-By` que indique el sistema.
