@@ -201,7 +201,10 @@ describe('acoustic image formation', () => {
     expect(20 * Math.log10(mean(septA4c) / mean(septPlax))).toBeLessThan(-5);
   });
 
-  it('the console shows grey myocardium, dark but not black blood, and saturates with excess gain', () => {
+  // The absolute grey levels are calibrated against clinical optimal-window images in clinicalImage.test.ts
+  // (decision 70). The bands this test used to hold — blood 8-45, myocardium 100-170 — came from the textbook idea
+  // of anechoic blood; CAMUS Good images put the LV cavity at grey ~58 and the myocardium ~44 levels above it.
+  it('the console keeps myocardium well above blood, blood off black, and saturates with excess gain', () => {
     const { lines: L, samples: N } = spec;
     const grey = (gainDb: number): { myo: number; blood: number; sat: number } => {
       const disp = new Uint8ClampedArray(L * N);
@@ -224,10 +227,8 @@ describe('acoustic image formation', () => {
       return { myo: mean(gm), blood: mean(gb), sat: sat / Math.max(1, tissue) };
     };
     const g0 = grey(0);
-    expect(g0.myo).toBeGreaterThan(100);
-    expect(g0.myo).toBeLessThan(170);
     expect(g0.blood).toBeGreaterThan(8);
-    expect(g0.blood).toBeLessThan(45);
+    expect(g0.myo - g0.blood).toBeGreaterThan(20);
     expect(grey(12).sat).toBeGreaterThan(0.03);
   });
 });

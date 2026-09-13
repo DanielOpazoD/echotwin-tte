@@ -88,13 +88,22 @@ describe('pulmonary venous flow and colour M-mode', () => {
       a = coreA.step(0.05) ?? a;
       b = coreB.step(0.05) ?? b;
     }
-    const meanOf = (o: { rgba: ArrayBuffer }) => {
-      const px = new Uint8ClampedArray(o.rgba);
-      let s = 0;
-      for (let i = 0; i < px.length; i += 4) s += px[i]!;
-      return s / (px.length / 4);
-    };
+    // Measured inside the sector and in grey levels, not as a ratio of the whole-frame mean: a ratio depends on how
+    // bright the console makes the rest of the image (decision 70 raised blood from grey ~25 to ~60 and the ratio
+    // fell from 1.12 to 1.04 while the artifacts changed the same share of pixels, about a fifth by 8 levels or more).
+    const pa = new Uint8ClampedArray(a!.rgba),
+      pb = new Uint8ClampedArray(b!.rgba);
+    let sector = 0,
+      brighter = 0,
+      changed = 0;
+    for (let i = 0; i < pa.length; i += 4) {
+      if (pa[i]! === 0 && pb[i]! === 0) continue;
+      sector++;
+      brighter += pb[i]! - pa[i]!;
+      if (Math.abs(pb[i]! - pa[i]!) >= 8) changed++;
+    }
     expect(a!.phase).toBeCloseTo(b!.phase, 6);
-    expect(meanOf(b!)).toBeGreaterThan(meanOf(a!) * 1.05);
+    expect(brighter / sector).toBeGreaterThan(1);
+    expect(changed / sector).toBeGreaterThan(0.1);
   });
 });

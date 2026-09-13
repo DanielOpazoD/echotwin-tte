@@ -29,14 +29,16 @@ export const DEFAULT_ACQUISITION: AcquisitionSettings = {
   sectorDeg: 80,
   gainDb: 0,
   tgcDb: [0, 0, 0, 0, 0, 0, 0, 0],
-  dynamicRangeDb: 55,
+  // 70 dB and a linear grey map, chosen against 500 CAMUS patients (decision 70): the previous s-curve at
+  // 55 dB was the worst of 24 consoles tried, placing blood at grey 3-5 where clinical studies show 56-60
+  dynamicRangeDb: 70,
   frequencyMHz: 2.5,
   harmonics: true,
   focusCm: 9,
   lineDensity: 'medium',
   persistence: 0.35,
   edgeEnhance: 0.1,
-  grayMap: 's-curve',
+  grayMap: 'linear',
   invertLR: false,
   zoom: 1,
 };

@@ -9,3 +9,7 @@ e2e/.auth
 *.local
 public/atlas/*.bin
 .claude/settings.local.json
+# clinical reference data must never be committed (decision 69)
+*.nii
+*.nii.gz
+database_nifti/
