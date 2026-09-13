@@ -1,6 +1,7 @@
 import type { HeartModel, HeartPose } from '@/simulator/anatomy/heartModel';
 import { heartAnchors } from '@/simulator/anatomy/heartModel';
 import { LV_PROF_BINS } from '@/simulator/anatomy/lvShape';
+import { MV_BINS } from '@/simulator/anatomy/mitralValve';
 import type { ThoraxModel } from '@/simulator/anatomy/thoraxModel';
 import type { BeamFrame } from '@/simulator/probe/pose';
 import { contactQuality } from '@/simulator/probe/pose';
@@ -32,8 +33,10 @@ const SCALARS = [
   'RPA_EX', 'RPA_EY', 'RPA_EZ', 'RPA_R', 'LPA_EX', 'LPA_EY', 'LPA_EZ', 'LPA_R', 'RV_PAP_AZ', 'PV_HALF', 'PV_SEGLEN', 'PV_T',
   'LA_RESERVOIR', 'IAS_X', 'FOSSA_Y', 'FOSSA_Z', 'SVC_AX', 'SVC_AY', 'SVC_AZ', 'SVC_BX', 'SVC_BY', 'SVC_BZ', 'SVC_R', 'IVC_AX', 'IVC_AY', 'IVC_AZ', 'IVC_BX', 'IVC_BY', 'IVC_BZ', 'IVC_R', 'HV_AX', 'HV_AY', 'HV_AZ', 'HV_BX', 'HV_BY', 'HV_BZ',
   // valves
-  'CUSP_COUNT', 'CUSP_HALF', 'CUSP_SEGLEN', 'CUSP_T', 'MV_RING_X', 'MV_RING_Y', 'MV_RING_Z', 'MV_RING_R', 'TV_RING_X', 'TV_RING_Y', 'TV_RING_Z', 'TV_RING_R',
-  'MVS_CX', 'MVS_CY', 'MVS_CZ', 'MVS_R', 'MVS_NZ', 'MVS_CLOSED', 'MVS_BLEND', 'MVS_T', 'MVS_SADDLE',
+  'CUSP_COUNT', 'CUSP_HALF', 'CUSP_SEGLEN', 'CUSP_T', 'CUSP_TIP_T', 'TV_RING_X', 'TV_RING_Y', 'TV_RING_Z', 'TV_RING_R',
+  // mitral apparatus (mitralValve.ts): D-shaped annulus, curtain lift, inflow, and one fan of fibres per leaflet
+  'MVL_CX', 'MVL_CY', 'MVL_CZ', 'MVL_R', 'MVL_D', 'MVL_UX', 'MVL_UY', 'MVL_SADDLE', 'MVL_LIFT', 'MVL_T', 'MVL_OPEN', 'MVL_SAM', 'MVL_INFLOW_SLOPE', 'MVL_INFLOW_DEPTH',
+  'MVL_A_FOCUS', 'MVL_A_AXIS', 'MVL_A_HALF', 'MVL_P_FOCUS', 'MVL_P_AXIS', 'MVL_P_HALF',
   'TVS_CX', 'TVS_CY', 'TVS_CZ', 'TVS_R', 'TVS_NZ', 'TVS_CLOSED', 'TVS_BLEND', 'TVS_T', 'TVS_SADDLE',
   // thorax
   'TH_AW', 'TH_BDEPTH', 'TH_N', 'TH_CHESTWALL', 'TH_RIBR', 'TH_RIBSP', 'TH_RIB2Y', 'TH_RIBSLOPE', 'TH_LUNGSHIFT', 'TH_ABD', 'TH_DIAPH',
@@ -52,8 +55,11 @@ const ARRAYS: [string, number][] = [
   ['CUSP_SEGS', 3 * 2 * 6],
   ['CUSP_W', 9],
   ['CHORDAE', 10 * 6],
-  ['MVS_ZONES', 3 * 6],
-  ['MVS_PROF', 3 * 8],
+  // per leaflet: hinge, reach, tent, hinge z and open rotation per bin, then the open profile
+  ['MVL_A_TAB', 5 * MV_BINS],
+  ['MVL_A_PROF', 6],
+  ['MVL_P_TAB', 5 * MV_BINS],
+  ['MVL_P_PROF', 6],
   ['TVS_ZONES', 3 * 6],
   ['TVS_PROF', 3 * 8],
   ['LINE_DROP', 256],
@@ -274,15 +280,42 @@ export function packScene(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, o
   set('CUSP_HALF', V.cuspHalf);
   set('CUSP_SEGLEN', V.cuspSegLen);
   set('CUSP_T', V.cuspThickness);
-  set('MV_RING_X', V.mvRing[0]);
-  set('MV_RING_Y', V.mvRing[1]);
-  set('MV_RING_Z', V.mvRing[2]);
-  set('MV_RING_R', V.mvRing[3]);
+  set('CUSP_TIP_T', V.cuspTipT);
   set('TV_RING_X', V.tvRing[0]);
   set('TV_RING_Y', V.tvRing[1]);
   set('TV_RING_Z', V.tvRing[2]);
   set('TV_RING_R', V.tvRing[3]);
-  const sk = (prefix: 'MVS' | 'TVS', k: typeof V.mv): void => {
+  const mv = V.mitral;
+  set('MVL_CX', mv.cx);
+  set('MVL_CY', mv.cy);
+  set('MVL_CZ', mv.cz);
+  set('MVL_R', mv.R);
+  set('MVL_D', mv.D);
+  set('MVL_UX', mv.ux);
+  set('MVL_UY', mv.uy);
+  set('MVL_SADDLE', mv.saddle);
+  set('MVL_LIFT', mv.lift);
+  set('MVL_T', mv.thickness);
+  set('MVL_OPEN', mv.open);
+  set('MVL_SAM', mv.samBlend);
+  set('MVL_INFLOW_SLOPE', mv.inflowSlope);
+  set('MVL_INFLOW_DEPTH', mv.inflowDepth);
+  for (const [prefix, L] of [
+    ['MVL_A', mv.anterior],
+    ['MVL_P', mv.posterior],
+  ] as const) {
+    set(`${prefix}_FOCUS`, L.focusV);
+    set(`${prefix}_AXIS`, L.axisSign);
+    set(`${prefix}_HALF`, L.halfSpan);
+    const tb = PARAM_OFFSET[`${prefix}_TAB`]!;
+    d.set(L.hinge, tb);
+    d.set(L.reach, tb + MV_BINS);
+    d.set(L.tent, tb + 2 * MV_BINS);
+    d.set(L.hingeZ, tb + 3 * MV_BINS);
+    d.set(L.openRot, tb + 4 * MV_BINS);
+    d.set(L.openProf, PARAM_OFFSET[`${prefix}_PROF`]!);
+  }
+  const sk = (prefix: 'TVS', k: typeof V.tv): void => {
     set(`${prefix}_CX`, k.cx);
     set(`${prefix}_CY`, k.cy);
     set(`${prefix}_CZ`, k.cz);
@@ -307,7 +340,6 @@ export function packScene(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, o
       d.set(zn.prof, pb + i * 8);
     }
   };
-  sk('MVS', V.mv);
   sk('TVS', V.tv);
   d.set(heart.segAmp.subarray(0, 18), PARAM_OFFSET['SEG_AMP']!);
   d.fill(0, PARAM_OFFSET['CUSP_SEGS']!, PARAM_OFFSET['CUSP_SEGS']! + 36);

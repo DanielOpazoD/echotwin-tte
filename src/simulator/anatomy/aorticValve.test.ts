@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { loadCaseById } from '@/cases';
-import { createHeartModel, computeHeartPose } from './heartModel';
+import { computeHeartPose, createHeartModel, ROOT_EXCURSION } from './heartModel';
 import { createThoraxModel } from './thoraxModel';
 import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { ProceduralSliceRenderer } from '@/simulator/renderer/procedural/sliceRenderer';
@@ -42,7 +42,7 @@ describe('aortic valve visibility in PSAX-AV', () => {
       // tip radius of cusp 0 from the root axis
       const tip = [s[0]! + s[3]! * L + s[9]! * L, s[1]! + s[4]! * L + s[10]! * L, s[2]! + s[5]! * L + s[11]! * L];
       const A = (heart as unknown as { _anchors: { avCenter: { x: number; y: number; z: number }; avAxis: { x: number; y: number; z: number } } })._anchors;
-      const cz = A.avCenter.z + hp.zAnn * 0.5;
+      const cz = A.avCenter.z + hp.zAnn * ROOT_EXCURSION;
       const d = [tip[0]! - A.avCenter.x, tip[1]! - A.avCenter.y, tip[2]! - cz];
       const t = d[0]! * A.avAxis.x + d[1]! * A.avAxis.y + d[2]! * A.avAxis.z;
       return Math.hypot(d[0]! - A.avAxis.x * t, d[1]! - A.avAxis.y * t, d[2]! - A.avAxis.z * t);

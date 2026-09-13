@@ -1,4 +1,4 @@
-import { heartAnchors, type HeartModel, type HeartPose } from '@/simulator/anatomy/heartModel';
+import { heartAnchors, ROOT_EXCURSION, type HeartModel, type HeartPose } from '@/simulator/anatomy/heartModel';
 import type { BeatTables } from '@/simulator/cardiac-cycle/cycleModel';
 import { sampleTable } from '@/simulator/cardiac-cycle/cycleModel';
 import type { CaseDefinition } from '@/cases/schema';
@@ -172,7 +172,7 @@ export function sampleFlow(p: FlowFieldParams, tables: BeatTables, hp: HeartPose
   // ---- LVOT → aortic valve → ascending aorta ----
   if ((p.enabled['lvot'] !== false || p.enabled['aortic-valve'] !== false) && qao > 1) {
     const ax = p.avAxis;
-    const cz = p.avCenter.z + zAnn * 0.5;
+    const cz = p.avCenter.z + zAnn * ROOT_EXCURSION;
     const dx = x - p.avCenter.x,
       dy = y - p.avCenter.y,
       dz = z - cz;
@@ -428,7 +428,7 @@ export function sampleRegurgitantJets(p: FlowFieldParams, tables: BeatTables, hp
       const vj = q / p.arEroCm2 / 100;
       const r0 = Math.sqrt(p.arEroCm2 / Math.PI) * 1.1;
       const ax = p.avAxis;
-      const cz = p.avCenter.z + zAnn * 0.5;
+      const cz = p.avCenter.z + zAnn * ROOT_EXCURSION;
       const dx = x - p.avCenter.x,
         dy = y - p.avCenter.y,
         dz = z - cz;

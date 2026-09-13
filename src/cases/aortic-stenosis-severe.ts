@@ -91,6 +91,7 @@ export const aorticStenosisSevereCase: CaseDefinitionInput = {
     'lvpwd',
     'la-ap', // enlarged left atrium (chronic pressure overload, diastolic dysfunction)
     'la-transverse',
+    'la-long', // measured to the mitral annular plane since decisions 76-77
     'lavi',
     'lv-mass', // increased mass from the thick walls
     'apex-thickness', // the hypertrophy reaches the apex

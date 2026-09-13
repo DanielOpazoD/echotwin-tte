@@ -4,6 +4,7 @@ import { Structure, Tissue, type TissueSample } from './tissue';
 import { sdCapsule, sdEllipsoid, sdRoundCone, sdSegmentChain, sdTorusZ, smax, smin, type ChainHit } from './sdf';
 import { allocLvProfileTable, axialWallFactor, buildLvProfile, lvCavityRadius, lvCavitySdf, lvProfileG, lvRadialOffsetFactor, lvSdfNormal, lvShapeFor, lvShellVolume, solveThickening, type LvProfileTable, type LvShape } from './lvShape';
 import { fastAtan2, latticeNoise3, noiseLattice } from '@/core/noise';
+import { buildMitralValve, fitOpenLeaflets, inflowTaper, insideMitralOutline, mitralAnnulusDistance, mitralDistance, mitralFreeEdge, mitralHingeZ, mitralHit, mitralInflowSdf, type MitralValve } from './mitralValve';
 import type { Vec3 } from '@/core/vec3';
 import { cross, normalize, sub, v3, dot, scale, add } from '@/core/vec3';
 
@@ -53,6 +54,21 @@ export interface HeartFrame {
 
 /** Aortic root axis in the heart frame: ~33° from the LV long axis toward anterior-septal (adults 25–35°). */
 export const AV_AXIS: Vec3 = normalize(v3(-0.15, 0.53, -0.85));
+/**
+ * Share of the ventricular base's systolic descent that the aortic root follows. The fibrous skeleton moves as one:
+ * the aortic annular plane systolic excursion of healthy adults is 1.16 ± 0.30 cm by 3D speckle tracking (MAGYAR-
+ * Healthy, n = 111) and 14 ± 3 mm by cardiac magnetic resonance, against a mitral annular excursion of ~1.4-1.6 cm.
+ * Until 2026-09-13 the root followed half of it, which opened a gap between the aortic root and the anterior mitral
+ * annulus in every systolic long-axis frame.
+ */
+export const ROOT_EXCURSION = 0.85;
+/** Aortic root levels along its axis from the annulus (cm): widest sinus, sinotubular waist, start of the tubular ascending aorta. */
+export const ROOT_SINUS_T = 0.95;
+export const ROOT_STJ_T = 2.0;
+export const ROOT_ASC_T = 3.0;
+/** Coaptation surfaces of the closed aortic valve: height of the band below the free edges and half thickness (cm). */
+export const AV_COAPT_BAND = 0.35;
+export const AV_COAPT_HALF = 0.02;
 
 export function buildHeartFrame(anatomy: AnatomyConfig, offset: Vec3 = v3()): HeartFrame {
   const ez = normalize(anatomy.heartPosition.longAxis);
@@ -193,14 +209,13 @@ export interface HeartPose {
 export interface ValveGeometry {
   /** Segment chains for the aortic cusps: [sx,sy,sz,dx,dy,dz] × segments, stored contiguously. */
   segs: Float64Array;
+  /** Mitral apparatus: D-shaped annulus on the aortomitral curtain, a fan of fibres per leaflet (decision 76). */
+  mitral: MitralValve;
   /**
-   * Atrioventricular leaflets as revolution "skirts" hanging from the annulus ring: a 2D profile
-   * (ρ, z) polyline per leaflet zone (anterior / posterior) blended by azimuth around the ring, so
-   * long-axis views cut two hinged leaflets and short-axis views show the orifice.
+   * Tricuspid leaflets as revolution "skirts" hanging from the annulus ring: a 2D profile (ρ, z) polyline per leaflet
+   * zone blended by azimuth around the ring, so long-axis views cut hinged leaflets and short-axis views the orifice.
    */
-  mv: SkirtDesc;
   tv: SkirtDesc;
-  mvThickness: number;
   /** Aortic cusps: offset of each cusp chain (2 segments), shared width vectors per cusp [wx,wy,wz]. */
   cuspOffsets: number[];
   cuspWidths: Float64Array;
@@ -208,6 +223,8 @@ export interface ValveGeometry {
   cuspHalf: number;
   cuspSegLen: number;
   cuspThickness: number;
+  /** Axial position (cm along the root axis from the annulus centre) of the cusps' free edges this frame. */
+  cuspTipT: number;
   /** Chordae tendineae as capsules [ax,ay,az,bx,by,bz] × n. */
   chordae: Float64Array;
   chordaeCount: number;
@@ -217,8 +234,7 @@ export interface ValveGeometry {
   pvHalf: number;
   pvSegLen: number;
   pvThickness: number;
-  /** Annulus rings (torus, axis z): [cx,cy,cz,R] for mitral and tricuspid. */
-  mvRing: [number, number, number, number];
+  /** Tricuspid annulus ring (torus, axis z): [cx,cy,cz,R]. */
   tvRing: [number, number, number, number];
 }
 
@@ -501,26 +517,43 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
   const tvZ = m.physiology.tapseCm * long;
   const septalShiftCm = m.anatomy.rv.septalFlattening * 0.9;
   const rvCollapse = tamp * rvCollapseWindow(state);
-  // Mitral valve: the anterior leaflet is a sheet hanging from the anterior half of the annulus whose fibres run
-  // posteriorly across the orifice centre to the coaptation line (closed reach 1.32·R at the centre, shorter
-  // toward the commissures); the posterior leaflet is the shorter sheet from the posterior half with three
-  // scallops (P1–P3). Closed profiles bow toward the LA; open profiles swing outward (anterior toward the septum).
-  const antLen = m.anatomy.mitral.anteriorLeafletLengthCm / 3;
-  const postLen = m.anatomy.mitral.posteriorLeafletLengthCm / 3;
-  const mv: SkirtDesc = {
-    cx: A.mvCenter.x,
-    cy: A.mvCenter.y,
-    cz: zAnn,
-    R: A.mvR,
-    blend: 0.3,
-    thickness: m.anatomy.mitral.thickeningCm,
-    saddle: 0.35,
-    closed: 1 - open,
-    zones: [
-      { phi: Math.PI / 2, halfSpan: Math.PI / 2, prof: buildProfile(A.mvR, blendAngles(antClosed, antOpen, open), antLen), kind: 1, lobes: 0, c: 0.12, structure: Structure.MitralAnterior },
-      { phi: -Math.PI / 2, halfSpan: Math.PI / 2, prof: buildProfile(A.mvR, blendAngles(postClosed, postOpen, open), postLen), kind: 1, lobes: 0.08, c: -0.235, structure: Structure.MitralPosterior },
-    ],
-  };
+  // the curtain (anterior annulus) is fibrous continuity with the aortic root, which descends a little less than the
+  // ventricular base: the anterior hinge follows it so the anterior leaflet stays attached to the root through the cycle
+  const mitral = buildMitralValve(A.mvCenter.x, A.mvCenter.y, zAnn, A.mvR, A.avCenter.x - A.mvCenter.x, A.avCenter.y - A.mvCenter.y, m.anatomy.mitral, open, state.contraction, -(1 - ROOT_EXCURSION) * zAnn);
+  {
+    // inflow below the annulus: from the outline where it lies farthest outside the cavity profile, straight to just
+    // inside the profile at its widest level
+    const hMax = sh.zetaMax * lengthNow;
+    let worst = 0,
+      worstAz = -Math.PI / 2;
+    for (let i = 0; i <= 36; i++) {
+      const az = -Math.PI + (i / 36) * Math.PI;
+      const c = Math.cos(az),
+        sn = Math.sin(az);
+      // exit radius of the ray from the long axis through the annular outline
+      const ox = -mitral.cx,
+        oy = -mitral.cy;
+      const b = ox * c + oy * sn;
+      const r = -b + Math.sqrt(Math.max(0, b * b - (ox * ox + oy * oy) + mitral.R * mitral.R));
+      const gap = r - lvCavityRadius(sh, prof, az, zAnn);
+      if (gap > worst) {
+        worst = gap;
+        worstAz = az;
+      }
+    }
+    const c = Math.cos(worstAz),
+      sn = Math.sin(worstAz);
+    const b = -mitral.cx * c - mitral.cy * sn;
+    const rOut = -b + Math.sqrt(Math.max(0, b * b - (mitral.cx * mitral.cx + mitral.cy * mitral.cy) + mitral.R * mitral.R));
+    mitral.inflowDepth = hMax;
+    mitral.inflowSlope = Math.max(0, (rOut - lvCavityRadius(sh, prof, worstAz, zAnn + hMax) + 0.15) / hMax);
+    // the open leaflets swing apically into the ventricle, so the annular plane that clips the profile is not a wall here;
+    // the septum is where the classifier puts it, flattened toward the LV by a pressure-loaded RV
+    fitOpenLeaflets(mitral, (px, py, pz) => {
+      const xs = px - septalShiftAt(septalShiftCm, Math.atan2(py, px), Math.min(1, Math.max(0, (pz - zAnn) / Math.max(lengthNow, 1))));
+      return smin(lvCavitySdf(prof, sh.ratio, xs, py, pz), mitralInflowSdf(px, py, pz, mitral), 0.3);
+    });
+  }
   // Tricuspid valve: three radial leaflets — anterior (largest), septal (hanging along the septum, the +x side
   // of the RV inflow) and posterior (inferior) — whose closed tips converge toward the orifice centre.
   const tvOpen = state.tvOpen;
@@ -544,8 +577,15 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
   // follows the orifice (0.05·R closed → 0.9·R open, scaled by the case's maxOpeningFraction)
   const segs = new Float64Array(cusps * 12);
   const cuspWidths = new Float64Array(cusps * 3);
-  const cuspSegLen = buildCuspChains(A.avCenter.x, A.avCenter.y, A.avCenter.z + zAnn * 0.5, A.avAxis, A.avE1, A.avE2, A.avR, Math.max(0, Math.min(1, state.avOpen)) * m.anatomy.aorticValve.maxOpeningFraction, cusps, segs, cuspWidths, 0.5);
+  const cuspSegLen = buildCuspChains(A.avCenter.x, A.avCenter.y, A.avCenter.z + zAnn * ROOT_EXCURSION, A.avAxis, A.avE1, A.avE2, A.avR, Math.max(0, Math.min(1, state.avOpen)) * m.anatomy.aorticValve.maxOpeningFraction, cusps, segs, cuspWidths, 0.5);
   const cuspOffsets = Array.from({ length: cusps }, (_, i) => i * 12);
+  // where the free edges are along the root axis (the chain end of the first cusp): the coaptation band sits there
+  const cuspTipT = (() => {
+    const ex = segs[6]! + segs[9]! * cuspSegLen - A.avCenter.x,
+      ey = segs[7]! + segs[10]! * cuspSegLen - A.avCenter.y,
+      ez = segs[8]! + segs[11]! * cuspSegLen - (A.avCenter.z + zAnn * ROOT_EXCURSION);
+    return ex * A.avAxis.x + ey * A.avAxis.y + ez * A.avAxis.z;
+  })();
   // pulmonary valve: three cusps hinged at the outflow–trunk junction on the trunk axis, opening with RV ejection
   const pvSegs = new Float64Array(36);
   const pvWidths = new Float64Array(9);
@@ -583,34 +623,36 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
     rvp = [rvPap[3]!, rvPap[4]!, rvPap[5]!];
   const chordae = new Float64Array(10 * 6);
   const tipBuf = [0, 0, 0];
-  const chordDefs: [SkirtDesc, number, number, number[]][] = [
-    [mv, 0, -0.5, pa],
-    [mv, 0, -0.2, pa],
-    [mv, 0, 0.2, pm],
-    [mv, 0, 0.5, pm],
-    [mv, 1, 0.3, pa],
-    [mv, 1, 0.7, pa],
-    [mv, 1, -0.3, pm],
-    [mv, 1, -0.7, pm],
+  const chordDefs: ['mitral' | SkirtDesc, number, number, number[]][] = [
+    ['mitral', 0, -0.5, pa],
+    ['mitral', 0, -0.2, pa],
+    ['mitral', 0, 0.2, pm],
+    ['mitral', 0, 0.5, pm],
+    ['mitral', 1, 0.3, pa],
+    ['mitral', 1, 0.7, pa],
+    ['mitral', 1, -0.3, pm],
+    ['mitral', 1, -0.7, pm],
     [tv, 0, -0.5, rvp],
     [tv, 0, 0.4, rvp],
   ];
   for (let i = 0; i < 10; i++) {
     const [k, zi, prm, e] = chordDefs[i]!;
-    skirtTip(k, k.zones[zi]!, prm, tipBuf);
+    // mitral chordae start at the free edges of the fans: −q is the anterolateral side
+    if (k === 'mitral') mitralFreeEdge(mitral, zi as 0 | 1, zi === 0 ? prm : -prm, tipBuf);
+    else skirtTip(k, k.zones[zi]!, prm, tipBuf);
     chordae.set([tipBuf[0]!, tipBuf[1]!, tipBuf[2]!, e[0]!, e[1]!, e[2]!], i * 6);
   }
   const valves: ValveGeometry = {
     segs,
-    mv,
+    mitral,
     tv,
-    mvThickness: m.anatomy.mitral.thickeningCm,
     cuspOffsets,
     cuspWidths,
     cuspCount: cusps,
     cuspHalf: A.avR * Math.sin(Math.PI / cusps) * 0.95,
     cuspSegLen,
     cuspThickness: m.anatomy.aorticValve.cuspThicknessCm,
+    cuspTipT,
     chordae,
     chordaeCount: 10,
     pvSegs,
@@ -618,7 +660,6 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
     pvHalf: A.pvR * Math.sin(Math.PI / 3) * 0.95,
     pvSegLen,
     pvThickness: 0.06,
-    mvRing: [A.mvCenter.x, A.mvCenter.y, zAnn, A.mvR * 0.98],
     tvRing: [A.tvCenter.x, A.tvCenter.y, A.tvCenter.z + tvZ, A.tvR * 0.98],
   };
   return {
@@ -1037,7 +1078,7 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
   {
     const c = A.avCenter;
     const ax = A.avAxis;
-    const czz = c.z + zAnn * 0.5;
+    const czz = c.z + zAnn * ROOT_EXCURSION;
     const dx = x - c.x,
       dy = y - c.y,
       dz = z - czz;
@@ -1051,29 +1092,37 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
       rootQz = dz - ax.z * t - A.avBend.z * bend;
       rootRr = Math.sqrt(rootQx * rootQx + rootQy * rootQy + rootQz * rootQz);
       rootT = t;
-      // sinuses of Valsalva bulge at the cusp centres (trefoil in short axis, ±6 %), narrowing at the commissures
+      // sinuses of Valsalva bulge at the cusp centres (trefoil in short axis, ±6 %), narrowing at the commissures;
+      // the bulge fades to nothing at the annulus and at the sinotubular junction
       rootPhi = fastAtan2(rootQx * A.avE2.x + rootQy * A.avE2.y + rootQz * A.avE2.z, rootQx * A.avE1.x + rootQy * A.avE1.y + rootQz * A.avE1.z);
-      const trefoil = 1 + 0.06 * Math.cos(hp.valves.cuspCount * (rootPhi - 0.5));
-      // radius profile: LVOT (t<0) → annulus → sinuses (t≈1) → STJ → ascending
+      const sinusMax = A.sinusR * (1 + 0.06 * Math.cos(hp.valves.cuspCount * (rootPhi - 0.5)) * (t > 0 && t < ROOT_STJ_T ? Math.sin((Math.PI * t) / ROOT_STJ_T) : 0));
+      const stjR = Math.min(A.ascR, A.sinusR * 0.88);
+      // radius profile: LVOT (t<0) → annulus (t=0) → widest sinus (ROOT_SINUS_T) → sinotubular waist (ROOT_STJ_T) →
+      // tubular ascending aorta (ROOT_ASC_T), each piece meeting the next with zero slope. Until 2026-09-13 the sinus
+      // bulge fell back to the annular radius at 2.2 cm and the wall then jumped out to the junction radius, and again
+      // to the ascending one at 3.2 cm: two steps in each wall of every long-axis view, which a cardiologist saw as
+      // the root ending abruptly into the ascending aorta.
       if (t < 0) rootR = A.avR * 0.95 + (m.anatomy.aorta.lvotDiameterCm / 2 - A.avR * 0.95) * Math.min(1, -t / 1.2);
-      else if (t < 2.2) rootR = A.avR + (A.sinusR * trefoil - A.avR) * Math.sin((Math.PI * t) / 2.2);
-      else if (t < 3.2) rootR = Math.min(A.ascR, A.sinusR * 0.88); // sinotubular junction
+      else if (t < ROOT_SINUS_T) rootR = A.avR + (sinusMax - A.avR) * Math.sin((Math.PI / 2) * (t / ROOT_SINUS_T));
+      else if (t < ROOT_STJ_T) rootR = stjR + (sinusMax - stjR) * 0.5 * (1 + Math.cos((Math.PI * (t - ROOT_SINUS_T)) / (ROOT_STJ_T - ROOT_SINUS_T)));
+      else if (t < ROOT_ASC_T) rootR = stjR + (A.ascR - stjR) * 0.5 * (1 - Math.cos((Math.PI * (t - ROOT_STJ_T)) / (ROOT_ASC_T - ROOT_STJ_T)));
       else rootR = A.ascR;
     }
   }
   // the aortic lumen from the annulus upward is never LV wall or fibrous skeleton
   const inRootLumen = rootT >= -0.05 && rootRr < rootR;
+  // nor is the outflow tract below it: the basal septal shell reached 0.35 cm into the tract at end diastole and, once
+  // the root descended with the base (ROOT_EXCURSION), 0.75 cm at end systole
+  const inOutflowLumen = rootT > -1.6 && rootRr < rootR;
 
   // ---------- Valves, annuli and chordae (thin, highest priority) ----------
   const V = hp.valves;
   const hit = chainHit;
-  // mitral leaflets (anterior sheet crossing the orifice, scalloped posterior sheet)
+  // mitral leaflets: anterior leaflet on the aortomitral curtain, posterior around the rest of the D-shaped annulus
   {
-    const t = skirtDistance(x, y, z, V.mv);
-    if (skirtHit.d < t) {
-      const zn = V.mv.zones[skirtHit.zone]!;
-      // normal ≈ along the leaflet fibres (the zone direction) blended with z
-      setSample(out, Tissue.Valve, skirtHit.d - t, Math.cos(zn.phi), Math.sin(zn.phi), 0.8, x, y, z, m.anatomy.mitral.calcification, zn.structure);
+    const t = mitralDistance(x, y, z, V.mitral);
+    if (mitralHit.d < t) {
+      setSample(out, Tissue.Valve, mitralHit.d - t, mitralHit.nx, mitralHit.ny, mitralHit.nz, x, y, z, m.anatomy.mitral.calcification, mitralHit.leaflet === 0 ? Structure.MitralAnterior : Structure.MitralPosterior);
       return true;
     }
   }
@@ -1093,27 +1142,31 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
       return true;
     }
   }
-  // aortic coaptation zones: when the valve is closed the three cusps meet along radial lines (Y sign in
-  // PSAX-AV, thin closure line in PLAX/A5C); modelled as three radial fins between belly and free edge
-  if (hp.state.avOpen < 0.2 && rootT > 0 && rootRr < rootR * 0.97) {
-    const finLo = A.avR * 0.45,
-      finHi = A.avR * 1.05;
-    if (rootT > finLo && rootT < finHi) {
-      const e1 = A.avE1;
-      const phi = rootPhi;
-      const n = V.cuspCount;
-      let dphi = ((phi - Math.PI / n) % (TWO_PI / n) + TWO_PI / n) % (TWO_PI / n);
-      if (dphi > Math.PI / n) dphi = TWO_PI / n - dphi;
-      const dist = rootRr * Math.sin(dphi);
-      const fade = 1 - (1 - hp.state.avOpen / 0.2) * 0; // fins exist only while nearly closed
-      if (dist < 0.04 * fade) {
-        setSample(out, Tissue.Valve, dist - 0.04, e1.x, e1.y, e1.z, x, y, z, m.anatomy.aorticValve.calcification, Structure.AorticValve);
-        return true;
-      }
+  // aortic coaptation surfaces: when the valve is closed adjacent cusps press together along the lines from the
+  // centre to each commissure (Y sign in PSAX-AV), over a short band just below the free edges. Until 2026-09-13
+  // these fins sat 28.6° away from the commissures of the cusps — 3.7° from the parasternal long-axis plane —
+  // reached 0.65 cm down into the ventricular side of the valve and were 0.8 mm thick: a long bright line through
+  // the middle of the closed valve in PLAX. They now lie at the commissures, 0.4 mm thick and 0.35 cm tall.
+  if (hp.state.avOpen < 0.2 && rootT > V.cuspTipT - AV_COAPT_BAND && rootT < V.cuspTipT && rootRr < rootR * 0.97) {
+    const n = V.cuspCount;
+    let dphi = (((rootPhi - 0.5 - Math.PI / n) % (TWO_PI / n)) + TWO_PI / n) % (TWO_PI / n);
+    if (dphi > Math.PI / n) dphi = TWO_PI / n - dphi;
+    const dist = rootRr * Math.sin(dphi);
+    if (dist < AV_COAPT_HALF) {
+      // the surface normal is tangential (the fin contains the axis and the radial direction)
+      const ux = rootQx / (rootRr || 1),
+        uy = rootQy / (rootRr || 1),
+        uz = rootQz / (rootRr || 1);
+      const ax = A.avAxis;
+      setSample(out, Tissue.Valve, dist - AV_COAPT_HALF, ax.y * uz - ax.z * uy, ax.z * ux - ax.x * uz, ax.x * uy - ax.y * ux, x, y, z, m.anatomy.aorticValve.calcification, Structure.AorticValve);
+      return true;
     }
   }
-  // pulmonary cusps (three, hinged at the outflow–trunk junction; clipped to the trunk lumen)
-  if (sdCapsule(x, y, z, A.rvotM.x, A.rvotM.y, A.rvotM.z, A.paEnd.x, A.paEnd.y, A.paEnd.z, A.paR + 0.02) < 0) {
+  // pulmonary cusps (three, hinged at the outflow–trunk junction; clipped to the trunk lumen). They must not enter
+  // the aortic root or its wall: at the level of the sinuses they used to replace 0.3 cm of the anterior aortic wall
+  // (decision 75)
+  const outsideAorticRoot = rootT <= -1.6 || rootRr > rootR + 0.22;
+  if (outsideAorticRoot && sdCapsule(x, y, z, A.rvotM.x, A.rvotM.y, A.rvotM.z, A.paEnd.x, A.paEnd.y, A.paEnd.z, A.paR + 0.02) < 0) {
     for (let i = 0; i < 3; i++) {
       const wx = V.pvWidths[i * 3]!,
         wy = V.pvWidths[i * 3 + 1]!,
@@ -1143,10 +1196,9 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
   }
   // fibrous annuli (bright hinge points in long-axis views)
   {
-    const r = V.mvRing;
-    const dR = sdTorusZ(x, y, z - saddleOffset(fastAtan2(y - r[1], x - r[0]), V.mv.zones[0]!.phi, V.mv.saddle), r[0], r[1], r[2], r[3], 0.11);
+    const dR = mitralAnnulusDistance(x, y, z, V.mitral, 0.11);
     if (dR < 0) {
-      setSample(out, Tissue.Fibrous, dR, x - r[0], y - r[1], 0, x, y, z, 0.15 * m.anatomy.mitral.calcification, Structure.MitralAnnulus);
+      setSample(out, Tissue.Fibrous, dR, x - V.mitral.cx, y - V.mitral.cy, 0, x, y, z, 0.15 * m.anatomy.mitral.calcification, Structure.MitralAnnulus);
       return true;
     }
     const q = V.tvRing;
@@ -1196,8 +1248,18 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
   const septalness = 0.5 - 0.5 * Math.cos(az); // 1 at septum (az=π), 0 at lateral
   const tNow = wallThicknessAt(m, hp.thickK, az, levelFrac, amp);
 
+  // Mitral inflow: the ventricle opens onto the whole annulus. The bullet profile is centred on the long axis and the
+  // annulus 0.9 cm behind it, so the posterior and commissural hinges used to lie 0.2-0.8 cm (diastole) and up to
+  // 1.2 cm (systole) inside the wall: the posterior leaflet grew out of myocardium and its insertion was lost. The
+  // cavity and the wall around it are the smooth union of the profile with the annular outline, which narrows apically
+  // into the profile (inflowTaper); basal to the hinges the column is atrium. The outflow tract and root keep their own
+  // geometry.
+  const inRootTube = rootT > -1.6 && rootRr < rootR + 0.2;
+  const zHinge = mitralHingeZ(x, y, V.mitral);
+  const dInflow = inRootTube ? 1e3 : mitralInflowSdf(x, y, z, V.mitral);
+  const dLvBlood = smin(dCavR, dInflow, 0.3);
   // Papillary muscles inside the cavity (round cones rooted in the wall, see computeHeartPose)
-  if (dCavR < 0) {
+  if (dLvBlood < 0) {
     const P = hp.paps;
     const dPa = sdRoundCone(x, y, z, P[0]!, P[1]!, P[2]!, P[3]!, P[4]!, P[5]!, P[6]!, P[7]!);
     const dPm = sdRoundCone(x, y, z, P[8]!, P[9]!, P[10]!, P[11]!, P[12]!, P[13]!, P[14]!, P[15]!);
@@ -1206,16 +1268,16 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
       setSample(out, Tissue.Myocardium, dPap, x, y, 0, x / rsc, y / rsc, z / lsc, 0, Structure.PapillaryMuscle);
       return true;
     }
-    // LV blood
-    setSample(out, Tissue.Blood, dCavR, nx0, ny0, nz0, x / rsc, y / rsc, (z - lv.lengthCm) / lsc, 0, Structure.LvCavity);
+    // LV blood (the inflow column basal to the hinge plane belongs to the atrium)
+    setSample(out, Tissue.Blood, dLvBlood, nx0, ny0, nz0, x / rsc, y / rsc, (z - lv.lengthCm) / lsc, 0, dCavR >= 0 && z < zHinge ? Structure.LaCavity : Structure.LvCavity);
     return true;
   }
   const wallT = tNow;
   // Ventricular wall: shell of local thickness around the *unclipped* profile, apical to (slightly above)
   // the annulus. The annular plane itself is not a wall: it holds the mitral orifice, the LVOT and fibrous tissue.
-  const dEllR = dProf - regional;
+  const dEllR = smin(dProf, dInflow, 0.3) - regional;
   // the trabeculated inner surface belongs to the wall: from the rough endocardium to the smooth epicardium
-  if (dEllR + trab >= 0 && dEllR < wallT && z >= zAnn - 0.25 && !inRootLumen) {
+  if (dEllR + trab >= 0 && dEllR < wallT && z >= zAnn - 0.25 && !inOutflowLumen) {
     let structure = Structure.LvWallLateral;
     if (z > lv.lengthCm - 0.6) structure = Structure.LvApex;
     else if (septalness > 0.7) structure = Structure.LvWallSeptal;
@@ -1231,10 +1293,9 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
   // continuous with the LA; the LVOT is handled by the aortic tube below; the rest is fibrous tissue.
   const inAnnularRegion = dEllR < 0 && z < zAnn && !inRootLumen;
   if (inAnnularRegion) {
-    const mdx = x - A.mvCenter.x,
-      mdy = y - A.mvCenter.y;
-    // the mitral orifice column basal to the annular plane is atrial blood (the LV ends at the annulus)
-    if (Math.hypot(mdx, mdy) < A.mvR * 0.98) {
+    // the mitral orifice column basal to the annular plane is atrial blood (the LV ends at the annulus); it follows the
+    // D-shaped annulus, so in front of the straight segment the aortomitral curtain and the outflow tract remain
+    if (insideMitralOutline(x, y, V.mitral)) {
       setSample(out, Tissue.Blood, -0.3, 0, 0, 1, x, y, z, 0, Structure.LaCavity);
       return true;
     }
@@ -1247,7 +1308,7 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
       R = rootR;
     const wall = 0.2;
     if (rr < R) {
-      setSample(out, Tissue.Blood, rr - R, rootQx / rr, rootQy / rr, rootQz / rr, x, y, z - zAnn * 0.5, 0, t < 0 ? Structure.Lvot : Structure.AorticRoot);
+      setSample(out, Tissue.Blood, rr - R, rootQx / rr, rootQy / rr, rootQz / rr, x, y, z - zAnn * ROOT_EXCURSION, 0, t < 0 ? Structure.Lvot : Structure.AorticRoot);
       return true;
     }
     if (rr < R + wall) {
@@ -1404,7 +1465,10 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
     }
     // coronary sinus: runs in the posterior atrioventricular groove toward the RA (A4C posterior, A2C inferior)
     {
-      const gy = -(lvCavityRadius(sh, hp.prof, -Math.PI / 2, zAnn + 0.6) + lv.lvpwd * hp.thickK + 0.4);
+      // outside the inferior wall, which at the annulus follows the posterior mitral annulus
+      const mvI = V.mitral;
+      const rInflow = -mvI.cy + Math.sqrt(Math.max(0, mvI.R * mvI.R - mvI.cx * mvI.cx)) - inflowTaper(0.6, mvI);
+      const gy = -(Math.max(lvCavityRadius(sh, hp.prof, -Math.PI / 2, zAnn + 0.6), rInflow) + lv.lvpwd * hp.thickK + 0.4);
       const dCs = sdCapsule(x, y, z, 2.2, gy * 0.85, zAnn + 0.35, ra.x + rr.x * 0.4, gy * 0.7, zAnn + 0.1, 0.33);
       if (dCs < 0) {
         setSample(out, Tissue.Blood, dCs, 0, -1, 0, x, y, z, 0, Structure.CoronarySinus);

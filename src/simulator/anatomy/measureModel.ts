@@ -1,5 +1,5 @@
 import type { CaseDefinition } from '@/cases/schema';
-import { AV_AXIS, classifyHeart, computeHeartPose, createHeartModel, estimateStructureVolume, heartAnchors, heartLandmarks, heartToTorso, lvCavityRadiusAt, lvEpicardialRadiusAt, type HeartPose } from './heartModel';
+import { AV_AXIS, ROOT_EXCURSION, classifyHeart, computeHeartPose, createHeartModel, estimateStructureVolume, heartAnchors, heartLandmarks, heartToTorso, lvCavityRadiusAt, lvEpicardialRadiusAt, type HeartPose } from './heartModel';
 import { cross, dot, normalize, sub, type Vec3 } from '@/core/vec3';
 import { createThoraxModel, type PatientState } from './thoraxModel';
 import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
@@ -203,13 +203,17 @@ export function measureModel(c: CaseDefinition, patient: PatientState = DEFAULT_
   const ax = A.avAxis,
     e1 = A.avE1;
   const rootAt = (t: number, pose: HeartPose) => {
-    const cz = A.avCenter.z + pose.zAnn * 0.5;
+    const cz = A.avCenter.z + pose.zAnn * ROOT_EXCURSION;
     return runAlong(pose, [Structure.AorticRoot, Structure.Lvot, Structure.AorticValve], [A.avCenter.x + ax.x * t, A.avCenter.y + ax.y * t, cz + ax.z * t], [e1.x, e1.y, e1.z]);
   };
   const lvotD = rootAt(-0.2, esPose);
   const annulusD = rootAt(0.05, esPose);
-  const sinusD = rootAt(1.1, edPose);
-  const stjD = rootAt(2.7, edPose);
+  // the sinus at its widest and the sinotubular junction at its waist, searched along the root rather than read at
+  // fixed levels: the levels move with the root profile (ROOT_SINUS_T, ROOT_STJ_T), the landmarks do not
+  let sinusD = 0,
+    stjD = Infinity;
+  for (let t = 0.5; t <= 1.6; t += 0.1) sinusD = Math.max(sinusD, rootAt(t, edPose));
+  for (let t = 1.5; t <= 2.6; t += 0.1) stjD = Math.min(stjD, rootAt(t, edPose));
   const ascD = rootAt(3.8, edPose);
   const rvotD = 2 * A.rvotRa;
   const paDir = A.paDir;

@@ -3,7 +3,7 @@ import { loadCaseById } from '@/cases';
 import { validateCase } from '@/cases/schema';
 import type { CaseDefinition } from '@/cases/schema';
 import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
-import { computeHeartPose, createHeartModel, heartLandmarks } from '@/simulator/anatomy/heartModel';
+import { computeHeartPose, createHeartModel, heartLandmarks, ROOT_EXCURSION } from '@/simulator/anatomy/heartModel';
 import { createThoraxModel } from '@/simulator/anatomy/thoraxModel';
 import { buildFlowParams, sampleFlow } from './flow-primitives/flowField';
 import { computeGroundTruth } from '@/simulator/hemodynamics/groundTruth';
@@ -74,7 +74,7 @@ describe('regurgitant jets and obstruction', () => {
     const late = (t.ejectionEndS + 0.45) / tables.rrS;
     const out = { vx: 0, vy: 0, vz: 0, dispersion: 0, present: 0 };
     const ax = flow.avAxis;
-    const pt = (hp: ReturnType<typeof computeHeartPose>) => ({ x: flow.avCenter.x - ax.x * 0.8, y: flow.avCenter.y - ax.y * 0.8, z: flow.avCenter.z + hp.zAnn * 0.5 - ax.z * 0.8 });
+    const pt = (hp: ReturnType<typeof computeHeartPose>) => ({ x: flow.avCenter.x - ax.x * 0.8, y: flow.avCenter.y - ax.y * 0.8, z: flow.avCenter.z + hp.zAnn * ROOT_EXCURSION - ax.z * 0.8 });
     const hpE = computeHeartPose(heart, cycleStateAt(tables, early));
     const pE = pt(hpE);
     sampleFlow(flow, tables, hpE, early, pE.x, pE.y, pE.z, out);
@@ -105,7 +105,7 @@ describe('regurgitant jets and obstruction', () => {
       const u = k / 40;
       const phase = (t.ejectionStartS + u * (t.ejectionEndS - t.ejectionStartS)) / tables.rrS;
       const hp = computeHeartPose(heart, cycleStateAt(tables, phase));
-      const cz = flow.avCenter.z + hp.zAnn * 0.5;
+      const cz = flow.avCenter.z + hp.zAnn * ROOT_EXCURSION;
       sampleFlow(flow, tables, hp, phase, flow.avCenter.x - ax.x * 0.6, flow.avCenter.y - ax.y * 0.6, cz - ax.z * 0.6, out);
       const v = Math.hypot(out.vx, out.vy, out.vz);
       if (v > best) {
@@ -123,7 +123,7 @@ describe('regurgitant jets and obstruction', () => {
       const u = k / 40;
       const phase = (t.ejectionStartS + u * (t.ejectionEndS - t.ejectionStartS)) / n.tables.rrS;
       const hp = computeHeartPose(n.heart, cycleStateAt(n.tables, phase));
-      const cz = n.flow.avCenter.z + hp.zAnn * 0.5;
+      const cz = n.flow.avCenter.z + hp.zAnn * ROOT_EXCURSION;
       sampleFlow(n.flow, n.tables, hp, phase, n.flow.avCenter.x - ax.x * 0.6, n.flow.avCenter.y - ax.y * 0.6, cz - ax.z * 0.6, out);
       const v = Math.hypot(out.vx, out.vy, out.vz);
       if (v > bestN) {

@@ -32,14 +32,17 @@ const CONDITIONS = [
 /**
  * Deviations of the model, not of the console, each named in docs/LIMITATIONS.md. Tissue/blood contrast is nearly
  * constant across CAMUS Good (medians 40-44 in all four conditions) but spans 21 grey levels in the model, from 51
- * in A4C end-diastole to 30 in A2C end-systole, and no console moves both inside: gains from −4 to +2 dB and a 65 dB
+ * in A4C end-diastole to 28 in A2C end-systole, and no console moves both inside: gains from −4 to +2 dB and a 65 dB
  * range leave 4 to 7 conditions out and never fix either contrast (decision 70). The myocardium and atrium entries
- * are the same brightness pattern crossing the quartile by 2 and 1 grey levels. A declaration that holds no longer
- * fails the test, so the list cannot outlive the defect.
+ * are the same brightness pattern crossing the quartile by 1 or 2 grey levels; A2C end-systole myocardium joined them
+ * when the basal inferior wall began to reach the mitral annulus (decisions 76-77: 4 % more myocardium, deeper, grey
+ * median 92 → 90 against a quartile of 91). A declaration that holds no longer fails the test, so the list cannot
+ * outlive the defect.
  */
 const KNOWN_DEVIATIONS: ReadonlySet<string> = new Set([
   '4CH-ED:myocardiumGrey',
   '4CH-ED:contrast',
+  '2CH-ES:myocardiumGrey',
   '2CH-ES:atriumGrey',
   '2CH-ES:contrast',
   // Texture (decision 74, docs/LIMITATIONS.md): the speckle cell is 1.2-1.5 × 0.9 mm against 2.1 × 1.7 mm, and the
@@ -48,7 +51,7 @@ const KNOWN_DEVIATIONS: ReadonlySet<string> = new Set([
   // than clinical. Widening the PSF matched these numbers and looked false (dark worm-like nulls, granular blood);
   // smoothing after detection lost the texture contrast. Declared until a texture model passes both tests.
   ...['4CH-ED', '4CH-ES', '2CH-ED', '2CH-ES'].flatMap((k) => [`${k}:myocardialDetrendedStd`, `${k}:speckleCellHorizontalMm`, `${k}:speckleCellVerticalMm`]),
-  '4CH-ED:cavityDetrendedStd',
+  // A4C end-diastole blood texture reached the quartile (11.92 → 11.96 against 11.94) with decisions 76-77
   '2CH-ED:cavityDetrendedStd',
   '2CH-ES:cavityDetrendedStd',
 ]);

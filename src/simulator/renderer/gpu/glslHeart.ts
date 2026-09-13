@@ -3,9 +3,23 @@
  * equivalence test (e2e/gpu-equivalence.spec.ts) compares both on the canonical views.
  */
 import { LV_PROF_BINS } from '@/simulator/anatomy/lvShape';
+import { AV_COAPT_BAND, AV_COAPT_HALF, ROOT_ASC_T, ROOT_EXCURSION, ROOT_SINUS_T, ROOT_STJ_T } from '@/simulator/anatomy/heartModel';
+import { AML_ARC_EXTENSION, CLOSED_DEPTH, CLOSED_REACH, MV_BINS } from '@/simulator/anatomy/mitralValve';
+
+const f = (v: number): string => (Number.isInteger(v) ? `${v}.0` : `${v}`);
 
 export const GLSL_HEART = /* glsl */ `
 const int LV_PROF_BINS = ${LV_PROF_BINS};
+const float ROOT_SINUS_T = ${f(ROOT_SINUS_T)};
+const float ROOT_STJ_T = ${f(ROOT_STJ_T)};
+const float ROOT_ASC_T = ${f(ROOT_ASC_T)};
+const float AV_COAPT_BAND = ${f(AV_COAPT_BAND)};
+const float AV_COAPT_HALF = ${f(AV_COAPT_HALF)};
+const float ROOT_EXCURSION = ${f(ROOT_EXCURSION)};
+const int MV_BINS = ${MV_BINS};
+const float AML_ARC_EXTENSION = ${f(AML_ARC_EXTENSION)};
+const float MV_CLOSED_REACH[3] = float[3](${CLOSED_REACH.map(f).join(', ')});
+const float MV_CLOSED_DEPTH[3] = float[3](${CLOSED_DEPTH.map(f).join(', ')});
 struct Sample {
   int tissue;
   int structure;
@@ -85,6 +99,123 @@ float skirtDistance(vec3 p, vec3 c, float R, int zonesBase, int profBase, int nz
   fracOut = bestFrac;
   zoneOut = bestZone;
   return (thickness * (0.6 + 0.4 * bestFrac) * 0.5 + 0.035) * (0.4 + 0.6 * bestW);
+}
+
+// ---- mitral apparatus (mitralValve.ts) ----
+float mvBin(int tab, int col, float f) {
+  float xx = clamp(f - 0.5, 0.0, float(MV_BINS - 1));
+  int i = min(MV_BINS - 2, int(floor(xx)));
+  float w = xx - float(i);
+  int o = tab + col * MV_BINS + i;
+  return P(o) * (1.0 - w) + P(o + 1) * w;
+}
+// annulus height above the hinge plane at (u, v) around the valve centre: saddle and curtain lift
+float mvHingeHeight(float u, float v) {
+  float theta = atan(abs(u), v);
+  float thetaC = atan(sqrt(MVL_R * MVL_R - MVL_D * MVL_D), MVL_D) + AML_ARC_EXTENSION;
+  float onCurtain = clamp((thetaC - theta) / AML_ARC_EXTENSION, 0.0, 1.0);
+  float r2 = u * u + v * v;
+  return MVL_SADDLE * (u * u / (r2 > 0.0 ? r2 : 1.0)) + MVL_LIFT * onCurtain;
+}
+float mvHingeZ(vec2 p) {
+  vec2 d = p - vec2(MVL_CX, MVL_CY);
+  return MVL_CZ + mvHingeHeight(-d.x * MVL_UY + d.y * MVL_UX, d.x * MVL_UX + d.y * MVL_UY);
+}
+float mvOutlineSdf(vec2 p) {
+  vec2 d = p - vec2(MVL_CX, MVL_CY);
+  return max(length(d) - MVL_R, dot(d, vec2(MVL_UX, MVL_UY)) - MVL_D);
+}
+bool mvInsideOutline(vec2 p) {
+  vec2 d = p - vec2(MVL_CX, MVL_CY);
+  return dot(d, d) < MVL_R * 0.98 * (MVL_R * 0.98) && dot(d, vec2(MVL_UX, MVL_UY)) < MVL_D * 0.98;
+}
+float mvInflowTaper(float h) {
+  if (h < 0.0) return h < -0.25 ? 2.0 * (-h - 0.25) : 0.0;
+  float beyond = h - MVL_INFLOW_DEPTH;
+  return MVL_INFLOW_SLOPE * h + (beyond > 0.0 ? 3.0 * beyond * beyond : 0.0);
+}
+float mvAnnulusDistance(vec3 p, float tube) {
+  vec2 d = p.xy - vec2(MVL_CX, MVL_CY);
+  float v = dot(d, vec2(MVL_UX, MVL_UY));
+  float u = -d.x * MVL_UY + d.y * MVL_UX;
+  float uc = sqrt(MVL_R * MVL_R - MVL_D * MVL_D);
+  float rho = length(vec2(u, v));
+  if (rho == 0.0) rho = 1e-6;
+  float qu = u / rho * MVL_R, qv = v / rho * MVL_R;
+  float su = clamp(u, -uc, uc);
+  if (qv > MVL_D || (u - su) * (u - su) + (v - MVL_D) * (v - MVL_D) < (u - qu) * (u - qu) + (v - qv) * (v - qv)) {
+    qu = su;
+    qv = MVL_D;
+  }
+  float dPlane = length(vec2(u - qu, v - qv));
+  float dzz = p.z - (MVL_CZ + mvHingeHeight(qu, qv));
+  return sqrt(dPlane * dPlane + dzz * dzz) - tube;
+}
+// one leaflet (fan of fibres from its focus): updates the nearest hit
+void mvLeaflet(float v, float u, float zr0, int tab, int prof, float focusV, float axisSign, float halfSpan, int leaflet, float openness,
+               inout float best, inout float bestFrac, inout int bestLeaflet, inout float bestW, inout vec3 bestN) {
+  float dv = v - focusV;
+  float rho = length(vec2(dv, u));
+  if (rho < 1e-6) return;
+  float q = atan(u, dv * axisSign) / halfSpan;
+  if (q <= -1.0 || q >= 1.0) return;
+  float f = (q + 1.0) * 0.5 * float(MV_BINS);
+  float hingeS = mvBin(tab, 0, f);
+  float reach = mvBin(tab, 1, f);
+  float tent = mvBin(tab, 2, f);
+  float zr = zr0 - mvBin(tab, 3, f);
+  float aq = abs(q);
+  float tq = (aq - 0.9) / 0.1;
+  float w = aq < 0.9 ? 1.0 : 1.0 - tq * tq * (3.0 - 2.0 * tq);
+  float openScale = 0.55 + 0.45 * sqrt(max(0.0, 1.0 - q * q));
+  float c = 1.0 - openness;
+  float rot = openness > 0.0 ? mvBin(tab, 4, f) : 0.0;
+  float cr = cos(rot), sr = sin(rot);
+  float inw = hingeS - rho;
+  float ix = -(dv * MVL_UX - u * MVL_UY) / rho, iy = -(dv * MVL_UY + u * MVL_UX) / rho;
+  float ax = 0.0, az = 0.0;
+  for (int i = 0; i < 3; i++) {
+    float oa = P(prof + i * 2) * openScale, oz = P(prof + i * 2 + 1) * openScale;
+    float bx = reach * MV_CLOSED_REACH[i] * c + (oa * cr + oz * sr) * openness;
+    float bz = tent * MV_CLOSED_DEPTH[i] * c + (oz * cr - oa * sr) * openness;
+    float ex = bx - ax, ez = bz - az;
+    float l2 = ex * ex + ez * ez;
+    float sg = l2 > 0.0 ? clamp(((inw - ax) * ex + (zr - az) * ez) / l2, 0.0, 1.0) : 0.0;
+    float qx = ax + ex * sg - inw, qz = az + ez * sg - zr;
+    float dd = sqrt(qx * qx + qz * qz);
+    if (dd < best) {
+      best = dd;
+      bestFrac = (float(i) + sg) / 3.0;
+      bestLeaflet = leaflet;
+      bestW = w;
+      bestN = vec3(-ez * ix, -ez * iy, ex);
+    }
+    ax = bx;
+    az = bz;
+  }
+}
+// distance to the mitral leaflets; returns the local half thickness
+float mitralDistance(vec3 p, out float dOut, out float fracOut, out int leafletOut, out vec3 nOut) {
+  dOut = 1e3;
+  fracOut = 0.0;
+  leafletOut = 0;
+  nOut = vec3(0.0, 0.0, 1.0);
+  float dx = p.x - MVL_CX, dy = p.y - MVL_CY;
+  float zr0 = p.z - MVL_CZ;
+  if (zr0 > 3.5 || zr0 < -2.5 || dx * dx + dy * dy > (MVL_R + 2.2) * (MVL_R + 2.2)) return 0.0;
+  float v = dx * MVL_UX + dy * MVL_UY;
+  float u = -dx * MVL_UY + dy * MVL_UX;
+  float best = 1e9, bestFrac = 0.0, bestW = 1.0;
+  int bestLeaflet = 0;
+  vec3 bestN = vec3(0.0, 0.0, 1.0);
+  mvLeaflet(v, u, zr0, MVL_A_TAB_BASE, MVL_A_PROF_BASE, MVL_A_FOCUS, MVL_A_AXIS, MVL_A_HALF, 0, max(MVL_OPEN, MVL_SAM), best, bestFrac, bestLeaflet, bestW, bestN);
+  mvLeaflet(v, u, zr0, MVL_P_TAB_BASE, MVL_P_PROF_BASE, MVL_P_FOCUS, MVL_P_AXIS, MVL_P_HALF, 1, MVL_OPEN, best, bestFrac, bestLeaflet, bestW, bestN);
+  if (best >= 1e8) return 0.0;
+  dOut = best;
+  fracOut = bestFrac;
+  leafletOut = bestLeaflet;
+  nOut = bestN;
+  return (MVL_T * (0.6 + 0.4 * bestFrac) * 0.5 + 0.035) * (0.4 + 0.6 * bestW);
 }
 
 // distance to a 2-segment cusp chain with tapered width
@@ -281,7 +412,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
   vec3 avC = vec3(AV_CX, AV_CY, AV_CZ);
   vec3 ax = vec3(AV_AXX, AV_AXY, AV_AXZ);
   {
-    float czz = avC.z + zAnn * 0.5;
+    float czz = avC.z + zAnn * ROOT_EXCURSION;
     vec3 d = vec3(x - avC.x, y - avC.y, z - czz);
     float t = dot(d, ax);
     if (t > -1.6 && t < 6.5) {
@@ -290,24 +421,26 @@ bool classifyHeart(vec3 p0, out Sample s) {
       rootRr = length(rootQ);
       rootT = t;
       rootPhi = atan(dot(rootQ, vec3(AV_E2X, AV_E2Y, AV_E2Z)), dot(rootQ, vec3(AV_E1X, AV_E1Y, AV_E1Z)));
-      float trefoil = 1.0 + 0.06 * cos(CUSP_COUNT * (rootPhi - 0.5));
+      float sinusMax = SINUS_R * (1.0 + 0.06 * cos(CUSP_COUNT * (rootPhi - 0.5)) * ((t > 0.0 && t < ROOT_STJ_T) ? sin(PI * t / ROOT_STJ_T) : 0.0));
+      float stjR = min(ASC_R, SINUS_R * 0.88);
       if (t < 0.0) rootR = AV_R * 0.95 + (LVOT_D / 2.0 - AV_R * 0.95) * min(1.0, -t / 1.2);
-      else if (t < 2.2) rootR = AV_R + (SINUS_R * trefoil - AV_R) * sin(PI * t / 2.2);
-      else if (t < 3.2) rootR = min(ASC_R, SINUS_R * 0.88);
+      else if (t < ROOT_SINUS_T) rootR = AV_R + (sinusMax - AV_R) * sin((PI / 2.0) * (t / ROOT_SINUS_T));
+      else if (t < ROOT_STJ_T) rootR = stjR + (sinusMax - stjR) * 0.5 * (1.0 + cos(PI * (t - ROOT_SINUS_T) / (ROOT_STJ_T - ROOT_SINUS_T)));
+      else if (t < ROOT_ASC_T) rootR = stjR + (ASC_R - stjR) * 0.5 * (1.0 - cos(PI * (t - ROOT_STJ_T) / (ROOT_ASC_T - ROOT_STJ_T)));
       else rootR = ASC_R;
     }
   }
   bool inRootLumen = rootT >= -0.05 && rootRr < rootR;
+  bool inOutflowLumen = rootT > -1.6 && rootRr < rootR;
 
   // ---------- valves ----------
   {
-    float dS, fr;
-    int zn;
-    vec3 c = vec3(MVS_CX, MVS_CY, MVS_CZ);
-    float t = skirtDistance(p, c, MVS_R, MVS_ZONES_BASE, MVS_PROF_BASE, int(MVS_NZ + 0.5), MVS_CLOSED, MVS_BLEND, MVS_T, MVS_SADDLE, dS, fr, zn);
-    if (dS < t) {
-      float zphi = P(MVS_ZONES_BASE + zn * 6);
-      setSample(s, T_VALVE, dS - t, vec3(cos(zphi), sin(zphi), 0.8), p, MV_CALC, int(P(MVS_ZONES_BASE + zn * 6 + 5) + 0.5));
+    float dM, fr;
+    int lf;
+    vec3 nM;
+    float t = mitralDistance(p, dM, fr, lf, nM);
+    if (dM < t) {
+      setSample(s, T_VALVE, dM - t, nM, p, MV_CALC, lf == 0 ? S_MV_ANT : S_MV_POST);
       return true;
     }
   }
@@ -325,23 +458,20 @@ bool classifyHeart(vec3 p0, out Sample s) {
       return true;
     }
   }
-  if (AV_OPEN < 0.2 && rootT > 0.0 && rootRr < rootR * 0.97) {
-    float finLo = AV_R * 0.45, finHi = AV_R * 1.05;
-    if (rootT > finLo && rootT < finHi) {
-      vec3 e1 = vec3(AV_E1X, AV_E1Y, AV_E1Z);
-      float phi = rootPhi;
-      float n = CUSP_COUNT;
-      float per = TWO_PI / n;
-      float dphi = mod(mod(phi - PI / n, per) + per, per);
-      if (dphi > PI / n) dphi = per - dphi;
-      float dist = rootRr * sin(dphi);
-      if (dist < 0.04) {
-        setSample(s, T_VALVE, dist - 0.04, e1, p, AV_CALC, S_AV);
-        return true;
-      }
+  if (AV_OPEN < 0.2 && rootT > CUSP_TIP_T - AV_COAPT_BAND && rootT < CUSP_TIP_T && rootRr < rootR * 0.97) {
+    float n = CUSP_COUNT;
+    float per = TWO_PI / n;
+    float dphi = mod(mod(rootPhi - 0.5 - PI / n, per) + per, per);
+    if (dphi > PI / n) dphi = per - dphi;
+    float dist = rootRr * sin(dphi);
+    if (dist < AV_COAPT_HALF) {
+      vec3 u = rootQ / max(rootRr, 1e-6);
+      setSample(s, T_VALVE, dist - AV_COAPT_HALF, cross(ax, u), p, AV_CALC, S_AV);
+      return true;
     }
   }
-  if (sdCapsule(p, vec3(RVOT_MX, RVOT_MY, RVOT_MZ), vec3(PA_EX, PA_EY, PA_EZ), PA_R + 0.02) < 0.0) {
+  bool outsideAorticRoot = rootT <= -1.6 || rootRr > rootR + 0.22;
+  if (outsideAorticRoot && sdCapsule(p, vec3(RVOT_MX, RVOT_MY, RVOT_MZ), vec3(PA_EX, PA_EY, PA_EZ), PA_R + 0.02) < 0.0) {
     for (int i = 0; i < 3; i++) {
       vec3 w = vec3(P(PV_W_BASE + i * 3), P(PV_W_BASE + i * 3 + 1), P(PV_W_BASE + i * 3 + 2));
       float fr;
@@ -368,10 +498,9 @@ bool classifyHeart(vec3 p0, out Sample s) {
     }
   }
   {
-    vec3 r = vec3(MV_RING_X, MV_RING_Y, MV_RING_Z);
-    float dR = sdTorusZ(vec3(x, y, z - saddleOffset(atan(y - r.y, x - r.x), P(MVS_ZONES_BASE), MVS_SADDLE)), r, MV_RING_R, 0.11);
+    float dR = mvAnnulusDistance(p, 0.11);
     if (dR < 0.0) {
-      setSample(s, T_FIBROUS, dR, vec3(x - r.x, y - r.y, 0.0), p, 0.15 * MV_CALC, S_MV_ANN);
+      setSample(s, T_FIBROUS, dR, vec3(x - MVL_CX, y - MVL_CY, 0.0), p, 0.15 * MV_CALC, S_MV_ANN);
       return true;
     }
     vec3 q = vec3(TV_RING_X, TV_RING_Y, TV_RING_Z);
@@ -406,7 +535,12 @@ bool classifyHeart(vec3 p0, out Sample s) {
   float dCavR = dCav - regional + trab;
   float septalness = 0.5 - 0.5 * cos(az);
   float tNow = wallThicknessAt(az, levelFrac, amp);
-  if (dCavR < 0.0) {
+  // mitral inflow: cavity and wall are the smooth union of the profile with the narrowing annular outline
+  bool inRootTube = rootT > -1.6 && rootRr < rootR + 0.2;
+  float zHinge = mvHingeZ(p.xy);
+  float dInflow = inRootTube ? 1e3 : mvOutlineSdf(p.xy) + 0.04 + mvInflowTaper(z - zHinge);
+  float dLvBlood = smin(dCavR, dInflow, 0.3);
+  if (dLvBlood < 0.0) {
     float dPa = sdRoundCone(p, vec3(P(PAPS_BASE), P(PAPS_BASE + 1), P(PAPS_BASE + 2)), vec3(P(PAPS_BASE + 3), P(PAPS_BASE + 4), P(PAPS_BASE + 5)), P(PAPS_BASE + 6), P(PAPS_BASE + 7));
     float dPm = sdRoundCone(p, vec3(P(PAPS_BASE + 8), P(PAPS_BASE + 9), P(PAPS_BASE + 10)), vec3(P(PAPS_BASE + 11), P(PAPS_BASE + 12), P(PAPS_BASE + 13)), P(PAPS_BASE + 14), P(PAPS_BASE + 15));
     float dPap = min(dPa, dPm);
@@ -414,12 +548,12 @@ bool classifyHeart(vec3 p0, out Sample s) {
       setSample(s, T_MYO, dPap, vec3(x, y, 0.0), vec3(x / rs, y / rs, z / ls), 0.0, S_PAP);
       return true;
     }
-    setSample(s, T_BLOOD, dCavR, n0, vec3(x / rs, y / rs, (z - LV_LEN) / ls), 0.0, S_LV_CAV);
+    setSample(s, T_BLOOD, dLvBlood, n0, vec3(x / rs, y / rs, (z - LV_LEN) / ls), 0.0, (dCavR >= 0.0 && z < zHinge) ? S_LA_CAV : S_LV_CAV);
     return true;
   }
   float wallT = tNow;
-  float dEllR = dProf - regional;
-  if (dEllR + trab >= 0.0 && dEllR < wallT && z >= zAnn - 0.25 && !inRootLumen) {
+  float dEllR = smin(dProf, dInflow, 0.3) - regional;
+  if (dEllR + trab >= 0.0 && dEllR < wallT && z >= zAnn - 0.25 && !inOutflowLumen) {
     int structure = S_LV_LAT;
     if (z > LV_LEN - 0.6) structure = S_LV_APEX;
     else if (septalness > 0.7) structure = S_LV_SEPT;
@@ -432,8 +566,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
   }
   bool inAnnularRegion = dEllR < 0.0 && z < zAnn && !inRootLumen;
   if (inAnnularRegion) {
-    vec2 md = vec2(x - MV_CX, y - MV_CY);
-    if (length(md) < MV_R * 0.98) {
+    if (mvInsideOutline(p.xy)) {
       setSample(s, T_BLOOD, -0.3, vec3(0.0, 0.0, 1.0), p, 0.0, S_LA_CAV);
       return true;
     }
@@ -443,7 +576,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
   if (rootT > -1.6) {
     float wall = 0.2;
     if (rootRr < rootR) {
-      setSample(s, T_BLOOD, rootRr - rootR, rootQ / rootRr, vec3(x, y, z - zAnn * 0.5), 0.0, rootT < 0.0 ? S_LVOT : S_AO_ROOT);
+      setSample(s, T_BLOOD, rootRr - rootR, rootQ / rootRr, vec3(x, y, z - zAnn * ROOT_EXCURSION), 0.0, rootT < 0.0 ? S_LVOT : S_AO_ROOT);
       return true;
     }
     if (rootRr < rootR + wall) {
@@ -556,7 +689,8 @@ bool classifyHeart(vec3 p0, out Sample s) {
     }
     // coronary sinus
     {
-      float gy = -(lvCavityRadius(-PI / 2.0, zAnn + 0.6) + LV_LVPWD * LV_THICK_K + 0.4);
+      float rInflow = -MVL_CY + sqrt(max(0.0, MVL_R * MVL_R - MVL_CX * MVL_CX)) - mvInflowTaper(0.6);
+      float gy = -(max(lvCavityRadius(-PI / 2.0, zAnn + 0.6), rInflow) + LV_LVPWD * LV_THICK_K + 0.4);
       float dCs = sdCapsule(p, vec3(2.2, gy * 0.85, zAnn + 0.35), vec3(ra.x + rar.x * 0.4, gy * 0.7, zAnn + 0.1), 0.33);
       if (dCs < 0.0) {
         setSample(s, T_BLOOD, dCs, vec3(0.0, -1.0, 0.0), p, 0.0, S_CS);
