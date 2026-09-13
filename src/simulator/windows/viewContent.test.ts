@@ -96,8 +96,6 @@ const KNOWN_VIEW_LIMITATIONS: ReadonlySet<string> = new Set([
   // the parasternal window solver puts the beam 24.3° away from the requested short axis (decision 59).
   'psax-mv/inferior vena cava',
   'psax-mv/hepatic vein',
-  // The A2C carries a slice of pulmonary artery that does not belong in a two-chamber plane.
-  'a2c/pulmonary artery',
 ]);
 
 describe('standard views contain the structures they are meant to show', () => {

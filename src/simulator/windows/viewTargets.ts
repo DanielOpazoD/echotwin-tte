@@ -1,8 +1,8 @@
 import type { Vec3 } from '@/core/vec3';
-import { dot, normalize, scale, sub, v3 } from '@/core/vec3';
+import { add, dot, normalize, scale, sub, v3 } from '@/core/vec3';
 import type { HeartModel } from '@/simulator/anatomy/heartModel';
 import { AV_AXIS, heartDirToTorso, heartToTorso } from '@/simulator/anatomy/heartModel';
-import { skinZ, snapToIntercostal, type ThoraxModel } from '@/simulator/anatomy/thoraxModel';
+import { isAnteriorLung, ribSpacingAt, skinZ, snapToIntercostal, type ThoraxModel } from '@/simulator/anatomy/thoraxModel';
 import { beamFrameFromPose, controlAimingAt, poseFromControl, type BeamFrame, type ProbeControl } from '@/simulator/probe/pose';
 
 export type WindowId = 'parasternal' | 'apical' | 'subcostal' | 'suprasternal';
@@ -418,6 +418,29 @@ export function skinPointOnPlane(thorax: ThoraxModel, plane: { target: Vec3; nor
   return { u, v };
 }
 
+/**
+ * Share of the sector's rays (80°, 17 rays) that meet lung before the depth of the view target: what a sonographer
+ * sees when choosing between two intercostal spaces. The renderer draws only reverberation behind the pleura.
+ */
+export function lungOcclusion(thorax: ThoraxModel, control: ProbeControl, target: Vec3): number {
+  const beam = beamFrameFromPose(poseFromControl(thorax, control), 1);
+  const reach = dot(sub(target, beam.origin), beam.forward);
+  const RAYS = 17;
+  let blocked = 0;
+  for (let i = 0; i < RAYS; i++) {
+    const a = (i / (RAYS - 1) - 0.5) * ((80 * Math.PI) / 180);
+    const dir = add(scale(beam.forward, Math.cos(a)), scale(beam.lateral, Math.sin(a)));
+    for (let r = 0.25; r < reach; r += 0.25) {
+      const p = add(beam.origin, scale(dir, r));
+      if (isAnteriorLung(thorax, p.x, p.y, p.z)) {
+        blocked++;
+        break;
+      }
+    }
+  }
+  return blocked / RAYS;
+}
+
 /** Canonical probe control for a view target, computed from the case anatomy (for scoring/ghost only). */
 export function canonicalControl(view: ViewTarget, heart: HeartModel, thorax: ThoraxModel): ProbeControl {
   const plane = canonicalPlane(view, heart);
@@ -428,7 +451,18 @@ export function canonicalControl(view: ViewTarget, heart: HeartModel, thorax: Th
     preferred = { u: apex.x, v: apex.y };
     // rotate at the apex and slide at most 2 cm: the exact 60° planes through the long axis would need a 3.4 cm
     // lateral slide for A2C (among the lateral ribs); a real A2C accepts a few degrees of obliquity instead
-    skin = skinPointOnPlane(thorax, plane, preferred, 2.0);
+    const slid = skinPointOnPlane(thorax, plane, preferred, 2.0);
+    // A sonographer takes the intercostal space from which the heart is seen. The slid point can fall almost halfway
+    // between two spaces: the A3C one did (v −3.1, centres at −1.6 and −4.8), the nearest was the upper space, and
+    // there the lingula lies between chest wall and heart — the A3C preset showed 66–83% lung and no LV in eight of
+    // the twelve cases (decision 72). The adjacent space wins only when it clearly hides less of the sector: in the
+    // eight broken presets it hid 0% of the rays against 65–88%, and elsewhere the difference never exceeded 6%
+    // (always choosing the apex's own space instead foreshortened A4C from 9° to 31–41° in three cases).
+    const near = snapToIntercostal(thorax, slid.u, slid.v);
+    const spacing = ribSpacingAt(thorax, slid.u);
+    const other = snapToIntercostal(thorax, slid.u, near.v + (slid.v > near.v ? spacing : -spacing));
+    const hidden = (p: { u: number; v: number }): number => lungOcclusion(thorax, controlAimingAt(thorax, p.u, p.v, plane.target, plane.right, 0.6), plane.target);
+    skin = hidden(other) < hidden(near) - 0.1 ? other : near;
   } else if (view.id === 'plax') {
     skin = skinPointOnPlane(thorax, plane, preferred, 1.5);
   } else if (view.window === 'parasternal') {
