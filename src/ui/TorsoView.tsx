@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-import { useSimStore } from '@/app/store';
+import { useHudStore, useSimStore } from '@/app/store';
 import { getCaseModels } from '@/app/caseModels';
 import { ribCenterY, ribDepth, ribRadiusAt, skinZ, type ThoraxModel } from '@/simulator/anatomy/thoraxModel';
 import { heartGhostPrimitives, heartToTorso, heartDirToTorso, type HeartModel } from '@/simulator/anatomy/heartModel';
@@ -66,6 +66,10 @@ export function TorsoView() {
     scene.add(heartMeshes);
     const meshMaterials: THREE.MeshStandardMaterial[] = [];
     const meshByGroup = new Map<string, THREE.Mesh>();
+    // one geometry per cardiac phase per group: the navigator beats in step with the image instead of
+    // standing still next to it (decision 68). Phases arrive one by one from the worker.
+    const geomByGroup = new Map<string, THREE.BufferGeometry[]>();
+    let phasesReady = 0;
     // extraction samples the implicit model hundreds of thousands of times: off the UI thread, with the
     // ghost showing until the surfaces arrive
     const meshWorker = new Worker(new URL('../workers/heartMesh.worker.ts', import.meta.url), { type: 'module' });
@@ -79,19 +83,31 @@ export function TorsoView() {
         geom.setAttribute('position', new THREE.BufferAttribute(g.positions, 3));
         geom.setIndex(new THREE.BufferAttribute(g.indices, 1));
         geom.setAttribute('normal', new THREE.BufferAttribute(g.normals, 3));
-        const mat = new THREE.MeshStandardMaterial({ color: g.color, roughness: 0.55, metalness: 0.05, transparent: g.opacity < 1, opacity: g.opacity, depthWrite: g.opacity >= 1, side: THREE.DoubleSide });
-        meshMaterials.push(mat);
-        const mesh = new THREE.Mesh(geom, mat);
-        mesh.applyMatrix4(placement);
-        meshByGroup.set(g.id, mesh);
-        heartMeshes.add(mesh);
+        let perPhase = geomByGroup.get(g.id);
+        if (!perPhase) {
+          perPhase = [];
+          geomByGroup.set(g.id, perPhase);
+        }
+        perPhase[ev.data.index] = geom;
+        if (!meshByGroup.has(g.id)) {
+          const mat = new THREE.MeshStandardMaterial({ color: g.color, roughness: 0.55, metalness: 0.05, transparent: g.opacity < 1, opacity: g.opacity, depthWrite: g.opacity >= 1, side: THREE.DoubleSide });
+          meshMaterials.push(mat);
+          const mesh = new THREE.Mesh(geom, mat);
+          mesh.applyMatrix4(placement);
+          meshByGroup.set(g.id, mesh);
+          heartMeshes.add(mesh);
+        }
       }
+      phasesReady = Math.max(phasesReady, ev.data.index + 1);
       ghost.visible = false;
     };
-    // 0.20 cm: extraction runs in a worker so the cost is off the UI thread (~1.2 s against 0.5 s at 0.28),
-    // and the finer grid halves the folded vertices that shade as black facets on thin walls (2.3% -> 1.2%
-    // on the RV wall, measured in decision 57)
-    meshWorker.postMessage({ caseId, patient, stepCm: 0.2, phase: 0 } satisfies MeshRequest);
+    // 0.26 cm and ten phases: extraction costs 553 ms per phase at this step against 2171 ms at 0.20, so the
+    // whole beat is ready in ~5.5 s of worker time with the first phase on screen in half a second. The
+    // finer grid left fewer black facets (3.2% of folded vertices on the RV wall against 4.5% here), but a
+    // heart that stands still beside a beating image gives the model away far more than half a point of
+    // facets (decisions 67 and 68).
+    const MESH_PHASES = Array.from({ length: 10 }, (_, i) => i / 10);
+    meshWorker.postMessage({ caseId, patient, stepCm: 0.26, phases: MESH_PHASES } satisfies MeshRequest);
     // examination axes: beam axis, elevation normal and the in-plane lateral direction
     const axisGroup = new THREE.Group();
     const axisLine = (color: number): THREE.Line => new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.9 }));
@@ -264,6 +280,17 @@ export function TorsoView() {
         'great-vessels': st.ui.navVessels,
       };
       for (const [id, mesh] of meshByGroup) mesh.visible = vis[id] ?? true;
+      // beat in step with the image: the phase comes from the frame on screen, not from a clock of our own
+      // only once the whole beat is in: animating a partial set would loop three phases as if they were the
+      // entire cycle, which is a different lie from standing still
+      if (phasesReady === MESH_PHASES.length) {
+        const hudPhase = useHudStore.getState().hud?.phase ?? 0;
+        const idx = Math.round(hudPhase * MESH_PHASES.length) % MESH_PHASES.length;
+        for (const [id, mesh] of meshByGroup) {
+          const geom = geomByGroup.get(id)?.[idx];
+          if (geom && mesh.geometry !== geom) mesh.geometry = geom;
+        }
+      }
       axisGroup.visible = st.ui.navAxes;
       if (st.ui.navAxes) {
         const o = new THREE.Vector3(beam.origin.x, beam.origin.y, beam.origin.z);
