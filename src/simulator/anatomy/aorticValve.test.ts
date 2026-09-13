@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { loadCaseById } from '@/cases';
-import { computeHeartPose, createHeartModel, ROOT_EXCURSION } from './heartModel';
+import { computeHeartPose, createHeartModel } from './heartModel';
+import { aorticCuspTip } from './aorticValve';
 import { createThoraxModel } from './thoraxModel';
 import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { ProceduralSliceRenderer } from '@/simulator/renderer/procedural/sliceRenderer';
@@ -37,15 +38,8 @@ describe('aortic valve visibility in PSAX-AV', () => {
       const heart = createHeartModel(c.anatomy, c.physiology, thorax.heartOffset, c.seed);
       const tables = buildBeatTables(60 / c.rhythm.heartRateBpm, c.physiology, c.rhythm, c.hemodynamics);
       const hp = computeHeartPose(heart, cycleStateAt(tables, (tables.timings.ejectionStartS + 0.1) / tables.rrS));
-      const s = hp.valves.segs,
-        L = hp.valves.cuspSegLen;
-      // tip radius of cusp 0 from the root axis
-      const tip = [s[0]! + s[3]! * L + s[9]! * L, s[1]! + s[4]! * L + s[10]! * L, s[2]! + s[5]! * L + s[11]! * L];
-      const A = (heart as unknown as { _anchors: { avCenter: { x: number; y: number; z: number }; avAxis: { x: number; y: number; z: number } } })._anchors;
-      const cz = A.avCenter.z + hp.zAnn * ROOT_EXCURSION;
-      const d = [tip[0]! - A.avCenter.x, tip[1]! - A.avCenter.y, tip[2]! - cz];
-      const t = d[0]! * A.avAxis.x + d[1]! * A.avAxis.y + d[2]! * A.avAxis.z;
-      return Math.hypot(d[0]! - A.avAxis.x * t, d[1]! - A.avAxis.y * t, d[2]! - A.avAxis.z * t);
+      // radius of the free edge at the centre of a cusp from the root axis
+      return aorticCuspTip(hp.valves.aortic, hp.valves.root, 0).r;
     };
     expect(reach('aortic-stenosis-severe')).toBeLessThan(reach('normal-excellent-window') * 0.6);
   });

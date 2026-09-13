@@ -4,6 +4,7 @@ import { Structure, Tissue, type TissueSample } from './tissue';
 import { sdCapsule, sdEllipsoid, sdRoundCone, sdSegmentChain, sdTorusZ, smax, smin, type ChainHit } from './sdf';
 import { allocLvProfileTable, axialWallFactor, buildLvProfile, lvCavityRadius, lvCavitySdf, lvProfileG, lvRadialOffsetFactor, lvSdfNormal, lvShapeFor, lvShellVolume, solveThickening, type LvProfileTable, type LvShape } from './lvShape';
 import { fastAtan2, latticeNoise3, noiseLattice } from '@/core/noise';
+import { aorticCoaptationBand, aorticCuspDistance, aorticHit, buildAorticValve, rootRadiusAt, AV_COAPT_HALF, type AorticValve, type RootProfile } from './aorticValve';
 import { buildMitralValve, fitOpenLeaflets, inflowTaper, insideMitralOutline, mitralAnnulusDistance, mitralDistance, mitralFreeEdge, mitralHingeZ, mitralHit, mitralInflowSdf, type MitralValve } from './mitralValve';
 import type { Vec3 } from '@/core/vec3';
 import { cross, normalize, sub, v3, dot, scale, add } from '@/core/vec3';
@@ -62,10 +63,7 @@ export const AV_AXIS: Vec3 = normalize(v3(-0.15, 0.53, -0.85));
  * annulus in every systolic long-axis frame.
  */
 export const ROOT_EXCURSION = 0.85;
-/** Aortic root levels along its axis from the annulus (cm): widest sinus, sinotubular waist, start of the tubular ascending aorta. */
-export const ROOT_SINUS_T = 0.95;
-export const ROOT_STJ_T = 2.0;
-export const ROOT_ASC_T = 3.0;
+export { ROOT_ASC_T, ROOT_SINUS_T, ROOT_STJ_T, AV_COAPT_HALF } from './aorticValve';
 /**
  * Systolic shortening of the tricuspid annular dimensions. In healthy adults the annulus is largest in late diastole
  * and smallest in mid-to-late systole, with fractional area change 35 ± 10 % and perimeter and diameters shortening by
@@ -77,9 +75,6 @@ export const TV_SYSTOLIC_SHORTENING = 0.2;
 const TV_TENTING_CM = 0.3;
 const TV_CLOSED_REACH = [0.36, 0.71, 1];
 const TV_CLOSED_DEPTH = [0.3, 0.62, 1];
-/** Coaptation surfaces of the closed aortic valve: height of the band below the free edges and half thickness (cm). */
-export const AV_COAPT_BAND = 0.35;
-export const AV_COAPT_HALF = 0.02;
 
 export function buildHeartFrame(anatomy: AnatomyConfig, offset: Vec3 = v3()): HeartFrame {
   const ez = normalize(anatomy.heartPosition.longAxis);
@@ -218,8 +213,6 @@ export interface HeartPose {
 }
 
 export interface ValveGeometry {
-  /** Segment chains for the aortic cusps: [sx,sy,sz,dx,dy,dz] × segments, stored contiguously. */
-  segs: Float64Array;
   /** Mitral apparatus: D-shaped annulus on the aortomitral curtain, a fan of fibres per leaflet (decision 76). */
   mitral: MitralValve;
   /**
@@ -227,15 +220,10 @@ export interface ValveGeometry {
    * zone blended by azimuth around the ring, so long-axis views cut hinged leaflets and short-axis views the orifice.
    */
   tv: SkirtDesc;
-  /** Aortic cusps: offset of each cusp chain (2 segments), shared width vectors per cusp [wx,wy,wz]. */
-  cuspOffsets: number[];
-  cuspWidths: Float64Array;
+  /** Aortic cusps as pockets on the sinus wall (decision 79), and the root profile they hang from. */
+  aortic: AorticValve;
+  root: RootProfile;
   cuspCount: number;
-  cuspHalf: number;
-  cuspSegLen: number;
-  cuspThickness: number;
-  /** Axial position (cm along the root axis from the annulus centre) of the cusps' free edges this frame. */
-  cuspTipT: number;
   /** Chordae tendineae as capsules [ax,ay,az,bx,by,bz] × n. */
   chordae: Float64Array;
   chordaeCount: number;
@@ -664,19 +652,9 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
       tv.zones[zi]!.prof = blendProfiles(buildProfile(tvRNow, opened.map((a) => a + rot), (A.tvR * lenFrac) / 3));
     }
   }
-  // aortic cusps: sheets ~1.5·R long from the annular nadir to the free edge as 2-segment chains whose reach
-  // follows the orifice (0.05·R closed → 0.9·R open, scaled by the case's maxOpeningFraction)
-  const segs = new Float64Array(cusps * 12);
-  const cuspWidths = new Float64Array(cusps * 3);
-  const cuspSegLen = buildCuspChains(A.avCenter.x, A.avCenter.y, A.avCenter.z + zAnn * ROOT_EXCURSION, A.avAxis, A.avE1, A.avE2, A.avR, Math.max(0, Math.min(1, state.avOpen)) * m.anatomy.aorticValve.maxOpeningFraction, cusps, segs, cuspWidths, 0.5);
-  const cuspOffsets = Array.from({ length: cusps }, (_, i) => i * 12);
-  // where the free edges are along the root axis (the chain end of the first cusp): the coaptation band sits there
-  const cuspTipT = (() => {
-    const ex = segs[6]! + segs[9]! * cuspSegLen - A.avCenter.x,
-      ey = segs[7]! + segs[10]! * cuspSegLen - A.avCenter.y,
-      ez = segs[8]! + segs[11]! * cuspSegLen - (A.avCenter.z + zAnn * ROOT_EXCURSION);
-    return ex * A.avAxis.x + ey * A.avAxis.y + ez * A.avAxis.z;
-  })();
+  // aortic cusps: pockets on the sinus wall opening by the cycle's opening times the case's maximum (decision 79)
+  const aortic = buildAorticValve(cusps, Math.max(0, Math.min(1, state.avOpen)) * m.anatomy.aorticValve.maxOpeningFraction, m.anatomy.aorticValve.cuspThicknessCm);
+  const root: RootProfile = { avR: A.avR, sinusR: A.sinusR, ascR: A.ascR, lvotR: m.anatomy.aorta.lvotDiameterCm / 2, count: cusps };
   // pulmonary valve: three cusps hinged at the outflow–trunk junction on the trunk axis, opening with RV ejection
   const pvSegs = new Float64Array(36);
   const pvWidths = new Float64Array(9);
@@ -734,16 +712,11 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
     chordae.set([tipBuf[0]!, tipBuf[1]!, tipBuf[2]!, e[0]!, e[1]!, e[2]!], i * 6);
   }
   const valves: ValveGeometry = {
-    segs,
     mitral,
     tv,
-    cuspOffsets,
-    cuspWidths,
+    aortic,
+    root,
     cuspCount: cusps,
-    cuspHalf: A.avR * Math.sin(Math.PI / cusps) * 0.95,
-    cuspSegLen,
-    cuspThickness: m.anatomy.aorticValve.cuspThicknessCm,
-    cuspTipT,
     chordae,
     chordaeCount: 10,
     pvSegs,
@@ -1204,18 +1177,7 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
       // sinuses of Valsalva bulge at the cusp centres (trefoil in short axis, ±6 %), narrowing at the commissures;
       // the bulge fades to nothing at the annulus and at the sinotubular junction
       rootPhi = fastAtan2(rootQx * A.avE2.x + rootQy * A.avE2.y + rootQz * A.avE2.z, rootQx * A.avE1.x + rootQy * A.avE1.y + rootQz * A.avE1.z);
-      const sinusMax = A.sinusR * (1 + 0.06 * Math.cos(hp.valves.cuspCount * (rootPhi - 0.5)) * (t > 0 && t < ROOT_STJ_T ? Math.sin((Math.PI * t) / ROOT_STJ_T) : 0));
-      const stjR = Math.min(A.ascR, A.sinusR * 0.88);
-      // radius profile: LVOT (t<0) → annulus (t=0) → widest sinus (ROOT_SINUS_T) → sinotubular waist (ROOT_STJ_T) →
-      // tubular ascending aorta (ROOT_ASC_T), each piece meeting the next with zero slope. Until 2026-09-13 the sinus
-      // bulge fell back to the annular radius at 2.2 cm and the wall then jumped out to the junction radius, and again
-      // to the ascending one at 3.2 cm: two steps in each wall of every long-axis view, which a cardiologist saw as
-      // the root ending abruptly into the ascending aorta.
-      if (t < 0) rootR = A.avR * 0.95 + (m.anatomy.aorta.lvotDiameterCm / 2 - A.avR * 0.95) * Math.min(1, -t / 1.2);
-      else if (t < ROOT_SINUS_T) rootR = A.avR + (sinusMax - A.avR) * Math.sin((Math.PI / 2) * (t / ROOT_SINUS_T));
-      else if (t < ROOT_STJ_T) rootR = stjR + (sinusMax - stjR) * 0.5 * (1 + Math.cos((Math.PI * (t - ROOT_SINUS_T)) / (ROOT_STJ_T - ROOT_SINUS_T)));
-      else if (t < ROOT_ASC_T) rootR = stjR + (A.ascR - stjR) * 0.5 * (1 - Math.cos((Math.PI * (t - ROOT_STJ_T)) / (ROOT_ASC_T - ROOT_STJ_T)));
-      else rootR = A.ascR;
+      rootR = rootRadiusAt(hp.valves.root, t, rootPhi);
     }
   }
   // the aortic lumen from the annulus upward is never LV wall or fibrous skeleton
@@ -1235,40 +1197,37 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
       return true;
     }
   }
-  // aortic cusps
-  for (let i = 0; i < V.cuspCount; i++) {
-    const wx = V.cuspWidths[i * 3]!,
-      wy = V.cuspWidths[i * 3 + 1]!,
-      wz = V.cuspWidths[i * 3 + 2]!;
-    sdSegmentChain(x, y, z, V.segs, V.cuspOffsets[i]!, 2, V.cuspSegLen, wx, wy, wz, V.cuspHalf, hit, 0.75);
-    const t = V.cuspThickness * (1 - 0.3 * hit.frac) * 0.5 + 0.03;
-    if (hit.d < t && rootRr < rootR + 0.02) {
-      const o = V.cuspOffsets[i]! + Math.min(1, Math.floor(hit.frac * 2)) * 6;
-      const dx = V.segs[o + 3]!,
-        dy = V.segs[o + 4]!,
-        dz = V.segs[o + 5]!;
-      setSample(out, Tissue.Valve, hit.d - t, dy * wz - dz * wy, dz * wx - dx * wz, dx * wy - dy * wx, x, y, z, m.anatomy.aorticValve.calcification, Structure.AorticValve);
+  // aortic cusps: pockets hung from the crown-shaped attachment on the sinus wall
+  if (rootT > -0.5 && rootRr < rootR + 0.02) {
+    const half = aorticCuspDistance(V.aortic, V.root, rootT, rootRr, rootPhi);
+    if (aorticHit.d < half) {
+      const ur = 1 / (rootRr || 1);
+      const ax = A.avAxis;
+      setSample(out, Tissue.Valve, aorticHit.d - half, aorticHit.nr * rootQx * ur + aorticHit.nt * ax.x, aorticHit.nr * rootQy * ur + aorticHit.nt * ax.y, aorticHit.nr * rootQz * ur + aorticHit.nt * ax.z, x, y, z, m.anatomy.aorticValve.calcification, Structure.AorticValve);
       return true;
     }
   }
   // aortic coaptation surfaces: when the valve is closed adjacent cusps press together along the lines from the
-  // centre to each commissure (Y sign in PSAX-AV), over a short band just below the free edges. Until 2026-09-13
-  // these fins sat 28.6° away from the commissures of the cusps — 3.7° from the parasternal long-axis plane —
-  // reached 0.65 cm down into the ventricular side of the valve and were 0.8 mm thick: a long bright line through
-  // the middle of the closed valve in PLAX. They now lie at the commissures, 0.4 mm thick and 0.35 cm tall.
-  if (hp.state.avOpen < 0.2 && rootT > V.cuspTipT - AV_COAPT_BAND && rootT < V.cuspTipT && rootRr < rootR * 0.97) {
-    const n = V.cuspCount;
-    let dphi = (((rootPhi - 0.5 - Math.PI / n) % (TWO_PI / n)) + TWO_PI / n) % (TWO_PI / n);
-    if (dphi > Math.PI / n) dphi = TWO_PI / n - dphi;
-    const dist = rootRr * Math.sin(dphi);
-    if (dist < AV_COAPT_HALF) {
-      // the surface normal is tangential (the fin contains the axis and the radial direction)
-      const ux = rootQx / (rootRr || 1),
-        uy = rootQy / (rootRr || 1),
-        uz = rootQz / (rootRr || 1);
-      const ax = A.avAxis;
-      setSample(out, Tissue.Valve, dist - AV_COAPT_HALF, ax.y * uz - ax.z * uy, ax.z * ux - ax.x * uz, ax.x * uy - ax.y * ux, x, y, z, m.anatomy.aorticValve.calcification, Structure.AorticValve);
-      return true;
+  // centre to each commissure (Y sign in PSAX-AV), in a band below the free margin that is 4.5 mm tall at the centre
+  // and rises with the margin toward the commissures. Until 2026-09-13 these fins sat 28.6° away from the commissures
+  // of the cusps — 3.7° from the parasternal long-axis plane — reached 0.65 cm down into the ventricular side of the
+  // valve and were 0.8 mm thick: a long bright line through the middle of the closed valve in PLAX.
+  if (hp.state.avOpen < 0.2 && rootT > 0 && rootT < V.aortic.hComm && rootRr < rootR * 0.97) {
+    const [bottom, top] = aorticCoaptationBand(V.aortic, rootRr / rootR);
+    if (rootT > bottom && rootT < top) {
+      const n = V.cuspCount;
+      let dphi = (((rootPhi - 0.5 - Math.PI / n) % (TWO_PI / n)) + TWO_PI / n) % (TWO_PI / n);
+      if (dphi > Math.PI / n) dphi = TWO_PI / n - dphi;
+      const dist = rootRr * Math.sin(dphi);
+      if (dist < AV_COAPT_HALF) {
+        // the surface normal is tangential (the band contains the axis and the radial direction)
+        const ux = rootQx / (rootRr || 1),
+          uy = rootQy / (rootRr || 1),
+          uz = rootQz / (rootRr || 1);
+        const ax = A.avAxis;
+        setSample(out, Tissue.Valve, dist - AV_COAPT_HALF, ax.y * uz - ax.z * uy, ax.z * ux - ax.x * uz, ax.x * uy - ax.y * ux, x, y, z, m.anatomy.aorticValve.calcification, Structure.AorticValve);
+        return true;
+      }
     }
   }
   // pulmonary cusps (three, hinged at the outflow–trunk junction; clipped to the trunk lumen). They must not enter

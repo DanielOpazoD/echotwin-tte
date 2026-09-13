@@ -46,5 +46,5 @@ export const afDiastolicCase: CaseDefinitionInput = {
     'Hipertrofia concéntrica leve; función sistólica conservada.',
     'Aurícula izquierda severamente dilatada y E/e′ promedio ≈ 15: presiones de llenado probablemente elevadas.',
   ],
-  expectedDeviations: ['lv-shortening', 'ivsd', 'lvpwd', 'la-ap', 'la-transverse', 'la-long', 'lavi', 'la-emptying', 'ravi', 'ra-long', 'la-ao'],
+  expectedDeviations: ['ivsd', 'lvpwd', 'la-ap', 'la-transverse', 'la-long', 'lavi', 'la-emptying', 'ravi', 'ra-long', 'la-ao'],
 };

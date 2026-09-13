@@ -105,3 +105,28 @@ describe('clock', () => {
     expect(s.phase).toBeLessThan(1);
   });
 });
+
+describe('annular recoil (decision 80)', () => {
+  it('the annulus recoils at the case e′ in early diastole, in every case', async () => {
+    // Tissue Doppler reads the longitudinal displacement curve. Its early-diastolic time constant used to be
+    // 0.09·(10/e′) s: the normal heart (e′ 11 cm/s) recoiled at 4.6 cm/s, kept 86% of its systolic descent at mid-E
+    // and tissue Doppler measured e′ 4.7 — the value an expert panel reported.
+    const { CASE_INPUTS, loadCaseById } = await import('@/cases');
+    const problems: string[] = [];
+    for (const input of CASE_INPUTS) {
+      const k = loadCaseById(input.id);
+      const tb = buildBeatTables(60 / k.rhythm.heartRateBpm, k.physiology, k.rhythm, k.hemodynamics);
+      const t = tb.timings;
+      const dt = tb.rrS / tb.n;
+      const earlyEnd = t.hasAWave ? t.aStartS : tb.rrS;
+      let peak = 0;
+      for (let i = 0; i < tb.n; i++) {
+        const ti = (i + 0.5) * dt;
+        if (ti > t.mitralOpenS && ti < earlyEnd) peak = Math.max(peak, -(tb.longitudinalVelocity[i] ?? 0) * k.physiology.mapseCm);
+      }
+      if (Math.abs(peak - k.physiology.ePrimeSeptalCmps) > 0.1 * k.physiology.ePrimeSeptalCmps) problems.push(`${input.id}: ${peak.toFixed(1)} cm/s against e′ ${k.physiology.ePrimeSeptalCmps}`);
+    }
+    expect(problems).toEqual([]);
+  });
+});
+

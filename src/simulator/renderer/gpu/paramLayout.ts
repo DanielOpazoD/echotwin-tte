@@ -33,7 +33,7 @@ const SCALARS = [
   'RPA_EX', 'RPA_EY', 'RPA_EZ', 'RPA_R', 'LPA_EX', 'LPA_EY', 'LPA_EZ', 'LPA_R', 'RV_PAP_AZ', 'PV_HALF', 'PV_SEGLEN', 'PV_T',
   'LA_RESERVOIR', 'IAS_X', 'FOSSA_Y', 'FOSSA_Z', 'SVC_AX', 'SVC_AY', 'SVC_AZ', 'SVC_BX', 'SVC_BY', 'SVC_BZ', 'SVC_R', 'IVC_AX', 'IVC_AY', 'IVC_AZ', 'IVC_BX', 'IVC_BY', 'IVC_BZ', 'IVC_R', 'HV_AX', 'HV_AY', 'HV_AZ', 'HV_BX', 'HV_BY', 'HV_BZ',
   // valves
-  'CUSP_COUNT', 'CUSP_HALF', 'CUSP_SEGLEN', 'CUSP_T', 'CUSP_TIP_T', 'TV_RING_X', 'TV_RING_Y', 'TV_RING_Z', 'TV_RING_R',
+  'CUSP_COUNT', 'CUSP_T', 'AVC_OPEN', 'AVC_EH', 'AVC_CH', 'AVC_HCOMM', 'AVC_SAG', 'TV_RING_X', 'TV_RING_Y', 'TV_RING_Z', 'TV_RING_R',
   // mitral apparatus (mitralValve.ts): D-shaped annulus, curtain lift, inflow, and one fan of fibres per leaflet
   'MVL_CX', 'MVL_CY', 'MVL_CZ', 'MVL_R', 'MVL_D', 'MVL_UX', 'MVL_UY', 'MVL_SADDLE', 'MVL_LIFT', 'MVL_T', 'MVL_OPEN', 'MVL_SAM', 'MVL_INFLOW_SLOPE', 'MVL_INFLOW_DEPTH',
   'MVL_A_FOCUS', 'MVL_A_AXIS', 'MVL_A_HALF', 'MVL_P_FOCUS', 'MVL_P_AXIS', 'MVL_P_HALF',
@@ -52,8 +52,6 @@ const ARRAYS: [string, number][] = [
   ['RVPAP', 8],
   ['PV_SEGS', 36],
   ['PV_W', 9],
-  ['CUSP_SEGS', 3 * 2 * 6],
-  ['CUSP_W', 9],
   ['CHORDAE', 10 * 6],
   // per leaflet: hinge, reach, tent, hinge z and open rotation per bin, then the open profile
   ['MVL_A_TAB', 5 * MV_BINS],
@@ -277,10 +275,12 @@ export function packScene(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, o
   set('PA_R', A.paR);
   const V = hp.valves;
   set('CUSP_COUNT', V.cuspCount);
-  set('CUSP_HALF', V.cuspHalf);
-  set('CUSP_SEGLEN', V.cuspSegLen);
-  set('CUSP_T', V.cuspThickness);
-  set('CUSP_TIP_T', V.cuspTipT);
+  set('CUSP_T', V.aortic.thickness);
+  set('AVC_OPEN', V.aortic.open);
+  set('AVC_EH', V.aortic.eH);
+  set('AVC_CH', V.aortic.cH);
+  set('AVC_HCOMM', V.aortic.hComm);
+  set('AVC_SAG', V.aortic.sag);
   set('TV_RING_X', V.tvRing[0]);
   set('TV_RING_Y', V.tvRing[1]);
   set('TV_RING_Z', V.tvRing[2]);
@@ -342,10 +342,6 @@ export function packScene(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, o
   };
   sk('TVS', V.tv);
   d.set(heart.segAmp.subarray(0, 18), PARAM_OFFSET['SEG_AMP']!);
-  d.fill(0, PARAM_OFFSET['CUSP_SEGS']!, PARAM_OFFSET['CUSP_SEGS']! + 36);
-  d.set(V.segs.subarray(0, Math.min(36, V.segs.length)), PARAM_OFFSET['CUSP_SEGS']!);
-  d.fill(0, PARAM_OFFSET['CUSP_W']!, PARAM_OFFSET['CUSP_W']! + 9);
-  d.set(V.cuspWidths.subarray(0, Math.min(9, V.cuspWidths.length)), PARAM_OFFSET['CUSP_W']!);
   d.set(V.chordae.subarray(0, 60), PARAM_OFFSET['CHORDAE']!);
   set('PV_HALF', V.pvHalf);
   set('PV_SEGLEN', V.pvSegLen);

@@ -3,7 +3,8 @@
  * equivalence test (e2e/gpu-equivalence.spec.ts) compares both on the canonical views.
  */
 import { LV_PROF_BINS } from '@/simulator/anatomy/lvShape';
-import { AV_COAPT_BAND, AV_COAPT_HALF, ROOT_ASC_T, ROOT_EXCURSION, ROOT_SINUS_T, ROOT_STJ_T } from '@/simulator/anatomy/heartModel';
+import { AV_COAPT_HALF, ROOT_ASC_T, ROOT_EXCURSION, ROOT_SINUS_T, ROOT_STJ_T } from '@/simulator/anatomy/heartModel';
+import { AV_PHI0 } from '@/simulator/anatomy/aorticValve';
 import { AML_ARC_EXTENSION, CLOSED_DEPTH, CLOSED_REACH, MV_BINS } from '@/simulator/anatomy/mitralValve';
 
 const f = (v: number): string => (Number.isInteger(v) ? `${v}.0` : `${v}`);
@@ -13,9 +14,9 @@ const int LV_PROF_BINS = ${LV_PROF_BINS};
 const float ROOT_SINUS_T = ${f(ROOT_SINUS_T)};
 const float ROOT_STJ_T = ${f(ROOT_STJ_T)};
 const float ROOT_ASC_T = ${f(ROOT_ASC_T)};
-const float AV_COAPT_BAND = ${f(AV_COAPT_BAND)};
 const float AV_COAPT_HALF = ${f(AV_COAPT_HALF)};
 const float ROOT_EXCURSION = ${f(ROOT_EXCURSION)};
+const float AV_PHI0 = ${f(AV_PHI0)};
 const int MV_BINS = ${MV_BINS};
 const float AML_ARC_EXTENSION = ${f(AML_ARC_EXTENSION)};
 const float MV_CLOSED_REACH[3] = float[3](${CLOSED_REACH.map(f).join(', ')});
@@ -216,6 +217,70 @@ float mitralDistance(vec3 p, out float dOut, out float fracOut, out int leafletO
   leafletOut = bestLeaflet;
   nOut = bestN;
   return (MVL_T * (0.6 + 0.4 * bestFrac) * 0.5 + 0.035) * (0.4 + 0.6 * bestW);
+}
+
+// ---- aortic root profile and cusps (aorticValve.ts) ----
+float rootRadiusAt(float t, float phi) {
+  float sinusMax = SINUS_R * (1.0 + 0.06 * cos(CUSP_COUNT * (phi - AV_PHI0)) * ((t > 0.0 && t < ROOT_STJ_T) ? sin(PI * t / ROOT_STJ_T) : 0.0));
+  float stjR = min(ASC_R, SINUS_R * 0.88);
+  if (t < 0.0) return AV_R * 0.95 + (LVOT_D / 2.0 - AV_R * 0.95) * min(1.0, -t / 1.2);
+  if (t < ROOT_SINUS_T) return AV_R + (sinusMax - AV_R) * sin((PI / 2.0) * (t / ROOT_SINUS_T));
+  if (t < ROOT_STJ_T) return stjR + (sinusMax - stjR) * 0.5 * (1.0 + cos(PI * (t - ROOT_SINUS_T) / (ROOT_STJ_T - ROOT_SINUS_T)));
+  if (t < ROOT_ASC_T) return stjR + (ASC_R - stjR) * 0.5 * (1.0 - cos(PI * (t - ROOT_STJ_T) / (ROOT_ASC_T - ROOT_STJ_T)));
+  return ASC_R;
+}
+// coaptation band on the line to a commissure: [bottom, top]
+vec2 aorticBand(float rn) {
+  float top = AVC_EH + (AVC_HCOMM - AVC_EH) * pow(clamp(rn, 0.0, 1.0), 1.5);
+  return vec2(top - (AVC_CH * (1.0 - rn) + 0.1 * rn), top);
+}
+float aorticCuspDistance(float t, float rr, float phi, out float dOut, out float fracOut, out vec2 nOut) {
+  dOut = 1e3;
+  fracOut = 0.0;
+  nOut = vec2(0.0, 1.0);
+  if (t < -0.5 || t > AVC_HCOMM + 0.3) return 0.0;
+  float per = TWO_PI / CUSP_COUNT;
+  float psi = mod(phi - AV_PHI0, per);
+  if (psi > per / 2.0) psi -= per;
+  float q = psi / (per / 2.0);
+  float aq = min(1.0, abs(q));
+  float k = 1.0 - sqrt(max(0.0, 1.0 - aq * aq));
+  float tAtt = (AVC_HCOMM - 0.1) * k;
+  float rw = rootRadiusAt(tAtt, phi) - 0.02;
+  float tTopOpen = AVC_HCOMM - 0.35 + 0.25 * aq * aq;
+  float best = 1e9, bestFrac = 0.0;
+  vec2 bestN = vec2(0.0, 1.0);
+  vec2 a = vec2(0.0);
+  for (int i = 0; i < 4; i++) {
+    float rn = i == 0 ? 1.0 : (i == 1 ? 0.64 : (i == 2 ? 0.29 : 0.0));
+    float tMid = (AVC_EH - AVC_CH) * (1.0 - rn) - AVC_SAG * sin(PI * rn) * (1.0 - aq);
+    float edge = aorticBand(rn).x;
+    float rc = rw * rn, tc = tMid + (edge - tMid) * k;
+    float fo = float(i) / 3.0;
+    float to = tAtt + (tTopOpen - tAtt) * fo;
+    float ro = rootRadiusAt(to, phi) - (0.05 + 0.12 * (1.0 - aq * aq) * fo);
+    vec2 b = vec2(rc + (ro - rc) * AVC_OPEN, tc + (to - tc) * AVC_OPEN);
+    if (i > 0) {
+      vec2 e = b - a;
+      float l2 = dot(e, e);
+      float sg = l2 > 0.0 ? clamp(dot(vec2(rr, t) - a, e) / l2, 0.0, 1.0) : 0.0;
+      float dd = length(a + e * sg - vec2(rr, t));
+      if (dd < best) {
+        best = dd;
+        bestFrac = (float(i - 1) + sg) / 3.0;
+        float l = sqrt(l2);
+        if (l == 0.0) l = 1.0;
+        bestN = vec2(-e.y / l, e.x / l);
+      }
+    }
+    a = b;
+  }
+  dOut = best;
+  fracOut = bestFrac;
+  nOut = bestN;
+  float tw = (aq - 0.85) / 0.15;
+  float w = aq < 0.85 ? 1.0 : 1.0 - tw * tw * (3.0 - 2.0 * tw);
+  return (CUSP_T * (0.7 + 0.3 * bestFrac) * 0.5 + 0.012) * (0.4 + 0.6 * w);
 }
 
 // distance to a 2-segment cusp chain with tapered width
@@ -433,13 +498,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
       rootRr = length(rootQ);
       rootT = t;
       rootPhi = atan(dot(rootQ, vec3(AV_E2X, AV_E2Y, AV_E2Z)), dot(rootQ, vec3(AV_E1X, AV_E1Y, AV_E1Z)));
-      float sinusMax = SINUS_R * (1.0 + 0.06 * cos(CUSP_COUNT * (rootPhi - 0.5)) * ((t > 0.0 && t < ROOT_STJ_T) ? sin(PI * t / ROOT_STJ_T) : 0.0));
-      float stjR = min(ASC_R, SINUS_R * 0.88);
-      if (t < 0.0) rootR = AV_R * 0.95 + (LVOT_D / 2.0 - AV_R * 0.95) * min(1.0, -t / 1.2);
-      else if (t < ROOT_SINUS_T) rootR = AV_R + (sinusMax - AV_R) * sin((PI / 2.0) * (t / ROOT_SINUS_T));
-      else if (t < ROOT_STJ_T) rootR = stjR + (sinusMax - stjR) * 0.5 * (1.0 + cos(PI * (t - ROOT_SINUS_T) / (ROOT_STJ_T - ROOT_SINUS_T)));
-      else if (t < ROOT_ASC_T) rootR = stjR + (ASC_R - stjR) * 0.5 * (1.0 - cos(PI * (t - ROOT_STJ_T) / (ROOT_ASC_T - ROOT_STJ_T)));
-      else rootR = ASC_R;
+      rootR = rootRadiusAt(t, rootPhi);
     }
   }
   bool inRootLumen = rootT >= -0.05 && rootRr < rootR;
@@ -456,30 +515,29 @@ bool classifyHeart(vec3 p0, out Sample s) {
       return true;
     }
   }
-  int nCusps = int(CUSP_COUNT + 0.5);
-  for (int i = 0; i < 3; i++) {
-    if (i >= nCusps) break;
-    vec3 w = vec3(P(CUSP_W_BASE + i * 3), P(CUSP_W_BASE + i * 3 + 1), P(CUSP_W_BASE + i * 3 + 2));
-    float fr;
-    float dd = sdCuspChain(p, CUSP_SEGS_BASE + i * 12, CUSP_SEGLEN, w, CUSP_HALF, 0.75, fr);
-    float t = CUSP_T * (1.0 - 0.3 * fr) * 0.5 + 0.03;
-    if (dd < t && rootRr < rootR + 0.02) {
-      int o = CUSP_SEGS_BASE + i * 12 + min(1, int(floor(fr * 2.0))) * 6;
-      vec3 d = vec3(P(o + 3), P(o + 4), P(o + 5));
-      setSample(s, T_VALVE, dd - t, cross(d, w), p, AV_CALC, S_AV);
+  if (rootT > -0.5 && rootRr < rootR + 0.02) {
+    float dA, frA;
+    vec2 nA;
+    float hA = aorticCuspDistance(rootT, rootRr, rootPhi, dA, frA, nA);
+    if (dA < hA) {
+      vec3 u = rootQ / max(rootRr, 1e-6);
+      setSample(s, T_VALVE, dA - hA, u * nA.x + ax * nA.y, p, AV_CALC, S_AV);
       return true;
     }
   }
-  if (AV_OPEN < 0.2 && rootT > CUSP_TIP_T - AV_COAPT_BAND && rootT < CUSP_TIP_T && rootRr < rootR * 0.97) {
-    float n = CUSP_COUNT;
-    float per = TWO_PI / n;
-    float dphi = mod(mod(rootPhi - 0.5 - PI / n, per) + per, per);
-    if (dphi > PI / n) dphi = per - dphi;
-    float dist = rootRr * sin(dphi);
-    if (dist < AV_COAPT_HALF) {
-      vec3 u = rootQ / max(rootRr, 1e-6);
-      setSample(s, T_VALVE, dist - AV_COAPT_HALF, cross(ax, u), p, AV_CALC, S_AV);
-      return true;
+  if (AV_OPEN < 0.2 && rootT > 0.0 && rootT < AVC_HCOMM && rootRr < rootR * 0.97) {
+    vec2 band = aorticBand(rootRr / rootR);
+    if (rootT > band.x && rootT < band.y) {
+      float n = CUSP_COUNT;
+      float per = TWO_PI / n;
+      float dphi = mod(mod(rootPhi - 0.5 - PI / n, per) + per, per);
+      if (dphi > PI / n) dphi = per - dphi;
+      float dist = rootRr * sin(dphi);
+      if (dist < AV_COAPT_HALF) {
+        vec3 u = rootQ / max(rootRr, 1e-6);
+        setSample(s, T_VALVE, dist - AV_COAPT_HALF, cross(ax, u), p, AV_CALC, S_AV);
+        return true;
+      }
     }
   }
   bool outsideAorticRoot = rootT <= -1.6 || rootRr > rootR + 0.22;

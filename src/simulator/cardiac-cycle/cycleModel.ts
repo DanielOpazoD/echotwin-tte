@@ -129,27 +129,73 @@ export function buildBeatTables(
     maxV = Math.max(maxV, vol[i] ?? 0); // with AR the LV keeps filling until the aortic valve opens
   }
 
-  // Longitudinal annular displacement: follows contraction fraction with a first-order relaxation lag
-  // in diastole (τ from e′). e′ ≈ MAPSE·(peak of d(long)/dt during early filling).
+  // Longitudinal annular displacement: follows the contraction fraction with a first-order lag — close in systole and
+  // during atrial contraction, limited by relaxation in early diastole. The early-diastolic time constant is solved so
+  // that the annulus recoils at the case's e′ (peak MAPSE·d(long)/dt), because tissue Doppler reads this very curve.
+  // It used to be 0.09·(10/e′) s, which in the normal heart (e′ 11 cm/s) recoiled at 4.6 cm/s and kept 86% of the
+  // systolic descent at mid-E: every diastolic frame showed the base too apical and tissue Doppler measured e′ 4.7.
   const contraction = new Float32Array(n);
   for (let i = 0; i < n; i++) contraction[i] = (edv - (vol[i] ?? edv)) / Math.max(edv - minV, 1e-6);
   const longitudinal = new Float32Array(n);
   const longVel = new Float32Array(n);
-  const tauS = Math.max(0.02, 0.09 * (10 / Math.max(physiology.ePrimeSeptalCmps, 3)));
-  let l = 0;
-  // two passes for periodic steady state
-  for (let pass = 0; pass < 2; pass++) {
-    for (let i = 0; i < n; i++) {
-      const target = contraction[i] ?? 0;
-      const t = (i + 0.5) * dt;
-      const inSystole = t < timings.ejectionEndS;
-      // systole: the annulus follows the volume curve closely; early diastole: recoil limited by relaxation
-      // (τ from e′); atrial systole (A′) pulls the annulus back to its basal position by end-diastole
-      const inAtrial = timings.hasAWave ? t > timings.aStartS : t > timings.mitralOpenS + timings.eAccelS + timings.eDecelS; // AF: passive return in diastasis
-      const tau = inSystole ? 0.03 : inAtrial ? 0.035 : tauS;
-      l += ((target - l) * dt) / tau;
-      longitudinal[i] = l;
+  const eWaveEnd = timings.mitralOpenS + timings.eAccelS + timings.eDecelS;
+  // without atrial contraction (AF) the recoil runs with the filling until the next beat
+  const earlyEnd = timings.hasAWave ? timings.aStartS : rrS;
+  const contractionAt = (time: number): number => {
+    const f = (((time / dt - 0.5) % n) + n) % n;
+    const i0 = Math.floor(f);
+    const w = f - i0;
+    return (contraction[i0] ?? 0) * (1 - w) + (contraction[(i0 + 1) % n] ?? 0) * w;
+  };
+  // speed > 1 compresses the early-diastolic course in time: a healthy annulus recoils ahead of the filling it drives
+  // (e′ precedes E), so it can move faster than the volume curve alone allows
+  const simulate = (tauE: number, speed: number): void => {
+    let l = 0;
+    // two passes for periodic steady state
+    for (let pass = 0; pass < 2; pass++) {
+      for (let i = 0; i < n; i++) {
+        const t = (i + 0.5) * dt;
+        const early = t > timings.mitralOpenS && t <= earlyEnd;
+        // compressed over the E wave, holding the diastasis value once it is reached (never running into atrial filling)
+        const target = early ? contractionAt(Math.min(eWaveEnd, timings.mitralOpenS + (t - timings.mitralOpenS) * speed)) : (contraction[i] ?? 0);
+        const tau = t < timings.ejectionEndS ? 0.03 : t > earlyEnd ? 0.035 : tauE;
+        l += ((target - l) * dt) / tau;
+        longitudinal[i] = l;
+      }
     }
+  };
+  const peakRecoilCmps = (): number => {
+    let peak = 0;
+    for (let i = 1; i < n - 1; i++) {
+      const t = (i + 0.5) * dt;
+      if (t < timings.mitralOpenS || t > earlyEnd) continue;
+      peak = Math.max(peak, (-((longitudinal[i + 1] ?? 0) - (longitudinal[i - 1] ?? 0)) / (2 * dt)) * physiology.mapseCm);
+    }
+    return peak;
+  };
+  // recoil speed falls monotonically as τ grows and rises with the time compression
+  const ePrime = physiology.ePrimeSeptalCmps;
+  simulate(0.03, 1);
+  if (peakRecoilCmps() < ePrime) {
+    let lo = 1,
+      hi = 3;
+    for (let it = 0; it < 20; it++) {
+      const mid = (lo + hi) / 2;
+      simulate(0.03, mid);
+      if (peakRecoilCmps() < ePrime) lo = mid;
+      else hi = mid;
+    }
+    simulate(0.03, hi);
+  } else {
+    let lo = 0.03,
+      hi = 0.4;
+    for (let it = 0; it < 24; it++) {
+      const mid = Math.sqrt(lo * hi);
+      simulate(mid, 1);
+      if (peakRecoilCmps() > ePrime) lo = mid;
+      else hi = mid;
+    }
+    simulate(hi, 1);
   }
   for (let i = 0; i < n; i++) {
     const prev = longitudinal[(i - 1 + n) % n] ?? 0;

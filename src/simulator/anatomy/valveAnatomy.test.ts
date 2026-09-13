@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CASE_INPUTS, loadCaseById } from '@/cases';
 import { classifyHeart, computeHeartPose, createHeartModel, heartAnchors, heartToTorso, ROOT_EXCURSION, torsoToHeart, type HeartModel, type HeartPose } from './heartModel';
 import { mitralLeafletPoint, MV_BINS } from './mitralValve';
+import { rootRadiusAt } from './aorticValve';
 import { createThoraxModel, type ThoraxModel } from './thoraxModel';
 import { makeSample, Structure, Tissue } from './tissue';
 import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
@@ -67,8 +68,10 @@ describe('valve apparatus continuity', () => {
     const s = makeSample();
     const cz = A.avCenter.z + pose.zAnn * ROOT_EXCURSION;
     const hits: string[] = [];
-    // a thin cylinder of 0.6 mm around the axis, from the annulus to 0.1 cm below the band
-    for (let t = 0.05; t < pose.valves.cuspTipT - 0.45; t += 0.02)
+    // a thin cylinder of 0.6 mm around the axis, from the annulus to 1 mm below the bottom of the coaptation zone
+    const av = pose.valves.aortic;
+    expect(av.eH - av.cH).toBeGreaterThan(0.3);
+    for (let t = 0.05; t < av.eH - av.cH - 0.1; t += 0.02)
       for (let k = 0; k < 8; k++) {
         const a = (k / 8) * 2 * Math.PI;
         const r = 0.03;
@@ -373,6 +376,124 @@ describe('tricuspid apparatus (decision 78)', () => {
       }
     }
     expect(problems).toEqual([]);
+  });
+});
+
+describe('aortic cusps (decision 79)', () => {
+  /** Root-frame point → heart frame (the root centre follows the base by ROOT_EXCURSION). */
+  const rootPoint = (heart: HeartModel, pose: HeartPose, t: number, r: number, phi: number): [number, number, number] => {
+    const A = heartAnchors(heart);
+    const cz = A.avCenter.z + pose.zAnn * ROOT_EXCURSION;
+    const ux = A.avE1.x * Math.cos(phi) + A.avE2.x * Math.sin(phi),
+      uy = A.avE1.y * Math.cos(phi) + A.avE2.y * Math.sin(phi),
+      uz = A.avE1.z * Math.cos(phi) + A.avE2.z * Math.sin(phi);
+    return [A.avCenter.x + A.avAxis.x * t + ux * r + pose.swingX, A.avCenter.y + A.avAxis.y * t + uy * r, cz + A.avAxis.z * t + uz * r];
+  };
+
+  it('the closed normal valve has the published heights: effective ~9 mm, coaptation 4-5 mm, geometric > 16 mm', () => {
+    // flat two-segment cusps closed with the free margin 13.5 mm above the annulus
+    const { heart, tables } = setup('normal-excellent-window');
+    const pose = computeHeartPose(heart, cycleStateAt(tables, 0.9));
+    expect(pose.state.avOpen).toBe(0);
+    const s = makeSample();
+    // valve tissue on the axis: the central coaptation, from its bottom to the free margin
+    let bottom = Infinity,
+      top = -Infinity;
+    for (let t = 0; t < 2; t += 0.01) {
+      for (let k = 0; k < 6; k++) {
+        const p = rootPoint(heart, pose, t, 0.012, (k * Math.PI) / 3);
+        if (classifyHeart(heart, pose, p[0], p[1], p[2], s) && s.structure === Structure.AorticValve) {
+          bottom = Math.min(bottom, t);
+          top = Math.max(top, t);
+        }
+      }
+    }
+    expect(top, 'effective height').toBeGreaterThan(0.8);
+    expect(top, 'effective height').toBeLessThan(1.0);
+    expect(top - bottom, 'coaptation height').toBeGreaterThan(0.35);
+    expect(top - bottom, 'coaptation height').toBeLessThan(0.55);
+    // geometric height: along the cusp in the radial plane through its centre, from the nadir to the free margin
+    const av = pose.valves.aortic;
+    let length = av.cH,
+      prev: [number, number] | null = null;
+    for (let r = rootRadiusAt(pose.valves.root, 0, 0.5); r >= 0; r -= 0.01) {
+      let tc = NaN;
+      for (let t = -0.3; t < 1; t += 0.005) {
+        const p = rootPoint(heart, pose, t, r, 0.5);
+        if (classifyHeart(heart, pose, p[0], p[1], p[2], s) && s.structure === Structure.AorticValve) {
+          tc = t;
+          break;
+        }
+      }
+      if (Number.isNaN(tc)) continue;
+      if (prev) length += Math.hypot(prev[0] - r, prev[1] - tc);
+      prev = [r, tc];
+    }
+    expect(length, 'geometric height').toBeGreaterThan(1.6);
+  });
+
+  it('closed, the cusps meet along the lines to the commissures (a Y in short axis), with no triangle between them', () => {
+    // straight free edges of flat cusps drew a triangle at every short-axis level
+    const { heart, tables } = setup('normal-excellent-window');
+    const pose = computeHeartPose(heart, cycleStateAt(tables, 0.9));
+    const av = pose.valves.aortic;
+    const t = av.eH - av.cH / 2;
+    const R = rootRadiusAt(pose.valves.root, t, 0.5);
+    const s = makeSample();
+    const valveAt = (r: number, phi: number): boolean => {
+      const p = rootPoint(heart, pose, t, r, phi);
+      return classifyHeart(heart, pose, p[0], p[1], p[2], s) && s.structure === Structure.AorticValve;
+    };
+    const problems: string[] = [];
+    for (let i = 0; i < av.count; i++) {
+      const commissure = 0.5 + ((i + 0.5) * 2 * Math.PI) / av.count;
+      const centre = 0.5 + (i * 2 * Math.PI) / av.count;
+      // along each commissure line: the pressed-together cusps as one line from the centre to 60% of the radius; toward
+      // the wall the two cusps part to attach on either side of the interleaflet triangle, ~5 mm apart at mid-height
+      let covered = 0,
+        n = 0;
+      for (let r = 0.1 * R; r < 0.85 * R; r += 0.01) {
+        n++;
+        const reach = r < 0.6 * R ? 0.12 : 0.35;
+        let hit = false;
+        for (let d = -reach; d <= reach && !hit; d += 0.01) hit = valveAt(r, commissure + d / Math.max(r, 0.1));
+        if (hit) covered++;
+      }
+      if (covered / n < 0.9) problems.push(`commissure ${i}: ${((100 * covered) / n).toFixed(0)}% of the line`);
+      // across the middle of each cusp, nothing between a third of the radius and the wall
+      for (let r = 0.35 * R; r < 0.85 * R; r += 0.02) if (valveAt(r, centre)) problems.push(`cusp ${i}: tissue at ${(r / R).toFixed(2)} R`);
+    }
+    expect(problems).toEqual([]);
+  });
+
+  it('the parasternal short axis of the great vessels cuts the closed valve at its coaptation: the centre of the Y is in the image', () => {
+    const { heart, tables, thorax } = setup('normal-excellent-window');
+    const beam = beamFrameFromPose(poseFromControl(thorax, canonicalControl(getViewTarget('psax-av'), heart, thorax)), 1);
+    const A = heartAnchors(heart);
+    const s = makeSample();
+    for (const phase of [0, 0.7, 0.9]) {
+      const pose = computeHeartPose(heart, cycleStateAt(tables, phase));
+      const av = pose.valves.aortic;
+      // where the root axis crosses the drawn plane
+      const n = sub(torsoToHeart(heart.frame, beam.normal), torsoToHeart(heart.frame, v3()));
+      const o = torsoToHeart(heart.frame, beam.origin);
+      const cz = A.avCenter.z + pose.zAnn * ROOT_EXCURSION;
+      const tAxis = -(n.x * (A.avCenter.x - o.x) + n.y * (A.avCenter.y - o.y) + n.z * (cz - o.z)) / (n.x * A.avAxis.x + n.y * A.avAxis.y + n.z * A.avAxis.z);
+      expect(tAxis, `plane level on the root axis @${phase}`).toBeGreaterThan(av.eH - av.cH);
+      expect(tAxis, `plane level on the root axis @${phase}`).toBeLessThan(av.eH);
+      const hub = rootPoint(heart, pose, tAxis, 0, 0);
+      const d0 = sub(heartToTorso(heart.frame, v3(hub[0], hub[1], hub[2])), beam.origin);
+      const lat0 = dot(d0, beam.lateral),
+        dep0 = dot(d0, beam.forward);
+      let found = false;
+      for (let i = -8; i <= 8 && !found; i++)
+        for (let j = -8; j <= 8 && !found; j++) {
+          const pT = add(beam.origin, add(scale(beam.forward, dep0 + j * 0.025), scale(beam.lateral, lat0 + i * 0.025)));
+          const p = torsoToHeart(heart.frame, pT);
+          found = classifyHeart(heart, pose, p.x, p.y, p.z, s) && s.structure === Structure.AorticValve;
+        }
+      expect(found, `valve tissue within 2 mm of the axis in PSAX-AV @${phase}`).toBe(true);
+    }
   });
 });
 

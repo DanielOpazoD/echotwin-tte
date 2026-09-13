@@ -97,7 +97,7 @@ export function buildViewTargets(): ViewTarget[] {
       // Perpendicular to the long axis those fall at -1.08, 0.27 and -3.67 cm.
       planeRight: R(v3(0.866, 0.5, 0)),
       planeDown: R(v3(0.5, -0.866, 0)),
-      target: v3(AV_CENTER.x + AV_AXIS.x * 0.5, AV_CENTER.y + AV_AXIS.y * 0.5, AV_CENTER.z + AV_AXIS.z * 0.5), // mid-cusp level
+      target: v3(AV_CENTER.x + AV_AXIS.x * 0.7, AV_CENTER.y + AV_AXIS.y * 0.7, AV_CENTER.z + AV_AXIS.z * 0.7), // coaptation level
       skin: { u: 2.6, v: 1.6 },
       requiredLandmarks: [
         { landmarkId: 'av', weight: 1.5, required: true },
