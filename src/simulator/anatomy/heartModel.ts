@@ -66,6 +66,17 @@ export const ROOT_EXCURSION = 0.85;
 export const ROOT_SINUS_T = 0.95;
 export const ROOT_STJ_T = 2.0;
 export const ROOT_ASC_T = 3.0;
+/**
+ * Systolic shortening of the tricuspid annular dimensions. In healthy adults the annulus is largest in late diastole
+ * and smallest in mid-to-late systole, with fractional area change 35 ± 10 % and perimeter and diameters shortening by
+ * 20 % or more (3D echocardiography, n = 209); the septal edge is anchored to the fibrous septum and the free-wall side
+ * moves.
+ */
+export const TV_SYSTOLIC_SHORTENING = 0.2;
+/** Closed tricuspid leaflets: depth of the central coaptation below the hinges (cm) and the profile's vertex fractions. */
+const TV_TENTING_CM = 0.3;
+const TV_CLOSED_REACH = [0.36, 0.71, 1];
+const TV_CLOSED_DEPTH = [0.3, 0.62, 1];
 /** Coaptation surfaces of the closed aortic valve: height of the band below the free edges and half thickness (cm). */
 export const AV_COAPT_BAND = 0.35;
 export const AV_COAPT_HALF = 0.02;
@@ -290,7 +301,6 @@ function buildProfile(R: number, angles: number[], segLen: number): Float64Array
   return out;
 }
 
-const blendAngles = (closed: number[], open: number[], t: number): number[] => closed.map((c, i) => c + ((open[i] ?? c) - c) * t);
 
 /** Result of the last skirt query: distance, along-fraction (0 hinge → 1 free edge), zone index and zone weight. */
 const skirtHit = { d: 0, frac: 0, zone: 0, w: 0 };
@@ -555,24 +565,105 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
     });
   }
   // Tricuspid valve: three radial leaflets — anterior (largest), septal (hanging along the septum, the +x side
-  // of the RV inflow) and posterior (inferior) — whose closed tips converge toward the orifice centre.
+  // of the RV inflow) and posterior (inferior) — whose closed tips converge toward the orifice centre. The annulus
+  // shortens in systole with its septal edge fixed (TV_SYSTOLIC_SHORTENING); leaflet lengths do not change.
   const tvOpen = state.tvOpen;
-  const tvProf = (lenFrac: number, closed: number[], opened: number[]): Float64Array => buildProfile(A.tvR, blendAngles(closed, opened, tvOpen), (A.tvR * lenFrac) / 3);
+  const tvRNow = A.tvR * (1 - TV_SYSTOLIC_SHORTENING * state.contraction);
   const tv: SkirtDesc = {
-    cx: A.tvCenter.x,
+    cx: A.tvCenter.x + (A.tvR - tvRNow),
     cy: A.tvCenter.y,
     cz: A.tvCenter.z + tvZ,
-    R: A.tvR,
+    R: tvRNow,
     blend: 0.25,
     thickness: 0.09,
     saddle: 0.15,
     closed: 1 - tvOpen,
-    zones: [
-      { phi: Math.PI / 2, halfSpan: 1.45, prof: tvProf(1.05, [1.15, 1.0, 0.75], [-0.5, -0.6, -0.7]), kind: 0, lobes: 0, c: 0.45, structure: Structure.TricuspidValve },
-      { phi: 0, halfSpan: 0.85, prof: tvProf(0.75, [1.1, 0.9, 0.65], [-0.45, -0.55, -0.65]), kind: 0, lobes: 0, c: 0.45, structure: Structure.TricuspidValve },
-      { phi: -2.0, halfSpan: 1.05, prof: tvProf(0.85, [1.1, 0.9, 0.6], [-0.5, -0.65, -0.8]), kind: 0, lobes: 0, c: 0.45, structure: Structure.TricuspidValve },
-    ],
+    zones: [],
   };
+  {
+    // Each leaflet opens by the same angles turned inward just enough to stay 2.5 mm off the ventricular wall: with
+    // shared angles the septal leaflet opened into the septum and the anterior one through the free wall.
+    // [centre azimuth, half span, leaflet length / annular radius, open angles]: anterior 2.2 cm, septal and posterior
+    // 1.6 cm long (they were 1.7, 1.2 and 1.4 cm)
+    const zoneDefs: [number, number, number, number[]][] = [
+      [Math.PI / 2, 1.45, 1.35, [-0.5, -0.6, -0.7]],
+      [0, 0.85, 1.0, [-0.45, -0.55, -0.65]],
+      [-2.0, 1.05, 1.0, [-0.5, -0.65, -0.8]],
+    ];
+    // Closed, every leaflet reaches the centre, where the three meet: a shallow dome whose free edges lie 3 mm apical of
+    // the hinges. Each leaflet used to close by its own angles and length, shorter toward its commissures, so the
+    // four-chamber plane, which crosses the annulus close to a commissure, showed a 0.3-1.3 cm coaptation gap in
+    // all twelve cases: tricuspid regurgitation in normal hearts.
+    const closedProf = new Float64Array(8);
+    closedProf[0] = tvRNow;
+    for (let i = 0; i < 3; i++) {
+      closedProf[2 + i * 2] = tvRNow * (1 - 0.97 * TV_CLOSED_REACH[i]!);
+      closedProf[3 + i * 2] = TV_TENTING_CM * TV_CLOSED_DEPTH[i]!;
+    }
+    const blendProfiles = (open: Float64Array): Float64Array => open.map((v, i) => closedProf[i]! + (v - closedProf[i]!) * tvOpen);
+    const rvCavity = (px: number, py: number, pz: number): number => {
+      rvRadii(m, A, prof, thickK, zAnn, lengthNow, tvZ, state.contraction, septalShiftCm, rvCollapse, Math.atan2(py, px), pz, rvRad);
+      let d = 1e3;
+      const u = rvRad[1]!;
+      if (u > 0 && u < 1) {
+        const tvPlane = A.tvCenter.z + tvZ;
+        const zBase = u >= 0.35 ? tvPlane : tvPlane - 2.6 * (1 - u / 0.35);
+        const r = Math.hypot(px, py);
+        d = Math.max(rvRad[0]! - r, r - rvRad[2]!, zBase - pz, pz - A.rvApexFrac * m.lv.lengthCm);
+      }
+      return smin(d, tvInflowSdf(px, py, pz, tv, tvZ), 0.3);
+    };
+    // zones first (the saddle and the inflow column refer to zone 0), then each open profile fitted
+    for (const [phi, halfSpan, lenFrac, opened] of zoneDefs) tv.zones.push({ phi, halfSpan, prof: blendProfiles(buildProfile(tvRNow, opened, (A.tvR * lenFrac) / 3)), kind: 0, lobes: 0, c: 0, structure: Structure.TricuspidValve });
+    const rots: number[] = [];
+    for (let zi = 0; zi < zoneDefs.length; zi++) {
+      const [phi, halfSpan, lenFrac, opened] = zoneDefs[zi]!;
+      const segLen = (A.tvR * lenFrac) / 3;
+      let rot = 0;
+      if (tvOpen > 0) {
+        const clear = (r: number): boolean => {
+          const pr = buildProfile(tvRNow, opened.map((a) => a + r), segLen);
+          for (const off of [-0.6, 0, 0.6]) {
+            const ang = phi + off * halfSpan;
+            const ca = Math.cos(ang),
+              sa = Math.sin(ang);
+            for (let i = 1; i <= 6; i++) {
+              // vertices (even i) and segment midpoints (odd i) of the three segments
+              const j = i >> 1,
+                t = i % 2 ? 0.5 : 0;
+              const rho = i % 2 ? pr[j * 2]! + (pr[j * 2 + 2]! - pr[j * 2]!) * t : pr[j * 2]!;
+              const zz = i % 2 ? pr[j * 2 + 1]! + (pr[j * 2 + 3]! - pr[j * 2 + 1]!) * t : pr[j * 2 + 1]!;
+              const need = Math.min(0.25, 0.4 * (Math.hypot(tvRNow - rho, zz) - 0.15));
+              if (need <= 0) continue;
+              if (rvCavity(tv.cx + rho * ca, tv.cy + rho * sa, tv.cz + zz + saddleOffset(ang, zoneDefs[0]![0], tv.saddle)) > -need) return false;
+            }
+          }
+          return true;
+        };
+        while (rot < 1.5 && !clear(rot)) rot += 0.1;
+        if (rot > 0 && rot < 1.5) {
+          let lo = rot - 0.1,
+            hi = rot;
+          for (let i = 0; i < 4; i++) {
+            const mid = (lo + hi) / 2;
+            if (clear(mid)) hi = mid;
+            else lo = mid;
+          }
+          rot = hi;
+        }
+        rot = Math.min(rot, 1.5);
+      }
+      rots.push(rot);
+    }
+    // adjacent leaflets meet at their commissures: a plane crossing near one showed the neighbour's differently turned
+    // sheet as a separate fragment, so no leaflet turns more than 0.2 rad less than its neighbours
+    const maxRot = Math.max(...rots);
+    for (let zi = 0; zi < zoneDefs.length; zi++) {
+      const [, , lenFrac, opened] = zoneDefs[zi]!;
+      const rot = Math.max(rots[zi]!, maxRot - 0.2);
+      tv.zones[zi]!.prof = blendProfiles(buildProfile(tvRNow, opened.map((a) => a + rot), (A.tvR * lenFrac) / 3));
+    }
+  }
   // aortic cusps: sheets ~1.5·R long from the annular nadir to the free edge as 2-segment chains whose reach
   // follows the orifice (0.05·R closed → 0.9·R open, scaled by the case's maxOpeningFraction)
   const segs = new Float64Array(cusps * 12);
@@ -660,7 +751,7 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
     pvHalf: A.pvR * Math.sin(Math.PI / 3) * 0.95,
     pvSegLen,
     pvThickness: 0.06,
-    tvRing: [A.tvCenter.x, A.tvCenter.y, A.tvCenter.z + tvZ, A.tvR * 0.98],
+    tvRing: [tv.cx, tv.cy, tv.cz, tv.R * 0.98],
   };
   return {
     state,
@@ -960,6 +1051,24 @@ function septalShiftAt(shiftCm: number, az: number, levelFrac: number): number {
   const zw = 1 - Math.pow((levelFrac - 0.45) / 0.45, 2);
   if (zw <= 0) return 0;
   return shiftCm * c * c * zw;
+}
+
+/**
+ * Signed distance to the tricuspid inflow column: the annular circle, narrowing below the hinges into the RV
+ * crescent and closing on the atrial side where the atrium ends (0.3·TAPSE basal to the annulus in systole).
+ */
+function tvInflowSdf(x: number, y: number, z: number, tv: SkirtDesc, tvZ: number): number {
+  const dx = x - tv.cx,
+    dy = y - tv.cy;
+  const r2 = dx * dx + dy * dy;
+  const rho = Math.sqrt(r2);
+  // the same saddle as the leaflets and ring (saddleOffset about zones[0].phi)
+  const phiA = tv.zones[0]!.phi;
+  const sn = dy * Math.cos(phiA) - dx * Math.sin(phiA);
+  const h = z - (tv.cz + tv.saddle * (r2 > 0 ? (sn * sn) / r2 : 0));
+  const close = 0.25 + 0.3 * tvZ;
+  const taper = h > 0 ? 0.25 * h + 0.25 * h * h : h < -close ? 2 * (-h - close) : 0;
+  return rho - tv.R + 0.04 + taper;
 }
 
 const rvTmp = new Float64Array(3);
@@ -1378,7 +1487,7 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
       // the atrial wall filled the gap and drew a 2.6 mm echogenic line splitting RA from RV in every A4C.
       // Reported from the images by a cardiologist; measured as RaCavity -> RaWall 0.28 -> RvCavity along a
       // line straight through the annulus centre.
-      if (Math.hypot(x - A.tvCenter.x, y - A.tvCenter.y) < A.tvR) {
+      if (Math.hypot(x - V.tv.cx, y - V.tv.cy) < V.tv.R) {
         // past the annulus the blood belongs to the ventricle, as it does on the left where the LV cavity
         // claims the mitral orifice: calling it atrium instead stretched ra-long past its reference range
         const past = z > A.tvCenter.z + hp.tvZ * 0.7;
@@ -1509,7 +1618,12 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
       setSample(out, Tissue.VesselWall, -Math.min(dTrunk, 0.18 - dTrunk), vx, vy, vz, x, y, z, 0, Structure.PulmonaryArtery);
       return true;
     }
-    const dCavRv = Math.min(dRv, dRvot);
+    // tricuspid inflow: the RV cavity and its wall reach the whole annulus. The crescent is closed at the tricuspid
+    // plane, so its wall ran as a floor 0.5-1.5 cm thick across the orifice, and in systole its free wall pulled in
+    // while the annulus stayed put: the lateral hinge sat outside the heart in 6-10 of 10 frames of eleven cases.
+    const dRvU = smin(dRv, tvInflowSdf(x, y, z, V.tv, hp.tvZ), 0.3);
+    rvTmp[0] = dRvU;
+    const dCavRv = Math.min(dRvU, dRvot);
     if (dCavRv < 0) {
       if (dRv < 0) {
         // moderator band: from the lower septum to the anterior free wall at the base of the anterior papillary muscle
@@ -1536,7 +1650,7 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
         }
       }
       const rr = Math.hypot(x, y) || 1;
-      setSample(out, Tissue.Blood, dCavRv, x / rr, y / rr, 0, x / (1 - 0.3 * s), y / (1 - 0.3 * s), z, 0, dRvot < dRv ? Structure.Rvot : Structure.RvCavity);
+      setSample(out, Tissue.Blood, dCavRv, x / rr, y / rr, 0, x / (1 - 0.3 * s), y / (1 - 0.3 * s), z, 0, dRvot < dRvU ? Structure.Rvot : dRv >= 0 && z <= A.tvCenter.z + hp.tvZ * 0.7 ? Structure.RaCavity : Structure.RvCavity);
       return true;
     }
     if (dCavRv < fw) {
@@ -1550,7 +1664,7 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
   {
     const dLvEpi = dEllR - wallT; // the epicardium is the outer face of the wall shell
     const fw = m.anatomy.rv.freeWallThicknessCm;
-    const dRvEpi = rvTmp[0]! - fw; // crescent computed just above (this point is outside the RV)
+    const dRvEpi = rvTmp[0]! - fw; // crescent and tricuspid inflow, computed just above (this point is outside the RV)
     const la = A.laCenter,
       lr = A.laR;
     const dLaEpi = sdEllipsoid(x, y, z, la.x, la.y, la.z, lr.x + 0.25, lr.y + 0.25, lr.z + 0.25);

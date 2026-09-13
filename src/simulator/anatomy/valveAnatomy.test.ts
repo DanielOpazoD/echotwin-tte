@@ -246,3 +246,133 @@ describe('mitral apparatus (decision 76)', () => {
     expect(problems).toEqual([]);
   });
 });
+
+/** Largest gap (cm) between the pieces of closed tricuspid leaflet drawn in a view; 0 when they form one piece. */
+function tricuspidGapInView(heart: HeartModel, thorax: ThoraxModel, pose: HeartPose, viewId: string): number {
+  const beam = beamFrameFromPose(poseFromControl(thorax, canonicalControl(getViewTarget(viewId), heart, thorax)), 1);
+  const tv = pose.valves.tv;
+  const d0 = sub(heartToTorso(heart.frame, v3(tv.cx + pose.swingX, tv.cy, tv.cz)), beam.origin);
+  const cLat = dot(d0, beam.lateral),
+    cDep = dot(d0, beam.forward);
+  const N = 120,
+    STEP = 0.025;
+  const s = makeSample();
+  const cells: [number, number][] = [];
+  const grid = new Uint8Array(N * N);
+  for (let i = 0; i < N; i++)
+    for (let j = 0; j < N; j++) {
+      const p = torsoToHeart(heart.frame, add(beam.origin, add(scale(beam.forward, cDep + (j - N / 2) * STEP), scale(beam.lateral, cLat + (i - N / 2) * STEP))));
+      if (classifyHeart(heart, pose, p.x, p.y, p.z, s) && s.structure === Structure.TricuspidValve) {
+        grid[i * N + j] = 1;
+        cells.push([i, j]);
+      }
+    }
+  // flood fill from the first cell; whatever it does not reach is another piece
+  const seen = new Uint8Array(N * N);
+  const pieces: [number, number][][] = [];
+  for (const [ci, cj] of cells) {
+    if (seen[ci * N + cj]) continue;
+    const piece: [number, number][] = [];
+    const stack: [number, number][] = [[ci, cj]];
+    seen[ci * N + cj] = 1;
+    while (stack.length) {
+      const [a, b] = stack.pop()!;
+      piece.push([a, b]);
+      for (let da = -1; da <= 1; da++)
+        for (let db = -1; db <= 1; db++) {
+          const na = a + da,
+            nb = b + db;
+          if (na < 0 || nb < 0 || na >= N || nb >= N || !grid[na * N + nb] || seen[na * N + nb]) continue;
+          seen[na * N + nb] = 1;
+          stack.push([na, nb]);
+        }
+    }
+    if (piece.length > 10) pieces.push(piece);
+  }
+  if (pieces.length < 2) return 0;
+  pieces.sort((x, y) => y.length - x.length);
+  let gap = Infinity;
+  for (const [a, b] of pieces[0]!) for (const [c, d] of pieces[1]!) gap = Math.min(gap, Math.hypot(a - c, b - d) * STEP);
+  return gap;
+}
+
+describe('tricuspid apparatus (decision 78)', () => {
+  it('the annulus sits at the junction of atrium and ventricle: an open orifice, both hinges against their walls, all through the cycle', () => {
+    // Until 2026-09-13 the RV crescent closed with its wall at the tricuspid plane, a floor 0.5-1.5 cm thick across
+    // the orifice, and its free wall pulled in during systole while the annulus kept its size: the lateral hinge lay
+    // outside the heart in 6-10 of 10 frames of eleven of the twelve cases.
+    const s = makeSample();
+    const problems: string[] = [];
+    for (const input of CASE_INPUTS) {
+      const { heart, tables } = setup(input.id);
+      for (let i = 0; i < 10; i++) {
+        const pose = computeHeartPose(heart, cycleStateAt(tables, i / 10));
+        const tv = pose.valves.tv;
+        const hidden: HeartPose = { ...pose, valves: { ...pose.valves, tv: { ...tv, thickness: -10 } } };
+        const at = (x: number, y: number, z: number): Tissue => (classifyHeart(heart, hidden, x + pose.swingX, y, z, s) ? s.tissue : Tissue.None);
+        const hingeZ = (ang: number): number => tv.cz + tv.saddle * Math.sin(ang - tv.zones[0]!.phi) ** 2;
+        const label = `${input.id} @${(i / 10).toFixed(1)}`;
+        // lateral hinge (−x, toward the free wall): heart behind it, ventricular blood within 2 mm inside it
+        if (at(tv.cx - tv.R - 0.2, tv.cy, hingeZ(Math.PI)) === Tissue.None) problems.push(`${label}: outside the heart behind the lateral hinge`);
+        let blood = Infinity;
+        for (let d = 0; d <= 1; d += 0.02)
+          if (at(tv.cx - tv.R + d, tv.cy, hingeZ(Math.PI) + 0.15) === Tissue.Blood) {
+            blood = d;
+            break;
+          }
+        if (blood > 0.2) problems.push(`${label}: ${blood.toFixed(2)} cm between the lateral hinge and the blood`);
+        // the orifice is open: no wall along the axis from 1 cm on the atrial side to 1 cm on the ventricular side
+        let wall = 0;
+        for (let dz = -1; dz <= 1; dz += 0.02) {
+          const t = at(tv.cx, tv.cy, tv.cz + dz);
+          if (t === Tissue.Myocardium || t === Tissue.Fibrous) wall += 0.02;
+        }
+        if (wall > 0.05) problems.push(`${label}: ${wall.toFixed(2)} cm of wall across the orifice`);
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+
+  it('open tricuspid leaflets stay in the blood', () => {
+    // the septal leaflet used to open into the septum and the anterior one through the free wall
+    const s = makeSample();
+    const problems: string[] = [];
+    for (const input of CASE_INPUTS) {
+      const { heart, tables } = setup(input.id);
+      for (let phase = 0.45; phase < 1; phase += 0.05) {
+        const pose = computeHeartPose(heart, cycleStateAt(tables, phase));
+        const tv = pose.valves.tv;
+        if (1 - tv.closed < 0.5) continue;
+        const hidden: HeartPose = { ...pose, valves: { ...pose.valves, tv: { ...tv, thickness: -10 } } };
+        for (const zn of tv.zones)
+          for (const off of [-0.6, 0, 0.6]) {
+            const ang = zn.phi + off * zn.halfSpan;
+            for (const v of [2, 3]) {
+              const rho = zn.prof[v * 2]!,
+                zz = zn.prof[v * 2 + 1]!;
+              if (!classifyHeart(heart, hidden, tv.cx + rho * Math.cos(ang) + pose.swingX, tv.cy + rho * Math.sin(ang), tv.cz + zz + tv.saddle * Math.sin(ang - tv.zones[0]!.phi) ** 2, s) || (s.tissue !== Tissue.Blood && s.tissue !== Tissue.Chordae))
+                problems.push(`${input.id} @${phase.toFixed(2)} leaflet at ${((ang * 180) / Math.PI).toFixed(0)}°, vertex ${v}: tissue ${s.tissue}`);
+            }
+          }
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+
+  it('the closed tricuspid valve coapts in the four-chamber, RV-focused and five-chamber views', () => {
+    // each leaflet closed by its own angles, shorter toward its commissures, and the four-chamber plane crosses the
+    // annulus near one: a 0.3-1.3 cm gap between the leaflets in all twelve cases
+    const problems: string[] = [];
+    for (const input of CASE_INPUTS) {
+      const { heart, tables, thorax } = setup(input.id);
+      const t = tables.timings;
+      const pose = computeHeartPose(heart, cycleStateAt(tables, (t.ejectionStartS + 0.5 * (t.ejectionEndS - t.ejectionStartS)) / tables.rrS));
+      for (const view of ['a4c', 'rv-focused', 'a5c']) {
+        const gap = tricuspidGapInView(heart, thorax, pose, view);
+        if (gap > 0.05) problems.push(`${input.id} ${view}: ${gap.toFixed(2)} cm`);
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+});
+

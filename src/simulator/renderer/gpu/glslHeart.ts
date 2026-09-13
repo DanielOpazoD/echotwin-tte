@@ -375,6 +375,18 @@ vec4 rvRadii(float az, float z) {
   if (RV_COLLAPSE > 0.0 && u < 0.55) t *= 1.0 - 0.65 * RV_COLLAPSE * (1.0 - u / 0.55);
   return vec4(rIn, u, rIn + t, t);
 }
+// tricuspid inflow column (heartModel.ts tvInflowSdf): annular circle narrowing below the hinges, closed on the atrial side
+float tvInflowSdf(vec3 p) {
+  vec2 d = p.xy - vec2(TVS_CX, TVS_CY);
+  float r2 = dot(d, d);
+  float rho = sqrt(r2);
+  float phiA = P(TVS_ZONES_BASE);
+  float sn = d.y * cos(phiA) - d.x * sin(phiA);
+  float h = p.z - (TVS_CZ + TVS_SADDLE * (r2 > 0.0 ? sn * sn / r2 : 0.0));
+  float closeD = 0.25 + 0.3 * TVZ;
+  float taper = h > 0.0 ? 0.25 * h + 0.25 * h * h : (h < -closeD ? 2.0 * (-h - closeD) : 0.0);
+  return rho - TVS_R + 0.04 + taper;
+}
 // RV crescent: returns [signed distance, rIn, rOut]
 vec3 rvCrescent(vec3 p, float az) {
   vec4 rr = rvRadii(az, p.z);
@@ -631,7 +643,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     }
     if (dFreeRa < 0.22 && x < xIas - tIas / 2.0) {
       // no wall across the tricuspid orifice (decision 64): atrial blood up to the annular plane, ventricular past it
-      if (length(vec2(x - TV_CX, y - TV_CY)) < TV_R) {
+      if (length(vec2(x - TVS_CX, y - TVS_CY)) < TVS_R) {
         setSample(s, T_BLOOD, dFreeRa - 0.22, vec3((x - ra.x) / rar.x, (y - ra.y) / rar.y, (z - czR) / rzR), p, 0.0, z > TV_CZ + TVZ * 0.7 ? S_RV_CAV : S_RA_CAV);
         return true;
       }
@@ -706,6 +718,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
   // ---------- RV ----------
   vec3 rvc = rvCrescent(p, az);
   float dRv = rvc.x;
+  float dRvU = smin(dRv, tvInflowSdf(p), 0.3);
   {
     float sc = CONTRACTION;
     float fw = RV_FW * (1.0 + 0.35 * sc);
@@ -728,7 +741,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
       setSample(s, T_VESSEL, -min(dTrunk, 0.18 - dTrunk), v, p, 0.0, S_PA);
       return true;
     }
-    float dCavRv = min(dRv, dRvot);
+    float dCavRv = min(dRvU, dRvot);
     float sc3 = 1.0 - 0.3 * sc;
     if (dCavRv < 0.0) {
       if (dRv < 0.0) {
@@ -749,7 +762,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
         }
       }
       float rr = length(p.xy); if (rr == 0.0) rr = 1.0;
-      setSample(s, T_BLOOD, dCavRv, vec3(x / rr, y / rr, 0.0), vec3(x / sc3, y / sc3, z), 0.0, dRvot < dRv ? S_RVOT : S_RV_CAV);
+      setSample(s, T_BLOOD, dCavRv, vec3(x / rr, y / rr, 0.0), vec3(x / sc3, y / sc3, z), 0.0, dRvot < dRvU ? S_RVOT : ((dRv >= 0.0 && z <= TV_CZ + TVZ * 0.7) ? S_RA_CAV : S_RV_CAV));
       return true;
     }
     if (dCavRv < fw) {
@@ -763,7 +776,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
   {
     float dLvEpi = dEllR - wallT;
     float fw = RV_FW;
-    float dRvEpi = dRv - fw;
+    float dRvEpi = dRvU - fw;
     float dLaEpi = sdEllipsoid(p, la, lr + 0.25);
     float dRaEpi = sdEllipsoid(p, ra, rar + 0.22);
     vec3 rvotA = vec3(RVOT_AX, RVOT_AY, RVOT_AZ);
