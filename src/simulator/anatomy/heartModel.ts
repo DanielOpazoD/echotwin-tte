@@ -5,7 +5,7 @@ import { sdCapsule, sdEllipsoid, sdRoundCone, sdSegmentChain, sdTorusZ, smax, sm
 import { allocLvProfileTable, axialWallFactor, buildLvProfile, lvCavityRadius, lvCavitySdf, lvProfileG, lvRadialOffsetFactor, lvSdfNormal, lvShapeFor, lvShellVolume, solveThickening, type LvProfileTable, type LvShape } from './lvShape';
 import { fastAtan2, latticeNoise3, noiseLattice } from '@/core/noise';
 import { aorticCoaptationBand, aorticCuspDistance, aorticHit, buildAorticValve, rootRadiusAt, AV_COAPT_HALF, type AorticValve, type RootProfile } from './aorticValve';
-import { buildMitralValve, fitOpenLeaflets, inflowTaper, insideMitralOutline, mitralAnnulusDistance, mitralDistance, mitralFreeEdge, mitralHingeZ, mitralHit, mitralInflowSdf, type MitralValve } from './mitralValve';
+import { buildMitralValve, fitOpenLeaflets, inflowTaper, insideMitralOutline, mitralAnnulusDistance, mitralDistance, mitralFreeEdge, mitralHingeZ, mitralHit, mitralInflowSdf, papillaryTether, type MitralValve } from './mitralValve';
 import type { Vec3 } from '@/core/vec3';
 import { cross, normalize, sub, v3, dot, scale, add } from '@/core/vec3';
 
@@ -515,9 +515,31 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
   const tvZ = m.physiology.tapseCm * long;
   const septalShiftCm = m.anatomy.rv.septalFlattening * 0.9;
   const rvCollapse = tamp * rvCollapseWindow(state);
+  // papillary tips (the apices of the cones built below): about halfway to the axis at 40% of the ventricle's length
+  const papTip = (paz: number): [number, number, number] => {
+    const zt = zAnn + A.papZetaTip * lengthNow;
+    const rt = lvCavityRadius(sh, prof, paz, zt) * A.papTipFrac;
+    return [rt * Math.cos(paz), rt * Math.sin(paz), zt];
+  };
+  const tipAL = papTip(A.papAzAL),
+    tipPM = papTip(A.papAzPM);
   // the curtain (anterior annulus) is fibrous continuity with the aortic root, which descends a little less than the
-  // ventricular base: the anterior hinge follows it so the anterior leaflet stays attached to the root through the cycle
-  const mitral = buildMitralValve(A.mvCenter.x, A.mvCenter.y, zAnn, A.mvR, A.avCenter.x - A.mvCenter.x, A.avCenter.y - A.mvCenter.y, m.anatomy.mitral, open, state.contraction, -(1 - ROOT_EXCURSION) * zAnn);
+  // ventricular base: the anterior hinge follows it so the anterior leaflet stays attached to the root through the cycle.
+  // Each papillary muscle whose tip lies beyond the reach of its chordae pulls the coaptation apically.
+  const mitral = buildMitralValve(
+    A.mvCenter.x,
+    A.mvCenter.y,
+    zAnn,
+    A.mvR,
+    A.avCenter.x - A.mvCenter.x,
+    A.avCenter.y - A.mvCenter.y,
+    m.anatomy.mitral,
+    open,
+    state.contraction,
+    -(1 - ROOT_EXCURSION) * zAnn,
+    papillaryTether(tipAL[0], tipAL[1], tipAL[2], A.mvCenter.x, A.mvCenter.y, zAnn, m.anatomy.mitral),
+    papillaryTether(tipPM[0], tipPM[1], tipPM[2], A.mvCenter.x, A.mvCenter.y, zAnn, m.anatomy.mitral),
+  );
   {
     // inflow below the annulus: from the outline where it lies farthest outside the cavity profile, straight to just
     // inside the profile at its widest level
@@ -666,11 +688,10 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
   for (let i = 0; i < 2; i++) {
     const paz = papAz[i]!;
     const zb = zAnn + A.papZetaBase * lengthNow;
-    const zt = zAnn + A.papZetaTip * lengthNow;
     const rb = lvCavityRadius(sh, prof, paz, zb) + 0.25;
-    const rt = lvCavityRadius(sh, prof, paz, zt) * A.papTipFrac;
+    const tip = i === 0 ? tipAL : tipPM;
     const grow = 0.9 + 0.3 * state.contraction;
-    paps.set([rb * Math.cos(paz), rb * Math.sin(paz), zb, rt * Math.cos(paz), rt * Math.sin(paz), zt, A.papR * grow, A.papR * 0.65 * grow], i * 8);
+    paps.set([rb * Math.cos(paz), rb * Math.sin(paz), zb, tip[0], tip[1], tip[2], A.papR * grow, A.papR * 0.65 * grow], i * 8);
   }
   // RV anterior papillary muscle: cone from the free wall at the moderator-band insertion toward the tricuspid
   const rvPap = new Float64Array(8);

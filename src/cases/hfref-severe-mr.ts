@@ -74,7 +74,7 @@ export const hfrefSevereMrCase: CaseDefinitionInput = {
   ],
   impressionTruth: [
     'Ventrículo izquierdo severamente dilatado con disfunción sistólica severa (FEVI ≈ 24 %) e hipocinesia global.',
-    'Insuficiencia mitral funcional central de grado moderado (ORE ≈ 0,25 cm²) por dilatación anular.',
+    'Insuficiencia mitral funcional central de grado moderado (ORE ≈ 0,25 cm²) por dilatación anular y tracción de los velos por los papilares desplazados (tenting ≈ 0,8 cm).',
     'Aurícula izquierda severamente dilatada; patrón de llenado restrictivo con presiones de llenado elevadas; hipertensión pulmonar moderada por IT.',
   ],
   expectedDeviations: ['lv-edv', 'lv-esv', 'lv-ef', 'lv-edvi', 'lv-idd', 'lv-ids', 'lv-shortening', 'ivs-thickening', 'apex-thickness', 'rv-edvi', 'la-ap', 'la-transverse', 'la-long', 'lavi', 'la-emptying', 'la-ao', 'mv-annulus'],

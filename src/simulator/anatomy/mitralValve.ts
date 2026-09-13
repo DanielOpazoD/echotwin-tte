@@ -132,7 +132,7 @@ function hingeHeight(R: number, D: number, saddle: number, lift: number, u: numb
   return saddle * ((u * u) / (u * u + v * v || 1)) + lift * onCurtain;
 }
 
-function buildLeaflet(anterior: boolean, R: number, D: number, saddle: number, lift: number, tentBase: number, openProf: Float64Array): MitralLeaflet {
+function buildLeaflet(anterior: boolean, R: number, D: number, saddle: number, lift: number, tentBase: number, tetherAL: number, tetherPM: number, openProf: Float64Array): MitralLeaflet {
   const axisSign = anterior ? 1 : -1;
   // foci on the far side of the coaptation line
   const focusV = anterior ? -0.85 * R : 0.85 * D;
@@ -193,7 +193,11 @@ function buildLeaflet(anterior: boolean, R: number, D: number, saddle: number, l
     const zPost = hingeHeight(R, D, saddle, lift, uK, -sP);
     const zLine = zPost + COAPT * (hingeHeight(R, D, saddle, lift, uK, Math.min(D, sP)) - zPost);
     const t = Math.abs(uK) / R;
-    tent[k] = zLine + tentBase * (1 - 0.7 * t * t) - hz;
+    // papillary tether: each muscle pulls its half of both leaflets (negative u is the anterolateral side), less toward
+    // the commissures, the same at the same point of K for both leaflets so the edges still meet
+    const side = Math.max(-1, Math.min(1, uK / R));
+    const tether = (tetherAL * (1 - side) + tetherPM * (1 + side)) / 2;
+    tent[k] = zLine + (tentBase + tether) * (1 - 0.7 * t * t) - hz;
   }
   return { focusV, axisSign, halfSpan, hinge, reach, tent, hingeZ, openProf, openRot: new Float64Array(MV_BINS) };
 }
@@ -201,8 +205,9 @@ function buildLeaflet(anterior: boolean, R: number, D: number, saddle: number, l
 /**
  * @param lift z offset of the anterior (curtain) annulus relative to the hinge plane: the aortic root moves half as
  * much as the ventricular base, and the curtain with it.
+ * @param tetherAL,tetherPM apical pull (cm) of each papillary muscle on the closed coaptation (papillaryTether).
  */
-export function buildMitralValve(cx0: number, cy0: number, cz: number, R0: number, toAortaX: number, toAortaY: number, p: MitralParams, open: number, contraction: number, lift: number): MitralValve {
+export function buildMitralValve(cx0: number, cy0: number, cz: number, R0: number, toAortaX: number, toAortaY: number, p: MitralParams, open: number, contraction: number, lift: number, tetherAL = 0, tetherPM = 0): MitralValve {
   const l = Math.hypot(toAortaX, toAortaY) || 1;
   // systolic annular contraction (area about a fifth smaller at end systole): the fibrous curtain keeps its place and
   // the muscular posterior annulus moves toward it
@@ -233,9 +238,31 @@ export function buildMitralValve(cx0: number, cy0: number, cz: number, R0: numbe
     inflowDepth: 2,
     // normal coaptation 3.5 mm apical of the line between the hinges; prolapse carries the posterior body (and a little
     // of the anterior) into the LA
-    anterior: buildLeaflet(true, R, D, saddle, lift, 0.35 - 0.5 * p.prolapse, openProfile([-0.61 * openScale, -0.7 * openScale, -0.79 * openScale], p.anteriorLeafletLengthCm / 3)),
-    posterior: buildLeaflet(false, R, D, saddle, lift, 0.35 - 1.4 * p.prolapse, openProfile([-0.61 * openScale, -0.79 * openScale, -0.96 * openScale], p.posteriorLeafletLengthCm / 3)),
+    anterior: buildLeaflet(true, R, D, saddle, lift, 0.35 - 0.5 * p.prolapse, tetherAL, tetherPM, openProfile([-0.61 * openScale, -0.7 * openScale, -0.79 * openScale], p.anteriorLeafletLengthCm / 3)),
+    posterior: buildLeaflet(false, R, D, saddle, lift, 0.35 - 1.4 * p.prolapse, tetherAL, tetherPM, openProfile([-0.61 * openScale, -0.79 * openScale, -0.96 * openScale], p.posteriorLeafletLengthCm / 3)),
   };
+}
+
+/**
+ * Chordal reach per cm of total leaflet length (anterior + posterior): the distance from a papillary tip to the annulus
+ * centre that the chordae and leaflets span without pulling the coaptation toward the apex. Set so that the normal
+ * case's longer muscle is just untethered at its longest (end diastole, 3.59 cm with leaflets of 2.4 + 1.3 cm).
+ */
+export const CHORDAL_REACH_PER_CM = 0.97;
+
+/**
+ * Apical pull (cm) of one papillary muscle on the closed leaflets: how far its tip lies beyond the reach of the chordae
+ * and leaflets, projected on the long axis. In a remodelled, spherical ventricle the muscles move apically and outward
+ * while the chordae keep their length, so the coaptation is dragged into the ventricle (functional MR). Normal tenting
+ * height is 5–6 mm and 8–12 mm with functional MR.
+ */
+export function papillaryTether(tipX: number, tipY: number, tipZ: number, cx: number, cy: number, cz: number, p: MitralParams): number {
+  const dx = tipX - cx,
+    dy = tipY - cy,
+    dz = tipZ - cz;
+  const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+  const beyond = dist - CHORDAL_REACH_PER_CM * (p.anteriorLeafletLengthCm + p.posteriorLeafletLengthCm);
+  return beyond > 0 ? (beyond * dz) / dist : 0;
 }
 
 /** Result of the last query: distance, fraction hinge→free edge, leaflet (0 anterior, 1 posterior), weight, normal. */

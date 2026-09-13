@@ -244,9 +244,29 @@ describe('mitral apparatus (decision 76)', () => {
         if (!(plax.billow > 0.2)) problems.push(`${label} (the prolapse must show)`);
         continue;
       }
-      if (!(plax.billow <= 0.2 && plax.tenting >= 0.15 && plax.tenting <= 0.6 && a4c.billow <= 0.35)) problems.push(label);
+      // the dilated, spherical ventricle tethers its valve: tenting height 8–12 mm with functional MR, 5–6 mm normal
+      const [lo, hi] = input.id === 'hfref-severe-mr' ? [0.7, 1.2] : [0.15, 0.6];
+      if (!(plax.billow <= 0.2 && plax.tenting >= lo && plax.tenting <= hi && a4c.billow <= 0.35)) problems.push(label);
     }
     expect(problems).toEqual([]);
+  });
+
+  it('the tether comes from the papillary muscles, not from the case: longer chordae release the remodelled ventricle\'s valve (decision 82)', () => {
+    const tenting = (c: ReturnType<typeof loadCaseById>): number => {
+      const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, { position: 'left-lateral', respiration: 'expiration', headElevationDeg: 0 }, c.anatomy.ivc.collapsePct);
+      const heart = createHeartModel(c.anatomy, c.physiology, thorax.heartOffset, c.seed, thorax.ivcCollapse);
+      const tables = buildBeatTables(60 / c.rhythm.heartRateBpm, c.physiology, c.rhythm, c.hemodynamics);
+      const t = tables.timings;
+      const pose = computeHeartPose(heart, cycleStateAt(tables, (t.ejectionStartS + 0.5 * (t.ejectionEndS - t.ejectionStartS)) / tables.rrS));
+      return closedValveInView(heart, thorax, pose, 'plax').tenting;
+    };
+    const hf = loadCaseById('hfref-severe-mr');
+    const tethered = tenting(hf);
+    // the same ventricle with an apparatus long enough to span its displaced papillary muscles
+    const released = tenting({ ...hf, anatomy: { ...hf.anatomy, mitral: { ...hf.anatomy.mitral, anteriorLeafletLengthCm: 3.0, posteriorLeafletLengthCm: 1.9 } } });
+    const normal = tenting(loadCaseById('normal-excellent-window'));
+    expect(tethered - normal, `tenting ${tethered.toFixed(2)} vs normal ${normal.toFixed(2)}`).toBeGreaterThan(0.3);
+    expect(Math.abs(released - normal), `released ${released.toFixed(2)} vs normal ${normal.toFixed(2)}`).toBeLessThan(0.08);
   });
 });
 
