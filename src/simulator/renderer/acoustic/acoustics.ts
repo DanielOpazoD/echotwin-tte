@@ -18,8 +18,15 @@ export const PHASOR_NORM = Math.sqrt(0.5 / (2 * 0.03443));
 /** Myocardial backscatter with the beam along the wall, relative to perpendicular incidence (≈ −10 dB). */
 export const MYO_ANISO_FLOOR = 0.32;
 /** Backscatter heterogeneity: spatial frequency (cycles/cm) and peak-to-peak depth (dB) per tissue. */
-export const HETERO_FREQ = 1.6;
-export const HETERO_DB_MYO = 6;
+export let HETERO_FREQ = 1.6;
+export let HETERO_DB_MYO = 6;
+/** SWEEP ONLY (worktree): multiplier on blood backscatter. */
+export const BLOOD_ECHO = { factor: 1 };
+/** SWEEP ONLY (worktree). */
+export function setHeterogeneity(freq: number, dbMyo: number): void {
+  HETERO_FREQ = freq;
+  HETERO_DB_MYO = dbMyo;
+}
 export const HETERO_DB_LIVER = 4;
 export const HETERO_DB_MUSCLE = 4;
 /** Coherent (specular) echo at the interface sample: specular coefficient × |n·d|⁴ × gain. */

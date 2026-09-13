@@ -24,9 +24,46 @@ export const ENVELOPE_NORM = 2 / Math.sqrt(Math.PI);
 export const APERTURE_MM = 14;
 const FWHM_TO_SIGMA = 1 / (2 * Math.sqrt(2 * Math.log(2)));
 
+/** SWEEP ONLY (worktree): display smoothing added in quadrature, mm FWHM. */
+export const DISPLAY_SMOOTHING = { lateralMm: 0, axialMm: 0 };
+/** SWEEP ONLY (worktree): speckle reduction after envelope detection, Gaussian FWHM in mm, on intensity. */
+export const POST_SMOOTHING = { lateralMm: 0, axialMm: 0 };
+/** SWEEP ONLY (worktree): compound two speckle realizations in intensity, the second with this weight. */
+export const COMPOUND = { enabled: false, weight: 0.5 };
+
+/** Separable Gaussian smoothing of the detected intensity (amp²) in the polar frame, widths in mm. */
+export function smoothDetected(amp: Float32Array, lines: number, samples: number, depthCm: number, sectorRad: number, lateralMm: number, axialMm: number, tmp: Float32Array): void {
+  if (lateralMm <= 0 && axialMm <= 0) return;
+  const dr = depthCm / samples, dTheta = sectorRad / lines;
+  const n = lines * samples;
+  for (let i = 0; i < n; i++) tmp[i] = amp[i]! * amp[i]!;
+  // axial
+  if (axialMm > 0) {
+    const s = axialMm / 10 / dr / 2.3548, R = Math.max(1, Math.ceil(3 * s));
+    const w: number[] = []; let ws = 0; for (let j = -R; j <= R; j++) { const v = Math.exp(-(j * j) / (2 * s * s)); w.push(v); ws += v; }
+    const row = new Float32Array(samples);
+    for (let li = 0; li < lines; li++) {
+      const b = li * samples;
+      for (let si = 0; si < samples; si++) { let acc = 0; for (let j = -R; j <= R; j++) acc += w[j + R]! * tmp[b + Math.min(samples - 1, Math.max(0, si + j))]!; row[si] = acc / ws; }
+      tmp.set(row, b);
+    }
+  }
+  if (lateralMm > 0) {
+    const col = new Float32Array(lines);
+    for (let si = 0; si < samples; si++) {
+      const r = (si + 0.5) * dr;
+      const s = lateralMm / 10 / Math.max(1e-3, r * dTheta) / 2.3548, R = Math.min(24, Math.max(1, Math.ceil(3 * s)));
+      const w: number[] = []; let ws = 0; for (let j = -R; j <= R; j++) { const v = Math.exp(-(j * j) / (2 * s * s)); w.push(v); ws += v; }
+      for (let li = 0; li < lines; li++) { let acc = 0; for (let j = -R; j <= R; j++) acc += w[j + R]! * tmp[Math.min(lines - 1, Math.max(0, li + j)) * samples + si]!; col[li] = acc / ws; }
+      for (let li = 0; li < lines; li++) tmp[li * samples + si] = col[li]!;
+    }
+  }
+  for (let i = 0; i < n; i++) amp[i] = Math.sqrt(tmp[i]!);
+}
+
 /** Axial resolution (FWHM of the pulse envelope, mm): about two cycles; harmonic imaging trades a little axial resolution. */
 export function axialFwhmMm(frequencyMHz: number, harmonics: boolean): number {
-  return 0.77 * (2.5 / frequencyMHz) * (harmonics ? 1.15 : 1);
+  return Math.hypot(0.77 * (2.5 / frequencyMHz) * (harmonics ? 1.15 : 1), DISPLAY_SMOOTHING.axialMm);
 }
 
 /**
@@ -43,7 +80,7 @@ export function lateralFwhmMm(rCm: number, focusCm: number, frequencyMHz: number
   const zR = (Math.PI * (w0 / 1.177) ** 2) / lambda;
   const tx = w0 * Math.sqrt(1 + ((rMm - fMm) / zR) ** 2);
   const twoWay = 1 / Math.sqrt(1 / (tx * tx) + 1 / (rx * rx));
-  return twoWay * (harmonics ? 0.8 : 1) * (1 + 1.6 * beamWidthBoost * Math.min(1, Math.abs(rCm - focusCm) / 6));
+  return Math.hypot(twoWay * (harmonics ? 0.8 : 1) * (1 + 1.6 * beamWidthBoost * Math.min(1, Math.abs(rCm - focusCm) / 6)), DISPLAY_SMOOTHING.lateralMm);
 }
 
 export interface PsfKernels {

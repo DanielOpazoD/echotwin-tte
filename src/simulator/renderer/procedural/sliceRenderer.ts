@@ -6,8 +6,8 @@ import { makeSample, TISSUE_PROPS, Tissue, Structure, type TissueSample } from '
 import { latticeNoise3, noiseLattice } from '@/core/noise';
 import { hash3 } from '@/core/random';
 import { contactQuality } from '@/simulator/probe/pose';
-import { buildPsfKernels, formEnvelope, formEnvelopeLine, psfKey, type PsfKernels } from '../acoustic/psf';
-import { HETERO_FREQ, heteroDb, MYO_ANISO_FLOOR, PHASOR_NORM, SCATTER_FREQ, SCATTER_FREQ_RATIO, SPECULAR_GAIN, SPECULAR_HARMONIC, SPECULAR_WINDOW_MIN } from '../acoustic/acoustics';
+import { buildPsfKernels, COMPOUND, formEnvelope, formEnvelopeLine, POST_SMOOTHING, psfKey, smoothDetected, type PsfKernels } from '../acoustic/psf';
+import { BLOOD_ECHO, HETERO_FREQ, heteroDb, MYO_ANISO_FLOOR, PHASOR_NORM, SCATTER_FREQ, SCATTER_FREQ_RATIO, SPECULAR_GAIN, SPECULAR_HARMONIC, SPECULAR_WINDOW_MIN } from '../acoustic/acoustics';
 
 /**
  * Procedural slice renderer: marches every scanline through the parametric thorax + heart model and forms
@@ -28,6 +28,9 @@ export class ProceduralSliceRenderer implements RendererBackend {
   private lastMs = 0;
   private lastSamples = 0;
   private re = new Float32Array(0);
+  private re2 = new Float32Array(0);
+  private im2 = new Float32Array(0);
+  private amp2 = new Float32Array(0);
   private im = new Float32Array(0);
   private tmpRe = new Float32Array(0);
   private tmpIm = new Float32Array(0);
@@ -55,6 +58,11 @@ export class ProceduralSliceRenderer implements RendererBackend {
   render(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, _phase: number, out: PolarFrame): void {
     const t0 = performance.now();
     const n = spec.lines * spec.samples;
+    if (this.re2.length !== n) {
+      this.re2 = new Float32Array(n);
+      this.im2 = new Float32Array(n);
+      this.amp2 = new Float32Array(n);
+    }
     if (this.re.length !== n) {
       this.re = new Float32Array(n);
       this.im = new Float32Array(n);
@@ -67,6 +75,12 @@ export class ProceduralSliceRenderer implements RendererBackend {
       this.renderLine(ctx, theta, li, li * spec.samples, this.re, this.im, out.structure, out.transmission, out.tissue);
     }
     formEnvelope(this.re, this.im, spec.lines, spec.samples, this.kernels(scene, spec), out.amplitude, this.tmpRe, this.tmpIm);
+    if (COMPOUND.enabled) {
+      formEnvelope(this.re2, this.im2, spec.lines, spec.samples, this.kernels(scene, spec), this.amp2, this.tmpRe, this.tmpIm);
+      const w = COMPOUND.weight;
+      for (let i = 0; i < n; i++) out.amplitude[i] = Math.sqrt((1 - w) * out.amplitude[i]! * out.amplitude[i]! + w * this.amp2[i]! * this.amp2[i]!);
+    }
+    smoothDetected(out.amplitude, spec.lines, spec.samples, spec.depthCm, spec.sectorRad, POST_SMOOTHING.lateralMm, POST_SMOOTHING.axialMm, this.tmpRe);
     this.lastMs = performance.now() - t0;
     this.lastSamples = n;
   }
@@ -168,7 +182,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
       const props = TISSUE_PROPS[q.tissue]!;
       const nd = Math.abs(inH ? q.nx * dhx + q.ny * dhy + q.nz * dhz : q.nx * dx + q.ny * dy + q.nz * dz);
       let sigma = props.reflect;
-      if (q.tissue === Tissue.Blood && harm) sigma *= 0.6;
+      if (q.tissue === Tissue.Blood) sigma *= (harm ? 0.6 : 1) * BLOOD_ECHO.factor;
       // myocardial backscatter is strongest with the beam across the fibres (perpendicular to the wall)
       if (q.tissue === Tissue.Myocardium) sigma *= MYO_ANISO_FLOOR + (1 - MYO_ANISO_FLOOR) * nd * nd;
       const het = heteroDb(q.tissue);
@@ -197,6 +211,8 @@ export class ProceduralSliceRenderer implements RendererBackend {
           pr = r * SCATTER_FREQ;
         re[idx] = a * (latticeNoise3(px2, pr, 17.3, latA) + latticeNoise3(px2 + 5.1, pr * R + 2.3, 29.9, latB) - 1) * PHASOR_NORM;
         im[idx] = a * (latticeNoise3(px2 + 9.7, pr + 13.1, 41.3, latC) + latticeNoise3(px2 + 3.3, pr * R + 7.7, 53.9, latA) - 1) * PHASOR_NORM;
+        this.re2[idx] = re[idx]!;
+        this.im2[idx] = im[idx]!;
         st[idx] = Structure.Lung;
         tr[idx] = 0;
         ti[idx] = Tissue.Lung;
@@ -209,6 +225,8 @@ export class ProceduralSliceRenderer implements RendererBackend {
       if (kind === 0) {
         re[idx] = 0;
         im[idx] = 0;
+        this.re2[idx] = 0;
+        this.im2[idx] = 0;
         st[idx] = Structure.None;
         tr[idx] = transmission;
         ti[idx] = Tissue.None;
@@ -226,6 +244,8 @@ export class ProceduralSliceRenderer implements RendererBackend {
         lungEntryT = transmission;
         re[idx] = transmission * (1.2 + 0.4 * latticeNoise3(li * 0.8, r * 3, 1, latA));
         im[idx] = 0;
+        this.re2[idx] = re[idx]!;
+        this.im2[idx] = 0;
         dead = true;
         continue;
       }
@@ -259,6 +279,11 @@ export class ProceduralSliceRenderer implements RendererBackend {
       const zi = (latticeNoise3(qx + 71.1, qy + 53.5, qz + 5.3, latC) + latticeNoise3(qx * R + 17.9, qy * R + 91.1, qz * R + 43.3, latA) - 1) * PHASOR_NORM;
       let sRe = sigma * zr + specular;
       let sIm = sigma * zi;
+      // SWEEP ONLY (worktree): an independent speckle realization of the same tissue, as a second frequency band would give
+      const zr2 = (latticeNoise3(qx + 101.3, qy + 57.1, qz + 33.7, latB) + latticeNoise3(qx * R + 77.7, qy * R + 3.9, qz * R + 61.3, latC) - 1) * PHASOR_NORM;
+      const zi2 = (latticeNoise3(qx + 13.9, qy + 91.7, qz + 47.1, latA) + latticeNoise3(qx * R + 29.3, qy * R + 71.9, qz * R + 83.1, latB) - 1) * PHASOR_NORM;
+      const base2Re = sigma * zr2 + specular, base2Im = sigma * zi2;
+      const sRe0 = sRe, sIm0 = sIm;
       if (r < 4.5 && clutter > 0) {
         // near-field clutter: reverberation in the chest wall under the footprint, incoherent, fixed to the probe position
         const cm = clutter * Math.exp(-r / 1.8) * (0.15 + 0.5 * latticeNoise3(ox * 6 + li * 0.7, oy * 6 + oz * 6, r * 5, latC));
@@ -271,6 +296,8 @@ export class ProceduralSliceRenderer implements RendererBackend {
       if (r < 0.35) sRe += 0.6 * (1 - r / 0.35); // transducer ring-down
       re[idx] = sRe * transmission;
       im[idx] = sIm * transmission;
+      this.re2[idx] = (base2Re + (sRe - sRe0)) * transmission;
+      this.im2[idx] = (base2Im + (sIm - sIm0)) * transmission;
       let attenNp = 0.23 * props.attenuation * fAtten * dr;
       if (tissue === Tissue.Bone || tissue === Tissue.Calcium || tissue === Tissue.Spine) attenNp = 1.2;
       else if (s.extraReflect > 0.4) attenNp += 0.09 * s.extraReflect * (dr / 0.07); // calcified tissue ≈ 10 dB/cm at 2.5 MHz

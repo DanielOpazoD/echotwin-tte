@@ -80,6 +80,8 @@ const METRICS: [string, string, Scalar][] = [
   ['atriumGrey', 'Left atrium grey (median)', (s) => s.atrium.median],
   ['contrast', 'Tissue/blood contrast (grey levels)', (s) => s.tissueBloodContrast],
   ['myocardialLocalStd', 'Myocardial local std (grey)', (s) => s.myocardialLocalStd],
+  ['myocardialDetrendedStd', 'Myocardial detrended std (grey)', (s) => s.myocardialDetrendedStd],
+  ['cavityDetrendedStd', 'Cavity detrended std (grey)', (s) => s.cavityDetrendedStd],
   ['speckleCellHorizontalMm', 'Speckle cell horizontal (mm)', (s) => s.speckleCellMm.horizontal],
   ['speckleCellVerticalMm', 'Speckle cell vertical (mm)', (s) => s.speckleCellMm.vertical],
 ];

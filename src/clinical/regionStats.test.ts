@@ -72,4 +72,48 @@ describe('clinical region statistics', () => {
     expect(s.speckleCellMm.horizontal).toBeGreaterThan(2 * s.speckleCellMm.vertical);
     expect(s.myocardialLocalStd).toBeGreaterThan(1);
   });
+
+  it('measures the same speckle cell in a thin wall and in a thick one', () => {
+    // Decision 74: the first estimator subtracted the mean of each run, so across a 9 mm wall it read a 3 mm cell as
+    // 1.6 mm and across a 20 mm wall as 2.05 mm — the wall thickness leaked into the texture measure.
+    const hash = (x: number, y: number): number => {
+      let v = (x * 374761393 + y * 668265263) | 0;
+      v = (v ^ (v >>> 13)) * 1274126177;
+      return ((v ^ (v >>> 16)) >>> 0) / 4294967296 - 0.5;
+    };
+    const w = 260,
+      h = 240;
+    // noise correlated with a Gaussian of 4 px horizontally and 1.5 px vertically
+    const blur = (src: Float32Array, sigma: number, horizontal: boolean): Float32Array => {
+      const R = Math.ceil(3 * sigma);
+      const out = new Float32Array(src.length);
+      for (let y = 0; y < h; y++)
+        for (let x = 0; x < w; x++) {
+          let acc = 0;
+          for (let j = -R; j <= R; j++) {
+            const xx = horizontal ? Math.min(w - 1, Math.max(0, x + j)) : x,
+              yy = horizontal ? y : Math.min(h - 1, Math.max(0, y + j));
+            acc += Math.exp(-(j * j) / (2 * sigma * sigma)) * src[xx + yy * w]!;
+          }
+          out[x + y * w] = acc;
+        }
+      return out;
+    };
+    const white = new Float32Array(w * h).map((_, i) => hash(i % w, Math.floor(i / w)));
+    const texture = blur(blur(white, 4, true), 1.5, false);
+    const cell = (wallPx: number): number => {
+      const grey = new Float32Array(w * h),
+        labels = new Uint8Array(w * h);
+      for (let y = 8; y < h - 8; y++)
+        for (let x = 0; x < w; x++) {
+          const d = Math.abs(x - w / 2);
+          labels[x + y * w] = d < 40 ? LABEL.cavity : d < 40 + wallPx ? LABEL.myocardium : LABEL.background;
+          grey[x + y * w] = 100 + 400 * texture[x + y * w]!;
+        }
+      return imageStats({ width: w, height: h, grey, labels, mmPerPx: [0.3, 0.3] }).speckleCellMm.horizontal;
+    };
+    const thin = cell(30),
+      thick = cell(80);
+    expect(Math.abs(thin - thick) / thick).toBeLessThan(0.1);
+  });
 });

@@ -20,6 +20,8 @@ export interface ConsoleState {
 
 /** Electronic noise before amplification (mean envelope, amplitude units). */
 export const NOISE_FLOOR = 0.0018;
+/** SWEEP ONLY (worktree). */
+export const CONSOLE_NOISE = { scale: 1, quadrature: false };
 /** White point: envelope amplitude 10^(REF_DB/20) maps to full white at 0 dB gain. */
 export const REF_DB = 8;
 /** Mean of a unit Rayleigh envelope, √(π/2): the noise envelope is scaled so its mean is NOISE_FLOOR. */
@@ -96,7 +98,9 @@ export function applyConsole(frame: PolarFrame, settings: AcquisitionSettings, s
       const idx = li * samples + si;
       // Rayleigh-distributed envelope of complex Gaussian receiver noise, new every frame
       const noise = (NOISE_FLOOR / RAYLEIGH_MEAN) * Math.sqrt(-2 * Math.log(1 - 0.999999 * hash3(li, si, fi, state.seed)));
-      a[idx] = ((frame.amplitude[idx] ?? 0) + noise) * comp;
+      const sig = frame.amplitude[idx] ?? 0;
+      const nz = noise * CONSOLE_NOISE.scale;
+      a[idx] = (CONSOLE_NOISE.quadrature ? Math.sqrt(sig * sig + nz * nz) : sig + nz) * comp;
     }
   }
   // 1b) mirror artifact: beyond the first strong specular interface deeper than 5 cm (pericardium / pleura)
