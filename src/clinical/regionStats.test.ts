@@ -73,6 +73,43 @@ describe('clinical region statistics', () => {
     expect(s.myocardialLocalStd).toBeGreaterThan(1);
   });
 
+  it('reads log-Rayleigh speckle as skewed to dark nulls with one std at every level, and a grey map expanding the bright end as neither', () => {
+    // Decision 90: validated on speckle of known statistics before calibrating against CAMUS. Three bands at −22, 0 and
+    // −14 dB of uncorrelated Rayleigh speckle; the log of an exponential intensity has skewness −12√6·ζ(3)/π³ = −1.1395.
+    let state = 12345;
+    const rnd = (): number => {
+      state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+      return (state + 0.5) / 4294967296;
+    };
+    const w = 300,
+      h = 300;
+    const amp = new Float32Array(w * h).map(() => Math.sqrt(-Math.log(rnd())));
+    const image = (dynamicRangeDb: number, grayMap: (x: number) => number): RegionImage => {
+      const grey = new Float32Array(w * h),
+        labels = new Uint8Array(w * h);
+      for (let y = 0; y < h; y++)
+        for (let x = 6; x < w - 6; x++) {
+          const i = x + y * w;
+          labels[i] = y < 100 ? LABEL.cavity : y < 200 ? LABEL.myocardium : LABEL.atrium;
+          const db = 20 * Math.log10(amp[i]!) + (y < 100 ? -22 : y < 200 ? 0 : -14);
+          grey[i] = 255 * grayMap(Math.min(1, Math.max(0, (db + dynamicRangeDb - 12) / dynamicRangeDb)));
+        }
+      return { width: w, height: h, grey, labels, mmPerPx: [0.3, 0.3] };
+    };
+    const linear = imageStats(image(70, (x) => x));
+    expect(linear.myocardialResidualSkew).toBeCloseTo(-1.14, 1);
+    expect(Math.abs(linear.levelStdSlope)).toBeLessThan(2);
+    const convex = imageStats(image(80, (x) => (Math.pow(4, x) - 1) / 3));
+    expect(convex.levelStdSlope).toBeGreaterThan(6);
+    expect(convex.myocardialResidualSkew).toBeGreaterThan(-0.9);
+  });
+
+  it('takes the white end of the image from its non-black pixels only', () => {
+    const grey = new Float32Array(200 * 100);
+    for (let g = 1; g <= 200; g++) for (let k = 0; k < 10; k++) grey[(g - 1) * 10 + k] = g; // 2000 lit pixels, 18000 black
+    expect(imageStats({ width: 200, height: 100, grey, labels: new Uint8Array(200 * 100), mmPerPx: [0.3, 0.3] }).brightGreyP99).toBe(198);
+  });
+
   it('measures the same speckle cell in a thin wall and in a thick one', () => {
     // Decision 74: the first estimator subtracted the mean of each run, so across a 9 mm wall it read a 3 mm cell as
     // 1.6 mm and across a 20 mm wall as 2.05 mm — the wall thickness leaked into the texture measure.

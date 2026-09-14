@@ -4,7 +4,8 @@
  * Displayed grey-level statistics of CAMUS apical images rated Good — the optimal window — per view and phase:
  * median, interquartile range and 10th/90th percentiles across images of each per-image statistic in
  * src/clinical/regionStats.ts (region medians after a 2-pixel erosion, contrast = myocardium − cavity, 5×5 local
- * std, grey std against the ±4 mm local mean in myocardium and cavity, speckle cell by ACF of those residuals).
+ * std, grey std against the ±4 mm local mean in myocardium and cavity, speckle cell by ACF of those residuals,
+ * skewness of the myocardial residuals, slope of local std against local grey, 99th percentile of non-black grey).
  * 500 patients read, 0 frames rejected by the label check. Aggregate statistics only.
  *
  * Source: CAMUS — S. Leclerc et al., "Deep Learning for Segmentation Using an Open Large-Scale Dataset in 2D
@@ -19,7 +20,7 @@ export interface Quartiles {
   n: number;
 }
 
-export type CamusMetric = 'cavityGrey' | 'myocardiumGrey' | 'atriumGrey' | 'contrast' | 'myocardialLocalStd' | 'myocardialDetrendedStd' | 'cavityDetrendedStd' | 'speckleCellHorizontalMm' | 'speckleCellVerticalMm';
+export type CamusMetric = 'cavityGrey' | 'myocardiumGrey' | 'atriumGrey' | 'contrast' | 'myocardialLocalStd' | 'myocardialDetrendedStd' | 'cavityDetrendedStd' | 'speckleCellHorizontalMm' | 'speckleCellVerticalMm' | 'myocardialResidualSkew' | 'levelStdSlope' | 'brightGreyP99';
 
 export const CAMUS_GOOD: Record<'4CH-ED' | '4CH-ES' | '2CH-ED' | '2CH-ES', Record<CamusMetric, Quartiles>> = {
   '4CH-ED': {
@@ -32,6 +33,9 @@ export const CAMUS_GOOD: Record<'4CH-ED' | '4CH-ES' | '2CH-ED' | '2CH-ES', Recor
     cavityDetrendedStd: { median: 13.26, p10: 11, p25: 11.94, p75: 15, p90: 16.86, n: 288 },
     speckleCellHorizontalMm: { median: 2.12, p10: 1.84, p25: 1.98, p75: 2.27, p90: 2.42, n: 288 },
     speckleCellVerticalMm: { median: 1.81, p10: 1.59, p25: 1.68, p75: 1.99, p90: 2.18, n: 288 },
+    myocardialResidualSkew: { median: 0.22, p10: -0.24, p25: -0.02, p75: 0.39, p90: 0.54, n: 288 },
+    levelStdSlope: { median: 6.06, p10: 3.15, p25: 4.51, p75: 7.42, p90: 8.85, n: 288 },
+    brightGreyP99: { median: 221, p10: 178, p25: 195, p75: 240, p90: 251, n: 288 },
   },
   '4CH-ES': {
     cavityGrey: { median: 58, p10: 40, p25: 47, p75: 72, p90: 86, n: 288 },
@@ -43,6 +47,9 @@ export const CAMUS_GOOD: Record<'4CH-ED' | '4CH-ES' | '2CH-ED' | '2CH-ES', Recor
     cavityDetrendedStd: { median: 14.23, p10: 11.38, p25: 12.48, p75: 15.97, p90: 18.02, n: 288 },
     speckleCellHorizontalMm: { median: 2.14, p10: 1.84, p25: 2, p75: 2.28, p90: 2.45, n: 288 },
     speckleCellVerticalMm: { median: 1.68, p10: 1.48, p25: 1.58, p75: 1.84, p90: 2.04, n: 288 },
+    myocardialResidualSkew: { median: 0.28, p10: -0.19, p25: 0.07, p75: 0.48, p90: 0.66, n: 288 },
+    levelStdSlope: { median: 7.14, p10: 4.57, p25: 5.69, p75: 8.89, p90: 10.59, n: 288 },
+    brightGreyP99: { median: 210, p10: 167, p25: 187, p75: 230, p90: 247, n: 288 },
   },
   '2CH-ED': {
     cavityGrey: { median: 58, p10: 37, p25: 45, p75: 71, p90: 89, n: 217 },
@@ -54,6 +61,9 @@ export const CAMUS_GOOD: Record<'4CH-ED' | '4CH-ES' | '2CH-ED' | '2CH-ES', Recor
     cavityDetrendedStd: { median: 14.24, p10: 11.35, p25: 12.84, p75: 16.23, p90: 17.63, n: 217 },
     speckleCellHorizontalMm: { median: 2.08, p10: 1.87, p25: 1.98, p75: 2.23, p90: 2.38, n: 217 },
     speckleCellVerticalMm: { median: 1.74, p10: 1.5, p25: 1.61, p75: 1.89, p90: 2.04, n: 217 },
+    myocardialResidualSkew: { median: 0.08, p10: -0.35, p25: -0.11, p75: 0.21, p90: 0.42, n: 217 },
+    levelStdSlope: { median: 4.74, p10: 1.96, p25: 3.42, p75: 6.08, p90: 7.64, n: 217 },
+    brightGreyP99: { median: 219, p10: 181, p25: 197, p75: 240, p90: 249, n: 217 },
   },
   '2CH-ES': {
     cavityGrey: { median: 60, p10: 39, p25: 47, p75: 74, p90: 88, n: 217 },
@@ -65,5 +75,8 @@ export const CAMUS_GOOD: Record<'4CH-ED' | '4CH-ES' | '2CH-ED' | '2CH-ES', Recor
     cavityDetrendedStd: { median: 14.56, p10: 11.77, p25: 12.92, p75: 16.61, p90: 18.22, n: 217 },
     speckleCellHorizontalMm: { median: 2.09, p10: 1.83, p25: 1.98, p75: 2.2, p90: 2.36, n: 217 },
     speckleCellVerticalMm: { median: 1.64, p10: 1.44, p25: 1.52, p75: 1.77, p90: 1.88, n: 217 },
+    myocardialResidualSkew: { median: 0.15, p10: -0.38, p25: -0.13, p75: 0.33, p90: 0.57, n: 217 },
+    levelStdSlope: { median: 5.44, p10: 2.73, p25: 4.16, p75: 7.2, p90: 8.98, n: 217 },
+    brightGreyP99: { median: 207, p10: 167, p25: 181, p75: 232, p90: 248, n: 217 },
   },
 };

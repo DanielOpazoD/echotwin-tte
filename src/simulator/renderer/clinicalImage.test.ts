@@ -7,8 +7,9 @@ import { presentApical, renderApical } from './clinicalImage';
  * The simulator against clinical optimal-window images (decisions 70 and 74). The excellent-window case, rendered and
  * measured exactly as tools/clinical/camus-compare.ts does, must fall inside the interquartile range of CAMUS apical
  * images rated Good for LV cavity, myocardium and left atrium grey, tissue/blood contrast, myocardial local std,
- * speckle-scale texture contrast of myocardium and blood pool, and speckle cell size, in both apical views at
- * end-diastole and end-systole.
+ * speckle-scale texture contrast of myocardium and blood pool, speckle cell size, and the shape of the grey scale —
+ * skewness of the myocardial texture, growth of the local std with grey level and the white end (decision 90) — in
+ * both apical views at end-diastole and end-systole.
  */
 const CHECKED: [CamusMetric, (s: ImageStats) => number][] = [
   ['cavityGrey', (s) => s.cavity.median],
@@ -20,6 +21,9 @@ const CHECKED: [CamusMetric, (s: ImageStats) => number][] = [
   ['cavityDetrendedStd', (s) => s.cavityDetrendedStd],
   ['speckleCellHorizontalMm', (s) => s.speckleCellMm.horizontal],
   ['speckleCellVerticalMm', (s) => s.speckleCellMm.vertical],
+  ['myocardialResidualSkew', (s) => s.myocardialResidualSkew],
+  ['levelStdSlope', (s) => s.levelStdSlope],
+  ['brightGreyP99', (s) => s.brightGreyP99],
 ];
 
 const CONDITIONS = [
@@ -68,6 +72,21 @@ const KNOWN_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // A4C end-diastole blood texture reached the quartile (11.92 → 11.96 against 11.94) with decisions 76-77
   ['2CH-ED:cavityDetrendedStd', -0.32],
   ['2CH-ES:cavityDetrendedStd', -0.32],
+  // Shape of the grey scale (decision 90). In CAMUS Good the 5×5 grey std grows with grey level inside every region
+  // (myocardium 7.9 at grey 40 to 15.9 at 184; cavity 4.6 at 24 to 14 at 120) and the myocardial texture is skewed
+  // towards bright granules (+0.08 to +0.28). The console maps dB linearly to grey, so speckle keeps one std at every
+  // level (slope 1.1-3.0 per 100 grey levels against 4.7-7.1) and its log-Rayleigh tail of dark nulls (−0.36 to −0.52;
+  // −1.14 for pure speckle), and the white end of end-diastole images sits a few levels under the clinical quartile.
+  ['4CH-ED:myocardialResidualSkew', -1.21],
+  ['4CH-ES:myocardialResidualSkew', -1.04],
+  ['2CH-ED:myocardialResidualSkew', -1.01],
+  ['2CH-ES:myocardialResidualSkew', -0.66],
+  ['4CH-ED:levelStdSlope', -0.99],
+  ['4CH-ES:levelStdSlope', -1.42],
+  ['2CH-ED:levelStdSlope', -0.57],
+  ['2CH-ES:levelStdSlope', -0.38],
+  ['4CH-ED:brightGreyP99', -0.13],
+  ['2CH-ED:brightGreyP99', -0.23],
 ]);
 
 /**

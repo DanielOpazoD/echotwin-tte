@@ -84,6 +84,9 @@ const METRICS: [string, string, Scalar][] = [
   ['cavityDetrendedStd', 'Cavity detrended std (grey)', (s) => s.cavityDetrendedStd],
   ['speckleCellHorizontalMm', 'Speckle cell horizontal (mm)', (s) => s.speckleCellMm.horizontal],
   ['speckleCellVerticalMm', 'Speckle cell vertical (mm)', (s) => s.speckleCellMm.vertical],
+  ['myocardialResidualSkew', 'Myocardial residual skewness', (s) => s.myocardialResidualSkew],
+  ['levelStdSlope', 'Local std against local grey (slope)', (s) => s.levelStdSlope],
+  ['brightGreyP99', 'Bright end: p99 of non-black grey', (s) => s.brightGreyP99],
 ];
 interface Quartiles { median: number; p10: number; p25: number; p75: number; p90: number; n: number }
 const quantiles = (v: number[]): Quartiles => {
@@ -234,7 +237,8 @@ if (referenceOut) {
     ` * Displayed grey-level statistics of CAMUS apical images rated Good — the optimal window — per view and phase:\n` +
     ` * median, interquartile range and 10th/90th percentiles across images of each per-image statistic in\n` +
     ` * src/clinical/regionStats.ts (region medians after a 2-pixel erosion, contrast = myocardium − cavity, 5×5 local\n` +
-    ` * std, grey std against the ±4 mm local mean in myocardium and cavity, speckle cell by ACF of those residuals).\n` +
+    ` * std, grey std against the ±4 mm local mean in myocardium and cavity, speckle cell by ACF of those residuals,\n` +
+    ` * skewness of the myocardial residuals, slope of local std against local grey, 99th percentile of non-black grey).\n` +
     ` * ${patients.length} patients read, ${rejected} frames rejected by the label check. Aggregate statistics only.\n` +
     ` *\n` +
     ` * Source: CAMUS — S. Leclerc et al., "Deep Learning for Segmentation Using an Open Large-Scale Dataset in 2D\n` +

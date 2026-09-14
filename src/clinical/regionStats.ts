@@ -43,6 +43,21 @@ export interface ImageStats {
   cavityDetrendedStd: number;
   /** Speckle cell: twice the lag (mm) at which the autocorrelation of detrended grey inside the myocardium falls to 0.5. */
   speckleCellMm: { horizontal: number; vertical: number };
+  /**
+   * Skewness of the detrended grey inside the myocardium (decision 90). Speckle shown on a grey scale linear in dB is
+   * log-Rayleigh, with skewness −1.14: a tail of dark nulls. Grey maps that expand the bright end, and anything that
+   * fills the nulls, move it up.
+   */
+  myocardialResidualSkew: number;
+  /**
+   * Slope of the 5×5 grey std against the 5×5 grey mean over windows inside the eroded cavity, myocardium and atrium, in
+   * grey levels of std per 100 grey levels of mean, skipping windows darker than grey 16 that the black end clips
+   * (decision 90). Speckle has the same std in dB at every echo level, so on a grey scale linear in dB the slope is zero;
+   * a grey map that expands the bright end makes it positive, whatever the region.
+   */
+  levelStdSlope: number;
+  /** 99th percentile of the grey of every non-black pixel: where the white end of the image sits (decision 90). */
+  brightGreyP99: number;
 }
 
 /** Removes a band of `radius` pixels from the border of a region, so partial-volume edges do not bias the stats. */
@@ -195,6 +210,87 @@ function detrendedResiduals(img: RegionImage, mask: Uint8Array): Float32Array {
   return res;
 }
 
+/** Skewness of the residuals inside the mask. */
+function residualSkew(res: Float32Array, mask: Uint8Array): number {
+  let s = 0,
+    n = 0;
+  for (let i = 0; i < mask.length; i++)
+    if (mask[i]) {
+      s += res[i]!;
+      n++;
+    }
+  if (n < 3) return NaN;
+  const m = s / n;
+  let s2 = 0,
+    s3 = 0;
+  for (let i = 0; i < mask.length; i++)
+    if (mask[i]) {
+      const d = res[i]! - m;
+      s2 += d * d;
+      s3 += d * d * d;
+    }
+  return s2 > 0 ? s3 / n / Math.pow(s2 / n, 1.5) : NaN;
+}
+
+/** Windows darker than this are skipped by levelStdSlope: the black end of the grey scale clips their spread. */
+const LEVEL_SLOPE_MIN_GREY = 16;
+
+/** Least-squares slope (per 100 grey levels) of the 5×5 grey std against the 5×5 grey mean over windows inside the mask (step 2 px). */
+function levelStdSlope(img: RegionImage, mask: Uint8Array): number {
+  const { width: w, height: h, grey } = img;
+  let n = 0,
+    sx = 0,
+    sy = 0,
+    sxx = 0,
+    sxy = 0;
+  for (let y = 2; y < h - 2; y += 2)
+    for (let x = 2; x < w - 2; x += 2) {
+      let inside = true,
+        s = 0,
+        s2 = 0;
+      for (let dy = -2; dy <= 2 && inside; dy++)
+        for (let dx = -2; dx <= 2; dx++) {
+          const i = x + dx + (y + dy) * w;
+          if (!mask[i]) {
+            inside = false;
+            break;
+          }
+          s += grey[i]!;
+          s2 += grey[i]! * grey[i]!;
+        }
+      if (!inside) continue;
+      const mean = s / 25;
+      if (mean < LEVEL_SLOPE_MIN_GREY) continue;
+      const sd = Math.sqrt(Math.max(0, s2 / 25 - mean * mean));
+      n++;
+      sx += mean;
+      sy += sd;
+      sxx += mean * mean;
+      sxy += mean * sd;
+    }
+  const den = n * sxx - sx * sx;
+  return n > 2 && den > 0 ? (100 * (n * sxy - sx * sy)) / den : NaN;
+}
+
+/** 99th percentile of the grey of the non-black pixels, from a histogram of whole grey levels. */
+function brightGreyP99(grey: Float32Array): number {
+  const hist = new Float64Array(256);
+  let n = 0;
+  for (let i = 0; i < grey.length; i++) {
+    const v = grey[i]!;
+    if (v > 0) {
+      hist[Math.min(255, Math.floor(v))]! += 1;
+      n++;
+    }
+  }
+  let acc = 0;
+  for (let g = 0; g < 256; g++) {
+    acc += hist[g]!;
+    if (acc >= 0.99 * n) return g;
+  }
+  return NaN;
+}
+
 /** Standard deviation of the detrended grey inside the mask: speckle-scale texture contrast, free of regional trends. */
 function detrendedStd(res: Float32Array, mask: Uint8Array): number {
   let s = 0,
@@ -275,6 +371,8 @@ export function imageStats(img: RegionImage, erodePx = 2): ImageStats {
     }
   stds.sort((a, b) => a - b);
   const residuals = detrendedResiduals(img, myoMask);
+  const regions = new Uint8Array(w * h);
+  for (let i = 0; i < regions.length; i++) regions[i] = masks[0]![i]! | masks[1]![i]! | masks[2]![i]!;
   return {
     cavity,
     myocardium,
@@ -284,5 +382,8 @@ export function imageStats(img: RegionImage, erodePx = 2): ImageStats {
     myocardialDetrendedStd: detrendedStd(residuals, myoMask),
     cavityDetrendedStd: detrendedStd(detrendedResiduals(img, masks[0]!), masks[0]!),
     speckleCellMm: { horizontal: cellMm(img, myoMask, residuals, true), vertical: cellMm(img, myoMask, residuals, false) },
+    myocardialResidualSkew: residualSkew(residuals, myoMask),
+    levelStdSlope: levelStdSlope(img, regions),
+    brightGreyP99: brightGreyP99(img.grey),
   };
 }
