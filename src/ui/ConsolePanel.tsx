@@ -44,6 +44,7 @@ export function ConsolePanel() {
               { id: 'expiration', label: 'Esp' },
               { id: 'breath-hold', label: 'Apnea' },
               { id: 'inspiration', label: 'Insp' },
+              { id: 'free-breathing', label: 'Libre' },
             ]}
           />
         </div>

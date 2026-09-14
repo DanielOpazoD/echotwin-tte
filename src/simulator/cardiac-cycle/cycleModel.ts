@@ -20,6 +20,10 @@ export interface BeatTables {
   /** Acceleration time (s) of the right ventricular ejection. */
   pulmonaryAccelerationS: number;
   mitralFlowMlps: Float32Array; // Q_mv(φ) ≥ 0 during filling
+  /** Q_tv(φ) ≥ 0: tricuspid inflow, the mitral inflow with its own early wave (decision 108). */
+  tricuspidFlowMlps: Float32Array;
+  /** Tricuspid filling over the beat (mL): what the right ventricle ejects in the next chained beat. */
+  tricuspidFillMl: number;
   mvEffectiveAreaCm2: number; // solved so that ∫Q_mv = SV with the requested E and A peak velocities
   /** Regurgitant flows (mL/s) through the mitral (systole) and aortic (diastole) valves; zero when absent. */
   mrFlowMlps: Float32Array;
@@ -49,18 +53,24 @@ export interface BeatOptions {
   aWave?: boolean;
   n?: number;
   /**
-   * One beat of atrial fibrillation (decision 107): the volume it ejects (what filled the ventricle in the diastole before
-   * it), the mitral flow area of the case, the RR before it, and where the volume and the annuli were when that beat ended.
+   * A beat chained to the one before it (decision 107, atrial fibrillation; decision 108, free breathing): the volume each
+   * ventricle ejects (what filled it in the diastole before), the mitral flow area of the case, the RR before it, where the
+   * annuli were when that beat ended, and the factors on the early inflow waves of this beat.
    */
-  afBeat?: AfBeat;
+  chain?: ChainedBeat;
 }
 
-export interface AfBeat {
+export interface ChainedBeat {
   ejectMl: number;
+  /** Right ventricular ejection (mL): the tricuspid filling of the beat before. The left one when omitted. */
+  rvEjectMl?: number;
   mvAreaCm2: number;
   previousRrS: number;
   startLongitudinal: number;
   startRvLongitudinal: number;
+  /** Factors on the mitral and tricuspid E waves (respiration, decision 108); 1 when omitted. */
+  mitralEFactor?: number;
+  tricuspidEFactor?: number;
 }
 
 /**
@@ -90,7 +100,7 @@ export function buildBeatTables(
 ): BeatTables {
   const n = opts.n ?? 512;
   const preload = opts.preloadFactor ?? 1;
-  const af = opts.afBeat;
+  const af = opts.chain;
   const timings = computeCycleTimings(rrS, physiology, { ...rhythm, type: opts.aWave === false ? 'atrial-fibrillation' : rhythm.type }, af?.previousRrS ?? rrS);
   const svNominal = physiology.edvMl - physiology.esvMl;
   // in atrial fibrillation a beat ejects what the diastole before it filled, from the case's end-systolic volume
@@ -179,12 +189,18 @@ export function buildBeatTables(
       }
     aScale = hi;
   }
+  // respiration scales the early waves of each inflow and leaves atrial contraction as the case measured it (decision 108)
+  const mitralEFactor = af?.mitralEFactor ?? 1;
+  const tricuspidEFactor = af?.tricuspidEFactor ?? 1;
   const mvVelocity = new Float32Array(n); // cm/s
+  const tvVelocity = new Float32Array(n); // cm/s at the mitral flow area: the tricuspid inflow carries the same flow
   let velIntegralCm = 0; // cm (VTI of mitral inflow)
   for (let i = 0; i < n; i++) {
     const t = (i + 0.5) * dt;
-    const v = eAt(t) + aScale * aCm * aShapeAt(t);
+    const atrial = aScale * aCm * aShapeAt(t);
+    const v = eAt(t) * mitralEFactor + atrial;
     mvVelocity[i] = v;
+    tvVelocity[i] = eAt(t) * tricuspidEFactor + atrial;
     velIntegralCm += v * dt;
   }
   // a beat of atrial fibrillation fills through the case's orifice for as long as its diastole lasts (decision 107)
@@ -200,12 +216,14 @@ export function buildBeatTables(
   const pvShape = (u: number): number => (u <= 0 || u >= 1 ? 0 : Math.pow(u, 2.25 * peakU) * Math.pow(1 - u, 2.25 * (1 - peakU)));
   let pvInt = 0;
   for (let i = 0; i < 400; i++) pvInt += pvShape((i + 0.5) / 400) * (et / 400);
-  const kPv = Math.max(5, sv - rvolAr) / pvInt;
+  const kPv = Math.max(5, af?.rvEjectMl ?? sv - rvolAr) / pvInt;
   const pvLead = 0.01 * rrS;
 
   const aorticFlow = new Float32Array(n);
   const pulmonaryFlow = new Float32Array(n);
   const mitralFlow = new Float32Array(n);
+  const tricuspidFlow = new Float32Array(n);
+  let tricuspidFillMl = 0;
   for (let i = 0; i < n; i++) {
     const t = (i + 0.5) * dt;
     if (t > timings.ejectionStartS && t < timings.ejectionEndS) {
@@ -214,6 +232,8 @@ export function buildBeatTables(
     const tp = (((t + pvLead) % rrS) + rrS) % rrS;
     if (tp > timings.ejectionStartS && tp < timings.ejectionEndS) pulmonaryFlow[i] = kPv * pvShape((tp - timings.ejectionStartS) / et);
     mitralFlow[i] = (mvVelocity[i] ?? 0) * mvArea * scaleMv;
+    tricuspidFlow[i] = (tvVelocity[i] ?? 0) * mvArea * scaleMv;
+    tricuspidFillMl += tricuspidFlow[i]! * dt;
   }
   // Integrate volume; then remove the residual drift so V(0)=V(RR)=EDV exactly (ensures periodicity).
   const vol = new Float32Array(n);
@@ -364,6 +384,8 @@ export function buildBeatTables(
     pulmonaryFlowMlps: pulmonaryFlow,
     pulmonaryAccelerationS,
     mitralFlowMlps: mitralFlow,
+    tricuspidFlowMlps: tricuspidFlow,
+    tricuspidFillMl,
     mvEffectiveAreaCm2: mvArea * scaleMv,
     mrFlowMlps: mrFlow,
     arFlowMlps: arFlow,
@@ -432,9 +454,9 @@ const SYSTOLIC_CLOSURE_S = 0.03;
  * DIASTASIS_OPENING, floats at DIASTASIS_OPENING from peak early inflow until atrial contraction peaks, then closes with
  * the end of the A wave — or, without one, in the first SYSTOLIC_CLOSURE_S of systole.
  */
-function inflowOpening(tables: BeatTables, p: number, qmvMax: number): number {
+function inflowOpening(tables: BeatTables, p: number, qmvMax: number, table: Float32Array = tables.mitralFlowMlps): number {
   const x = ((p % 1) + 1) % 1;
-  const flow = Math.min(1, Math.pow(Math.max(0, sampleTable(tables.mitralFlowMlps, x)) / qmvMax, 0.6));
+  const flow = Math.min(1, Math.pow(Math.max(0, sampleTable(table, x)) / qmvMax, 0.6));
   const tm = tables.timings;
   const t = x * tables.rrS;
   const afterE = t >= tm.mitralOpenS + tm.eAccelS;
@@ -494,7 +516,7 @@ export function cycleStateAt(tables: BeatTables, phase: number): CycleState {
     contraction: (tables.edvMl - vol) / Math.max(tables.edvMl - tables.esvMl, 1e-6),
     mvOpen,
     avOpen,
-    tvOpen: inflowOpening(tables, p - 0.01, qmvMax),
+    tvOpen: inflowOpening(tables, p - 0.01, qmvMax, tables.tricuspidFlowMlps),
     pvOpen: Math.min(1, Math.pow(sampleTable(tables.pulmonaryFlowMlps, p) / qpvMax, 0.5)),
     longitudinal: sampleTable(tables.longitudinal, p),
     rvLongitudinal: sampleTable(tables.rvLongitudinal, p),

@@ -10,7 +10,8 @@ import { normalize, v3 } from '@/core/vec3';
  */
 export interface PatientState {
   position: 'left-lateral' | 'supine' | 'subcostal-supine';
-  respiration: 'inspiration' | 'expiration' | 'breath-hold';
+  /** 'free-breathing' keeps the expiratory anatomy and varies the inflows breath by breath (decision 108). */
+  respiration: 'inspiration' | 'expiration' | 'breath-hold' | 'free-breathing';
   headElevationDeg: number;
 }
 

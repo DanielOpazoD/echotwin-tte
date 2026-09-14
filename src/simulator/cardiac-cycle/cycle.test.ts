@@ -323,7 +323,7 @@ describe('beats of atrial fibrillation fill and eject by their own intervals (de
     for (const [i, rr] of rrs.entries()) {
       const eject = i === 0 ? sv : Math.min(1.2 * sv, Math.max(0.2 * sv, prev.endVolumeMl - k.physiology.esvMl));
       const tb = buildBeatTables(rr, k.physiology, k.rhythm, k.hemodynamics, {
-        afBeat: { ejectMl: eject, mvAreaCm2: nominal.mvEffectiveAreaCm2, previousRrS: prevRr, startLongitudinal: i ? prev.endLongitudinal : 0, startRvLongitudinal: i ? prev.endRvLongitudinal : 0 },
+        chain: { ejectMl: eject, mvAreaCm2: nominal.mvEffectiveAreaCm2, previousRrS: prevRr, startLongitudinal: i ? prev.endLongitudinal : 0, startRvLongitudinal: i ? prev.endRvLongitudinal : 0 },
       });
       const t = tb.timings;
       // the E wave keeps the case deceleration and peak velocity at every RR (before: stretched with the RR)
@@ -344,5 +344,35 @@ describe('beats of atrial fibrillation fill and eject by their own intervals (de
     const sorted = [...fills].sort((a, b) => a[0] - b[0]);
     for (let j = 1; j < sorted.length; j++) expect(sorted[j]![1], `filling at RR ${sorted[j]![0]}`).toBeGreaterThanOrEqual(sorted[j - 1]![1] - 0.5);
     expect(sorted[0]![1]).toBeLessThan(0.5 * sv);
+  });
+});
+
+describe('chained beats carry the respiratory factors of their inflows (decision 108)', () => {
+  it('the mitral and tricuspid E waves take their factors, atrial contraction does not, and the right ventricle ejects its own filling', async () => {
+    const { loadCaseById } = await import('@/cases');
+    const k = loadCaseById('normal-excellent-window');
+    const nominal = buildBeatTables(60 / k.rhythm.heartRateBpm, k.physiology, k.rhythm, k.hemodynamics);
+    // without a chain the tricuspid inflow is the mitral one
+    expect(Array.from(nominal.tricuspidFlowMlps)).toEqual(Array.from(nominal.mitralFlowMlps));
+    const tb = buildBeatTables(nominal.rrS, k.physiology, k.rhythm, k.hemodynamics, {
+      chain: { ejectMl: 70, rvEjectMl: 82, mvAreaCm2: nominal.mvEffectiveAreaCm2, previousRrS: nominal.rrS, startLongitudinal: 0, startRvLongitudinal: 0, mitralEFactor: 0.8, tricuspidEFactor: 1.3 },
+    });
+    const t = tb.timings;
+    const peakIn = (table: Float32Array, from: number, to: number) => {
+      let p = 0;
+      for (let i = 0; i < tb.n; i++) {
+        const ti = ((i + 0.5) / tb.n) * tb.rrS;
+        if (ti > from && ti < to) p = Math.max(p, table[i]! / tb.mvEffectiveAreaCm2 / 100);
+      }
+      return p;
+    };
+    expect(peakIn(tb.mitralFlowMlps, t.mitralOpenS, t.aStartS)).toBeCloseTo(0.8 * k.physiology.ePeakMps, 2);
+    expect(peakIn(tb.tricuspidFlowMlps, t.mitralOpenS, t.aStartS)).toBeCloseTo(1.3 * k.physiology.ePeakMps, 2);
+    // atrial contraction keeps the case A in both
+    expect(peakIn(tb.mitralFlowMlps, t.aStartS, t.aEndS)).toBeCloseTo(k.physiology.aPeakMps, 2);
+    expect(peakIn(tb.tricuspidFlowMlps, t.aStartS, t.aEndS)).toBeCloseTo(k.physiology.aPeakMps, 2);
+    let rv = 0;
+    for (let i = 0; i < tb.n; i++) rv += tb.pulmonaryFlowMlps[i]! * (tb.rrS / tb.n);
+    expect(rv).toBeCloseTo(82, 0);
   });
 });

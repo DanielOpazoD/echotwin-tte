@@ -2,6 +2,8 @@ import type { CaseDefinition } from '@/cases/schema';
 import { classifyHeart, computeHeartPose, createHeartModel, heartLandmarks, type HeartModel, type HeartPose } from '@/simulator/anatomy/heartModel';
 import { createThoraxModel, type ThoraxModel } from '@/simulator/anatomy/thoraxModel';
 import { buildBeatTables, cycleStateAt, type BeatTables } from '@/simulator/cardiac-cycle/cycleModel';
+import { inflowRespiratoryVariation, respiratoryDepth } from '@/simulator/cardiac-cycle/respiration';
+import { ejectionTimeS, ELECTROMECHANICAL_DELAY_S } from '@/simulator/cardiac-cycle/timing';
 import { CardiacClock } from '@/simulator/cardiac-cycle/clock';
 import { ecgSample } from '@/simulator/cardiac-cycle/ecg';
 import { ProceduralSliceRenderer } from '@/simulator/renderer/procedural/sliceRenderer';
@@ -190,18 +192,35 @@ export class SimulatorCore {
    */
   private syncBeatTables(rebuildFlow = true): void {
     const c = this.clock.current;
-    if (this.caseDef.rhythm.type !== 'atrial-fibrillation' || c.beatIndex === this.tablesBeat) return;
+    const breathing = this.input.patient.respiration === 'free-breathing';
+    if ((this.caseDef.rhythm.type !== 'atrial-fibrillation' && !breathing) || c.beatIndex === this.tablesBeat) return;
     const prev = this.tables;
     const first = prev === this.nominalTables;
-    const svNominal = this.caseDef.physiology.edvMl - this.caseDef.physiology.esvMl;
-    const ejectMl = first ? svNominal : Math.min(1.2 * svNominal, Math.max(0.2 * svNominal, prev.endVolumeMl - this.caseDef.physiology.esvMl));
-    this.tables = buildBeatTables(c.rrS, this.caseDef.physiology, this.caseDef.rhythm, this.caseDef.hemodynamics, {
-      afBeat: {
+    const phys = this.caseDef.physiology;
+    const svNominal = phys.edvMl - phys.esvMl;
+    const clampSv = (ml: number): number => Math.min(1.2 * svNominal, Math.max(0.2 * svNominal, ml));
+    const ejectMl = first ? svNominal : clampSv(prev.endVolumeMl - phys.esvMl);
+    // Free breathing (decision 108): the early inflow waves of the beat follow the depth of inspiration when its mitral
+    // valve opens; each ventricle ejects what its inflow filled in the beat before, so the stroke volumes follow too.
+    let mitralEFactor = 1,
+      tricuspidEFactor = 1;
+    if (breathing) {
+      const opening = this.timeS - c.timeInBeatS + ELECTROMECHANICAL_DELAY_S + ejectionTimeS(60 / c.previousRrS, phys.contractility) + phys.ivrtMs / 1000;
+      const depth = respiratoryDepth(opening);
+      const variation = inflowRespiratoryVariation(this.caseDef.anatomy.pericardium.tamponade);
+      mitralEFactor = 1 - variation.mitral * depth;
+      tricuspidEFactor = 1 + variation.tricuspid * depth;
+    }
+    this.tables = buildBeatTables(c.rrS, phys, this.caseDef.rhythm, this.caseDef.hemodynamics, {
+      chain: {
         ejectMl,
+        rvEjectMl: breathing ? (first ? svNominal : clampSv(prev.tricuspidFillMl)) : undefined,
         mvAreaCm2: this.nominalTables.mvEffectiveAreaCm2,
         previousRrS: c.previousRrS,
         startLongitudinal: first ? 0 : prev.endLongitudinal,
         startRvLongitudinal: first ? 0 : prev.endRvLongitudinal,
+        mitralEFactor,
+        tricuspidEFactor,
       },
     });
     this.tablesBeat = c.beatIndex;
@@ -220,6 +239,12 @@ export class SimulatorCore {
     if (key !== this.patientKey) {
       this.thorax = createThoraxModel(this.caseDef.bodyHabitus, this.caseDef.acousticWindow, input.patient, this.caseDef.anatomy.ivc.collapsePct);
       this.heart = createHeartModel(this.caseDef.anatomy, this.caseDef.physiology, this.thorax.heartOffset, this.caseDef.seed, this.thorax.ivcCollapse);
+      // chained beats start again from the case tables with the new breathing (decision 108)
+      if (input.patient.respiration !== this.input.patient.respiration && this.caseDef.rhythm.type !== 'atrial-fibrillation') {
+        this.tables = this.nominalTables;
+        this.tablesBeat = -1;
+        this.tablesVersion++;
+      }
       this.flow = this.buildFlow();
       this.atlas.invalidate();
       this.patientKey = key;

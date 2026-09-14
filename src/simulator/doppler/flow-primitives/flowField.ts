@@ -83,9 +83,9 @@ function inflowAxial(zr: number, lengthNow: number): number {
  * (decision 102): the wave takes (zr − INFLOW_CORE_CM)/speed to arrive. Zero for a wave that would have left before the
  * beat began, when the ventricle already contracts.
  */
-function inflowFlow(tables: BeatTables, phase: number, zr: number, waveCmps: number): number {
+function inflowFlow(tables: BeatTables, phase: number, zr: number, waveCmps: number, table: Float32Array = tables.mitralFlowMlps): number {
   const delayed = phase - Math.max(0, zr - INFLOW_CORE_CM) / (waveCmps * tables.rrS);
-  return delayed < 0 ? 0 : sampleTable(tables.mitralFlowMlps, delayed);
+  return delayed < 0 ? 0 : sampleTable(table, delayed);
 }
 
 /**
@@ -326,7 +326,7 @@ export function sampleFlow(p: FlowFieldParams, tables: BeatTables, hp: HeartPose
   // ---- Tricuspid inflow (mirrors mitral, larger area, slight delay) ----
   if (p.enabled['tricuspid-inflow'] !== false) {
     const zr = z - (p.tvCenter.z + hp.tvZ);
-    const qtv = zr > -2.2 && zr < 5 ? inflowFlow(tables, phase - 0.01, zr, p.inflowWaveCmps) : 0;
+    const qtv = zr > -2.2 && zr < 5 ? inflowFlow(tables, phase - 0.01, zr, p.inflowWaveCmps, tables.tricuspidFlowMlps) : 0;
     if (qtv > 1) {
       const dx = x - p.tvCenter.x,
         dy = y - p.tvCenter.y;
