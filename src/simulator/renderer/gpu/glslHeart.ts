@@ -541,7 +541,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     }
   }
   bool outsideAorticRoot = rootT <= -1.6 || rootRr > rootR + 0.22;
-  if (outsideAorticRoot && sdCapsule(p, vec3(RVOT_MX, RVOT_MY, RVOT_MZ), vec3(PA_EX, PA_EY, PA_EZ), PA_R + 0.02) < 0.0) {
+  if (outsideAorticRoot && sdCapsule(p, vec3(RVOT_MX, RVOT_MY, RVOT_MZ + PV_Z), vec3(PA_EX, PA_EY, PA_EZ), PA_R + 0.02) < 0.0) {
     for (int i = 0; i < 3; i++) {
       vec3 w = vec3(P(PV_W_BASE + i * 3), P(PV_W_BASE + i * 3 + 1), P(PV_W_BASE + i * 3 + 2));
       float fr;
@@ -781,12 +781,13 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float sc = CONTRACTION;
     float fw = RV_FW * (1.0 + 0.35 * sc);
     float k = 0.85 + 0.15 * (1.0 - sc);
-    vec3 rvotA = vec3(RVOT_AX, RVOT_AY, RVOT_AZ);
-    vec3 rvotM = vec3(RVOT_MX, RVOT_MY, RVOT_MZ);
-    vec3 rvotB = vec3(RVOT_BX, RVOT_BY, RVOT_BZ);
+    // the outflow tract and the pulmonary root move with the base; the bifurcation stays (decision 111)
+    vec3 rvotA = vec3(RVOT_AX, RVOT_AY, RVOT_AZ + PV_Z);
+    vec3 rvotM = vec3(RVOT_MX, RVOT_MY, RVOT_MZ + PV_Z);
+    vec3 rvotB = vec3(RVOT_BX, RVOT_BY, RVOT_BZ + PV_Z);
     vec3 paEnd = vec3(PA_EX, PA_EY, PA_EZ);
     float dRvot = min(sdRoundCone(p, rvotA, rvotM, RVOT_RA * k, RVOT_RM * k), sdRoundCone(p, rvotM, rvotB, RVOT_RM * k, RVOT_R * k));
-    vec3 paStj = vec3(PA_SX, PA_SY, PA_SZ);
+    vec3 paStj = vec3(PA_SX, PA_SY, PA_SZ + PV_Z);
     float dPa = min(sdRoundCone(p, rvotB, paStj, PA_ROOT_R, PA_R), sdCapsule(p, paStj, paEnd, PA_R));
     float dRpa = sdCapsule(p, paEnd, vec3(RPA_EX, RPA_EY, RPA_EZ), RPA_R);
     float dLpa = sdCapsule(p, paEnd, vec3(LPA_EX, LPA_EY, LPA_EZ), LPA_R);
@@ -838,6 +839,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float dRvEpi = dRvU - fw;
     float dLaEpi = sdEllipsoid(p, la, lr + 0.25);
     float dRaEpi = sdEllipsoid(p, ra, rar + 0.22);
+    // the sac around the outflow tract and the trunk stays where the pericardium is anchored (decision 111)
     vec3 rvotA = vec3(RVOT_AX, RVOT_AY, RVOT_AZ);
     vec3 rvotB = vec3(RVOT_BX, RVOT_BY, RVOT_BZ);
     vec3 paEnd = vec3(PA_EX, PA_EY, PA_EZ);

@@ -345,6 +345,7 @@ export function sampleFlow(p: FlowFieldParams, tables: BeatTables, hp: HeartPose
   if (p.enabled['rvot'] !== false) {
     const qpv = sampleTable(tables.pulmonaryFlowMlps, phase);
     if (qpv > 1) {
+      // the outflow tract moves with the base (decision 111): a translation along z, which leaves its axis unchanged
       const ax = p.rvotB.x - p.rvotA.x,
         ay = p.rvotB.y - p.rvotA.y,
         az = p.rvotB.z - p.rvotA.z;
@@ -354,7 +355,7 @@ export function sampleFlow(p: FlowFieldParams, tables: BeatTables, hp: HeartPose
         uz = az / L;
       const dx = x - p.rvotA.x,
         dy = y - p.rvotA.y,
-        dz = z - p.rvotA.z;
+        dz = z - hp.pvZ - p.rvotA.z;
       const t = dx * ux + dy * uy + dz * uz;
       if (t > -1 && t < L + 1) {
         const qx = dx - ux * t,

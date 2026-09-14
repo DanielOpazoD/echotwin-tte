@@ -600,6 +600,12 @@ describe('mitral leaflet motion in the parasternal M-mode (decision 100)', () =>
   });
 });
 
+/** Centre of the pulmonary valve this frame: the centroid of the three cusp hinges (it moves with the base, decision 111). */
+const pulmonaryValveCentre = (pose: HeartPose) => {
+  const g = pose.valves.pvSegs;
+  return v3((g[0]! + g[12]! + g[24]!) / 3, (g[1]! + g[13]! + g[25]!) / 3, (g[2]! + g[14]! + g[26]!) / 3);
+};
+
 describe('pulmonary root (decision 109)', () => {
   it('a dilated trunk widens above the sinuses: at the valve plane the cusp hinges stay against the wall, in every case and through the cycle', () => {
     // The trunk used to begin at the valve plane with its full radius. With the case diameter of pulmonary hypertension
@@ -624,7 +630,7 @@ describe('pulmonary root (decision 109)', () => {
             const u = add(scale(e1, Math.cos(a)), scale(e2, Math.sin(a)));
             let last = 0;
             for (let r = 0; r < 3; r += 0.01) {
-              const p = add(add(A.rvotB, scale(d, t)), scale(u, r));
+              const p = add(add(pulmonaryValveCentre(pose), scale(d, t)), scale(u, r));
               if (!classifyHeart(heart, pose, p.x + pose.swingX, p.y, p.z, s)) break;
               if (s.tissue === Tissue.Blood && s.structure === Structure.PulmonaryArtery) last = r;
               else if (s.structure !== Structure.PulmonaryValve) break;
@@ -643,5 +649,26 @@ describe('pulmonary root (decision 109)', () => {
       }
     }
     expect(problems).toEqual([]);
+  });
+});
+
+describe('outflow tract and pulmonary root motion (decision 111)', () => {
+  it('the pulmonary root descends with the base in systole: about 8 mm toward the apex, caudally, ventrally and to the left', () => {
+    // Pulmonary root displacement in systole: median 8.0 mm, predominantly caudal, ventral and leftward, by ECG-gated
+    // CT in 100 adults with normal function (Lis et al., J Interv Card Electrophysiol 2026;69:99-107). It did not move.
+    const { heart, tables } = setup('normal-excellent-window');
+    const ed = computeHeartPose(heart, cycleStateAt(tables, 0));
+    let es = ed;
+    for (let i = 1; i < 50; i++) {
+      const pose = computeHeartPose(heart, cycleStateAt(tables, i / 50));
+      if (pose.zAnn > es.zAnn) es = pose;
+    }
+    const move = sub(heartToTorso(heart.frame, pulmonaryValveCentre(es)), heartToTorso(heart.frame, pulmonaryValveCentre(ed)));
+    const report = `torso displacement (+x left, +y cranial, +z anterior): ${[move.x, move.y, move.z].map((x) => x.toFixed(2)).join(', ')} cm`;
+    expect(Math.hypot(move.x, move.y, move.z), report).toBeGreaterThan(0.5);
+    expect(Math.hypot(move.x, move.y, move.z), report).toBeLessThan(1.1);
+    expect(move.x, report).toBeGreaterThan(0);
+    expect(move.y, report).toBeLessThan(0);
+    expect(move.z, report).toBeGreaterThan(0);
   });
 });

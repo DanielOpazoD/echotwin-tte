@@ -63,6 +63,15 @@ export const AV_AXIS: Vec3 = normalize(v3(-0.15, 0.53, -0.85));
  * annulus in every systolic long-axis frame.
  */
 export const ROOT_EXCURSION = 0.85;
+/**
+ * Share of the ventricular base's systolic descent that the outflow tract and the pulmonary root follow, along the heart
+ * axis. The pulmonary root moves 8.0 mm (median) in systole, predominantly caudally, ventrally and to the left, by
+ * ECG-gated CT in 100 adults with normal function (Lis et al., J Interv Card Electrophysiol 2026;69:99-107): the heart
+ * axis points that way (+x, −y, +z in the torso). 0.8 cm over the 1.4 cm mitral annular excursion of the normal case
+ * gives 0.57, a declared ratio. The trunk bifurcation stays where it is. Until decision 111 the outflow tract and the
+ * pulmonary root did not move, and in systole the aortic root, which does, took up to a third of their lumen.
+ */
+export const PV_ROOT_EXCURSION = 0.57;
 export { ROOT_ASC_T, ROOT_SINUS_T, ROOT_STJ_T, AV_COAPT_HALF } from './aorticValve';
 /**
  * Systolic shortening of the tricuspid annular dimensions. In healthy adults the annulus is largest in late diastole
@@ -200,6 +209,7 @@ export interface HeartPose {
   tvAnglePost: number;
   rvScale: number;
   tvZ: number; // tricuspid annulus displacement (TAPSE)
+  pvZ: number; // outflow tract and pulmonary root displacement along the heart axis (decision 111)
   laBooster: number; // atrial contraction radial scale (1 = none)
   effusion: number;
   /** Tamponade signs this frame: RV free-wall inward collapse (0..1), RA collapse (0..1) and heart swing (cm, x). */
@@ -680,7 +690,8 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
   // pulmonary valve: three cusps hinged at the outflow–trunk junction on the trunk axis, opening with RV ejection
   const pvSegs = new Float64Array(36);
   const pvWidths = new Float64Array(9);
-  const pvSegLen = buildCuspChains(A.rvotB.x, A.rvotB.y, A.rvotB.z, A.paDir, A.pvE1, A.pvE2, A.pvR, Math.max(0, Math.min(1, state.pvOpen)), 3, pvSegs, pvWidths, 0.2);
+  const pvZ = PV_ROOT_EXCURSION * zAnn;
+  const pvSegLen = buildCuspChains(A.rvotB.x, A.rvotB.y, A.rvotB.z + pvZ, A.paDir, A.pvE1, A.pvE2, A.pvR, Math.max(0, Math.min(1, state.pvOpen)), 3, pvSegs, pvWidths, 0.2);
   // papillary muscles: round cones rooted inside the wall (level ζb) leaning into the cavity toward the
   // annulus (tip at level ζt, about halfway to the axis); they move with the wall and thicken in systole
   const paps = new Float64Array(16);
@@ -767,6 +778,7 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
     // the displacement the leaflets hang from (RV longitudinal table, decision 106): returning the LV curve here left the
     // classifier's tricuspid plane up to 3.8 mm from the leaflets in mid-systole (decision 110)
     tvZ,
+    pvZ,
     laBooster: 1 - 0.06 * Math.max(state.atrialContraction, state.atrialHold),
     effusion: m.anatomy.pericardium.effusionCm,
     rvCollapse,
@@ -1272,7 +1284,7 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
   // the aortic root or its wall: at the level of the sinuses they used to replace 0.3 cm of the anterior aortic wall
   // (decision 75)
   const outsideAorticRoot = rootT <= -1.6 || rootRr > rootR + 0.22;
-  if (outsideAorticRoot && sdCapsule(x, y, z, A.rvotM.x, A.rvotM.y, A.rvotM.z, A.paEnd.x, A.paEnd.y, A.paEnd.z, A.paR + 0.02) < 0) {
+  if (outsideAorticRoot && sdCapsule(x, y, z, A.rvotM.x, A.rvotM.y, A.rvotM.z + hp.pvZ, A.paEnd.x, A.paEnd.y, A.paEnd.z, A.paR + 0.02) < 0) {
     for (let i = 0; i < 3; i++) {
       const wx = V.pvWidths[i * 3]!,
         wy = V.pvWidths[i * 3 + 1]!,
@@ -1595,21 +1607,25 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
     const fw = m.anatomy.rv.freeWallThicknessCm * (1 + 0.35 * s);
     const k = 0.85 + 0.15 * (1 - s);
     // outflow: infundibulum → subpulmonary region as two tapering segments bowed anteriorly over the aortic root
+    // the outflow tract and the pulmonary root move with the base (pvZ, decision 111): evaluated at the point shifted back
+    const pvZ = hp.pvZ;
+    const zo = z - pvZ;
     const dRvot = Math.min(
-      sdRoundCone(x, y, z, A.rvotA.x, A.rvotA.y, A.rvotA.z, A.rvotM.x, A.rvotM.y, A.rvotM.z, A.rvotRa * k, A.rvotRm * k),
-      sdRoundCone(x, y, z, A.rvotM.x, A.rvotM.y, A.rvotM.z, A.rvotB.x, A.rvotB.y, A.rvotB.z, A.rvotRm * k, A.rvotR * k),
+      sdRoundCone(x, y, zo, A.rvotA.x, A.rvotA.y, A.rvotA.z, A.rvotM.x, A.rvotM.y, A.rvotM.z, A.rvotRa * k, A.rvotRm * k),
+      sdRoundCone(x, y, zo, A.rvotM.x, A.rvotM.y, A.rvotM.z, A.rvotB.x, A.rvotB.y, A.rvotB.z, A.rvotRm * k, A.rvotR * k),
     );
     // pulmonary trunk from the valve to the bifurcation; right branch behind the ascending aorta, left branch
     const dPa = Math.min(
-      sdRoundCone(x, y, z, A.rvotB.x, A.rvotB.y, A.rvotB.z, A.paStj.x, A.paStj.y, A.paStj.z, A.paRootR, A.paR),
-      sdCapsule(x, y, z, A.paStj.x, A.paStj.y, A.paStj.z, A.paEnd.x, A.paEnd.y, A.paEnd.z, A.paR),
+      sdRoundCone(x, y, zo, A.rvotB.x, A.rvotB.y, A.rvotB.z, A.paStj.x, A.paStj.y, A.paStj.z, A.paRootR, A.paR),
+      // the trunk runs from the moving junction to the bifurcation, which stays
+      sdCapsule(x, y, z, A.paStj.x, A.paStj.y, A.paStj.z + pvZ, A.paEnd.x, A.paEnd.y, A.paEnd.z, A.paR),
     );
     const dRpa = sdCapsule(x, y, z, A.paEnd.x, A.paEnd.y, A.paEnd.z, A.rpaEnd.x, A.rpaEnd.y, A.rpaEnd.z, A.rpaR);
     const dLpa = sdCapsule(x, y, z, A.paEnd.x, A.paEnd.y, A.paEnd.z, A.lpaEnd.x, A.lpaEnd.y, A.lpaEnd.z, A.lpaR);
     const dTrunk = Math.min(dPa, dRpa, dLpa);
     const vx = x - A.rvotB.x,
       vy = y - A.rvotB.y,
-      vz = z - A.rvotB.z;
+      vz = zo - A.rvotB.z;
     if (dTrunk < 0) {
       setSample(out, Tissue.Blood, dTrunk, vx, vy, vz, x, y, z, 0, Structure.PulmonaryArtery);
       return true;
@@ -1671,6 +1687,10 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
     const ra = A.raCenter,
       rar = A.raR;
     const dRaEpi = sdEllipsoid(x, y, z, ra.x, ra.y, ra.z, rar.x + 0.22, rar.y + 0.22, rar.z + 0.22);
+    // The sac around the outflow tract and the trunk stays where the pericardium is anchored (sternopericardial ligaments in
+    // front, the arterial reflection on the trunk) while they descend in systole (decision 111). One envelope stands for the
+    // epicardial fat, the pericardium and the effusion here; moved with the tract, the effusion of the tamponade case, which
+    // reaches the transducer face in the parasternal views (chestWall.test.ts), changed its near field with every beat.
     const dRvotEpi = sdCapsule(x, y, z, A.rvotA.x, A.rvotA.y, A.rvotA.z, A.rvotB.x, A.rvotB.y, A.rvotB.z, A.rvotRa + fw);
     const dPaEpi = Math.min(
       sdRoundCone(x, y, z, A.rvotB.x, A.rvotB.y, A.rvotB.z, A.paStj.x, A.paStj.y, A.paStj.z, A.paRootR + 0.2, A.paR + 0.2),

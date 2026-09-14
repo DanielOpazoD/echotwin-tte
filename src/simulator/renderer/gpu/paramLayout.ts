@@ -23,7 +23,7 @@ const SCALARS = [
   // LV geometry & pose
   'BOUND_CX', 'BOUND_CY', 'BOUND_CZ', 'BOUND_R', 'LV_RMAX_ED', 'LV_G0', 'LV_ZETAMAX', 'LV_ZETATOP', 'LV_N', 'LV_RATIO', 'LV_LEN', 'LV_IVSD', 'LV_LVPWD', 'APEX_T', 'LVOT_D',
   'ZANN', 'LV_RMAX', 'LV_PZC', 'LV_THICK_K', 'LENGTH_NOW', 'RADIAL_SCALE', 'LONG_SCALE', 'CONTRACTION', 'AV_OPEN', 'PV_OPEN', 'TVZ', 'LA_BOOSTER', 'EFFUSION',
-  'MV_CALC', 'AV_CALC', 'RV_FW', 'RV_COLLAPSE', 'RA_COLLAPSE', 'SWING_X', 'SEPTAL_SHIFT',
+  'MV_CALC', 'AV_CALC', 'RV_FW', 'RV_COLLAPSE', 'RA_COLLAPSE', 'SWING_X', 'SEPTAL_SHIFT', 'PV_Z',
   // anchors
   'MV_CX', 'MV_CY', 'MV_CZ', 'MV_R', 'AV_CX', 'AV_CY', 'AV_CZ', 'AV_AXX', 'AV_AXY', 'AV_AXZ', 'AV_R', 'SINUS_R', 'ASC_R',
   'AV_E1X', 'AV_E1Y', 'AV_E1Z', 'AV_E2X', 'AV_E2Y', 'AV_E2Z', 'AV_BX', 'AV_BY', 'AV_BZ',
@@ -169,6 +169,7 @@ export function packScene(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, o
   set('AV_OPEN', hp.state.avOpen);
   set('PV_OPEN', hp.state.pvOpen);
   set('TVZ', hp.tvZ);
+  set('PV_Z', hp.pvZ);
   set('LA_BOOSTER', hp.laBooster);
   set('EFFUSION', hp.effusion);
   set('MV_CALC', heart.anatomy.mitral.calcification);
