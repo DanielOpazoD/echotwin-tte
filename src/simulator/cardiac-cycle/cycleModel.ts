@@ -45,6 +45,8 @@ export interface BeatTables {
   /** Tricuspid annular displacement toward the apex as a fraction of TAPSE, and its velocity (s⁻¹) (decision 106). */
   rvLongitudinal: Float32Array;
   rvLongitudinalVelocity: Float32Array;
+  /** Inferior vena cava collapse (fraction of its diameter) when the beat starts and ends, while breathing (decision 113). */
+  ivcCollapse: readonly [number, number] | null;
 }
 
 export interface BeatOptions {
@@ -71,6 +73,8 @@ export interface ChainedBeat {
   /** Factors on the mitral and tricuspid E waves (respiration, decision 108); 1 when omitted. */
   mitralEFactor?: number;
   tricuspidEFactor?: number;
+  /** Inferior vena cava collapse when the beat starts and when it ends (respiration, decision 113). */
+  ivcCollapse?: readonly [number, number];
 }
 
 /**
@@ -394,6 +398,7 @@ export function buildBeatTables(
     longitudinalVelocity: longVel,
     rvLongitudinal,
     rvLongitudinalVelocity: rvLongVel,
+    ivcCollapse: af?.ivcCollapse ?? null,
   };
 }
 
@@ -427,6 +432,8 @@ export interface CycleState {
   longitudinal: number;
   /** Tricuspid annular displacement fraction of TAPSE (decision 106). */
   rvLongitudinal: number;
+  /** Inferior vena cava collapse this frame while breathing freely (decision 113); the patient state's when absent. */
+  ivcCollapse?: number;
   /** Atrial contraction 0..1 (0 in AF). */
   atrialContraction: number;
   /** 1 from the end of the A wave until ejection starts (the atria stay at their minimal volume), 0 in AF. */
@@ -520,6 +527,8 @@ export function cycleStateAt(tables: BeatTables, phase: number): CycleState {
     pvOpen: Math.min(1, Math.pow(sampleTable(tables.pulmonaryFlowMlps, p) / qpvMax, 0.5)),
     longitudinal: sampleTable(tables.longitudinal, p),
     rvLongitudinal: sampleTable(tables.rvLongitudinal, p),
+    // linear across the beat, from where the breath had it when the beat started to where it has it when the beat ends
+    ivcCollapse: tables.ivcCollapse ? tables.ivcCollapse[0] + (tables.ivcCollapse[1] - tables.ivcCollapse[0]) * p : undefined,
     atrialContraction: atrial,
     atrialHold,
     mitralFlowMlps: qmv,

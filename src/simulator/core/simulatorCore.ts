@@ -204,7 +204,13 @@ export class SimulatorCore {
     // valve opens; each ventricle ejects what its inflow filled in the beat before, so the stroke volumes follow too.
     let mitralEFactor = 1,
       tricuspidEFactor = 1;
+    let ivcCollapse: [number, number] | undefined;
     if (breathing) {
+      // the inferior vena cava narrows with inspiration by the case's inspiratory collapse (decision 113), linearly across
+      // the beat from where the breath has it when the beat starts to where it has it when it ends
+      const start = this.timeS - c.timeInBeatS;
+      const k = this.caseDef.anatomy.ivc.collapsePct / 100;
+      ivcCollapse = [k * respiratoryDepth(start), k * respiratoryDepth(start + c.rrS)];
       const opening = this.timeS - c.timeInBeatS + ELECTROMECHANICAL_DELAY_S + ejectionTimeS(60 / c.previousRrS, phys.contractility) + phys.ivrtMs / 1000;
       const depth = respiratoryDepth(opening);
       const variation = inflowRespiratoryVariation(this.caseDef.anatomy.pericardium.tamponade);
@@ -221,6 +227,7 @@ export class SimulatorCore {
         startRvLongitudinal: first ? 0 : prev.endRvLongitudinal,
         mitralEFactor,
         tricuspidEFactor,
+        ivcCollapse,
       },
     });
     this.tablesBeat = c.beatIndex;

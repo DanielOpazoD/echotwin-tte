@@ -210,6 +210,7 @@ export interface HeartPose {
   rvScale: number;
   tvZ: number; // tricuspid annulus displacement (TAPSE)
   pvZ: number; // outflow tract and pulmonary root displacement along the heart axis (decision 111)
+  ivcCollapse: number; // inferior vena cava collapse this frame (fraction of its diameter; follows free breathing, decision 113)
   laBooster: number; // atrial contraction radial scale (1 = none)
   effusion: number;
   /** Tamponade signs this frame: RV free-wall inward collapse (0..1), RA collapse (0..1) and heart swing (cm, x). */
@@ -779,6 +780,7 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
     // classifier's tricuspid plane up to 3.8 mm from the leaflets in mid-systole (decision 110)
     tvZ,
     pvZ,
+    ivcCollapse: Math.min(0.95, Math.max(0, state.ivcCollapse ?? m.ivcCollapse)),
     laBooster: 1 - 0.06 * Math.max(state.atrialContraction, state.atrialHold),
     effusion: m.anatomy.pericardium.effusionCm,
     rvCollapse,
@@ -1561,7 +1563,7 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
         setSample(out, Tissue.VesselWall, -Math.min(dSvc, 0.12 - dSvc), 0, 0, -1, x, y, z, 0, Structure.Svc);
         return true;
       }
-      const rI = A.ivcR * (1 - m.ivcCollapse);
+      const rI = A.ivcR * (1 - hp.ivcCollapse);
       const dIvc = sdCapsule(x, y, z, A.ivcA.x, A.ivcA.y, A.ivcA.z, A.ivcB.x, A.ivcB.y, A.ivcB.z, rI);
       if (dIvc < 0) {
         setSample(out, Tissue.Blood, dIvc, 0, 0, 1, x, y, z, 0, Structure.Ivc);

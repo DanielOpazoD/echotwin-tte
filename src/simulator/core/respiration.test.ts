@@ -4,10 +4,12 @@ import { SimulatorCore } from './simulatorCore';
 import { baseInput } from './baseInput';
 import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
 import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
-import { heartAnchors, heartToTorso } from '@/simulator/anatomy/heartModel';
+import { classifyHeart, computeHeartPose, heartAnchors, heartToTorso } from '@/simulator/anatomy/heartModel';
+import { cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
+import { makeSample, Structure, Tissue } from '@/simulator/anatomy/tissue';
 import { DEFAULT_SPECTRAL } from '@/simulator/doppler/spectral/spectrum';
 import type { PatientState } from '@/simulator/anatomy/thoraxModel';
-import { dot, sub, v3, type Vec3 } from '@/core/vec3';
+import { add, cross, dot, normalize, scale, sub, v3, type Vec3 } from '@/core/vec3';
 
 /**
  * Respiratory variation of the inflows through the core (decision 108): the pulsed Doppler auto-trace in time order, split
@@ -77,3 +79,48 @@ describe('free breathing through the core (decision 108)', () => {
     expect(fall(peaks('normal-excellent-window', 'expiration', false))).toBeLessThan(0.05);
   });
 });
+
+describe('the inferior vena cava follows the breathing (decision 113)', () => {
+  /** IVC diameter (cm) across the middle of the vessel, every 0.1 s of the core's clock for 10 s. */
+  const diameters = (id: string, respiration: PatientState['respiration']): number[] => {
+    const c = loadCaseById(id);
+    const core = new SimulatorCore(c, baseInput({ patient: { ...baseInput().patient, respiration }, quality: 'low' }));
+    const heart = core.models.heart;
+    const A = heartAnchors(heart);
+    const mid = scale(add(A.ivcA, A.ivcB), 0.5);
+    const across = normalize(cross(normalize(sub(A.ivcB, A.ivcA)), v3(1, 0, 0)));
+    const s = makeSample();
+    const out: number[] = [];
+    for (let k = 0; k < 100; k++) {
+      core.step(0.1);
+      const pose = computeHeartPose(heart, cycleStateAt(core.models.tables, core.currentPhase));
+      const inside = (t: number): boolean => {
+        const p = add(mid, scale(across, t));
+        return classifyHeart(heart, pose, p.x + pose.swingX, p.y, p.z, s) && s.structure === Structure.Ivc && s.tissue === Tissue.Blood;
+      };
+      let a = 0,
+        b = 0;
+      while (a > -3 && inside(a - 0.01)) a -= 0.01;
+      while (b < 3 && inside(b + 0.01)) b += 0.01;
+      out.push(b - a);
+    }
+    return out;
+  };
+  const collapse = (d: number[]) => (Math.max(...d) - Math.min(...d)) / Math.max(...d);
+  const largestStep = (d: number[]) => d.slice(1).reduce((m, x, i) => Math.max(m, Math.abs(x - d[i]!)), 0);
+
+  it('in free breathing it collapses by the inspiratory collapse of the case and fills again, without jumps between beats', { timeout: 300_000 }, () => {
+    // The anatomy stayed in expiration while breathing freely (decision 108): the diameter did not change, and an IVC
+    // collapsibility could not be measured. The case gives the inspiratory collapse (70% normal, 20% pulmonary hypertension).
+    for (const [id, pct] of [['normal-excellent-window', 70], ['pulmonary-hypertension-rv', 20]] as const) {
+      const d = diameters(id, 'free-breathing');
+      const report = `${id}: ${d.map((x) => x.toFixed(2)).join(' ')}`;
+      expect(collapse(d), report).toBeGreaterThan(pct / 100 - 0.08);
+      expect(collapse(d), report).toBeLessThan(pct / 100 + 0.08);
+      // 0.1 s apart the calibre moves by what the breath gives it, not by a step at each beat
+      expect(largestStep(d), report).toBeLessThan(0.12);
+    }
+    expect(collapse(diameters('normal-excellent-window', 'expiration'))).toBeLessThan(0.02);
+  });
+});
+

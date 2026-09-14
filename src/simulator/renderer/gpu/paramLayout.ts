@@ -260,7 +260,7 @@ export function packScene(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, o
   set('IVC_BX', A.ivcB.x);
   set('IVC_BY', A.ivcB.y);
   set('IVC_BZ', A.ivcB.z);
-  set('IVC_R', A.ivcR * (1 - heart.ivcCollapse));
+  set('IVC_R', A.ivcR * (1 - hp.ivcCollapse));
   set('HV_AX', A.hvA.x);
   set('HV_AY', A.hvA.y);
   set('HV_AZ', A.hvA.z);
