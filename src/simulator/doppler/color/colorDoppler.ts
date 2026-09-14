@@ -31,23 +31,46 @@ export const DEFAULT_COLOR: ColorSettings = {
   invert: false,
 };
 
+/** Acquisition the colour field was formed with: the expected tissue attenuation depends on it. */
+export interface ColorAcquisition {
+  frequencyMHz: number;
+  harmonics: boolean;
+}
+
+/** Second-order wall-filter magnitude at |v| over the cutoff: −3 dB at the cutoff, flat from about twice it. */
+export function wallFilterResponse(vAbs: number, cutoffMps: number): number {
+  if (cutoffMps <= 0) return 1;
+  const x = (vAbs / cutoffMps) ** 2;
+  return x / Math.sqrt(1 + x * x);
+}
+
 /** Per-sample colour result buffers (polar). vel in m/s after aliasing, NaN where no colour. */
 export interface ColorField {
   vel: Float32Array;
   variance: Float32Array;
   power: Float32Array;
+  /** Velocity scale, baseline and inversion the field was formed with: its phases mean nothing under other ones. */
+  scaleMps: number;
+  baselineShiftMps: number;
+  invert: boolean;
 }
 
 export function allocColorField(n: number): ColorField {
-  return { vel: new Float32Array(n).fill(NaN), variance: new Float32Array(n), power: new Float32Array(n) };
+  return { vel: new Float32Array(n).fill(NaN), variance: new Float32Array(n), power: new Float32Array(n), scaleMps: 0, baselineShiftMps: 0, invert: false };
 }
 
 /**
  * Compute colour for samples inside the box. `axialVelocity(idx)` returns the projected velocity
  * (m/s, +toward) and dispersion for a polar sample, computed by the caller from the flow field.
- * Blooming: gain above 0 extends colour into adjacent non-blood samples (dilation). Shadowing:
- * samples with low transmission get no colour. Persistence blends each coloured sample with `prev`,
- * the field of the previous update: it must be a different buffer from `out`, which is cleared first.
+ * Blooming: gain above 0 extends colour into adjacent non-blood samples (dilation).
+ * Signal power (decision 87) is the colour gain × the sample's two-way transmission relative to what soft tissue would
+ * leave at that depth for this acquisition × the wall-filter response, so low gain loses attenuated, partly shadowed and
+ * slow flow first; under a real shadow (< 2 % of the expected transmission) there is no signal at any gain. It used to
+ * depend on velocity only, with the shadow threshold computed at a fixed 2.5 MHz.
+ * Persistence blends each coloured sample with `prev`, the field of the previous update, as the lag-one autocorrelation
+ * the velocity comes from: power-weighted phasors at the Doppler phase of each velocity, whose angle is the blended
+ * velocity. Averaging aliased velocities linearly turned two flows on either side of Nyquist into a false slow flow.
+ * `prev` must be a different buffer from `out`, which is cleared first.
  */
 export function computeColorField(
   frame: PolarFrame,
@@ -55,6 +78,7 @@ export function computeColorField(
   prev: ColorField | null,
   axialVelocity: (idx: number, li: number, si: number, out: { v: number; disp: number; present: number }) => void,
   out: ColorField,
+  acquisition: ColorAcquisition,
 ): { colorLines: number } {
   const { lines, samples, sectorRad, depthCm } = frame.spec;
   const tmp = { v: 0, disp: 0, present: 0 };
@@ -66,7 +90,13 @@ export function computeColorField(
   out.vel.fill(NaN);
   out.power.fill(0);
   out.variance.fill(0);
+  out.scaleMps = s.scaleMps;
+  out.baselineShiftMps = s.baselineShiftMps;
+  out.invert = s.invert;
+  // a history formed under another scale, baseline or inversion is not blended: its velocities are other phases
+  const history = prev && prev.scaleMps === s.scaleMps && prev.baselineShiftMps === s.baselineShiftMps && prev.invert === s.invert ? prev : null;
   const gainLin = Math.pow(10, s.gainDb / 20);
+  const fAtten = acquisition.frequencyMHz * (acquisition.harmonics ? 1.2 : 1);
   const bloomSamples = Math.max(0, Math.round((s.gainDb - 2) * 0.6)); // dilation radius grows with gain
   for (let li = liMin; li <= liMax; li++) {
     for (let si = siMin; si <= siMax; si++) {
@@ -74,8 +104,9 @@ export function computeColorField(
       const tissue = frame.tissue[idx];
       const trans = frame.transmission[idx] ?? 0;
       const r = ((si + 0.5) / samples) * depthCm;
-      const expected = Math.exp(-0.23 * 0.5 * 2.5 * 1.2 * r);
-      if (trans < 0.2 * expected) continue; // acoustic shadow: no Doppler signal
+      // two-way transmission soft tissue (0.5 dB/cm/MHz) would leave at this depth and frequency
+      const relTrans = trans / Math.exp(-0.23 * 0.5 * fAtten * r);
+      if (relTrans < 0.02) continue; // acoustic shadow: no Doppler signal at any gain
       let isBlood = tissue === Tissue.Blood;
       if (!isBlood && bloomSamples > 0) {
         // blooming: colour bleeds onto adjacent tissue when gain is high
@@ -91,18 +122,26 @@ export function computeColorField(
       const vTrue = s.invert ? -tmp.v : tmp.v;
       if (Math.abs(vTrue) < s.wallFilterMps) continue;
       const v = aliasVelocity(vTrue, s.scaleMps, s.baselineShiftMps);
-      const power = Math.min(1, gainLin * (0.6 + 0.4 * Math.min(1, Math.abs(vTrue) / 0.3)));
-      if (power < 0.25) continue; // low gain: weak signal not displayed
+      const power = Math.min(1, gainLin * Math.min(1, relTrans) * wallFilterResponse(Math.abs(vTrue), s.wallFilterMps));
+      if (power < 0.25) continue; // below the display threshold: weak signal not shown
       let vel = v;
       let variance = Math.min(1, tmp.disp * 1.6);
-      if (prev && !Number.isNaN(prev.vel[idx] ?? NaN)) {
+      let pow = power;
+      const pv = history ? (history.vel[idx] ?? NaN) : NaN;
+      if (history && !Number.isNaN(pv)) {
         const p = s.persistence;
-        vel = v * (1 - p) + (prev.vel[idx] ?? v) * p;
-        variance = variance * (1 - p) + (prev.variance[idx] ?? variance) * p;
+        const pp = history.power[idx] ?? power;
+        const a1 = (Math.PI * (v - s.baselineShiftMps)) / s.scaleMps;
+        const a0 = (Math.PI * (pv - s.baselineShiftMps)) / s.scaleMps;
+        const re = (1 - p) * power * Math.cos(a1) + p * pp * Math.cos(a0);
+        const im = (1 - p) * power * Math.sin(a1) + p * pp * Math.sin(a0);
+        vel = aliasVelocity(s.baselineShiftMps + (s.scaleMps * Math.atan2(im, re)) / Math.PI, s.scaleMps, s.baselineShiftMps);
+        variance = variance * (1 - p) + (history.variance[idx] ?? variance) * p;
+        pow = power * (1 - p) + pp * p;
       }
       out.vel[idx] = vel;
       out.variance[idx] = variance;
-      out.power[idx] = power;
+      out.power[idx] = pow;
     }
   }
   return { colorLines: Math.max(0, liMax - liMin + 1) };

@@ -46,31 +46,48 @@ export interface VelocitySample {
 }
 
 /**
- * Build one spectral column (SPECTRAL_BINS values 0..1, index 0 = vMax at top) from samples.
- * `aliasing=false` for CW (Nyquist far above the range → velocities beyond the display clip).
+ * Raw spectral distribution of one column (SPECTRAL_BINS values, index 0 = vMax at top) before gain and compression.
+ * Each sample adds a Gaussian of intrinsic plus turbulent broadening (decision 87):
+ * - PW (`aliasing`): centred on the aliased velocity and summed around the displayed span, so the part of the distribution
+ *   that crosses Nyquist reappears at the other end. It used to fold only the centre and cut the Gaussian at the screen
+ *   edge, so energy near Nyquist was lost.
+ * - CW: centred on the true velocity, and only the part inside the displayed range is drawn. The velocity used to be
+ *   clamped to the range first, so an out-of-range jet stacked at the edge and a wider scale did not move it back.
  */
-export function buildSpectralColumn(samples: readonly VelocitySample[], s: SpectralSettings, columnIndex: number, seed: number, aliasing: boolean, out: Float32Array): void {
+export function accumulateSpectrum(samples: readonly VelocitySample[], s: SpectralSettings, aliasing: boolean, out: Float32Array): void {
   const { vMin, vMax } = spectralRange(s);
   const span = vMax - vMin;
   out.fill(0);
-  const gainLin = Math.pow(10, s.gainDb / 20);
   const intrinsic = 0.035 * s.scaleMps + 0.02; // intrinsic spectral broadening (m/s)
   for (const smp of samples) {
     if (smp.weight <= 0) continue;
+    if (Math.abs(smp.v) < s.wallFilterMps) continue; // wall filter on true velocity
     let v = s.invert ? -smp.v : smp.v;
     if (aliasing) v = aliasVelocity(v, s.scaleMps, s.baselineShiftMps);
-    else v = Math.max(vMin, Math.min(vMax, v));
-    if (Math.abs(smp.v) < s.wallFilterMps) continue; // wall filter on true velocity
     const sigma = intrinsic + smp.dispersion * Math.abs(smp.v) * 0.9;
     const centerBin = ((vMax - v) / span) * SPECTRAL_BINS;
     const sigmaBins = Math.max(0.6, (sigma / span) * SPECTRAL_BINS);
-    const lo = Math.max(0, Math.floor(centerBin - 3 * sigmaBins));
-    const hi = Math.min(SPECTRAL_BINS - 1, Math.ceil(centerBin + 3 * sigmaBins));
+    let lo = Math.floor(centerBin - 3 * sigmaBins);
+    let hi = Math.ceil(centerBin + 3 * sigmaBins);
+    if (!aliasing) {
+      lo = Math.max(0, lo);
+      hi = Math.min(SPECTRAL_BINS - 1, hi);
+    }
     for (let b = lo; b <= hi; b++) {
       const d = (b + 0.5 - centerBin) / sigmaBins;
-      out[b] = (out[b] ?? 0) + smp.weight * Math.exp(-0.5 * d * d);
+      const k = aliasing ? ((b % SPECTRAL_BINS) + SPECTRAL_BINS) % SPECTRAL_BINS : b;
+      out[k] = (out[k] ?? 0) + smp.weight * Math.exp(-0.5 * d * d);
     }
   }
+}
+
+/**
+ * Build one spectral column (SPECTRAL_BINS values 0..1, index 0 = vMax at top) from samples.
+ * `aliasing=false` for CW (Nyquist far above the range → velocities beyond the display leave it).
+ */
+export function buildSpectralColumn(samples: readonly VelocitySample[], s: SpectralSettings, columnIndex: number, seed: number, aliasing: boolean, out: Float32Array): void {
+  accumulateSpectrum(samples, s, aliasing, out);
+  const gainLin = Math.pow(10, s.gainDb / 20);
   // normalise softly, apply gain + noise floor + compression
   let max = 0;
   for (let b = 0; b < SPECTRAL_BINS; b++) max = Math.max(max, out[b] ?? 0);

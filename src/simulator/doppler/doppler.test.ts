@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildSpectralColumn, SPECTRAL_BINS, DEFAULT_SPECTRAL, spectralRange } from './spectral/spectrum';
+import { accumulateSpectrum, buildSpectralColumn, SPECTRAL_BINS, DEFAULT_SPECTRAL, spectralRange } from './spectral/spectrum';
 import { sampleFlow, buildFlowParams } from './flow-primitives/flowField';
 import { loadCaseById } from '@/cases';
 import { createHeartModel, computeHeartPose, heartLandmarks, heartToTorso } from '@/simulator/anatomy/heartModel';
@@ -56,31 +56,63 @@ describe('Doppler physics (spec 36/48.3)', () => {
     expect(proj(60)).toBeCloseTo(0.5, 2);
   });
 
-  it('PW aliases when the velocity exceeds Nyquist; CW clips instead of wrapping', () => {
+  it('PW aliases when the velocity exceeds Nyquist; CW keeps the true velocity and leaves the screen instead of stacking at its edge', () => {
     const s = { ...DEFAULT_SPECTRAL, scaleMps: 0.6, baselineShiftMps: 0 };
+    const peakVelocity = (col: Float32Array, set: typeof s): { v: number; value: number } => {
+      const { vMin, vMax } = spectralRange(set);
+      let best = -1,
+        bestV = 0;
+      for (let b = 0; b < SPECTRAL_BINS; b++)
+        if ((col[b] ?? 0) > best) {
+          best = col[b] ?? 0;
+          bestV = vMax - ((b + 0.5) / SPECTRAL_BINS) * (vMax - vMin);
+        }
+      return { v: bestV, value: best };
+    };
     const col = new Float32Array(SPECTRAL_BINS);
     buildSpectralColumn([{ v: 1.0, weight: 1, dispersion: 0.05 }], s, 1, 1, true, col);
-    const { vMin, vMax } = spectralRange(s);
     // energy should sit at the aliased velocity 1.0 − 1.2 = −0.2 m/s (below baseline)
-    let best = 0,
-      bestV = 0;
-    for (let b = 0; b < SPECTRAL_BINS; b++)
-      if ((col[b] ?? 0) > best) {
-        best = col[b] ?? 0;
-        bestV = vMax - ((b + 0.5) / SPECTRAL_BINS) * (vMax - vMin);
-      }
-    expect(bestV).toBeLessThan(0);
-    expect(bestV).toBeCloseTo(-0.2, 1);
+    expect(peakVelocity(col, s).v).toBeCloseTo(-0.2, 1);
+    // CW (decision 87): a 1.0 m/s jet on a ±0.6 m/s scale draws nothing in range, not a band at +0.6
     const cw = new Float32Array(SPECTRAL_BINS);
-    buildSpectralColumn([{ v: 1.0, weight: 1, dispersion: 0.05 }], s, 1, 1, false, cw);
-    let bestCw = 0,
-      bestVcw = 0;
-    for (let b = 0; b < SPECTRAL_BINS; b++)
-      if ((cw[b] ?? 0) > bestCw) {
-        bestCw = cw[b] ?? 0;
-        bestVcw = vMax - ((b + 0.5) / SPECTRAL_BINS) * (vMax - vMin);
-      }
-    expect(bestVcw).toBeGreaterThan(0.5); // clipped at the top of the range, not wrapped
+    accumulateSpectrum([{ v: 1.0, weight: 1, dispersion: 0.05 }], s, false, cw);
+    expect(Math.max(...Array.from(cw))).toBeLessThan(1e-6);
+    // widening the scale shows it where it is
+    const wide = { ...s, scaleMps: 1.4 };
+    accumulateSpectrum([{ v: 1.0, weight: 1, dispersion: 0.05 }], wide, false, cw);
+    expect(peakVelocity(cw, wide).v).toBeCloseTo(1.0, 1);
+    // a jet 2.8 σ past the edge leaves only its tail in range (σ ≈ 0.07 m/s): the top bin holds a small fraction of a
+    // centred peak, where clamping stacked the whole peak
+    const centred = new Float32Array(SPECTRAL_BINS);
+    accumulateSpectrum([{ v: 0.3, weight: 1, dispersion: 0.05 }], s, false, centred);
+    accumulateSpectrum([{ v: 0.8, weight: 1, dispersion: 0.05 }], s, false, cw);
+    expect(cw[0]!).toBeLessThan(0.1 * Math.max(...Array.from(centred)));
+  });
+
+  it('PW keeps the whole distribution when it crosses Nyquist: its energy reappears at the other end (decision 87)', () => {
+    const s = { ...DEFAULT_SPECTRAL, scaleMps: 0.6, baselineShiftMps: 0.1, wallFilterMps: 0.05 };
+    const energy = (v: number): { total: number; bottom: number } => {
+      const col = new Float32Array(SPECTRAL_BINS);
+      // broad turbulent distribution (σ ≈ 0.2 m/s) so a good part of it is beyond Nyquist near the edge
+      accumulateSpectrum([{ v, weight: 1, dispersion: 0.25 }], s, true, col);
+      let total = 0;
+      for (const x of col) total += x;
+      let bottom = 0;
+      for (let b = Math.floor(SPECTRAL_BINS * 0.85); b < SPECTRAL_BINS; b++) bottom += col[b]!;
+      return { total, bottom };
+    };
+    const ref = energy(0.2).total; // fully inside the range
+    for (const v of [0.55, 0.65, 0.7, 0.8]) {
+      const e = energy(v);
+      // the sum over bins of a Gaussian wrapped on the span does not depend on where it sits (σ grows with |v| here, so
+      // compare against the analytic sum for its own width)
+      const sigma = 0.035 * s.scaleMps + 0.02 + 0.25 * v * 0.9;
+      const sigmaBins = Math.max(0.6, (sigma / 1.2) * SPECTRAL_BINS);
+      const analytic = sigmaBins * Math.sqrt(2 * Math.PI);
+      expect(Math.abs(e.total / analytic - 1), `v=${v}`).toBeLessThan(0.02);
+      if (v <= 0.7) expect(e.bottom, `v=${v}: energy past +Nyquist wraps to the bottom of the scale`).toBeGreaterThan(0.1 * e.total);
+    }
+    expect(ref).toBeGreaterThan(0);
   });
 
   it('wall filter removes low velocities and turbulence broadens the spectrum', () => {

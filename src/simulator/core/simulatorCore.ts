@@ -405,6 +405,7 @@ export class SimulatorCore {
         o.present = fs.present;
       },
       out,
+      { frequencyMHz: this.input.settings.frequencyMHz, harmonics: this.input.settings.harmonics },
     );
     this.colorPrev = out;
     this.colorVersion++;

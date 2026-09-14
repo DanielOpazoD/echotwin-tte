@@ -7,7 +7,8 @@ import { DEFAULT_SPECTRAL } from '@/simulator/doppler/spectral/spectrum';
 import { buildScanLut, computeSectorMapping, type ScanLut } from '@/simulator/renderer/scanConvert';
 import { allocPolarFrame, DEFAULT_ACQUISITION, type PolarFrameSpec } from '@/simulator/renderer/types';
 import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
-import { allocColorField, computeColorField, DEFAULT_COLOR, overlayColorField, type ColorField, type ColorSettings } from './colorDoppler';
+import { aliasVelocity } from '@/clinical/formulas';
+import { allocColorField, computeColorField, DEFAULT_COLOR, overlayColorField, wallFilterResponse, type ColorAcquisition, type ColorField, type ColorSettings } from './colorDoppler';
 
 // synthetic frame: blood everywhere with full transmission, so every sample inside the colour box gets colour
 const spec: PolarFrameSpec = { lines: 24, samples: 64, sectorRad: 1.2, depthCm: 16, elevationSamples: 1, focusCm: 8 };
@@ -15,12 +16,14 @@ const frame = allocPolarFrame(spec);
 frame.tissue.fill(Tissue.Blood);
 frame.transmission.fill(1);
 
-/** One colour update of the synthetic frame with a uniform axial velocity (m/s, below Nyquist) and dispersion. */
-function update(persistence: number, prev: ColorField | null, v: number, disp: number): ColorField {
+const ACQ: ColorAcquisition = { frequencyMHz: 2.5, harmonics: true };
+
+/** One colour update of the synthetic frame with a uniform axial velocity (m/s) and dispersion. */
+function update(persistence: number, prev: ColorField | null, v: number, disp: number, over: Partial<ColorSettings> = {}, target = frame, acq = ACQ): ColorField {
   const out = allocColorField(spec.lines * spec.samples);
   computeColorField(
-    frame,
-    { ...DEFAULT_COLOR, persistence },
+    target,
+    { ...DEFAULT_COLOR, persistence, ...over },
     prev,
     (_idx, _li, _si, o) => {
       o.v = v;
@@ -28,24 +31,58 @@ function update(persistence: number, prev: ColorField | null, v: number, disp: n
       o.present = 1;
     },
     out,
+    acq,
   );
   return out;
 }
 
+/**
+ * Persistence as the autocorrelation the velocity comes from (decision 87): power-weighted phasors at the Doppler phase
+ * of each velocity; the blended velocity is their angle.
+ */
+function circularBlend(p: number, v: number, pw: number, vPrev: number, pwPrev: number, c: ColorSettings = DEFAULT_COLOR): number {
+  const a1 = (Math.PI * (v - c.baselineShiftMps)) / c.scaleMps;
+  const a0 = (Math.PI * (vPrev - c.baselineShiftMps)) / c.scaleMps;
+  const re = (1 - p) * pw * Math.cos(a1) + p * pwPrev * Math.cos(a0);
+  const im = (1 - p) * pw * Math.sin(a1) + p * pwPrev * Math.sin(a0);
+  return aliasVelocity(c.baselineShiftMps + (c.scaleMps * Math.atan2(im, re)) / Math.PI, c.scaleMps, c.baselineShiftMps);
+}
+
 const colored = (f: ColorField): number[] => Array.from(f.vel.keys()).filter((i) => !Number.isNaN(f.vel[i]!));
 
-describe('colour Doppler persistence (decision 56)', () => {
+describe('colour Doppler persistence (decisions 56 and 87)', () => {
   it('persistence 0.5: the second field blends its raw velocity and variance with the first field', () => {
     const first = update(0.5, null, 0.2, 0.1); // variance 1.6 · 0.1 = 0.16
     const second = update(0.5, first, 0.5, 0.4); // raw variance 0.64
     const idx = colored(first);
     expect(idx.length).toBeGreaterThan(100);
     expect(colored(second)).toEqual(idx);
+    const w = DEFAULT_COLOR.wallFilterMps;
     for (const i of idx) {
-      expect(second.vel[i]).toBeCloseTo(0.5 * 0.5 + 0.5 * 0.2, 5);
+      expect(second.vel[i]).toBeCloseTo(circularBlend(0.5, 0.5, wallFilterResponse(0.5, w), 0.2, wallFilterResponse(0.2, w)), 5);
+      // two nearly equal powers well below Nyquist: the phasor angle is the linear mean
+      expect(second.vel[i]).toBeCloseTo(0.35, 2);
       expect(second.variance[i]).toBeCloseTo(0.5 * 0.64 + 0.5 * 0.16, 5);
       expect(first.vel[i]).toBeCloseTo(0.2, 5); // the previous field is only read
     }
+  });
+
+  it('two flows either side of Nyquist stay near Nyquist instead of blending into a false slow flow', () => {
+    // 0.60 m/s shows as +0.60; 0.64 m/s aliases to −0.60 with the 0.62 m/s scale
+    const first = update(0.3, null, 0.6, 0.05);
+    const second = update(0.3, first, 0.64, 0.05);
+    const idx = colored(second);
+    expect(idx.length).toBeGreaterThan(100);
+    for (const i of idx) expect(Math.abs(second.vel[i]!)).toBeGreaterThan(0.55); // a linear blend gives −0.24
+  });
+
+  it('a history formed under another velocity scale is not blended', () => {
+    // 0.5 m/s is stored as −0.3 on a 0.4 m/s scale: read as a phase of the 0.8 m/s scale it would pull the flow backwards
+    const first = update(0.5, null, 0.5, 0.05, { scaleMps: 0.4 });
+    const second = update(0.5, first, 0.5, 0.05, { scaleMps: 0.8 });
+    const raw = update(0, null, 0.5, 0.05, { scaleMps: 0.8 });
+    expect(colored(second).length).toBeGreaterThan(100);
+    expect(second.vel).toEqual(raw.vel);
   });
 
   it('persistence 0: the second field is the raw second field', () => {
@@ -56,6 +93,38 @@ describe('colour Doppler persistence (decision 56)', () => {
     expect(second.vel[colored(second)[0]!]).toBeCloseTo(0.5, 5);
     expect(second.vel).toEqual(raw.vel);
     expect(second.variance).toEqual(raw.variance);
+  });
+});
+
+describe('colour signal power (decision 87)', () => {
+  const depthFrame = (trans: (rCm: number) => number) => {
+    const f = allocPolarFrame(spec);
+    f.tissue.fill(Tissue.Blood);
+    for (let li = 0; li < spec.lines; li++) for (let si = 0; si < spec.samples; si++) f.transmission[li * spec.samples + si] = trans(((si + 0.5) / spec.samples) * spec.depthCm);
+    return f;
+  };
+  const deepestColoured = (f: ColorField): number => {
+    let deepest = -1;
+    for (let li = 0; li < spec.lines; li++) for (let si = 0; si < spec.samples; si++) if (!Number.isNaN(f.vel[li * spec.samples + si]!)) deepest = Math.max(deepest, si);
+    return ((deepest + 0.5) / spec.samples) * spec.depthCm;
+  };
+
+  it('the shadow threshold follows the acquisition frequency: soft tissue at 3.5 MHz is not a shadow', () => {
+    const acq: ColorAcquisition = { frequencyMHz: 3.5, harmonics: true };
+    const softTissue = depthFrame((r) => Math.exp(-0.23 * 0.5 * 3.5 * 1.2 * r));
+    const f = update(0, null, 0.5, 0.05, {}, softTissue, acq);
+    // the box reaches 13 cm; with the attenuation expected at 2.5 MHz the deepest 5 cm went dark
+    expect(deepestColoured(f)).toBeGreaterThan(12.5);
+  });
+
+  it('low colour gain loses attenuated flow before strong flow, and a real shadow has no colour at any gain', () => {
+    const half = depthFrame((r) => (r < 9 ? 1 : 0.4) * Math.exp(-0.23 * 0.5 * 2.5 * 1.2 * r));
+    const low = update(0, null, 0.5, 0.05, { gainDb: -6 }, half);
+    const deep = deepestColoured(low);
+    expect(deep).toBeLessThan(9); // 0.5 × 0.4 = 0.2 falls under the threshold beyond 9 cm
+    expect(deep).toBeGreaterThan(8); // the unattenuated flow above stays
+    const shadow = depthFrame((r) => (r < 9 ? 1 : 0.01) * Math.exp(-0.23 * 0.5 * 2.5 * 1.2 * r));
+    expect(deepestColoured(update(0, null, 0.5, 0.05, { gainDb: 12 }, shadow))).toBeLessThan(9);
   });
 });
 
@@ -108,7 +177,7 @@ function fieldDiff(a: ColorField, b: ColorField): number {
   return n;
 }
 
-const copyField = (f: ColorField): ColorField => ({ vel: new Float32Array(f.vel), variance: new Float32Array(f.variance), power: new Float32Array(0) });
+const copyField = (f: ColorField): ColorField => ({ vel: new Float32Array(f.vel), variance: new Float32Array(f.variance), power: new Float32Array(f.power), scaleMps: f.scaleMps, baselineShiftMps: f.baselineShiftMps, invert: f.invert });
 
 /** Samples where blending with `before` would change the raw field: only there can a missing reset be seen. */
 function wouldBlend(before: ColorField, rawNow: ColorField, minDelta = 0.002): number {
@@ -154,12 +223,12 @@ describe('colour persistence through SimulatorCore (decision 56)', () => {
       expect(k.version).toBe(version + 1); // the GPU present pass uploads the field when the version changes
       version = k.version;
       updates++;
-      const { vel: rv, variance: rs } = r.field!;
+      const { vel: rv, variance: rs, power: rp } = r.field!;
       const { vel: kv, variance: ks } = k.field!;
       for (let s = 0; s < kv.length; s++) {
         const vPrev = prev ? prev.vel[s]! : NaN;
         const both = !Number.isNaN(rv[s]!) && !Number.isNaN(vPrev);
-        const ev = both ? rv[s]! * (1 - p) + vPrev * p : rv[s]!;
+        const ev = both ? circularBlend(p, rv[s]!, rp[s]!, vPrev, prev!.power[s]!, settings) : rv[s]!;
         const es = both ? rs[s]! * (1 - p) + prev!.variance[s]! * p : rs[s]!;
         const velOk = Number.isNaN(ev) ? Number.isNaN(kv[s]!) : Math.abs(kv[s]! - ev) < 1e-5;
         if (!velOk || !(Math.abs(ks[s]! - es) < 1e-5)) mismatches++;
@@ -178,7 +247,7 @@ describe('colour persistence through SimulatorCore (decision 56)', () => {
           if (Math.abs(px[o]! - px[o + 2]! - now[q]!) > 2) wrongField++;
         }
       }
-      prev = { vel: new Float32Array(kv), variance: new Float32Array(ks), power: new Float32Array(0) };
+      prev = copyField(k.field!);
     }
     expect(updates).toBe(6);
     expect(mismatches).toBe(0);

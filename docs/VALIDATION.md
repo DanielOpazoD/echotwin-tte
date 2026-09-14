@@ -42,11 +42,13 @@ Referencia = con qué se compara (valor analítico, consistencia interna o rango
 | | Barrido PLAX→PSAX sin saltos | — | máx < 3,5× media | pasa |
 | `doppler/doppler.test.ts` | Flujo TSVI en sístole 0,6–1,5 m/s y < 0,2 en diástole; mitral 0,5–1,1 hacia el ápex | fisiológico | rango | pasa |
 | | Ley del coseno (0°, 20°, 60°) | 1, 0,94, 0,5 | ±0,005 | pasa |
-| | PW pliega 1,0 m/s con escala 0,6 → −0,2; CW recorta | — | ±0,05 | pasa |
+| | PW pliega 1,0 m/s con escala 0,6 → −0,2; CW fuera de escala no se apila en el borde y reaparece en su velocidad al ampliar la escala (decisión 87) | — | ±0,05 | pasa |
+| | PW conserva la distribución completa al cruzar Nyquist: energía de una gaussiana ancha frente a su suma analítica en cuatro posiciones junto al borde (decisión 87) | suma analítica | < 2 % | pasa |
 | | Filtro de pared elimina 0,1 m/s; turbulencia ensancha > 1,5× | — | — | pasa |
 | | PW en TSVI desde 9 posiciones de sonda (ajustadas al espacio intercostal, sonda re-apuntada al TSVI desde cada una para que quede en el plano): ≥ 6 con señal; mejor pico 0,45–1,6 m/s; pico ≈ \|v·d\| en el gate; la peor alineación (> 12° más) mide < 0,8× la mejor | cos θ | error < 0,35 m/s | pasa (una versión anterior mantenía la orientación y desde posiciones mediales el gate proyectado caía en los senos aórticos sin flujo) |
 | | CW independiente del gate (Δ < 0,08); PW en campo cercano < PW en TSVI | — | — | pasa |
 | `doppler/color/colorDoppler.test.ts` | Persistencia del color (decisión 56): con 0,5 la segunda actualización de un cuadro sintético mezcla velocidad y varianza con la primera, y con 0 es el campo crudo; a través del núcleo, cada actualización es la mezcla del campo crudo con el anterior, la versión sube una vez por actualización y el cine muestra el mismo color que el cuadro en vivo | analítico; el mismo núcleo sin persistencia | ±10⁻⁵ | pasa (3) |
+| | Persistencia como autocorrelación (decisión 87): dos flujos a ambos lados de Nyquist quedan cerca de Nyquist (no −0,24 m/s); una historia de otra escala no se mezcla; la sombra sigue la frecuencia de adquisición (3,5 MHz colorea hasta el final de la caja); con −6 dB se apaga antes el flujo atenuado y una sombra real no tiene color con +12 dB | cuadros sintéticos | — | pasa |
 | `education/scoring/scoring.test.ts` | Adquisición 100 con las 4 vistas sobre el mínimo; < 70 con PLAX 90 + A4C 35 | — | — | pasa |
 | | Medición correcta (+3 %) con vista 20 → inválida, < 50 puntos; con vista 80 → 100 | — | — | pasa |
 | | VTI con +40 % pierde puntos (0 < p < 100); `mitral-e` no medida = 0 | — | — | pasa |
