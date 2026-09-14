@@ -879,11 +879,16 @@ function anchors(m: HeartModel): Anchors {
   // the plane through the three valve centres then sat 64° from the aortic root axis instead of under 30°,
   // which is why no probe angle could show a round aorta ringed by the other valves.
   const rvotB = v3(-0.48, 3.57 + dWall * 0.2, 0.47);
-  const paDir = normalize(v3(0.6, 0.35, -0.72));
-  const paEnd = add(rvotB, scale(paDir, 3.6));
   // torso directions in the heart frame: the pulmonary branches run horizontally in the patient
   const f = m.frame;
   const dirH = (d: Vec3): Vec3 => v3(dot(d, f.ex), dot(d, f.ey), dot(d, f.ez));
+  // The trunk leaves the pulmonary valve backward, upward and to the left, around the left side of the ascending aorta
+  // to its bifurcation behind it, so the great arteries cross. Given along the heart's axes it ran straight up and back in
+  // the torso (−0.01, 0.83, −0.56), with no leftward course, 46° from the root axis (decision 86): the great-vessel short
+  // axis cut it obliquely and never the pulmonary valve. The only measured crossing angle found is fetal (78 ± 10°,
+  // 59–97°, smaller with gestational age); no adult value was found, so the 79° this direction gives is an assumption.
+  const paDir = normalize(dirH(v3(0.4, 0.5, -0.77)));
+  const paEnd = add(rvotB, scale(paDir, 3.6));
   const tRight = dirH(v3(-1, 0, 0)),
     tLeft = dirH(v3(1, 0, 0)),
     tPost = dirH(v3(0, 0, -1)),

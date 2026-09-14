@@ -306,6 +306,12 @@ export function measureModel(c: CaseDefinition, patient: PatientState = DEFAULT_
   const valvePlane = normalize(cross(sub(A.rvotB, A.tvCenter), sub(A.avCenter, A.tvCenter)));
   const tilt = (Math.acos(Math.min(1, Math.abs(dot(valvePlane, normalize(AV_AXIS))))) * 180) / Math.PI;
   add('valve-plane-tilt', 'Three-valve plane vs aortic axis', tilt, '°', 0, 30, FS, true);
+  // The great arteries cross, which lets the great-vessel short axis show a round aorta with the trunk running away from
+  // the pulmonary valve along the plane. The range is fetal (78 ± 10°, 59–97° between ascending aorta and main pulmonary
+  // artery by spatiotemporal image correlation; the angle falls with gestational age) because no adult measurement was
+  // found: a plausibility bound, marked approximate. It measured 46° until decision 86.
+  const crossing = (Math.acos(Math.min(1, Math.abs(dot(normalize(A.paDir), normalize(AV_AXIS))))) * 180) / Math.PI;
+  add('great-artery-crossing', 'Pulmonary trunk vs aortic root axis', crossing, '°', 59, 97, FS, true);
   return { caseId: c.id, bsaM2: bsa, rows };
 }
 

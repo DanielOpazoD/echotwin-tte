@@ -91,9 +91,6 @@ const EXPECTED: Record<string, { needs: Requirement[]; forbids?: Forbidden[] }> 
  * removed once fixed — the same contract as KNOWN_MODEL_LIMITATIONS in proportions.test.ts.
  */
 const KNOWN_VIEW_LIMITATIONS: ReadonlySet<string> = new Set([
-  // The great-vessel short axis reaches the trunk but not the cusps: the plane drawn passes 0.54 cm from the
-  // pulmonary annulus, close enough to be in the sector and far enough to miss a leaflet (decision 62).
-  'psax-av/pulmonary valve',
   // The mitral short axis cuts the inferior vena cava and a hepatic vein, which cannot be in that plane;
   // the parasternal window solver puts the beam 24.3° away from the requested short axis (decision 59).
   'psax-mv/inferior vena cava',
@@ -185,3 +182,44 @@ describe('apical presets keep the ventricle clear of lung where the window allow
     expect(problems).toEqual([]);
   });
 });
+
+describe('apical five-chamber view (decision 85)', () => {
+  it('puts the aortic valve against the septum, between both atria, not under the middle of the ventricle', { timeout: 180_000 }, () => {
+    // The plane was rotated 19° toward the anterior wall and grazed the back of the root: the valve showed 1.3-2.1 cm from
+    // the septum and 0.6 cm from the middle of the basal cavity, where the mitral valve belongs.
+    const problems: string[] = [];
+    for (const input of CASE_INPUTS) {
+      const c = loadCaseById(input.id);
+      const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, { position: 'left-lateral', respiration: 'expiration', headElevationDeg: 0 }, c.anatomy.ivc.collapsePct);
+      const heart = createHeartModel(c.anatomy, c.physiology, thorax.heartOffset, c.seed, thorax.ivcCollapse);
+      const tables = buildBeatTables(60 / c.rhythm.heartRateBpm, c.physiology, c.rhythm, c.hemodynamics);
+      const beam = beamFrameFromPose(poseFromControl(thorax, canonicalControl(getViewTarget('a5c'), heart, thorax)), 1);
+      const pose = computeHeartPose(heart, cycleStateAt(tables, 0.25));
+      const s = makeSample();
+      const mean = { root: [0, 0], septum: [0, 0], cavity: [0, 0], valve: 0, ra: 0, la: 0 };
+      for (let dep = 0.2; dep < 17; dep += 0.1)
+        for (let lat = -8; lat < 8; lat += 0.1) {
+          const p = torsoToHeart(heart.frame, add(beam.origin, add(scale(beam.forward, dep), scale(beam.lateral, lat))));
+          if (!classifyHeart(heart, pose, p.x, p.y, p.z, s)) continue;
+          const acc = (k: 'root' | 'septum' | 'cavity') => {
+            mean[k][0]! += lat;
+            mean[k][1]! += 1;
+          };
+          if (s.structure === Structure.AorticRoot || s.structure === Structure.AorticValve) acc('root');
+          if (s.structure === Structure.AorticValve) mean.valve++;
+          // the basal septum and basal cavity, from the annulus to 2-3 cm into the ventricle
+          if (s.structure === Structure.LvWallSeptal && p.z > 0 && p.z < 2) acc('septum');
+          if (s.structure === Structure.LvCavity && p.z > 1 && p.z < 3) acc('cavity');
+          if (s.structure === Structure.RaCavity) mean.ra++;
+          if (s.structure === Structure.LaCavity) mean.la++;
+        }
+      const at = (k: 'root' | 'septum' | 'cavity') => mean[k][0]! / Math.max(1, mean[k][1]!);
+      const toSeptum = Math.abs(at('root') - at('septum')),
+        toCavity = Math.abs(at('cavity') - at('root'));
+      if (!(mean.valve > 0 && mean.ra > 50 && mean.la > 50 && toSeptum < toCavity))
+        problems.push(`${input.id}: valve samples ${mean.valve}, RA ${mean.ra}, LA ${mean.la}; root ${toSeptum.toFixed(2)} cm from the basal septum and ${toCavity.toFixed(2)} from the basal cavity centre`);
+    }
+    expect(problems).toEqual([]);
+  });
+});
+

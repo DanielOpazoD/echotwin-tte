@@ -225,9 +225,14 @@ export function buildViewTargets(): ViewTarget[] {
       id: 'a5c',
       name: 'Apical cinco cámaras (A5C)',
       window: 'apical',
-      planeRight: R(v3(1, 0.35, 0)),
+      // The four-chamber plane moved forward onto the outflow tract, keeping its septal–lateral orientation, and aimed at
+      // the aortic valve 0.55 cm behind its centre so the cusps and both atria stay in the sector (decision 85). It was
+      // rotated 19° toward the anterior wall and aimed 1 cm into the ventricle: the plane grazed the back of the root
+      // 0.9 cm from its centre, and the valve showed 1.3-2.1 cm from the septum, under the middle of the ventricle where
+      // the mitral valve belongs, instead of against the septum between both atria.
+      planeRight: R(v3(1, 0, 0)),
       planeDown: R(v3(0, 0, -1)),
-      target: v3(-0.7, 0.9, 1.0),
+      target: v3(AV_CENTER.x, AV_CENTER.y - 0.55, AV_CENTER.z),
       skin: { u: 6.8, v: -2.8 },
       requiredLandmarks: [
         { landmarkId: 'lvot', weight: 1.3, required: true },

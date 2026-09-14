@@ -12,20 +12,32 @@ import { CASE_INPUTS, loadCaseById } from '@/cases';
  * limitation in docs/LIMITATIONS.md; remove it when the anatomy pass fixes the primitive.
  */
 const KNOWN_MODEL_LIMITATIONS: ReadonlySet<string> = new Set([
-  // The four valve rings are not arranged as one fibrous skeleton: the plane through the aortic, pulmonary
-  // and tricuspid centres sits 64° from the aortic root axis (should be under 30°, since the parasternal
-  // short axis of the great vessels shows a round aorta surrounded by the other valves), and the tricuspid
-  // centre is 4.65 cm from the aortic one against 3.0–4.5. This is why that view cannot hold the aorta and
-  // the pulmonary valve at the same time whatever the probe does (decision 59, docs/LIMITATIONS.md).
-  'valve-plane-tilt',
+  // The tricuspid centre sits 4.3–5.6 cm from the aortic one against 3.0–4.5 in ten of the twelve cases: the
+  // tricuspid ring is not yet part of one fibrous skeleton with the aortic and mitral rings (docs/LIMITATIONS.md).
+  // The plane through the aortic, pulmonary and tricuspid centres, declared here too while it sat 64° from the
+  // aortic axis (decision 59), measures 14–16° in every case: nothing flagged that exemption as stale until
+  // decision 86 added the check below.
   'av-tv-distance',
 ]);
+
+/** Out-of-range measures per case, filled by the per-case tests and read by the staleness check. */
+const outOfRange = new Map<string, Set<string>>();
+const measureCase = (id: string): Set<string> => {
+  let out = outOfRange.get(id);
+  if (!out) {
+    const m = measureModel(loadCaseById(id), undefined, 90000);
+    out = new Set(m.rows.filter((r) => r.verdict !== 'ok').map((r) => r.id));
+    outOfRange.set(id, out);
+  }
+  return out;
+};
 
 describe('model proportions against reference ranges', () => {
   for (const input of CASE_INPUTS) {
     it(`${input.id}: only declared deviations leave the reference ranges`, { timeout: 120_000 }, () => {
       const c = loadCaseById(input.id);
       const m = measureModel(c, undefined, 90000);
+      outOfRange.set(input.id, new Set(m.rows.filter((r) => r.verdict !== 'ok').map((r) => r.id)));
       const declared = new Set(c.expectedDeviations ?? []);
       const undeclared = m.rows
         .filter((r) => r.verdict !== 'ok' && !declared.has(r.id) && !KNOWN_MODEL_LIMITATIONS.has(r.id))
@@ -35,4 +47,8 @@ describe('model proportions against reference ranges', () => {
       expect(stale, 'declared deviations that are inside the range').toEqual([]);
     });
   }
+  it('every model limitation still leaves its range in some case', { timeout: 600_000 }, () => {
+    const stale = [...KNOWN_MODEL_LIMITATIONS].filter((id) => CASE_INPUTS.every((input) => !measureCase(input.id).has(id)));
+    expect(stale, 'model limitations that no case needs any more').toEqual([]);
+  });
 });
