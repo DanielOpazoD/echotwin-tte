@@ -17,7 +17,7 @@ import { analyzeView, type ViewAnalysis } from '@/simulator/view-recognition/vie
 import { buildFlowParams, sampleFlow, sampleTissueVelocity, type FlowFieldParams, type FlowSample } from '@/simulator/doppler/flow-primitives/flowField';
 import { allocColorField, colorMap, computeColorField, DOPPLER_SHADOW_TRANSMISSION, overlayColorField, relativeTransmission, type ColorField } from '@/simulator/doppler/color/colorDoppler';
 import { aliasVelocity } from '@/clinical/formulas';
-import { buildSpectralColumn, envelopeThreshold, isClickColumn, SPECTRAL_BINS, spectralRange, type VelocitySample } from '@/simulator/doppler/spectral/spectrum';
+import { buildSpectralColumn, CLICK_SIGMA_S, envelopeThreshold, isClickColumn, SPECTRAL_BINS, spectralRange, type VelocitySample } from '@/simulator/doppler/spectral/spectrum';
 import { valveClickWeight } from '@/simulator/doppler/spectral/valveClicks';
 import { computeGroundTruth, type StructuredEchoTruth } from '@/simulator/hemodynamics/groundTruth';
 import { makeSample, Tissue } from '@/simulator/anatomy/tissue';
@@ -848,7 +848,10 @@ export class SimulatorCore {
       }
       // valve clicks have no envelope: across a click the trace joins the columns on either side (decision 103), as a
       // sonographer ignores the line; the VTI would otherwise add a spike to the top of the scale at each one
-      const click = velocitiesMps.map((_, i) => isClickColumn(strip.subarray((x0 + i) * SPECTRAL_BINS, (x0 + i + 1) * SPECTRAL_BINS), this.input.spectral));
+      const core = velocitiesMps.map((_, i) => isClickColumn(strip.subarray((x0 + i) * SPECTRAL_BINS, (x0 + i + 1) * SPECTRAL_BINS), this.input.spectral));
+      // the click's tails, too faint to fill the scale, still lift the envelope: bridge 2.5 click widths on each side
+      const reach = Math.ceil((2.5 * CLICK_SIGMA_S) / Math.max(1e-6, spc));
+      const click = core.map((_, i) => core.slice(Math.max(0, i - reach), i + reach + 1).some(Boolean));
       for (let i = 0; i < velocitiesMps.length; i++) {
         if (!click[i]) continue;
         let a = i - 1,

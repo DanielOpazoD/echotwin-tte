@@ -342,7 +342,7 @@ export function sampleFlow(p: FlowFieldParams, tables: BeatTables, hp: HeartPose
   }
   // ---- RVOT / pulmonary ----
   if (p.enabled['rvot'] !== false) {
-    const qpv = sampleTable(tables.aorticFlowMlps, phase + 0.01);
+    const qpv = sampleTable(tables.pulmonaryFlowMlps, phase);
     if (qpv > 1) {
       const ax = p.rvotB.x - p.rvotA.x,
         ay = p.rvotB.y - p.rvotA.y,

@@ -15,6 +15,10 @@ export interface BeatTables {
   strokeVolumeMl: number;
   lvVolumeMl: Float32Array; // V(φ)
   aorticFlowMlps: Float32Array; // Q_ao(φ) ≥ 0 during ejection
+  /** Q_pv(φ) ≥ 0: right ventricular ejection, with the case's pulmonary acceleration time (decision 105). */
+  pulmonaryFlowMlps: Float32Array;
+  /** Acceleration time (s) of the right ventricular ejection. */
+  pulmonaryAccelerationS: number;
   mitralFlowMlps: Float32Array; // Q_mv(φ) ≥ 0 during filling
   mvEffectiveAreaCm2: number; // solved so that ∫Q_mv = SV with the requested E and A peak velocities
   /** Regurgitant flows (mL/s) through the mitral (systole) and aortic (diastole) valves; zero when absent. */
@@ -37,6 +41,24 @@ export interface BeatOptions {
   preloadFactor?: number;
   aWave?: boolean;
   n?: number;
+}
+
+/**
+ * Pulmonary acceleration time (s) for a mean pulmonary artery pressure (mmHg), inverting the Doppler regressions: Dabestani
+ * et al. (Am J Cardiol 1987; 59:662–668) mPAP = 79 − 0.45·AcT for AcT ≥ 120 ms and Mahan's mPAP = 90 − 0.62·AcT for
+ * AcT < 90 ms, joined linearly between them. A normal mean pressure of 17 mmHg gives 137 ms (normal 136–153 ms).
+ */
+export function pulmonaryAccelerationTimeS(mpapMmHg: number): number {
+  const at120 = 79 - 0.45 * 120;
+  const at90 = 90 - 0.62 * 90;
+  if (mpapMmHg <= at120) return (79 - mpapMmHg) / 0.45 / 1000;
+  if (mpapMmHg >= at90) return Math.max(40, (90 - mpapMmHg) / 0.62) / 1000;
+  return (120 - (30 * (mpapMmHg - at120)) / (at90 - at120)) / 1000;
+}
+
+/** Mean pulmonary artery pressure (mmHg) from the systolic one: Chemla et al. (Chest 2004; 126:1313–1317), 0.61·sPAP + 2. */
+export function meanPulmonaryPressureMmHg(systolicMmHg: number): number {
+  return 0.61 * systolicMmHg + 2;
 }
 
 export function buildBeatTables(
@@ -146,13 +168,28 @@ export function buildBeatTables(
   const mvArea = hemo.mvEffectiveAreaCm2 ?? svMitral / Math.max(velIntegralCm, 1e-6);
   const scaleMv = hemo.mvEffectiveAreaCm2 ? svMitral / Math.max(mvArea * velIntegralCm, 1e-6) : 1; // enforce ∫=SV if area forced
 
+  // Right ventricular ejection (decision 105): the ejection period of the left ventricle one hundredth of the beat earlier,
+  // as the pulmonary valve has always led the aortic one here, the forward stroke volume, and the same skewed shape with its
+  // peak at the acceleration time of the case's mean pulmonary pressure. It used to copy the aortic flow, whose peak at 0.4
+  // of ejection gave 121 ms in the normal heart and 108 ms at a systolic pulmonary pressure of 72 mmHg.
+  const pulmonaryAccelerationS = Math.min(0.6 * et, Math.max(0.12 * et, pulmonaryAccelerationTimeS(meanPulmonaryPressureMmHg(hemo.paspMmHg))));
+  const peakU = pulmonaryAccelerationS / et;
+  const pvShape = (u: number): number => (u <= 0 || u >= 1 ? 0 : Math.pow(u, 2.25 * peakU) * Math.pow(1 - u, 2.25 * (1 - peakU)));
+  let pvInt = 0;
+  for (let i = 0; i < 400; i++) pvInt += pvShape((i + 0.5) / 400) * (et / 400);
+  const kPv = Math.max(5, sv - rvolAr) / pvInt;
+  const pvLead = 0.01 * rrS;
+
   const aorticFlow = new Float32Array(n);
+  const pulmonaryFlow = new Float32Array(n);
   const mitralFlow = new Float32Array(n);
   for (let i = 0; i < n; i++) {
     const t = (i + 0.5) * dt;
     if (t > timings.ejectionStartS && t < timings.ejectionEndS) {
       aorticFlow[i] = kAo * ejectionShape((t - timings.ejectionStartS) / et);
     }
+    const tp = (((t + pvLead) % rrS) + rrS) % rrS;
+    if (tp > timings.ejectionStartS && tp < timings.ejectionEndS) pulmonaryFlow[i] = kPv * pvShape((tp - timings.ejectionStartS) / et);
     mitralFlow[i] = (mvVelocity[i] ?? 0) * mvArea * scaleMv;
   }
   // Integrate volume; then remove the residual drift so V(0)=V(RR)=EDV exactly (ensures periodicity).
@@ -255,6 +292,8 @@ export function buildBeatTables(
     lvVolumeMl: vol,
     volumeCorrectionMl: drift,
     aorticFlowMlps: aorticFlow,
+    pulmonaryFlowMlps: pulmonaryFlow,
+    pulmonaryAccelerationS,
     mitralFlowMlps: mitralFlow,
     mvEffectiveAreaCm2: mvArea * scaleMv,
     mrFlowMlps: mrFlow,
@@ -360,10 +399,12 @@ export function cycleStateAt(tables: BeatTables, phase: number): CycleState {
   const qmv = sampleTable(tables.mitralFlowMlps, p);
   const qao = sampleTable(tables.aorticFlowMlps, p);
   let qmvMax = 1e-6,
-    qaoMax = 1e-6;
+    qaoMax = 1e-6,
+    qpvMax = 1e-6;
   for (let i = 0; i < tables.n; i++) {
     qmvMax = Math.max(qmvMax, tables.mitralFlowMlps[i] ?? 0);
     qaoMax = Math.max(qaoMax, tables.aorticFlowMlps[i] ?? 0);
+    qpvMax = Math.max(qpvMax, tables.pulmonaryFlowMlps[i] ?? 0);
   }
   const t = p * tables.rrS;
   const tm = tables.timings;
@@ -381,7 +422,7 @@ export function cycleStateAt(tables: BeatTables, phase: number): CycleState {
     mvOpen,
     avOpen,
     tvOpen: inflowOpening(tables, p - 0.01, qmvMax),
-    pvOpen: Math.min(1, Math.pow(sampleTable(tables.aorticFlowMlps, p + 0.01) / qaoMax, 0.5)),
+    pvOpen: Math.min(1, Math.pow(sampleTable(tables.pulmonaryFlowMlps, p) / qpvMax, 0.5)),
     longitudinal: sampleTable(tables.longitudinal, p),
     atrialContraction: atrial,
     atrialHold,

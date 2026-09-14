@@ -567,3 +567,73 @@ describe('valve clicks mark valve timing on the spectral trace (decision 103)', 
     expect(Math.abs(ivrtMs - c.physiology.ivrtMs), `IVRT between clicks ${ivrtMs.toFixed(0)} ms, case ${c.physiology.ivrtMs}`).toBeLessThan(8);
   });
 });
+
+describe('the right ventricle ejects with the acceleration time of its pulmonary pressure (decision 105)', () => {
+  it('through the core: PW in the outflow tract from the short axis reads the acceleration time the case pressure predicts', { timeout: 240_000 }, async () => {
+    const { pulmonaryAccelerationTimeS, meanPulmonaryPressureMmHg } = await import('@/simulator/cardiac-cycle/cycleModel');
+    const results: string[] = [];
+    const read: Record<string, number> = {};
+    for (const id of ['normal-excellent-window', 'pulmonary-hypertension-rv', 'hfref-severe-mr']) {
+      const k = loadCaseById(id);
+      const m = new SimulatorCore(k, baseInput()).models;
+      const A = heartAnchors(m.heart);
+      // 5 mm proximal to the pulmonary valve
+      const L = Math.hypot(A.rvotB.x - A.rvotA.x, A.rvotB.y - A.rvotA.y, A.rvotB.z - A.rvotA.z);
+      const gate = v3(A.rvotB.x - ((A.rvotB.x - A.rvotA.x) / L) * 0.5, A.rvotB.y - ((A.rvotB.y - A.rvotA.y) / L) * 0.5, A.rvotB.z - ((A.rvotB.z - A.rvotA.z) / L) * 0.5);
+      const control = canonicalControl(getViewTarget('psax-av'), m.heart, m.thorax);
+      const beam = beamFrameFromPose(poseFromControl(m.thorax, control));
+      const d = sub(heartToTorso(m.heart.frame, gate), beam.origin);
+      const s = { ...DEFAULT_SPECTRAL, scaleMps: 1.2 };
+      const core = new SimulatorCore(k, baseInput({ probe: control, modality: 'pw', quality: 'low', display: { width: 640, height: 480 }, cursorThetaRad: Math.atan2(dot(d, beam.lateral), dot(d, beam.forward)), gateDepthCm: Math.hypot(dot(d, beam.forward), dot(d, beam.lateral)), spectral: s }));
+      for (let t = 0; t < 3.2; t += 0.02) core.step(0.02);
+      const st = core.spectralStrip;
+      const n = Math.min(st.head, st.cols);
+      const trace = core.request({ kind: 'autoTrace', x0: 0, x1: n - 1 });
+      const vel = trace?.kind === 'autoTrace' ? trace.velocitiesMps : [];
+      // the auto-trace in time order, each column at its own instant (the strip wraps at its head)
+      const head = st.head % st.cols;
+      const order = Array.from({ length: n }, (_, j) => (n < st.cols ? j : (head + j) % st.cols));
+      const rr = m.tables.rrS;
+      const times: number[] = [];
+      let beats = 0;
+      for (let j = 0; j < n; j++) {
+        const t = st.phase[order[j]!]! * rr;
+        if (j && t + beats * rr < times[j - 1]! - rr / 2) beats++;
+        times.push(t + beats * rr);
+      }
+      const speed = order.map((x) => Math.abs(vel[x] ?? 0));
+      // each ejection: from the first column above a tenth of its peak to the centre of the columns within 3% of it
+      const ats: number[] = [];
+      for (let j = 0, c0 = -1; j <= n; j++) {
+        const on = j < n && speed[j]! > 0.1;
+        if (on && c0 < 0) c0 = j;
+        if (!on && c0 >= 0) {
+          if (times[j - 1]! - times[c0]! > 0.12) {
+            let pk = c0;
+            for (let q = c0; q < j; q++) if (speed[q]! > speed[pk]!) pk = q;
+            let onset = c0;
+            while (speed[onset]! < 0.1 * speed[pk]!) onset++;
+            let w = 0,
+              sum = 0;
+            for (let q = c0; q < j; q++)
+              if (speed[q]! >= 0.97 * speed[pk]!) {
+                w++;
+                sum += times[q]!;
+              }
+            ats.push((sum / w - times[onset]!) * 1000);
+          }
+          c0 = -1;
+        }
+      }
+      const predicted = pulmonaryAccelerationTimeS(meanPulmonaryPressureMmHg(k.hemodynamics.paspMmHg)) * 1000;
+      const mean = ats.reduce((a, b) => a + b, 0) / Math.max(1, ats.length);
+      read[id] = mean;
+      // before: the right ventricle copied the aortic ejection, 119–121 ms in the normal heart and 104–114 ms at 72 mmHg
+      if (ats.length < 2 || Math.abs(mean - predicted) > 15) results.push(`${id}: acceleration time ${ats.map((a) => a.toFixed(0)).join(', ')} ms against ${predicted.toFixed(0)} ms predicted`);
+    }
+    expect(results).toEqual([]);
+    // below 105 ms the outflow Doppler suggests pulmonary hypertension (normal 136–153 ms)
+    expect(read['pulmonary-hypertension-rv']!).toBeLessThan(100);
+    expect(read['normal-excellent-window']!).toBeGreaterThan(120);
+  });
+});

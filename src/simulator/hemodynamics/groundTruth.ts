@@ -64,7 +64,7 @@ export interface StructuredEchoTruth {
     eOverEPrimeAvg: number;
     effectiveAreaCm2: number;
   };
-  rightHeart: { tapseCm: number; sPrimeCmps: number; trVmaxMps: number | null; rvspMmHg: number | null; rapMmHg: number; ivcCm: number; ivcCollapsePct: number };
+  rightHeart: { tapseCm: number; sPrimeCmps: number; trVmaxMps: number | null; rvspMmHg: number | null; rapMmHg: number; ivcCm: number; ivcCollapsePct: number; rvotAccelerationTimeMs: number };
   la: { volumeMl: number; volumeIndexMlM2: number; apDiameterCm: number };
   aorta: { annulusCm: number; sinusCm: number; ascendingCm: number };
   pericardium: { effusionCm: number; tamponade: number };
@@ -178,6 +178,7 @@ export function computeGroundTruth(c: CaseDefinition, tables?: BeatTables): Stru
       rapMmHg: c.hemodynamics.rapMmHg,
       ivcCm: c.anatomy.ivc.diameterCm,
       ivcCollapsePct: c.anatomy.ivc.collapsePct,
+      rvotAccelerationTimeMs: t.pulmonaryAccelerationS * 1000,
     },
     la: { volumeMl: c.anatomy.la.volumeMl, volumeIndexMlM2: c.anatomy.la.volumeMl / bsa, apDiameterCm: c.anatomy.la.apDiameterCm },
     aorta: { annulusCm: c.anatomy.aorta.annulusCm, sinusCm: c.anatomy.aorta.sinusCm, ascendingCm: c.anatomy.aorta.ascendingCm },

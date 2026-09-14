@@ -64,6 +64,20 @@ describe('technique evaluation', () => {
       expect(spec!.truth(truth), input.id).toBe(c.physiology.ivrtMs);
     }
   });
+  it('pulmonary acceleration time: PW in the right ventricular outflow tract from the short axis, truth from the case pulmonary pressure (decision 105)', () => {
+    const spec = getMeasurementSpec('rvot-acceleration-time');
+    expect(spec?.tool).toBe('time');
+    const gate = { structure: Structure.Rvot, tissue: 1, flowPresent: true, flowAngleDeg: null, lineStructures: [] };
+    expect(evaluateTechnique(spec!, base({ modality: 'pw', viewId: 'psax-av', gate })).score).toBe(1);
+    expect(evaluateTechnique(spec!, base({ modality: 'pw', viewId: 'psax-av', gate: { ...gate, structure: Structure.AorticRoot } })).findings.find((f) => f.code === 'placement')?.level).toBe('invalid');
+    const truth = (id: string) => {
+      const c = loadCaseById(id);
+      return spec!.truth(computeGroundTruth(c, buildBeatTables(60 / c.rhythm.heartRateBpm, c.physiology, c.rhythm, c.hemodynamics)))!;
+    };
+    // Chemla and Dabestani: 137 ms at a systolic pulmonary pressure of 25 mmHg, 71 ms at 72 mmHg
+    expect(truth('normal-excellent-window')).toBeCloseTo(137.2, 0);
+    expect(truth('pulmonary-hypertension-rv')).toBeCloseTo(71.1, 0);
+  });
   it('Simpson: foreshortened apex is flagged', () => {
     const spec = getMeasurementSpec('lv-edv-simpson')!;
     const r = evaluateTechnique(spec, base({ viewId: 'a4c', phase: 0.0, segmentStructures: Array(50).fill(Structure.LvCavity) as number[], longAxisCm: 6.6, trueLongAxisCm: 8.6 }));
