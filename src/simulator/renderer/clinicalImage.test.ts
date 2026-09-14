@@ -123,7 +123,7 @@ const KNOWN_GEOMETRY_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['4CH-ED:septalRayAngleDeg', -0.97],
   ['4CH-ED:lateralRayAngleDeg', 1.42],
   ['4CH-ED:septalMinusLateralGrey', -1.77],
-  ['4CH-ES:apexOffsetMm', 1.88],
+  ['4CH-ES:apexOffsetMm', 1.72],
   ['4CH-ES:apexDepthMm', -0.46],
   ['4CH-ES:axisTiltDeg', -0.43],
   ['4CH-ES:septalRayAngleDeg', -0.52],

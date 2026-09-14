@@ -4,6 +4,7 @@ import { sampleTable } from '@/simulator/cardiac-cycle/cycleModel';
 import type { CaseDefinition } from '@/cases/schema';
 import { circularArea } from '@/clinical/formulas';
 import { smoothstep } from '@/core/vec3';
+import { Structure } from '@/simulator/anatomy/tissue';
 
 /**
  * Parametric hemodynamic flow field (spec 0.5, 10.5, 63). Velocities in m/s, heart frame.
@@ -568,6 +569,9 @@ export function sampleRegurgitantJets(p: FlowFieldParams, tables: BeatTables, hp
   }
 }
 
+/** Structures of the right ventricle, whose tissue moves with the tricuspid annulus. */
+const RV_TISSUE = new Set<number>([Structure.RvWall, Structure.TricuspidAnnulus, Structure.RvPapillary, Structure.ModeratorBand]);
+
 /**
  * Tissue (myocardial) velocity for TDI (m/s, heart frame) at heart-frame point (x, y, z): the longitudinal annular motion of
  * the shared displacement table, scaled by level (base moves, apex fixed) and by wall (decision 98). The table recoils at
@@ -575,7 +579,14 @@ export function sampleRegurgitantJets(p: FlowFieldParams, tables: BeatTables, hp
  * walls between by a cosine of the azimuth. Every wall used to move alike, so tissue Doppler at the lateral annulus read
  * the septal e′: 8.6 cm/s where the normal case's 14 cm/s projected to 10.6, 16–29% low in the twelve cases.
  */
-export function sampleTissueVelocity(heart: HeartModel, tables: BeatTables, phase: number, x: number, y: number, z: number): { vx: number; vy: number; vz: number } {
+export function sampleTissueVelocity(heart: HeartModel, tables: BeatTables, phase: number, x: number, y: number, z: number, structure = -1): { vx: number; vy: number; vz: number } {
+  if (RV_TISSUE.has(structure)) {
+    // the right ventricle moves with its own annular table and TAPSE (decision 106), from the tricuspid annulus to its apex
+    const A = heartAnchors(heart);
+    const apexZ = A.rvApexFrac * heart.lv.lengthCm;
+    const rvLevel = Math.min(1, Math.max(0, (z - A.tvCenter.z) / Math.max(1, apexZ - A.tvCenter.z)));
+    return { vx: 0, vy: 0, vz: (heart.physiology.tapseCm * sampleTable(tables.rvLongitudinalVelocity, phase) * (1 - rvLevel)) / 100 };
+  }
   const longVel = sampleTable(tables.longitudinalVelocity, phase); // fraction of MAPSE per s
   const mapse = heart.physiology.mapseCm;
   const level = Math.min(1, Math.max(0, z / heart.lv.lengthCm));

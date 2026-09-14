@@ -283,3 +283,28 @@ describe('the end of atrial contraction closes the valve (decision 101)', () => 
     expect(problems).toEqual([]);
   });
 });
+
+describe('the tricuspid annulus moves with its own table (decision 106)', () => {
+  it('reaches its TAPSE and peaks in systole at the case S′ in every case', async () => {
+    const { CASE_INPUTS, loadCaseById } = await import('@/cases');
+    const problems: string[] = [];
+    for (const input of CASE_INPUTS) {
+      const k = loadCaseById(input.id);
+      const tb = buildBeatTables(60 / k.rhythm.heartRateBpm, k.physiology, k.rhythm, k.hemodynamics);
+      const t = tb.timings;
+      let lo = Infinity,
+        hi = -Infinity,
+        peak = 0;
+      for (let i = 0; i < tb.n; i++) {
+        const ti = ((i + 0.5) / tb.n) * tb.rrS;
+        lo = Math.min(lo, tb.rvLongitudinal[i]!);
+        hi = Math.max(hi, tb.rvLongitudinal[i]!);
+        if (ti >= t.ejectionStartS && ti <= t.ejectionEndS) peak = Math.max(peak, tb.rvLongitudinalVelocity[i]! * k.physiology.tapseCm);
+      }
+      // before: the tricuspid annulus followed the left ventricular curve, 7–25% below the case S′ in eleven cases
+      if (Math.abs(peak - k.physiology.sPrimeTricuspidCmps) > 0.02 * k.physiology.sPrimeTricuspidCmps) problems.push(`${input.id}: systolic peak ${peak.toFixed(2)} cm/s against S′ ${k.physiology.sPrimeTricuspidCmps}`);
+      if (hi - lo < 0.95) problems.push(`${input.id}: excursion ${(hi - lo).toFixed(3)} of TAPSE`);
+    }
+    expect(problems).toEqual([]);
+  });
+});

@@ -637,3 +637,46 @@ describe('the right ventricle ejects with the acceleration time of its pulmonary
     expect(read['normal-excellent-window']!).toBeGreaterThan(120);
   });
 });
+
+describe('right ventricular tissue Doppler reads the tricuspid annulus of the case (decision 106)', () => {
+  it('through the core: TDI at the free wall 1 cm from the tricuspid annulus reads the case S′ at its angle and level', { timeout: 180_000 }, () => {
+    const results: string[] = [];
+    for (const id of ['normal-excellent-window', 'pulmonary-hypertension-rv']) {
+      const k = loadCaseById(id);
+      const m = new SimulatorCore(k, baseInput()).models;
+      const A = heartAnchors(m.heart);
+      const t = m.tables.timings;
+      const hp0 = computeHeartPose(m.heart, cycleStateAt(m.tables, 0));
+      const q = { tissue: 0, structure: 0 } as unknown as TissueSample;
+      // free wall myocardium 1 cm apical to the tricuspid annulus, walking out from the orifice centre
+      const z = A.tvCenter.z + hp0.tvZ + 1.0;
+      let first = NaN,
+        last = NaN;
+      for (let x = A.tvCenter.x; x > A.tvCenter.x - 5; x -= 0.02)
+        if (classifyHeart(m.heart, hp0, x, A.tvCenter.y, z, q) && q.tissue === Tissue.Myocardium) {
+          if (Number.isNaN(first)) first = x;
+          last = x;
+        } else if (!Number.isNaN(first)) break;
+      const p = v3((first + last) / 2, A.tvCenter.y, z);
+      const control = canonicalControl(getViewTarget('a4c'), m.heart, m.thorax);
+      const beam = beamFrameFromPose(poseFromControl(m.thorax, control));
+      const d = sub(heartToTorso(m.heart.frame, p), beam.origin);
+      const theta = Math.atan2(dot(d, beam.lateral), dot(d, beam.forward));
+      const dir = v3(beam.forward.x * Math.cos(theta) + beam.lateral.x * Math.sin(theta), beam.forward.y * Math.cos(theta) + beam.lateral.y * Math.sin(theta), beam.forward.z * Math.cos(theta) + beam.lateral.z * Math.sin(theta));
+      const spectral = { ...DEFAULT_SPECTRAL, scaleMps: 0.25, wallFilterMps: 0.01 };
+      const core = new SimulatorCore(k, baseInput({ probe: control, modality: 'tdi', quality: 'low', cursorThetaRad: theta, gateDepthCm: Math.hypot(dot(d, beam.forward), dot(d, beam.lateral)), spectral }));
+      for (let s = 0; s < 2.4; s += 0.02) core.step(0.02);
+      const st = core.spectralStrip;
+      let sPrime = 0;
+      for (let x = 0; x < Math.min(st.head, st.cols); x++) {
+        const ti = st.phase[x]! * m.tables.rrS;
+        if (ti >= t.ejectionStartS && ti <= t.ejectionEndS) sPrime = Math.max(sPrime, outerEdge(st.data!.subarray(x * SPECTRAL_BINS, (x + 1) * SPECTRAL_BINS), spectral, 1));
+      }
+      const rvLevel = (p.z - A.tvCenter.z) / (A.rvApexFrac * m.heart.lv.lengthCm - A.tvCenter.z);
+      const expected = (k.physiology.sPrimeTricuspidCmps / 100) * Math.abs(dot(dir, m.heart.frame.ez)) * (1 - rvLevel);
+      // before: the free wall moved with the left ventricular curve and MAPSE, 5.3 cm/s in the normal heart for 9.9 expected
+      if (!(sPrime / expected > 0.95 && sPrime / expected < 1.15)) results.push(`${id}: S′ ${(sPrime * 100).toFixed(1)} cm/s against ${(expected * 100).toFixed(1)} expected`);
+    }
+    expect(results).toEqual([]);
+  });
+});

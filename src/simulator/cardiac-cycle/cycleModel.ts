@@ -34,6 +34,9 @@ export interface BeatTables {
   longitudinal: Float32Array;
   /** Longitudinal annular velocity in units of MAPSE per second (s⁻¹); multiply by MAPSE(cm) → cm/s. */
   longitudinalVelocity: Float32Array;
+  /** Tricuspid annular displacement toward the apex as a fraction of TAPSE, and its velocity (s⁻¹) (decision 106). */
+  rvLongitudinal: Float32Array;
+  rvLongitudinalVelocity: Float32Array;
 }
 
 export interface BeatOptions {
@@ -228,18 +231,25 @@ export function buildBeatTables(
   };
   // speed > 1 compresses the early-diastolic course in time: a healthy annulus recoils ahead of the filling it drives
   // (e′ precedes E), so it can move faster than the volume curve alone allows
-  const simulate = (tauE: number, speed: number): void => {
+  // sysSpeed compresses the ejection course the same way (decision 106): the tricuspid annulus reaches its excursion
+  // earlier in systole than the volume curve when its case S′ asks for it
+  const simulate = (tauE: number, speed: number, sysSpeed = 1, into: Float32Array = longitudinal): void => {
     let l = 0;
     // two passes for periodic steady state
     for (let pass = 0; pass < 2; pass++) {
       for (let i = 0; i < n; i++) {
         const t = (i + 0.5) * dt;
         const early = t > timings.mitralOpenS && t <= earlyEnd;
+        const ejecting = t >= timings.ejectionStartS && t < timings.ejectionEndS;
         // compressed over the E wave, holding the diastasis value once it is reached (never running into atrial filling)
-        const target = early ? contractionAt(Math.min(eWaveEnd, timings.mitralOpenS + (t - timings.mitralOpenS) * speed)) : (contraction[i] ?? 0);
+        const target = early
+          ? contractionAt(Math.min(eWaveEnd, timings.mitralOpenS + (t - timings.mitralOpenS) * speed))
+          : ejecting
+            ? contractionAt(Math.min(timings.ejectionEndS, timings.ejectionStartS + (t - timings.ejectionStartS) * sysSpeed))
+            : (contraction[i] ?? 0);
         const tau = t < timings.ejectionEndS ? 0.03 : t > earlyEnd ? 0.035 : tauE;
         l += ((target - l) * dt) / tau;
-        longitudinal[i] = l;
+        into[i] = l;
       }
     }
   };
@@ -254,6 +264,8 @@ export function buildBeatTables(
   };
   // recoil speed falls monotonically as τ grows and rises with the time compression
   const ePrime = physiology.ePrimeSeptalCmps;
+  let tauEarly = 0.03,
+    earlySpeed = 1;
   simulate(0.03, 1);
   if (peakRecoilCmps() < ePrime) {
     let lo = 1,
@@ -264,7 +276,7 @@ export function buildBeatTables(
       if (peakRecoilCmps() < ePrime) lo = mid;
       else hi = mid;
     }
-    simulate(0.03, hi);
+    earlySpeed = hi;
   } else {
     let lo = 0.03,
       hi = 0.4;
@@ -274,12 +286,40 @@ export function buildBeatTables(
       if (peakRecoilCmps() > ePrime) lo = mid;
       else hi = mid;
     }
-    simulate(hi, 1);
+    tauEarly = hi;
   }
-  for (let i = 0; i < n; i++) {
-    const prev = longitudinal[(i - 1 + n) % n] ?? 0;
-    const next = longitudinal[(i + 1) % n] ?? 0;
-    longVel[i] = (next - prev) / (2 * dt);
+  simulate(tauEarly, earlySpeed);
+  const derivative = (from: Float32Array, to: Float32Array): void => {
+    for (let i = 0; i < n; i++) to[i] = ((from[(i + 1) % n] ?? 0) - (from[(i - 1 + n) % n] ?? 0)) / (2 * dt);
+  };
+  derivative(longitudinal, longVel);
+
+  // Tricuspid annulus (decision 106): the right ventricle shortens along the same course, relaxes like the left one and
+  // reaches its systolic peak velocity at the case S′ for its TAPSE, by compressing its ejection course in time. The tissue
+  // Doppler of the right ventricle used to read the left ventricular curve scaled by MAPSE (5.3 cm/s at the free wall of
+  // the normal heart for an S′ of 13), while the tricuspid annulus of the image moved with TAPSE.
+  const rvLongitudinal = new Float32Array(n);
+  const rvLongVel = new Float32Array(n);
+  const peakSystolicCmps = (): number => {
+    derivative(rvLongitudinal, rvLongVel);
+    let peak = 0;
+    for (let i = 0; i < n; i++) {
+      const t = (i + 0.5) * dt;
+      if (t >= timings.ejectionStartS && t <= timings.ejectionEndS) peak = Math.max(peak, (rvLongVel[i] ?? 0) * physiology.tapseCm);
+    }
+    return peak;
+  };
+  {
+    let lo = 0.5,
+      hi = 3;
+    for (let it = 0; it < 24; it++) {
+      const mid = Math.sqrt(lo * hi);
+      simulate(tauEarly, earlySpeed, mid, rvLongitudinal);
+      if (peakSystolicCmps() < physiology.sPrimeTricuspidCmps) lo = mid;
+      else hi = mid;
+    }
+    simulate(tauEarly, earlySpeed, Math.sqrt(lo * hi), rvLongitudinal);
+    derivative(rvLongitudinal, rvLongVel);
   }
 
   return {
@@ -301,6 +341,8 @@ export function buildBeatTables(
     regurgitation: { mrVolumeMl: rvolMr, mrVmaxMps: mrVmax, mrVtiCm: mrVti, arVolumeMl: rvolAr, arVmaxMps: arVmax, arVtiCm: arVti, arPhtMs: arPht },
     longitudinal,
     longitudinalVelocity: longVel,
+    rvLongitudinal,
+    rvLongitudinalVelocity: rvLongVel,
   };
 }
 
@@ -332,6 +374,8 @@ export interface CycleState {
   pvOpen: number;
   /** Longitudinal annular displacement fraction of MAPSE (0 = end diastole position). */
   longitudinal: number;
+  /** Tricuspid annular displacement fraction of TAPSE (decision 106). */
+  rvLongitudinal: number;
   /** Atrial contraction 0..1 (0 in AF). */
   atrialContraction: number;
   /** 1 from the end of the A wave until ejection starts (the atria stay at their minimal volume), 0 in AF. */
@@ -424,6 +468,7 @@ export function cycleStateAt(tables: BeatTables, phase: number): CycleState {
     tvOpen: inflowOpening(tables, p - 0.01, qmvMax),
     pvOpen: Math.min(1, Math.pow(sampleTable(tables.pulmonaryFlowMlps, p) / qpvMax, 0.5)),
     longitudinal: sampleTable(tables.longitudinal, p),
+    rvLongitudinal: sampleTable(tables.rvLongitudinal, p),
     atrialContraction: atrial,
     atrialHold,
     mitralFlowMlps: qmv,

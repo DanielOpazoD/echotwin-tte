@@ -512,7 +512,7 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
   const tvAnglePost = 0.8 + (-0.7 - 0.8) * state.tvOpen;
   const A = anchorsCached(m);
   const cusps = m.anatomy.aorticValve.bicuspid ? 2 : 3;
-  const tvZ = m.physiology.tapseCm * long;
+  const tvZ = m.physiology.tapseCm * state.rvLongitudinal;
   const septalShiftCm = m.anatomy.rv.septalFlattening * 0.9;
   const rvCollapse = tamp * rvCollapseWindow(state);
   // papillary tips (the apices of the cones built below): about halfway to the axis at 40% of the ventricle's length

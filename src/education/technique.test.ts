@@ -78,6 +78,15 @@ describe('technique evaluation', () => {
     expect(truth('normal-excellent-window')).toBeCloseTo(137.2, 0);
     expect(truth('pulmonary-hypertension-rv')).toBeCloseTo(71.1, 0);
   });
+  it('tricuspid S′: tissue Doppler at the lateral tricuspid annulus in A4C, truth from the case (decision 106)', () => {
+    const spec = getMeasurementSpec('rv-s-prime');
+    expect(spec?.modalities).toEqual(['tdi']);
+    const gate = { structure: Structure.RvWall, tissue: 2, flowPresent: true, flowAngleDeg: 12, lineStructures: [] };
+    expect(evaluateTechnique(spec!, base({ modality: 'tdi', viewId: 'a4c', gate })).score).toBe(1);
+    expect(evaluateTechnique(spec!, base({ modality: 'tdi', viewId: 'a4c', gate: { ...gate, structure: Structure.LvWallSeptal } })).findings.find((f) => f.code === 'placement')?.level).toBe('invalid');
+    const c = loadCaseById('pulmonary-hypertension-rv');
+    expect(spec!.truth(computeGroundTruth(c, buildBeatTables(60 / c.rhythm.heartRateBpm, c.physiology, c.rhythm, c.hemodynamics)))).toBe(c.physiology.sPrimeTricuspidCmps);
+  });
   it('Simpson: foreshortened apex is flagged', () => {
     const spec = getMeasurementSpec('lv-edv-simpson')!;
     const r = evaluateTechnique(spec, base({ viewId: 'a4c', phase: 0.0, segmentStructures: Array(50).fill(Structure.LvCavity) as number[], longAxisCm: 6.6, trueLongAxisCm: 8.6 }));
