@@ -156,13 +156,13 @@ describe('the beat closes on its own flows (decision 95)', () => {
     expect(Math.abs(net)).toBeLessThan(0.1);
     expect(Math.abs(tb.volumeCorrectionMl - net)).toBeLessThan(1e-3);
     expect(tb.strokeVolumeMl).toBeCloseTo(75, 0);
-    // the flow area carries the volume: outside atrial contraction the velocity at the orifice is still the case E wave,
-    // sample by sample (during it, decision 97 below)
+    // the flow area carries the volume: before atrial contraction the velocity at the orifice is still the case E wave,
+    // sample by sample (during it, decision 97 below), and after it nothing enters (decision 101)
     let worst = 0;
     for (let i = 0; i < tb.n; i++) {
       const ti = (i + 0.5) * (tb.rrS / tb.n);
       if (ti > t.aStartS && ti < t.aEndS) continue;
-      const v = ti > t.mitralOpenS ? 0.8 * eWaveShape(ti - t.mitralOpenS, t.eAccelS, t.eDecelS) : 0;
+      const v = ti > t.mitralOpenS && ti <= t.aStartS ? 0.8 * eWaveShape(ti - t.mitralOpenS, t.eAccelS, t.eDecelS) : 0;
       worst = Math.max(worst, Math.abs((tb.mitralFlowMlps[i] ?? 0) / tb.mvEffectiveAreaCm2 / 100 - v));
     }
     expect(worst).toBeLessThan(1e-4);
@@ -250,6 +250,35 @@ describe('the atrioventricular leaflets float half-open between the filling wave
       jumps(floatStart - 0.01, floatEnd);
       if (!t.hasAWave) jumps(-0.01, 0.04);
       for (let ts = 0.03; ts < t.mitralOpenS; ts += 0.002) if (at(ts).mvOpen > 0.02) problems.push(`${input.id} @${(ts * 1000).toFixed(0)} ms: mitral valve open ${at(ts).mvOpen.toFixed(2)} in systole`);
+    }
+    expect(problems).toEqual([]);
+  });
+});
+
+describe('the end of atrial contraction closes the valve (decision 101)', () => {
+  it('nothing enters after the A wave, and the inflow and the leaflets reach zero with it instead of stopping at the R wave', async () => {
+    const { CASE_INPUTS, loadCaseById } = await import('@/cases');
+    const problems: string[] = [];
+    for (const input of CASE_INPUTS) {
+      const k = loadCaseById(input.id);
+      const tb = buildBeatTables(60 / k.rhythm.heartRateBpm, k.physiology, k.rhythm, k.hemodynamics);
+      const t = tb.timings;
+      if (!t.hasAWave) continue;
+      const dt = tb.rrS / tb.n;
+      let peakAfter = 0;
+      for (let i = 0; i < tb.n; i++) if ((i + 0.5) * dt >= t.aEndS) peakAfter = Math.max(peakAfter, (tb.mitralFlowMlps[i] ?? 0) / tb.mvEffectiveAreaCm2 / 100);
+      // before: 0.12 m/s in pulmonary hypertension and 0.33 m/s in tamponade, where the next beat cut the E wave
+      if (peakAfter > 1e-6) problems.push(`${input.id}: inflow of ${peakAfter.toFixed(2)} m/s after atrial contraction`);
+      // the inflow decays into the end of the A wave: within 2 ms of it the velocity is almost zero (a half-sine there is
+      // below 6% of its peak)
+      let tail = 0;
+      for (let i = 0; i < tb.n; i++) {
+        const ti = (i + 0.5) * dt;
+        if (ti > t.aEndS - 0.002 && ti < t.aEndS) tail = Math.max(tail, (tb.mitralFlowMlps[i] ?? 0) / tb.mvEffectiveAreaCm2 / 100);
+      }
+      if (tail > 0.06) problems.push(`${input.id}: ${tail.toFixed(2)} m/s within 2 ms of the end of atrial contraction`);
+      const across = Math.abs(cycleStateAt(tb, 1 - 0.002 / tb.rrS).mvOpen - cycleStateAt(tb, 0.002 / tb.rrS).mvOpen);
+      if (across > 0.02 || cycleStateAt(tb, (t.aEndS + 0.003) / tb.rrS).mvOpen > 0.02) problems.push(`${input.id}: mitral opening ${cycleStateAt(tb, (t.aEndS + 0.003) / tb.rrS).mvOpen.toFixed(2)} after atrial contraction, ${across.toFixed(2)} step across the beat boundary`);
     }
     expect(problems).toEqual([]);
   });

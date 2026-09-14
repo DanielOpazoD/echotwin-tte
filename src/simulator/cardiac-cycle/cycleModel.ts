@@ -99,8 +99,16 @@ export function buildBeatTables(
   const eCm = physiology.ePeakMps * 100 * Math.sqrt(preload);
   const aCm = timings.hasAWave ? physiology.aPeakMps * 100 : 0;
   const aDur = timings.hasAWave ? timings.aEndS - timings.aStartS : 0;
-  const eAt = (t: number): number => (t > timings.mitralOpenS ? eCm * eWaveShape(t - timings.mitralOpenS, timings.eAccelS, timings.eDecelS) : 0);
   const aShapeAt = (t: number): number => (timings.hasAWave && t > timings.aStartS && t < timings.aEndS ? aWaveShape((t - timings.aStartS) / aDur) : 0);
+  // The end of atrial contraction closes the valve: an E wave still running then decays with the second half of the A
+  // wave and nothing enters after it (decision 101). Cut only by the next beat, it kept entering through the last 10 ms of
+  // the beat (0.33 m/s in tamponade) and the flow and the leaflets stopped at once with the R wave.
+  const eAt = (t: number): number => {
+    if (t <= timings.mitralOpenS) return 0;
+    const e = eCm * eWaveShape(t - timings.mitralOpenS, timings.eAccelS, timings.eDecelS);
+    if (!timings.hasAWave || t <= timings.aStartS + aDur / 2) return e;
+    return e * aShapeAt(t);
+  };
   // The case E and A are the peaks a Doppler trace shows, and the A wave is measured from the baseline over whatever E
   // flow is still running (decision 97). Atrial contraction adds the increment that brings the inflow up to A: added in
   // full on top of an unfinished E wave, the peak read 0.99 m/s for an A of 0.7 (pulmonary hypertension), 1.04 for 0.85
