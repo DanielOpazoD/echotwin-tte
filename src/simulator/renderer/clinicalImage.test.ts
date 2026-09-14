@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { imageStats, type ImageStats } from '@/clinical/regionStats';
+import type { ImageStats } from '@/clinical/regionStats';
 import { CAMUS_GOOD, type CamusMetric } from '@/clinical/reference-values/camusImageStats';
-import { presentApical, renderApical } from './clinicalImage';
+import { apicalStats, meanStat, renderApical } from './clinicalImage';
 
 /**
  * The simulator against clinical optimal-window images (decisions 70 and 74). The excellent-window case, rendered and
@@ -35,58 +35,51 @@ const CONDITIONS = [
 
 /**
  * Deviations of the model, not of the console, each named in docs/LIMITATIONS.md. Tissue/blood contrast is nearly
- * constant across CAMUS Good (medians 40-44 in all four conditions) but spans 21 grey levels in the model, from 51
- * in A4C end-diastole to 28 in A2C end-systole, and no console moves both inside: gains from −4 to +2 dB and a 65 dB
- * range leave 4 to 7 conditions out and never fix either contrast (decision 70). The myocardium and atrium entries
- * are the same brightness pattern crossing the quartile by 1 or 2 grey levels; A2C end-systole myocardium joined them
- * when the basal inferior wall began to reach the mitral annulus (decisions 76-77: 4 % more myocardium, deeper, grey
- * median 92 → 90 against a quartile of 91). A declaration that holds no longer fails the test, so the list cannot
- * outlive the defect. A2C end-systole atrium grey left the list when the A2C preset stopped sliding under the lung and
- * the anterior wall came into the image (decision 83: atrium 81 → 79 against a quartile of 79).
+ * constant across CAMUS Good (medians 40-44 in all four conditions) but spans 27 grey levels in the model, from 48
+ * in A4C end-diastole to 21 in A2C end-systole, and no console moves both inside: gains from −4 to +2 dB and a 65 dB
+ * range leave 4 to 7 conditions out and never fix either contrast (decision 70). The A2C walls run along the beam and
+ * are the dimmest myocardium; the clinical grey map, which compresses the dim end, took A2C end-diastole contrast out
+ * (36 → 31 against a quartile of 36) and deepened A2C end-systole (myocardium 88 → 79 and contrast 26 → 21) while it
+ * brought A4C end-diastole myocardium and contrast inside (decision 91). A declaration that holds no longer fails the test, so the
+ * list cannot outlive the defect.
  */
 const KNOWN_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // Each entry holds its baseline: the signed distance outside the clinical quartiles, in quartile widths (negative
-  // below the 25th percentile, positive above the 75th), measured on a75af1a. A declared deviation used to be checked
-  // only for being declared and not stale, so it could grow without limit (external audit F11, decision 88).
-  ['4CH-ED:myocardiumGrey', 0.04],
-  ['4CH-ED:contrast', 0.21],
-  ['2CH-ES:myocardiumGrey', -0.1],
-  ['2CH-ES:contrast', -0.92],
-  // Texture (decision 74, docs/LIMITATIONS.md): the speckle cell is 1.2-1.5 × 0.9 mm against 2.1 × 1.7 mm, and the
-  // myocardium's grey std against its ±4 mm local mean is ~13 against ~21 — the console adds receiver noise as an
-  // envelope 14 dB under the myocardium and flattens a 5.2 dB speckle to ~4 dB. The blood pool is slightly smoother
-  // than clinical. Widening the PSF matched these numbers and looked false (dark worm-like nulls, granular blood);
-  // smoothing after detection lost the texture contrast. Declared until a texture model passes both tests.
-  ['4CH-ED:myocardialDetrendedStd', -1.41],
-  ['4CH-ED:speckleCellHorizontalMm', -2.39],
-  ['4CH-ED:speckleCellVerticalMm', -2.34],
-  ['4CH-ES:myocardialDetrendedStd', -1.46],
-  ['4CH-ES:speckleCellHorizontalMm', -2.82],
-  ['4CH-ES:speckleCellVerticalMm', -2.56],
-  ['2CH-ED:myocardialDetrendedStd', -1.33],
-  ['2CH-ED:speckleCellHorizontalMm', -2.54],
-  ['2CH-ED:speckleCellVerticalMm', -2.2],
-  ['2CH-ES:myocardialDetrendedStd', -1.14],
-  ['2CH-ES:speckleCellHorizontalMm', -3.44],
-  ['2CH-ES:speckleCellVerticalMm', -2.31],
-  // A4C end-diastole blood texture reached the quartile (11.92 → 11.96 against 11.94) with decisions 76-77
-  ['2CH-ED:cavityDetrendedStd', -0.32],
-  ['2CH-ES:cavityDetrendedStd', -0.32],
-  // Shape of the grey scale (decision 90). In CAMUS Good the 5×5 grey std grows with grey level inside every region
-  // (myocardium 7.9 at grey 40 to 15.9 at 184; cavity 4.6 at 24 to 14 at 120) and the myocardial texture is skewed
-  // towards bright granules (+0.08 to +0.28). The console maps dB linearly to grey, so speckle keeps one std at every
-  // level (slope 1.1-3.0 per 100 grey levels against 4.7-7.1) and its log-Rayleigh tail of dark nulls (−0.36 to −0.52;
-  // −1.14 for pure speckle), and the white end of end-diastole images sits a few levels under the clinical quartile.
-  ['4CH-ED:myocardialResidualSkew', -1.21],
-  ['4CH-ES:myocardialResidualSkew', -1.04],
-  ['2CH-ED:myocardialResidualSkew', -1.01],
-  ['2CH-ES:myocardialResidualSkew', -0.66],
-  ['4CH-ED:levelStdSlope', -0.99],
-  ['4CH-ES:levelStdSlope', -1.42],
-  ['2CH-ED:levelStdSlope', -0.57],
-  ['2CH-ES:levelStdSlope', -0.38],
-  ['4CH-ED:brightGreyP99', -0.13],
-  ['2CH-ED:brightGreyP99', -0.23],
+  // below the 25th percentile, positive above the 75th). A declared deviation used to be checked only for being
+  // declared and not stale, so it could grow without limit (external audit F11, decision 88). Baselines measured with
+  // the complex receiver noise and the clinical grey map, averaged over the noise realizations (decision 91).
+  ['2CH-ED:contrast', -0.29],
+  ['2CH-ES:myocardiumGrey', -0.42],
+  ['2CH-ES:contrast', -1.31],
+  // Texture (decisions 74 and 91, docs/LIMITATIONS.md): the speckle cell is 1.4-1.5 × 1.0 mm against 2.1 × 1.7 mm, so a
+  // 5×5 window holds more of the texture variance than in a clinical image: local std 11.1-11.9 against upper quartiles of 10.1-11.3 while
+  // the std against the ±4 mm mean is 16.1-17.2 against ~21 (ratio 0.69-0.70 against 0.45-0.51). The residuals keep a
+  // log-Rayleigh tail of dark nulls (skewness −0.27 to −0.38 against +0.08 to +0.28). Receiver noise added as an
+  // envelope hid part of this until decision 91: it filled the nulls (local std 9.3-9.7, texture contrast ~13) and its
+  // per-sample grain shrank the cell to 1.2-1.35 × 0.9-1.0 mm. Widening the PSF matched these numbers and looked false
+  // (dark worm-like nulls, granular blood); smoothing after detection lost the texture contrast (decision 74).
+  ['4CH-ED:myocardialLocalStd', 0.69],
+  ['4CH-ES:myocardialLocalStd', 0.22],
+  ['2CH-ED:myocardialLocalStd', 0.95],
+  ['2CH-ES:myocardialLocalStd', 0.23],
+  ['4CH-ED:myocardialDetrendedStd', -0.49],
+  ['4CH-ES:myocardialDetrendedStd', -0.55],
+  ['2CH-ED:myocardialDetrendedStd', -0.46],
+  ['2CH-ES:myocardialDetrendedStd', -0.48],
+  ['4CH-ED:speckleCellHorizontalMm', -1.79],
+  ['4CH-ES:speckleCellHorizontalMm', -2.23],
+  ['2CH-ED:speckleCellHorizontalMm', -1.79],
+  ['2CH-ES:speckleCellHorizontalMm', -2.46],
+  ['4CH-ED:speckleCellVerticalMm', -2.18],
+  ['4CH-ES:speckleCellVerticalMm', -2.26],
+  ['2CH-ED:speckleCellVerticalMm', -1.96],
+  ['2CH-ES:speckleCellVerticalMm', -1.93],
+  // Shape of the grey scale (decisions 90-91). The slope of local std against grey level and the white end came inside
+  // with the clinical grey map; the skewness of the myocardial residuals rose from −0.35..−0.51 but is still negative.
+  ['4CH-ED:myocardialResidualSkew', -0.88],
+  ['4CH-ES:myocardialResidualSkew', -0.84],
+  ['2CH-ED:myocardialResidualSkew', -0.73],
+  ['2CH-ES:myocardialResidualSkew', -0.35],
 ]);
 
 /**
@@ -96,6 +89,14 @@ const KNOWN_DEVIATIONS: ReadonlyMap<string, number> = new Map([
  */
 const BASELINE_TOLERANCE = 0.15;
 
+/**
+ * A value this close outside a quartile, in quartile widths, counts as on its edge: neither an undeclared deviation nor
+ * a declared one (decision 91). The statistics are means over NOISE_REALIZATIONS receiver-noise realizations, whose
+ * standard error reaches 0.07 quartile widths (single-frame sd up to 0.14 for the local std over six realizations), so a
+ * value 0.004 outside (A2C end-systole slope 7.21 against 7.2) cannot say which side it is on.
+ */
+const QUARTILE_EDGE = 0.1;
+
 /** Signed distance outside the quartiles in quartile widths: negative below p25, positive above p75, 0 inside. */
 const outsideQuartiles = (v: number, q: { p25: number; p75: number }): number => (v < q.p25 ? (v - q.p25) / (q.p75 - q.p25) : v > q.p75 ? (v - q.p75) / (q.p75 - q.p25) : 0);
 
@@ -104,7 +105,7 @@ describe('the default console against clinical optimal-window images (CAMUS Good
     const real = new Set(CONDITIONS.flatMap(([k]) => CHECKED.map(([m]) => `${k}:${m}`)));
     expect([...KNOWN_DEVIATIONS.keys()].filter((d) => !real.has(d))).toEqual([]);
     // a baseline states which side of the quartiles the deviation is on
-    expect([...KNOWN_DEVIATIONS.entries()].filter(([, b]) => b === 0)).toEqual([]);
+    expect([...KNOWN_DEVIATIONS.entries()].filter(([, b]) => Math.abs(b) < QUARTILE_EDGE)).toEqual([]);
   });
 
   it('apical grey levels, contrast and texture fall inside the clinical interquartile range', { timeout: 60_000 }, () => {
@@ -112,11 +113,12 @@ describe('the default console against clinical optimal-window images (CAMUS Good
     const stale: string[] = [];
     const moved: string[] = [];
     for (const [key, view, ed] of CONDITIONS) {
-      const stats = imageStats(presentApical(renderApical('normal-excellent-window', view, ed)));
+      const stats = apicalStats(renderApical('normal-excellent-window', view, ed));
       for (const [metric, get] of CHECKED) {
         const q = CAMUS_GOOD[key][metric];
-        const v = get(stats);
-        const d = outsideQuartiles(v, q);
+        const v = meanStat(stats, get);
+        const raw = outsideQuartiles(v, q);
+        const d = Math.abs(raw) < QUARTILE_EDGE ? 0 : raw;
         const id = `${key}:${metric}`;
         const baseline = KNOWN_DEVIATIONS.get(id);
         if (d !== 0 && baseline === undefined) outside.push(`${id} = ${v.toFixed(2)} outside [${q.p25}, ${q.p75}] (median ${q.median})`);

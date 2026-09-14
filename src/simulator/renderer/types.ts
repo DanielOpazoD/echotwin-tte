@@ -19,7 +19,7 @@ export interface AcquisitionSettings {
   lineDensity: LineDensity;
   persistence: number; // 0..1
   edgeEnhance: number; // 0..1 (smoothing when negative is not allowed; 0 = none)
-  grayMap: 'linear' | 's-curve' | 'high-contrast';
+  grayMap: 'linear' | 's-curve' | 'high-contrast' | 'clinical';
   invertLR: boolean;
   zoom: number; // 1 = none
 }
@@ -29,8 +29,9 @@ export const DEFAULT_ACQUISITION: AcquisitionSettings = {
   sectorDeg: 80,
   gainDb: 0,
   tgcDb: [0, 0, 0, 0, 0, 0, 0, 0],
-  // 70 dB and a linear grey map, chosen against 500 CAMUS patients (decision 70): the previous s-curve at
-  // 55 dB was the worst of 24 consoles tried, placing blood at grey 3-5 where clinical studies show 56-60
+  // 70 dB, chosen against 500 CAMUS patients (decision 70): the previous s-curve at 55 dB was the worst of 24
+  // consoles tried, placing blood at grey 3-5 where clinical studies show 56-60. The clinical grey map and the white
+  // point came with complex receiver noise (decision 91)
   dynamicRangeDb: 70,
   frequencyMHz: 2.5,
   harmonics: true,
@@ -38,7 +39,7 @@ export const DEFAULT_ACQUISITION: AcquisitionSettings = {
   lineDensity: 'medium',
   persistence: 0.35,
   edgeEnhance: 0.1,
-  grayMap: 'linear',
+  grayMap: 'clinical',
   invertLR: false,
   zoom: 1,
 };

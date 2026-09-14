@@ -1,11 +1,13 @@
-import { NOISE_FLOOR, RAYLEIGH_MEAN, REF_DB } from '../postprocess/consolePipeline';
+import { CLINICAL_GREY_CURVE, NOISE_RMS, REF_DB } from '../postprocess/consolePipeline';
 import { TRANS_K } from '../transmissionCode';
 
 /**
  * GPU image chain after envelope detection (decision 54), mirroring the CPU code step by step:
- *  - console pass (postprocess/consolePipeline.ts): compensation table × (envelope + Rayleigh receiver noise
- *    from the same integer hash per line, sample, frame and seed) → log compression → edge enhancement along
- *    the beam → persistence against a history texture → grey map. It writes the new history (float) and a
+ *  - receiver noise passes (consolePipeline.ts `receiverNoise`, decision 91): white complex noise from the same
+ *    integer hash per line, sample, frame and seed, filtered along the beam and then across lines by the same
+ *    kernel table the CPU builds (`buildNoiseKernels`), in two passes into a float texture.
+ *  - console pass (postprocess/consolePipeline.ts): |envelope + receiver noise| × compensation table → log
+ *    compression → edge enhancement along the beam → persistence against a history texture → grey map. It writes the new history (float) and a
  *    packed RGBA8 frame: grey, structure id, tissue id and the 8-bit log transmission code. Only that packed
  *    frame is read back. The mirror and side-lobe artifacts stay on the CPU console.
  *  - present pass (scanConvert.ts `scanConvertLut` + colorDoppler.ts `overlayColorField`): per pixel, the
@@ -13,6 +15,74 @@ import { TRANS_K } from '../transmissionCode';
  *    inside the colour box, tested against the LUT's polar coordinates (uploaded as a float texture). It draws into the canvas, which is transferred as an ImageBitmap.
  */
 const glslFloat = (v: number): string => (Number.isInteger(v) ? `${v}.0` : `${v}`);
+
+const GLSL_HASH = /* glsl */ `
+// core/random.ts hash3: identical 32-bit integer mixing
+uint hash3u(uint x, uint y, uint z, uint seed) {
+  uint h = (x * 0x8da6b343u) ^ (y * 0xd8163841u) ^ (z * 0xcb1ab31fu) ^ seed;
+  h = (h ^ (h >> 16u)) * 0x7feb352du;
+  h = (h ^ (h >> 15u)) * 0x846ca68bu;
+  return h ^ (h >> 16u);
+}
+`;
+
+/** Receiver noise, first pass: white complex samples filtered along the beam (row 0 of the kernel table, centre 8). */
+export const GLSL_NOISE_AXIAL_FRAG = /* glsl */ `#version 300 es
+precision highp float;
+precision highp int;
+precision highp sampler2D;
+uniform sampler2D uKernels;  // buildNoiseKernels: row 0 axial taps, row 1 + sample lateral taps, radius in .g of the centre
+uniform int uSamples;
+uniform uint uSeed;
+uniform uint uFrameIndex;
+layout(location = 0) out vec4 outNoise;  // re, 0, im, 1
+#define NOISE_RMS ${glslFloat(NOISE_RMS)}
+${GLSL_HASH}
+// consolePipeline.ts receiverNoise: magnitude from the high 16 bits of one hash, phase from its low 10 bits
+vec2 white(int li, int si) {
+  uint h = hash3u(uint(li), uint(si), uFrameIndex, uSeed);
+  float r = NOISE_RMS * sqrt(-log(1.0 - 0.999999 * (float(h >> 16u) / 65536.0)));
+  float phi = 6.283185307179586 * (float(h & 1023u) / 1024.0);
+  return vec2(r * cos(phi), r * sin(phi));
+}
+
+void main() {
+  int si = int(gl_FragCoord.x);
+  int li = int(gl_FragCoord.y);
+  int R = int(texelFetch(uKernels, ivec2(8, 0), 0).g + 0.5);
+  int last = uSamples - 1;
+  vec2 acc = vec2(0.0);
+  for (int j = -4; j <= 4; j++) {
+    if (j < -R || j > R) continue;
+    acc += texelFetch(uKernels, ivec2(8 + j, 0), 0).r * white(li, clamp(si + j, 0, last));
+  }
+  outNoise = vec4(acc.x, 0.0, acc.y, 1.0);
+}
+`;
+
+/** Receiver noise, second pass: the axial result filtered across lines (row 1 + sample of the kernel table). */
+export const GLSL_NOISE_LATERAL_FRAG = /* glsl */ `#version 300 es
+precision highp float;
+precision highp int;
+precision highp sampler2D;
+uniform sampler2D uNoiseAx;
+uniform sampler2D uKernels;
+uniform int uLines;
+layout(location = 0) out vec4 outNoise;  // re, 0, im, 1
+
+void main() {
+  int si = int(gl_FragCoord.x);
+  int li = int(gl_FragCoord.y);
+  int R = int(texelFetch(uKernels, ivec2(8, si + 1), 0).g + 0.5);
+  int last = uLines - 1;
+  vec4 acc = vec4(0.0);
+  for (int j = -8; j <= 8; j++) {
+    if (j < -R || j > R) continue;
+    acc += texelFetch(uKernels, ivec2(8 + j, si + 1), 0).r * texelFetch(uNoiseAx, ivec2(si, clamp(li + j, 0, last)), 0);
+  }
+  outNoise = vec4(acc.x, 0.0, acc.z, 1.0);
+}
+`;
 
 export const GLSL_CONSOLE_FRAG = /* glsl */ `#version 300 es
 precision highp float;
@@ -22,33 +92,25 @@ uniform sampler2D uEnv;    // pass D: envelope amplitude (r), transmission (g)
 uniform sampler2D uIds;    // pass B ids: structure / 255 (r), tissue / 255 (g)
 uniform sampler2D uComp;   // console amplification per sample (r), one row
 uniform sampler2D uHist;   // previous console output before the grey map (r)
+uniform sampler2D uNoise;  // receiver noise passes: re (r), im (b)
 uniform int uSamples;
 uniform float uDynRange;   // dB
 uniform float uEdge;       // edge enhancement strength (edgeEnhance · 0.8)
 uniform float uPersist;    // weight of the history (0 without history)
-uniform int uGrayMap;      // 0 linear, 1 s-curve, 2 high-contrast
-uniform uint uSeed;
-uniform uint uFrameIndex;
+uniform int uGrayMap;      // 0 linear, 1 s-curve, 2 high-contrast, 3 clinical
 layout(location = 0) out vec4 outHist;
 layout(location = 1) out vec4 outPacked;
-#define NOISE_SCALE ${glslFloat(NOISE_FLOOR / RAYLEIGH_MEAN)}
 #define REF_DB ${glslFloat(REF_DB)}
 #define TRANS_K ${glslFloat(TRANS_K)}
+#define GREY_C ${glslFloat(CLINICAL_GREY_CURVE)}
+#define GREY_LOG ${glslFloat(Math.log1p(CLINICAL_GREY_CURVE))}
 
-// core/random.ts hash3: identical 32-bit integer mixing
-uint hash3u(uint x, uint y, uint z, uint seed) {
-  uint h = (x * 0x8da6b343u) ^ (y * 0xd8163841u) ^ (z * 0xcb1ab31fu) ^ seed;
-  h = (h ^ (h >> 16u)) * 0x7feb352du;
-  h = (h ^ (h >> 15u)) * 0x846ca68bu;
-  return h ^ (h >> 16u);
-}
-
-// amplification + noise + log compression of one sample → 0..1
+// detection with the receiver noise + amplification + log compression of one sample → 0..1
 float compressed(int si, int li) {
   float amp = texelFetch(uEnv, ivec2(si, li), 0).r;
-  float u = float(hash3u(uint(li), uint(si), uFrameIndex, uSeed)) / 4294967296.0;
-  float noise = NOISE_SCALE * sqrt(-2.0 * log(1.0 - 0.999999 * u));
-  float a = (amp + noise) * texelFetch(uComp, ivec2(si, 0), 0).r;
+  vec4 nz = texelFetch(uNoise, ivec2(si, li), 0);
+  float x = amp + nz.r;
+  float a = sqrt(x * x + nz.b * nz.b) * texelFetch(uComp, ivec2(si, 0), 0).r;
   float db = 20.0 * log(a + 1e-6) * 0.4342944819032518 - REF_DB;
   return clamp((db + uDynRange) / uDynRange, 0.0, 1.0);
 }
@@ -67,6 +129,7 @@ void main() {
   float g = y;
   if (uGrayMap == 1) g = g * g * (3.0 - 2.0 * g) * 0.85 + g * 0.15;
   else if (uGrayMap == 2) g = pow(g, 1.6);
+  else if (uGrayMap == 3) g = (exp(g * GREY_LOG) - 1.0) / GREY_C;
   vec4 ids = texelFetch(uIds, ivec2(si, li), 0);
   float t = clamp(texelFetch(uEnv, ivec2(si, li), 0).g, 1e-4, 1.0);
   float code = clamp(floor(-log(t) / TRANS_K * 255.0 + 0.5), 0.0, 255.0);

@@ -7,8 +7,8 @@ import { GLSL_HEART } from './glslHeart';
 import { GLSL_THORAX } from './glslThorax';
 import { GLSL_PASS_A_MAIN, GLSL_PASS_B_MAIN, GLSL_PASS_C_MAIN, GLSL_PASS_D_MAIN, GLSL_VERT } from './glslPasses';
 import { allocPacked, packScene, PARAM_TEXELS, type PackedScene } from './paramLayout';
-import { buildPsfKernels, LATERAL_TAPS, MAX_LATERAL_RADIUS, psfKey, type PsfKernels } from '../acoustic/psf';
-import { GLSL_CONSOLE_FRAG, GLSL_PRESENT_FRAG } from './glslImage';
+import { buildNoiseKernels, buildPsfKernels, LATERAL_TAPS, MAX_LATERAL_RADIUS, psfKey, type PsfKernels } from '../acoustic/psf';
+import { GLSL_CONSOLE_FRAG, GLSL_NOISE_AXIAL_FRAG, GLSL_NOISE_LATERAL_FRAG, GLSL_PRESENT_FRAG } from './glslImage';
 import { consoleCompensation, type ConsoleState } from '../postprocess/consolePipeline';
 import { TRANS_DECODE } from '../transmissionCode';
 import { packScanLutTexels, type ScanLut } from '../scanConvert';
@@ -32,7 +32,9 @@ export interface PresentRequest {
   readback?: Uint8Array;
 }
 
-const CONSOLE_UNIFORMS = ['uEnv', 'uIds', 'uComp', 'uHist', 'uSamples', 'uDynRange', 'uEdge', 'uPersist', 'uGrayMap', 'uSeed', 'uFrameIndex'] as const;
+const CONSOLE_UNIFORMS = ['uEnv', 'uIds', 'uComp', 'uHist', 'uNoise', 'uSamples', 'uDynRange', 'uEdge', 'uPersist', 'uGrayMap'] as const;
+const NOISE_AXIAL_UNIFORMS = ['uKernels', 'uSamples', 'uSeed', 'uFrameIndex'] as const;
+const NOISE_LATERAL_UNIFORMS = ['uNoiseAx', 'uKernels', 'uLines'] as const;
 const PRESENT_UNIFORMS = ['uPacked', 'uLut', 'uColor', 'uPolar', 'uHeightPx', 'uLines', 'uSamples', 'uColorOn', 'uBox', 'uColorMap'] as const;
 type Locations<T extends readonly string[]> = Record<T[number], WebGLUniformLocation | null>;
 function uniformLocations<T extends readonly string[]>(gl: WebGL2RenderingContext, prog: WebGLProgram, names: T): Locations<T> {
@@ -42,6 +44,14 @@ function uniformLocations<T extends readonly string[]>(gl: WebGL2RenderingContex
 }
 /** Texture unit used only to upload data, never sampled. */
 const UPLOAD_UNIT = 9;
+
+let noiseKernelMemo: PsfKernels | null = null;
+/** The noise response of a frame geometry, rebuilt only when the geometry or the probe settings change. */
+function buildNoiseKernelsCached(spec: PolarFrameSpec, settings: AcquisitionSettings): PsfKernels {
+  const key = `noise|${psfKey(spec, settings.frequencyMHz, settings.harmonics, 0)}`;
+  if (noiseKernelMemo?.key !== key) noiseKernelMemo = buildNoiseKernels(spec, settings.frequencyMHz, settings.harmonics);
+  return noiseKernelMemo;
+}
 
 /**
  * WebGL2 procedural renderer: the same scanline model and image formation as ProceduralSliceRenderer,
@@ -61,6 +71,13 @@ export class Webgl2Renderer implements RendererBackend {
   private progD: WebGLProgram;
   private progConsole: WebGLProgram;
   private progPresent: WebGLProgram;
+  /** Receiver noise passes (decision 91): white noise filtered along the beam, then across lines. */
+  private progNoiseA: WebGLProgram;
+  private progNoiseL: WebGLProgram;
+  private una: Locations<typeof NOISE_AXIAL_UNIFORMS>;
+  private unl: Locations<typeof NOISE_LATERAL_UNIFORMS>;
+  private noiseKernelTex: WebGLTexture;
+  private noiseKernelKey = '';
   private uc: Locations<typeof CONSOLE_UNIFORMS>;
   private up: Locations<typeof PRESENT_UNIFORMS>;
   private compTex: WebGLTexture;
@@ -110,12 +127,17 @@ export class Webgl2Renderer implements RendererBackend {
   private texB1: WebGLTexture | null = null;
   private texC0: WebGLTexture | null = null;
   private texD0: WebGLTexture | null = null;
+  /** Receiver noise after the axial and after the lateral pass (re, 0, im). */
+  private texNA: WebGLTexture | null = null;
+  private texNL: WebGLTexture | null = null;
   private fbA: WebGLFramebuffer | null = null;
   private fbS0: WebGLFramebuffer | null = null;
   private fbS1: WebGLFramebuffer | null = null;
   private fbB: WebGLFramebuffer | null = null;
   private fbC: WebGLFramebuffer | null = null;
   private fbD: WebGLFramebuffer | null = null;
+  private fbNA: WebGLFramebuffer | null = null;
+  private fbNL: WebGLFramebuffer | null = null;
   private fbW = 0;
   private fbH = 0;
   private packed: PackedScene = allocPacked();
@@ -139,6 +161,11 @@ export class Webgl2Renderer implements RendererBackend {
     this.progD = buildProgram(gl, GLSL_VERT, `${common}${GLSL_PASS_D_MAIN}`);
     this.progConsole = buildProgram(gl, GLSL_VERT, GLSL_CONSOLE_FRAG);
     this.progPresent = buildProgram(gl, GLSL_VERT, GLSL_PRESENT_FRAG);
+    this.progNoiseA = buildProgram(gl, GLSL_VERT, GLSL_NOISE_AXIAL_FRAG);
+    this.progNoiseL = buildProgram(gl, GLSL_VERT, GLSL_NOISE_LATERAL_FRAG);
+    this.una = uniformLocations(gl, this.progNoiseA, NOISE_AXIAL_UNIFORMS);
+    this.unl = uniformLocations(gl, this.progNoiseL, NOISE_LATERAL_UNIFORMS);
+    this.noiseKernelTex = makeTexture2D(gl);
     this.uc = uniformLocations(gl, this.progConsole, CONSOLE_UNIFORMS);
     this.up = uniformLocations(gl, this.progPresent, PRESENT_UNIFORMS);
     this.compTex = makeTexture2D(gl);
@@ -189,6 +216,12 @@ export class Webgl2Renderer implements RendererBackend {
     gl.uniform1i(this.uc.uIds, 3);
     gl.uniform1i(this.uc.uComp, 4);
     gl.uniform1i(this.uc.uHist, 5);
+    gl.uniform1i(this.uc.uNoise, 6);
+    gl.useProgram(this.progNoiseA);
+    gl.uniform1i(this.una.uKernels, 2);
+    gl.useProgram(this.progNoiseL);
+    gl.uniform1i(this.unl.uNoiseAx, 2);
+    gl.uniform1i(this.unl.uKernels, 3);
     gl.useProgram(this.progPresent);
     gl.uniform1i(this.up.uPacked, 2);
     gl.uniform1i(this.up.uLut, 3);
@@ -210,29 +243,30 @@ export class Webgl2Renderer implements RendererBackend {
     if (this.disposed) return;
     this.disposed = true;
     const gl = this.gl;
-    for (const p of [this.progA, this.progB, this.progC, this.progD, this.progConsole, this.progPresent]) gl.deleteProgram(p);
+    for (const p of [this.progA, this.progB, this.progC, this.progD, this.progConsole, this.progPresent, this.progNoiseA, this.progNoiseL]) gl.deleteProgram(p);
     for (const t of [this.compTex, this.lutTex, this.colorTex, this.polarTex]) gl.deleteTexture(t);
     gl.deleteTexture(this.paramsTex);
     gl.deleteTexture(this.noiseTex);
     gl.deleteTexture(this.psfTex);
+    gl.deleteTexture(this.noiseKernelTex);
     this.disposeTargets();
-    this.compKey = this.lutKeyUploaded = this.colorKey = this.polarKeyUploaded = this.psfKeyUploaded = '';
+    this.compKey = this.lutKeyUploaded = this.colorKey = this.polarKeyUploaded = this.psfKeyUploaded = this.noiseKernelKey = '';
     this.noiseSeed = NaN;
     (gl.getExtension('WEBGL_lose_context') as { loseContext: () => void } | null)?.loseContext();
   }
 
   private disposeTargets(): void {
     const gl = this.gl;
-    for (const t of [this.texA0, this.texA1, this.texA2, this.texS0, this.texS1, this.texSC0, this.texSC1, this.texSIds, this.texB0, this.texB1, this.texC0, this.texD0, ...this.texHist, this.texPacked]) if (t) gl.deleteTexture(t);
-    for (const f of [this.fbA, this.fbS0, this.fbS1, this.fbB, this.fbC, this.fbD, ...this.fbConsole]) if (f) gl.deleteFramebuffer(f);
+    for (const t of [this.texA0, this.texA1, this.texA2, this.texS0, this.texS1, this.texSC0, this.texSC1, this.texSIds, this.texB0, this.texB1, this.texC0, this.texD0, this.texNA, this.texNL, ...this.texHist, this.texPacked]) if (t) gl.deleteTexture(t);
+    for (const f of [this.fbA, this.fbS0, this.fbS1, this.fbB, this.fbC, this.fbD, this.fbNA, this.fbNL, ...this.fbConsole]) if (f) gl.deleteFramebuffer(f);
     this.texHist = [null, null];
     this.fbConsole = [null, null];
     this.texPacked = null;
     this.histValid = false;
     this.packedFresh = false;
     this.texA0 = this.texA1 = this.texA2 = this.texS0 = this.texS1 = this.texSC0 = this.texSC1 = this.texSIds = null;
-    this.texB0 = this.texB1 = this.texC0 = this.texD0 = null;
-    this.fbA = this.fbS0 = this.fbS1 = this.fbB = this.fbC = this.fbD = null;
+    this.texB0 = this.texB1 = this.texC0 = this.texD0 = this.texNA = this.texNL = null;
+    this.fbA = this.fbS0 = this.fbS1 = this.fbB = this.fbC = this.fbD = this.fbNA = this.fbNL = null;
   }
 
   private ensureNoise(seed: number): void {
@@ -267,7 +301,19 @@ export class Webgl2Renderer implements RendererBackend {
     const bw = scene.physics.beamWidth ?? 0;
     const key = psfKey(spec, frequencyMHz, harmonics, bw);
     if (this.psfKeyUploaded === key) return;
-    const k: PsfKernels = buildPsfKernels(spec, frequencyMHz, harmonics, bw);
+    this.uploadKernels(this.psfTex, buildPsfKernels(spec, frequencyMHz, harmonics, bw), spec);
+    this.psfKeyUploaded = key;
+  }
+
+  /** Upload the receive response of the receiver noise (decision 91) in the PSF table layout. */
+  private ensureNoiseKernels(spec: PolarFrameSpec, settings: AcquisitionSettings): void {
+    const k = buildNoiseKernelsCached(spec, settings);
+    if (this.noiseKernelKey === k.key) return;
+    this.uploadKernels(this.noiseKernelTex, k, spec);
+    this.noiseKernelKey = k.key;
+  }
+
+  private uploadKernels(tex: WebGLTexture, k: PsfKernels, spec: PolarFrameSpec): void {
     const rows = spec.samples + 1;
     const data = new Float32Array(LATERAL_TAPS * rows * 4);
     const c = MAX_LATERAL_RADIUS;
@@ -279,9 +325,8 @@ export class Webgl2Renderer implements RendererBackend {
       data[(row + c) * 4 + 1] = k.lateralRadius[si]!;
     }
     const gl = this.gl;
-    gl.bindTexture(gl.TEXTURE_2D, this.psfTex);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, LATERAL_TAPS, rows, 0, gl.RGBA, gl.FLOAT, data);
-    this.psfKeyUploaded = key;
   }
 
   private ensureTargets(w: number, h: number): void {
@@ -318,12 +363,16 @@ export class Webgl2Renderer implements RendererBackend {
     this.texB1 = mk(gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE);
     this.texC0 = f32();
     this.texD0 = f32();
+    this.texNA = f32();
+    this.texNL = f32();
     this.fbA = mkFb(this.texA0, this.texA1, this.texA2);
     this.fbS0 = mkFb(this.texS0, this.texSIds, this.texSC0);
     this.fbS1 = mkFb(this.texS1, this.texSIds, this.texSC1);
     this.fbB = mkFb(this.texB0, this.texB1);
     this.fbC = mkFb(this.texC0);
     this.fbD = mkFb(this.texD0);
+    this.fbNA = mkFb(this.texNA);
+    this.fbNL = mkFb(this.texNL);
     const hist0 = f32(),
       hist1 = f32();
     const packed = mk(gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE);
@@ -459,24 +508,38 @@ export class Webgl2Renderer implements RendererBackend {
       this.uploadHistory(con.state.prev, w, h);
       useHistory = true;
     }
+    // receiver noise (decision 91): white complex samples filtered along the beam, then across lines
+    this.ensureNoiseKernels(spec, s);
+    gl.viewport(0, 0, w, h);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbNA);
+    gl.useProgram(this.progNoiseA);
+    gl.uniform1i(this.una.uSamples, w);
+    gl.uniform1ui(this.una.uSeed, con.state.seed >>> 0);
+    gl.uniform1ui(this.una.uFrameIndex, con.state.frameIndex >>> 0);
+    this.bindAt(2, this.noiseKernelTex);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbNL);
+    gl.useProgram(this.progNoiseL);
+    gl.uniform1i(this.unl.uLines, h);
+    this.bindAt(2, this.texNA);
+    this.bindAt(3, this.noiseKernelTex);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
     const next = this.histCurrent === 0 ? 1 : 0;
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbConsole[next]);
-    gl.viewport(0, 0, w, h);
     gl.useProgram(this.progConsole);
     const u = this.uc;
     gl.uniform1i(u.uSamples, w);
     gl.uniform1f(u.uDynRange, s.dynamicRangeDb);
     gl.uniform1f(u.uEdge, s.edgeEnhance > 0 ? s.edgeEnhance * 0.8 : 0);
     gl.uniform1f(u.uPersist, useHistory ? s.persistence : 0);
-    gl.uniform1i(u.uGrayMap, s.grayMap === 's-curve' ? 1 : s.grayMap === 'high-contrast' ? 2 : 0);
-    gl.uniform1ui(u.uSeed, con.state.seed >>> 0);
-    gl.uniform1ui(u.uFrameIndex, con.state.frameIndex >>> 0);
+    gl.uniform1i(u.uGrayMap, s.grayMap === 's-curve' ? 1 : s.grayMap === 'high-contrast' ? 2 : s.grayMap === 'clinical' ? 3 : 0);
     this.bindAt(2, this.texD0);
     this.bindAt(3, this.texB1);
     this.bindAt(4, this.compTex);
     this.bindAt(5, this.texHist[this.histCurrent]);
+    this.bindAt(6, this.texNL);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
-    for (let unit = 2; unit <= 5; unit++) this.bindAt(unit, null);
+    for (let unit = 2; unit <= 6; unit++) this.bindAt(unit, null);
     gl.readBuffer(gl.COLOR_ATTACHMENT1);
     gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, this.probe8);
     const tGpu = performance.now();

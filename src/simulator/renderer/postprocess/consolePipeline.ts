@@ -1,14 +1,16 @@
 import type { AcquisitionSettings, PolarFrame, PolarFrameSpec } from '../types';
 import { hash3 } from '@/core/random';
+import { buildNoiseKernels, ENVELOPE_NORM, filterComplex, type PsfKernels } from '../acoustic/psf';
 
 /**
  * Console post-processing (spec 7.7): linear envelope amplitude → displayed polar intensity 0..255.
- * Steps: baseline depth compensation + user TGC + gain → Rayleigh electronic noise (amplified with the
- * compensation, so it rises with depth and gain) → log compression / dynamic range → edge enhancement →
- * persistence → gray map. Axial and lateral resolution are not console effects: the renderer forms them
- * with the PSF before envelope detection (decision 52). Pure CPU, deterministic per (frameIndex, seed).
- * The GPU console (gpu/glslImage.ts, decision 54) evaluates the same steps except the mirror and side-lobe
- * artifacts, with the same compensation table, noise hash and constants.
+ * Steps: complex receiver noise, band-limited by the receive response and detected together with the echo
+ * (decision 91) → baseline depth compensation + user TGC + gain, which amplify noise and echo alike, so the
+ * noise rises with depth and gain → log compression / dynamic range → edge enhancement → persistence → gray
+ * map. Axial and lateral resolution are not console effects: the renderer forms them with the PSF before
+ * envelope detection (decision 52). Pure CPU, deterministic per (frameIndex, seed). The GPU console
+ * (gpu/glslImage.ts, decision 54) evaluates the same steps except the mirror and side-lobe artifacts, with the
+ * same compensation table, noise hashes, kernels and constants.
  */
 export interface ConsoleState {
   prev: Float32Array | null; // persistence buffer of the CPU console (0..1)
@@ -18,12 +20,24 @@ export interface ConsoleState {
   seed: number;
 }
 
-/** Electronic noise before amplification (mean envelope, amplitude units). */
+/** Mean envelope of receiver noise alone, before amplification (amplitude units). */
 export const NOISE_FLOOR = 0.0018;
-/** White point: envelope amplitude 10^(REF_DB/20) maps to full white at 0 dB gain. */
-export const REF_DB = 8;
-/** Mean of a unit Rayleigh envelope, √(π/2): the noise envelope is scaled so its mean is NOISE_FLOOR. */
-export const RAYLEIGH_MEAN = Math.sqrt(Math.PI / 2);
+/**
+ * RMS of the white complex receiver noise before the receive response (decision 91). The response has unit energy, so it
+ * keeps E|n|², and a complex Gaussian detects to a mean envelope of √π/2 times its RMS: noise alone reads NOISE_FLOOR.
+ */
+export const NOISE_RMS = NOISE_FLOOR * ENVELOPE_NORM;
+/**
+ * White point: envelope amplitude 10^(REF_DB/20) maps to full white at 0 dB gain. 12 dB under the 8 it was since decision
+ * 52, set with the clinical grey map and the complex receiver noise against CAMUS Good (decision 91).
+ */
+export const REF_DB = -4;
+/**
+ * Convexity C of the clinical grey map, grey = ((1 + C)^y − 1) / C of the compressed level y (decision 91): exponential
+ * in dB, it expands the bright end, as the grey std of CAMUS Good images grows with grey level (decision 90).
+ */
+export const CLINICAL_GREY_CURVE = 3.5;
+const CLINICAL_GREY_LOG = Math.log1p(CLINICAL_GREY_CURVE);
 
 export function createConsoleState(seed: number): ConsoleState {
   return { prev: null, gpuHistory: false, frameIndex: 0, seed };
@@ -32,6 +46,47 @@ export function createConsoleState(seed: number): ConsoleState {
 const scratchA = { buf: new Float32Array(0) };
 const scratchB = { buf: new Float32Array(0) };
 const scratchComp = { buf: new Float64Array(0) };
+const scratchNoiseRe = { buf: new Float32Array(0) };
+const scratchNoiseIm = { buf: new Float32Array(0) };
+const scratchTmpRe = { buf: new Float32Array(0) };
+const scratchTmpIm = { buf: new Float32Array(0) };
+const noiseKernelCache = new Map<string, PsfKernels>();
+/**
+ * One 32-bit hash per noise sample: its high 16 bits draw the magnitude (Rayleigh, E|z|² = NOISE_RMS², tail truncated at
+ * 3.3 RMS, where |z|² exceeds it with probability 1.5·10⁻⁵) and its low 10 bits the phase; the GPU passes evaluate the
+ * same expressions on the same bits.
+ */
+const NOISE_MAGNITUDE = Float32Array.from({ length: 65536 }, (_, i) => NOISE_RMS * Math.sqrt(-Math.log(1 - 0.999999 * (i / 65536))));
+const NOISE_COS = Float32Array.from({ length: 1024 }, (_, i) => Math.cos((2 * Math.PI * i) / 1024));
+const NOISE_SIN = Float32Array.from({ length: 1024 }, (_, i) => Math.sin((2 * Math.PI * i) / 1024));
+
+/** Receive response of the noise for a frame or M-mode line geometry (a few geometries alternate: frames and lines). */
+function noiseKernels(spec: PolarFrameSpec, settings: AcquisitionSettings): PsfKernels {
+  const key = `${spec.lines}x${spec.samples}|${spec.depthCm}|${spec.sectorRad}|${spec.focusCm}|${settings.frequencyMHz}|${settings.harmonics ? 1 : 0}`;
+  let k = noiseKernelCache.get(key);
+  if (!k) {
+    if (noiseKernelCache.size >= 8) noiseKernelCache.clear();
+    k = buildNoiseKernels(spec, settings.frequencyMHz, settings.harmonics);
+    noiseKernelCache.set(key, k);
+  }
+  return k;
+}
+
+/**
+ * Receiver noise of one frame or pulse, in place in `re`/`im` (decision 91): white complex Gaussian samples per line,
+ * sample, frame index and seed, filtered by the receive response.
+ */
+export function receiverNoise(k: PsfKernels, lines: number, samples: number, frameIndex: number, seed: number, re: Float32Array, im: Float32Array, tmpRe: Float32Array, tmpIm: Float32Array): void {
+  for (let li = 0; li < lines; li++)
+    for (let si = 0; si < samples; si++) {
+      const h = hash3(li, si, frameIndex, seed) * 4294967296;
+      const r = NOISE_MAGNITUDE[h >>> 16]!,
+        q = h & 1023;
+      re[li * samples + si] = r * NOISE_COS[q]!;
+      im[li * samples + si] = r * NOISE_SIN[q]!;
+    }
+  filterComplex(re, im, lines, samples, k, tmpRe, tmpIm);
+}
 
 /** A view of n samples on a scratch buffer that only grows: frames and M-mode lines alternate without reallocating. */
 function ensure(s: { buf: Float32Array }, n: number): Float32Array {
@@ -80,9 +135,9 @@ export interface ArtifactSettings {
 export const NO_ARTIFACTS: ArtifactSettings = { sideLobe: 0, mirror: 0, beamWidth: 0 };
 
 /**
- * Options of an M-mode column (decision 84): `noisePulses` envelopes of receiver noise averaged per sample (the pulses of
- * one column; the mean stays, the spread drops by √n), `edgeStep` samples between the centre and the neighbours of the
- * edge enhancement (a line finer than a frame keeps the frame's enhancement length), and no persistence history.
+ * Options of an M-mode column (decision 84): `noisePulses` pulses of one column, each detected with its own receiver noise
+ * and averaged per sample (decision 91), `edgeStep` samples between the centre and the neighbours of the edge enhancement
+ * (a line finer than a frame keeps the frame's enhancement length), and no persistence history.
  */
 export interface ConsoleLineOptions {
   noisePulses: number;
@@ -101,19 +156,27 @@ export function applyConsole(frame: PolarFrame, settings: AcquisitionSettings, s
   const compensation = scratchComp.buf;
   consoleCompensation(settings, frame.spec, compensation);
   const pulses = line ? Math.max(1, Math.round(line.noisePulses)) : 1;
-  // 1) amplification + noise, per sample depth
-  for (let si = 0; si < samples; si++) {
-    const comp = compensation[si] ?? 1;
-    for (let li = 0; li < lines; li++) {
-      const idx = li * samples + si;
-      // Rayleigh-distributed envelope of complex Gaussian receiver noise, new every frame
-      let noise = (NOISE_FLOOR / RAYLEIGH_MEAN) * Math.sqrt(-2 * Math.log(1 - 0.999999 * hash3(li, si, fi, state.seed)));
-      if (pulses > 1) {
-        for (let p = 1; p < pulses; p++) noise += (NOISE_FLOOR / RAYLEIGH_MEAN) * Math.sqrt(-2 * Math.log(1 - 0.999999 * hash3(li, si, fi + p, state.seed)));
-        noise /= pulses;
-      }
-      a[idx] = ((frame.amplitude[idx] ?? 0) + noise) * comp;
+  // 1) receiver noise joins the echo before detection (decision 91). Adding its envelope to the detected echo, as before,
+  // filled every speckle null with a positive offset; white noise per sample drew a grain finer than the resolution.
+  // |A + n| with n complex has the distribution of |A·e^{iθ} + n| for any echo phase θ, so the detected echo serves as
+  // A. The pulses of an M-mode column average their detected envelopes. Amplification follows, for noise and echo alike.
+  const k = noiseKernels(frame.spec, settings);
+  const nRe = ensure(scratchNoiseRe, n),
+    nIm = ensure(scratchNoiseIm, n),
+    tRe = ensure(scratchTmpRe, n),
+    tIm = ensure(scratchTmpIm, n);
+  a.fill(0);
+  for (let p = 0; p < pulses; p++) {
+    receiverNoise(k, lines, samples, fi + p, state.seed, nRe, nIm, tRe, tIm);
+    for (let i = 0; i < n; i++) {
+      const x = (frame.amplitude[i] ?? 0) + nRe[i]!,
+        y = nIm[i]!;
+      a[i]! += Math.sqrt(x * x + y * y);
     }
+  }
+  for (let si = 0; si < samples; si++) {
+    const g = (compensation[si] ?? 1) / pulses;
+    for (let li = 0; li < lines; li++) a[li * samples + si]! *= g;
   }
   // 1b) mirror artifact: beyond the first strong specular interface deeper than 5 cm (pericardium / pleura)
   // the shallower image is duplicated at mirrored depth, attenuated
@@ -204,6 +267,7 @@ export function applyConsole(frame: PolarFrame, settings: AcquisitionSettings, s
     let y = a[i] ?? 0;
     if (settings.grayMap === 's-curve') y = y * y * (3 - 2 * y) * 0.85 + y * 0.15;
     else if (settings.grayMap === 'high-contrast') y = Math.pow(y, 1.6);
+    else if (settings.grayMap === 'clinical') y = Math.expm1(y * CLINICAL_GREY_LOG) / CLINICAL_GREY_CURVE;
     outU8[i] = Math.round(y * 255);
   }
   state.gpuHistory = false;

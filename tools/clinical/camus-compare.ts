@@ -20,7 +20,7 @@ import { join, resolve, sep } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { parseNifti, type NiftiVolume } from '@/clinical/nifti';
 import { identifyLabels, imageStats, orientApical, type ImageStats, type RegionImage } from '@/clinical/regionStats';
-import { presentApical, renderApical, type ApicalRender, type ConsoleOverride } from '@/simulator/renderer/clinicalImage';
+import { apicalStats, meanStat, renderApical, type ApicalRender, type ConsoleOverride } from '@/simulator/renderer/clinicalImage';
 import { DEFAULT_ACQUISITION } from '@/simulator/renderer/types';
 
 const arg = (name: string): string | undefined => {
@@ -139,12 +139,12 @@ for (const p of patients)
     }
   }
 
-// each simulator view is rendered once; consoles only change its presentation
+// each simulator view is rendered once; consoles only change its presentation, averaged over receiver-noise realizations
 const renders = new Map<string, ApicalRender>();
-const simStats = (caseId: string, view: 'a4c' | 'a2c', phase: 'ED' | 'ES', consoleOverride: ConsoleOverride = {}): ImageStats => {
+const simStats = (caseId: string, view: 'a4c' | 'a2c', phase: 'ED' | 'ES', consoleOverride: ConsoleOverride = {}): ImageStats[] => {
   const key = `${caseId}|${view}|${phase}`;
   if (!renders.has(key)) renders.set(key, renderApical(caseId, view, phase === 'ED'));
-  return imageStats(presentApical(renders.get(key)!, consoleOverride));
+  return apicalStats(renders.get(key)!, consoleOverride);
 };
 
 const report: Record<string, unknown> = {
@@ -173,7 +173,7 @@ for (const [caseId, quality, label] of PAIRS)
       for (const [, name, get] of METRICS) {
         const q = quantiles(clin.map(get));
         const qa = quantiles(all.map(get));
-        const s = get(sim);
+        const s = meanStat(sim, get);
         const inside = Number.isFinite(q.p25) && s >= q.p25 && s <= q.p75;
         process.stdout.write(`  ${name.padEnd(38)} ${quality.padEnd(4)} ${q.median.toFixed(2).padStart(7)} [${q.p25.toFixed(2)}–${q.p75.toFixed(2)}]  all ${qa.median.toFixed(2).padStart(7)}   sim ${s.toFixed(2).padStart(7)}  ${Number.isFinite(q.median) ? (inside ? 'within IQR' : 'OUTSIDE IQR') : ''}\n`);
         rows[name] = { camus: q, camusAll: qa, simulator: s, withinIqr: inside };
@@ -189,7 +189,7 @@ if (process.argv.includes('--sweep-console')) {
   const SCORED = METRICS.filter(([k]) => !k.startsWith('speckleCell'));
   const results: { cfg: string; score: number; override: ConsoleOverride }[] = [];
   process.stdout.write('\n=== console sweep against CAMUS Good: mean |sim - median| / IQR over 4 conditions (lower is better)\n');
-  for (const grayMap of ['s-curve', 'linear', 'high-contrast'] as const)
+  for (const grayMap of ['clinical', 's-curve', 'linear', 'high-contrast'] as const)
     for (const dynamicRangeDb of [55, 60, 65, 70, 75, 80])
       for (const gainDb of [-4, -2, 0, 2, 4]) {
         const override: ConsoleOverride = { grayMap, dynamicRangeDb, gainDb };
@@ -201,7 +201,7 @@ if (process.argv.includes('--sweep-console')) {
             const sim = simStats('normal-excellent-window', view, phase, override);
             for (const [, , get] of SCORED) {
               const q = quantiles(clin.map(get));
-              sum += Math.abs(get(sim) - q.median) / Math.max(1e-6, q.p75 - q.p25);
+              sum += Math.abs(meanStat(sim, get) - q.median) / Math.max(1e-6, q.p75 - q.p25);
               n++;
             }
           }

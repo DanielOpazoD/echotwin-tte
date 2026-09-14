@@ -74,7 +74,7 @@ export function ConsolePanel() {
         <Slider label="Realce de bordes" value={s.settings.edgeEnhance} min={0} max={1} step={0.1} onChange={(v) => s.setSettings({ edgeEnhance: v })} />
         <div className="row">
           <label>Mapa de grises</label>
-          <Segmented ariaLabel="Mapa de grises" value={s.settings.grayMap} onChange={(v) => s.setSettings({ grayMap: v })} options={[{ id: 'linear', label: 'Lin' }, { id: 's-curve', label: 'S' }, { id: 'high-contrast', label: 'Alto' }]} />
+          <Segmented ariaLabel="Mapa de grises" value={s.settings.grayMap} onChange={(v) => s.setSettings({ grayMap: v })} options={[{ id: 'clinical', label: 'Clín', title: 'Curva exponencial en dB que expande los grises altos, medida en imágenes clínicas' }, { id: 'linear', label: 'Lin' }, { id: 's-curve', label: 'S' }, { id: 'high-contrast', label: 'Alto' }]} />
         </div>
         <Slider label="Zoom" value={s.settings.zoom} min={1} max={2.5} step={0.1} format={(v) => `${v.toFixed(1)}×`} onChange={(v) => s.setSettings({ zoom: v })} />
         <Toggle label="Invertir izq/der" value={s.settings.invertLR} onChange={(v) => s.setSettings({ invertLR: v })} />

@@ -276,3 +276,56 @@ export function formEnvelopeLine(re: Float32Array, im: Float32Array, samples: nu
     outAmp[si] = Math.sqrt(a * a + b * b) * ENVELOPE_NORM;
   }
 }
+
+/**
+ * Kernels of the receiver noise (decision 91). Thermal noise joins the echo after the transducer, so the receive chain
+ * filters it and the transmitted pulse and beam do not. A frame reuses the echo's separable response without the case's
+ * beam-width artifact, which widens the transmit beam: for Gaussian responses the receive-only correlation is √2 shorter
+ * than the echo's along the beam and up to √2 wider across it (as wide where the transmit beam is much wider than the
+ * receive one), so the reuse errs in opposite directions on the two axes. An M-mode line has no neighbours and takes the
+ * axial response at its own finer sampling (decision 84).
+ */
+export function buildNoiseKernels(spec: PolarFrameSpec, frequencyMHz: number, harmonics: boolean): PsfKernels {
+  if (spec.lines > 1) return { ...buildPsfKernels(spec, frequencyMHz, harmonics, 0), key: `noise|${psfKey(spec, frequencyMHz, harmonics, 0)}` };
+  const dr = spec.depthCm / spec.samples;
+  const taps = new Float32Array(2 * MAX_LINE_AXIAL_RADIUS + 1);
+  const axialRadius = gaussianTaps((axialFwhmMm(frequencyMHz, harmonics) / 10 / dr) * FWHM_TO_SIGMA, MAX_LINE_AXIAL_RADIUS, taps, MAX_LINE_AXIAL_RADIUS);
+  return {
+    key: `noise|${psfKey(spec, frequencyMHz, harmonics, 0)}`,
+    axialRadius,
+    axial: taps.slice(MAX_LINE_AXIAL_RADIUS - axialRadius, MAX_LINE_AXIAL_RADIUS + axialRadius + 1),
+    lateralRadius: new Uint8Array(0),
+    lateral: new Float32Array(0),
+  };
+}
+
+/** Separable filter of a frame of complex samples, in place in `re`/`im`: the axial pass, then the lateral one when the frame has more than one line. */
+export function filterComplex(re: Float32Array, im: Float32Array, lines: number, samples: number, k: PsfKernels, tmpRe: Float32Array, tmpIm: Float32Array): void {
+  for (let li = 0; li < lines; li++) axialPass(re, im, li * samples, samples, k, tmpRe, tmpIm);
+  if (lines === 1) {
+    re.set(tmpRe.subarray(0, samples));
+    im.set(tmpIm.subarray(0, samples));
+    return;
+  }
+  const lastLine = lines - 1;
+  for (let si = 0; si < samples; si++) {
+    const R = k.lateralRadius[si]!;
+    const centre = si * LATERAL_TAPS + MAX_LATERAL_RADIUS;
+    const w0 = k.lateral[centre]!;
+    for (let li = 0; li < lines; li++) {
+      const at = li * samples + si;
+      let sr = w0 * tmpRe[at]!,
+        sm = w0 * tmpIm[at]!;
+      // the taps are symmetric: one product per pair of lines at ±j
+      for (let j = 1; j <= R; j++) {
+        const lo = (li - j < 0 ? 0 : li - j) * samples + si,
+          hi = (li + j > lastLine ? lastLine : li + j) * samples + si;
+        const wj = k.lateral[centre + j]!;
+        sr += wj * (tmpRe[lo]! + tmpRe[hi]!);
+        sm += wj * (tmpIm[lo]! + tmpIm[hi]!);
+      }
+      re[at] = sr;
+      im[at] = sm;
+    }
+  }
+}
