@@ -119,7 +119,7 @@ export function evaluateTechnique(spec: MeasurementSpec, ctx: MeasurementContext
   // placement
   if (spec.placement) {
     const pl = spec.placement;
-    if (spec.tool === 'velocity' || spec.tool === 'vti' || spec.tool === 'auto-vti' || spec.tool === 'slope' || spec.tool === 'tapse') {
+    if (spec.tool === 'velocity' || spec.tool === 'vti' || spec.tool === 'auto-vti' || spec.tool === 'slope' || spec.tool === 'tapse' || spec.tool === 'time') {
       const g = ctx.gate;
       if (!g) add('placement', 'warn', 'Sin información del volumen de muestra.');
       else if (modalityFamily === 'pw' || modalityFamily === 'tdi') {

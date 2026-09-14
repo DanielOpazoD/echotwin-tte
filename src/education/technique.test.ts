@@ -49,6 +49,21 @@ describe('technique evaluation', () => {
     const tapse = getMeasurementSpec('tapse')!;
     expect(evaluateTechnique(tapse, base({ modality: 'm-mode', viewId: 'a4c', gate: { ...g, lineStructures: [Structure.RvCavity, Structure.TricuspidAnnulus, Structure.RaCavity] } })).score).toBe(1);
   });
+  it('IVRT between the aortic closure and mitral opening clicks: A5C, gate between outflow and inflow, truth from the case (decision 104)', () => {
+    // before: no protocol measurement for the isovolumic relaxation time, whose clicks the spectral trace lacked
+    const spec = getMeasurementSpec('ivrt');
+    expect(spec?.tool).toBe('time');
+    const gate = { structure: Structure.Lvot, tissue: 1, flowPresent: false, flowAngleDeg: null, lineStructures: [] };
+    const ok = evaluateTechnique(spec!, base({ modality: 'pw', viewId: 'a5c', gate }));
+    expect(ok.score).toBe(1);
+    expect(evaluateTechnique(spec!, base({ modality: 'pw', viewId: 'a5c', gate: { ...gate, structure: Structure.LaCavity } })).findings.find((f) => f.code === 'placement')?.level).toBe('invalid');
+    expect(evaluateTechnique(spec!, base({ modality: 'pw', viewId: 'a4c', gate })).findings.find((f) => f.code === 'view')?.level).toBe('invalid');
+    for (const input of CASE_INPUTS) {
+      const c = loadCaseById(input.id);
+      const truth = computeGroundTruth(c, buildBeatTables(60 / c.rhythm.heartRateBpm, c.physiology, c.rhythm, c.hemodynamics));
+      expect(spec!.truth(truth), input.id).toBe(c.physiology.ivrtMs);
+    }
+  });
   it('Simpson: foreshortened apex is flagged', () => {
     const spec = getMeasurementSpec('lv-edv-simpson')!;
     const r = evaluateTechnique(spec, base({ viewId: 'a4c', phase: 0.0, segmentStructures: Array(50).fill(Structure.LvCavity) as number[], longAxisCm: 6.6, trueLongAxisCm: 8.6 }));
