@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildBeatTables, cycleStateAt, sampleTable } from './cycleModel';
 import { CardiacClock } from './clock';
 import { ecgSample } from './ecg';
+import { aWaveShape, eWaveShape } from './timing';
 import { normalExcellentCase } from '@/cases/normal-excellent';
 import { validateCase } from '@/cases/schema';
 
@@ -130,3 +131,53 @@ describe('annular recoil (decision 80)', () => {
   });
 });
 
+
+describe('the beat closes on its own flows (decision 95)', () => {
+  /** Inflow minus outflow over the beat and the mitral inflow volume, integrated on the table. */
+  const balance = (tb: ReturnType<typeof buildBeatTables>): { net: number; mitral: number } => {
+    const dt = tb.rrS / tb.n;
+    let net = 0,
+      mitral = 0;
+    for (let i = 0; i < tb.n; i++) {
+      net += ((tb.mitralFlowMlps[i] ?? 0) + (tb.arFlowMlps[i] ?? 0) - (tb.aorticFlowMlps[i] ?? 0) - (tb.mrFlowMlps[i] ?? 0)) * dt;
+      mitral += (tb.mitralFlowMlps[i] ?? 0) * dt;
+    }
+    return { net, mitral };
+  };
+
+  it('a fast rate that cuts the E wave still fills the stroke volume at the case velocities', () => {
+    // at 110 bpm the normal E wave (75 ms IVRT, 90 + 180 ms) would end 86 ms into the next beat
+    const tb = buildBeatTables(60 / 110, c.physiology, c.rhythm, c.hemodynamics);
+    const t = tb.timings;
+    expect(t.mitralOpenS + t.eAccelS + t.eDecelS).toBeGreaterThan(t.rrS + 0.05);
+    const { net, mitral } = balance(tb);
+    // before: the whole E wave was integrated, the inflow fell 7.9 mL (10.5%) short and the closing ramp added it back
+    expect(Math.abs(mitral - 75)).toBeLessThan(0.1);
+    expect(Math.abs(net)).toBeLessThan(0.1);
+    expect(Math.abs(tb.volumeCorrectionMl - net)).toBeLessThan(1e-3);
+    expect(tb.strokeVolumeMl).toBeCloseTo(75, 0);
+    // the flow area carries the volume: the velocity at the orifice is still the case E and A waves, sample by sample
+    let worst = 0;
+    for (let i = 0; i < tb.n; i++) {
+      const ti = (i + 0.5) * (tb.rrS / tb.n);
+      let v = ti > t.mitralOpenS ? 0.8 * eWaveShape(ti - t.mitralOpenS, t.eAccelS, t.eDecelS) : 0;
+      if (ti > t.aStartS && ti < t.aEndS) v += 0.55 * aWaveShape((ti - t.aStartS) / (t.aEndS - t.aStartS));
+      worst = Math.max(worst, Math.abs((tb.mitralFlowMlps[i] ?? 0) / tb.mvEffectiveAreaCm2 / 100 - v));
+    }
+    expect(worst).toBeLessThan(1e-4);
+  });
+
+  it('every case closes within 0.1% of its stroke volume, through a mitral flow area of 0.5–8 cm²', async () => {
+    const { CASE_INPUTS, loadCaseById } = await import('@/cases');
+    const problems: string[] = [];
+    for (const input of CASE_INPUTS) {
+      const k = loadCaseById(input.id);
+      const tb = buildBeatTables(60 / k.rhythm.heartRateBpm, k.physiology, k.rhythm, k.hemodynamics);
+      const sv = k.physiology.edvMl - k.physiology.esvMl;
+      if (Math.abs(tb.volumeCorrectionMl) > 0.001 * sv) problems.push(`${input.id}: closing correction ${tb.volumeCorrectionMl.toFixed(2)} mL of SV ${sv}`);
+      if (Math.abs(tb.strokeVolumeMl - sv) > 0.01 * sv) problems.push(`${input.id}: table SV ${tb.strokeVolumeMl.toFixed(1)} mL against EDV − ESV ${sv}`);
+      if (!(tb.mvEffectiveAreaCm2 >= 0.5 && tb.mvEffectiveAreaCm2 <= 8)) problems.push(`${input.id}: mitral flow area ${tb.mvEffectiveAreaCm2.toFixed(2)} cm²`);
+    }
+    expect(problems).toEqual([]);
+  });
+});

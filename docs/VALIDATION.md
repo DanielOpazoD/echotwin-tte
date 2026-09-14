@@ -23,6 +23,7 @@ Referencia = con qué se compara (valor analítico, consistencia interna o rango
 | | Volumen VI Monte Carlo (200 000 muestras) en TD y TS | VTD/VTS de las tablas | ±10 % / ±12 %; TS < 0,5·TD | pasa (falló una vez en el conjunto completo bajo carga; no reproducido) |
 | | Engrosamiento sistólico; secuencia MV/VAo; referencias en su estructura; ápex izquierdo-inferior-anterior; segmentos AHA | consistencia | — | pasa |
 | `cardiac-cycle/cycle.test.ts` | VTD/VTS/VS = 120/45/75; periodicidad | caso normal | ±0,5 mL; drift < 3 mL | pasa |
+| | El latido cierra con sus flujos (decisión 95): corrección de cierre ≤ 0,1% del VS en los doce casos, VS de la tabla dentro del 1% de VTD − VTS, área mitral 0,5–8 cm²; el caso normal a 110 lpm con la onda E cortada llena 75 mL con sus velocidades E y A | los doce casos; caso normal a 110 lpm | ±0,1 mL; velocidad ±10⁻⁴ m/s | pasa |
 | | ∫Q_ao = ∫Q_mv = VS | 75 mL | ±0,5 | pasa |
 | | Área mitral efectiva | 3–7 cm² | rango | pasa |
 | | Orden VAo→IVRT→MV→A; aperturas por fase | — | umbrales 0,05/0,7/0,9 | pasa |

@@ -21,6 +21,11 @@ export interface BeatTables {
   mrFlowMlps: Float32Array;
   arFlowMlps: Float32Array;
   regurgitation: { mrVolumeMl: number; mrVmaxMps: number; mrVtiCm: number; arVolumeMl: number; arVmaxMps: number; arVtiCm: number; arPhtMs: number };
+  /**
+   * Volume (mL) the closing correction removed so that V(RR) = V(0): inflow minus outflow over the beat. With every flow
+   * normalised on this table it is discretisation only (decision 95); `validateCase` rejects a case that needs more.
+   */
+  volumeCorrectionMl: number;
   /** Longitudinal (annular) displacement toward apex as a fraction of MAPSE, [0,1]. */
   longitudinal: Float32Array;
   /** Longitudinal annular velocity in units of MAPSE per second (s⁻¹); multiply by MAPSE(cm) → cm/s. */
@@ -88,16 +93,22 @@ export function buildBeatTables(
   for (let i = 0; i < 400; i++) shapeInt += ejectionShape((i + 0.5) / 400) * (et / 400);
   const kAo = sv / shapeInt;
 
-  // Filling: E and A shapes with peak velocities; solve mitral flow area A_mv so ∫Q_mv = SV.
+  // Filling: E and A shapes with peak velocities; solve mitral flow area A_mv so ∫Q_mv = SV. The velocity integral is
+  // taken on this table, where the next beat cuts an E wave that has not ended (decision 95): integrating the whole wave
+  // left the tamponade inflow 3.2 mL (6.4%) short of its stroke volume, and the closing correction hid it.
   const eCm = physiology.ePeakMps * 100 * Math.sqrt(preload);
   const aCm = timings.hasAWave ? physiology.aPeakMps * 100 : 0;
-  const eDur = timings.eAccelS + timings.eDecelS;
-  let eInt = 0;
-  for (let i = 0; i < 400; i++) eInt += eWaveShape(((i + 0.5) / 400) * eDur, timings.eAccelS, timings.eDecelS) * (eDur / 400);
   const aDur = timings.hasAWave ? timings.aEndS - timings.aStartS : 0;
-  let aInt = 0;
-  for (let i = 0; i < 200; i++) aInt += aWaveShape((i + 0.5) / 200) * (aDur / 200);
-  const velIntegralCm = eCm * eInt + aCm * aInt; // cm (VTI of mitral inflow)
+  const mvVelocity = new Float32Array(n); // cm/s
+  let velIntegralCm = 0; // cm (VTI of mitral inflow)
+  for (let i = 0; i < n; i++) {
+    const t = (i + 0.5) * dt;
+    let v = 0;
+    if (t > timings.mitralOpenS) v += eCm * eWaveShape(t - timings.mitralOpenS, timings.eAccelS, timings.eDecelS);
+    if (timings.hasAWave && t > timings.aStartS && t < timings.aEndS) v += aCm * aWaveShape((t - timings.aStartS) / aDur);
+    mvVelocity[i] = v;
+    velIntegralCm += v * dt;
+  }
   const mvArea = hemo.mvEffectiveAreaCm2 ?? svMitral / Math.max(velIntegralCm, 1e-6);
   const scaleMv = hemo.mvEffectiveAreaCm2 ? svMitral / Math.max(mvArea * velIntegralCm, 1e-6) : 1; // enforce ∫=SV if area forced
 
@@ -108,12 +119,9 @@ export function buildBeatTables(
     if (t > timings.ejectionStartS && t < timings.ejectionEndS) {
       aorticFlow[i] = kAo * ejectionShape((t - timings.ejectionStartS) / et);
     }
-    let vmv = 0;
-    if (t > timings.mitralOpenS) vmv += eCm * eWaveShape(t - timings.mitralOpenS, timings.eAccelS, timings.eDecelS);
-    if (timings.hasAWave && t > timings.aStartS && t < timings.aEndS) vmv += aCm * aWaveShape((t - timings.aStartS) / aDur);
-    mitralFlow[i] = vmv * mvArea * scaleMv;
+    mitralFlow[i] = (mvVelocity[i] ?? 0) * mvArea * scaleMv;
   }
-  // Integrate volume; then correct tiny drift so V(0)=V(RR)=EDV exactly (ensures periodicity).
+  // Integrate volume; then remove the residual drift so V(0)=V(RR)=EDV exactly (ensures periodicity).
   const vol = new Float32Array(n);
   let v = edv;
   for (let i = 0; i < n; i++) {
@@ -211,6 +219,7 @@ export function buildBeatTables(
     esvMl: minV,
     strokeVolumeMl: maxV - minV,
     lvVolumeMl: vol,
+    volumeCorrectionMl: drift,
     aorticFlowMlps: aorticFlow,
     mitralFlowMlps: mitralFlow,
     mvEffectiveAreaCm2: mvArea * scaleMv,
