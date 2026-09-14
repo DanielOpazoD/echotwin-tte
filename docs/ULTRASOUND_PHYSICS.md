@@ -47,7 +47,7 @@ Todo el ruido deriva de `hash3(...)`/`valueNoise3(...)` con la semilla del caso:
 6. **Persistencia**: `y = a·(1−p) + prev·p`; se reinicia al cambiar la geometría del cuadro.
 7. **Mapa de grises**: lineal, curva S (`smoothstep·0,85 + lineal·0,15`) o alto contraste (`y^1,6`).
 
-El M-mode aplica la misma cadena a una sola línea por columna con persistencia 0 y un estado de consola sembrado por columna.
+El M-mode (decisión 84) traza una línea cada 0,2 mm con la PSF axial y sus propios núcleos, que conservan los niveles del cuadro (lo incoherente se escala por la potencia filtrada de la red de dispersores, que crece al muestrear más fino que la celda; los ecos coherentes conservan su pico). El fasor de dispersores de la línea usa una red orientada con el haz (celda de dispersor a lo largo, anchura del haz de través, recorrida en fracciones irracionales para que la posición del cursor no fije una ganancia), anclada en el centro de cada tramo de estructura del corazón y fija en el tórax; la sangre cambia de fasor en cada pulso. Las líneas se guardan por fases del latido para la misma sonda y cursor y cada columna del strip se forma entre las dos que rodean su instante; la consola promedia la envolvente del ruido de los pulsos de la columna (1000 pulsos/s), sin persistencia y con el realce de bordes a distancia de una muestra de cuadro.
 
 ## Frame rate simulado (`frameRate.ts`)
 `t_línea = 2·profundidad/1540 + 20 µs`; `fps = 1/(líneas·t_línea·zonas_focales + líneas_color·8·t_línea)`, tope 90 Hz. Enseña la relación profundidad / sector / densidad / caja de color; no reproduce ningún equipo. El worker usa este valor para su cadencia real (acotada a 12–50 ms por paso) y la UI lo muestra como «FR».

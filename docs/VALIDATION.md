@@ -99,6 +99,8 @@ Medido con `tools/offline/render/image-metrics.ts` en el caso normal, fase 0,35,
 | Speckle Rayleigh con dispersores gaussianos sintéticos (media ≈ σ, SNR 1,8–2,03) | `psf.test.ts` | pasa |
 | Fasor de dispersores de media nula, potencia unidad y partes incorreladas | `psf.test.ts` | pasa |
 | SNR local, celda anisótropa creciente, contraste, anisotropía y grises en PLAX/A4C | `imageFormation.test.ts` | pasa |
+| Línea de modo M 4× más fina que el cuadro: potencia filtrada de la red (+4,25 dB, analítica frente a la red a 0,25 dB), speckle, interfaz y cursor a media celda con los niveles del cuadro (±0,3 / ±0,3 / ±0,5 dB) | `psf.test.ts` | pasa |
+| Modo M por `SimulatorCore` (320 px, 100 mm/s, pasos de 50 ms): ningún salto de tiempo, eco pericárdico continuo respecto del modelo, speckle de septo y pared posterior que sigue al tejido (> 0,9) y sangre que no (< 0,65), textura de estructuras con coordenadas fijas que se desplaza con ellas, niveles por tejido frente a la línea de cuadro (±1 dB) | `mmodeStrip.test.ts` | pasa |
 
 ## Cadena de imagen en GPU (2026-09-11)
 Decisiones 54 y 55. App con GPU real (Apple M4, ANGLE Metal), lienzo 890×814 px, caso normal, sonda oscilando ±1° cada 90 ms durante 9 s por tier. Carga media de la máquina: ≈ 20 antes y 7–17 después.
@@ -163,7 +165,7 @@ El protocolo preregistrado (tres estudios: puntuación experta por vista y versi
 ## Pendiente de validar
 - Comparación contra imágenes reales o contra un simulador físico (PyMUST/OpenBCSim/i4h): `tools/offline/{pymust-validation,optional-cuda-reference,optical-flow}` están vacías (`atlas-generation/build-atlas.ts` sólo produce hojas de contacto para inspección visual).
 - Precisión numérica de las herramientas frente a la verdad de terreno a través de la UI: los E2E comprueban el flujo y la procedencia, no el valor; no hay prueba unitaria del mapeo píxel↔cm ni de velocidad/VTI/tiempo manuales.
-- Color Doppler en imagen (aliasing, blooming, sombra) y M-mode: sólo humo; la persistencia del color sí tiene prueba (decisión 56).
+- Color Doppler en imagen (aliasing, blooming, sombra): sólo humo; la persistencia del color sí tiene prueba (decisión 56). El modo M tiene pruebas de tiempo, definición, textura y niveles (decisión 84), pero no de sus mediciones (TAPSE, diámetros) frente a la verdad de terreno.
 - Caso de estenosis aórtica: ninguna prueba comprueba su Vmax/gradientes/AVA ni la graduación del informe (sus proporciones y su válvula sí se prueban).
 - Worker (contrapresión, reciclaje), reloj/ECG en la app, audio Doppler.
 - Rendimiento: `bench.ts` se ejecuta a mano; sin umbral automatizado.

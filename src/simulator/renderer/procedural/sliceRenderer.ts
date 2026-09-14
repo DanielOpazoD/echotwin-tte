@@ -6,7 +6,7 @@ import { makeSample, TISSUE_PROPS, Tissue, Structure, type TissueSample } from '
 import { latticeNoise3, noiseLattice } from '@/core/noise';
 import { hash3 } from '@/core/random';
 import { contactQuality } from '@/simulator/probe/pose';
-import { buildPsfKernels, formEnvelope, formEnvelopeLine, psfKey, type PsfKernels } from '../acoustic/psf';
+import { buildLineKernels, buildPsfKernels, formEnvelope, formEnvelopeLine, LINE_LATTICE_PATH, lineKernelKey, psfKey, sliceHalfWidthCm, type LineKernels, type PsfKernels } from '../acoustic/psf';
 import { HETERO_FREQ, heteroDb, MYO_ANISO_FLOOR, PHASOR_NORM, SCATTER_FREQ, SCATTER_FREQ_RATIO, SPECULAR_GAIN, SPECULAR_HARMONIC, SPECULAR_WINDOW_MIN } from '../acoustic/acoustics';
 
 /**
@@ -35,7 +35,12 @@ export class ProceduralSliceRenderer implements RendererBackend {
   private lineIm = new Float32Array(0);
   private lineTmpRe = new Float32Array(0);
   private lineTmpIm = new Float32Array(0);
+  private lineSigma = new Float32Array(0);
+  private lineAcross = new Float32Array(0);
+  private lineElevation = new Float32Array(0);
+  private lineAlong = new Float32Array(0);
   private psf: PsfKernels | null = null;
+  private linePsf: LineKernels | null = null;
   private acA = { sigma: 0, spec: 0 };
   private acB = { sigma: 0, spec: 0 };
 
@@ -71,19 +76,94 @@ export class ProceduralSliceRenderer implements RendererBackend {
     this.lastSamples = n;
   }
 
-  /** Render one scanline at angle theta (rad): axial PSF and envelope only (a single beam has no lateral neighbours). Used by M-mode. */
-  renderSingleLine(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, theta: number, amp: Float32Array, st: Uint8Array, tr: Float32Array, ti: Uint8Array): void {
-    const N = spec.samples;
-    if (this.lineRe.length !== N) {
-      this.lineRe = new Float32Array(N);
-      this.lineIm = new Float32Array(N);
-      this.lineTmpRe = new Float32Array(N);
-      this.lineTmpIm = new Float32Array(N);
+  /** Kernels and level scales of an M-mode line of `samples` samples drawn under the frame geometry `frame` (decision 84). */
+  lineKernels(scene: Scene, frame: PolarFrameSpec, samples: number): LineKernels {
+    const { frequencyMHz, harmonics } = scene.physics;
+    const bw = scene.physics.beamWidth ?? 0;
+    if (!this.linePsf || this.linePsf.key !== lineKernelKey(frame, samples, frequencyMHz, harmonics, bw)) this.linePsf = buildLineKernels(frame, samples, frequencyMHz, harmonics, bw);
+    return this.linePsf;
+  }
+
+  /**
+   * One M-mode line at angle theta (rad) through `samples` samples over the frame depth (decision 84). The line is finer
+   * than a frame line so an echo moves continuously between columns, keeps the frame's levels (`LineKernels`), and draws
+   * its scatterer phasor on a lattice aligned with the beam whose cell across the beam is the beam width: a line has no
+   * lateral neighbours to average, and tissue sliding through it decorrelates over the beam and not over a 0.4 mm cell.
+   * Blood is the exception: its scatterers flow a scatterer cell in a pulse interval or two (0.4 mm at 20 cm/s in 2 ms), so
+   * its phasor is drawn anew for every `pulse` instead of streaking the cavity like still tissue. The slice-thickness side
+   * planes are not sampled.
+   */
+  renderMmodeLine(scene: Scene, beam: BeamFrame, frame: PolarFrameSpec, samples: number, theta: number, pulse: number, amp: Float32Array, st: Uint8Array, tr: Float32Array, ti: Uint8Array): void {
+    if (this.lineRe.length !== samples) {
+      this.lineRe = new Float32Array(samples);
+      this.lineIm = new Float32Array(samples);
+      this.lineTmpRe = new Float32Array(samples);
+      this.lineTmpIm = new Float32Array(samples);
+      this.lineSigma = new Float32Array(samples);
+      this.lineAcross = new Float32Array(samples);
+      this.lineElevation = new Float32Array(samples);
+      this.lineAlong = new Float32Array(samples);
     }
+    this.lineSigma.fill(0);
+    const spec: PolarFrameSpec = { ...frame, samples, elevationSamples: 1 };
+    const k = this.lineKernels(scene, frame, samples);
     const ctx = this.prepare(scene, beam, spec);
-    const li = Math.round(((theta + spec.sectorRad / 2) / spec.sectorRad) * spec.lines);
-    this.renderLine(ctx, theta, li, 0, this.lineRe, this.lineIm, st, tr, ti);
-    formEnvelopeLine(this.lineRe, this.lineIm, N, this.kernels(scene, spec), amp, this.lineTmpRe, this.lineTmpIm);
+    const ct = Math.cos(theta),
+      sn = Math.sin(theta);
+    const hf = scene.heart.frame;
+    const lat = { x: beam.lateral.x * ct - beam.forward.x * sn, y: beam.lateral.y * ct - beam.forward.y * sn, z: beam.lateral.z * ct - beam.forward.z * sn };
+    const fwd = { x: beam.forward.x * ct + beam.lateral.x * sn, y: beam.forward.y * ct + beam.lateral.y * sn, z: beam.forward.z * ct + beam.lateral.z * sn };
+    const fH = torsoToHeartDir(hf, fwd),
+      lH = torsoToHeartDir(hf, lat),
+      nH = torsoToHeartDir(hf, beam.normal);
+    ctx.line = {
+      kernels: k,
+      torsoAxes: [fwd.x, fwd.y, fwd.z, lat.x, lat.y, lat.z, beam.normal.x, beam.normal.y, beam.normal.z],
+      heartAxes: [fH.x, fH.y, fH.z, lH.x, lH.y, lH.z, nH.x, nH.y, nH.z],
+      frameSampleShare: frame.samples / samples,
+      // 2.7 cells per pulse: value noise is uncorrelated beyond two cells
+      bloodCells: (pulse % 4096) * 2.7,
+      sigma: this.lineSigma,
+      across: this.lineAcross,
+      elevation: this.lineElevation,
+      along: this.lineAlong,
+    };
+    const li = Math.round(((theta + frame.sectorRad / 2) / frame.sectorRad) * frame.lines);
+    const re = this.lineRe,
+      im = this.lineIm;
+    this.renderLine(ctx, theta, li, 0, re, im, st, tr, ti);
+    // Scatterers along the beam. Many heart structures carry material coordinates fixed in the heart frame (valves, atrial
+    // and aortic walls, pericardium) or scaled with the whole ventricle, which is invisible in a frame but in an M-mode trace
+    // leaves the speckle standing still while the band moves: horizontal stripes across a moving leaflet. Each run of one
+    // heart structure and tissue along the line is given its own coordinate from the run's centre, so its speckle travels
+    // with it and stretches only by half the thickening. The thorax does not move under the probe: its tissue keeps its
+    // material coordinate, or a chest-wall run ending on the beating heart would drag its speckle along.
+    const { latA, latB, latC } = ctx;
+    const R = SCATTER_FREQ_RATIO;
+    const dr = frame.depthCm / samples;
+    const sigma = this.lineSigma,
+      across = this.lineAcross,
+      elev = this.lineElevation,
+      along = this.lineAlong;
+    const [, pathY, pathZ] = LINE_LATTICE_PATH;
+    for (let a = 0; a < samples; ) {
+      let b = a + 1;
+      while (b < samples && st[b] === st[a] && ti[b] === ti[a]) b++;
+      const centre = (a + b) / 2;
+      const offset = st[a]! * 7.31 + ti[a]! * 3.17;
+      for (let i = a; i < b; i++) {
+        const sg = sigma[i]!;
+        if (sg === 0) continue;
+        const u = Number.isNaN(along[i]!) ? (i + 0.5 - centre) * dr * SCATTER_FREQ : along[i]! * SCATTER_FREQ;
+        const qx = u + offset,
+          qy = across[i]! + u * pathY!,
+          qz = elev[i]! + u * pathZ!;
+        re[i] = re[i]! + sg * (latticeNoise3(qx, qy, qz, latA) + latticeNoise3(qx * R + 37.3, qy * R + 11.9, qz * R + 23.7, latB) - 1) * PHASOR_NORM;
+        im[i] = im[i]! + sg * (latticeNoise3(qx + 71.1, qy + 53.5, qz + 5.3, latC) + latticeNoise3(qx * R + 17.9, qy * R + 91.1, qz * R + 43.3, latA) - 1) * PHASOR_NORM;
+      }
+      a = b;
+    }
+    formEnvelopeLine(re, im, samples, k, amp, this.lineTmpRe, this.lineTmpIm);
   }
 
   private prepare(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec): LineContext {
@@ -108,11 +188,16 @@ export class ProceduralSliceRenderer implements RendererBackend {
       latA: noiseLattice(physics.seed),
       latB: noiseLattice(physics.seed ^ 0x2545f491),
       latC: noiseLattice(physics.seed ^ 0x51),
+      line: null,
     };
   }
 
   private renderLine(ctx: LineContext, theta: number, li: number, base: number, re: Float32Array, im: Float32Array, st: Uint8Array, tr: Float32Array, ti: Uint8Array): void {
-    const { beam, spec, dr, fAtten, seed, harm, clutter, contact, fwdH, latH, thorax, latA, latB, latC } = ctx;
+    const { beam, spec, dr, fAtten, seed, harm, clutter, contact, fwdH, latH, thorax, latA, latB, latC, line } = ctx;
+    // M-mode line scales (decision 84); a frame line uses 1, which leaves its arithmetic unchanged
+    const lk = line ? line.kernels : null;
+    const inc = lk ? lk.incoherent : 1;
+    const incAxial = lk ? lk.incoherentAxial : 1;
     const { heart, heartPose } = ctx.scene;
     const hf = heart.frame;
     const s = this.sample;
@@ -195,8 +280,8 @@ export class ProceduralSliceRenderer implements RendererBackend {
         // reverberation energy is incoherent: a phasor tied to the line and the depth
         const px2 = li * 0.9,
           pr = r * SCATTER_FREQ;
-        re[idx] = a * (latticeNoise3(px2, pr, 17.3, latA) + latticeNoise3(px2 + 5.1, pr * R + 2.3, 29.9, latB) - 1) * PHASOR_NORM;
-        im[idx] = a * (latticeNoise3(px2 + 9.7, pr + 13.1, 41.3, latC) + latticeNoise3(px2 + 3.3, pr * R + 7.7, 53.9, latA) - 1) * PHASOR_NORM;
+        re[idx] = a * (latticeNoise3(px2, pr, 17.3, latA) + latticeNoise3(px2 + 5.1, pr * R + 2.3, 29.9, latB) - 1) * PHASOR_NORM * incAxial;
+        im[idx] = a * (latticeNoise3(px2 + 9.7, pr + 13.1, 41.3, latC) + latticeNoise3(px2 + 3.3, pr * R + 7.7, 53.9, latA) - 1) * PHASOR_NORM * incAxial;
         st[idx] = Structure.Lung;
         tr[idx] = 0;
         ti[idx] = Tissue.Lung;
@@ -225,6 +310,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
         lungEntryR = r;
         lungEntryT = transmission;
         re[idx] = transmission * (1.2 + 0.4 * latticeNoise3(li * 0.8, r * 3, 1, latA));
+        if (lk) re[idx] = re[idx]! * lk.single;
         im[idx] = 0;
         dead = true;
         continue;
@@ -235,7 +321,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
       if (nElev > 1) {
         // slice thickness: the beam's elevational width grows away from the focus; backscatter and interface
         // echo are the weighted mean over the slice (¼ ½ ¼), which blurs obliquely cut structures
-        const e = 0.2 + 0.04 * Math.abs(r - focus);
+        const e = sliceHalfWidthCm(r, focus);
         let accS = sigma * 0.5,
           accP = specular * 0.5,
           wsum = 0.5;
@@ -255,24 +341,38 @@ export class ProceduralSliceRenderer implements RendererBackend {
       const qx = s.mx * SCATTER_FREQ,
         qy = s.my * SCATTER_FREQ,
         qz = s.mz * SCATTER_FREQ;
-      const zr = (latticeNoise3(qx, qy, qz, latA) + latticeNoise3(qx * R + 37.3, qy * R + 11.9, qz * R + 23.7, latB) - 1) * PHASOR_NORM;
-      const zi = (latticeNoise3(qx + 71.1, qy + 53.5, qz + 5.3, latC) + latticeNoise3(qx * R + 17.9, qy * R + 91.1, qz * R + 43.3, latA) - 1) * PHASOR_NORM;
-      let sRe = sigma * zr + specular;
-      let sIm = sigma * zi;
+      let sRe: number, sIm: number;
+      if (line && lk) {
+        // M-mode line (decision 84): the lattice axes follow the beam, with the beam width as the cell across it; the
+        // coordinate along the beam is set per structure after the march (`renderMmodeLine`), so only σ is kept here
+        const a = inHeart ? line.heartAxes : line.torsoAxes;
+        line.along[si] = inHeart ? NaN : s.mx * a[0]! + s.my * a[1]! + s.mz * a[2]!;
+        line.across[si] = (s.mx * a[3]! + s.my * a[4]! + s.mz * a[5]!) * lk.lateralCells[si]!;
+        line.elevation[si] = (s.mx * a[6]! + s.my * a[7]! + s.mz * a[8]!) * lk.elevationCells[si]! + (tissue === Tissue.Blood ? line.bloodCells : 0);
+        line.sigma[si] = sigma * inc * transmission;
+        sRe = specular * lk.specular;
+        sIm = 0;
+      } else {
+        const zr = (latticeNoise3(qx, qy, qz, latA) + latticeNoise3(qx * R + 37.3, qy * R + 11.9, qz * R + 23.7, latB) - 1) * PHASOR_NORM;
+        const zi = (latticeNoise3(qx + 71.1, qy + 53.5, qz + 5.3, latC) + latticeNoise3(qx * R + 17.9, qy * R + 91.1, qz * R + 43.3, latA) - 1) * PHASOR_NORM;
+        sRe = sigma * zr + specular;
+        sIm = sigma * zi;
+      }
       if (r < 4.5 && clutter > 0) {
         // near-field clutter: reverberation in the chest wall under the footprint, incoherent, fixed to the probe position
         const cm = clutter * Math.exp(-r / 1.8) * (0.15 + 0.5 * latticeNoise3(ox * 6 + li * 0.7, oy * 6 + oz * 6, r * 5, latC));
         const cx = ox * 25 + li * 0.9,
           cy = oy * 25 + oz * 25,
           cz = r * SCATTER_FREQ;
-        sRe += cm * (latticeNoise3(cx + 3.1, cy, cz, latA) + latticeNoise3(cx * R + 8.3, cy + 1.9, cz * R, latB) - 1) * PHASOR_NORM;
-        sIm += cm * (latticeNoise3(cx + 61.7, cy + 5.5, cz + 3.3, latC) + latticeNoise3(cx * R + 21.1, cy + 44.4, cz * R + 9.9, latA) - 1) * PHASOR_NORM;
+        sRe += cm * (latticeNoise3(cx + 3.1, cy, cz, latA) + latticeNoise3(cx * R + 8.3, cy + 1.9, cz * R, latB) - 1) * PHASOR_NORM * incAxial;
+        sIm += cm * (latticeNoise3(cx + 61.7, cy + 5.5, cz + 3.3, latC) + latticeNoise3(cx * R + 21.1, cy + 44.4, cz * R + 9.9, latA) - 1) * PHASOR_NORM * incAxial;
       }
-      if (r < 0.35) sRe += 0.6 * (1 - r / 0.35); // transducer ring-down
+      if (r < 0.35) sRe += lk ? 0.6 * (1 - r / 0.35) * lk.smooth : 0.6 * (1 - r / 0.35); // transducer ring-down
       re[idx] = sRe * transmission;
       im[idx] = sIm * transmission;
       let attenNp = 0.23 * props.attenuation * fAtten * dr;
-      if (tissue === Tissue.Bone || tissue === Tissue.Calcium || tissue === Tissue.Spine) attenNp = 1.2;
+      // bone and calcium stop the beam within a frame sample; a finer M-mode line spreads the same loss over its samples
+      if (tissue === Tissue.Bone || tissue === Tissue.Calcium || tissue === Tissue.Spine) attenNp = line ? 1.2 * line.frameSampleShare : 1.2;
       else if (s.extraReflect > 0.4) attenNp += 0.09 * s.extraReflect * (dr / 0.07); // calcified tissue ≈ 10 dB/cm at 2.5 MHz
       if (!inHeart && (tissue === Tissue.Fat || tissue === Tissue.Muscle || tissue === Tissue.Skin)) attenNp *= 1 + 1.5 * ctx.windowAttenuation;
       transmission *= Math.exp(-attenNp);
@@ -298,6 +398,25 @@ interface LineContext {
   latA: Uint8Array;
   latB: Uint8Array;
   latC: Uint8Array;
+  /** Set only for an M-mode line (decision 84). */
+  line: {
+    kernels: LineKernels;
+    /** Beam axes (along, across in the scan plane, elevation) in torso and heart coordinates, 3 × 3 flattened. */
+    torsoAxes: number[];
+    heartAxes: number[];
+    /** Line sample length over frame sample length. */
+    frameSampleShare: number;
+    /** Lattice offset of flowing blood for this pulse: its speckle does not persist from one pulse to the next. */
+    bloodCells: number;
+    /**
+     * Per sample: incoherent backscatter reaching the probe (σ × transmission), its lattice coordinates across the beam, and
+     * for tissue of the thorax (still under the probe) its material coordinate along the beam; NaN in the heart.
+     */
+    sigma: Float32Array;
+    across: Float32Array;
+    elevation: Float32Array;
+    along: Float32Array;
+  } | null;
 }
 
 function torsoToHeartDir(f: { ex: { x: number; y: number; z: number }; ey: { x: number; y: number; z: number }; ez: { x: number; y: number; z: number } }, d: { x: number; y: number; z: number }) {

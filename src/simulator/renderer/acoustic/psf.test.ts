@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildPsfKernels, ENVELOPE_NORM, formEnvelope, lateralFwhmMm, axialFwhmMm, LATERAL_TAPS, MAX_LATERAL_RADIUS } from './psf';
+import { buildLineKernels, buildPsfKernels, ENVELOPE_NORM, filteredScattererPower, formEnvelope, formEnvelopeLine, lateralFwhmMm, axialFwhmMm, LATERAL_TAPS, LINE_LATTICE_PATH, MAX_LATERAL_RADIUS } from './psf';
+import { SPECULAR_WINDOW_MIN } from './acoustics';
 import { PHASOR_NORM, SCATTER_FREQ, SCATTER_FREQ_RATIO } from './acoustics';
 import { latticeNoise3, noiseLattice } from '@/core/noise';
 import { DEFAULT_ACQUISITION, polarSpecFor } from '../types';
@@ -109,5 +110,101 @@ describe('point spread function and envelope', () => {
     expect((srr + sii) / N).toBeGreaterThan(0.94);
     expect((srr + sii) / N).toBeLessThan(1.06);
     expect(Math.abs(sri / N)).toBeLessThan(0.03);
+  });
+
+  // Decision 84: an M-mode line is sampled four times finer than a frame so an echo can move by less than a frame sample.
+  // Finer samples of the same scatterer lattice are correlated and add coherently under the axial pulse, and an interface
+  // spreads over more taps; the line kernels must return the frame's levels for both.
+  describe('M-mode line kernels keep the frame levels at a finer sampling', () => {
+    const latA = noiseLattice(5),
+      latB = noiseLattice(5 ^ 0x2545f491),
+      latC = noiseLattice(5 ^ 0x51);
+    const R = SCATTER_FREQ_RATIO;
+    const dir = [0.3, -0.8, 0.52].map((v, _i, a) => v / Math.hypot(...a));
+    /**
+     * Mean envelope of lattice speckle sampled at `samples` over the frame depth and scaled by `scale`: along oblique rays in
+     * material coordinates as a frame line samples it, or along the M-mode line's lattice path (`across` fixes the across-beam
+     * lattice position, in cells, instead of drawing it per ray).
+     */
+    const speckleMean = (samples: number, k: { axialRadius: number; axial: Float32Array; lateralRadius: Uint8Array; lateral: Float32Array; key: string }, scale: number, rays: number, path: 'frame' | 'line', across?: number): number => {
+      const dr = spec.depthCm / samples;
+      const re = new Float32Array(samples),
+        im = new Float32Array(samples),
+        amp = new Float32Array(samples);
+      let acc = 0,
+        cnt = 0;
+      for (let t = 0; t < rays; t++) {
+        const o = [t * 3.7 + 1.1, t * 1.3 + 7.9, t * 2.9 + 3.3];
+        for (let i = 0; i < samples; i++) {
+          const r = (i + 0.5) * dr;
+          let x: number, y: number, z: number;
+          if (path === 'frame') {
+            x = (o[0]! + dir[0]! * r) * SCATTER_FREQ;
+            y = (o[1]! + dir[1]! * r) * SCATTER_FREQ;
+            z = (o[2]! + dir[2]! * r) * SCATTER_FREQ;
+          } else {
+            const u = (o[0]! + r) * SCATTER_FREQ;
+            x = u;
+            y = (across ?? o[1]! * 7) + u * LINE_LATTICE_PATH[1];
+            z = (across ?? o[2]! * 7) + u * LINE_LATTICE_PATH[2];
+          }
+          re[i] = (latticeNoise3(x, y, z, latA) + latticeNoise3(x * R + 37.3, y * R + 11.9, z * R + 23.7, latB) - 1) * PHASOR_NORM * scale;
+          im[i] = (latticeNoise3(x + 71.1, y + 53.5, z + 5.3, latC) + latticeNoise3(x * R + 17.9, y * R + 91.1, z * R + 43.3, latA) - 1) * PHASOR_NORM * scale;
+        }
+        formEnvelopeLine(re, im, samples, k, amp, new Float32Array(samples), new Float32Array(samples));
+        for (let i = 20; i < samples - 20; i++) {
+          acc += amp[i]!;
+          cnt++;
+        }
+      }
+      return acc / cnt;
+    };
+    /** Peak envelope of a perpendicular interface deposited on the samples its window covers, averaged over sub-sample positions. */
+    const interfacePeak = (samples: number, k: { axialRadius: number; axial: Float32Array; lateralRadius: Uint8Array; lateral: Float32Array; key: string }, amplitude: number): number => {
+      const dr = spec.depthCm / samples;
+      const re = new Float32Array(samples),
+        im = new Float32Array(samples),
+        amp = new Float32Array(samples);
+      let acc = 0;
+      const positions = 40;
+      for (let j = 0; j < positions; j++) {
+        re.fill(0);
+        const r0 = 8 + (j / positions) * (spec.depthCm / spec.samples);
+        for (let i = 0; i < samples; i++) if (Math.abs(r0 - (i + 0.5) * dr) < Math.max(1, SPECULAR_WINDOW_MIN) * dr) re[i] = amplitude;
+        formEnvelopeLine(re, im, samples, k, amp, new Float32Array(samples), new Float32Array(samples));
+        acc += Math.max(...amp);
+      }
+      return acc / positions;
+    };
+
+    it('the filtered power of the scatterer lattice follows its autocorrelation: 1 at the frame spacing, +4.25 dB at a quarter of it', () => {
+      const frame = buildPsfKernels(spec, 2.5, true);
+      const line = buildLineKernels(spec, spec.samples * 4, 2.5, true);
+      expect(filteredScattererPower(frame.axial, spec.depthCm / spec.samples)).toBeCloseTo(1, 2);
+      const db = 10 * Math.log10(filteredScattererPower(line.axial, spec.depthCm / (spec.samples * 4)));
+      expect(db).toBeGreaterThan(4.0);
+      expect(db).toBeLessThan(4.5);
+      // the analytic value is what the lattice does: the mean envelope of the unscaled line against the frame's, in dB of
+      // amplitude, is the power ratio in dB of power (the envelope mean follows √power)
+      const measured = 20 * Math.log10(speckleMean(spec.samples * 4, line, 1, 40, 'frame') / speckleMean(spec.samples, frame, 1, 160, 'frame'));
+      expect(Math.abs(measured - db)).toBeLessThan(0.25);
+    });
+
+    it('speckle and interface echoes of a line four times finer have the levels of a frame line', () => {
+      const frame = buildPsfKernels(spec, 2.5, true);
+      const frameSpeckle = speckleMean(spec.samples, frame, 1, 160, 'frame');
+      for (const samples of [spec.samples * 2, 800, spec.samples * 4]) {
+        const line = buildLineKernels(spec, samples, 2.5, true);
+        const rays = Math.ceil((160 * spec.samples) / samples);
+        const speckleDb = 20 * Math.log10(speckleMean(samples, line, line.incoherent, rays, 'line') / frameSpeckle);
+        expect(Math.abs(speckleDb)).toBeLessThan(0.3);
+        // a single cursor sits at one across-beam lattice position for its whole length: mid-cell, where value noise has
+        // half the variance of a lattice point, must not dim the line
+        const fixedDb = 20 * Math.log10(speckleMean(samples, line, line.incoherent, rays, 'line', 40.5) / frameSpeckle);
+        expect(Math.abs(fixedDb)).toBeLessThan(0.5);
+        const interfaceDb = 20 * Math.log10(interfacePeak(samples, line, line.specular) / interfacePeak(spec.samples, frame, 1));
+        expect(Math.abs(interfaceDb)).toBeLessThan(0.3);
+      }
+    });
   });
 });

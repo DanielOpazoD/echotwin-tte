@@ -1,4 +1,5 @@
 import type { PolarFrameSpec } from '../types';
+import { SCATTER_FREQ, SCATTER_FREQ_RATIO } from './acoustics';
 
 /**
  * Point spread function and envelope detection (acoustic image formation, decision 52).
@@ -136,7 +137,137 @@ export function formEnvelope(re: Float32Array, im: Float32Array, lines: number, 
   }
 }
 
-/** Single scanline (M-mode): axial PSF and envelope only — one beam has no lateral neighbours. */
+/** Half-width (cm) of the elevational slice at depth r: the offset of the two side planes of the slice-thickness passes. */
+export function sliceHalfWidthCm(rCm: number, focusCm: number): number {
+  return 0.2 + 0.04 * Math.abs(rCm - focusCm);
+}
+
+/** Axial radius cap of an M-mode line kernel: the line is sampled several times finer than a frame (decision 84). */
+export const MAX_LINE_AXIAL_RADIUS = 16;
+
+/**
+ * Normalised autocorrelation of value noise with smoothstep interpolation at a lag of `u` lattice cells, averaged over
+ * the position inside the cell: ∫φ(t)φ(t+u)dt / ∫φ²(t)dt with φ(t) = 1 − 3t² + 2|t|³ on |t| ≤ 1 (zero from two cells).
+ */
+export function valueNoiseCorrelation(u: number): number {
+  const a = Math.abs(u);
+  if (a >= 2) return 0;
+  const N = 256;
+  const phi = (t: number): number => {
+    const x = Math.abs(t);
+    return x >= 1 ? 0 : 1 - x * x * (3 - 2 * x);
+  };
+  let s = 0;
+  for (let i = 0; i < N; i++) {
+    const t = -1 + (2 * (i + 0.5)) / N;
+    s += phi(t) * phi(t + a);
+  }
+  // ∫φ² over [−1, 1] = 26/35 = 1 − 2·E[s(1−s)], the per-axis variance factor behind PHASOR_NORM
+  return (s * (2 / N)) / (26 / 35);
+}
+
+/**
+ * Lattice cells crossed per scatterer cell along an M-mode line, per lattice axis (decision 84). The across-beam lattice
+ * coordinates are nearly constant along a line, and value noise is not stationary inside a cell (its variance halves
+ * between lattice points), so a line at a fixed across-beam position would carry a constant gain of up to ±3 dB. Sweeping
+ * them along the beam by irrational fractions of the along-beam coordinate averages that out within the pulse.
+ */
+export const LINE_LATTICE_PATH: readonly [number, number, number] = [1, 0.618034, 0.381966];
+
+/**
+ * Mean power of the axially filtered scatterer phasor when its two lattices (SCATTER_FREQ and ×SCATTER_FREQ_RATIO) are
+ * sampled every `dr` cm along a path crossing `path` cells per axis per scatterer cell: Σᵢ Σⱼ wᵢ wⱼ ρ((i−j)·dr), with the
+ * lattice correlation the product over the axes. It is 1 when the samples are independent (a frame: 0.71 mm against a
+ * 0.4 mm cell) and grows when they are finer than the cell, because neighbouring phasors then add coherently (+4.25 dB at
+ * 0.18 mm along one axis). A Monte Carlo over the lattice agreed with the axis-aligned value within 0.05 dB for every
+ * oblique material direction tried, so a frame line needs no direction.
+ */
+export function filteredScattererPower(axial: Float32Array, drCm: number, path: readonly number[] = [1, 0, 0]): number {
+  const n = axial.length;
+  const corr = (cells: number): number => {
+    let c = 1;
+    for (const a of path) c *= a === 0 ? 1 : valueNoiseCorrelation(cells * a);
+    return c;
+  };
+  let p = 0;
+  for (let lag = -(n - 1); lag <= n - 1; lag++) {
+    const tau = Math.abs(lag) * drCm;
+    const rho = 0.5 * (corr(tau * SCATTER_FREQ) + corr(tau * SCATTER_FREQ * SCATTER_FREQ_RATIO));
+    if (rho === 0) continue;
+    let s = 0;
+    for (let i = Math.max(0, -lag); i < n && i + lag < n; i++) s += axial[i]! * axial[i + lag]!;
+    p += rho * s;
+  }
+  return p;
+}
+
+/**
+ * Kernels of one M-mode line (decision 84). The line is the same beam as a frame line, sampled finer than the frame so
+ * the scatterer field is resolved and an echo can move by less than a frame sample; its levels stay those of a frame line
+ * without the lateral pass:
+ *  - incoherent contributions are scaled by √(P_frame / P_line), the ratio of the filtered scatterer powers
+ *    (`filteredScattererPower`), so the mean speckle level does not depend on the sampling: `incoherent` for the tissue
+ *    phasor, which follows `LINE_LATTICE_PATH`, and `incoherentAxial` for clutter and lung reverberation, whose lattices
+ *    run along one axis with depth (3.76 against 3.00 dB of gain at 0.2 mm);
+ *  - a coherent echo keeps the peak it has on a frame line: deposited on the two samples an interface window covers
+ *    (w₀ + w₁ of each kernel), on one sample (pleural line, w₀) or spread over many (ring-down, Σw).
+ * `lateralCells` and `elevationCells` are the lattice frequencies (cells/cm) of a phasor whose cell across the beam is
+ * the beam width, so tissue sliding across the beam decorrelates over a beam width and not over a scatterer cell.
+ */
+export interface LineKernels extends PsfKernels {
+  samples: number;
+  incoherent: number;
+  incoherentAxial: number;
+  specular: number;
+  single: number;
+  smooth: number;
+  lateralCells: Float32Array;
+  elevationCells: Float32Array;
+}
+
+export function lineKernelKey(frame: PolarFrameSpec, samples: number, frequencyMHz: number, harmonics: boolean, beamWidthBoost: number): string {
+  return `line${samples}|${psfKey(frame, frequencyMHz, harmonics, beamWidthBoost)}`;
+}
+
+export function buildLineKernels(frame: PolarFrameSpec, samples: number, frequencyMHz: number, harmonics: boolean, beamWidthBoost = 0): LineKernels {
+  const ref = buildPsfKernels(frame, frequencyMHz, harmonics, beamWidthBoost);
+  const drFrame = frame.depthCm / frame.samples;
+  const dr = frame.depthCm / samples;
+  const taps = new Float32Array(2 * MAX_LINE_AXIAL_RADIUS + 1);
+  const sigma = (axialFwhmMm(frequencyMHz, harmonics) / 10 / dr) * FWHM_TO_SIGMA;
+  const axialRadius = gaussianTaps(sigma, MAX_LINE_AXIAL_RADIUS, taps, MAX_LINE_AXIAL_RADIUS);
+  const axial = taps.slice(MAX_LINE_AXIAL_RADIUS - axialRadius, MAX_LINE_AXIAL_RADIUS + axialRadius + 1);
+  const peak = (k: Float32Array, R: number, width: number): number => {
+    let s = 0;
+    for (let j = 0; j < width && R + j < k.length; j++) s += k[R + j]!;
+    return s;
+  };
+  const sum = (k: Float32Array): number => k.reduce((a, b) => a + b, 0);
+  const lateralCells = new Float32Array(samples);
+  const elevationCells = new Float32Array(samples);
+  for (let si = 0; si < samples; si++) {
+    const r = (si + 0.5) * dr;
+    lateralCells[si] = 10 / lateralFwhmMm(r, frame.focusCm, frequencyMHz, harmonics, beamWidthBoost);
+    elevationCells[si] = 1 / (2 * sliceHalfWidthCm(r, frame.focusCm));
+  }
+  return {
+    key: lineKernelKey(frame, samples, frequencyMHz, harmonics, beamWidthBoost),
+    samples,
+    axialRadius,
+    axial,
+    lateralRadius: new Uint8Array(0),
+    lateral: new Float32Array(0),
+    incoherent: Math.sqrt(filteredScattererPower(ref.axial, drFrame) / filteredScattererPower(axial, dr, LINE_LATTICE_PATH)),
+    incoherentAxial: Math.sqrt(filteredScattererPower(ref.axial, drFrame) / filteredScattererPower(axial, dr)),
+    specular: peak(ref.axial, ref.axialRadius, 2) / peak(axial, axialRadius, 2),
+    single: peak(ref.axial, ref.axialRadius, 1) / peak(axial, axialRadius, 1),
+    smooth: sum(ref.axial) / sum(axial),
+    lateralCells,
+    elevationCells,
+  };
+}
+
+/** Single scanline (M-mode): axial PSF and envelope only; the lateral beam enters through `LineKernels` (decision 84). */
 export function formEnvelopeLine(re: Float32Array, im: Float32Array, samples: number, k: PsfKernels, outAmp: Float32Array, tmpRe: Float32Array, tmpIm: Float32Array): void {
   axialPass(re, im, 0, samples, k, tmpRe, tmpIm);
   for (let si = 0; si < samples; si++) {

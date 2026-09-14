@@ -34,7 +34,7 @@ Por cada step(dt) en SimulatorCore:
   polarSpecFor(settings, quality)        → líneas × muestras; simulatedFrameRate → intervalo de cuadro
   backend.renderDisplay(…)  [GPU]        → consola en GLSL; única lectura: gris 0..255 + structure + tissue + transmission (8 bits)
   o backend.render(…) + applyConsole     → PolarFrame con amplitud lineal → intensidades 0..255 (CPU; artefactos espejo y lóbulo lateral)
-  [color]  computeColorField cada dos cuadros 2D          [strips] advanceStrip: columnas M-mode / espectrales
+  [color]  computeColorField cada dos cuadros 2D          [strips] advanceStrip: columnas espectrales / M-mode desde líneas por fase (mmodeStrip.ts)
   analyzeView cada 5 cuadros             → ViewAnalysis (score, componentes, hints)
   composite()                            → 2D/color en vivo con GPU: pasada de presentación → ImageBitmap; si no, LUT en CPU → RGBA + overlay color + strip; ECG + stats
 UI:

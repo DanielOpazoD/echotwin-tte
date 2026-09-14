@@ -7,9 +7,9 @@ import { ecgSample } from '@/simulator/cardiac-cycle/ecg';
 import { ProceduralSliceRenderer } from '@/simulator/renderer/procedural/sliceRenderer';
 import { createWebgl2Renderer, type Webgl2Renderer } from '@/simulator/renderer/gpu/webgl2Renderer';
 import { AtlasRenderer } from '@/simulator/renderer/atlas/atlasRenderer';
-import { allocPolarFrame, polarSpecFor, type PolarFrame, type PolarFrameSpec, type RendererBackend, type RenderHints, type Scene } from '@/simulator/renderer/types';
+import { allocPolarFrame, polarSpecFor, type PolarFrame, type PolarFrameSpec, type RendererBackend, type RenderHints, type Scene, type ScenePhysics } from '@/simulator/renderer/types';
 import { AtlasRenderer as AtlasBackend } from '@/simulator/renderer/atlas/atlasRenderer';
-import { applyConsole, createConsoleState, type ArtifactSettings, type ConsoleState } from '@/simulator/renderer/postprocess/consolePipeline';
+import { applyConsole, createConsoleState, NO_ARTIFACTS, type ArtifactSettings, type ConsoleState } from '@/simulator/renderer/postprocess/consolePipeline';
 import { buildScanLut, computeSectorMapping, lutKey, scanConvertLut, type ScanLut, type SectorMapping } from '@/simulator/renderer/scanConvert';
 import { simulatedFrameRate } from '@/simulator/renderer/frameRate';
 import { beamFrameFromPose, contactQuality, poseFromControl, type BeamFrame } from '@/simulator/probe/pose';
@@ -22,6 +22,7 @@ import { computeGroundTruth, type StructuredEchoTruth } from '@/simulator/hemody
 import { makeSample, Tissue } from '@/simulator/anatomy/tissue';
 import { createRng } from '@/core/random';
 import type { EcgPoint, GateInfo, PhaseMarks, SimInput, SimOutput, SimRequest, SimResponse, StripInfo } from './protocol';
+import { binsToTrace, buildRowMap, columnSource, MMODE_TRACE_SHARE, MmodeLineCache, mmodeLineSamples, mmodePhaseBins, mmodePulsesPerColumn, type ColumnSource, type MmodeLine, type RowMap } from './mmodeStrip';
 
 /**
  * Headless simulator (spec 32 data flow). Runs in a Web Worker in the app and directly in tests.
@@ -108,6 +109,23 @@ export class SimulatorCore {
   private lineSt = new Uint8Array(0);
   private lineTr = new Float32Array(0);
   private lineTi = new Uint8Array(0);
+  /** M-mode (decision 84): traced lines per phase bin, line samples, and the strip columns' instants and bin spans. */
+  private mmode = new MmodeLineCache();
+  private mmodeSamples = 0;
+  private stripPhase = new Float32Array(0);
+  private stripSpan = new Uint16Array(0);
+  private mmodeColumn = new Float32Array(0);
+  private mmodeGrey = new Uint8ClampedArray(0);
+  private mmodeFrame: PolarFrame | null = null;
+  private mmodeConsole = createConsoleState(0);
+  /** The strip as displayed (RGBA, strip rows × columns), repainted one column at a time; its layout key. */
+  private stripRgba: Uint8ClampedArray | null = null;
+  private stripRgbaKey = '';
+  private rowMap: RowMap | null = null;
+  /** Bumped when the patient models are rebuilt: traced lines and gate flow of the old models are stale. */
+  private modelVersion = 0;
+  /** Peak flow vector over the cycle at the last gate position (heart frame), keyed by that position. */
+  private gateFlow = { key: '', best: 0, bx: 0, by: 0, bz: 0 };
   private flowSample: FlowSample = { vx: 0, vy: 0, vz: 0, dispersion: 0, present: 0 };
   private tissueSample = makeSample();
   private lastOutputBeam: BeamFrame | null = null;
@@ -165,6 +183,7 @@ export class SimulatorCore {
       this.flow = this.buildFlow();
       this.atlas.invalidate();
       this.patientKey = key;
+      this.modelVersion++;
     }
     if (input.rendererBackend !== this.input.rendererBackend) {
       this.backend = this.pickBackend(input.rendererBackend);
@@ -200,7 +219,8 @@ export class SimulatorCore {
     this.clock.advance(dt);
     this.timeS += dt;
     this.accumulateEcg(pre.timeInBeatS, pre.rrS, dt);
-    if (isStrip) this.advanceStrip(dt, beam, spec);
+    // the trace budget of the M-mode lines follows the frame interval, not the step: a late step must not buy a longer one
+    if (isStrip) this.advanceStrip(dt, beam, spec, (MMODE_TRACE_SHARE * 1000) / fps);
     this.frameAccumulator += dt;
     const frameInterval = 1 / fps;
     this.frameBudgetMs = 600 * frameInterval;
@@ -247,22 +267,21 @@ export class SimulatorCore {
     while (this.ecg.length && (this.ecg[0]?.t ?? 0) < cutoff) this.ecg.shift();
   }
 
-  private scene(phase: number): Scene {
-    const state = cycleStateAt(this.tables, phase);
+  private physics(): ScenePhysics {
     const s = this.input.settings;
     return {
-      heart: this.heart,
-      heartPose: computeHeartPose(this.heart, state),
-      thorax: this.thorax,
-      physics: {
-        frequencyMHz: s.frequencyMHz,
-        harmonics: s.harmonics,
-        clutterLevel: Math.min(1, this.caseDef.acousticWindow.clutterLevel + 0.6 * this.clutterBoost) + this.caseDef.acousticWindow.emphysemaScatter * 0.5,
-        windowAttenuation: this.caseDef.acousticWindow.chestWallAttenuation,
-        seed: this.caseDef.seed,
-        beamWidth: this.artifacts.beamWidth,
-      },
+      frequencyMHz: s.frequencyMHz,
+      harmonics: s.harmonics,
+      clutterLevel: Math.min(1, this.caseDef.acousticWindow.clutterLevel + 0.6 * this.clutterBoost) + this.caseDef.acousticWindow.emphysemaScatter * 0.5,
+      windowAttenuation: this.caseDef.acousticWindow.chestWallAttenuation,
+      seed: this.caseDef.seed,
+      beamWidth: this.artifacts.beamWidth,
     };
+  }
+
+  private scene(phase: number): Scene {
+    const state = cycleStateAt(this.tables, phase);
+    return { heart: this.heart, heartPose: computeHeartPose(this.heart, state), thorax: this.thorax, physics: this.physics() };
   }
 
   private renderFrame(beam: BeamFrame, spec: PolarFrameSpec): void {
@@ -391,59 +410,121 @@ export class SimulatorCore {
     this.colorVersion++;
   }
 
-  private advanceStrip(dt: number, beam: BeamFrame, spec: PolarFrameSpec): void {
+  private advanceStrip(dt: number, beam: BeamFrame, spec: PolarFrameSpec, traceBudgetMs: number): void {
     const inp = this.input;
     const kind: 'spectral' | 'm-mode' = inp.modality === 'm-mode' || inp.modality === 'cmm' ? 'm-mode' : 'spectral';
     const stripWidth = Math.max(64, inp.display.width);
     const secondsShown = STRIP_MM_WIDTH / inp.spectral.sweepSpeedMmPerS;
     const cps = stripWidth / secondsShown;
-    const needMmodeRealloc = kind === 'm-mode' && (!this.stripMmode || this.stripMmode.length !== spec.samples * stripWidth);
+    const lineSamples = mmodeLineSamples(spec.depthCm);
+    const cmm = inp.modality === 'cmm';
+    const needMmodeRealloc =
+      kind === 'm-mode' && (!this.stripMmode || this.stripMmode.length !== lineSamples * stripWidth || (this.stripCmm !== null) !== cmm || (this.stripCmm !== null && this.stripCmm.length !== spec.samples * stripWidth));
     if (this.stripKind !== kind || this.stripCols !== stripWidth || needMmodeRealloc) {
       this.stripKind = kind;
       this.stripCols = stripWidth;
       this.stripHead = 0;
       this.stripSpectral = kind === 'spectral' ? new Float32Array(SPECTRAL_BINS * stripWidth) : null;
-      this.stripMmode = kind === 'm-mode' ? new Uint8ClampedArray(spec.samples * stripWidth) : null;
-      this.stripCmm = inp.modality === 'cmm' ? new Float32Array(spec.samples * stripWidth).fill(NaN) : null;
-      this.lineAmp = new Float32Array(spec.samples);
-      this.lineSt = new Uint8Array(spec.samples);
-      this.lineTr = new Float32Array(spec.samples);
-      this.lineTi = new Uint8Array(spec.samples);
+      this.stripMmode = kind === 'm-mode' ? new Uint8ClampedArray(lineSamples * stripWidth) : null;
+      this.stripCmm = cmm ? new Float32Array(spec.samples * stripWidth).fill(NaN) : null;
+      this.stripPhase = new Float32Array(stripWidth);
+      this.stripSpan = new Uint16Array(stripWidth);
+      this.stripRgba = null;
+      this.stripRgbaKey = '';
+      this.mmodeSamples = lineSamples;
     }
     this.stripAccum += dt * cps;
     let n = Math.floor(this.stripAccum);
-    if (n > 10) n = 10; // bounded work per step
+    // spectral columns are sampled one by one and bounded per step; M-mode columns all come from traced lines (decision 84)
+    if (kind === 'spectral' && n > 10) n = 10;
     this.stripAccum -= n;
     const rr = this.clock.current.rrS;
     const phaseNow = this.clock.current.phase;
+    if (kind === 'm-mode') {
+      this.advanceMmode(n, cps, rr, phaseNow, traceBudgetMs, beam, spec);
+      return;
+    }
     for (let k = n - 1; k >= 0; k--) {
       const tBack = (k + 0.5) / cps;
       const phase = (((phaseNow - tBack / rr) % 1) + 1) % 1;
       const col = this.stripHead % this.stripCols;
-      if (kind === 'm-mode') this.sampleMmodeColumn(beam, spec, phase, col);
-      else this.sampleSpectralColumn(beam, spec, phase, col);
+      this.sampleSpectralColumn(beam, spec, phase, col);
       this.stripHead++;
     }
   }
 
-  private sampleMmodeColumn(beam: BeamFrame, spec: PolarFrameSpec, phase: number, col: number): void {
-    const scene = this.scene(phase);
-    const theta = Math.max(-spec.sectorRad / 2, Math.min(spec.sectorRad / 2, this.input.cursorThetaRad));
-    this.procedural.renderSingleLine(scene, beam, spec, theta, this.lineAmp, this.lineSt, this.lineTr, this.lineTi);
-    const oneLine: PolarFrame = { spec: { ...spec, lines: 1 }, amplitude: this.lineAmp, structure: this.lineSt, transmission: this.lineTr, tissue: this.lineTi };
-    const disp = new Uint8ClampedArray(spec.samples);
-    const st = createConsoleState(this.caseDef.seed + col);
-    applyConsole(oneLine, { ...this.input.settings, persistence: 0 }, st, disp);
-    const strip = this.stripMmode!;
-    for (let s = 0; s < spec.samples; s++) strip[s * this.stripCols + col] = disp[s] ?? 0;
-    if (this.stripCmm) this.sampleCmmColumn(beam, spec, phase, col, scene);
+  /**
+   * M-mode columns of this step (decision 84): every column that is due is drawn at its own instant. Lines are traced per
+   * phase bin for this probe pose, cursor and imaging settings, as many as the step's budget allows; a column is formed
+   * from the traced lines on each side of its instant.
+   */
+  private advanceMmode(n: number, cps: number, rr: number, phaseNow: number, traceBudgetMs: number, beam: BeamFrame, spec: PolarFrameSpec): void {
+    if (n <= 0) return;
+    const inp = this.input;
+    const theta = Math.max(-spec.sectorRad / 2, Math.min(spec.sectorRad / 2, inp.cursorThetaRad));
+    const cmm = inp.modality === 'cmm';
+    const bins = mmodePhaseBins(cps, this.tables.rrS);
+    const ph = this.physics();
+    const v3 = (v: { x: number; y: number; z: number }): string => `${v.x.toFixed(6)},${v.y.toFixed(6)},${v.z.toFixed(6)}`;
+    const key = [
+      v3(beam.origin),
+      v3(beam.forward),
+      v3(beam.lateral),
+      v3(beam.normal),
+      beam.contact.toFixed(4),
+      theta.toFixed(6),
+      spec.lines,
+      spec.samples,
+      spec.depthCm,
+      spec.sectorRad.toFixed(6),
+      spec.focusCm,
+      this.mmodeSamples,
+      ph.frequencyMHz,
+      ph.harmonics,
+      ph.clutterLevel.toFixed(4),
+      ph.windowAttenuation.toFixed(4),
+      (ph.beamWidth ?? 0).toFixed(4),
+      cmm,
+      this.modelVersion,
+    ].join('|');
+    if (this.mmode.key !== key || this.mmode.bins !== bins) this.mmode.reset(key, bins);
+    const phases = new Float64Array(n);
+    for (let i = 0; i < n; i++) {
+      const tBack = (n - 1 - i + 0.5) / cps;
+      phases[i] = (((phaseNow - tBack / rr) % 1) + 1) % 1;
+    }
+    const maxTraces = this.mmode.traceMs > 0 ? Math.max(1, Math.floor(traceBudgetMs / this.mmode.traceMs)) : 1;
+    for (const b of binsToTrace(this.mmode, phases, maxTraces)) {
+      const t0 = performance.now();
+      this.mmode.set(b, this.traceMmodeLine(beam, spec, b, theta, cmm));
+      this.mmode.measure(performance.now() - t0);
+    }
+    const pulses = mmodePulsesPerColumn(cps);
+    for (let i = 0; i < n; i++) {
+      const src = columnSource(this.mmode, phases[i]!, bins >> 2) ?? columnSource(this.mmode, phases[i]!, bins >> 1);
+      if (src) this.writeMmodeColumn(this.stripHead % this.stripCols, src, phases[i]!, pulses, spec);
+      this.stripHead++;
+    }
   }
 
-  /** Colour M-mode: axial flow velocity along the cursor line for this column (aliased at the colour scale). */
-  private sampleCmmColumn(beam: BeamFrame, spec: PolarFrameSpec, phase: number, col: number, scene: Scene): void {
-    const inp = this.input;
+  /** Trace the M-mode line at `phase`: the fine line envelope and, in colour M-mode, the axial flow velocity on the frame samples. */
+  private traceMmodeLine(beam: BeamFrame, spec: PolarFrameSpec, bin: number, theta: number, cmm: boolean): MmodeLine {
+    const phase = bin / this.mmode.bins;
+    const S = this.mmodeSamples;
+    if (this.lineAmp.length !== S) {
+      this.lineAmp = new Float32Array(S);
+      this.lineSt = new Uint8Array(S);
+      this.lineTr = new Float32Array(S);
+      this.lineTi = new Uint8Array(S);
+    }
+    const scene = this.scene(phase);
+    this.procedural.renderMmodeLine(scene, beam, spec, S, theta, bin, this.lineAmp, this.lineSt, this.lineTr, this.lineTi);
+    return { amp: this.lineAmp.slice(), velocity: cmm ? this.cmmVelocity(beam, spec, phase, theta, scene) : null };
+  }
+
+  /** Colour M-mode: axial flow velocity (m/s, + toward the transducer) on the frame samples of the traced line, NaN where no flow. */
+  private cmmVelocity(beam: BeamFrame, spec: PolarFrameSpec, phase: number, theta: number, scene: Scene): Float32Array {
     const hf = this.heart.frame;
-    const theta = Math.max(-spec.sectorRad / 2, Math.min(spec.sectorRad / 2, inp.cursorThetaRad));
     const ct = Math.cos(theta),
       sn = Math.sin(theta);
     const dx = beam.forward.x * ct + beam.lateral.x * sn;
@@ -453,13 +534,15 @@ export class SimulatorCore {
     const dhy = dx * hf.ey.x + dy * hf.ey.y + dz * hf.ey.z;
     const dhz = dx * hf.ez.x + dy * hf.ez.y + dz * hf.ez.z;
     const fs = this.flowSample;
-    const strip = this.stripCmm!;
-    const dr = spec.depthCm / spec.samples;
-    const scale = inp.color.scaleMps;
-    for (let si = 0; si < spec.samples; si++) {
-      const idx = si * this.stripCols + col;
-      if (this.lineTi[si] !== Tissue.Blood || (this.lineTr[si] ?? 0) < 0.05) {
-        strip[idx] = NaN;
+    const F = spec.samples;
+    const S = this.mmodeSamples;
+    const out = new Float32Array(F);
+    const dr = spec.depthCm / F;
+    for (let si = 0; si < F; si++) {
+      // the line sample at the centre of this frame sample
+      const li = Math.min(S - 1, Math.floor(((si + 0.5) / F) * S));
+      if (this.lineTi[li] !== Tissue.Blood || (this.lineTr[li] ?? 0) < 0.05) {
+        out[si] = NaN;
         continue;
       }
       const r = (si + 0.5) * dr;
@@ -470,13 +553,47 @@ export class SimulatorCore {
       const hy = (px - hf.origin.x) * hf.ey.x + (py - hf.origin.y) * hf.ey.y + (pz - hf.origin.z) * hf.ey.z;
       const hz = (px - hf.origin.x) * hf.ez.x + (py - hf.origin.y) * hf.ez.y + (pz - hf.origin.z) * hf.ez.z;
       sampleFlow(this.flow, this.tables, scene.heartPose, phase, hx, hy, hz, fs);
-      if (!fs.present) {
-        strip[idx] = NaN;
-        continue;
-      }
-      const v = -(fs.vx * dhx + fs.vy * dhy + fs.vz * dhz); // + toward the transducer
-      strip[idx] = Math.abs(v) < inp.color.wallFilterMps ? NaN : aliasVelocity(v, scale, inp.color.baselineShiftMps);
+      out[si] = fs.present ? -(fs.vx * dhx + fs.vy * dhy + fs.vz * dhz) : NaN;
     }
+    return out;
+  }
+
+  /** Form an M-mode column from its traced lines, pass it through the console (its pulses average the receiver noise) and store it. */
+  private writeMmodeColumn(col: number, src: ColumnSource, phase: number, pulses: number, spec: PolarFrameSpec): void {
+    const inp = this.input;
+    const S = this.mmodeSamples;
+    if (this.mmodeColumn.length !== S) {
+      this.mmodeColumn = new Float32Array(S);
+      this.mmodeGrey = new Uint8ClampedArray(S);
+    }
+    if (!this.mmodeFrame || this.mmodeFrame.spec.samples !== S || this.mmodeFrame.spec.depthCm !== spec.depthCm) {
+      this.mmodeFrame = { spec: { ...spec, lines: 1, samples: S }, amplitude: this.mmodeColumn, structure: new Uint8Array(S), transmission: new Float32Array(S), tissue: new Uint8Array(S) };
+    }
+    const a = src.lo.amp,
+      b = src.hi.amp,
+      t = src.t;
+    const column = this.mmodeColumn;
+    for (let s = 0; s < S; s++) column[s] = a[s]! + (b[s]! - a[s]!) * t;
+    const st = this.mmodeConsole;
+    st.seed = (this.caseDef.seed + this.stripHead) | 0; // receiver noise is new in every column and every sweep
+    st.frameIndex = 0;
+    st.prev = null;
+    applyConsole(this.mmodeFrame, inp.settings, st, this.mmodeGrey, NO_ARTIFACTS, { noisePulses: pulses, edgeStep: S / spec.samples });
+    const cols = this.stripCols;
+    const strip = this.stripMmode!;
+    const grey = this.mmodeGrey;
+    for (let s = 0; s < S; s++) strip[s * cols + col] = grey[s]!;
+    if (this.stripCmm) {
+      const v = (t < 0.5 ? src.lo : src.hi).velocity;
+      const cmm = this.stripCmm;
+      for (let si = 0; si < spec.samples; si++) {
+        const x = v ? v[si]! : NaN;
+        cmm[si * cols + col] = Number.isNaN(x) || Math.abs(x) < inp.color.wallFilterMps ? NaN : aliasVelocity(x, inp.color.scaleMps, inp.color.baselineShiftMps);
+      }
+    }
+    this.stripPhase[col] = phase;
+    this.stripSpan[col] = Math.min(65535, src.span);
+    if (this.stripRgba) this.paintStripColumn(col);
   }
 
   private sampleSpectralColumn(beam: BeamFrame, spec: PolarFrameSpec, phase: number, col: number): void {
@@ -577,23 +694,30 @@ export class SimulatorCore {
     let flowPresent = false;
     let flowAngleDeg: number | null = null;
     if (inHeart && ts.tissue === Tissue.Blood) {
-      // flow direction at the gate over the cycle: use the instant of maximal speed so the angle does not depend on the frame
-      let best = 0;
-      let bx = 0,
-        by = 0,
-        bz = 0;
-      const fs = this.flowSample;
-      for (let k = 0; k < 16; k++) {
-        const ph = k / 16;
-        sampleFlow(this.flow, this.tables, computeHeartPose(this.heart, cycleStateAt(this.tables, ph)), ph, hx, hy, hz, fs);
-        const sp = Math.hypot(fs.vx, fs.vy, fs.vz);
-        if (fs.present && sp > best) {
-          best = sp;
-          bx = fs.vx;
-          by = fs.vy;
-          bz = fs.vz;
+      // flow direction at the gate over the cycle: use the instant of maximal speed so the angle does not depend on the frame.
+      // It depends only on where the gate sits in the heart, so it is kept until the gate or the models change: sixteen
+      // heart poses per composite were most of the cost of every strip frame.
+      const gateKey = `${hx.toFixed(5)},${hy.toFixed(5)},${hz.toFixed(5)}|${this.modelVersion}`;
+      if (this.gateFlow.key !== gateKey) {
+        let best = 0;
+        let bx = 0,
+          by = 0,
+          bz = 0;
+        const fs = this.flowSample;
+        for (let k = 0; k < 16; k++) {
+          const ph = k / 16;
+          sampleFlow(this.flow, this.tables, computeHeartPose(this.heart, cycleStateAt(this.tables, ph)), ph, hx, hy, hz, fs);
+          const sp = Math.hypot(fs.vx, fs.vy, fs.vz);
+          if (fs.present && sp > best) {
+            best = sp;
+            bx = fs.vx;
+            by = fs.vy;
+            bz = fs.vz;
+          }
         }
+        this.gateFlow = { key: gateKey, best, bx, by, bz };
       }
+      const { best, bx, by, bz } = this.gateFlow;
       if (best > 0.05) {
         flowPresent = true;
         const dhx = dx * hf.ex.x + dy * hf.ex.y + dz * hf.ex.z;
@@ -810,37 +934,16 @@ export class SimulatorCore {
     const spc = cols ? secondsShown / cols : 0;
     const kind = this.stripKind;
     const head = this.stripHead % Math.max(1, cols);
-    if (kind === 'm-mode' && this.stripMmode) {
-      const rows = spec.samples;
-      for (let y = 0; y < h; y++) {
-        const s = Math.min(rows - 1, Math.floor((y / h) * rows));
-        for (let x = 0; x < W; x++) {
-          const col = x < cols ? x : cols - 1;
-          const g = this.stripMmode[s * cols + col] ?? 0;
-          const o = ((y0 + y) * W + x) * 4;
-          rgba[o] = g;
-          rgba[o + 1] = g;
-          rgba[o + 2] = g;
-          rgba[o + 3] = 255;
-        }
+    if (kind === 'm-mode' && this.stripMmode && cols === W && h > 0) {
+      // the strip image is kept between frames and repainted column by column as columns are written (decision 84)
+      const layout = `${W}x${h}|${this.mmodeSamples}|${spec.samples}|${this.stripCmm ? 1 : 0}|${inp.color.invert ? 1 : 0}|${inp.color.scaleMps}`;
+      if (this.stripRgbaKey !== layout || !this.stripRgba) {
+        this.stripRgba = new Uint8ClampedArray(W * h * 4);
+        this.rowMap = buildRowMap(h, this.mmodeSamples);
+        this.stripRgbaKey = layout;
+        for (let c = 0; c < cols; c++) this.paintStripColumn(c);
       }
-      if (this.stripCmm) {
-        const rgb: [number, number, number] = [0, 0, 0];
-        const scale = inp.color.scaleMps;
-        for (let y = 0; y < h; y++) {
-          const s = Math.min(rows - 1, Math.floor((y / h) * rows));
-          for (let x = 0; x < W; x++) {
-            const col = x < cols ? x : cols - 1;
-            const v = this.stripCmm[s * cols + col];
-            if (v === undefined || Number.isNaN(v)) continue;
-            colorMap(inp.color.invert ? -v : v, scale, 0, false, rgb);
-            const o = ((y0 + y) * W + x) * 4;
-            rgba[o] = rgb[0];
-            rgba[o + 1] = rgb[1];
-            rgba[o + 2] = rgb[2];
-          }
-        }
-      }
+      rgba.set(this.stripRgba, y0 * W * 4);
       this.drawSweepMarker(rgba, W, y0, h, head);
       return { x: 0, y: y0, width: W, height: h, secondsPerColumn: spc, topValue: 0, bottomValue: spec.depthCm, kind: 'm-mode' };
     }
@@ -872,6 +975,45 @@ export class SimulatorCore {
     return { x: 0, y: y0, width: W, height: h, secondsPerColumn: spc, topValue: 0, bottomValue: 0, kind: null };
   }
 
+  /** Paint one column of the displayed M-mode strip: grey rows from the line samples they cover, then the colour M-mode velocities. */
+  private paintStripColumn(col: number): void {
+    const img = this.stripRgba,
+      map = this.rowMap,
+      strip = this.stripMmode;
+    if (!img || !map || !strip || map.samples !== this.mmodeSamples) return;
+    const cols = this.stripCols;
+    const S = this.mmodeSamples;
+    const { rows, taps, first, weights } = map;
+    for (let y = 0; y < rows; y++) {
+      let g = 0;
+      const i0 = first[y]!;
+      for (let k = 0; k < taps; k++) {
+        const w = weights[y * taps + k]!;
+        if (w > 0 && i0 + k < S) g += w * strip[(i0 + k) * cols + col]!;
+      }
+      const o = (y * cols + col) * 4;
+      img[o] = g;
+      img[o + 1] = g;
+      img[o + 2] = g;
+      img[o + 3] = 255;
+    }
+    const cmm = this.stripCmm;
+    if (cmm) {
+      const inp = this.input;
+      const F = cmm.length / cols;
+      const rgb: [number, number, number] = [0, 0, 0];
+      for (let y = 0; y < rows; y++) {
+        const v = cmm[Math.min(F - 1, Math.floor((y / rows) * F)) * cols + col]!;
+        if (Number.isNaN(v)) continue;
+        colorMap(inp.color.invert ? -v : v, inp.color.scaleMps, 0, false, rgb);
+        const o = (y * cols + col) * 4;
+        img[o] = rgb[0];
+        img[o + 1] = rgb[1];
+        img[o + 2] = rgb[2];
+      }
+    }
+  }
+
   private drawSweepMarker(rgba: Uint8ClampedArray, W: number, y0: number, h: number, head: number): void {
     const x = Math.min(W - 1, head);
     for (let y = 0; y < h; y++) {
@@ -885,6 +1027,15 @@ export class SimulatorCore {
   // ---- accessors for tests / devtools ----
   get models(): { heart: HeartModel; thorax: ThoraxModel; tables: BeatTables } {
     return { heart: this.heart, thorax: this.thorax, tables: this.tables };
+  }
+  /**
+   * The M-mode strip as stored (decision 84): grey levels indexed [sample × columns + column] over `samples` line samples,
+   * the cycle phase of each column, the phase bins between the two traced lines it was formed from (1 at full time
+   * resolution) and the head (next column to write). Null outside M-mode.
+   */
+  get mmodeStrip(): { samples: number; cols: number; head: number; grey: Uint8ClampedArray; phase: Float32Array; span: Uint16Array; bins: number; traced: number } | null {
+    if (this.stripKind !== 'm-mode' || !this.stripMmode) return null;
+    return { samples: this.mmodeSamples, cols: this.stripCols, head: this.stripHead, grey: this.stripMmode, phase: this.stripPhase, span: this.stripSpan, bins: this.mmode.bins, traced: this.mmode.filled };
   }
   get lastView(): ViewAnalysis | null {
     return this.lastAnalysis;

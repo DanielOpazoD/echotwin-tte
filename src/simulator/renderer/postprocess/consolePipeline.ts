@@ -33,9 +33,10 @@ const scratchA = { buf: new Float32Array(0) };
 const scratchB = { buf: new Float32Array(0) };
 const scratchComp = { buf: new Float64Array(0) };
 
+/** A view of n samples on a scratch buffer that only grows: frames and M-mode lines alternate without reallocating. */
 function ensure(s: { buf: Float32Array }, n: number): Float32Array {
-  if (s.buf.length !== n) s.buf = new Float32Array(n);
-  return s.buf;
+  if (s.buf.length < n) s.buf = new Float32Array(n);
+  return s.buf.length === n ? s.buf : s.buf.subarray(0, n);
 }
 
 /**
@@ -78,7 +79,17 @@ export interface ArtifactSettings {
 }
 export const NO_ARTIFACTS: ArtifactSettings = { sideLobe: 0, mirror: 0, beamWidth: 0 };
 
-export function applyConsole(frame: PolarFrame, settings: AcquisitionSettings, state: ConsoleState, outU8: Uint8ClampedArray, artifacts: ArtifactSettings = NO_ARTIFACTS): void {
+/**
+ * Options of an M-mode column (decision 84): `noisePulses` envelopes of receiver noise averaged per sample (the pulses of
+ * one column; the mean stays, the spread drops by √n), `edgeStep` samples between the centre and the neighbours of the
+ * edge enhancement (a line finer than a frame keeps the frame's enhancement length), and no persistence history.
+ */
+export interface ConsoleLineOptions {
+  noisePulses: number;
+  edgeStep: number;
+}
+
+export function applyConsole(frame: PolarFrame, settings: AcquisitionSettings, state: ConsoleState, outU8: Uint8ClampedArray, artifacts: ArtifactSettings = NO_ARTIFACTS, line: ConsoleLineOptions | null = null): void {
   const { lines, samples, depthCm } = frame.spec;
   const n = lines * samples;
   const dr = depthCm / samples;
@@ -86,16 +97,21 @@ export function applyConsole(frame: PolarFrame, settings: AcquisitionSettings, s
   const a = ensure(scratchA, n);
   const b = ensure(scratchB, n);
   const fi = state.frameIndex;
-  if (scratchComp.buf.length !== samples) scratchComp.buf = new Float64Array(samples);
+  if (scratchComp.buf.length < samples) scratchComp.buf = new Float64Array(samples);
   const compensation = scratchComp.buf;
   consoleCompensation(settings, frame.spec, compensation);
+  const pulses = line ? Math.max(1, Math.round(line.noisePulses)) : 1;
   // 1) amplification + noise, per sample depth
   for (let si = 0; si < samples; si++) {
     const comp = compensation[si] ?? 1;
     for (let li = 0; li < lines; li++) {
       const idx = li * samples + si;
       // Rayleigh-distributed envelope of complex Gaussian receiver noise, new every frame
-      const noise = (NOISE_FLOOR / RAYLEIGH_MEAN) * Math.sqrt(-2 * Math.log(1 - 0.999999 * hash3(li, si, fi, state.seed)));
+      let noise = (NOISE_FLOOR / RAYLEIGH_MEAN) * Math.sqrt(-2 * Math.log(1 - 0.999999 * hash3(li, si, fi, state.seed)));
+      if (pulses > 1) {
+        for (let p = 1; p < pulses; p++) noise += (NOISE_FLOOR / RAYLEIGH_MEAN) * Math.sqrt(-2 * Math.log(1 - 0.999999 * hash3(li, si, fi + p, state.seed)));
+        noise /= pulses;
+      }
       a[idx] = ((frame.amplitude[idx] ?? 0) + noise) * comp;
     }
   }
@@ -155,20 +171,25 @@ export function applyConsole(frame: PolarFrame, settings: AcquisitionSettings, s
   // 5) edge enhancement (unsharp along samples, mild)
   if (settings.edgeEnhance > 0) {
     const e = settings.edgeEnhance * 0.8;
+    const k = line ? Math.max(1, Math.round(line.edgeStep)) : 1;
     for (let li = 0; li < lines; li++) {
       const base = li * samples;
-      for (let si = 1; si < samples - 1; si++) {
+      for (let si = k; si < samples - k; si++) {
         const c = b[base + si] ?? 0;
-        const m = ((b[base + si - 1] ?? 0) + (b[base + si + 1] ?? 0)) / 2;
+        const m = ((b[base + si - k] ?? 0) + (b[base + si + k] ?? 0)) / 2;
         a[base + si] = Math.min(1, Math.max(0, c + (c - m) * e));
       }
-      a[base] = b[base] ?? 0;
-      a[base + samples - 1] = b[base + samples - 1] ?? 0;
+      for (let si = 0; si < k; si++) {
+        a[base + si] = b[base + si] ?? 0;
+        a[base + samples - 1 - si] = b[base + samples - 1 - si] ?? 0;
+      }
     }
   } else a.set(b);
   // 6) persistence
-  const p = settings.persistence;
-  if (state.prev && state.prev.length === n && p > 0) {
+  const p = line ? 0 : settings.persistence;
+  if (line) {
+    // an M-mode column has no history: each column is its own instant
+  } else if (state.prev && state.prev.length === n && p > 0) {
     const prev = state.prev;
     for (let i = 0; i < n; i++) {
       const y = (a[i] ?? 0) * (1 - p) + (prev[i] ?? 0) * p;
