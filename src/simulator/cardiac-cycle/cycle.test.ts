@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildBeatTables, cycleStateAt, sampleTable } from './cycleModel';
 import { CardiacClock } from './clock';
 import { ecgSample } from './ecg';
-import { aWaveShape, eWaveShape } from './timing';
+import { eWaveShape } from './timing';
 import { normalExcellentCase } from '@/cases/normal-excellent';
 import { validateCase } from '@/cases/schema';
 
@@ -156,12 +156,13 @@ describe('the beat closes on its own flows (decision 95)', () => {
     expect(Math.abs(net)).toBeLessThan(0.1);
     expect(Math.abs(tb.volumeCorrectionMl - net)).toBeLessThan(1e-3);
     expect(tb.strokeVolumeMl).toBeCloseTo(75, 0);
-    // the flow area carries the volume: the velocity at the orifice is still the case E and A waves, sample by sample
+    // the flow area carries the volume: outside atrial contraction the velocity at the orifice is still the case E wave,
+    // sample by sample (during it, decision 97 below)
     let worst = 0;
     for (let i = 0; i < tb.n; i++) {
       const ti = (i + 0.5) * (tb.rrS / tb.n);
-      let v = ti > t.mitralOpenS ? 0.8 * eWaveShape(ti - t.mitralOpenS, t.eAccelS, t.eDecelS) : 0;
-      if (ti > t.aStartS && ti < t.aEndS) v += 0.55 * aWaveShape((ti - t.aStartS) / (t.aEndS - t.aStartS));
+      if (ti > t.aStartS && ti < t.aEndS) continue;
+      const v = ti > t.mitralOpenS ? 0.8 * eWaveShape(ti - t.mitralOpenS, t.eAccelS, t.eDecelS) : 0;
       worst = Math.max(worst, Math.abs((tb.mitralFlowMlps[i] ?? 0) / tb.mvEffectiveAreaCm2 / 100 - v));
     }
     expect(worst).toBeLessThan(1e-4);
@@ -179,5 +180,40 @@ describe('the beat closes on its own flows (decision 95)', () => {
       if (!(tb.mvEffectiveAreaCm2 >= 0.5 && tb.mvEffectiveAreaCm2 <= 8)) problems.push(`${input.id}: mitral flow area ${tb.mvEffectiveAreaCm2.toFixed(2)} cm²`);
     }
     expect(problems).toEqual([]);
+  });
+});
+
+describe('the Doppler E and A of the case are the peaks the inflow shows (decision 97)', () => {
+  it('during atrial contraction the inflow peaks at the case A, or at the E flow still running when that is higher', async () => {
+    const { CASE_INPUTS, loadCaseById } = await import('@/cases');
+    const problems: string[] = [];
+    let fused = 0;
+    for (const input of CASE_INPUTS) {
+      const k = loadCaseById(input.id);
+      const tb = buildBeatTables(60 / k.rhythm.heartRateBpm, k.physiology, k.rhythm, k.hemodynamics);
+      const t = tb.timings;
+      if (!t.hasAWave) continue;
+      const dt = tb.rrS / tb.n;
+      let aPeak = 0,
+        eResidual = 0,
+        ePeak = 0;
+      for (let i = 0; i < tb.n; i++) {
+        const ti = (i + 0.5) * dt;
+        const v = (tb.mitralFlowMlps[i] ?? 0) / tb.mvEffectiveAreaCm2 / 100;
+        const e = ti > t.mitralOpenS ? k.physiology.ePeakMps * eWaveShape(ti - t.mitralOpenS, t.eAccelS, t.eDecelS) : 0;
+        if (ti > t.aStartS && ti < t.aEndS) {
+          aPeak = Math.max(aPeak, v);
+          eResidual = Math.max(eResidual, e);
+        } else if (ti > t.mitralOpenS && ti <= t.aStartS) ePeak = Math.max(ePeak, v);
+      }
+      const expected = Math.max(k.physiology.aPeakMps, eResidual);
+      if (eResidual > k.physiology.aPeakMps) fused++;
+      // before: E and A added in full, 0.99 m/s for an A of 0.7 (pulmonary hypertension) and 1.09 in tamponade
+      if (Math.abs(aPeak - expected) > 0.01 * expected) problems.push(`${input.id}: inflow during atrial contraction peaks at ${aPeak.toFixed(3)} m/s against ${expected.toFixed(3)}`);
+      if (ePeak > k.physiology.ePeakMps * 1.001) problems.push(`${input.id}: early inflow ${ePeak.toFixed(3)} m/s above E ${k.physiology.ePeakMps}`);
+    }
+    expect(problems).toEqual([]);
+    // tamponade at 108 bpm: atrial contraction starts before the E peak and the waves fuse
+    expect(fused).toBeGreaterThanOrEqual(1);
   });
 });

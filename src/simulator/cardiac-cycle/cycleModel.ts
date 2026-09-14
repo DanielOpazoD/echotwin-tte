@@ -99,13 +99,39 @@ export function buildBeatTables(
   const eCm = physiology.ePeakMps * 100 * Math.sqrt(preload);
   const aCm = timings.hasAWave ? physiology.aPeakMps * 100 : 0;
   const aDur = timings.hasAWave ? timings.aEndS - timings.aStartS : 0;
+  const eAt = (t: number): number => (t > timings.mitralOpenS ? eCm * eWaveShape(t - timings.mitralOpenS, timings.eAccelS, timings.eDecelS) : 0);
+  const aShapeAt = (t: number): number => (timings.hasAWave && t > timings.aStartS && t < timings.aEndS ? aWaveShape((t - timings.aStartS) / aDur) : 0);
+  // The case E and A are the peaks a Doppler trace shows, and the A wave is measured from the baseline over whatever E
+  // flow is still running (decision 97). Atrial contraction adds the increment that brings the inflow up to A: added in
+  // full on top of an unfinished E wave, the peak read 0.99 m/s for an A of 0.7 (pulmonary hypertension), 1.04 for 0.85
+  // (artifact case) and 1.09 in tamponade, where the waves fuse at 108 bpm and no separate E of 0.75 could be measured.
+  // When the E flow alone already exceeds A during atrial contraction, the fused wave is that of E.
+  const aWindowPeak = (scale: number): number => {
+    let peak = 0;
+    for (let i = 0; i < n; i++) {
+      const t = (i + 0.5) * dt;
+      if (aShapeAt(t) > 0) peak = Math.max(peak, eAt(t) + scale * aCm * aShapeAt(t));
+    }
+    return peak;
+  };
+  let aScale = 1;
+  if (aCm > 0 && aWindowPeak(1) > aCm * 1.001) {
+    let lo = 0,
+      hi = 1;
+    if (aWindowPeak(0) >= aCm) hi = 0;
+    else
+      for (let it = 0; it < 30; it++) {
+        const mid = 0.5 * (lo + hi);
+        if (aWindowPeak(mid) > aCm) hi = mid;
+        else lo = mid;
+      }
+    aScale = hi;
+  }
   const mvVelocity = new Float32Array(n); // cm/s
   let velIntegralCm = 0; // cm (VTI of mitral inflow)
   for (let i = 0; i < n; i++) {
     const t = (i + 0.5) * dt;
-    let v = 0;
-    if (t > timings.mitralOpenS) v += eCm * eWaveShape(t - timings.mitralOpenS, timings.eAccelS, timings.eDecelS);
-    if (timings.hasAWave && t > timings.aStartS && t < timings.aEndS) v += aCm * aWaveShape((t - timings.aStartS) / aDur);
+    const v = eAt(t) + aScale * aCm * aShapeAt(t);
     mvVelocity[i] = v;
     velIntegralCm += v * dt;
   }

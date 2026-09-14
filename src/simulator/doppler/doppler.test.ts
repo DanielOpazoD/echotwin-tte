@@ -326,6 +326,30 @@ describe('the spectral envelope reads the velocity in the sample volume (decisio
     expect(ePrimeEdge / ePrime).toBeLessThan(1.1);
   });
 
+  it('through the core: in tamponade the fused mitral inflow reads the E the case asks to measure (decision 97)', { timeout: 120_000 }, () => {
+    const tc = loadCaseById('pericardial-effusion-tamponade');
+    const m = new SimulatorCore(tc, baseInput()).models;
+    const t = m.tables.timings;
+    const ctrl = canonicalControl(getViewTarget('a4c'), m.heart, m.thorax);
+    const beam = beamFrameFromPose(poseFromControl(m.thorax, ctrl));
+    const tips = v3(0.2, -0.9, 1.7);
+    const d = sub(heartToTorso(m.heart.frame, tips), beam.origin);
+    const depth = dot(d, beam.forward),
+      lateral = dot(d, beam.lateral);
+    const theta = Math.atan2(lateral, depth);
+    const dir = v3(beam.forward.x * Math.cos(theta) + beam.lateral.x * Math.sin(theta), beam.forward.y * Math.cos(theta) + beam.lateral.y * Math.sin(theta), beam.forward.z * Math.cos(theta) + beam.lateral.z * Math.sin(theta));
+    const f = m.heart.frame;
+    const cosine = Math.abs(dot(dir, f.ez));
+    const spectral = { ...DEFAULT_SPECTRAL, scaleMps: 1.2 };
+    const core = new SimulatorCore(tc, baseInput({ probe: ctrl, modality: 'pw', quality: 'low', cursorThetaRad: theta, gateDepthCm: Math.hypot(depth, lateral), spectral }));
+    let peak = 0;
+    for (const { phase, col } of strip(core, 2.2)) if (phase * m.tables.rrS > t.mitralOpenS) peak = Math.max(peak, outerEdge(col, spectral, 1));
+    // before: the E and A waves added in full and the single diastolic wave peaked at 1.05 m/s for an E of 0.75
+    const expected = tc.physiology.ePeakMps * cosine;
+    expect(peak / expected, `diastolic peak ${peak.toFixed(3)} m/s against E·cos ${expected.toFixed(3)}`).toBeGreaterThan(0.97);
+    expect(peak / expected).toBeLessThan(1.08);
+  });
+
   it('through the core: CW aimed through a stenotic aortic jet from the apex draws the jet at its speed', { timeout: 120_000 }, () => {
     const as = loadCaseById('aortic-stenosis-moderate');
     const probe = new SimulatorCore(as, baseInput());
