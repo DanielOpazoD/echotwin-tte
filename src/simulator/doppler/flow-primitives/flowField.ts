@@ -467,13 +467,19 @@ export function sampleRegurgitantJets(p: FlowFieldParams, tables: BeatTables, hp
 }
 
 /**
- * Tissue (myocardial) velocity for TDI (m/s, heart frame): longitudinal annular motion scaled by
- * level (base moves, apex fixed) — derived from the same longitudinal displacement table.
+ * Tissue (myocardial) velocity for TDI (m/s, heart frame) at heart-frame point (x, y, z): the longitudinal annular motion of
+ * the shared displacement table, scaled by level (base moves, apex fixed) and by wall (decision 98). The table recoils at
+ * the case's septal e′ (decision 80); the lateral wall moves by the case's lateral over septal e′, the septum by 1, and the
+ * walls between by a cosine of the azimuth. Every wall used to move alike, so tissue Doppler at the lateral annulus read
+ * the septal e′: 8.6 cm/s where the normal case's 14 cm/s projected to 10.6, 16–29% low in the twelve cases.
  */
-export function sampleTissueVelocity(heart: HeartModel, tables: BeatTables, phase: number, z: number): { vx: number; vy: number; vz: number } {
+export function sampleTissueVelocity(heart: HeartModel, tables: BeatTables, phase: number, x: number, y: number, z: number): { vx: number; vy: number; vz: number } {
   const longVel = sampleTable(tables.longitudinalVelocity, phase); // fraction of MAPSE per s
   const mapse = heart.physiology.mapseCm;
   const level = Math.min(1, Math.max(0, z / heart.lv.lengthCm));
-  const vz = (mapse * longVel * (1 - level)) / 100; // cm/s → m/s, +z = toward the apex (systole)
+  const rho = Math.hypot(x, y);
+  const lateralness = rho > 1e-6 ? 0.5 * (1 + x / rho) : 0.5; // 1 at the lateral wall (+x), 0 at the septum (−x)
+  const wall = 1 + (heart.physiology.ePrimeLateralCmps / heart.physiology.ePrimeSeptalCmps - 1) * lateralness;
+  const vz = (mapse * longVel * (1 - level) * wall) / 100; // cm/s → m/s, +z = toward the apex (systole)
   return { vx: 0, vy: 0, vz };
 }

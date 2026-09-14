@@ -641,7 +641,7 @@ export class SimulatorCore {
       const inHeart = classifyHeart(this.heart, hp, hx, hy, hz, ts);
       if (inp.modality === 'tdi') {
         if (inHeart && ts.tissue === Tissue.Myocardium) {
-          const tv = sampleTissueVelocity(this.heart, this.tables, phase, hz);
+          const tv = sampleTissueVelocity(this.heart, this.tables, phase, hx, hy, hz);
           const axial = tv.vx * dhx + tv.vy * dhy + tv.vz * dhz;
           const vPerp = Math.sqrt(Math.max(0, tv.vx * tv.vx + tv.vy * tv.vy + tv.vz * tv.vz - axial * axial));
           samples.push({ v: -axial, weight: 1, dispersion: 0.05, vPerp, depthCm: r });

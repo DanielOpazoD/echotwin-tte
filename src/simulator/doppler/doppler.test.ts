@@ -316,7 +316,7 @@ describe('the spectral envelope reads the velocity in the sample volume (decisio
       ePrimeEdge = 0;
     for (const { phase, col } of strip(tdiCore, 2.2)) {
       if (!inE(phase)) continue;
-      const tv = sampleTissueVelocity(heart, tables, phase, septum.z);
+      const tv = sampleTissueVelocity(heart, tables, phase, septum.x, septum.y, septum.z);
       ePrime = Math.min(ePrime, -(tv.vx * tdi.dirHeart.x + tv.vy * tdi.dirHeart.y + tv.vz * tdi.dirHeart.z));
       ePrimeEdge = Math.min(ePrimeEdge, outerEdge(col, tdiSpectral, -1));
     }
@@ -324,6 +324,58 @@ describe('the spectral envelope reads the velocity in the sample volume (decisio
     expect(ePrime).toBeLessThan(-0.06);
     expect(ePrimeEdge / ePrime, `e′: tissue ${ePrime.toFixed(3)}, edge ${ePrimeEdge.toFixed(3)}`).toBeGreaterThan(0.97);
     expect(ePrimeEdge / ePrime).toBeLessThan(1.1);
+  });
+
+  it('tissue Doppler moves each wall by its own e′: the lateral wall by the case lateral over septal e′ (decision 98)', () => {
+    const r = heart.physiology.ePrimeLateralCmps / heart.physiology.ePrimeSeptalCmps;
+    const phase = (tables.timings.mitralOpenS + 0.05) / tables.rrS;
+    const at = (x: number, y: number) => sampleTissueVelocity(heart, tables, phase, x, y, 1).vz;
+    expect(at(-2, 0)).not.toBe(0);
+    expect(at(2, 0) / at(-2, 0)).toBeCloseTo(r, 6);
+    expect(at(0, 2) / at(-2, 0)).toBeCloseTo((1 + r) / 2, 6);
+  });
+
+  it('through the core: tissue Doppler reads the lateral e′ above the septal one as the case does (decision 98)', { timeout: 180_000 }, () => {
+    const results: string[] = [];
+    for (const id of ['normal-excellent-window', 'af-diastolic']) {
+      const tc = loadCaseById(id);
+      const m = new SimulatorCore(tc, baseInput()).models;
+      const t = m.tables.timings;
+      const a4c = canonicalControl(getViewTarget('a4c'), m.heart, m.thorax);
+      const beam = beamFrameFromPose(poseFromControl(m.thorax, a4c));
+      const q = { tissue: 0 } as unknown as TissueSample;
+      const hp0 = computeHeartPose(m.heart, cycleStateAt(m.tables, 0));
+      const read = (sign: 1 | -1) => {
+        // basal myocardium 1 cm from the annulus, walking out from the cavity toward the wall
+        let first = NaN,
+          last = NaN;
+        for (let x = 0.5 * sign; Math.abs(x) < 5; x += 0.05 * sign)
+          if (classifyHeart(m.heart, hp0, x, 0, 1.0, q) && q.tissue === Tissue.Myocardium) {
+            if (Number.isNaN(first)) first = x;
+            last = x;
+          } else if (!Number.isNaN(first)) break;
+        const p = v3((first + last) / 2, 0, 1.0);
+        const d = sub(heartToTorso(m.heart.frame, p), beam.origin);
+        const theta = Math.atan2(dot(d, beam.lateral), dot(d, beam.forward));
+        const dir = v3(beam.forward.x * Math.cos(theta) + beam.lateral.x * Math.sin(theta), beam.forward.y * Math.cos(theta) + beam.lateral.y * Math.sin(theta), beam.forward.z * Math.cos(theta) + beam.lateral.z * Math.sin(theta));
+        const spectral = { ...DEFAULT_SPECTRAL, scaleMps: 0.25, wallFilterMps: 0.01 };
+        const core = new SimulatorCore(tc, baseInput({ probe: a4c, modality: 'tdi', quality: 'low', cursorThetaRad: theta, gateDepthCm: Math.hypot(dot(d, beam.forward), dot(d, beam.lateral)), spectral }));
+        let e = 0;
+        for (const { phase, col } of strip(core, 2.2)) if (phase * m.tables.rrS > t.mitralOpenS && (!t.hasAWave || phase * m.tables.rrS < t.aStartS)) e = Math.min(e, outerEdge(col, spectral, -1));
+        return { e: -e, cos: Math.abs(dot(dir, m.heart.frame.ez)), level: 1 - p.z / m.heart.lv.lengthCm };
+      };
+      const sep = read(-1),
+        lat = read(1);
+      const expectedRatio = (tc.physiology.ePrimeLateralCmps * lat.cos) / (tc.physiology.ePrimeSeptalCmps * sep.cos);
+      const ratio = lat.e / sep.e;
+      // before: every wall moved alike and the lateral annulus read 0.88 of the septal one in the normal case
+      if (Math.abs(ratio / expectedRatio - 1) > 0.1) results.push(`${id}: lateral/septal e′ ${ratio.toFixed(3)} against ${expectedRatio.toFixed(3)}`);
+      if (id === 'normal-excellent-window') {
+        const q2 = lat.e / ((tc.physiology.ePrimeLateralCmps / 100) * lat.cos * lat.level);
+        if (!(q2 > 0.95 && q2 < 1.12)) results.push(`${id}: lateral e′ ${lat.e.toFixed(4)} m/s is ${q2.toFixed(3)} of the case value projected`);
+      }
+    }
+    expect(results).toEqual([]);
   });
 
   it('through the core: in tamponade the fused mitral inflow reads the E the case asks to measure (decision 97)', { timeout: 120_000 }, () => {
