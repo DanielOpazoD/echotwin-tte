@@ -29,9 +29,12 @@ export function ejectionTimeS(heartRateBpm: number, contractility = 1): number {
   return Math.min(0.36, Math.max(0.16, adj));
 }
 
-export function computeCycleTimings(rrS: number, physiology: PhysiologyConfig, rhythm: RhythmConfig): CycleTimings {
-  const hr = 60 / rrS;
-  const et = Math.min(ejectionTimeS(hr, physiology.contractility), rrS * 0.55);
+/**
+ * Cycle timings of a beat of length `rrS`. The ejection time follows the heart rate of `ejectionRrS`: the beat's own RR in a
+ * regular rhythm, and in atrial fibrillation the RR before it, whose filling the ventricle ejects (decision 107).
+ */
+export function computeCycleTimings(rrS: number, physiology: PhysiologyConfig, rhythm: RhythmConfig, ejectionRrS = rrS): CycleTimings {
+  const et = Math.min(ejectionTimeS(60 / ejectionRrS, physiology.contractility), rrS * 0.55);
   const ejectionStartS = ELECTROMECHANICAL_DELAY_S;
   const ejectionEndS = ejectionStartS + et;
   const ivrt = physiology.ivrtMs / 1000;

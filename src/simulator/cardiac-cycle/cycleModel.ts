@@ -30,6 +30,10 @@ export interface BeatTables {
    * normalised on this table it is discretisation only (decision 95); `validateCase` rejects a case that needs more.
    */
   volumeCorrectionMl: number;
+  /** Volume (mL) and annular displacements when the beat ends: where the next beat of atrial fibrillation starts. */
+  endVolumeMl: number;
+  endLongitudinal: number;
+  endRvLongitudinal: number;
   /** Longitudinal (annular) displacement toward apex as a fraction of MAPSE, [0,1]. */
   longitudinal: Float32Array;
   /** Longitudinal annular velocity in units of MAPSE per second (s⁻¹); multiply by MAPSE(cm) → cm/s. */
@@ -40,10 +44,23 @@ export interface BeatTables {
 }
 
 export interface BeatOptions {
-  /** Preload scaling for beat-to-beat variation (AF): scales SV and E peak. 1 = nominal. */
+  /** Preload scaling: scales SV and E peak. 1 = nominal. */
   preloadFactor?: number;
   aWave?: boolean;
   n?: number;
+  /**
+   * One beat of atrial fibrillation (decision 107): the volume it ejects (what filled the ventricle in the diastole before
+   * it), the mitral flow area of the case, the RR before it, and where the volume and the annuli were when that beat ended.
+   */
+  afBeat?: AfBeat;
+}
+
+export interface AfBeat {
+  ejectMl: number;
+  mvAreaCm2: number;
+  previousRrS: number;
+  startLongitudinal: number;
+  startRvLongitudinal: number;
 }
 
 /**
@@ -73,10 +90,12 @@ export function buildBeatTables(
 ): BeatTables {
   const n = opts.n ?? 512;
   const preload = opts.preloadFactor ?? 1;
-  const timings = computeCycleTimings(rrS, physiology, { ...rhythm, type: opts.aWave === false ? 'atrial-fibrillation' : rhythm.type });
-  const edv = physiology.edvMl * (0.85 + 0.15 * preload);
+  const af = opts.afBeat;
+  const timings = computeCycleTimings(rrS, physiology, { ...rhythm, type: opts.aWave === false ? 'atrial-fibrillation' : rhythm.type }, af?.previousRrS ?? rrS);
   const svNominal = physiology.edvMl - physiology.esvMl;
-  const svTotal = svNominal * preload; // EDV − ESV: everything that leaves the LV in systole (forward + regurgitant)
+  // in atrial fibrillation a beat ejects what the diastole before it filled, from the case's end-systolic volume
+  const edv = af ? physiology.esvMl + af.ejectMl : physiology.edvMl * (0.85 + 0.15 * preload);
+  const svTotal = af ? af.ejectMl : svNominal * preload; // EDV − ESV: everything that leaves the LV in systole (forward + regurgitant)
   const dt = rrS / n;
 
   // Regurgitant jets (spec 63): velocity from the simplified Bernoulli pressure difference, volume = ERO × VTI.
@@ -168,8 +187,9 @@ export function buildBeatTables(
     mvVelocity[i] = v;
     velIntegralCm += v * dt;
   }
-  const mvArea = hemo.mvEffectiveAreaCm2 ?? svMitral / Math.max(velIntegralCm, 1e-6);
-  const scaleMv = hemo.mvEffectiveAreaCm2 ? svMitral / Math.max(mvArea * velIntegralCm, 1e-6) : 1; // enforce ∫=SV if area forced
+  // a beat of atrial fibrillation fills through the case's orifice for as long as its diastole lasts (decision 107)
+  const mvArea = af ? af.mvAreaCm2 : (hemo.mvEffectiveAreaCm2 ?? svMitral / Math.max(velIntegralCm, 1e-6));
+  const scaleMv = !af && hemo.mvEffectiveAreaCm2 ? svMitral / Math.max(mvArea * velIntegralCm, 1e-6) : 1; // enforce ∫=SV if area forced
 
   // Right ventricular ejection (decision 105): the ejection period of the left ventricle one hundredth of the beat earlier,
   // as the pulmonary valve has always led the aortic one here, the forward stroke volume, and the same skewed shape with its
@@ -203,13 +223,18 @@ export function buildBeatTables(
     vol[i] = v;
   }
   const drift = v - edv;
-  for (let i = 0; i < n; i++) vol[i] = (vol[i] ?? 0) - (drift * (i + 1)) / n;
+  // a beat of atrial fibrillation does not close on itself: what it filled beyond what it ejected starts the next one
+  if (!af) for (let i = 0; i < n; i++) vol[i] = (vol[i] ?? 0) - (drift * (i + 1)) / n;
   let minV = Infinity,
     maxV = -Infinity;
   for (let i = 0; i < n; i++) {
     minV = Math.min(minV, vol[i] ?? 0);
     maxV = Math.max(maxV, vol[i] ?? 0); // with AR the LV keeps filling until the aortic valve opens
   }
+  // contraction, wall thickening and annular motion of fibrillating beats share the case's volumes, so they run on
+  // across beats that eject and fill different volumes
+  const edvRef = af ? physiology.edvMl : edv;
+  const esvRef = af ? physiology.esvMl : minV;
 
   // Longitudinal annular displacement: follows the contraction fraction with a first-order lag — close in systole and
   // during atrial contraction, limited by relaxation in early diastole. The early-diastolic time constant is solved so
@@ -217,7 +242,7 @@ export function buildBeatTables(
   // It used to be 0.09·(10/e′) s, which in the normal heart (e′ 11 cm/s) recoiled at 4.6 cm/s and kept 86% of the
   // systolic descent at mid-E: every diastolic frame showed the base too apical and tissue Doppler measured e′ 4.7.
   const contraction = new Float32Array(n);
-  for (let i = 0; i < n; i++) contraction[i] = (edv - (vol[i] ?? edv)) / Math.max(edv - minV, 1e-6);
+  for (let i = 0; i < n; i++) contraction[i] = (edvRef - (vol[i] ?? edvRef)) / Math.max(edvRef - esvRef, 1e-6);
   const longitudinal = new Float32Array(n);
   const longVel = new Float32Array(n);
   const eWaveEnd = timings.mitralOpenS + timings.eAccelS + timings.eDecelS;
@@ -234,9 +259,10 @@ export function buildBeatTables(
   // sysSpeed compresses the ejection course the same way (decision 106): the tricuspid annulus reaches its excursion
   // earlier in systole than the volume curve when its case S′ asks for it
   const simulate = (tauE: number, speed: number, sysSpeed = 1, into: Float32Array = longitudinal): void => {
-    let l = 0;
-    // two passes for periodic steady state
-    for (let pass = 0; pass < 2; pass++) {
+    const start = af ? (into === longitudinal ? af.startLongitudinal : af.startRvLongitudinal) : 0;
+    let l = start;
+    // two passes for periodic steady state; a beat of atrial fibrillation runs once from where the previous one ended
+    for (let pass = 0; pass < (af ? 1 : 2); pass++) {
       for (let i = 0; i < n; i++) {
         const t = (i + 0.5) * dt;
         const early = t > timings.mitralOpenS && t <= earlyEnd;
@@ -326,11 +352,14 @@ export function buildBeatTables(
     n,
     timings,
     rrS,
-    edvMl: maxV,
-    esvMl: minV,
+    edvMl: af ? edvRef : maxV,
+    esvMl: af ? esvRef : minV,
     strokeVolumeMl: maxV - minV,
     lvVolumeMl: vol,
-    volumeCorrectionMl: drift,
+    volumeCorrectionMl: af ? 0 : drift,
+    endVolumeMl: v,
+    endLongitudinal: longitudinal[n - 1] ?? 0,
+    endRvLongitudinal: rvLongitudinal[n - 1] ?? 0,
     aorticFlowMlps: aorticFlow,
     pulmonaryFlowMlps: pulmonaryFlow,
     pulmonaryAccelerationS,

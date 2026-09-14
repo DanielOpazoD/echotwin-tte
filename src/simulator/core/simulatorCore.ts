@@ -53,6 +53,11 @@ export class SimulatorCore {
   private thorax: ThoraxModel;
   private heart: HeartModel;
   private tables: BeatTables;
+  /** Tables at the case's heart rate: the ground truth and, in atrial fibrillation, the orifice every beat fills through. */
+  private nominalTables: BeatTables;
+  /** Beat the tables belong to, and a counter of table changes (it keys the traced M-mode lines). */
+  private tablesBeat = -1;
+  private tablesVersion = 0;
   private clock: CardiacClock;
   private flow: FlowFieldParams;
   private procedural = new ProceduralSliceRenderer();
@@ -151,8 +156,10 @@ export class SimulatorCore {
     this.patientKey = JSON.stringify(input.patient);
     this.heart = createHeartModel(caseDef.anatomy, caseDef.physiology, this.thorax.heartOffset, caseDef.seed, this.thorax.ivcCollapse);
     this.tables = buildBeatTables(60 / caseDef.rhythm.heartRateBpm, caseDef.physiology, caseDef.rhythm, caseDef.hemodynamics);
+    this.nominalTables = this.tables;
     this.clock = new CardiacClock(caseDef.rhythm, caseDef.seed);
     this.truth = computeGroundTruth(caseDef, this.tables);
+    this.syncBeatTables(false);
     this.consoleState = createConsoleState(caseDef.seed);
     // case-configurable artifacts (spec 12): geometric ones (rib/lung/calcium shadow) come from the anatomy;
     // these three are applied in the console pipeline and the near-field clutter boosts the physics term
@@ -173,6 +180,33 @@ export class SimulatorCore {
     if (kind === 'procedural') return this.procedural;
     if (kind === 'webgl2') return this.gpu ?? this.procedural;
     return this.atlas;
+  }
+
+  /**
+   * Atrial fibrillation (decision 107): every beat gets tables of its own RR instead of the case tables stretched to it. It
+   * ejects what the diastole before it filled — through the case's orifice with the case's E wave, cut by its QRS — with
+   * the ejection time of the RR before it, and starts where that beat left the volume and the annuli. Stretched, the
+   * deceleration time went from 123 to 276 ms with the RR and the LVOT VTI followed the current RR instead of the one before.
+   */
+  private syncBeatTables(rebuildFlow = true): void {
+    const c = this.clock.current;
+    if (this.caseDef.rhythm.type !== 'atrial-fibrillation' || c.beatIndex === this.tablesBeat) return;
+    const prev = this.tables;
+    const first = prev === this.nominalTables;
+    const svNominal = this.caseDef.physiology.edvMl - this.caseDef.physiology.esvMl;
+    const ejectMl = first ? svNominal : Math.min(1.2 * svNominal, Math.max(0.2 * svNominal, prev.endVolumeMl - this.caseDef.physiology.esvMl));
+    this.tables = buildBeatTables(c.rrS, this.caseDef.physiology, this.caseDef.rhythm, this.caseDef.hemodynamics, {
+      afBeat: {
+        ejectMl,
+        mvAreaCm2: this.nominalTables.mvEffectiveAreaCm2,
+        previousRrS: c.previousRrS,
+        startLongitudinal: first ? 0 : prev.endLongitudinal,
+        startRvLongitudinal: first ? 0 : prev.endRvLongitudinal,
+      },
+    });
+    this.tablesBeat = c.beatIndex;
+    this.tablesVersion++;
+    if (rebuildFlow) this.flow = buildFlowParams(this.caseDef, this.heart, this.tables);
   }
 
   private buildFlow(): FlowFieldParams {
@@ -223,6 +257,7 @@ export class SimulatorCore {
     const beam = beamFrameFromPose(poseFromControl(this.thorax, inp.probe), contactQuality(inp.probe.pressure));
     const pre = this.clock.current;
     this.clock.advance(dt);
+    this.syncBeatTables();
     this.timeS += dt;
     this.accumulateEcg(pre.timeInBeatS, pre.rrS, dt);
     // the trace budget of the M-mode lines follows the frame interval, not the step: a late step must not buy a longer one
@@ -503,6 +538,7 @@ export class SimulatorCore {
       (ph.beamWidth ?? 0).toFixed(4),
       cmm,
       this.modelVersion,
+      this.tablesVersion,
     ].join('|');
     if (this.mmode.key !== key || this.mmode.bins !== bins) this.mmode.reset(key, bins);
     const phases = new Float64Array(n);

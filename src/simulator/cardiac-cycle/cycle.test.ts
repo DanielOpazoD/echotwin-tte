@@ -308,3 +308,41 @@ describe('the tricuspid annulus moves with its own table (decision 106)', () => 
     expect(problems).toEqual([]);
   });
 });
+
+describe('beats of atrial fibrillation fill and eject by their own intervals (decision 107)', () => {
+  it('each beat keeps the case E wave and deceleration, fills through the case orifice for its diastole, and the next beat ejects that filling', async () => {
+    const { loadCaseById } = await import('@/cases');
+    const k = loadCaseById('af-diastolic');
+    const nominal = buildBeatTables(60 / k.rhythm.heartRateBpm, k.physiology, k.rhythm, k.hemodynamics);
+    const sv = k.physiology.edvMl - k.physiology.esvMl;
+    const rrs = [0.65, 0.42, 0.55, 0.95, 0.75, 0.38, 0.62, 1.1];
+    const problems: string[] = [];
+    let prev = nominal;
+    let prevRr = nominal.rrS;
+    const fills: [number, number][] = [];
+    for (const [i, rr] of rrs.entries()) {
+      const eject = i === 0 ? sv : Math.min(1.2 * sv, Math.max(0.2 * sv, prev.endVolumeMl - k.physiology.esvMl));
+      const tb = buildBeatTables(rr, k.physiology, k.rhythm, k.hemodynamics, {
+        afBeat: { ejectMl: eject, mvAreaCm2: nominal.mvEffectiveAreaCm2, previousRrS: prevRr, startLongitudinal: i ? prev.endLongitudinal : 0, startRvLongitudinal: i ? prev.endRvLongitudinal : 0 },
+      });
+      const t = tb.timings;
+      // the E wave keeps the case deceleration and peak velocity at every RR (before: stretched with the RR)
+      if (Math.abs(t.eDecelS * 1000 - k.physiology.decelerationTimeMs) > 1e-6) problems.push(`RR ${rr}: DT ${t.eDecelS * 1000} ms`);
+      let peak = 0;
+      for (let j = 0; j < tb.n; j++) peak = Math.max(peak, tb.mitralFlowMlps[j]! / tb.mvEffectiveAreaCm2 / 100);
+      const complete = t.mitralOpenS + t.eAccelS + t.eDecelS < rr;
+      if (t.mitralOpenS + t.eAccelS < rr && Math.abs(peak - k.physiology.ePeakMps) > 0.01) problems.push(`RR ${rr}: E ${peak.toFixed(3)} m/s`);
+      // it ejects what the previous beat filled, and its volume continues where that beat ended
+      if (i > 0 && Math.abs(tb.lvVolumeMl[0]! - (k.physiology.esvMl + eject)) > 0.02 * sv) problems.push(`RR ${rr}: starts at ${tb.lvVolumeMl[0]!.toFixed(1)} mL`);
+      fills.push([rr, tb.endVolumeMl - (k.physiology.esvMl + eject) + eject]);
+      if (complete && Math.abs(fills[i]![1] - sv) > 0.03 * sv) problems.push(`RR ${rr}: a complete E wave filled ${fills[i]![1].toFixed(1)} mL for ${sv}`);
+      prev = tb;
+      prevRr = rr;
+    }
+    expect(problems).toEqual([]);
+    // filling grows with the diastole it has and stops growing once the E wave fits (Frank–Starling in AF)
+    const sorted = [...fills].sort((a, b) => a[0] - b[0]);
+    for (let j = 1; j < sorted.length; j++) expect(sorted[j]![1], `filling at RR ${sorted[j]![0]}`).toBeGreaterThanOrEqual(sorted[j - 1]![1] - 0.5);
+    expect(sorted[0]![1]).toBeLessThan(0.5 * sv);
+  });
+});
