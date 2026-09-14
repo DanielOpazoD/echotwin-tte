@@ -7,9 +7,9 @@ import { ecgSample } from '@/simulator/cardiac-cycle/ecg';
 import { ProceduralSliceRenderer } from '@/simulator/renderer/procedural/sliceRenderer';
 import { createWebgl2Renderer, type Webgl2Renderer } from '@/simulator/renderer/gpu/webgl2Renderer';
 import { AtlasRenderer } from '@/simulator/renderer/atlas/atlasRenderer';
-import { allocPolarFrame, polarSpecFor, type PolarFrame, type PolarFrameSpec, type RendererBackend, type RenderHints, type Scene, type ScenePhysics } from '@/simulator/renderer/types';
+import { allocPolarFrame, polarSpecFor, type AcquisitionSettings, type PolarFrame, type PolarFrameSpec, type RendererBackend, type RenderHints, type Scene, type ScenePhysics } from '@/simulator/renderer/types';
 import { AtlasRenderer as AtlasBackend } from '@/simulator/renderer/atlas/atlasRenderer';
-import { applyConsole, createConsoleState, NO_ARTIFACTS, type ArtifactSettings, type ConsoleState } from '@/simulator/renderer/postprocess/consolePipeline';
+import { applyConsole, createConsoleState, NO_ARTIFACTS, persistenceOverTime, type ArtifactSettings, type ConsoleState } from '@/simulator/renderer/postprocess/consolePipeline';
 import { buildScanLut, computeSectorMapping, lutKey, scanConvertLut, type ScanLut, type SectorMapping } from '@/simulator/renderer/scanConvert';
 import { simulatedFrameRate } from '@/simulator/renderer/frameRate';
 import { beamFrameFromPose, contactQuality, poseFromControl, type BeamFrame } from '@/simulator/probe/pose';
@@ -90,6 +90,11 @@ export class SimulatorCore {
   private frameId = 0;
   private timeS = 0;
   private frameAccumulator = 0;
+  /** Simulated frame interval of the current step, and the simulation time of the last B-mode and colour frames (decision 94). */
+  private frameIntervalS = 1 / 30;
+  private lastFrameTimeS = NaN;
+  private lastColorTimeS = NaN;
+  private lastPersistence = 0;
   private lastAnalysis: ViewAnalysis | null = null;
   private analysisCounter = 0;
   private ecg: EcgPoint[] = [];
@@ -223,6 +228,7 @@ export class SimulatorCore {
     if (isStrip) this.advanceStrip(dt, beam, spec, (MMODE_TRACE_SHARE * 1000) / fps);
     this.frameAccumulator += dt;
     const frameInterval = 1 / fps;
+    this.frameIntervalS = frameInterval;
     this.frameBudgetMs = 600 * frameInterval;
     let produced = false;
     // the worker paces itself at the simulated frame interval; tolerate timer jitter so the cadence
@@ -292,7 +298,13 @@ export class SimulatorCore {
       this.consoleState = createConsoleState(this.caseDef.seed);
       this.colorBuffers = [allocColorField(spec.lines * spec.samples), allocColorField(spec.lines * spec.samples)];
       this.colorPrev = null;
+      this.lastFrameTimeS = this.lastColorTimeS = NaN;
     }
+    // persistence decays with simulated time, not per frame the renderer managed to produce (decision 94)
+    const elapsed = Number.isFinite(this.lastFrameTimeS) ? this.timeS - this.lastFrameTimeS : this.frameIntervalS;
+    this.lastFrameTimeS = this.timeS;
+    this.lastPersistence = persistenceOverTime(inp.settings.persistence, elapsed, this.frameIntervalS);
+    const settings = { ...inp.settings, persistence: this.lastPersistence };
     const phase = this.clock.current.phase;
     const scene = this.scene(phase);
     // stationary detection: a render cache (atlas) may keep frames only while the probe rests
@@ -301,11 +313,11 @@ export class SimulatorCore {
     this.prevBeam = beam;
     const hints: RenderHints = { stationary: this.stationaryFrames >= 6, budgetMs: this.frameBudgetMs, sceneAtPhase: (ph) => this.scene(ph) };
     if (this.gpu?.contextLost) this.dropGpu('WebGL context lost: CPU tracer');
-    let onGpu = this.formDisplay(scene, beam, spec, phase, hints);
+    let onGpu = this.formDisplay(scene, beam, spec, phase, hints, settings);
     if (this.gpu?.contextLost) {
       // lost while forming this frame: nothing valid was read back, so form it again with the CPU tracer
       this.dropGpu('WebGL context lost: CPU tracer');
-      onGpu = this.formDisplay(scene, beam, spec, phase, hints);
+      onGpu = this.formDisplay(scene, beam, spec, phase, hints, settings);
     }
     this.displayOnGpu = onGpu;
     let colorVel: Float32Array | null = null;
@@ -349,8 +361,7 @@ export class SimulatorCore {
    * except the mirror and side-lobe artifacts, and the atlas declines while it serves a cache. Otherwise render
    * and the CPU console. Persistence continues across a switch in either direction. True when formed on the GPU.
    */
-  private formDisplay(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, phase: number, hints: RenderHints): boolean {
-    const settings = this.input.settings;
+  private formDisplay(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, phase: number, hints: RenderHints, settings: AcquisitionSettings): boolean {
     const frame = this.frame!;
     const display = this.display!;
     if (this.artifacts.mirror <= 0 && this.artifacts.sideLobe <= 0 && this.backend.renderDisplay?.(scene, beam, spec, phase, frame, hints, { settings, state: this.consoleState }, display) === true) {
@@ -378,9 +389,12 @@ export class SimulatorCore {
     // write into the buffer that does not hold the previous field, which persistence blends
     const [a, b] = this.colorBuffers!;
     const out = this.colorPrev === a ? b : a;
+    // the colour field updates every other B-mode frame: its persistence decays over that nominal interval (decision 94)
+    const colorElapsed = Number.isFinite(this.lastColorTimeS) ? this.timeS - this.lastColorTimeS : 2 * this.frameIntervalS;
+    this.lastColorTimeS = this.timeS;
     computeColorField(
       frame,
-      this.input.color,
+      { ...this.input.color, persistence: persistenceOverTime(this.input.color.persistence, colorElapsed, 2 * this.frameIntervalS) },
       this.colorPrev,
       (_idx, li, si, o) => {
         const theta = -sectorRad / 2 + (sectorRad * (li + 0.5)) / lines;
@@ -909,6 +923,7 @@ export class SimulatorCore {
         samples: spec.samples,
         renderFrameMs: Number(this.timing.renderFrameMs.toFixed(1)),
         consoleMs: Number(this.timing.consoleMs.toFixed(1)),
+        persistence: Number(this.lastPersistence.toFixed(3)),
         analysisMs: Number(this.timing.analysisMs.toFixed(1)),
         compositeMs: Number(this.timing.compositeMs.toFixed(1)),
         cineMs: Number(this.timing.cineMs.toFixed(2)),

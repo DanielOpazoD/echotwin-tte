@@ -8,6 +8,7 @@ import { buildScanLut, computeSectorMapping, type ScanLut } from '@/simulator/re
 import { allocPolarFrame, DEFAULT_ACQUISITION, type PolarFrameSpec } from '@/simulator/renderer/types';
 import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
 import { aliasVelocity } from '@/clinical/formulas';
+import { persistenceOverTime } from '@/simulator/renderer/postprocess/consolePipeline';
 import { allocColorField, computeColorField, DEFAULT_COLOR, overlayColorField, wallFilterResponse, type ColorAcquisition, type ColorField, type ColorSettings } from './colorDoppler';
 
 // synthetic frame: blood everywhere with full transmission, so every sample inside the colour box gets colour
@@ -190,8 +191,8 @@ function wouldBlend(before: ColorField, rawNow: ColorField, minDelta = 0.002): n
   return n;
 }
 
-describe('colour persistence through SimulatorCore (decision 56)', () => {
-  it('blends every update with the previous field, shows the latest one, and resets on modality and spec changes', { timeout: 120_000 }, () => {
+describe('colour persistence through SimulatorCore (decisions 56 and 94)', () => {
+  it('blends every update with the previous field by the weight of the time since it, shows the latest one, and resets on modality and spec changes', { timeout: 120_000 }, () => {
     const c = loadCaseById('normal-excellent-window');
     const p = 0.5;
     // identical cores and steps: the one without persistence yields the raw field of every update
@@ -210,9 +211,13 @@ describe('colour persistence through SimulatorCore (decision 56)', () => {
     let mismatches = 0;
     let discriminating = 0;
     let wrongField = 0;
+    let timeS = 0;
+    let updateTimeS = NaN;
+    const weights = new Set<number>();
     for (let i = 0; i < 40 && updates < 6; i++) {
       const outRaw = raw.step(0.1);
       const out = kept.step(0.1);
+      timeS += 0.1;
       expect(Boolean(out)).toBe(Boolean(outRaw));
       if (!out) continue;
       live.push(new Uint8Array(out.rgba));
@@ -223,13 +228,17 @@ describe('colour persistence through SimulatorCore (decision 56)', () => {
       expect(k.version).toBe(version + 1); // the GPU present pass uploads the field when the version changes
       version = k.version;
       updates++;
+      // the field updates every other frame: the history weight is p per two simulated frame intervals of elapsed time
+      const w = persistenceOverTime(p, timeS - updateTimeS, 2 / out.simulatedFps);
+      if (prev) weights.add(Number(w.toFixed(6)));
+      updateTimeS = timeS;
       const { vel: rv, variance: rs, power: rp } = r.field!;
       const { vel: kv, variance: ks } = k.field!;
       for (let s = 0; s < kv.length; s++) {
         const vPrev = prev ? prev.vel[s]! : NaN;
         const both = !Number.isNaN(rv[s]!) && !Number.isNaN(vPrev);
-        const ev = both ? circularBlend(p, rv[s]!, rp[s]!, vPrev, prev!.power[s]!, settings) : rv[s]!;
-        const es = both ? rs[s]! * (1 - p) + prev!.variance[s]! * p : rs[s]!;
+        const ev = both ? circularBlend(w, rv[s]!, rp[s]!, vPrev, prev!.power[s]!, settings) : rv[s]!;
+        const es = both ? rs[s]! * (1 - w) + prev!.variance[s]! * w : rs[s]!;
         const velOk = Number.isNaN(ev) ? Number.isNaN(kv[s]!) : Math.abs(kv[s]! - ev) < 1e-5;
         if (!velOk || !(Math.abs(ks[s]! - es) < 1e-5)) mismatches++;
         if (both && Math.abs(rv[s]! - vPrev) > 0.05) blended++;
@@ -250,6 +259,9 @@ describe('colour persistence through SimulatorCore (decision 56)', () => {
       prev = copyField(k.field!);
     }
     expect(updates).toBe(6);
+    // the first blend comes one frame after the first field, half the colour interval: its weight (about p^0.5) is far from
+    // the setting, so a weight per update would not pass the blend check
+    expect(Math.max(...[...weights].map((x) => Math.abs(x - p)))).toBeGreaterThan(0.1);
     expect(mismatches).toBe(0);
     expect(blended).toBeGreaterThan(100);
     expect(discriminating).toBeGreaterThan(100);

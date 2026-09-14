@@ -39,6 +39,19 @@ export const REF_DB = -4;
 export const CLINICAL_GREY_CURVE = 3.5;
 const CLINICAL_GREY_LOG = Math.log1p(CLINICAL_GREY_CURVE);
 
+/**
+ * Persistence weight of a frame that arrives `elapsedS` after the previous one, for a scanner whose frame interval is
+ * `intervalS` (decision 94, external audit F12). The setting is the weight of the history per acquired frame, so over
+ * any stretch of time the history keeps persistence^(elapsed / interval): a frame the renderer could not produce on time
+ * still counts as elapsed time, and the image does not smear longer on a slow device. A frame that follows the previous
+ * one by less than a quarter of the interval (a late step followed by an early one) weighs as a quarter, so it still
+ * contributes.
+ */
+export function persistenceOverTime(persistence: number, elapsedS: number, intervalS: number): number {
+  if (!(persistence > 0) || !(intervalS > 0)) return 0;
+  return Math.pow(persistence, Math.max(0.25, elapsedS / intervalS));
+}
+
 export function createConsoleState(seed: number): ConsoleState {
   return { prev: null, gpuHistory: false, frameIndex: 0, seed };
 }
