@@ -356,6 +356,25 @@ describe('tricuspid apparatus (decision 78)', () => {
     expect(problems).toEqual([]);
   });
 
+  it('the annulus is in one place: the pose moves the tricuspid plane with the leaflets, by TAPSE along the RV table (decision 110)', () => {
+    // Decision 106 gave the leaflets the RV longitudinal table and left the pose's displacement, which the classifier uses
+    // for the tricuspid plane, the RV inflow, the atrium-ventricle boundary and the shader, on the LV curve: in mid-systole
+    // the leaflets hung up to 3.8 mm apical of the plane the rest of the right heart used.
+    const problems: string[] = [];
+    for (const input of CASE_INPUTS) {
+      const { c, heart, tables } = setup(input.id);
+      const A = heartAnchors(heart);
+      let worst = 0;
+      for (let i = 0; i < 40; i++) {
+        const state = cycleStateAt(tables, i / 40);
+        const pose = computeHeartPose(heart, state);
+        worst = Math.max(worst, Math.abs(pose.valves.tv.cz - (A.tvCenter.z + pose.tvZ)), Math.abs(pose.tvZ - c.physiology.tapseCm * state.rvLongitudinal));
+      }
+      if (worst > 1e-6) problems.push(`${input.id}: ${(worst * 10).toFixed(1)} mm between the leaflet ring and the pose's tricuspid displacement`);
+    }
+    expect(problems).toEqual([]);
+  });
+
   it('open tricuspid leaflets stay in the blood', () => {
     // the septal leaflet used to open into the septum and the anterior one through the free wall
     const s = makeSample();

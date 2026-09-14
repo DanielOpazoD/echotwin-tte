@@ -764,7 +764,9 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
     tvAngleAnt,
     tvAnglePost,
     rvScale: 1 - 0.3 * state.contraction,
-    tvZ: m.physiology.tapseCm * long,
+    // the displacement the leaflets hang from (RV longitudinal table, decision 106): returning the LV curve here left the
+    // classifier's tricuspid plane up to 3.8 mm from the leaflets in mid-systole (decision 110)
+    tvZ,
     laBooster: 1 - 0.06 * Math.max(state.atrialContraction, state.atrialHold),
     effusion: m.anatomy.pericardium.effusionCm,
     rvCollapse,
