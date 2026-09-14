@@ -806,6 +806,8 @@ interface Anchors {
   paDir: Vec3;
   paEnd: Vec3; // bifurcation of the trunk
   paR: number;
+  paStj: Vec3; // sinotubular junction: the trunk widens from the root radius at the valve to its own radius here
+  paRootR: number;
   rpaEnd: Vec3; // right pulmonary artery (runs to the patient's right, behind the ascending aorta)
   rpaR: number;
   lpaEnd: Vec3;
@@ -938,11 +940,19 @@ function anchors(m: HeartModel): Anchors {
     rvotR: 1.1,
     paDir,
     paEnd,
-    paR: 1.15,
+    // the trunk of the case, and branches that dilate with it (decision 109): it was 2.3 cm in every case. It leaves the
+    // valve with the radius of the root (the cusps hinge 1 mm inside it) and reaches its own at the sinotubular junction,
+    // at the height of the commissures: 19.4 ± 2.0 mm by CT in 50 adults (Jelenc et al., ICVTS 2024;39:ivae206), sinus
+    // heights of 15-19 mm in 182 autopsied hearts (Lis et al., Clin Anat 2023;36:234-41). Starting at the valve with its
+    // full radius, the trunk of 3.2 cm left the cusps 5.5 mm from its wall and its rounded end widened the outflow tract
+    // 8 mm below the valve from a radius of 0.83 to 1.39 cm.
+    paR: a.pulmonaryArtery.trunkDiameterCm / 2,
+    paStj: add(rvotB, scale(paDir, 1.9)),
+    paRootR: 1.15,
     rpaEnd: add(paEnd, scale(normalize(add(tRight, scale(tPost, 0.45))), 4.4)),
-    rpaR: 0.8,
+    rpaR: 0.8 * (a.pulmonaryArtery.trunkDiameterCm / 2.3),
     lpaEnd: add(paEnd, scale(normalize(add(add(tLeft, scale(tPost, 0.6)), scale(tSup, 0.2))), 3.0)),
-    lpaR: 0.75,
+    lpaR: 0.75 * (a.pulmonaryArtery.trunkDiameterCm / 2.3),
     pvR: 1.05,
     rvPapAz: 2.35,
     rvPapZetaBase: 0.68,
@@ -1588,7 +1598,10 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
       sdRoundCone(x, y, z, A.rvotM.x, A.rvotM.y, A.rvotM.z, A.rvotB.x, A.rvotB.y, A.rvotB.z, A.rvotRm * k, A.rvotR * k),
     );
     // pulmonary trunk from the valve to the bifurcation; right branch behind the ascending aorta, left branch
-    const dPa = sdCapsule(x, y, z, A.rvotB.x, A.rvotB.y, A.rvotB.z, A.paEnd.x, A.paEnd.y, A.paEnd.z, A.paR);
+    const dPa = Math.min(
+      sdRoundCone(x, y, z, A.rvotB.x, A.rvotB.y, A.rvotB.z, A.paStj.x, A.paStj.y, A.paStj.z, A.paRootR, A.paR),
+      sdCapsule(x, y, z, A.paStj.x, A.paStj.y, A.paStj.z, A.paEnd.x, A.paEnd.y, A.paEnd.z, A.paR),
+    );
     const dRpa = sdCapsule(x, y, z, A.paEnd.x, A.paEnd.y, A.paEnd.z, A.rpaEnd.x, A.rpaEnd.y, A.rpaEnd.z, A.rpaR);
     const dLpa = sdCapsule(x, y, z, A.paEnd.x, A.paEnd.y, A.paEnd.z, A.lpaEnd.x, A.lpaEnd.y, A.lpaEnd.z, A.lpaR);
     const dTrunk = Math.min(dPa, dRpa, dLpa);
@@ -1657,7 +1670,10 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
       rar = A.raR;
     const dRaEpi = sdEllipsoid(x, y, z, ra.x, ra.y, ra.z, rar.x + 0.22, rar.y + 0.22, rar.z + 0.22);
     const dRvotEpi = sdCapsule(x, y, z, A.rvotA.x, A.rvotA.y, A.rvotA.z, A.rvotB.x, A.rvotB.y, A.rvotB.z, A.rvotRa + fw);
-    const dPaEpi = sdCapsule(x, y, z, A.rvotB.x, A.rvotB.y, A.rvotB.z, A.paEnd.x, A.paEnd.y, A.paEnd.z, A.paR + 0.2);
+    const dPaEpi = Math.min(
+      sdRoundCone(x, y, z, A.rvotB.x, A.rvotB.y, A.rvotB.z, A.paStj.x, A.paStj.y, A.paStj.z, A.paRootR + 0.2, A.paR + 0.2),
+      sdCapsule(x, y, z, A.paStj.x, A.paStj.y, A.paStj.z, A.paEnd.x, A.paEnd.y, A.paEnd.z, A.paR + 0.2),
+    );
     // the cardiac silhouette is the smooth union of the epicardial surfaces: the grooves between chambers and
     // the space between outflow and root are filled with epicardial fat, and one pericardium wraps the whole heart
     const dEpi = smin(smin(smin(dLvEpi, dRvEpi, 0.8), smin(dLaEpi, dRaEpi, 0.8), 0.8), smin(dRvotEpi, dPaEpi, 0.8), 0.8);

@@ -73,6 +73,8 @@ export const AnatomySchema = z.object({
     bicuspid: z.boolean().default(false),
   }),
   tricuspid: z.object({ annulusDiameterCm: z.number().min(2).max(5.5) }),
+  /** Main pulmonary artery diameter (cm); dilated in pulmonary hypertension (decision 109). */
+  pulmonaryArtery: z.object({ trunkDiameterCm: z.number().min(1.5).max(5) }).default({ trunkDiameterCm: 2.3 }),
   ivc: z.object({ diameterCm: z.number().min(0.8).max(3.5), collapsePct: pct }),
   pericardium: z.object({
     effusionCm: z.number().min(0).max(4).default(0),

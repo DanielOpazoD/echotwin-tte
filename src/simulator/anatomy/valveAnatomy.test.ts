@@ -8,7 +8,7 @@ import { makeSample, Structure, Tissue } from './tissue';
 import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
 import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
-import { add, dot, scale, sub, v3 } from '@/core/vec3';
+import { add, cross, dot, normalize, scale, sub, v3 } from '@/core/vec3';
 
 /**
  * Valve apparatus and great-vessel continuity (decision 75). These are the "subtleties" a cardiologist sees at once
@@ -578,5 +578,51 @@ describe('mitral leaflet motion in the parasternal M-mode (decision 100)', () =>
       expect(slope, report).toBeGreaterThan(70);
       expect(slope, report).toBeLessThan(150);
     }
+  });
+});
+
+describe('pulmonary root (decision 109)', () => {
+  it('a dilated trunk widens above the sinuses: at the valve plane the cusp hinges stay against the wall, in every case and through the cycle', () => {
+    // The trunk used to begin at the valve plane with its full radius. With the case diameter of pulmonary hypertension
+    // (3.2 cm) the cusps, hinged 1.05 cm from the axis, hung 5.5 mm from a wall 1.60 cm away, and the rounded end of the
+    // trunk widened the outflow tract to a radius of 1.39 cm 8 mm below the valve (0.83 cm before).
+    const s = makeSample();
+    const problems: string[] = [];
+    for (const input of CASE_INPUTS) {
+      const { c, heart, tables } = setup(input.id);
+      const A = heartAnchors(heart);
+      const d = A.paDir;
+      const e1 = normalize(cross(d, v3(0, 0, 1)));
+      const e2 = cross(d, e1);
+      for (const phase of [0, 0.2, 0.6]) {
+        const pose = computeHeartPose(heart, cycleStateAt(tables, phase));
+        // how far the blood of the trunk reaches from its axis, walking out through its blood and cusps, in 16 directions
+        // (the aortic root, the ventricle or the outflow tract bound it on some of them)
+        const bloodRadii = (t: number): number[] => {
+          const radii: number[] = [];
+          for (let k = 0; k < 16; k++) {
+            const a = (k / 16) * 2 * Math.PI;
+            const u = add(scale(e1, Math.cos(a)), scale(e2, Math.sin(a)));
+            let last = 0;
+            for (let r = 0; r < 3; r += 0.01) {
+              const p = add(add(A.rvotB, scale(d, t)), scale(u, r));
+              if (!classifyHeart(heart, pose, p.x + pose.swingX, p.y, p.z, s)) break;
+              if (s.tissue === Tissue.Blood && s.structure === Structure.PulmonaryArtery) last = r;
+              else if (s.structure !== Structure.PulmonaryValve) break;
+            }
+            radii.push(last);
+          }
+          return radii.sort((p, q) => p - q);
+        };
+        const label = `${input.id} @${phase}`;
+        // at the valve plane the cusp hinges lie against the wall: the blood ends within 2 mm of them, as at the tricuspid annulus
+        const atValve = bloodRadii(0)[15]!;
+        if (atValve > A.pvR + 0.2) problems.push(`${label}: trunk blood ${atValve.toFixed(2)} cm from the axis at the valve plane, cusps hinged at ${A.pvR.toFixed(2)}`);
+        // past the sinotubular junction the trunk has the diameter of the case
+        const median = bloodRadii(2.2)[8]!;
+        if (Math.abs(2 * median - c.anatomy.pulmonaryArtery.trunkDiameterCm) > 0.1) problems.push(`${label}: trunk ${(2 * median).toFixed(2)} cm at 2.2 cm from the valve, case ${c.anatomy.pulmonaryArtery.trunkDiameterCm} cm`);
+      }
+    }
+    expect(problems).toEqual([]);
   });
 });

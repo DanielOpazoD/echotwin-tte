@@ -29,7 +29,7 @@ const SCALARS = [
   'AV_E1X', 'AV_E1Y', 'AV_E1Z', 'AV_E2X', 'AV_E2Y', 'AV_E2Z', 'AV_BX', 'AV_BY', 'AV_BZ',
   'LA_CX', 'LA_CY', 'LA_CZ', 'LA_RX', 'LA_RY', 'LA_RZ', 'RA_CX', 'RA_CY', 'RA_CZ', 'RA_RX', 'RA_RY', 'RA_RZ',
   'RV_T', 'RV_AZA', 'RV_AZP', 'RV_APEX_FRAC', 'TV_CX', 'TV_CY', 'TV_CZ', 'TV_R',
-  'RVOT_AX', 'RVOT_AY', 'RVOT_AZ', 'RVOT_MX', 'RVOT_MY', 'RVOT_MZ', 'RVOT_BX', 'RVOT_BY', 'RVOT_BZ', 'RVOT_RA', 'RVOT_RM', 'RVOT_R', 'PA_DX', 'PA_DY', 'PA_DZ', 'PA_EX', 'PA_EY', 'PA_EZ', 'PA_R',
+  'RVOT_AX', 'RVOT_AY', 'RVOT_AZ', 'RVOT_MX', 'RVOT_MY', 'RVOT_MZ', 'RVOT_BX', 'RVOT_BY', 'RVOT_BZ', 'RVOT_RA', 'RVOT_RM', 'RVOT_R', 'PA_DX', 'PA_DY', 'PA_DZ', 'PA_EX', 'PA_EY', 'PA_EZ', 'PA_R', 'PA_SX', 'PA_SY', 'PA_SZ', 'PA_ROOT_R',
   'RPA_EX', 'RPA_EY', 'RPA_EZ', 'RPA_R', 'LPA_EX', 'LPA_EY', 'LPA_EZ', 'LPA_R', 'RV_PAP_AZ', 'PV_HALF', 'PV_SEGLEN', 'PV_T',
   'LA_RESERVOIR', 'IAS_X', 'FOSSA_Y', 'FOSSA_Z', 'SVC_AX', 'SVC_AY', 'SVC_AZ', 'SVC_BX', 'SVC_BY', 'SVC_BZ', 'SVC_R', 'IVC_AX', 'IVC_AY', 'IVC_AZ', 'IVC_BX', 'IVC_BY', 'IVC_BZ', 'IVC_R', 'HV_AX', 'HV_AY', 'HV_AZ', 'HV_BX', 'HV_BY', 'HV_BZ',
   // valves
@@ -273,6 +273,10 @@ export function packScene(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, o
   set('PA_EY', A.paEnd.y);
   set('PA_EZ', A.paEnd.z);
   set('PA_R', A.paR);
+  set('PA_SX', A.paStj.x);
+  set('PA_SY', A.paStj.y);
+  set('PA_SZ', A.paStj.z);
+  set('PA_ROOT_R', A.paRootR);
   const V = hp.valves;
   set('CUSP_COUNT', V.cuspCount);
   set('CUSP_T', V.aortic.thickness);

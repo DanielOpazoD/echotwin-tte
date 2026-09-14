@@ -786,7 +786,8 @@ bool classifyHeart(vec3 p0, out Sample s) {
     vec3 rvotB = vec3(RVOT_BX, RVOT_BY, RVOT_BZ);
     vec3 paEnd = vec3(PA_EX, PA_EY, PA_EZ);
     float dRvot = min(sdRoundCone(p, rvotA, rvotM, RVOT_RA * k, RVOT_RM * k), sdRoundCone(p, rvotM, rvotB, RVOT_RM * k, RVOT_R * k));
-    float dPa = sdCapsule(p, rvotB, paEnd, PA_R);
+    vec3 paStj = vec3(PA_SX, PA_SY, PA_SZ);
+    float dPa = min(sdRoundCone(p, rvotB, paStj, PA_ROOT_R, PA_R), sdCapsule(p, paStj, paEnd, PA_R));
     float dRpa = sdCapsule(p, paEnd, vec3(RPA_EX, RPA_EY, RPA_EZ), RPA_R);
     float dLpa = sdCapsule(p, paEnd, vec3(LPA_EX, LPA_EY, LPA_EZ), LPA_R);
     float dTrunk = min(dPa, min(dRpa, dLpa));
@@ -841,7 +842,8 @@ bool classifyHeart(vec3 p0, out Sample s) {
     vec3 rvotB = vec3(RVOT_BX, RVOT_BY, RVOT_BZ);
     vec3 paEnd = vec3(PA_EX, PA_EY, PA_EZ);
     float dRvotEpi = sdCapsule(p, rvotA, rvotB, RVOT_RA + fw);
-    float dPaEpi = sdCapsule(p, rvotB, paEnd, PA_R + 0.2);
+    vec3 paStj = vec3(PA_SX, PA_SY, PA_SZ);
+    float dPaEpi = min(sdRoundCone(p, rvotB, paStj, PA_ROOT_R + 0.2, PA_R + 0.2), sdCapsule(p, paStj, paEnd, PA_R + 0.2));
     float dEpi = smin(smin(smin(dLvEpi, dRvEpi, 0.8), smin(dLaEpi, dRaEpi, 0.8), 0.8), smin(dRvotEpi, dPaEpi, 0.8), 0.8);
     float eff = EFFUSION;
     vec3 nEpi = n0;

@@ -20,6 +20,8 @@ export const pulmonaryHypertensionRvCase: CaseDefinitionInput = {
     aorta: { lvotDiameterCm: 1.9, annulusCm: 2.2, sinusCm: 2.9, ascendingCm: 2.8 },
     mitral: { ...normalExcellentCase.anatomy.mitral, annulusDiameterCm: 2.8 },
     tricuspid: { annulusDiameterCm: 4.4 },
+    // main pulmonary artery dilated: above 25 mm is an echocardiographic sign of pulmonary hypertension (ESC/ERS 2022)
+    pulmonaryArtery: { trunkDiameterCm: 3.2 },
     ivc: { diameterCm: 2.5, collapsePct: 20 },
   },
   physiology: { ...normalExcellentCase.physiology, edvMl: 85, esvMl: 35, mapseCm: 1.2, tapseCm: 1.3, ePeakMps: 0.6, aPeakMps: 0.7, decelerationTimeMs: 220, ivrtMs: 95, ePrimeSeptalCmps: 6, ePrimeLateralCmps: 9, sPrimeTricuspidCmps: 7 },
@@ -57,5 +59,5 @@ export const pulmonaryHypertensionRvCase: CaseDefinitionInput = {
     'Septo interventricular aplanado en sístole (sobrecarga de presión); ventrículo izquierdo pequeño con llenado reducido.',
     'Insuficiencia tricuspídea moderada con PSVD estimada ≈ 72 mmHg; aurícula derecha dilatada y VCI dilatada con colapso reducido.',
   ],
-  expectedDeviations: ['lv-idd', 'rv-edvi', 'rv-basal', 'rv-lv-basal-ratio', 'rv-wall', 'rv-plax', 'ravi', 'ra-transverse', 'ra-long', 'tv-annulus', 'tv-mv-ratio'],
+  expectedDeviations: ['lv-idd', 'rv-edvi', 'rv-basal', 'rv-lv-basal-ratio', 'rv-wall', 'rv-plax', 'ravi', 'ra-transverse', 'ra-long', 'tv-annulus', 'tv-mv-ratio', 'pa'],
 };

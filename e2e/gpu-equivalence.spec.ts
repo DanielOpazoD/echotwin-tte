@@ -26,8 +26,9 @@ test.beforeEach(async ({ page }) => {
 const MATRIX: [string, string[], number[], ('low' | 'medium' | 'high')?, number?][] = [
   ['normal-excellent-window', ['plax', 'a4c', 'psax-av'], [0, 0.35]],
   ['aortic-stenosis-severe', ['plax', 'a4c', 'psax-av'], [0, 0.35]],
-  // septal flattening (D-shape) and tamponade collapse/swing exercise the newest GLSL paths
-  ['pulmonary-hypertension-rv', ['psax-pm', 'a4c'], [0.35]],
+  // septal flattening (D-shape) and tamponade collapse/swing exercise the newest GLSL paths; the dilated pulmonary
+  // trunk widens from the root radius above the sinuses (decision 109), which no other case draws
+  ['pulmonary-hypertension-rv', ['psax-pm', 'a4c', 'psax-av'], [0.35]],
   ['pericardial-effusion-tamponade', ['plax', 'a4c'], [0.5]],
   ['hocm-sam', ['plax'], [0.35]],
   // subcostal window: liver dome, diaphragm, venae cavae and the clipped atria in GLSL
