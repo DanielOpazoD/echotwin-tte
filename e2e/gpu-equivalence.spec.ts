@@ -23,7 +23,7 @@ test.beforeEach(async ({ page }) => {
   await page.waitForFunction(() => Boolean((window as unknown as { __echotwin?: { compareBackends?: unknown } }).__echotwin?.compareBackends));
 });
 
-const MATRIX: [string, string[], number[], ('low' | 'medium' | 'high')?][] = [
+const MATRIX: [string, string[], number[], ('low' | 'medium' | 'high')?, number?][] = [
   ['normal-excellent-window', ['plax', 'a4c', 'psax-av'], [0, 0.35]],
   ['aortic-stenosis-severe', ['plax', 'a4c', 'psax-av'], [0, 0.35]],
   // septal flattening (D-shape) and tamponade collapse/swing exercise the newest GLSL paths
@@ -34,14 +34,17 @@ const MATRIX: [string, string[], number[], ('low' | 'medium' | 'high')?][] = [
   ['normal-excellent-window', ['subcostal-4c', 'subcostal-ivc'], [0]],
   // high tier: slice-thickness averaging (three elevation samples) on both backends
   ['normal-excellent-window', ['plax', 'a4c'], [0.35], 'high'],
+  // the probe on a rib (1.4 cm off the apical preset): bone attenuation integrated over distance on both backends (decision 89)
+  ['normal-excellent-window', ['a4c'], [0.1], 'medium', 1.4],
 ];
-for (const [caseId, views, phases, tier] of MATRIX) {
+for (const [caseId, views, phases, tier, offsetV] of MATRIX) {
   for (const viewId of views) {
     for (const phase of phases) {
-      test(`${caseId} ${viewId} @${phase}${tier ? ` (${tier})` : ''}: GPU frame matches the CPU reference`, async ({ page }) => {
+      test(`${caseId} ${viewId} @${phase}${tier ? ` (${tier})` : ''}${offsetV ? ` probe v${offsetV > 0 ? '+' : ''}${offsetV}` : ''}: GPU frame matches the CPU reference`, async ({ page }) => {
         const r = (await page.evaluate(
-          ([v, p, c, t]) => (window as unknown as { __echotwin: { compareBackends: (v: string, p: number, c: string, t?: string) => Comparison } }).__echotwin.compareBackends(v as string, p as number, c as string, t as string | undefined),
-          [viewId, phase, caseId, tier ?? 'medium'] as const,
+          ([v, p, c, t, o]) =>
+            (window as unknown as { __echotwin: { compareBackends: (v: string, p: number, c: string, t?: string, o?: number) => Comparison } }).__echotwin.compareBackends(v as string, p as number, c as string, t as string | undefined, o as number),
+          [viewId, phase, caseId, tier ?? 'medium', offsetV ?? 0] as const,
         )) as Comparison;
         expect(r.error, 'WebGL2 must be available in the test browser').toBeUndefined();
         expect(r.lines).toBeGreaterThan(60);

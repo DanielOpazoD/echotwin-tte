@@ -82,9 +82,9 @@ void main() {
   float zr = (lat(q, 0) + lat(q * SCATTER_FREQ_RATIO + vec3(37.3, 11.9, 23.7), 1) - 1.0) * PHASOR_NORM;
   float zi = (lat(q + vec3(71.1, 53.5, 5.3), 2) + lat(q * SCATTER_FREQ_RATIO + vec3(17.9, 91.1, 43.3), 0) - 1.0) * PHASOR_NORM;
   float lungFlag = s.tissue == T_LUNG ? 1.0 : 0.0;
+  // two-way amplitude loss integrated over the sample's length for every tissue, bone included (decision 89)
   float attenNp = 0.23 * props.z * F_ATTEN * dr;
-  if (s.tissue == T_BONE || s.tissue == T_CALC || s.tissue == T_SPINE) attenNp = 1.2;
-  else if (s.extra > 0.4) attenNp += 0.09 * s.extra * (dr / 0.07);
+  if (s.extra > 0.4) attenNp += 0.09 * s.extra * (dr / 0.07);
   if (!inHeart && (s.tissue == T_FAT || s.tissue == T_MUSCLE || s.tissue == T_SKIN)) attenNp *= 1.0 + 1.5 * WINDOW_ATTEN;
   outA = vec4(sigma, attenNp, lungFlag, 1.0);
   outB = vec4(float(s.structure) / 255.0, float(s.tissue) / 255.0, s.extra, 1.0);

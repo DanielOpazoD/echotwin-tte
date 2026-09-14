@@ -120,7 +120,6 @@ export class ProceduralSliceRenderer implements RendererBackend {
       kernels: k,
       torsoAxes: [fwd.x, fwd.y, fwd.z, lat.x, lat.y, lat.z, beam.normal.x, beam.normal.y, beam.normal.z],
       heartAxes: [fH.x, fH.y, fH.z, lH.x, lH.y, lH.z, nH.x, nH.y, nH.z],
-      frameSampleShare: frame.samples / samples,
       // 2.7 cells per pulse: value noise is uncorrelated beyond two cells
       bloodCells: (pulse % 4096) * 2.7,
       sigma: this.lineSigma,
@@ -370,10 +369,11 @@ export class ProceduralSliceRenderer implements RendererBackend {
       if (r < 0.35) sRe += lk ? 0.6 * (1 - r / 0.35) * lk.smooth : 0.6 * (1 - r / 0.35); // transducer ring-down
       re[idx] = sRe * transmission;
       im[idx] = sIm * transmission;
+      // two-way amplitude loss integrated over the sample's length (decision 89): 0.23 Np per dB·cm⁻¹·MHz⁻¹ of one-way
+      // attenuation, so a layer loses the same whatever the sampling. Bone, calcium and spine used a fixed 1.2 Np per
+      // sample, which made a rib's shadow depend on the quality tier (17 dB between low and high behind 4 mm of rib).
       let attenNp = 0.23 * props.attenuation * fAtten * dr;
-      // bone and calcium stop the beam within a frame sample; a finer M-mode line spreads the same loss over its samples
-      if (tissue === Tissue.Bone || tissue === Tissue.Calcium || tissue === Tissue.Spine) attenNp = line ? 1.2 * line.frameSampleShare : 1.2;
-      else if (s.extraReflect > 0.4) attenNp += 0.09 * s.extraReflect * (dr / 0.07); // calcified tissue ≈ 10 dB/cm at 2.5 MHz
+      if (s.extraReflect > 0.4) attenNp += 0.09 * s.extraReflect * (dr / 0.07); // calcified tissue ≈ 10 dB/cm at 2.5 MHz
       if (!inHeart && (tissue === Tissue.Fat || tissue === Tissue.Muscle || tissue === Tissue.Skin)) attenNp *= 1 + 1.5 * ctx.windowAttenuation;
       transmission *= Math.exp(-attenNp);
       if (transmission < 1e-4) transmission = 1e-4;
@@ -404,8 +404,6 @@ interface LineContext {
     /** Beam axes (along, across in the scan plane, elevation) in torso and heart coordinates, 3 × 3 flattened. */
     torsoAxes: number[];
     heartAxes: number[];
-    /** Line sample length over frame sample length. */
-    frameSampleShare: number;
     /** Lattice offset of flowing blood for this pulse: its speckle does not persist from one pulse to the next. */
     bloodCells: number;
     /**

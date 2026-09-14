@@ -32,13 +32,15 @@ export interface BackendComparison {
 type Tier = 'low' | 'medium' | 'high';
 
 /** Canonical view of a case at a phase, with the scene the renderers take. */
-function canonicalSetup(viewId: string, phase: number, caseId: string, tier: Tier, settings: AcquisitionSettings) {
+function canonicalSetup(viewId: string, phase: number, caseId: string, tier: Tier, settings: AcquisitionSettings, probeOffsetV = 0) {
   const c = loadCaseById(caseId);
   const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, { position: 'left-lateral', respiration: 'expiration', headElevationDeg: 0 });
   const heart = createHeartModel(c.anatomy, c.physiology, thorax.heartOffset, c.seed);
   heartLandmarks(heart);
   const tables = buildBeatTables(60 / c.rhythm.heartRateBpm, c.physiology, c.rhythm, c.hemodynamics);
-  const ctrl = canonicalControl(getViewTarget(viewId), heart, thorax);
+  const canonical = canonicalControl(getViewTarget(viewId), heart, thorax);
+  // an offset along the ribs' spacing puts a rib under the probe, which the presets avoid
+  const ctrl = { ...canonical, v: canonical.v + probeOffsetV };
   const beam = beamFrameFromPose(poseFromControl(thorax, ctrl), 1);
   const spec = polarSpecFor(settings, tier);
   const sceneAt = (ph: number): Scene => ({
@@ -55,8 +57,8 @@ function canonicalSetup(viewId: string, phase: number, caseId: string, tier: Tie
  * reference renderer and the WebGL2 port on the main thread and reports agreement metrics. Used by
  * e2e/gpu-equivalence.spec.ts.
  */
-export function compareBackends(viewId: string, phase: number, caseId = 'normal-excellent-window', tier: Tier = 'medium'): BackendComparison {
-  const { heart, beam, spec, scene } = canonicalSetup(viewId, phase, caseId, tier, DEFAULT_ACQUISITION);
+export function compareBackends(viewId: string, phase: number, caseId = 'normal-excellent-window', tier: Tier = 'medium', probeOffsetV = 0): BackendComparison {
+  const { heart, beam, spec, scene } = canonicalSetup(viewId, phase, caseId, tier, DEFAULT_ACQUISITION, probeOffsetV);
   const empty: BackendComparison = { lines: spec.lines, samples: spec.samples, structureAgreement: 0, tissueAgreement: 0, ampRelDiff: 1, transDiff: 1, cpuMs: 0, gpuMs: 0 };
   const cpu = new ProceduralSliceRenderer();
   const fa = allocPolarFrame(spec);
