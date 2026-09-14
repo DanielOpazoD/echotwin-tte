@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CASE_INPUTS, loadCaseById } from '@/cases';
 import { classifyHeart, computeHeartPose, createHeartModel, heartAnchors, heartToTorso, ROOT_EXCURSION, torsoToHeart, type HeartModel, type HeartPose } from './heartModel';
-import { mitralLeafletPoint, MV_BINS } from './mitralValve';
+import { mitralFreeEdge, mitralLeafletPoint, MV_BINS } from './mitralValve';
 import { rootRadiusAt } from './aorticValve';
 import { createThoraxModel, type ThoraxModel } from './thoraxModel';
 import { makeSample, Structure, Tissue } from './tissue';
@@ -517,3 +517,66 @@ describe('aortic cusps (decision 79)', () => {
   });
 });
 
+
+describe('mitral leaflet motion in the parasternal M-mode (decision 100)', () => {
+  it('the anterior leaflet edge traces the normal E, F and A points along the parasternal beam', () => {
+    // M-mode at the leaflet tips, read without a cursor: the free edge of the anterior leaflet (A2) projected on the beam
+    // from the parasternal probe through its position at peak early inflow, against the closed position at mitral opening.
+    // Normal values (Park et al., Diagnostics 2023; 13:2412, n = 30): E-point opening 2.6 ± 0.4 cm, A-point 1.8 ± 0.4 cm,
+    // their ratio 1.4 (IQR 1.3–1.5) and 144 ± 19 ms from the E point to the nadir; E-F slope 70–150 mm/s; in diastasis
+    // the leaflets float semi-closed, the orifice about half its size at peak E (Govindarajan et al., Sci Rep 2018).
+    // Before: the valve closed completely in diastasis, 5 mm past the closed position, and the E-F slope read 185 mm/s.
+    for (const id of ['normal-excellent-window', 'normal-difficult-window']) {
+      const { heart, tables, thorax } = setup(id);
+      const beam = beamFrameFromPose(poseFromControl(thorax, canonicalControl(getViewTarget('plax'), heart, thorax)), 1);
+      const t = tables.timings;
+      const N = 512;
+      const dt = tables.rrS / N;
+      const edge = [0, 0, 0];
+      const states = Array.from({ length: N }, (_, k) => cycleStateAt(tables, k / N));
+      const tips = states.map((st) => {
+        const pose = computeHeartPose(heart, st);
+        mitralFreeEdge(pose.valves.mitral, 0, 0, edge);
+        return heartToTorso(heart.frame, v3(edge[0]! + pose.swingX, edge[1]!, edge[2]!));
+      });
+      const inWindow = (k: number, from: number, to: number) => k * dt >= from && k * dt < to;
+      let kE = Math.ceil(t.mitralOpenS / dt);
+      for (let k = kE; inWindow(k, t.mitralOpenS, t.aStartS); k++) if (states[k]!.mvOpen > states[kE]!.mvOpen) kE = k;
+      const dir = scale(sub(tips[kE]!, beam.origin), 1);
+      const unit = scale(dir, 1 / Math.hypot(dir.x, dir.y, dir.z));
+      const closed = dot(sub(tips[Math.floor(t.mitralOpenS / dt) - 1]!, beam.origin), unit);
+      const exc = tips.map((p) => (closed - dot(sub(p, beam.origin), unit)) * 10); // mm toward the probe
+      let kEp = kE;
+      for (let k = Math.ceil(t.mitralOpenS / dt); inWindow(k, t.mitralOpenS, t.aStartS); k++) if (exc[k]! > exc[kEp]!) kEp = k;
+      let kA = Math.ceil(t.aStartS / dt);
+      for (let k = kA; inWindow(k, t.aStartS, t.aEndS); k++) if (exc[k]! > exc[kA]!) kA = k;
+      let sum = 0,
+        count = 0;
+      for (let k = Math.ceil(t.eEndS / dt); inWindow(k, t.eEndS, t.aStartS); k++) {
+        sum += exc[k]!;
+        count++;
+      }
+      expect(count, `${id}: diastasis samples`).toBeGreaterThan(20);
+      const diastasis = sum / count;
+      let kF = kEp;
+      while (exc[kF]! > diastasis + 1) kF++;
+      const E = exc[kEp]!,
+        A = exc[kA]!;
+      const efMs = (kF - kEp) * dt * 1000;
+      const slope = (E - diastasis) / ((kF - kEp) * dt);
+      const report = `${id}: E ${E.toFixed(1)} mm, A ${A.toFixed(1)} mm, diastasis ${diastasis.toFixed(1)} mm, E→F ${efMs.toFixed(0)} ms, E-F slope ${slope.toFixed(0)} mm/s`;
+      expect(E, report).toBeGreaterThan(18);
+      expect(E, report).toBeLessThan(34);
+      expect(A, report).toBeGreaterThan(10);
+      expect(A, report).toBeLessThan(26);
+      expect(E / A, report).toBeGreaterThan(1.3);
+      expect(E / A, report).toBeLessThan(1.5);
+      expect(diastasis / E, report).toBeGreaterThan(0.25);
+      expect(diastasis / E, report).toBeLessThan(0.6);
+      expect(efMs, report).toBeGreaterThan(106);
+      expect(efMs, report).toBeLessThan(182);
+      expect(slope, report).toBeGreaterThan(70);
+      expect(slope, report).toBeLessThan(150);
+    }
+  });
+});

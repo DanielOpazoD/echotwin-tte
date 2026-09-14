@@ -295,6 +295,39 @@ export interface CycleState {
   esvMl: number;
 }
 
+/**
+ * Opening of the atrioventricular leaflets between the filling waves, as a fraction of their opening at peak inflow. After
+ * the early wave the leaflets float back to a semi-closed position and stay there until atrial contraction reopens them
+ * (the F point of the mitral M-mode): at the end of diastasis the orifice is about half its size at peak E (Govindarajan
+ * et al., Sci Rep 2018; 8:6187), and the anterior leaflet takes 144 ± 19 ms from the E point to that nadir (Park et al.,
+ * Diagnostics 2023; 13:2412). An opening that followed the inflow alone closed the valve for 95 ms at 65 bpm (decision 100).
+ */
+export const DIASTASIS_OPENING = 0.5;
+
+/** Time (s) the leaflets take to close from diastasis at the onset of systole when no atrial contraction closes them first. */
+const SYSTOLIC_CLOSURE_S = 0.03;
+
+/**
+ * Leaflet opening of an atrioventricular valve at phase p: it follows the inflow while that opens it wider than
+ * DIASTASIS_OPENING, floats at DIASTASIS_OPENING from peak early inflow until atrial contraction peaks, then closes with
+ * the end of the A wave — or, without one, in the first SYSTOLIC_CLOSURE_S of systole.
+ */
+function inflowOpening(tables: BeatTables, p: number, qmvMax: number): number {
+  const x = ((p % 1) + 1) % 1;
+  const flow = Math.min(1, Math.pow(Math.max(0, sampleTable(tables.mitralFlowMlps, x)) / qmvMax, 0.6));
+  const tm = tables.timings;
+  const t = x * tables.rrS;
+  const afterE = t >= tm.mitralOpenS + tm.eAccelS;
+  let floor = 0;
+  if (tm.hasAWave) {
+    const u = (t - tm.aStartS) / (tm.aEndS - tm.aStartS);
+    if (afterE && u < 0.5) floor = DIASTASIS_OPENING;
+    else if (u >= 0.5 && u < 1) floor = DIASTASIS_OPENING * aWaveShape(u);
+  } else if (afterE) floor = DIASTASIS_OPENING;
+  else if (t < SYSTOLIC_CLOSURE_S) floor = DIASTASIS_OPENING * (1 - t / SYSTOLIC_CLOSURE_S);
+  return Math.max(flow, floor);
+}
+
 export function cycleStateAt(tables: BeatTables, phase: number): CycleState {
   const p = ((phase % 1) + 1) % 1;
   const vol = sampleTable(tables.lvVolumeMl, p);
@@ -311,7 +344,7 @@ export function cycleStateAt(tables: BeatTables, phase: number): CycleState {
   let atrial = 0;
   if (tm.hasAWave && t > tm.aStartS && t < tm.aEndS) atrial = Math.sin((Math.PI * (t - tm.aStartS)) / (tm.aEndS - tm.aStartS));
   const atrialHold = tm.hasAWave && (t >= tm.aEndS || t < tm.ejectionStartS) ? 1 : 0;
-  const mvOpen = Math.min(1, Math.pow(qmv / qmvMax, 0.6));
+  const mvOpen = inflowOpening(tables, p, qmvMax);
   const avOpen = Math.min(1, Math.pow(qao / qaoMax, 0.5));
   return {
     phase: p,
@@ -321,7 +354,7 @@ export function cycleStateAt(tables: BeatTables, phase: number): CycleState {
     contraction: (tables.edvMl - vol) / Math.max(tables.edvMl - tables.esvMl, 1e-6),
     mvOpen,
     avOpen,
-    tvOpen: Math.min(1, Math.pow(sampleTable(tables.mitralFlowMlps, p - 0.01) / qmvMax, 0.6)),
+    tvOpen: inflowOpening(tables, p - 0.01, qmvMax),
     pvOpen: Math.min(1, Math.pow(sampleTable(tables.aorticFlowMlps, p + 0.01) / qaoMax, 0.5)),
     longitudinal: sampleTable(tables.longitudinal, p),
     atrialContraction: atrial,

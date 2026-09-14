@@ -217,3 +217,40 @@ describe('the Doppler E and A of the case are the peaks the inflow shows (decisi
     expect(fused).toBeGreaterThanOrEqual(1);
   });
 });
+
+describe('the atrioventricular leaflets float half-open between the filling waves (decision 100)', () => {
+  it('from peak early inflow to peak atrial inflow neither valve closes, the float starts and ends without a jump, and both are shut through systole', async () => {
+    const { CASE_INPUTS, loadCaseById } = await import('@/cases');
+    const { DIASTASIS_OPENING } = await import('./cycleModel');
+    const problems: string[] = [];
+    for (const input of CASE_INPUTS) {
+      const k = loadCaseById(input.id);
+      const tb = buildBeatTables(60 / k.rhythm.heartRateBpm, k.physiology, k.rhythm, k.hemodynamics);
+      const t = tb.timings;
+      const at = (ts: number) => cycleStateAt(tb, ts / tb.rrS);
+      // the tricuspid valve follows the mitral one 1% of the beat later
+      const lag = 0.01 * tb.rrS;
+      const floatStart = t.mitralOpenS + t.eAccelS;
+      // without atrial contraction the float lasts to the end of the beat and the valve closes early in systole
+      const floatEnd = t.hasAWave ? (t.aStartS + t.aEndS) / 2 : tb.rrS;
+      for (let ts = floatStart + 0.001; ts < floatEnd; ts += 0.002) {
+        const s = at(ts);
+        // before: 0 through diastasis, 95 ms at 65 bpm in the normal case
+        if (s.mvOpen < 0.9 * DIASTASIS_OPENING) problems.push(`${input.id} @${(ts * 1000).toFixed(0)} ms: mitral opening ${s.mvOpen.toFixed(2)}`);
+        if (ts > floatStart + lag && at(ts + lag).tvOpen < 0.9 * DIASTASIS_OPENING) problems.push(`${input.id} @${((ts + lag) * 1000).toFixed(0)} ms: tricuspid opening ${at(ts + lag).tvOpen.toFixed(2)}`);
+      }
+      const jumps = (from: number, to: number): void => {
+        let prev = at(from).mvOpen;
+        for (let ts = from + 0.002; ts <= to; ts += 0.002) {
+          const cur = at(ts).mvOpen;
+          if (Math.abs(cur - prev) > 0.05) problems.push(`${input.id} @${(ts * 1000).toFixed(0)} ms: mitral opening ${prev.toFixed(2)} → ${cur.toFixed(2)} in 2 ms`);
+          prev = cur;
+        }
+      };
+      jumps(floatStart - 0.01, floatEnd);
+      if (!t.hasAWave) jumps(-0.01, 0.04);
+      for (let ts = 0.03; ts < t.mitralOpenS; ts += 0.002) if (at(ts).mvOpen > 0.02) problems.push(`${input.id} @${(ts * 1000).toFixed(0)} ms: mitral valve open ${at(ts).mvOpen.toFixed(2)} in systole`);
+    }
+    expect(problems).toEqual([]);
+  });
+});

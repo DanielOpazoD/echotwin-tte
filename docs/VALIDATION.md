@@ -22,9 +22,11 @@ Referencia = con qué se compara (valor analítico, consistencia interna o rango
 | `anatomy/heartModel.test.ts` | Clasificación VI (sangre/miocardio/fuera) | modelo | — | pasa |
 | | Volumen VI Monte Carlo (200 000 muestras) en TD y TS | VTD/VTS de las tablas | ±10 % / ±12 %; TS < 0,5·TD | pasa (falló una vez en el conjunto completo bajo carga; no reproducido) |
 | | Engrosamiento sistólico; secuencia MV/VAo; referencias en su estructura; ápex izquierdo-inferior-anterior; segmentos AHA | consistencia | — | pasa |
+| `anatomy/valveAnatomy.test.ts` | Modo M mitral en los bordes de los velos (decisión 100): borde libre del velo anterior proyectado sobre el haz paraesternal en los dos casos normales; apertura en E 28,6 y 27,4 mm, en A 20,7 y 20,2 mm, meseta de diástasis al 39–40% de E, 126 ms de E a F, pendiente E-F 138 y 131 mm/s (antes meseta −18% y 186 mm/s) | Park et al. 2023 (E 2,6 ± 0,4 cm; A 1,8 ± 0,4 cm; E/A 1,3–1,5; E→nadir 144 ± 19 ms); pendiente E-F 70–150 mm/s; semicierre en diástasis | ±2 DE; RIC; 25–60% de E | pasa |
 | `cardiac-cycle/cycle.test.ts` | VTD/VTS/VS = 120/45/75; periodicidad | caso normal | ±0,5 mL; drift < 3 mL | pasa |
 | | El latido cierra con sus flujos (decisión 95): corrección de cierre ≤ 0,1% del VS en los doce casos, VS de la tabla dentro del 1% de VTD − VTS, área mitral 0,5–8 cm²; el caso normal a 110 lpm con la onda E cortada llena 75 mL con sus velocidades E y A | los doce casos; caso normal a 110 lpm | ±0,1 mL; velocidad ±10⁻⁴ m/s | pasa |
 | | La E y la A del caso son picos medidos (decisión 97): durante la contracción auricular la entrada alcanza el mayor entre la A y el flujo de E que sigue corriendo, y antes no supera la E, en todos los casos con onda A; en el taponamiento, onda fusionada, el pico es la E | tablas de latido | ±1% | pasa |
+| | Las válvulas auriculoventriculares flotan semicerradas entre las ondas de llenado (decisión 100): en los doce casos ni la mitral ni la tricúspide bajan del 90% de la apertura de diástasis entre los picos de E y A, la flotación empieza y termina sin saltos y la mitral está cerrada en sístole | tablas de latido | 0,45; 0,05 en 2 ms; 0,02 | pasa |
 | | ∫Q_ao = ∫Q_mv = VS | 75 mL | ±0,5 | pasa |
 | | Área mitral efectiva | 3–7 cm² | rango | pasa |
 | | Orden VAo→IVRT→MV→A; aperturas por fase | — | umbrales 0,05/0,7/0,9 | pasa |
