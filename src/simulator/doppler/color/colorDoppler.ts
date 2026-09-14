@@ -37,6 +37,18 @@ export interface ColorAcquisition {
   harmonics: boolean;
 }
 
+/** Below this fraction of the expected transmission a sample lies in an acoustic shadow: no Doppler signal at any gain. */
+export const DOPPLER_SHADOW_TRANSMISSION = 0.02;
+
+/**
+ * Two-way transmission of a frame sample relative to what soft tissue (0.5 dB/cm/MHz) would leave at its depth for the
+ * acquisition that formed the frame (decisions 87 and 96): depth alone does not make a shadow.
+ */
+export function relativeTransmission(transmission: number, depthCm: number, acquisition: ColorAcquisition): number {
+  const fAtten = acquisition.frequencyMHz * (acquisition.harmonics ? 1.2 : 1);
+  return transmission / Math.exp(-0.23 * 0.5 * fAtten * depthCm);
+}
+
 /** Second-order wall-filter magnitude at |v| over the cutoff: −3 dB at the cutoff, flat from about twice it. */
 export function wallFilterResponse(vAbs: number, cutoffMps: number): number {
   if (cutoffMps <= 0) return 1;
@@ -96,7 +108,6 @@ export function computeColorField(
   // a history formed under another scale, baseline or inversion is not blended: its velocities are other phases
   const history = prev && prev.scaleMps === s.scaleMps && prev.baselineShiftMps === s.baselineShiftMps && prev.invert === s.invert ? prev : null;
   const gainLin = Math.pow(10, s.gainDb / 20);
-  const fAtten = acquisition.frequencyMHz * (acquisition.harmonics ? 1.2 : 1);
   const bloomSamples = Math.max(0, Math.round((s.gainDb - 2) * 0.6)); // dilation radius grows with gain
   for (let li = liMin; li <= liMax; li++) {
     for (let si = siMin; si <= siMax; si++) {
@@ -104,9 +115,8 @@ export function computeColorField(
       const tissue = frame.tissue[idx];
       const trans = frame.transmission[idx] ?? 0;
       const r = ((si + 0.5) / samples) * depthCm;
-      // two-way transmission soft tissue (0.5 dB/cm/MHz) would leave at this depth and frequency
-      const relTrans = trans / Math.exp(-0.23 * 0.5 * fAtten * r);
-      if (relTrans < 0.02) continue; // acoustic shadow: no Doppler signal at any gain
+      const relTrans = relativeTransmission(trans, r, acquisition);
+      if (relTrans < DOPPLER_SHADOW_TRANSMISSION) continue; // acoustic shadow: no Doppler signal at any gain
       let isBlood = tissue === Tissue.Blood;
       if (!isBlood && bloomSamples > 0) {
         // blooming: colour bleeds onto adjacent tissue when gain is high

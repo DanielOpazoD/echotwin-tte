@@ -1,5 +1,6 @@
 import { aliasVelocity } from '@/clinical/formulas';
 import { hash3 } from '@/core/random';
+import { APERTURE_MM } from '@/simulator/renderer/acoustic/psf';
 
 /**
  * Spectral Doppler column generation (spec 62): velocity distribution → histogram over the
@@ -43,11 +44,36 @@ export interface VelocitySample {
   v: number; // axial velocity m/s (positive = toward the transducer)
   weight: number;
   dispersion: number;
+  /** Speed across the beam (m/s) and depth (cm) of the sample: they set its geometric spectral broadening. Omitted: none. */
+  vPerp?: number;
+  depthCm?: number;
+}
+
+/** Spectral resolution as a fraction of a display bin: an estimate over as many pulses as the display has bins. */
+const RESOLUTION_BINS = 0.6;
+/** Turbulent spread (fraction of the sample speed per unit of flow dispersion), drawn toward the baseline only. */
+const TURBULENT_SPREAD = 0.9;
+
+/**
+ * Standard deviations (m/s) of one sample's spectral line above and below its velocity (decision 96). Above: the spectral
+ * resolution, which follows the scale because the pulse repetition frequency does, and the geometric broadening of an
+ * aperture seen from the sample (Newhouse et al. 1980: a spread of v⊥·D/F in velocity, here uniform, σ = v⊥·D/(F·√12)).
+ * Below, toward the baseline: also the turbulent spread, which fills the spectral window under the envelope instead of
+ * lifting it. The envelope used to be a symmetric Gaussian of 0.035·scale + 0.02 m/s plus 0.9·dispersion·|v|: at the
+ * mitral tips its outer edge read 0.97 m/s for a 0.75 m/s flow, tissue Doppler 0.15 m/s at a septal base moving at 0.096 m/s, and a
+ * 3.8 m/s stenotic jet reached the top of a 6 m/s scale.
+ */
+export function spectralSpread(smp: VelocitySample, s: SpectralSettings): { up: number; down: number } {
+  const { vMin, vMax } = spectralRange(s);
+  const resolution = (RESOLUTION_BINS * (vMax - vMin)) / SPECTRAL_BINS;
+  const geometric = smp.vPerp && smp.depthCm ? (Math.abs(smp.vPerp) * (APERTURE_MM / 10)) / (smp.depthCm * Math.sqrt(12)) : 0;
+  const up = Math.hypot(resolution, geometric);
+  return { up, down: Math.hypot(up, TURBULENT_SPREAD * smp.dispersion * Math.abs(smp.v)) };
 }
 
 /**
  * Raw spectral distribution of one column (SPECTRAL_BINS values, index 0 = vMax at top) before gain and compression.
- * Each sample adds a Gaussian of intrinsic plus turbulent broadening (decision 87):
+ * Each sample adds a line with the spread of `spectralSpread` on each side (decisions 87 and 96):
  * - PW (`aliasing`): centred on the aliased velocity and summed around the displayed span, so the part of the distribution
  *   that crosses Nyquist reappears at the other end. It used to fold only the centre and cut the Gaussian at the screen
  *   edge, so energy near Nyquist was lost.
@@ -58,27 +84,45 @@ export function accumulateSpectrum(samples: readonly VelocitySample[], s: Spectr
   const { vMin, vMax } = spectralRange(s);
   const span = vMax - vMin;
   out.fill(0);
-  const intrinsic = 0.035 * s.scaleMps + 0.02; // intrinsic spectral broadening (m/s)
   for (const smp of samples) {
     if (smp.weight <= 0) continue;
     if (Math.abs(smp.v) < s.wallFilterMps) continue; // wall filter on true velocity
     let v = s.invert ? -smp.v : smp.v;
     if (aliasing) v = aliasVelocity(v, s.scaleMps, s.baselineShiftMps);
-    const sigma = intrinsic + smp.dispersion * Math.abs(smp.v) * 0.9;
+    const spread = spectralSpread(smp, s);
     const centerBin = ((vMax - v) / span) * SPECTRAL_BINS;
-    const sigmaBins = Math.max(0.6, (sigma / span) * SPECTRAL_BINS);
-    let lo = Math.floor(centerBin - 3 * sigmaBins);
-    let hi = Math.ceil(centerBin + 3 * sigmaBins);
+    const upBins = (spread.up / span) * SPECTRAL_BINS;
+    const downBins = (spread.down / span) * SPECTRAL_BINS;
+    // turbulence spreads toward lower speed: bins grow as the displayed velocity falls, so that side is +bins for a flow
+    // displayed toward the transducer, and stays so once it aliases (a slower flow wraps to a lower displayed velocity)
+    const baselineSide = smp.v >= 0 !== s.invert ? 1 : -1;
+    const loSpan = baselineSide > 0 ? upBins : downBins;
+    const hiSpan = baselineSide > 0 ? downBins : upBins;
+    let lo = Math.floor(centerBin - 3 * loSpan);
+    let hi = Math.ceil(centerBin + 3 * hiSpan);
     if (!aliasing) {
       lo = Math.max(0, lo);
       hi = Math.min(SPECTRAL_BINS - 1, hi);
     }
     for (let b = lo; b <= hi; b++) {
-      const d = (b + 0.5 - centerBin) / sigmaBins;
+      const o = b + 0.5 - centerBin;
+      const d = o / (o * baselineSide > 0 ? downBins : upBins);
       const k = aliasing ? ((b % SPECTRAL_BINS) + SPECTRAL_BINS) % SPECTRAL_BINS : b;
       out[k] = (out[k] ?? 0) + smp.weight * Math.exp(-0.5 * d * d);
     }
   }
+}
+
+/** Noise floor of a spectral column before gain: each bin adds up to this much, uniformly distributed. */
+const SPECTRAL_NOISE = 0.05;
+
+/**
+ * Display level above which a bin belongs to the envelope (decision 96): 35% of the column's brightest bin, and 1.5× the
+ * brightest the noise can draw at this gain, so a column without flow has no envelope. A floor of 0.12 sat under the
+ * noise ceiling (0.123 at 0 dB), and an auto-trace starting from the brightest bin read noise as velocities up to 1.1 m/s.
+ */
+export function envelopeThreshold(columnMax: number, s: SpectralSettings): number {
+  return Math.max(1.5 * Math.pow(SPECTRAL_NOISE * Math.pow(10, s.gainDb / 20), 0.7), 0.35 * columnMax);
 }
 
 /**
@@ -93,7 +137,7 @@ export function buildSpectralColumn(samples: readonly VelocitySample[], s: Spect
   for (let b = 0; b < SPECTRAL_BINS; b++) max = Math.max(max, out[b] ?? 0);
   const norm = max > 0 ? 1 / (max * 0.8 + 0.2) : 0;
   for (let b = 0; b < SPECTRAL_BINS; b++) {
-    const noise = 0.05 * hash3(b, columnIndex, 3, seed);
+    const noise = SPECTRAL_NOISE * hash3(b, columnIndex, 3, seed);
     const y = ((out[b] ?? 0) * norm + noise) * gainLin;
     out[b] = Math.min(1, Math.pow(Math.max(0, y), 0.7));
   }

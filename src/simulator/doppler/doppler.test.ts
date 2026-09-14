@@ -1,15 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { accumulateSpectrum, buildSpectralColumn, SPECTRAL_BINS, DEFAULT_SPECTRAL, spectralRange } from './spectral/spectrum';
-import { sampleFlow, buildFlowParams } from './flow-primitives/flowField';
+import { accumulateSpectrum, buildSpectralColumn, envelopeThreshold, SPECTRAL_BINS, DEFAULT_SPECTRAL, spectralRange, spectralSpread, type SpectralSettings, type VelocitySample } from './spectral/spectrum';
+import { sampleFlow, buildFlowParams, sampleTissueVelocity } from './flow-primitives/flowField';
 import { loadCaseById } from '@/cases';
-import { createHeartModel, computeHeartPose, heartLandmarks, heartToTorso } from '@/simulator/anatomy/heartModel';
+import { classifyHeart, createHeartModel, computeHeartPose, heartLandmarks, heartToTorso, ROOT_EXCURSION } from '@/simulator/anatomy/heartModel';
+import { Tissue, type TissueSample } from '@/simulator/anatomy/tissue';
 import { createThoraxModel, snapToIntercostal } from '@/simulator/anatomy/thoraxModel';
 import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { SimulatorCore } from '@/simulator/core/simulatorCore';
 import { baseInput } from '@/simulator/core/baseInput';
 import { canonicalControl, canonicalPlane, getViewTarget } from '@/simulator/windows/viewTargets';
 import { beamFrameFromPose, controlAimingAt, poseFromControl } from '@/simulator/probe/pose';
-import { dot, sub } from '@/core/vec3';
+import { dot, sub, v3, type Vec3 } from '@/core/vec3';
 
 const c = loadCaseById('normal-excellent-window');
 const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, { position: 'left-lateral', respiration: 'expiration', headElevationDeg: 0 });
@@ -81,36 +82,36 @@ describe('Doppler physics (spec 36/48.3)', () => {
     const wide = { ...s, scaleMps: 1.4 };
     accumulateSpectrum([{ v: 1.0, weight: 1, dispersion: 0.05 }], wide, false, cw);
     expect(peakVelocity(cw, wide).v).toBeCloseTo(1.0, 1);
-    // a jet 2.8 σ past the edge leaves only its tail in range (σ ≈ 0.07 m/s): the top bin holds a small fraction of a
-    // centred peak, where clamping stacked the whole peak
+    // a jet 3 σ past the edge leaves only the tail of its turbulent spread in range (σ ≈ 0.03 m/s toward the baseline): the
+    // top bin holds a small fraction of a centred peak, where clamping stacked the whole peak
     const centred = new Float32Array(SPECTRAL_BINS);
     accumulateSpectrum([{ v: 0.3, weight: 1, dispersion: 0.05 }], s, false, centred);
-    accumulateSpectrum([{ v: 0.8, weight: 1, dispersion: 0.05 }], s, false, cw);
+    accumulateSpectrum([{ v: 0.7, weight: 1, dispersion: 0.05 }], s, false, cw);
     expect(cw[0]!).toBeLessThan(0.1 * Math.max(...Array.from(centred)));
   });
 
-  it('PW keeps the whole distribution when it crosses Nyquist: its energy reappears at the other end (decision 87)', () => {
+  it('PW keeps the whole distribution when it crosses Nyquist: its energy reappears at the other end (decisions 87 and 96)', () => {
     const s = { ...DEFAULT_SPECTRAL, scaleMps: 0.6, baselineShiftMps: 0.1, wallFilterMps: 0.05 };
-    const energy = (v: number): { total: number; bottom: number } => {
+    const energy = (v: number): { total: number; top: number } => {
       const col = new Float32Array(SPECTRAL_BINS);
-      // broad turbulent distribution (σ ≈ 0.2 m/s) so a good part of it is beyond Nyquist near the edge
+      // broad turbulent spread (σ ≈ 0.15 m/s toward lower speed): past Nyquist (0.7 m/s here) the flow aliases to the bottom
+      // of the scale, and the slower part of its spread crosses the bottom edge back to the top
       accumulateSpectrum([{ v, weight: 1, dispersion: 0.25 }], s, true, col);
       let total = 0;
       for (const x of col) total += x;
-      let bottom = 0;
-      for (let b = Math.floor(SPECTRAL_BINS * 0.85); b < SPECTRAL_BINS; b++) bottom += col[b]!;
-      return { total, bottom };
+      let top = 0;
+      for (let b = 0; b < Math.floor(SPECTRAL_BINS * 0.15); b++) top += col[b]!;
+      return { total, top };
     };
     const ref = energy(0.2).total; // fully inside the range
-    for (const v of [0.55, 0.65, 0.7, 0.8]) {
+    for (const v of [0.55, 0.65, 0.72, 0.8]) {
       const e = energy(v);
-      // the sum over bins of a Gaussian wrapped on the span does not depend on where it sits (σ grows with |v| here, so
-      // compare against the analytic sum for its own width)
-      const sigma = 0.035 * s.scaleMps + 0.02 + 0.25 * v * 0.9;
-      const sigmaBins = Math.max(0.6, (sigma / 1.2) * SPECTRAL_BINS);
-      const analytic = sigmaBins * Math.sqrt(2 * Math.PI);
+      // the sum over bins of a line wrapped on the span does not depend on where it sits (its turbulent side grows with
+      // |v| here, so compare against the analytic sum of its two half-Gaussians)
+      const spread = spectralSpread({ v, weight: 1, dispersion: 0.25 }, s);
+      const analytic = (((spread.up + spread.down) / 1.2) * SPECTRAL_BINS * Math.sqrt(2 * Math.PI)) / 2;
       expect(Math.abs(e.total / analytic - 1), `v=${v}`).toBeLessThan(0.02);
-      if (v <= 0.7) expect(e.bottom, `v=${v}: energy past +Nyquist wraps to the bottom of the scale`).toBeGreaterThan(0.1 * e.total);
+      if (v > 0.7) expect(e.top, `v=${v}: the spread past −Nyquist wraps to the top of the scale`).toBeGreaterThan(0.1 * e.total);
     }
     expect(ref).toBeGreaterThan(0);
   });
@@ -196,5 +197,175 @@ describe('Doppler through the simulator core', () => {
     const pwFar = runPw(a5c, 'pw', 2.0); // gate in the near field (chest wall / apex): little or no flow
     const pwLvot = runPw(a5c, 'pw');
     expect(pwFar).toBeLessThan(pwLvot);
+  });
+});
+
+/** Outer edge (m/s) of the envelope on one side of the baseline: from its brightest bin outward while above the envelope threshold, gaps ≤ 2 bins; 0 without an envelope. */
+function outerEdge(col: ArrayLike<number>, s: SpectralSettings, sign: 1 | -1): number {
+  const { vMin, vMax } = spectralRange(s);
+  const vOf = (b: number) => vMax - ((b + 0.5) / SPECTRAL_BINS) * (vMax - vMin);
+  let colMax = 0;
+  for (let b = 0; b < SPECTRAL_BINS; b++) colMax = Math.max(colMax, col[b] ?? 0);
+  const thr = envelopeThreshold(colMax, s);
+  let peak = -1;
+  for (let b = 0, best = thr; b < SPECTRAL_BINS; b++) if (Math.sign(vOf(b)) === sign && (col[b] ?? 0) > best) best = col[(peak = b)] ?? 0;
+  if (peak < 0) return 0;
+  const step = sign > 0 ? -1 : 1;
+  let e = peak;
+  for (let b = peak + step, gap = 0; b >= 0 && b < SPECTRAL_BINS; b += step)
+    if ((col[b] ?? 0) > thr) {
+      e = b;
+      gap = 0;
+    } else if (++gap > 2) break;
+  return vOf(e) + (sign * 0.5 * (vMax - vMin)) / SPECTRAL_BINS;
+}
+
+describe('the spectral envelope reads the velocity in the sample volume (decision 96)', () => {
+  it('a laminar flow: the outer edge sits within 6% above its speed, at any velocity scale', () => {
+    // plug flow at the mitral tips: most of the gate at 0.8 m/s 21° off the beam, 11 cm deep, and a slower jet edge
+    const samples: VelocitySample[] = [];
+    for (let i = 0; i < 16; i++) samples.push({ v: 0.8, weight: 1, dispersion: 0.04, vPerp: 0.31, depthCm: 11 });
+    for (const v of [0.45, 0.55, 0.65, 0.7]) samples.push({ v, weight: 1, dispersion: 0.19, vPerp: 0.25, depthCm: 11 });
+    const edges = [1.0, 2.0].map((scaleMps) => {
+      const s = { ...DEFAULT_SPECTRAL, scaleMps };
+      const col = new Float32Array(SPECTRAL_BINS);
+      buildSpectralColumn(samples, s, 5, 1, true, col);
+      return outerEdge(col, s, 1);
+    });
+    // before: a symmetric Gaussian of 0.035·scale + 0.02 m/s plus 0.9·dispersion·|v| put the edge at 0.96 and 1.03 m/s
+    expect(edges.map((e) => e >= 0.8 && e <= 0.8 * 1.06), `edges ${edges.map((e) => e.toFixed(3)).join(', ')}`).toEqual([true, true]);
+    expect(Math.abs(edges[0]! - edges[1]!)).toBeLessThan(0.03);
+  });
+
+  it('a stenotic jet: turbulence fills the spectral window under the envelope without lifting its edge', () => {
+    const s = { ...DEFAULT_SPECTRAL, scaleMps: 6 };
+    const samples: VelocitySample[] = [];
+    for (let i = 0; i < 8; i++) samples.push({ v: -4.0, weight: 1, dispersion: 0.6, vPerp: 1.2, depthCm: 11 }); // vena contracta
+    for (let i = 0; i < 8; i++) samples.push({ v: -3.0, weight: 1, dispersion: 0.6, vPerp: 1.0, depthCm: 12 }); // decaying jet
+    const col = new Float32Array(SPECTRAL_BINS);
+    buildSpectralColumn(samples, s, 7, 1, false, col);
+    const { vMin, vMax } = spectralRange(s);
+    const edge = outerEdge(col, s, -1);
+    // before: the edge reached the bottom of the scale (−6 m/s)
+    expect(-edge).toBeGreaterThanOrEqual(4.0);
+    expect(-edge).toBeLessThanOrEqual(4.0 * 1.06);
+    const at = (v: number) => col[Math.floor(((vMax - v) / (vMax - vMin)) * SPECTRAL_BINS)] ?? 0;
+    expect(at(-2.0)).toBeGreaterThan(0.35);
+  });
+
+  /** Runs `modality` with the cursor through `gate` (torso frame) and returns, per strip column, its phase and data. */
+  const strip = (core: SimulatorCore, seconds: number) => {
+    for (let t = 0; t < seconds; t += 0.02) core.step(0.02);
+    const st = core.spectralStrip;
+    const n = Math.min(st.head, st.cols);
+    return Array.from({ length: n }, (_, c) => ({ phase: st.phase[c]!, col: st.data!.subarray(c * SPECTRAL_BINS, (c + 1) * SPECTRAL_BINS) }));
+  };
+  const aim = (control: ReturnType<typeof canonicalControl>, target: Vec3) => {
+    const beam = beamFrameFromPose(poseFromControl(thorax, control));
+    const d = sub(target, beam.origin);
+    const depth = dot(d, beam.forward);
+    const lateral = dot(d, beam.lateral);
+    const theta = Math.atan2(lateral, depth);
+    const dir = v3(beam.forward.x * Math.cos(theta) + beam.lateral.x * Math.sin(theta), beam.forward.y * Math.cos(theta) + beam.lateral.y * Math.sin(theta), beam.forward.z * Math.cos(theta) + beam.lateral.z * Math.sin(theta));
+    const f = heart.frame;
+    return { beam, theta, r: Math.hypot(depth, lateral), dirHeart: { x: dot(dir, f.ex), y: dot(dir, f.ey), z: dot(dir, f.ez) } };
+  };
+
+  it('through the core: PW at the mitral tips, its auto-trace and tissue Doppler at the septal base read the velocity at the gate', { timeout: 120_000 }, () => {
+    const t = tables.timings;
+    const inE = (phase: number) => phase * tables.rrS > t.mitralOpenS && phase * tables.rrS < t.aStartS;
+    const a4c = canonicalControl(getViewTarget('a4c'), heart, thorax);
+    const fs = { vx: 0, vy: 0, vz: 0, dispersion: 0, present: 0 };
+    // mitral inflow, 1 cm apical of the valve landmark
+    const tips = v3(0.2, -0.9, 1.7);
+    const pw = aim(a4c, heartToTorso(heart.frame, tips));
+    const spectral = { ...DEFAULT_SPECTRAL, scaleMps: 1.2 };
+    const core = new SimulatorCore(c, baseInput({ probe: a4c, modality: 'pw', quality: 'low', cursorThetaRad: pw.theta, gateDepthCm: pw.r, spectral }));
+    const cols = strip(core, 2.2);
+    let truth = 0,
+      edge = 0,
+      traced = 0;
+    const trace = core.request({ kind: 'autoTrace', x0: 0, x1: cols.length - 1 });
+    expect(trace?.kind).toBe('autoTrace');
+    cols.forEach(({ phase, col }, x) => {
+      if (!inE(phase)) return;
+      sampleFlow(flow, tables, computeHeartPose(heart, cycleStateAt(tables, phase)), phase, tips.x, tips.y, tips.z, fs);
+      truth = Math.max(truth, -(fs.vx * pw.dirHeart.x + fs.vy * pw.dirHeart.y + fs.vz * pw.dirHeart.z));
+      edge = Math.max(edge, outerEdge(col, spectral, 1));
+      traced = Math.max(traced, trace!.kind === 'autoTrace' ? (trace!.velocitiesMps[x] ?? 0) : 0);
+    });
+    // before: the edge read 1.30× the flow and the auto-trace stopped at the gap the wall filter leaves under the envelope
+    expect(truth).toBeGreaterThan(0.6);
+    expect([edge / truth, traced / truth].map((q) => q > 0.97 && q < 1.08), `E: flow ${truth.toFixed(3)}, edge ${edge.toFixed(3)}, auto-trace ${traced.toFixed(3)}`).toEqual([true, true]);
+
+    // tissue Doppler: septal myocardium 1 cm from the annulus
+    const q = { tissue: 0 } as unknown as TissueSample;
+    const hp0 = computeHeartPose(heart, cycleStateAt(tables, 0));
+    let first = NaN,
+      last = NaN;
+    for (let x = -0.5; x > -5; x -= 0.05)
+      if (classifyHeart(heart, hp0, x, 0, 1.0, q) && q.tissue === Tissue.Myocardium) {
+        if (Number.isNaN(first)) first = x;
+        last = x;
+      } else if (!Number.isNaN(first)) break;
+    const septum = v3((first + last) / 2, 0, 1.0);
+    const tdi = aim(a4c, heartToTorso(heart.frame, septum));
+    const tdiSpectral = { ...DEFAULT_SPECTRAL, scaleMps: 0.2, wallFilterMps: 0.01 };
+    const tdiCore = new SimulatorCore(c, baseInput({ probe: a4c, modality: 'tdi', quality: 'low', cursorThetaRad: tdi.theta, gateDepthCm: tdi.r, spectral: tdiSpectral }));
+    let ePrime = 0,
+      ePrimeEdge = 0;
+    for (const { phase, col } of strip(tdiCore, 2.2)) {
+      if (!inE(phase)) continue;
+      const tv = sampleTissueVelocity(heart, tables, phase, septum.z);
+      ePrime = Math.min(ePrime, -(tv.vx * tdi.dirHeart.x + tv.vy * tdi.dirHeart.y + tv.vz * tdi.dirHeart.z));
+      ePrimeEdge = Math.min(ePrimeEdge, outerEdge(col, tdiSpectral, -1));
+    }
+    // before: 1.57× the tissue velocity
+    expect(ePrime).toBeLessThan(-0.06);
+    expect(ePrimeEdge / ePrime, `e′: tissue ${ePrime.toFixed(3)}, edge ${ePrimeEdge.toFixed(3)}`).toBeGreaterThan(0.97);
+    expect(ePrimeEdge / ePrime).toBeLessThan(1.1);
+  });
+
+  it('through the core: CW aimed through a stenotic aortic jet from the apex draws the jet at its speed', { timeout: 120_000 }, () => {
+    const as = loadCaseById('aortic-stenosis-moderate');
+    const probe = new SimulatorCore(as, baseInput());
+    const m = probe.models;
+    const t = m.tables.timings;
+    const f = buildFlowParams(as, m.heart, m.tables);
+    const peak = (t.ejectionStartS + 0.35 * (t.ejectionEndS - t.ejectionStartS)) / m.tables.rrS;
+    const hpPeak = computeHeartPose(m.heart, cycleStateAt(m.tables, peak));
+    // vena contracta, 0.5 cm along the valve axis
+    const vc = v3(f.avCenter.x + 0.5 * f.avAxis.x, f.avCenter.y + 0.5 * f.avAxis.y, f.avCenter.z + hpPeak.zAnn * ROOT_EXCURSION + 0.5 * f.avAxis.z);
+    const a5c = canonicalControl(getViewTarget('a5c'), m.heart, m.thorax);
+    const ctrl = controlAimingAt(m.thorax, a5c.u, a5c.v, heartToTorso(m.heart.frame, vc), canonicalPlane(getViewTarget('a5c'), m.heart).right, a5c.pressure);
+    const beam = beamFrameFromPose(poseFromControl(m.thorax, ctrl));
+    const fr = m.heart.frame;
+    const dh = { x: dot(beam.forward, fr.ex), y: dot(beam.forward, fr.ey), z: dot(beam.forward, fr.ez) };
+    const spectral = { ...DEFAULT_SPECTRAL, scaleMps: 5 };
+    const core = new SimulatorCore(as, baseInput({ probe: ctrl, modality: 'cw', quality: 'low', cursorThetaRad: 0, gateDepthCm: 10, spectral }));
+    const q = { tissue: 0 } as unknown as TissueSample;
+    const fs = { vx: 0, vy: 0, vz: 0, dispersion: 0, present: 0 };
+    let jet = 0,
+      edge = 0;
+    for (const { phase, col } of strip(core, 2.2)) {
+      const tb = phase * m.tables.rrS;
+      if (tb < t.ejectionStartS || tb > t.ejectionEndS) continue;
+      edge = Math.min(edge, outerEdge(col, spectral, -1));
+      const hp = computeHeartPose(m.heart, cycleStateAt(m.tables, phase));
+      // the fastest flow the line crosses, where the core samples it
+      for (let r = 1; r < 16; r += 0.25) {
+        const p = v3(beam.origin.x + beam.forward.x * r - fr.origin.x, beam.origin.y + beam.forward.y * r - fr.origin.y, beam.origin.z + beam.forward.z * r - fr.origin.z);
+        const hx = dot(p, fr.ex),
+          hy = dot(p, fr.ey),
+          hz = dot(p, fr.ez);
+        if (!classifyHeart(m.heart, hp, hx, hy, hz, q) || q.tissue !== Tissue.Blood) continue;
+        sampleFlow(f, m.tables, hp, phase, hx, hy, hz, fs);
+        if (fs.present) jet = Math.min(jet, -(fs.vx * dh.x + fs.vy * dh.y + fs.vz * dh.z));
+      }
+    }
+    // before: the line stopped where the absolute transmission fell under 2% (9 cm), before the jet: the edge read the LVOT
+    expect(jet).toBeLessThan(-2);
+    expect(edge / jet, `jet ${jet.toFixed(2)} m/s, edge ${edge.toFixed(2)}`).toBeGreaterThan(0.97);
+    expect(edge / jet).toBeLessThan(1.08);
   });
 });

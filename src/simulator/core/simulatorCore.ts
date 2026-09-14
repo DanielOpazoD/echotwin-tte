@@ -15,9 +15,9 @@ import { simulatedFrameRate } from '@/simulator/renderer/frameRate';
 import { beamFrameFromPose, contactQuality, poseFromControl, type BeamFrame } from '@/simulator/probe/pose';
 import { analyzeView, type ViewAnalysis } from '@/simulator/view-recognition/viewQuality';
 import { buildFlowParams, sampleFlow, sampleTissueVelocity, type FlowFieldParams, type FlowSample } from '@/simulator/doppler/flow-primitives/flowField';
-import { allocColorField, colorMap, computeColorField, overlayColorField, type ColorField } from '@/simulator/doppler/color/colorDoppler';
+import { allocColorField, colorMap, computeColorField, DOPPLER_SHADOW_TRANSMISSION, overlayColorField, relativeTransmission, type ColorField } from '@/simulator/doppler/color/colorDoppler';
 import { aliasVelocity } from '@/clinical/formulas';
-import { buildSpectralColumn, SPECTRAL_BINS, spectralRange, type VelocitySample } from '@/simulator/doppler/spectral/spectrum';
+import { buildSpectralColumn, envelopeThreshold, SPECTRAL_BINS, spectralRange, type VelocitySample } from '@/simulator/doppler/spectral/spectrum';
 import { computeGroundTruth, type StructuredEchoTruth } from '@/simulator/hemodynamics/groundTruth';
 import { makeSample, Tissue } from '@/simulator/anatomy/tissue';
 import { createRng } from '@/core/random';
@@ -464,6 +464,7 @@ export class SimulatorCore {
       const phase = (((phaseNow - tBack / rr) % 1) + 1) % 1;
       const col = this.stripHead % this.stripCols;
       this.sampleSpectralColumn(beam, spec, phase, col);
+      this.stripPhase[col] = phase;
       this.stripHead++;
     }
   }
@@ -641,7 +642,9 @@ export class SimulatorCore {
       if (inp.modality === 'tdi') {
         if (inHeart && ts.tissue === Tissue.Myocardium) {
           const tv = sampleTissueVelocity(this.heart, this.tables, phase, hz);
-          samples.push({ v: -(tv.vx * dhx + tv.vy * dhy + tv.vz * dhz), weight: 1, dispersion: 0.05 });
+          const axial = tv.vx * dhx + tv.vy * dhy + tv.vz * dhz;
+          const vPerp = Math.sqrt(Math.max(0, tv.vx * tv.vx + tv.vy * tv.vy + tv.vz * tv.vz - axial * axial));
+          samples.push({ v: -axial, weight: 1, dispersion: 0.05, vPerp, depthCm: r });
         }
         return;
       }
@@ -651,16 +654,21 @@ export class SimulatorCore {
         samples.push({ v: 0, weight: 0.3, dispersion: 0.05 });
         return;
       }
-      samples.push({ v: -(fs.vx * dhx + fs.vy * dhy + fs.vz * dhz), weight: 1, dispersion: fs.dispersion });
+      const axial = fs.vx * dhx + fs.vy * dhy + fs.vz * dhz;
+      const vPerp = Math.sqrt(Math.max(0, fs.vx * fs.vx + fs.vy * fs.vy + fs.vz * fs.vz - axial * axial));
+      samples.push({ v: -axial, weight: 1, dispersion: fs.dispersion, vPerp, depthCm: r });
     };
     const aliasing = inp.modality !== 'cw';
     if (inp.modality === 'cw') {
       const frame = this.frame;
       const li = frame ? Math.min(spec.lines - 1, Math.max(0, Math.round(((theta + spec.sectorRad / 2) / spec.sectorRad) * spec.lines))) : 0;
+      const acquisition = { frequencyMHz: inp.settings.frequencyMHz, harmonics: inp.settings.harmonics };
       for (let r = 1.0; r < spec.depthCm; r += 0.25) {
         if (frame) {
+          // a shadow stops the line, depth does not (decision 96): an absolute 2% cut stopped lines from the apical window
+          // at 9–12 cm, before the jet of a stenotic aortic valve
           const si = Math.min(spec.samples - 1, Math.floor((r / spec.depthCm) * spec.samples));
-          if ((frame.transmission[li * spec.samples + si] ?? 1) < 0.02) break; // shadow: nothing beyond
+          if (relativeTransmission(frame.transmission[li * spec.samples + si] ?? 1, r, acquisition) < DOPPLER_SHADOW_TRANSMISSION) break;
         }
         classify(r, 0, 0);
       }
@@ -786,7 +794,7 @@ export class SimulatorCore {
       for (let x = x0; x <= x1; x++) {
         let max = 0;
         for (let b = 0; b < SPECTRAL_BINS; b++) max = Math.max(max, strip[x * SPECTRAL_BINS + b] ?? 0);
-        const thr = Math.max(0.12, 0.35 * max);
+        const thr = envelopeThreshold(max, this.input.spectral);
         // dominant side: the side of the baseline with more energy
         let above = 0,
           below = 0;
@@ -795,20 +803,25 @@ export class SimulatorCore {
           if (b < baselineBin) above += v;
           else below += v;
         }
-        // walk from the baseline outward through the contiguous signal blob (gaps ≤ 2 bins), so that
-        // isolated noise far from the baseline does not pull the envelope to the top of the scale
+        // walk outward from the brightest bin of that side through the contiguous signal (gaps ≤ 2 bins), so that isolated
+        // noise far from it does not pull the envelope to the top of the scale. It used to start at the baseline and stop at
+        // the gap the wall filter leaves under a narrow laminar spectrum (decision 96).
         let edgeBin = baselineBin;
         if (above >= below) {
+          let peak = -1;
+          for (let b = Math.floor(baselineBin) - 1, best = thr; b >= 0; b--) if ((strip[x * SPECTRAL_BINS + b] ?? 0) > best) best = strip[x * SPECTRAL_BINS + (peak = b)]!;
           let gap = 0;
-          for (let b = Math.floor(baselineBin) - 1; b >= 0; b--) {
+          for (let b = peak; peak >= 0 && b >= 0; b--) {
             if ((strip[x * SPECTRAL_BINS + b] ?? 0) > thr) {
               edgeBin = b;
               gap = 0;
             } else if (++gap > 2) break;
           }
         } else {
+          let peak = -1;
+          for (let b = Math.ceil(baselineBin), best = thr; b < SPECTRAL_BINS; b++) if ((strip[x * SPECTRAL_BINS + b] ?? 0) > best) best = strip[x * SPECTRAL_BINS + (peak = b)]!;
           let gap = 0;
-          for (let b = Math.ceil(baselineBin); b < SPECTRAL_BINS; b++) {
+          for (let b = peak; peak >= 0 && b < SPECTRAL_BINS; b++) {
             if ((strip[x * SPECTRAL_BINS + b] ?? 0) > thr) {
               edgeBin = b + 1;
               gap = 0;
@@ -1075,8 +1088,9 @@ export class SimulatorCore {
   get lastStripInfo(): StripInfo | null {
     return this.lastStrip;
   }
-  get spectralStrip(): { data: Float32Array | null; cols: number; head: number } {
-    return { data: this.stripSpectral, cols: this.stripCols, head: this.stripHead };
+  /** The spectral strip (SPECTRAL_BINS values per column), the cycle phase each column was sampled at, and the head. */
+  get spectralStrip(): { data: Float32Array | null; cols: number; head: number; phase: Float32Array } {
+    return { data: this.stripSpectral, cols: this.stripCols, head: this.stripHead, phase: this.stripPhase };
   }
   heartPoseNow(): HeartPose {
     return computeHeartPose(this.heart, cycleStateAt(this.tables, this.clock.current.phase));
