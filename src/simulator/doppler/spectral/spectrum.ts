@@ -139,11 +139,138 @@ export function envelopeThreshold(columnMax: number, s: SpectralSettings): numbe
 }
 
 /**
- * Build one spectral column (SPECTRAL_BINS values 0..1, index 0 = vMax at top) from samples.
- * `aliasing=false` for CW (Nyquist far above the range → velocities beyond the display leave it).
+ * The spectrum on the screen is an estimate (decision 115). A spectrum estimated from a finite run of echoes has, at each
+ * frequency, exponential statistics around the expected power, correlated over the frequency resolution of the estimate and
+ * over its duration, and scanners show it on a logarithmic scale. The column on the screen used to be the expected spectrum
+ * itself, normalised and compressed almost linearly: a steady laminar flow drew a white band saturated in every column
+ * (standard deviation 0.000), the noise floor was independent from column to column (correlation 0.03) and a CW jet showed
+ * the fan of its separate velocity samples. The envelope of the machine is still read from the expected spectrum, as
+ * decision 96 calibrated it: read on the grain, it followed bright grains past the flow and dark ones inside it.
+ *
+ * Duration of one estimate (s): as many pulses as the display has bins (the resolution of `spectralSpread`), at the pulse
+ * repetition frequency the scale needs at a nominal 2.5 MHz, T = BINS·c/(4·f0·scale): 16 ms at ±1.2 m/s, within 6-30 ms.
  */
-export function buildSpectralColumn(samples: readonly VelocitySample[], s: SpectralSettings, columnIndex: number, seed: number, aliasing: boolean, out: Float32Array, click = 0): void {
+function estimateDurationS(s: SpectralSettings): number {
+  return Math.min(0.03, Math.max(0.006, (SPECTRAL_BINS * 1540) / (4 * 2.5e6 * Math.max(0.05, s.scaleMps))));
+}
+/** Frequency extent (display bins) of one speckle cell: the resolution of the estimate, whose line has σ = RESOLUTION_BINS. */
+const SPECKLE_BINS = 2.5 * RESOLUTION_BINS;
+/** Dynamic range (dB) of the display from black to white, and the level (dB) above a normalised peak of 1 that is white (declared). */
+const DISPLAY_RANGE_DB = 40;
+const WHITE_DB = 6;
+/** Receiver noise power relative to a normalised peak of 1 (dB): a dark floor with sparse grain (declared). */
+const NOISE_DB = -36;
+
+/** Bin-direction lattice of the speckle: for every display bin, its five nearest lattice nodes and their Gaussian weights. */
+const SPECKLE_NODE_OFFSET = 2;
+const SPECKLE_NODES = Math.round((SPECTRAL_BINS - 0.5) / SPECKLE_BINS) + 2 * SPECKLE_NODE_OFFSET + 1;
+const speckleBinNode = new Int16Array(SPECTRAL_BINS * 5);
+const speckleBinWeight = new Float64Array(SPECTRAL_BINS * 5);
+for (let b = 0; b < SPECTRAL_BINS; b++) {
+  const bCells = (b + 0.5) / SPECKLE_BINS;
+  const b0 = Math.round(bCells);
+  for (let k = 0; k < 5; k++) {
+    const e = b0 + k - 2 - bCells;
+    speckleBinNode[b * 5 + k] = b0 + k - 2 + SPECKLE_NODE_OFFSET;
+    speckleBinWeight[b * 5 + k] = Math.exp(-2 * e * e);
+  }
+}
+
+/** Lattice rows of complex Gaussian values (re, im per node) at one time index, kept while consecutive columns reuse them. */
+const speckleRows = new Map<string, Float64Array>();
+function speckleRow(t: number, seed: number, stream: number): Float64Array {
+  const key = `${seed}:${stream}:${t}`;
+  let row = speckleRows.get(key);
+  if (!row) {
+    row = new Float64Array(2 * SPECKLE_NODES);
+    for (let j = 0; j < SPECKLE_NODES; j++) {
+      const node = j - SPECKLE_NODE_OFFSET;
+      const u1 = hash3(t, node, stream, seed);
+      const u2 = hash3(t, node, stream + 1, seed);
+      const r = Math.sqrt(-2 * Math.log(Math.max(1e-12, u1)));
+      row[2 * j] = r * Math.cos(2 * Math.PI * u2);
+      row[2 * j + 1] = r * Math.sin(2 * Math.PI * u2);
+    }
+    if (speckleRows.size > 64) speckleRows.delete(speckleRows.keys().next().value as string);
+    speckleRows.set(key, row);
+  }
+  return row;
+}
+
+/**
+ * Speckle of the estimate over one column: at each bin, the power of a complex Gaussian field, the sum of independent lattice
+ * values one estimate apart in time and one speckle cell apart in frequency under a Gaussian kernel of half a cell, normalised
+ * to unit mean (exponential). Bilinear weights between four lattice values drew the cells as blocks. The kernel is separable:
+ * the five lattice rows of the column are shared with the columns next to it (computed bin by bin, 1.3 ms per column).
+ */
+function estimateSpeckleColumn(tCells: number, seed: number, stream: number, out: Float64Array): void {
+  const t0 = Math.round(tCells);
+  const wt = [0, 0, 0, 0, 0];
+  let wt2 = 0;
+  const rows: Float64Array[] = [];
+  for (let k = 0; k < 5; k++) {
+    const e = t0 + k - 2 - tCells;
+    wt[k] = Math.exp(-2 * e * e);
+    wt2 += wt[k]! * wt[k]!;
+    rows.push(speckleRow(t0 + k - 2, seed, stream));
+  }
+  for (let b = 0; b < SPECTRAL_BINS; b++) {
+    let re = 0,
+      im = 0,
+      wb2 = 0;
+    for (let j = 0; j < 5; j++) {
+      const node = speckleBinNode[b * 5 + j]!;
+      const w = speckleBinWeight[b * 5 + j]!;
+      wb2 += w * w;
+      let nr = 0,
+        ni = 0;
+      for (let k = 0; k < 5; k++) {
+        nr += wt[k]! * rows[k]![2 * node]!;
+        ni += wt[k]! * rows[k]![2 * node + 1]!;
+      }
+      re += w * nr;
+      im += w * ni;
+    }
+    out[b] = (re * re + im * im) / (2 * wt2 * wb2);
+  }
+}
+
+/**
+ * The column the screen shows (decision 115), from the expected spectrum of `accumulateSpectrum` (not modified): softly
+ * normalised as the envelope column is, times the speckle of the estimate, plus receiver noise with its own speckle and the
+ * valve click, on a logarithmic scale of `DISPLAY_RANGE_DB` with the gain of the settings.
+ */
+const speckleFlow = new Float64Array(SPECTRAL_BINS);
+const speckleNoise = new Float64Array(SPECTRAL_BINS);
+
+export function displaySpectrum(expected: ArrayLike<number>, s: SpectralSettings, seed: number, click: number, timeS: number, out: Float32Array): void {
+  const { vMin, vMax } = spectralRange(s);
+  let max = 0;
+  for (let b = 0; b < SPECTRAL_BINS; b++) max = Math.max(max, expected[b] ?? 0);
+  const norm = max > 0 ? 1 / (max * 0.8 + 0.2) : 0;
+  const tCells = timeS / estimateDurationS(s);
+  const noise = Math.pow(10, NOISE_DB / 10);
+  estimateSpeckleColumn(tCells, seed, 17, speckleFlow);
+  estimateSpeckleColumn(tCells, seed, 29, speckleNoise);
+  for (let b = 0; b < SPECTRAL_BINS; b++) {
+    const v = vMax - ((b + 0.5) / SPECTRAL_BINS) * (vMax - vMin);
+    const clickLevel = click > 0 && Math.abs(v) >= s.wallFilterMps ? click * CLICK_LEVEL * Math.exp(-0.5 * (v / (CLICK_SPREAD * s.scaleMps)) ** 2) : 0;
+    const flow = (expected[b] ?? 0) * norm;
+    const power = flow * speckleFlow[b]! + noise * speckleNoise[b]! + clickLevel;
+    const db = 10 * Math.log10(Math.max(1e-12, power)) + s.gainDb;
+    out[b] = Math.min(1, Math.max(0, 1 + (db - WHITE_DB) / DISPLAY_RANGE_DB));
+  }
+}
+
+/**
+ * Build one spectral column (SPECTRAL_BINS values 0..1, index 0 = vMax at top) from samples: the expected spectrum the envelope
+ * of the machine is read from (decisions 96 and 115). `aliasing=false` for CW (Nyquist far above the range → velocities beyond
+ * the display leave it). With `display`, it also draws the column the screen shows: the estimate with its grain on a
+ * logarithmic scale (`displaySpectrum`), at `timeS`.
+ */
+export function buildSpectralColumn(samples: readonly VelocitySample[], s: SpectralSettings, columnIndex: number, seed: number, aliasing: boolean, out: Float32Array, click = 0, display?: Float32Array, timeS = columnIndex * 0.004): void {
   accumulateSpectrum(samples, s, aliasing, out);
+  if (display) displaySpectrum(out, s, seed, click, timeS, display);
   const gainLin = Math.pow(10, s.gainDb / 20);
   const { vMin, vMax } = spectralRange(s);
   // normalise softly, apply gain + noise floor + compression

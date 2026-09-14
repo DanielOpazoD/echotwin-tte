@@ -680,3 +680,105 @@ describe('right ventricular tissue Doppler reads the tricuspid annulus of the ca
     expect(results).toEqual([]);
   });
 });
+
+describe('the spectral display is an estimate with its granular texture (decision 115)', () => {
+  const s = { ...DEFAULT_SPECTRAL, scaleMps: 1.2 };
+  const { vMin, vMax } = spectralRange(s);
+  const bin = (v: number) => Math.floor(((vMax - v) / (vMax - vMin)) * SPECTRAL_BINS);
+  const mean = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length;
+  const std = (a: number[]) => Math.sqrt(mean(a.map((x) => (x - mean(a)) ** 2)));
+  const corr = (a: number[], b: number[]) => {
+    const ma = mean(a),
+      mb = mean(b);
+    let num = 0,
+      da = 0,
+      db = 0;
+    for (let i = 0; i < a.length; i++) {
+      num += (a[i]! - ma) * (b[i]! - mb);
+      da += (a[i]! - ma) ** 2;
+      db += (b[i]! - mb) ** 2;
+    }
+    return num / Math.sqrt(da * db + 1e-12);
+  };
+  // the columns the screen shows, 4 ms apart as the strip draws them at 50 mm/s
+  const strip = (samples: VelocitySample[]) =>
+    Array.from({ length: 400 }, (_, k) => {
+      const envelope = new Float32Array(SPECTRAL_BINS);
+      const display = new Float32Array(SPECTRAL_BINS);
+      buildSpectralColumn(samples, s, k, 11, true, envelope, 0, display, k * 0.004);
+      return display;
+    });
+
+  it('a steady laminar flow is a textured band below saturation whose grain lasts about one estimate and one resolution cell', () => {
+    // The screen showed the expected spectrum, normalised and compressed nearly linearly: a steady 0.8 m/s flow drew a white
+    // band saturated at 1.00 in every column (standard deviation 0.000), and the noise floor was independent from column
+    // to column (correlation 0.03). A spectrum estimated from a finite run of echoes has exponential statistics per
+    // frequency, correlated over the frequency resolution and the duration of the estimate, and it is shown on a
+    // logarithmic scale.
+    const cols = strip(Array.from({ length: 20 }, (_, i) => ({ v: 0.8 + 0.02 * Math.sin(i * 1.7), weight: 1, dispersion: 0.05 })));
+    const b = bin(0.8);
+    const centre = cols.map((c) => c[b]!);
+    const report = `mean ${mean(centre).toFixed(3)} std ${std(centre).toFixed(3)} lag-1 column ${corr(centre.slice(1), centre.slice(0, -1)).toFixed(2)} neighbour bin ${corr(centre, cols.map((c) => c[b + 1]!)).toFixed(2)}`;
+    expect(mean(centre), report).toBeGreaterThan(0.6);
+    expect(mean(centre), report).toBeLessThan(0.92);
+    expect(std(centre), report).toBeGreaterThan(0.07);
+    expect(std(centre), report).toBeLessThan(0.2);
+    expect(corr(centre.slice(1), centre.slice(0, -1)), report).toBeGreaterThan(0.5);
+    // adjacent frequencies of a periodogram through a Hann window correlate about 0.25
+    expect(corr(centre, cols.map((c) => c[b + 1]!)), report).toBeGreaterThan(0.2);
+    expect(centre.filter((x) => x >= 0.999).length / centre.length, report).toBeLessThan(0.25);
+  });
+
+  it('the noise floor is dark with sparse grain of the same duration', () => {
+    const cols = strip([]);
+    const values = cols.flatMap((c) => Array.from(c.slice(10, 50))).sort((a, b) => a - b);
+    const series = cols.map((c) => c[30]!);
+    const p99 = values[Math.floor(0.99 * values.length)]!;
+    const report = `mean ${mean(values).toFixed(3)} p99 ${p99.toFixed(3)} lag-1 column ${corr(series.slice(1), series.slice(0, -1)).toFixed(2)}`;
+    expect(mean(values), report).toBeLessThan(0.1);
+    expect(p99, report).toBeGreaterThan(0.08);
+    expect(p99, report).toBeLessThan(0.45);
+    expect(corr(series.slice(1), series.slice(0, -1)), report).toBeGreaterThan(0.5);
+  });
+
+  it('through the core the screen shows the estimate, and the envelope reads the expected spectrum of the same columns', { timeout: 180_000 }, () => {
+    const a4c = canonicalControl(getViewTarget('a4c'), heart, thorax);
+    const beam = beamFrameFromPose(poseFromControl(thorax, a4c));
+    const d = sub(heartToTorso(heart.frame, v3(0.2, -0.9, 1.7)), beam.origin);
+    const core = new SimulatorCore(c, baseInput({ probe: a4c, modality: 'pw', quality: 'low', display: { width: 640, height: 480 }, cursorThetaRad: Math.atan2(dot(d, beam.lateral), dot(d, beam.forward)), gateDepthCm: Math.hypot(dot(d, beam.forward), dot(d, beam.lateral)), spectral: s }));
+    let out: ReturnType<SimulatorCore['step']> = null;
+    for (let t = 0; t < 1.5; t += 0.02) out = core.step(0.02) ?? out;
+    const st = core.spectralStrip;
+    const n = Math.min(st.head, st.cols);
+    // where the envelope column holds flow, the envelope saturates as decision 96 drew it and the screen does not
+    let flow = 0,
+      saturatedRead = 0,
+      saturatedShown = 0;
+    for (let x = 0; x < n; x++)
+      for (let b = 0; b < SPECTRAL_BINS; b++)
+        if (st.data![x * SPECTRAL_BINS + b]! > 0.8) {
+          flow++;
+          if (st.data![x * SPECTRAL_BINS + b]! >= 0.999) saturatedRead++;
+          if (st.display![x * SPECTRAL_BINS + b]! >= 0.999) saturatedShown++;
+        }
+    const report = `${flow} flow bins, saturated ${((saturatedRead / flow) * 100).toFixed(0)}% read and ${((saturatedShown / flow) * 100).toFixed(0)}% shown`;
+    expect(flow, report).toBeGreaterThan(200);
+    expect(saturatedShown / flow, report).toBeLessThan(0.5 * (saturatedRead / flow));
+    // and the composite image draws the screen column
+    const img = new Uint8ClampedArray(out!.rgba);
+    const strip = out!.strip;
+    let checked = 0,
+      mismatched = 0;
+    for (let x = 0; x < Math.min(n, strip.width); x += 7)
+      for (let y = 0; y < strip.height; y += 5) {
+        const b = Math.min(SPECTRAL_BINS - 1, Math.floor((y / strip.height) * SPECTRAL_BINS));
+        const expected = Math.round(Math.min(1, st.display![x * SPECTRAL_BINS + b]!) * 255);
+        const red = img[((strip.y + y) * out!.width + strip.x + x) * 4]!;
+        checked++;
+        if (Math.abs(red - expected) > 1 && red !== 90) mismatched++;
+      }
+    expect(checked).toBeGreaterThan(100);
+    expect(mismatched / checked).toBeLessThan(0.05);
+  });
+});
+

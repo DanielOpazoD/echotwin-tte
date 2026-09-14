@@ -108,6 +108,8 @@ export class SimulatorCore {
   private ecg: EcgPoint[] = [];
   private ecgAccum = 0;
   private stripSpectral: Float32Array | null = null;
+  /** What the screen shows of the spectral strip (decision 115): the estimate with its grain; the envelope reads `stripSpectral`. */
+  private stripDisplay: Float32Array | null = null;
   /** colour M-mode: aliased axial velocity per (sample, column), NaN where no flow */
   private stripCmm: Float32Array | null = null;
   private stripMmode: Uint8ClampedArray | null = null;
@@ -508,6 +510,7 @@ export class SimulatorCore {
       this.stripCols = stripWidth;
       this.stripHead = 0;
       this.stripSpectral = kind === 'spectral' ? new Float32Array(SPECTRAL_BINS * stripWidth) : null;
+      this.stripDisplay = kind === 'spectral' ? new Float32Array(SPECTRAL_BINS * stripWidth) : null;
       this.stripMmode = kind === 'm-mode' ? new Uint8ClampedArray(lineSamples * stripWidth) : null;
       this.stripCmm = cmm ? new Float32Array(spec.samples * stripWidth).fill(NaN) : null;
       this.stripPhase = new Float32Array(stripWidth);
@@ -531,7 +534,8 @@ export class SimulatorCore {
       const tBack = (k + 0.5) / cps;
       const phase = (((phaseNow - tBack / rr) % 1) + 1) % 1;
       const col = this.stripHead % this.stripCols;
-      this.sampleSpectralColumn(beam, spec, phase, col);
+      // each column at its own instant: the grain of the estimate lasts its duration, not the step (decision 115)
+      this.sampleSpectralColumn(beam, spec, phase, col, this.timeS - tBack);
       this.stripPhase[col] = phase;
       this.stripHead++;
     }
@@ -681,7 +685,7 @@ export class SimulatorCore {
     if (this.stripRgba) this.paintStripColumn(col);
   }
 
-  private sampleSpectralColumn(beam: BeamFrame, spec: PolarFrameSpec, phase: number, col: number): void {
+  private sampleSpectralColumn(beam: BeamFrame, spec: PolarFrameSpec, phase: number, col: number, timeS: number): void {
     const inp = this.input;
     const hf = this.heart.frame;
     const theta = Math.max(-spec.sectorRad / 2, Math.min(spec.sectorRad / 2, inp.cursorThetaRad));
@@ -764,9 +768,11 @@ export class SimulatorCore {
       }
     }
     const column = new Float32Array(SPECTRAL_BINS);
+    const display = new Float32Array(SPECTRAL_BINS);
     const click = clickPoints.length ? valveClickWeight(this.heart, hp, this.tables, phase * this.tables.rrS, clickPoints) : 0;
-    buildSpectralColumn(samples, inp.spectral, this.stripHead, this.caseDef.seed, aliasing, column, click);
+    buildSpectralColumn(samples, inp.spectral, this.stripHead, this.caseDef.seed, aliasing, column, click, display, timeS);
     this.stripSpectral!.set(column, col * SPECTRAL_BINS);
+    this.stripDisplay!.set(display, col * SPECTRAL_BINS);
     this.lastColumn = column;
   }
 
@@ -1077,13 +1083,13 @@ export class SimulatorCore {
       this.drawSweepMarker(rgba, W, y0, h, head);
       return { x: 0, y: y0, width: W, height: h, secondsPerColumn: spc, topValue: 0, bottomValue: spec.depthCm, kind: 'm-mode' };
     }
-    if (kind === 'spectral' && this.stripSpectral) {
+    if (kind === 'spectral' && this.stripDisplay) {
       const { vMin, vMax } = spectralRange(inp.spectral);
       for (let y = 0; y < h; y++) {
         const b = Math.min(SPECTRAL_BINS - 1, Math.floor((y / h) * SPECTRAL_BINS));
         for (let x = 0; x < W; x++) {
           const col = x < cols ? x : cols - 1;
-          const v = this.stripSpectral[col * SPECTRAL_BINS + b] ?? 0;
+          const v = this.stripDisplay[col * SPECTRAL_BINS + b] ?? 0;
           const g = Math.round(Math.min(1, v) * 255);
           const o = ((y0 + y) * W + x) * 4;
           rgba[o] = g;
@@ -1190,8 +1196,8 @@ export class SimulatorCore {
     return this.lastStrip;
   }
   /** The spectral strip (SPECTRAL_BINS values per column), the cycle phase each column was sampled at, and the head. */
-  get spectralStrip(): { data: Float32Array | null; cols: number; head: number; phase: Float32Array } {
-    return { data: this.stripSpectral, cols: this.stripCols, head: this.stripHead, phase: this.stripPhase };
+  get spectralStrip(): { data: Float32Array | null; display: Float32Array | null; cols: number; head: number; phase: Float32Array } {
+    return { data: this.stripSpectral, display: this.stripDisplay, cols: this.stripCols, head: this.stripHead, phase: this.stripPhase };
   }
   heartPoseNow(): HeartPose {
     return computeHeartPose(this.heart, cycleStateAt(this.tables, this.clock.current.phase));
