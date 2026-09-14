@@ -113,6 +113,19 @@ export function accumulateSpectrum(samples: readonly VelocitySample[], s: Spectr
   }
 }
 
+/**
+ * Valve clicks (decision 103). A leaflet sweeping through the sample volume as its valve opens or closes returns a brief,
+ * strong signal over a wide band of velocities, drawn as a vertical line at the event: the marks that bound flows in time,
+ * such as the aortic closure and mitral opening that delimit the isovolumic relaxation time in the apical five-chamber
+ * view. A click is 1 for a leaflet inside the sample volume; it is drawn at CLICK_LEVEL of the display before gain,
+ * independently of the flow in its column (normalised with the column, a weak click in a column without flow became as
+ * bright as a strong one). Its duration (`CLICK_SIGMA_S`, Gaussian), level and spread over the scale are declared
+ * values: a brief line of a few milliseconds that reaches most of the displayed range.
+ */
+export const CLICK_SIGMA_S = 0.002;
+const CLICK_LEVEL = 1.5;
+const CLICK_SPREAD = 0.7;
+
 /** Noise floor of a spectral column before gain: each bin adds up to this much, uniformly distributed. */
 const SPECTRAL_NOISE = 0.05;
 
@@ -129,18 +142,41 @@ export function envelopeThreshold(columnMax: number, s: SpectralSettings): numbe
  * Build one spectral column (SPECTRAL_BINS values 0..1, index 0 = vMax at top) from samples.
  * `aliasing=false` for CW (Nyquist far above the range → velocities beyond the display leave it).
  */
-export function buildSpectralColumn(samples: readonly VelocitySample[], s: SpectralSettings, columnIndex: number, seed: number, aliasing: boolean, out: Float32Array): void {
+export function buildSpectralColumn(samples: readonly VelocitySample[], s: SpectralSettings, columnIndex: number, seed: number, aliasing: boolean, out: Float32Array, click = 0): void {
   accumulateSpectrum(samples, s, aliasing, out);
   const gainLin = Math.pow(10, s.gainDb / 20);
+  const { vMin, vMax } = spectralRange(s);
   // normalise softly, apply gain + noise floor + compression
   let max = 0;
   for (let b = 0; b < SPECTRAL_BINS; b++) max = Math.max(max, out[b] ?? 0);
   const norm = max > 0 ? 1 / (max * 0.8 + 0.2) : 0;
   for (let b = 0; b < SPECTRAL_BINS; b++) {
     const noise = SPECTRAL_NOISE * hash3(b, columnIndex, 3, seed);
-    const y = ((out[b] ?? 0) * norm + noise) * gainLin;
+    const v = vMax - ((b + 0.5) / SPECTRAL_BINS) * (vMax - vMin);
+    // a valve click: broadband across the displayed range outside the wall filter, fading toward its ends
+    const clickLevel = click > 0 && Math.abs(v) >= s.wallFilterMps ? click * CLICK_LEVEL * Math.exp(-0.5 * (v / (CLICK_SPREAD * s.scaleMps)) ** 2) : 0;
+    const y = ((out[b] ?? 0) * norm + clickLevel + noise) * gainLin;
     out[b] = Math.min(1, Math.pow(Math.max(0, y), 0.7));
   }
+}
+
+/**
+ * A valve click, not a flow (decision 103): a column bright above its envelope threshold over more than 60% of the displayed
+ * range outside the wall filter. Such a column has no envelope to read; a laminar or stenotic flow fills at most one side.
+ */
+export function isClickColumn(col: ArrayLike<number>, s: SpectralSettings): boolean {
+  const { vMin, vMax } = spectralRange(s);
+  let max = 0;
+  for (let b = 0; b < SPECTRAL_BINS; b++) max = Math.max(max, col[b] ?? 0);
+  const thr = envelopeThreshold(max, s);
+  let n = 0,
+    bright = 0;
+  for (let b = 0; b < SPECTRAL_BINS; b++) {
+    if (Math.abs(vMax - ((b + 0.5) / SPECTRAL_BINS) * (vMax - vMin)) < s.wallFilterMps) continue;
+    n++;
+    if ((col[b] ?? 0) > thr) bright++;
+  }
+  return bright > 0.6 * n;
 }
 
 /** Column time step (s) and columns per second for the strip width given the sweep speed. */

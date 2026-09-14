@@ -17,7 +17,8 @@ import { analyzeView, type ViewAnalysis } from '@/simulator/view-recognition/vie
 import { buildFlowParams, sampleFlow, sampleTissueVelocity, type FlowFieldParams, type FlowSample } from '@/simulator/doppler/flow-primitives/flowField';
 import { allocColorField, colorMap, computeColorField, DOPPLER_SHADOW_TRANSMISSION, overlayColorField, relativeTransmission, type ColorField } from '@/simulator/doppler/color/colorDoppler';
 import { aliasVelocity } from '@/clinical/formulas';
-import { buildSpectralColumn, envelopeThreshold, SPECTRAL_BINS, spectralRange, type VelocitySample } from '@/simulator/doppler/spectral/spectrum';
+import { buildSpectralColumn, envelopeThreshold, isClickColumn, SPECTRAL_BINS, spectralRange, type VelocitySample } from '@/simulator/doppler/spectral/spectrum';
+import { valveClickWeight } from '@/simulator/doppler/spectral/valveClicks';
 import { computeGroundTruth, type StructuredEchoTruth } from '@/simulator/hemodynamics/groundTruth';
 import { makeSample, Tissue } from '@/simulator/anatomy/tissue';
 import { createRng } from '@/core/random';
@@ -659,6 +660,18 @@ export class SimulatorCore {
       samples.push({ v: -axial, weight: 1, dispersion: fs.dispersion, vPerp, depthCm: r });
     };
     const aliasing = inp.modality !== 'cw';
+    // heart-frame points where the sample volume can meet a valve's leaflets: along the CW line, or the PW gate
+    const clickPoints: number[] = [];
+    const clickPoint = (r: number): void => {
+      const px = beam.origin.x + dx * r,
+        py = beam.origin.y + dy * r,
+        pz = beam.origin.z + dz * r;
+      clickPoints.push(
+        (px - hf.origin.x) * hf.ex.x + (py - hf.origin.y) * hf.ex.y + (pz - hf.origin.z) * hf.ex.z,
+        (px - hf.origin.x) * hf.ey.x + (py - hf.origin.y) * hf.ey.y + (pz - hf.origin.z) * hf.ey.z,
+        (px - hf.origin.x) * hf.ez.x + (py - hf.origin.y) * hf.ez.y + (pz - hf.origin.z) * hf.ez.z,
+      );
+    };
     if (inp.modality === 'cw') {
       const frame = this.frame;
       const li = frame ? Math.min(spec.lines - 1, Math.max(0, Math.round(((theta + spec.sectorRad / 2) / spec.sectorRad) * spec.lines))) : 0;
@@ -671,9 +684,11 @@ export class SimulatorCore {
           if (relativeTransmission(frame.transmission[li * spec.samples + si] ?? 1, r, acquisition) < DOPPLER_SHADOW_TRANSMISSION) break;
         }
         classify(r, 0, 0);
+        clickPoint(r);
       }
     } else {
       const g = inp.spectral.gateLengthCm;
+      if (inp.modality === 'pw') for (const k of [-0.5, 0, 0.5]) clickPoint(inp.gateDepthCm + k * g);
       const rng = createRng(this.caseDef.seed ^ (col * 7919));
       for (let i = 0; i < 20; i++) {
         const r = inp.gateDepthCm + (rng.next() - 0.5) * g;
@@ -681,7 +696,8 @@ export class SimulatorCore {
       }
     }
     const column = new Float32Array(SPECTRAL_BINS);
-    buildSpectralColumn(samples, inp.spectral, this.stripHead, this.caseDef.seed, aliasing, column);
+    const click = clickPoints.length ? valveClickWeight(this.heart, hp, this.tables, phase * this.tables.rrS, clickPoints) : 0;
+    buildSpectralColumn(samples, inp.spectral, this.stripHead, this.caseDef.seed, aliasing, column, click);
     this.stripSpectral!.set(column, col * SPECTRAL_BINS);
     this.lastColumn = column;
   }
@@ -829,6 +845,20 @@ export class SimulatorCore {
           }
         }
         velocitiesMps.push(vMax - (edgeBin / SPECTRAL_BINS) * (vMax - vMin));
+      }
+      // valve clicks have no envelope: across a click the trace joins the columns on either side (decision 103), as a
+      // sonographer ignores the line; the VTI would otherwise add a spike to the top of the scale at each one
+      const click = velocitiesMps.map((_, i) => isClickColumn(strip.subarray((x0 + i) * SPECTRAL_BINS, (x0 + i + 1) * SPECTRAL_BINS), this.input.spectral));
+      for (let i = 0; i < velocitiesMps.length; i++) {
+        if (!click[i]) continue;
+        let a = i - 1,
+          b = i + 1;
+        while (a >= 0 && click[a]) a--;
+        while (b < velocitiesMps.length && click[b]) b++;
+        const va = a >= 0 ? velocitiesMps[a]! : b < velocitiesMps.length ? velocitiesMps[b]! : 0;
+        const vb = b < velocitiesMps.length ? velocitiesMps[b]! : va;
+        for (let k = a + 1; k < b; k++) velocitiesMps[k] = va + ((vb - va) * (k - a)) / (b - a);
+        i = b - 1;
       }
       return { kind: 'autoTrace', velocitiesMps, secondsPerColumn: spc, x0 };
     }

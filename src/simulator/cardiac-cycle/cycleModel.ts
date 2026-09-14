@@ -336,6 +336,24 @@ function inflowOpening(tables: BeatTables, p: number, qmvMax: number): number {
   return Math.max(flow, floor);
 }
 
+/**
+ * Instants (s from the start of the beat) at which each valve opens and closes, [open, close]: the semilunar valves with
+ * the start and end of ejection, the mitral valve at the end of isovolumic relaxation and with the end of atrial
+ * contraction (or once closed early in systole without one), the tricuspid 1% of the beat after the mitral and the
+ * pulmonary 1% before the aortic, as their openings follow them.
+ */
+export function valveEventTimes(tables: BeatTables): { mitral: [number, number]; aortic: [number, number]; tricuspid: [number, number]; pulmonary: [number, number] } {
+  const tm = tables.timings;
+  const lag = 0.01 * tables.rrS;
+  const mitral: [number, number] = [tm.mitralOpenS, tm.hasAWave ? tm.aEndS : SYSTOLIC_CLOSURE_S];
+  return {
+    mitral,
+    aortic: [tm.ejectionStartS, tm.ejectionEndS],
+    tricuspid: [mitral[0] + lag, mitral[1] + lag],
+    pulmonary: [tm.ejectionStartS - lag, tm.ejectionEndS - lag],
+  };
+}
+
 export function cycleStateAt(tables: BeatTables, phase: number): CycleState {
   const p = ((phase % 1) + 1) % 1;
   const vol = sampleTable(tables.lvVolumeMl, p);

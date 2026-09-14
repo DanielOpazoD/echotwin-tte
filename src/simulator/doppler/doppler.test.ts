@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { accumulateSpectrum, buildSpectralColumn, envelopeThreshold, SPECTRAL_BINS, DEFAULT_SPECTRAL, spectralRange, spectralSpread, type SpectralSettings, type VelocitySample } from './spectral/spectrum';
+import { accumulateSpectrum, buildSpectralColumn, envelopeThreshold, isClickColumn, SPECTRAL_BINS, DEFAULT_SPECTRAL, spectralRange, spectralSpread, type SpectralSettings, type VelocitySample } from './spectral/spectrum';
 import { sampleFlow, buildFlowParams, sampleTissueVelocity } from './flow-primitives/flowField';
 import { loadCaseById } from '@/cases';
-import { classifyHeart, createHeartModel, computeHeartPose, heartLandmarks, heartToTorso, ROOT_EXCURSION } from '@/simulator/anatomy/heartModel';
+import { classifyHeart, createHeartModel, computeHeartPose, heartAnchors, heartLandmarks, heartToTorso, ROOT_EXCURSION } from '@/simulator/anatomy/heartModel';
 import { Tissue, type TissueSample } from '@/simulator/anatomy/tissue';
 import { createThoraxModel, snapToIntercostal } from '@/simulator/anatomy/thoraxModel';
-import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
+import { buildBeatTables, cycleStateAt, valveEventTimes } from '@/simulator/cardiac-cycle/cycleModel';
 import { SimulatorCore } from '@/simulator/core/simulatorCore';
 import { baseInput } from '@/simulator/core/baseInput';
 import { canonicalControl, canonicalPlane, getViewTarget } from '@/simulator/windows/viewTargets';
@@ -21,7 +21,9 @@ computeHeartPose(heart, cycleStateAt(tables, 0));
 const flow = buildFlowParams(c, heart, tables);
 
 function peakVelocityOfColumn(col: Float32Array, vMin: number, vMax: number, threshold = 0.35): number {
-  // highest |velocity| with energy above threshold (flow away from the transducer is below the baseline)
+  // highest |velocity| with energy above threshold (flow away from the transducer is below the baseline); a valve click
+  // is read as no flow, as a sonographer ignores it (decision 103)
+  if (isClickColumn(col, { ...DEFAULT_SPECTRAL, scaleMps: (vMax - vMin) / 2, baselineShiftMps: (vMax + vMin) / 2, wallFilterMps: 0.1 })) return 0;
   let best = 0;
   for (let b = 0; b < SPECTRAL_BINS; b++) {
     if ((col[b] ?? 0) > threshold) best = Math.max(best, Math.abs(vMax - ((b + 0.5) / SPECTRAL_BINS) * (vMax - vMin)));
@@ -202,6 +204,8 @@ describe('Doppler through the simulator core', () => {
 
 /** Outer edge (m/s) of the envelope on one side of the baseline: from its brightest bin outward while above the envelope threshold, gaps ≤ 2 bins; 0 without an envelope. */
 function outerEdge(col: ArrayLike<number>, s: SpectralSettings, sign: 1 | -1): number {
+  // a valve click has no envelope to read (decision 103)
+  if (isClickColumn(col, s)) return 0;
   const { vMin, vMax } = spectralRange(s);
   const vOf = (b: number) => vMax - ((b + 0.5) / SPECTRAL_BINS) * (vMax - vMin);
   let colMax = 0;
@@ -511,5 +515,55 @@ describe('the early filling wave travels toward the apex at the colour M-mode Vp
     expect(reads['normal-excellent-window']!).toBeGreaterThan(50);
     expect(reads['hfref-severe-mr']!).toBeLessThan(reads['aortic-stenosis-moderate']!);
     for (const id of ['hfref-severe-mr', 'inferior-rwma', 'aortic-stenosis-moderate', 'aortic-stenosis-severe', 'hocm-sam', 'af-diastolic']) expect(reads[id]!, id).toBeLessThan(45);
+  });
+});
+
+describe('valve clicks mark valve timing on the spectral trace (decision 103)', () => {
+  /** Strip columns after `seconds` of `core`, with their time in the beat. */
+  const columns = (core: SimulatorCore, seconds: number, rr: number) => {
+    for (let t = 0; t < seconds; t += 0.02) core.step(0.02);
+    const st = core.spectralStrip;
+    const n = Math.min(st.head, st.cols);
+    return Array.from({ length: n }, (_, c) => ({ t: st.phase[c]! * rr, col: st.data!.subarray(c * SPECTRAL_BINS, (c + 1) * SPECTRAL_BINS) }));
+  };
+  /** Times (s in the beat) of the clicks: runs of click columns (`isClickColumn`). */
+  const clickTimes = (cols: { t: number; col: Float32Array }[], s: SpectralSettings): number[] => {
+    const broad = cols.map(({ col }) => isClickColumn(col, s));
+    const times: number[] = [];
+    for (let c = 0; c < cols.length; c++) {
+      if (!broad[c] || (c > 0 && broad[c - 1])) continue;
+      let e = c;
+      while (e + 1 < cols.length && broad[e + 1]) e++;
+      times.push(cols[(c + e) >> 1]!.t);
+    }
+    return times;
+  };
+  const nearest = (times: number[], event: number, rr: number) => Math.min(...times.map((t) => Math.min(Math.abs(t - event), rr - Math.abs(t - event))));
+
+  it('through the core: PW at the mitral tips clicks as the mitral valve opens and closes, and between outflow and inflow the clicks bound the isovolumic relaxation time', { timeout: 180_000 }, () => {
+    const ev = valveEventTimes(tables);
+    const rr = tables.rrS;
+    const s = { ...DEFAULT_SPECTRAL, scaleMps: 1.2 };
+    const A = heartAnchors(heart);
+    const run = (view: 'a4c' | 'a5c', p: Vec3) => {
+      const control = canonicalControl(getViewTarget(view), heart, thorax);
+      const beam = beamFrameFromPose(poseFromControl(thorax, control));
+      const d = sub(heartToTorso(heart.frame, p), beam.origin);
+      const core = new SimulatorCore(c, baseInput({ probe: control, modality: 'pw', quality: 'low', cursorThetaRad: Math.atan2(dot(d, beam.lateral), dot(d, beam.forward)), gateDepthCm: Math.hypot(dot(d, beam.forward), dot(d, beam.lateral)), spectral: s }));
+      return clickTimes(columns(core, 3.2, rr), s);
+    };
+    // before: no column of either strip was bright across the scale
+    const tips = run('a4c', v3(0.2, -0.9, 1.7));
+    expect(tips.length, `mitral tips clicks at ${tips.map((t) => (t * 1000).toFixed(0)).join(', ')} ms`).toBeGreaterThanOrEqual(2);
+    expect(nearest(tips, ev.mitral[0], rr)).toBeLessThan(0.008);
+    expect(nearest(tips, ev.mitral[1], rr)).toBeLessThan(0.008);
+    // the aortic valve is 2–3 cm away: its events leave no click there
+    for (const t of tips) expect(Math.min(nearest([t], ev.aortic[0], rr), nearest([t], ev.aortic[1], rr)), `click at ${(t * 1000).toFixed(0)} ms`).toBeGreaterThan(0.02);
+    const between = run('a5c', v3((A.avCenter.x + A.mvCenter.x) / 2, (A.avCenter.y + A.mvCenter.y) / 2, 1.0));
+    const closure = between.filter((t) => nearest([t], ev.aortic[1], rr) < 0.008);
+    const opening = between.filter((t) => nearest([t], ev.mitral[0], rr) < 0.008);
+    expect([closure.length > 0, opening.length > 0], `clicks at ${between.map((t) => (t * 1000).toFixed(0)).join(', ')} ms`).toEqual([true, true]);
+    const ivrtMs = (opening[0]! - closure[0]!) * 1000;
+    expect(Math.abs(ivrtMs - c.physiology.ivrtMs), `IVRT between clicks ${ivrtMs.toFixed(0)} ms, case ${c.physiology.ivrtMs}`).toBeLessThan(8);
   });
 });
