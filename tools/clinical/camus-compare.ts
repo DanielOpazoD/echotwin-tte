@@ -21,7 +21,7 @@ import { gunzipSync } from 'node:zlib';
 import { parseNifti, type NiftiVolume } from '@/clinical/nifti';
 import { identifyLabels, imageStats, orientApical, type ImageStats, type RegionImage } from '@/clinical/regionStats';
 import { apicalGeometry, type ApicalGeometry } from '@/clinical/apicalGeometry';
-import { apicalStats, meanStat, presentApical, renderApical, type ApicalRender, type ConsoleOverride } from '@/simulator/renderer/clinicalImage';
+import { apicalStats, meanStat, presentApical, renderApicalRealizations, type ApicalRender, type ConsoleOverride } from '@/simulator/renderer/clinicalImage';
 import { DEFAULT_ACQUISITION } from '@/simulator/renderer/types';
 
 const arg = (name: string): string | undefined => {
@@ -149,19 +149,20 @@ for (const p of patients)
     }
   }
 
-/** The default-console image (first noise realization) of a cached simulator render, for the geometry comparison. */
-function presentApicalFrame(cache: Map<string, ApicalRender>, caseId: string, view: 'a4c' | 'a2c', phase: 'ED' | 'ES'): RegionImage {
+/** The default-console image (first noise realization) of the first scatterer realization, for the geometry comparison. */
+function presentApicalFrame(cache: Map<string, ApicalRender[]>, caseId: string, view: 'a4c' | 'a2c', phase: 'ED' | 'ES'): RegionImage {
   const key = `${caseId}|${view}|${phase}`;
-  if (!cache.has(key)) cache.set(key, renderApical(caseId, view, phase === 'ED'));
-  return presentApical(cache.get(key)!);
+  if (!cache.has(key)) cache.set(key, renderApicalRealizations(caseId, view, phase === 'ED'));
+  return presentApical(cache.get(key)![0]!);
 }
 
-// each simulator view is rendered once; consoles only change its presentation, averaged over receiver-noise realizations
-const renders = new Map<string, ApicalRender>();
+// each simulator view is rendered once per scatterer realization; consoles only change its presentation, averaged over
+// scatterer and receiver-noise realizations (decisions 91 and 99)
+const renders = new Map<string, ApicalRender[]>();
 const simStats = (caseId: string, view: 'a4c' | 'a2c', phase: 'ED' | 'ES', consoleOverride: ConsoleOverride = {}): ImageStats[] => {
   const key = `${caseId}|${view}|${phase}`;
-  if (!renders.has(key)) renders.set(key, renderApical(caseId, view, phase === 'ED'));
-  return apicalStats(renders.get(key)!, consoleOverride);
+  if (!renders.has(key)) renders.set(key, renderApicalRealizations(caseId, view, phase === 'ED'));
+  return renders.get(key)!.flatMap((r) => apicalStats(r, consoleOverride));
 };
 
 const report: Record<string, unknown> = {

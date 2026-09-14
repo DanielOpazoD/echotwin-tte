@@ -3,7 +3,7 @@ import type { ImageStats } from '@/clinical/regionStats';
 import { apicalGeometry, type ApicalGeometry } from '@/clinical/apicalGeometry';
 import { CAMUS_GOOD_GEOMETRY, type ApicalGeometryMetric } from '@/clinical/reference-values/camusApicalGeometry';
 import { CAMUS_GOOD, type CamusMetric } from '@/clinical/reference-values/camusImageStats';
-import { apicalStats, meanStat, NOISE_REALIZATIONS, presentApical, renderApical, type ApicalRender } from './clinicalImage';
+import { apicalStats, meanStat, NOISE_REALIZATIONS, presentApical, renderApicalRealizations, type ApicalRender } from './clinicalImage';
 
 /**
  * The simulator against clinical optimal-window images (decisions 70 and 74). The excellent-window case, rendered and
@@ -35,11 +35,11 @@ const CONDITIONS = [
   ['2CH-ES', 'a2c', false],
 ] as const;
 
-/** Each condition is rendered once for both tests. */
-const renders = new Map<string, ApicalRender>();
-const renderOnce = (view: 'a4c' | 'a2c', ed: boolean): ApicalRender => {
+/** Each condition is rendered once per scatterer realization for both tests. */
+const renders = new Map<string, ApicalRender[]>();
+const renderOnce = (view: 'a4c' | 'a2c', ed: boolean): ApicalRender[] => {
   const key = `${view}|${ed}`;
-  if (!renders.has(key)) renders.set(key, renderApical('normal-excellent-window', view, ed));
+  if (!renders.has(key)) renders.set(key, renderApicalRealizations('normal-excellent-window', view, ed));
   return renders.get(key)!;
 };
 
@@ -68,9 +68,9 @@ const KNOWN_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // envelope hid part of this until decision 91: it filled the nulls (local std 9.3-9.7, texture contrast ~13) and its
   // per-sample grain shrank the cell to 1.2-1.35 × 0.9-1.0 mm. Widening the PSF matched these numbers and looked false
   // (dark worm-like nulls, granular blood); smoothing after detection lost the texture contrast (decision 74).
-  ['4CH-ED:myocardialLocalStd', 0.69],
+  ['4CH-ED:myocardialLocalStd', 0.86],
   ['4CH-ES:myocardialLocalStd', 0.22],
-  ['2CH-ED:myocardialLocalStd', 0.95],
+  ['2CH-ED:myocardialLocalStd', 1.15],
   ['2CH-ES:myocardialLocalStd', 0.23],
   ['4CH-ED:myocardialDetrendedStd', -0.49],
   ['4CH-ES:myocardialDetrendedStd', -0.55],
@@ -78,7 +78,7 @@ const KNOWN_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['2CH-ES:myocardialDetrendedStd', -0.48],
   ['4CH-ED:speckleCellHorizontalMm', -1.79],
   ['4CH-ES:speckleCellHorizontalMm', -2.23],
-  ['2CH-ED:speckleCellHorizontalMm', -1.79],
+  ['2CH-ED:speckleCellHorizontalMm', -1.59],
   ['2CH-ES:speckleCellHorizontalMm', -2.46],
   ['4CH-ED:speckleCellVerticalMm', -2.18],
   ['4CH-ES:speckleCellVerticalMm', -2.26],
@@ -87,7 +87,7 @@ const KNOWN_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // Shape of the grey scale (decisions 90-91). The slope of local std against grey level and the white end came inside
   // with the clinical grey map; the skewness of the myocardial residuals rose from −0.35..−0.51 but is still negative.
   ['4CH-ED:myocardialResidualSkew', -0.88],
-  ['4CH-ES:myocardialResidualSkew', -0.84],
+  ['4CH-ES:myocardialResidualSkew', -1.11],
   ['2CH-ED:myocardialResidualSkew', -0.73],
   ['2CH-ES:myocardialResidualSkew', -0.35],
 ]);
@@ -101,9 +101,10 @@ const BASELINE_TOLERANCE = 0.15;
 
 /**
  * A value this close outside a quartile, in quartile widths, counts as on its edge: neither an undeclared deviation nor
- * a declared one (decision 91). The statistics are means over NOISE_REALIZATIONS receiver-noise realizations, whose
- * standard error reaches 0.07 quartile widths (single-frame sd up to 0.14 for the local std over six realizations), so a
- * value 0.004 outside (A2C end-systole slope 7.21 against 7.2) cannot say which side it is on.
+ * a declared one (decision 91). The statistics are means over SPECKLE_REALIZATIONS scatterer realizations, each presented
+ * with NOISE_REALIZATIONS receiver-noise realizations (decision 99): a single realization of the speckle moved the local
+ * std and the residual skew by up to 0.33 quartile widths while their ten-realization means stayed within 0.12, so a value
+ * 0.004 outside (A2C end-systole slope 7.21 against 7.2) cannot say which side it is on.
  */
 const QUARTILE_EDGE = 0.1;
 
@@ -164,21 +165,20 @@ describe('the default console against clinical optimal-window images (CAMUS Good
     expect([...KNOWN_DEVIATIONS.entries()].filter(([, b]) => Math.abs(b) < QUARTILE_EDGE)).toEqual([]);
   });
 
-  it('apical grey levels, contrast and texture fall inside the clinical interquartile range', { timeout: 60_000 }, () => {
+  it('apical grey levels, contrast and texture fall inside the clinical interquartile range', { timeout: 180_000 }, () => {
     const out = { outside: [] as string[], stale: [] as string[], moved: [] as string[] };
     for (const [key, view, ed] of CONDITIONS) {
-      const stats = apicalStats(renderOnce(view, ed));
+      const stats = renderOnce(view, ed).flatMap((r) => apicalStats(r));
       audit(key, CHECKED.map(([metric, get]) => [metric, meanStat(stats, get), CAMUS_GOOD[key][metric]]), KNOWN_DEVIATIONS, out);
     }
     // one assertion, so a failure lists undeclared, stale and moved entries together
     expect(out, 'undeclared deviations from CAMUS Good, declared ones that no longer deviate, and declared ones that moved from their baseline').toEqual({ outside: [], stale: [], moved: [] });
   });
 
-  it('the left ventricle sits in the apical sector where clinical images put it', { timeout: 60_000 }, () => {
+  it('the left ventricle sits in the apical sector where clinical images put it', { timeout: 180_000 }, () => {
     const out = { outside: [] as string[], stale: [] as string[], moved: [] as string[] };
     for (const [key, view, ed] of CONDITIONS) {
-      const r = renderOnce(view, ed);
-      const g = Array.from({ length: NOISE_REALIZATIONS }, (_, fi) => apicalGeometry(presentApical(r, {}, fi), key.startsWith('4CH') ? '4CH' : '2CH'));
+      const g = renderOnce(view, ed).flatMap((r) => Array.from({ length: NOISE_REALIZATIONS }, (_, fi) => apicalGeometry(presentApical(r, {}, fi), key.startsWith('4CH') ? '4CH' : '2CH')));
       const ref = CAMUS_GOOD_GEOMETRY[key];
       audit(key, (Object.keys(ref) as ApicalGeometryMetric[]).map((m) => [m, g.reduce((a, x) => a + x[m as keyof ApicalGeometry], 0) / g.length, ref[m]!]), KNOWN_GEOMETRY_DEVIATIONS, out);
     }

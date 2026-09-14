@@ -28,8 +28,11 @@ export interface ApicalRender {
 /** The console controls a clinical comparison may vary; anything else would change the render itself. */
 export type ConsoleOverride = Partial<Pick<AcquisitionSettings, 'grayMap' | 'dynamicRangeDb' | 'gainDb'>>;
 
-/** Canonical apical view of a case at end-diastole (phase 0) or end-systole (end of ejection). */
-export function renderApical(caseId: string, viewId: 'a4c' | 'a2c', ed: boolean): ApicalRender {
+/**
+ * Canonical apical view of a case at end-diastole (phase 0) or end-systole (end of ejection). `scatterSeed` picks the
+ * scatterer realization (and the receiver noise of its presentation); the case seed by default.
+ */
+export function renderApical(caseId: string, viewId: 'a4c' | 'a2c', ed: boolean, scatterSeed?: number): ApicalRender {
   const c = loadCaseById(caseId);
   const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, { position: 'left-lateral', respiration: 'expiration', headElevationDeg: 0 }, c.anatomy.ivc.collapsePct);
   const heart = createHeartModel(c.anatomy, c.physiology, thorax.heartOffset, c.seed, thorax.ivcCollapse);
@@ -42,11 +45,25 @@ export function renderApical(caseId: string, viewId: 'a4c' | 'a2c', ed: boolean)
     heart,
     heartPose: computeHeartPose(heart, cycleStateAt(tables, phase)),
     thorax,
-    physics: { frequencyMHz: settings.frequencyMHz, harmonics: settings.harmonics, clutterLevel: c.acousticWindow.clutterLevel, windowAttenuation: c.acousticWindow.chestWallAttenuation, seed: c.seed },
+    physics: { frequencyMHz: settings.frequencyMHz, harmonics: settings.harmonics, clutterLevel: c.acousticWindow.clutterLevel, windowAttenuation: c.acousticWindow.chestWallAttenuation, seed: scatterSeed ?? c.seed },
   };
   const frame = allocPolarFrame(spec);
   new ProceduralSliceRenderer().render(scene, beam, spec, phase, frame);
-  return { frame, seed: c.seed };
+  return { frame, seed: scatterSeed ?? c.seed };
+}
+
+/**
+ * Scatterer realizations the clinical comparison averages over (decision 99). A frame holds one speckle realization, and
+ * single-render statistics move with it: a change of the scatterer lattice that left the means over ten realizations
+ * where they were (myocardial local std 12.18 → 12.14, residual skew −0.33 → −0.36) moved the declared baselines by up to
+ * 0.33 quartile widths and pushed a contrast out of the range.
+ */
+export const SPECKLE_REALIZATIONS = 8;
+
+/** The canonical apical view rendered once per scatterer realization (seeds follow the case seed). */
+export function renderApicalRealizations(caseId: string, viewId: 'a4c' | 'a2c', ed: boolean): ApicalRender[] {
+  const seed = loadCaseById(caseId).seed;
+  return Array.from({ length: SPECKLE_REALIZATIONS }, (_, k) => renderApical(caseId, viewId, ed, seed + k));
 }
 
 const LV_WALL = new Set<number>([Structure.LvWallSeptal, Structure.LvWallLateral, Structure.LvWallAnterior, Structure.LvWallInferior, Structure.LvApex]);

@@ -77,8 +77,10 @@ void main() {
   float nd = abs(inHeart ? dot(s.n, dirH) : dot(s.n, dirT));
   float sigma, specular;
   acoustic(s.tissue, s.sdf, s.extra, nd, s.m, sigma, specular);
-  // complex scatterer phasor anchored in tissue coordinates (moves with the tissue, independent of the probe)
-  vec3 q = s.m * SCATTER_FREQ;
+  // complex scatterer phasor anchored in tissue coordinates (moves with the tissue); across the plane its lattice cell is
+  // the slice thickness (decision 99), as in the CPU renderer
+  vec3 nrm = inHeart ? vec3(dot(bN, ex), dot(bN, ey), dot(bN, ez)) : bN;
+  vec3 q = s.m * SCATTER_FREQ - (SCATTER_FREQ - 1.0 / (2.0 * (0.2 + 0.04 * abs(r - FOCUS)))) * dot(s.m, nrm) * nrm;
   float zr = (lat(q, 0) + lat(q * SCATTER_FREQ_RATIO + vec3(37.3, 11.9, 23.7), 1) - 1.0) * PHASOR_NORM;
   float zi = (lat(q + vec3(71.1, 53.5, 5.3), 2) + lat(q * SCATTER_FREQ_RATIO + vec3(17.9, 91.1, 43.3), 0) - 1.0) * PHASOR_NORM;
   float lungFlag = s.tissue == T_LUNG ? 1.0 : 0.0;

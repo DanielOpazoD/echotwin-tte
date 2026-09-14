@@ -182,6 +182,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
       contact: contactQuality(beam.contact),
       fwdH: torsoToHeartDir(hf, beam.forward),
       latH: torsoToHeartDir(hf, beam.lateral),
+      nrmH: torsoToHeartDir(hf, beam.normal),
       windowAttenuation: physics.windowAttenuation,
       thorax,
       latA: noiseLattice(physics.seed),
@@ -192,7 +193,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
   }
 
   private renderLine(ctx: LineContext, theta: number, li: number, base: number, re: Float32Array, im: Float32Array, st: Uint8Array, tr: Float32Array, ti: Uint8Array): void {
-    const { beam, spec, dr, fAtten, seed, harm, clutter, contact, fwdH, latH, thorax, latA, latB, latC, line } = ctx;
+    const { beam, spec, dr, fAtten, seed, harm, clutter, contact, fwdH, latH, nrmH, thorax, latA, latB, latC, line } = ctx;
     // M-mode line scales (decision 84); a frame line uses 1, which leaves its arithmetic unchanged
     const lk = line ? line.kernels : null;
     const inc = lk ? lk.incoherent : 1;
@@ -336,10 +337,17 @@ export class ProceduralSliceRenderer implements RendererBackend {
         sigma = accS / wsum;
         specular = accP / wsum;
       }
-      // complex scatterer phasor of the central plane, anchored in tissue coordinates (moves with the tissue)
-      const qx = s.mx * SCATTER_FREQ,
-        qy = s.my * SCATTER_FREQ,
-        qz = s.mz * SCATTER_FREQ;
+      // complex scatterer phasor of the central plane, anchored in tissue coordinates (moves with the tissue). Across the
+      // plane its lattice cell is the slice thickness, as for an M-mode line (decision 99): at the scatterer cell (0.4 mm)
+      // a probe tilt that moved the plane by 0.31 mm at 9 cm left the myocardial speckle with a correlation of 0.71, for a
+      // slice about 4 mm thick there
+      const nhx = inHeart ? nrmH.x : nX,
+        nhy = inHeart ? nrmH.y : nY,
+        nhz = inHeart ? nrmH.z : nZ;
+      const across = (SCATTER_FREQ - 1 / (2 * sliceHalfWidthCm(r, focus))) * (s.mx * nhx + s.my * nhy + s.mz * nhz);
+      const qx = s.mx * SCATTER_FREQ - across * nhx,
+        qy = s.my * SCATTER_FREQ - across * nhy,
+        qz = s.mz * SCATTER_FREQ - across * nhz;
       let sRe: number, sIm: number;
       if (line && lk) {
         // M-mode line (decision 84): the lattice axes follow the beam, with the beam width as the cell across it; the
@@ -393,6 +401,7 @@ interface LineContext {
   contact: number;
   fwdH: { x: number; y: number; z: number };
   latH: { x: number; y: number; z: number };
+  nrmH: { x: number; y: number; z: number };
   windowAttenuation: number;
   thorax: Scene['thorax'];
   latA: Uint8Array;
