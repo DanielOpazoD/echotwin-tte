@@ -101,6 +101,7 @@ Medido con `tools/offline/render/image-metrics.ts` en el caso normal, fase 0,35,
 | Speckle Rayleigh con dispersores gaussianos sintéticos (media ≈ σ, SNR 1,8–2,03) | `psf.test.ts` | pasa |
 | Fasor de dispersores de media nula, potencia unidad y partes incorreladas | `psf.test.ts` | pasa |
 | SNR local, celda anisótropa creciente, contraste, anisotropía y grises en PLAX/A4C | `imageFormation.test.ts` | pasa |
+| Imagen apical del caso de ventana óptima frente a CAMUS Good (A4C y A2C, telediástole y telesístole): nueve métricas de gris, contraste y textura dentro del rango intercuartílico; 18 de 36 declaradas como desviaciones del modelo, cada una con su valor basal y una tolerancia de 0,15 anchuras intercuartílicas (decisión 88) | `clinicalImage.test.ts` | pasa |
 | Línea de modo M 4× más fina que el cuadro: potencia filtrada de la red (+4,25 dB, analítica frente a la red a 0,25 dB), speckle, interfaz y cursor a media celda con los niveles del cuadro (±0,3 / ±0,3 / ±0,5 dB) | `psf.test.ts` | pasa |
 | Modo M por `SimulatorCore` (320 px, 100 mm/s, pasos de 50 ms): ningún salto de tiempo, eco pericárdico continuo respecto del modelo, speckle de septo y pared posterior que sigue al tejido (> 0,9) y sangre que no (< 0,65), textura de estructuras con coordenadas fijas que se desplaza con ellas, niveles por tejido frente a la línea de cuadro (±1 dB) | `mmodeStrip.test.ts` | pasa |
 
