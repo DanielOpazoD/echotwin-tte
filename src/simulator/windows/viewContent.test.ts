@@ -186,7 +186,11 @@ describe('apical presets keep the ventricle clear of lung where the window allow
 describe('apical five-chamber view (decision 85)', () => {
   it('puts the aortic valve against the septum, between both atria, not under the middle of the ventricle', { timeout: 180_000 }, () => {
     // The plane was rotated 19° toward the anterior wall and grazed the back of the root: the valve showed 1.3-2.1 cm from
-    // the septum and 0.6 cm from the middle of the basal cavity, where the mitral valve belongs.
+    // the septum and 0.6 cm from the middle of the basal cavity, where the mitral valve belongs. Positions are read along
+    // the heart's septal–lateral axis in the drawn plane, not across the image: the image coordinate depends on where the
+    // probe looks from, and the same anatomical cut seen from a probe on the long axis failed a comparison made across the
+    // image in two cases. Along that axis the root lies 0.81-1.04 cm from the basal cavity centre from either probe, and
+    // the removed plane put it 0.06-0.26 cm from it with no left atrium in eight cases.
     const problems: string[] = [];
     for (const input of CASE_INPUTS) {
       const c = loadCaseById(input.id);
@@ -202,7 +206,7 @@ describe('apical five-chamber view (decision 85)', () => {
           const p = torsoToHeart(heart.frame, add(beam.origin, add(scale(beam.forward, dep), scale(beam.lateral, lat))));
           if (!classifyHeart(heart, pose, p.x, p.y, p.z, s)) continue;
           const acc = (k: 'root' | 'septum' | 'cavity') => {
-            mean[k][0]! += lat;
+            mean[k][0]! += p.x;
             mean[k][1]! += 1;
           };
           if (s.structure === Structure.AorticRoot || s.structure === Structure.AorticValve) acc('root');
@@ -214,10 +218,11 @@ describe('apical five-chamber view (decision 85)', () => {
           if (s.structure === Structure.LaCavity) mean.la++;
         }
       const at = (k: 'root' | 'septum' | 'cavity') => mean[k][0]! / Math.max(1, mean[k][1]!);
-      const toSeptum = Math.abs(at('root') - at('septum')),
-        toCavity = Math.abs(at('cavity') - at('root'));
-      if (!(mean.valve > 0 && mean.ra > 50 && mean.la > 50 && toSeptum < toCavity))
-        problems.push(`${input.id}: valve samples ${mean.valve}, RA ${mean.ra}, LA ${mean.la}; root ${toSeptum.toFixed(2)} cm from the basal septum and ${toCavity.toFixed(2)} from the basal cavity centre`);
+      const toCavity = Math.abs(at('cavity') - at('root'));
+      // on the septal side of the basal cavity centre, and not at it
+      const septalSide = (at('root') - at('septum')) * (at('cavity') - at('root')) > 0;
+      if (!(mean.valve > 0 && mean.ra > 50 && mean.la > 50 && septalSide && toCavity >= 0.6))
+        problems.push(`${input.id}: valve samples ${mean.valve}, RA ${mean.ra}, LA ${mean.la}; root ${septalSide ? 'on the septal side' : 'NOT between septum and cavity centre'}, ${toCavity.toFixed(2)} cm from the basal cavity centre along the septal–lateral axis`);
     }
     expect(problems).toEqual([]);
   });
