@@ -445,3 +445,71 @@ describe('the spectral envelope reads the velocity in the sample volume (decisio
     expect(edge / jet).toBeLessThan(1.08);
   });
 });
+
+describe('the early filling wave travels toward the apex at the colour M-mode Vp of the case (decision 102)', () => {
+  it('the conventional slope, half the maximal inflow velocity from the leaflet tips to 4 cm beyond them, reads 6·e′ septal in every case', async () => {
+    // Nagueh et al. 2009: Vp is the slope of the first aliasing velocity of early filling from the mitral plane to 4 cm into
+    // the ventricle, normal above 50 cm/s; the aliasing boundary is typically half the maximal inflow velocity. Before: the
+    // core had lost half its velocity before 4 cm in every case (10–15 of 17 depths reached) and the whole jet appeared at
+    // once, so the partial slopes read 78 cm/s in heart failure against 66 in the normal heart, and 5–14 cm/s where only
+    // atrial filling crossed the contour.
+    const { CASE_INPUTS } = await import('@/cases');
+    const { flowPropagationCmps } = await import('./flow-primitives/flowField');
+    const fs = { vx: 0, vy: 0, vz: 0, dispersion: 0, present: 0 };
+    const problems: string[] = [];
+    const reads: Record<string, number> = {};
+    for (const input of CASE_INPUTS) {
+      const k = loadCaseById(input.id);
+      const models = new SimulatorCore(k, baseInput()).models;
+      const p = buildFlowParams(k, models.heart, models.tables);
+      const tb = models.tables;
+      const tm = tb.timings;
+      const poses = new Map<number, ReturnType<typeof computeHeartPose>>();
+      // the inflow axis at a fixed heart-frame position, sampled every millisecond as a colour M-mode line through it
+      const velocity = (z: number, ms: number): number => {
+        let hp = poses.get(ms);
+        if (!hp) {
+          hp = computeHeartPose(models.heart, cycleStateAt(tb, ms / 1000 / tb.rrS));
+          poses.set(ms, hp);
+        }
+        sampleFlow(p, tb, hp, ms / 1000 / tb.rrS, p.mvCenter.x, p.mvCenter.y, z, fs);
+        return fs.vz;
+      };
+      const t0 = Math.ceil(tm.mitralOpenS * 1000);
+      const earlyEnd = Math.floor(1000 * Math.min(tb.rrS, tm.mitralOpenS + 0.5, tm.hasAWave ? Math.max(tm.aStartS, tm.mitralOpenS + tm.eAccelS + 0.05) : Infinity));
+      const tips = computeHeartPose(models.heart, cycleStateAt(tb, t0 / 1000 / tb.rrS)).zAnn + 1.2;
+      let vMax = 0;
+      for (let ms = t0; ms < earlyEnd; ms++) vMax = Math.max(vMax, velocity(tips, ms));
+      const pts: [number, number][] = [];
+      for (let d = 0; d <= 4.0001; d += 0.25)
+        for (let ms = t0; ms < tb.rrS * 1000; ms++)
+          if (velocity(tips + d, ms) >= 0.5 * vMax) {
+            pts.push([ms / 1000, d]);
+            break;
+          }
+      if (pts.length < 17) {
+        problems.push(`${input.id}: half the maximal inflow velocity reaches ${pts.length} of 17 depths`);
+        continue;
+      }
+      let st = 0,
+        sd = 0,
+        stt = 0,
+        std = 0;
+      for (const [t, d] of pts) {
+        st += t;
+        sd += d;
+        stt += t * t;
+        std += t * d;
+      }
+      const slope = (17 * std - st * sd) / (17 * stt - st * st);
+      reads[input.id] = slope;
+      const target = flowPropagationCmps(k);
+      if (Math.abs(slope - target) > 0.1 * target) problems.push(`${input.id}: Vp ${slope.toFixed(1)} cm/s against ${target} (6·e′ septal)`);
+    }
+    expect(problems).toEqual([]);
+    // normal relaxation above the 50 cm/s cut-off, impaired relaxation (septal e′ ≤ 6 cm/s) below it
+    expect(reads['normal-excellent-window']!).toBeGreaterThan(50);
+    expect(reads['hfref-severe-mr']!).toBeLessThan(reads['aortic-stenosis-moderate']!);
+    for (const id of ['hfref-severe-mr', 'inferior-rwma', 'aortic-stenosis-moderate', 'aortic-stenosis-severe', 'hocm-sam', 'af-diastolic']) expect(reads[id]!, id).toBeLessThan(45);
+  });
+});

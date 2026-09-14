@@ -3,6 +3,7 @@ import type { BeatTables } from '@/simulator/cardiac-cycle/cycleModel';
 import { sampleTable } from '@/simulator/cardiac-cycle/cycleModel';
 import type { CaseDefinition } from '@/cases/schema';
 import { circularArea } from '@/clinical/formulas';
+import { smoothstep } from '@/core/vec3';
 
 /**
  * Parametric hemodynamic flow field (spec 0.5, 10.5, 63). Velocities in m/s, heart frame.
@@ -46,6 +47,103 @@ export interface FlowFieldParams {
   lvotObstruction: { fMax: number; dynamic: boolean } | null;
   /** Pulmonary venous flow: the four ostia (heart frame at ED) and the S/D/Ar peak velocities (m/s). */
   pulmonaryVeins: { laCenter: { x: number; y: number; z: number }; laR: { x: number; y: number; z: number }; sMps: number; dMps: number; arMps: number };
+  /** Colour M-mode flow propagation velocity (cm/s) the conventional slope reads, and the filling-wave speed that gives it. */
+  inflowPropagationCmps: number;
+  inflowWaveCmps: number;
+}
+
+/**
+ * Colour M-mode flow propagation velocity (cm/s) of a case. The guideline cut-offs for raised filling pressure are a septal
+ * E/e′ above 15 and an E/Vp of 2.5 or more (Nagueh et al., J Am Soc Echocardiogr 2009; 22:107–133), so at that pressure
+ * Vp = 6·e′ septal; the proportion is kept at every e′ as a declared assumption. It gives 66 cm/s for the normal e′ of
+ * 11 cm/s (normal Vp above 50 cm/s) and 36 cm/s for an impaired-relaxation e′ of 6 cm/s.
+ */
+export function flowPropagationCmps(c: CaseDefinition): number {
+  return Math.min(120, Math.max(15, 6 * c.physiology.ePrimeSeptalCmps));
+}
+
+/** Length (cm) of the inflow core beyond the annulus, where the jet keeps its orifice velocity: the leaflet tips. */
+const INFLOW_CORE_CM = 1.2;
+/**
+ * Distance (cm) beyond the tips over which the inflow core falls to half its velocity. The conventional Vp follows the
+ * contour at half the maximal inflow velocity for 4 cm into the ventricle (Garcia et al., J Am Coll Cardiol 1998; 32:865–875,
+ * as described by Chakraborty et al. 2019), so the core keeps at least half its velocity there; 5 cm is a declared value
+ * above that bound. It was 2.2 cm, and the jet ended 4.3 cm beyond the tips, so that contour could not be followed.
+ */
+const INFLOW_DECAY_CM = 5;
+
+/** Fraction of the core velocity left `zr` cm beyond the annulus, fading over the last centimetre before the apex. */
+function inflowAxial(zr: number, lengthNow: number): number {
+  return smoothstep(0.2, 1.2, lengthNow - zr) / (1 + Math.max(0, zr - INFLOW_CORE_CM) / INFLOW_DECAY_CM);
+}
+
+/**
+ * Inflow (mL/s) that left the leaflet tips when the filling wave now `zr` cm beyond an atrioventricular annulus was there
+ * (decision 102): the wave takes (zr − INFLOW_CORE_CM)/speed to arrive. Zero for a wave that would have left before the
+ * beat began, when the ventricle already contracts.
+ */
+function inflowFlow(tables: BeatTables, phase: number, zr: number, waveCmps: number): number {
+  const delayed = phase - Math.max(0, zr - INFLOW_CORE_CM) / (waveCmps * tables.rrS);
+  return delayed < 0 ? 0 : sampleTable(tables.mitralFlowMlps, delayed);
+}
+
+/**
+ * Conventional colour M-mode slope (cm/s) of an inflow wave travelling at `waveCmps`, on the inflow axis at a fixed
+ * position as an M-mode line sees it: from the leaflet tips at valve opening to 4 cm beyond them, the first time the
+ * velocity reaches half the early-filling maximum at the tips, fitted against depth. The core slows with depth and the
+ * annulus recoils during early filling, so the contour runs slower than the wave. NaN when the contour does not reach 4 cm.
+ */
+export function conventionalPropagation(tables: BeatTables, mapseCm: number, lvLengthCm: number, mvAreaCm2: number, waveCmps: number): number {
+  const tm = tables.timings;
+  const velocity = (z: number, t: number): number => {
+    const phase = t / tables.rrS;
+    const zAnn = mapseCm * sampleTable(tables.longitudinal, phase);
+    const zr = z - zAnn;
+    if (zr < 0) return 0;
+    return (inflowFlow(tables, phase, zr, waveCmps) / mvAreaCm2 / 100) * inflowAxial(zr, lvLengthCm - zAnn);
+  };
+  const t0 = tm.mitralOpenS;
+  // the maximum of the early wave at the tips: up to atrial contraction, or 50 ms past the E peak when atrial contraction
+  // starts before it; its front reaches each depth first, whenever that is in diastole
+  const eEnd = Math.min(tables.rrS, t0 + 0.5, tm.hasAWave ? Math.max(tm.aStartS, t0 + tm.eAccelS + 0.05) : Infinity);
+  const tEnd = tables.rrS;
+  const tips = mapseCm * sampleTable(tables.longitudinal, t0 / tables.rrS) + INFLOW_CORE_CM;
+  let vMax = 0;
+  for (let t = t0; t < eEnd; t += 0.001) vMax = Math.max(vMax, velocity(tips, t));
+  let n = 0,
+    st = 0,
+    sd = 0,
+    stt = 0,
+    std = 0;
+  for (let d = 0; d <= 4.0001; d += 0.25) {
+    let reached = -1;
+    for (let t = t0; t < tEnd; t += 0.001)
+      if (velocity(tips + d, t) >= 0.5 * vMax) {
+        reached = t;
+        break;
+      }
+    if (reached < 0) return Number.NaN;
+    n++;
+    st += reached;
+    sd += d;
+    stt += reached * reached;
+    std += reached * d;
+  }
+  return (n * std - st * sd) / (n * stt - st * st);
+}
+
+/** Filling-wave speed (cm/s) at which the conventional slope reads `targetCmps`; the fastest tried when none is fast enough. */
+export function solveInflowWave(tables: BeatTables, mapseCm: number, lvLengthCm: number, mvAreaCm2: number, targetCmps: number): number {
+  let lo = Math.log(5),
+    hi = Math.log(5000);
+  const reads = (logSpeed: number): number => conventionalPropagation(tables, mapseCm, lvLengthCm, mvAreaCm2, Math.exp(logSpeed));
+  if (!(reads(hi) > targetCmps)) return Math.exp(hi);
+  for (let it = 0; it < 24; it++) {
+    const mid = 0.5 * (lo + hi);
+    if (reads(mid) > targetCmps) hi = mid;
+    else lo = mid;
+  }
+  return Math.exp(0.5 * (lo + hi));
 }
 
 /**
@@ -128,6 +226,8 @@ export function buildFlowParams(c: CaseDefinition, heart: HeartModel, tables: Be
     trEroCm2: c.hemodynamics.regurgitation.tr?.eroaCm2 ?? null,
     lvotObstruction: solveLvotObstruction(tables, circularArea(c.anatomy.aorta.lvotDiameterCm), c.hemodynamics.lvotPeakGradientMmHg, c.anatomy.mitral.samSeverity > 0),
     pulmonaryVeins: { laCenter: A.laCenter, laR: A.laR, ...pulmonaryVeinPeaks(c) },
+    inflowPropagationCmps: flowPropagationCmps(c),
+    inflowWaveCmps: solveInflowWave(tables, c.physiology.mapseCm, heart.lv.lengthCm, tables.mvEffectiveAreaCm2, flowPropagationCmps(c)),
   };
 }
 
@@ -140,29 +240,31 @@ export function sampleFlow(p: FlowFieldParams, tables: BeatTables, hp: HeartPose
   out.vz = 0;
   out.dispersion = 0;
   out.present = 0;
-  const qmv = sampleTable(tables.mitralFlowMlps, phase); // mL/s
   const qao = sampleTable(tables.aorticFlowMlps, phase);
   const zAnn = hp.zAnn;
 
   // ---- Mitral inflow: from the LA through the annulus into the LV toward the apex ----
-  if (p.enabled['mitral-inflow'] !== false && qmv > 1) {
+  const zrMv = z - zAnn; // distance beyond the annulus into the LV
+  const qmv = p.enabled['mitral-inflow'] !== false && zrMv > -2.5 && zrMv < hp.lengthNow - 0.2 ? inflowFlow(tables, phase, zrMv, p.inflowWaveCmps) : 0; // mL/s
+  if (qmv > 1) {
     const dx = x - p.mvCenter.x,
       dy = y - p.mvCenter.y;
     const rho = Math.hypot(dx, dy);
-    const zr = z - zAnn; // distance beyond the annulus into the LV
+    const zr = zrMv;
     const R = p.mvR * 1.05;
-    if (zr > -2.5 && zr < 5.5 && rho < R + Math.max(0, zr) * 0.35) {
-      const v0 = qmv / p.mvAreaCm2 / 100; // m/s at the orifice
+    // the jet widens for 4 cm and then fills the cavity it reaches
+    const Rj = R + Math.min(4, Math.max(0, zr)) * 0.35;
+    if (rho < Rj) {
+      const v0 = qmv / p.mvAreaCm2 / 100; // m/s at the orifice when this part of the filling wave left it
       let mag: number;
       if (zr < 0) {
         // LA side: convergence toward the annulus (hemispheric-ish), slower
         const d = Math.max(0.6, -zr);
         mag = v0 * Math.min(1, (R * R) / (2 * d * d)) * 0.9;
       } else {
-        // jet core with plug profile, spreading and decaying ~ 1/(1+zr/3)
-        const Rj = R + zr * 0.35;
+        // jet core with plug profile, slowing beyond the tips and fading before the apex
         const prof = 1 - Math.pow(Math.min(1, rho / Rj), 6);
-        mag = v0 * prof * (zr < 1.2 ? 1 : 1 / (1 + (zr - 1.2) / 2.2));
+        mag = v0 * prof * inflowAxial(zr, hp.lengthNow);
       }
       out.vz += mag; // toward the apex
       out.dispersion = Math.max(out.dispersion, (p.turbulence['mitral-inflow'] ?? 0.04) + 0.15 * Math.min(1, rho / R));
@@ -222,14 +324,14 @@ export function sampleFlow(p: FlowFieldParams, tables: BeatTables, hp: HeartPose
   }
   // ---- Tricuspid inflow (mirrors mitral, larger area, slight delay) ----
   if (p.enabled['tricuspid-inflow'] !== false) {
-    const qtv = sampleTable(tables.mitralFlowMlps, phase - 0.01);
+    const zr = z - (p.tvCenter.z + hp.tvZ);
+    const qtv = zr > -2.2 && zr < 5 ? inflowFlow(tables, phase - 0.01, zr, p.inflowWaveCmps) : 0;
     if (qtv > 1) {
       const dx = x - p.tvCenter.x,
         dy = y - p.tvCenter.y;
       const rho = Math.hypot(dx, dy);
-      const zr = z - (p.tvCenter.z + hp.tvZ);
       const R = p.tvR * 1.05;
-      if (zr > -2.2 && zr < 5 && rho < R + Math.max(0, zr) * 0.35) {
+      if (rho < R + Math.max(0, zr) * 0.35) {
         const v0 = qtv / p.tvAreaCm2 / 100;
         const mag = zr < 0 ? v0 * Math.min(1, (R * R) / (2 * Math.max(0.6, -zr) ** 2)) * 0.9 : v0 * (1 - Math.pow(Math.min(1, rho / (R + zr * 0.35)), 6)) * (zr < 1.2 ? 1 : 1 / (1 + (zr - 1.2) / 2.2));
         out.vz += mag;

@@ -46,6 +46,7 @@ Referencia = con qué se compara (valor analítico, consistencia interna o rango
 | `renderer/atlas/atlas.test.ts` | Ancla completa reproduce al procedimental (fill 0) | — | dif. media < 0,01 | pasa |
 | | Barrido PLAX→PSAX sin saltos | — | máx < 3,5× media | pasa |
 | `doppler/doppler.test.ts` | Flujo TSVI en sístole 0,6–1,5 m/s y < 0,2 en diástole; mitral 0,5–1,1 hacia el ápex | fisiológico | rango | pasa |
+| | Vp del modo M color por el método convencional (decisión 102): isovelocidad de la mitad del máximo del llenado precoz desde los bordes hasta 4 cm, por `sampleFlow`, en los doce casos: llega a las 17 profundidades y lee 6·e′ septal (normal 65,7 cm/s; insuficiencia cardiaca 24,0; antes 10–15 profundidades y 78 cm/s en la insuficiencia cardiaca) | Nagueh et al. 2009 (Vp > 50 cm/s; E/Vp ≥ 2,5 y E/e′ septal > 15) | ±10%; > 50 normal; < 45 con e′ ≤ 6 | pasa |
 | | Ley del coseno (0°, 20°, 60°) | 1, 0,94, 0,5 | ±0,005 | pasa |
 | | PW pliega 1,0 m/s con escala 0,6 → −0,2; CW fuera de escala no se apila en el borde y reaparece en su velocidad al ampliar la escala (decisión 87) | — | ±0,05 | pasa |
 | | PW conserva la distribución completa al cruzar Nyquist: energía de la línea de una muestra (dos semigaussianas) frente a su suma analítica en cuatro posiciones junto al borde, y el ensanchamiento turbulento de un flujo plegado reaparece arriba (decisiones 87 y 96) | suma analítica | < 2 % | pasa |
