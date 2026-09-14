@@ -8,7 +8,7 @@ import { makeSample, Structure, Tissue } from './tissue';
 import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
 import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
-import { add, cross, dot, normalize, scale, sub, v3 } from '@/core/vec3';
+import { add, cross, dot, normalize, scale, sub, v3, type Vec3 } from '@/core/vec3';
 
 /**
  * Valve apparatus and great-vessel continuity (decision 75). These are the "subtleties" a cardiologist sees at once
@@ -672,3 +672,49 @@ describe('outflow tract and pulmonary root motion (decision 111)', () => {
     expect(move.z, report).toBeGreaterThan(0);
   });
 });
+
+describe('pulmonary root beside the aortic root (decision 112)', () => {
+  it('nothing of the aortic root, the aortic valve or the left ventricle is drawn inside the pulmonary root or on its hinge ring, in every case through the cycle', () => {
+    // The pulmonary valve sat 2.3 cm from the aortic one in every case, closer than the two roots allow: near the wall,
+    // 22-44% of the pulmonary root lumen was aortic root, aortic valve or left ventricular wall, and so were 17-33 of the
+    // 64 points of the ring where the cusps hinge, so the valve had no cusp tissue on that side.
+    const s = makeSample();
+    const allowed = new Set([Structure.PulmonaryArtery, Structure.PulmonaryValve, Structure.Rvot, Structure.RvCavity]);
+    const problems: string[] = [];
+    for (const input of CASE_INPUTS) {
+      const { heart, tables } = setup(input.id);
+      const A = heartAnchors(heart);
+      const d = A.paDir;
+      const e1 = normalize(cross(d, v3(0, 0, 1)));
+      const e2 = cross(d, e1);
+      for (let i = 0; i < 10; i++) {
+        const pose = computeHeartPose(heart, cycleStateAt(tables, i / 10));
+        const c = pulmonaryValveCentre(pose);
+        const found = new Map<string, number>();
+        let n = 0;
+        const probe = (p: Vec3) => {
+          n++;
+          const hit = classifyHeart(heart, pose, p.x + pose.swingX, p.y, p.z, s);
+          if (hit && allowed.has(s.structure)) return;
+          const name = hit ? `structure ${s.structure}` : 'outside the heart';
+          found.set(name, (found.get(name) ?? 0) + 1);
+        };
+        // just inside the wall from the valve plane to the sinotubular junction, and the hinge ring
+        for (let t = 0; t <= 1.9; t += 0.1) {
+          const r = A.paRootR + ((A.paR - A.paRootR) * t) / 1.9 - 0.05;
+          for (let k = 0; k < 36; k++) {
+            const a = (k / 36) * 2 * Math.PI;
+            probe(add(add(c, scale(d, t)), add(scale(e1, r * Math.cos(a)), scale(e2, r * Math.sin(a)))));
+          }
+        }
+        for (let k = 0; k < 64; k++) {
+          const a = (k / 64) * 2 * Math.PI;
+          probe(add(c, add(scale(e1, A.pvR * Math.cos(a)), scale(e2, A.pvR * Math.sin(a)))));
+        }
+        if (found.size) problems.push(`${input.id} @${i / 10}: ${[...found].map(([name, k]) => `${name} ${((k / n) * 100).toFixed(1)}%`).join(', ')}`);
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+});
+

@@ -1746,8 +1746,92 @@ function anchorsCached(m: HeartModel): AnchorsCached {
     const pvE2 = cross(base.paDir, pvE1);
     a = { ...base, avE1: e1, avE2: e2, avBend, pvE1, pvE2 };
     (m as HeartModel & { _anchors?: AnchorsCached })._anchors = a;
+    placePulmonaryRoot(m, a);
   }
   return a;
+}
+
+/** A frame of the beat without tables: end-diastole or end-systole of the case (for placing anchors against the walls). */
+function extremeState(m: HeartModel, systole: boolean): CycleState {
+  const { edvMl, esvMl } = m.physiology;
+  const k = systole ? 1 : 0;
+  return { phase: 0, timeInBeatS: 0, rrS: 1, lvVolumeMl: systole ? esvMl : edvMl, contraction: k, mvOpen: 0, avOpen: 0, tvOpen: 0, pvOpen: 0, longitudinal: k, rvLongitudinal: k, atrialContraction: 0, atrialHold: 0, mitralFlowMlps: 0, aorticFlowMlps: 0, edvMl, esvMl };
+}
+
+/**
+ * The pulmonary root stands beside the aortic root (decision 112). The valve is placed from torso coordinates (decision
+ * 62: ~1.0 cm left, 1.5 cm cranial and 1.5 cm anterior of the aortic valve), which put its centre 2.3 cm from the aortic
+ * one in every case, closer than the two roots allow: the aortic sinus and, over a dilated or thickened ventricle, the
+ * anterior LV wall filled a quarter to two fifths of the pulmonary root and up to half of the ring where the cusps hinge.
+ * Keeping its bearing around the aortic root, the root (valve, root, trunk and branches) moves out from the aortic axis
+ * by the least distance that leaves its lumen, from the valve plane to the sinotubular junction, clear of every other
+ * structure at end-diastole and at end-systole (the aortic root descends with the base more than the pulmonary root).
+ */
+function placePulmonaryRoot(m: HeartModel, A: AnchorsCached): void {
+  const poses = [computeHeartPose(m, extremeState(m, false)), computeHeartPose(m, extremeState(m, true))];
+  const rel = sub(A.rvotB, A.avCenter);
+  const u = normalize(sub(rel, scale(A.avAxis, dot(rel, A.avAxis))));
+  const base = { rvotB: A.rvotB, paStj: A.paStj, paEnd: A.paEnd, rpaEnd: A.rpaEnd, lpaEnd: A.lpaEnd };
+  const smp: TissueSample = { tissue: 0, sdf: 0, nx: 0, ny: 0, nz: 1, mx: 0, my: 0, mz: 0, extraReflect: 0, structure: 0 } as unknown as TissueSample;
+  const e1 = A.pvE1,
+    e2 = A.pvE2,
+    d = A.paDir;
+  const moveTo = (off: number): void => {
+    const o = scale(u, off);
+    A.rvotB = add(base.rvotB, o);
+    A.paStj = add(base.paStj, o);
+    A.paEnd = add(base.paEnd, o);
+    A.rpaEnd = add(base.rpaEnd, o);
+    A.lpaEnd = add(base.lpaEnd, o);
+  };
+  const inLumen = (s: Structure): boolean => s === Structure.PulmonaryArtery || s === Structure.PulmonaryValve || s === Structure.Rvot || s === Structure.RvCavity;
+  const conflicts = (off: number): number => {
+    moveTo(off);
+    let bad = 0;
+    for (const hp of poses) {
+      const cx = A.rvotB.x,
+        cy = A.rvotB.y,
+        cz = A.rvotB.z + hp.pvZ;
+      for (let i = 0; i <= 10; i++) {
+        const t = (1.9 * i) / 10;
+        const r = A.paRootR + ((A.paR - A.paRootR) * t) / 1.9 - 0.05;
+        for (let k = 0; k < 24; k++) {
+          const ang = (k / 24) * 2 * Math.PI;
+          const c = Math.cos(ang) * r,
+            sn = Math.sin(ang) * r;
+          const x = cx + d.x * t + e1.x * c + e2.x * sn,
+            y = cy + d.y * t + e1.y * c + e2.y * sn,
+            z = cz + d.z * t + e1.z * c + e2.z * sn;
+          if (!classifyHeart(m, hp, x + hp.swingX, y, z, smp) || !inLumen(smp.structure)) bad++;
+        }
+      }
+    }
+    return bad;
+  };
+  if (conflicts(0) === 0) {
+    moveTo(0);
+    return;
+  }
+  // coarse steps outward, then halve the last interval
+  let lo = 0,
+    hi = -1;
+  for (let off = 0.25; off <= 2.5 + 1e-9; off += 0.25) {
+    if (conflicts(off) === 0) {
+      hi = off;
+      break;
+    }
+    lo = off;
+  }
+  if (hi < 0) {
+    moveTo(2.5);
+    return;
+  }
+  for (let it = 0; it < 5; it++) {
+    const mid = (lo + hi) / 2;
+    if (conflicts(mid) === 0) hi = mid;
+    else lo = mid;
+  }
+  moveTo(hi + 0.05);
 }
 
 /** Anchor points of the model (heart frame at ED) for measurement and debugging tools. */

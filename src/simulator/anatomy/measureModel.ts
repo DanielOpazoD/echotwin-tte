@@ -136,9 +136,12 @@ export function measureModel(c: CaseDefinition, patient: PatientState = DEFAULT_
   const lvED = vol(edPose, cav, [-4.5, -4.5, -1], [4.5, 4.5, L + 0.6]);
   const lvES = vol(esPose, cav, [-4.5, -4.5, -1], [4.5, 4.5, L + 0.6]);
   const rvStructs = [Structure.RvCavity, Structure.Rvot];
-  // RV volume includes the RVOT up to the pulmonary valve plane (z = rvotB.z) but not the pulmonary trunk
-  const rvED = vol(edPose, rvStructs, [-8.5, -3.5, A.rvotB.z + edPose.pvZ], [1.5, 7, 8.5]);
-  const rvES = vol(esPose, rvStructs, [-8.5, -3.5, A.rvotB.z + esPose.pvZ], [1.5, 7, 8.5]);
+  // RV volume includes the outflow tract up to the pulmonary valve and not the trunk, whose blood is labelled apart. The box
+  // used to start at the height of the valve centre along the heart axis, a plane that cut 6-8 mL of infundibulum off every
+  // right ventricle and moved with the valve: placing the pulmonary root beside the aortic root (decision 112) took another
+  // 4-23 mL off without changing the chamber.
+  const rvED = vol(edPose, rvStructs, [-8.5, -3.5, -8.5], [1.5, 7, 8.5]);
+  const rvES = vol(esPose, rvStructs, [-8.5, -3.5, -8.5], [1.5, 7, 8.5]);
   const laMax = vol(esPose, [Structure.LaCavity], [-3.5, -7, -7], [4.5, 1.5, 1.5]);
   const laMin = vol(edPose, [Structure.LaCavity], [-3.5, -7, -7], [4.5, 1.5, 1.5]);
   const raMax = vol(esPose, [Structure.RaCavity], [-9, -4.5, -6.5], [-1, 3, 1.5]);
@@ -288,15 +291,21 @@ export function measureModel(c: CaseDefinition, patient: PatientState = DEFAULT_
   // leaflet is in fibrous continuity with the aortic valve) and from what the standard views require.
   const FS = 'cardiac-fibrous-skeleton';
   const dist = (p: Vec3, q: Vec3): number => Math.hypot(p.x - q.x, p.y - q.y, p.z - q.z);
-  add('av-pv-distance', 'Aortic–pulmonary valve centres', dist(A.avCenter, A.rvotB), 'cm', 2.3, 3.2, FS, true);
+  // Decision 112 moved the pulmonary root out of the aortic root, where these ranges had been set: with the centres 2.3 cm
+  // apart the aortic sinus and the anterior LV wall filled a quarter to two fifths of the pulmonary root. Placed by the least
+  // distance that clears it, the centres are 3.0-3.2 cm apart over ventricles of normal size and 3.6-3.7 cm over a dilated
+  // or thickened one, 1.8-2.2 cm cranial, 1.9-2.4 cm anterior and 1.4-1.8 cm to the left. The lower bound of the distance
+  // is now what two roots of adult size need; the upper bounds are plausibility bounds widened to what the placement
+  // gives, which still catch the valve twice as far away or on the wrong side of the aorta.
+  add('av-pv-distance', 'Aortic–pulmonary valve centres', dist(A.avCenter, A.rvotB), 'cm', 2.6, 3.8, FS, true);
   // «Higher» is craniocaudal in the BODY, so this is measured in the torso frame (+y superior). Written
   // first as a difference along the heart's base-apex axis, it accused correct anatomy of being wrong: that
   // axis is tilted with respect to the body, and a measure in the wrong frame is worse than no measure.
   const avTorso = heartToTorso(heart.frame, A.avCenter);
   const pvTorso = heartToTorso(heart.frame, A.rvotB);
-  add('pv-above-av', 'Pulmonary annulus above aortic', pvTorso.y - avTorso.y, 'cm', 1.0, 2.0, FS, true);
-  add('pv-anterior-av', 'Pulmonary annulus anterior to aortic', pvTorso.z - avTorso.z, 'cm', 0.8, 2.2, FS, true);
-  add('pv-left-av', "Pulmonary annulus left of aortic", pvTorso.x - avTorso.x, 'cm', 0.4, 1.6, FS, true);
+  add('pv-above-av', 'Pulmonary annulus above aortic', pvTorso.y - avTorso.y, 'cm', 1.0, 2.5, FS, true);
+  add('pv-anterior-av', 'Pulmonary annulus anterior to aortic', pvTorso.z - avTorso.z, 'cm', 0.8, 2.6, FS, true);
+  add('pv-left-av', "Pulmonary annulus left of aortic", pvTorso.x - avTorso.x, 'cm', 0.4, 2.0, FS, true);
   add('av-tv-distance', 'Aortic–tricuspid valve centres', dist(A.avCenter, A.tvCenter), 'cm', 3.0, 4.5, FS, true);
   add('av-mv-distance', 'Aortic–mitral valve centres', dist(A.avCenter, A.mvCenter), 'cm', 1.5, 2.8, FS, true);
   // The parasternal short axis of the great vessels shows a ROUND aorta surrounded by the other two valves,
