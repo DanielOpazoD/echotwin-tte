@@ -347,6 +347,38 @@ describe('beats of atrial fibrillation fill and eject by their own intervals (de
   });
 });
 
+describe('the annular velocity of chained beats has no spike where one beat hands over to the next (decision 114)', () => {
+  it('the first and last samples of each beat continue the slope of the beat, for the mitral and the tricuspid annulus', async () => {
+    // The velocity tables were the periodic derivative of the displacement: right for a beat that repeats, wrong for a
+    // chained beat, which starts where the previous one ended and ends elsewhere. Across that seam the first sample read
+    // -67 and +134 MAPSE per second in atrial fibrillation, a tissue Doppler spike of -96 and +192 cm/s at every QRS.
+    const { loadCaseById } = await import('@/cases');
+    const k = loadCaseById('af-diastolic');
+    const nominal = buildBeatTables(60 / k.rhythm.heartRateBpm, k.physiology, k.rhythm, k.hemodynamics);
+    const sv = k.physiology.edvMl - k.physiology.esvMl;
+    const problems: string[] = [];
+    let prev = nominal;
+    let prevRr = nominal.rrS;
+    for (const [i, rr] of [0.65, 0.42, 0.95, 0.38, 1.1].entries()) {
+      const eject = i === 0 ? sv : Math.min(1.2 * sv, Math.max(0.2 * sv, prev.endVolumeMl - k.physiology.esvMl));
+      const tb = buildBeatTables(rr, k.physiology, k.rhythm, k.hemodynamics, {
+        chain: { ejectMl: eject, mvAreaCm2: nominal.mvEffectiveAreaCm2, previousRrS: prevRr, startLongitudinal: i ? prev.endLongitudinal : 0, startRvLongitudinal: i ? prev.endRvLongitudinal : 0 },
+      });
+      for (const [name, v] of [['mitral', tb.longitudinalVelocity], ['tricuspid', tb.rvLongitudinalVelocity]] as const) {
+        const n = v.length;
+        // neighbouring samples one table step apart differ by what the course gives them, not by a spike
+        let inner = 0;
+        for (let j = 2; j < n - 1; j++) inner = Math.max(inner, Math.abs(v[j]! - v[j - 1]!));
+        const seam = Math.max(Math.abs(v[0]! - v[1]!), Math.abs(v[n - 1]! - v[n - 2]!));
+        if (seam > Math.max(0.5, 2 * inner)) problems.push(`RR ${rr} ${name}: first/last ${v[0]!.toFixed(2)}, ${v[n - 1]!.toFixed(2)} MAPSE/s against a largest step of ${inner.toFixed(2)} inside`);
+      }
+      prev = tb;
+      prevRr = rr;
+    }
+    expect(problems).toEqual([]);
+  });
+});
+
 describe('chained beats carry the respiratory factors of their inflows (decision 108)', () => {
   it('the mitral and tricuspid E waves take their factors, atrial contraction does not, and the right ventricle ejects its own filling', async () => {
     const { loadCaseById } = await import('@/cases');

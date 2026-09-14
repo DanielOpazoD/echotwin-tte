@@ -339,10 +339,17 @@ export function buildBeatTables(
     tauEarly = hi;
   }
   simulate(tauEarly, earlySpeed);
-  const derivative = (from: Float32Array, to: Float32Array): void => {
-    for (let i = 0; i < n; i++) to[i] = ((from[(i + 1) % n] ?? 0) - (from[(i - 1 + n) % n] ?? 0)) / (2 * dt);
+  // A beat that repeats is differentiated periodically. A chained beat starts where the previous one ended and ends elsewhere
+  // (decision 114): before its first sample comes the displacement it started from, and its last sample has no next one.
+  // Differentiated across that seam, the first sample read up to -625 MAPSE per second, a tissue Doppler spike at every QRS.
+  const derivative = (from: Float32Array, to: Float32Array, start: number | undefined): void => {
+    for (let i = 0; i < n; i++) {
+      if (start !== undefined && i === 0) to[i] = ((from[1] ?? 0) - start) / (2 * dt);
+      else if (start !== undefined && i === n - 1) to[i] = ((from[n - 1] ?? 0) - (from[n - 2] ?? 0)) / dt;
+      else to[i] = ((from[(i + 1) % n] ?? 0) - (from[(i - 1 + n) % n] ?? 0)) / (2 * dt);
+    }
   };
-  derivative(longitudinal, longVel);
+  derivative(longitudinal, longVel, af?.startLongitudinal);
 
   // Tricuspid annulus (decision 106): the right ventricle shortens along the same course, relaxes like the left one and
   // reaches its systolic peak velocity at the case S′ for its TAPSE, by compressing its ejection course in time. The tissue
@@ -351,7 +358,7 @@ export function buildBeatTables(
   const rvLongitudinal = new Float32Array(n);
   const rvLongVel = new Float32Array(n);
   const peakSystolicCmps = (): number => {
-    derivative(rvLongitudinal, rvLongVel);
+    derivative(rvLongitudinal, rvLongVel, af?.startRvLongitudinal);
     let peak = 0;
     for (let i = 0; i < n; i++) {
       const t = (i + 0.5) * dt;
@@ -369,7 +376,7 @@ export function buildBeatTables(
       else hi = mid;
     }
     simulate(tauEarly, earlySpeed, Math.sqrt(lo * hi), rvLongitudinal);
-    derivative(rvLongitudinal, rvLongVel);
+    derivative(rvLongitudinal, rvLongVel, af?.startRvLongitudinal);
   }
 
   return {
