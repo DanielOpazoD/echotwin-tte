@@ -23,7 +23,7 @@ export default tseslint.config(
     // but must not import formulas directly; it goes through simulator/measurements.
     files: ['src/ui/**/*.{ts,tsx}'],
     rules: {
-      'no-restricted-imports': ['error', { patterns: ['**/clinical/formulas/*'] }],
+      'no-restricted-imports': ['error', { patterns: ['**/clinical/formulas', '**/clinical/formulas/*'] }],
     },
   },
 );
