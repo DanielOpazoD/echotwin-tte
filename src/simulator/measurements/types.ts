@@ -1,4 +1,5 @@
 import type { TechniqueResult } from '@/education/technique';
+import type { SectorMapping } from '../renderer/scanConvert';
 
 /**
  * Measurement record (spec 16.6): every measurement keeps its provenance so scoring can judge
@@ -23,6 +24,7 @@ export interface Measurement {
   phase: number;
   timeS: number;
   geometry: { x: number; y: number }[]; // display pixels at capture
+  captureSector?: SectorMapping;
   derived?: Record<string, number>;
   imageQualityScore: number | null;
   userAssisted: boolean;
