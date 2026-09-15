@@ -7,6 +7,7 @@ import { reprojectGeometry } from '@/simulator/measurements/geometry';
 import { tgcAtDepth } from '@/simulator/renderer/postprocess/consolePipeline';
 import type { Measurement } from '@/simulator/measurements/types';
 import { frameBus } from '@/app/frameBus';
+import { ImageHud } from './ImageHud';
 import { discProfileFromContour, volumeFromProfileMl } from '@/simulator/measurements/simpson';
 import { summarizeEnvelope } from '@/simulator/measurements/vti';
 import { evaluateCapture, specFor, type CaptureExtras } from '@/app/measurementCapture';
@@ -514,6 +515,7 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
         onMouseLeave={onMouseUp}
         aria-label="Superposiciones y herramientas de medición"
       />
+      <ImageHud />
       <div className="disclaimer">
         Simulador educacional con pacientes sintéticos. No utilizar para diagnóstico ni toma de
         decisiones clínicas reales.

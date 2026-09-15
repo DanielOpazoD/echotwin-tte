@@ -51,6 +51,8 @@ export interface UiPrefs {
   devPanel: boolean;
   showEcg: boolean;
   tutorialDone: boolean;
+  /** Machine-style telemetry overlay on the image corners (case, vitals, acquisition params). */
+  showHud: boolean;
   /** Left navigation rail collapsed to the mini strip (score + expander). */
   railMini: boolean;
   consoleTab: ConsoleTab;
@@ -174,6 +176,7 @@ function savePrefs(ui: UiPrefs): void {
       showHints,
       showEcg,
       tutorialDone,
+      showHud,
       navSkin,
       navHeart,
       navChambers,
@@ -192,6 +195,7 @@ function savePrefs(ui: UiPrefs): void {
         showHints,
         showEcg,
         tutorialDone,
+        showHud,
         navSkin,
         navHeart,
         navChambers,
@@ -249,6 +253,7 @@ export const useSimStore = create<SimStore>((set) => ({
     devPanel: false,
     showEcg: true,
     tutorialDone: false,
+    showHud: true,
     railMini: false,
     consoleTab: 'adquirir',
     screen: 'simulator',

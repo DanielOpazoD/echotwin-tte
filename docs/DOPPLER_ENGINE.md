@@ -56,7 +56,7 @@ Con la escala PW máxima de la UI (2,5 m/s) el chorro de la EA aliasea siempre e
 | medium | 119 × 224 | 36,9 Hz | 7,9 Hz (55 líneas) |
 | high | 161 × 320 | 27,3 Hz | 5,8 Hz (74 líneas) |
 
-A 30 cm de profundidad (medium): 20,5 Hz; a 8 cm y 40° de sector: tope de 90 Hz. Estos valores fijan la cadencia del worker (acotada a 12–50 ms por paso) y el número que muestra la barra superior; el frame rate real de dibujo depende además del coste del render (20–35 ms).
+A 30 cm de profundidad (medium): 20,5 Hz; a 8 cm y 40° de sector: tope de 90 Hz. Estos valores fijan la cadencia del worker (acotada a 12–50 ms por paso) y el número que muestra el HUD sobre la imagen; el frame rate real de dibujo depende además del coste del render (20–35 ms).
 
 ## Contrato de datos
 - Entrada (`SimInput`): `modality`, `color` (`ColorSettings`), `spectral` (`SpectralSettings`), `cursorThetaRad`, `gateDepthCm`.

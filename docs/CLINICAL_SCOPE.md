@@ -75,7 +75,7 @@ La ventana supraesternal no existe: la aorta termina a 6,5 cm sin arco. Las vent
 |---|---|
 | `sandbox` | Todo visible: ayudas, componentes del score, panel Dev, referencias, verdad de terreno en el informe. |
 | `guided` | Igual que sandbox más selector de «vista objetivo» con score e hints canónicos. |
-| `exam` | Vacía progreso y mediciones; oculta hints, física, panel Dev y referencias; bloquea el cambio de caso y las pantallas Currículo/Progreso/Referencias; el informe oculta verdad y desviación hasta «Finalizar examen y ver puntuación», que congela y muestra el resumen de `src/education/scoring`. **Limitación conocida**: el score de la vista sigue visible en la barra superior (`TopBar.tsx`) y el torso 3D sigue mostrando el corazón; están listados en `docs/LIMITATIONS.md`. Sin límite de tiempo. |
+| `exam` | Vacía progreso y mediciones; oculta hints, física, panel Dev y referencias; bloquea el cambio de caso y las pantallas Currículo/Progreso/Referencias; el informe oculta verdad y desviación hasta «Finalizar examen y ver puntuación», que congela y muestra el resumen de `src/education/scoring`. **Limitación conocida**: el score de la vista sigue visible en el HUD sobre la imagen (`ImageHud.tsx`) y el torso 3D sigue mostrando el corazón; están listados en `docs/LIMITATIONS.md`. Sin límite de tiempo. |
 
 ## Mediciones y puntuación
 

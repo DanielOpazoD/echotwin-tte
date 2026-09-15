@@ -409,6 +409,41 @@ select:focus-visible {
   border-radius: 4px;
   pointer-events: none;
 }
+.img-hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  font-size: 11px;
+  color: #aab6c4;
+  font-variant-numeric: tabular-nums;
+}
+.hud-box {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.hud-box > * {
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+  padding: 2px 7px;
+  width: max-content;
+  max-width: 300px;
+}
+.hud-tl {
+  top: 8px;
+  left: 10px;
+}
+.hud-tr {
+  top: 8px;
+  right: 10px;
+  align-items: flex-end;
+}
+.hud-br {
+  bottom: 8px;
+  right: 10px;
+  align-items: flex-end;
+}
 .section {
   border: 1px solid var(--border);
   border-radius: 10px;

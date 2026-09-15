@@ -28,10 +28,10 @@ beforeEach(() => {
 });
 
 describe('TopBar', () => {
-  it('shows the live view and enables learning screens in sandbox', () => {
+  it('shows run state and enables learning screens in sandbox', () => {
     seed('sandbox');
     render(<TopBar />);
-    expect(screen.getByText('PLAX 91')).toBeTruthy();
+    expect(screen.getByText('LIVE')).toBeTruthy();
     for (const name of ['Currículo', 'Progreso', 'Referencias']) {
       expect(screen.getByRole('button', { name })).toHaveProperty('disabled', false);
     }
@@ -43,12 +43,5 @@ describe('TopBar', () => {
     for (const name of ['Currículo', 'Progreso', 'Referencias']) {
       expect(screen.getByRole('button', { name })).toHaveProperty('disabled', true);
     }
-  });
-
-  it('still shows the live view score in exam', () => {
-    // Pinned current defect: the score IS visible in exam; a later clinical PR hides it.
-    seed('exam');
-    render(<TopBar />);
-    expect(screen.getByText('PLAX 91')).toBeTruthy();
   });
 });
