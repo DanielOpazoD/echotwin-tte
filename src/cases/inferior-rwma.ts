@@ -10,12 +10,20 @@ export const inferiorRwmaCase: CaseDefinitionInput = {
   id: 'inferior-rwma',
   title: 'Alteración segmentaria inferior e inferolateral (infarto antiguo)',
   seed: 404,
-  history: 'Paciente sintético de 58 años, infarto inferior hace 8 meses, control de función ventricular. Sin datos reales de paciente.',
+  history:
+    'Paciente sintético de 58 años, infarto inferior hace 8 meses, control de función ventricular. Sin datos reales de paciente.',
   demographics: { ageYears: 58, sexForReference: 'male', heightCm: 175, weightKg: 80 },
   rhythm: { type: 'sinus', heartRateBpm: 70, rrVariabilityPct: 2, pvcProbability: 0.02 },
   anatomy: {
     ...normalExcellentCase.anatomy,
-    lv: { eddCm: 5.2, lengthEdCm: 8.8, ivsdCm: 0.95, lvpwdCm: 0.9, sphericity: 0.55, apexWallThicknessCm: 0.7 },
+    lv: {
+      eddCm: 5.2,
+      lengthEdCm: 8.8,
+      ivsdCm: 0.95,
+      lvpwdCm: 0.9,
+      sphericity: 0.55,
+      apexWallThicknessCm: 0.7,
+    },
     la: { apDiameterCm: 3.7, volumeMl: 56 },
     wallMotion: [
       { segment: 4, amplitude: 0.05, delayPhase: 0.05 },
@@ -25,8 +33,26 @@ export const inferiorRwmaCase: CaseDefinitionInput = {
       { segment: 15, amplitude: 0.45, delayPhase: 0.02 },
     ],
   },
-  physiology: { ...normalExcellentCase.physiology, edvMl: 145, esvMl: 78, mapseCm: 1.1, ePeakMps: 0.7, aPeakMps: 0.75, decelerationTimeMs: 215, ivrtMs: 95, ePrimeSeptalCmps: 6, ePrimeLateralCmps: 8 },
-  hemodynamics: { ...normalExcellentCase.hemodynamics, systolicBpMmHg: 130, diastolicBpMmHg: 78, paspMmHg: 32, lvotPeakGradientMmHg: 0, regurgitation: {} },
+  physiology: {
+    ...normalExcellentCase.physiology,
+    edvMl: 145,
+    esvMl: 78,
+    mapseCm: 1.1,
+    ePeakMps: 0.7,
+    aPeakMps: 0.75,
+    decelerationTimeMs: 215,
+    ivrtMs: 95,
+    ePrimeSeptalCmps: 6,
+    ePrimeLateralCmps: 8,
+  },
+  hemodynamics: {
+    ...normalExcellentCase.hemodynamics,
+    systolicBpMmHg: 130,
+    diastolicBpMmHg: 78,
+    paspMmHg: 32,
+    lvotPeakGradientMmHg: 0,
+    regurgitation: {},
+  },
   learningObjectives: [
     'Identificar acinesia de los segmentos inferior e inferolateral en PSAX papilar, A2C y A3C usando el modelo de 17 segmentos.',
     'Estimar la FEVI por Simpson biplano cuando la disfunción es regional (la FE global subestima la magnitud del daño).',
@@ -44,7 +70,12 @@ export const inferiorRwmaCase: CaseDefinitionInput = {
     { measurementId: 'lv-esv-simpson', tolerancePct: 18 },
   ],
   difficulty: 3,
-  references: [{ referenceId: 'ase-eacvi-chamber-2015', usage: 'modelo de 17 segmentos y puntuación de motilidad' }],
+  references: [
+    {
+      referenceId: 'ase-eacvi-chamber-2015',
+      usage: 'modelo de 17 segmentos y puntuación de motilidad',
+    },
+  ],
   impressionTruth: [
     'Acinesia de los segmentos inferior e inferolateral basal y medio con hipocinesia del segmento inferior apical, compatible con infarto inferior antiguo.',
     'Función sistólica global levemente reducida (FEVI ≈ 46 %); ventrículo izquierdo de tamaño normal.',

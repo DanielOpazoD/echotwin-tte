@@ -59,7 +59,14 @@ export function apicalGeometry(img: RegionImage, view: '4CH' | '2CH'): ApicalGeo
         cy += y;
         cn++;
       }
-  const nan: ApicalGeometry = { apexOffsetMm: NaN, apexDepthMm: NaN, axisTiltDeg: NaN, septalRayAngleDeg: NaN, lateralRayAngleDeg: NaN, septalMinusLateralGrey: NaN };
+  const nan: ApicalGeometry = {
+    apexOffsetMm: NaN,
+    apexDepthMm: NaN,
+    axisTiltDeg: NaN,
+    septalRayAngleDeg: NaN,
+    lateralRayAngleDeg: NaN,
+    septalMinusLateralGrey: NaN,
+  };
   if (vy < 0 || cn === 0) return nan;
   const len = Math.hypot(cx / cn - vx, cy / cn - vy);
   const ux = (cx / cn - vx) / len,
@@ -84,7 +91,9 @@ export function apicalGeometry(img: RegionImage, view: '4CH' | '2CH'): ApicalGeo
   const basal = rows.filter((r) => r.y >= bottom.y - 0.1 * (bottom.y - top.y));
   const baseX = basal.reduce((a, r) => a + (r.left + r.right) / 2, 0) / basal.length,
     baseY = basal.reduce((a, r) => a + r.y, 0) / basal.length;
-  const mid = rows.filter((r) => r.y >= top.y + 0.3 * (bottom.y - top.y) && r.y <= top.y + 0.7 * (bottom.y - top.y));
+  const mid = rows.filter(
+    (r) => r.y >= top.y + 0.3 * (bottom.y - top.y) && r.y <= top.y + 0.7 * (bottom.y - top.y),
+  );
   // walls over mid-cavity rows: outer edge of the myocardium on each side and the wall centre
   const walls = mid.map((r) => {
     let lo = r.left - 1;
@@ -116,7 +125,8 @@ export function apicalGeometry(img: RegionImage, view: '4CH' | '2CH'): ApicalGeo
   const lx = baseX - apexX,
     ly = baseY - apexY;
   const ll = Math.hypot(lx, ly);
-  const axisTiltDeg = (sign * Math.asin(Math.max(-1, Math.min(1, (lx * rightX + ly * rightY) / ll))) * 180) / Math.PI;
+  const axisTiltDeg =
+    (sign * Math.asin(Math.max(-1, Math.min(1, (lx * rightX + ly * rightY) / ll))) * 180) / Math.PI;
   if (view !== '4CH' || walls.length < 5) return { ...nan, apexOffsetMm, apexDepthMm, axisTiltDeg };
   const rayAngle = (key: 'lc' | 'rc'): number => {
     const n = walls.length;

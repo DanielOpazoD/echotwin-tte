@@ -23,7 +23,12 @@ describe('summarizeEnvelope', () => {
   });
 
   it('returns zeros for an empty or single-point envelope', () => {
-    expect(summarizeEnvelope([], 0.01)).toEqual({ vtiCm: 0, vmaxMps: 0, meanGradientMmHg: 0, peakGradientMmHg: 0 });
+    expect(summarizeEnvelope([], 0.01)).toEqual({
+      vtiCm: 0,
+      vmaxMps: 0,
+      meanGradientMmHg: 0,
+      peakGradientMmHg: 0,
+    });
     expect(summarizeEnvelope([1.2], 0.01).vtiCm).toBe(0);
   });
 });

@@ -27,9 +27,17 @@ const scene: Scene = {
   heart,
   heartPose: computeHeartPose(heart, cycleStateAt(tables, 0.3)),
   thorax,
-  physics: { frequencyMHz: 2.5, harmonics: true, clutterLevel: 0.2, windowAttenuation: 0.1, seed: c.seed },
+  physics: {
+    frequencyMHz: 2.5,
+    harmonics: true,
+    clutterLevel: 0.2,
+    windowAttenuation: 0.1,
+    seed: c.seed,
+  },
 };
-const beam = beamFrameFromPose(poseFromControl(thorax, canonicalControl(getViewTarget('plax'), heart, thorax)));
+const beam = beamFrameFromPose(
+  poseFromControl(thorax, canonicalControl(getViewTarget('plax'), heart, thorax)),
+);
 const spec = polarSpecFor(DEFAULT_ACQUISITION, 'low');
 
 describe('GPU parameter layout', () => {

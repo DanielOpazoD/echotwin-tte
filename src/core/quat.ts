@@ -111,5 +111,10 @@ export function qSlerp(a: Quat, b: Quat, t: number): Quat {
   const s = Math.sin(theta);
   const wa = Math.sin((1 - t) * theta) / s;
   const wb = Math.sin(t * theta) / s;
-  return { x: a.x * wa + bx * wb, y: a.y * wa + by * wb, z: a.z * wa + bz * wb, w: a.w * wa + bw * wb };
+  return {
+    x: a.x * wa + bx * wb,
+    y: a.y * wa + by * wb,
+    z: a.z * wa + bz * wb,
+    w: a.w * wa + bw * wb,
+  };
 }

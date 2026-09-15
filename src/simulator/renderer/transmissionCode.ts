@@ -4,7 +4,9 @@
  * the atlas cache (compact frames) and the GPU console, whose packed read-back carries it (decision 54).
  */
 export const TRANS_K = 9.2;
-export const TRANS_DECODE = Float32Array.from({ length: 256 }, (_, u) => Math.exp((-u * TRANS_K) / 255));
+export const TRANS_DECODE = Float32Array.from({ length: 256 }, (_, u) =>
+  Math.exp((-u * TRANS_K) / 255),
+);
 
 export function encodeTransmission(t: number): number {
   const v = Math.round((-Math.log(Math.max(1e-4, Math.min(1, t))) / TRANS_K) * 255);

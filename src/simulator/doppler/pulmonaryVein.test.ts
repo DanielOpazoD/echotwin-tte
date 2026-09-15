@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { loadCaseById } from '@/cases';
 import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
-import { computeHeartPose, createHeartModel, heartAnchors, heartLandmarks } from '@/simulator/anatomy/heartModel';
+import {
+  computeHeartPose,
+  createHeartModel,
+  heartAnchors,
+  heartLandmarks,
+} from '@/simulator/anatomy/heartModel';
 import { createThoraxModel } from '@/simulator/anatomy/thoraxModel';
 import { buildFlowParams, pulmonaryVeinPeaks, sampleFlow } from './flow-primitives/flowField';
 import { SimulatorCore } from '@/simulator/core/simulatorCore';
@@ -10,10 +15,19 @@ import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets
 
 function setup(id: string) {
   const c = loadCaseById(id);
-  const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, { position: 'left-lateral', respiration: 'expiration', headElevationDeg: 0 });
+  const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, {
+    position: 'left-lateral',
+    respiration: 'expiration',
+    headElevationDeg: 0,
+  });
   const heart = createHeartModel(c.anatomy, c.physiology, thorax.heartOffset, c.seed);
   heartLandmarks(heart);
-  const tables = buildBeatTables(60 / c.rhythm.heartRateBpm, c.physiology, c.rhythm, c.hemodynamics);
+  const tables = buildBeatTables(
+    60 / c.rhythm.heartRateBpm,
+    c.physiology,
+    c.rhythm,
+    c.hemodynamics,
+  );
   computeHeartPose(heart, cycleStateAt(tables, 0));
   return { c, heart, thorax, tables, flow: buildFlowParams(c, heart, tables) };
 }
@@ -57,7 +71,10 @@ describe('pulmonary venous flow and colour M-mode', () => {
   it('colour M-mode strip carries aliased velocities along the cursor through the mitral inflow', () => {
     const { c, heart, thorax } = setup('normal-excellent-window');
     const a4c = canonicalControl(getViewTarget('a4c'), heart, thorax);
-    const core = new SimulatorCore(c, baseInput({ probe: a4c, modality: 'cmm', quality: 'low', cursorThetaRad: 0.05 }));
+    const core = new SimulatorCore(
+      c,
+      baseInput({ probe: a4c, modality: 'cmm', quality: 'low', cursorThetaRad: 0.05 }),
+    );
     let out = null;
     for (let i = 0; i < 40; i++) out = core.step(0.03) ?? out;
     expect(out?.strip.kind).toBe('m-mode');
@@ -81,7 +98,14 @@ describe('pulmonary venous flow and colour M-mode', () => {
     const plax = canonicalControl(getViewTarget('plax'), heart, thorax);
     // two identical cores stepped in lockstep (same seed, same phases): only the overrides differ
     const coreA = new SimulatorCore(c, baseInput({ probe: plax, quality: 'low' }));
-    const coreB = new SimulatorCore(c, baseInput({ probe: plax, quality: 'low', artifactOverrides: { sideLobe: 1, mirror: 1, beamWidth: 1, clutter: 1 } }));
+    const coreB = new SimulatorCore(
+      c,
+      baseInput({
+        probe: plax,
+        quality: 'low',
+        artifactOverrides: { sideLobe: 1, mirror: 1, beamWidth: 1, clutter: 1 },
+      }),
+    );
     let a = null,
       b = null;
     for (let i = 0; i < 3; i++) {

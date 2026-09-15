@@ -35,7 +35,13 @@ export function axialFwhmMm(frequencyMHz: number, harmonics: boolean): number {
  * transmit focus modelled as a Gaussian beam (waist at the focus, Rayleigh range from the waist). Harmonic
  * imaging narrows the beam; the case artifact "beam width" widens it away from the focus.
  */
-export function lateralFwhmMm(rCm: number, focusCm: number, frequencyMHz: number, harmonics: boolean, beamWidthBoost = 0): number {
+export function lateralFwhmMm(
+  rCm: number,
+  focusCm: number,
+  frequencyMHz: number,
+  harmonics: boolean,
+  beamWidthBoost = 0,
+): number {
   const lambda = 1.54 / frequencyMHz;
   const rMm = Math.max(1, rCm * 10);
   const fMm = Math.max(10, focusCm * 10);
@@ -44,7 +50,11 @@ export function lateralFwhmMm(rCm: number, focusCm: number, frequencyMHz: number
   const zR = (Math.PI * (w0 / 1.177) ** 2) / lambda;
   const tx = w0 * Math.sqrt(1 + ((rMm - fMm) / zR) ** 2);
   const twoWay = 1 / Math.sqrt(1 / (tx * tx) + 1 / (rx * rx));
-  return twoWay * (harmonics ? 0.8 : 1) * (1 + 1.6 * beamWidthBoost * Math.min(1, Math.abs(rCm - focusCm) / 6));
+  return (
+    twoWay *
+    (harmonics ? 0.8 : 1) *
+    (1 + 1.6 * beamWidthBoost * Math.min(1, Math.abs(rCm - focusCm) / 6))
+  );
 }
 
 export interface PsfKernels {
@@ -73,11 +83,21 @@ function gaussianTaps(sigma: number, maxRadius: number, out: Float32Array, centr
   return R;
 }
 
-export function psfKey(spec: PolarFrameSpec, frequencyMHz: number, harmonics: boolean, beamWidthBoost: number): string {
+export function psfKey(
+  spec: PolarFrameSpec,
+  frequencyMHz: number,
+  harmonics: boolean,
+  beamWidthBoost: number,
+): string {
   return `${spec.lines}x${spec.samples}|${spec.depthCm}|${spec.sectorRad.toFixed(5)}|${spec.focusCm}|${frequencyMHz}|${harmonics ? 1 : 0}|${beamWidthBoost.toFixed(3)}`;
 }
 
-export function buildPsfKernels(spec: PolarFrameSpec, frequencyMHz: number, harmonics: boolean, beamWidthBoost = 0): PsfKernels {
+export function buildPsfKernels(
+  spec: PolarFrameSpec,
+  frequencyMHz: number,
+  harmonics: boolean,
+  beamWidthBoost = 0,
+): PsfKernels {
   const dr = spec.depthCm / spec.samples;
   const dTheta = spec.sectorRad / spec.lines;
   const axial = new Float32Array(2 * MAX_AXIAL_RADIUS + 1);
@@ -87,16 +107,39 @@ export function buildPsfKernels(spec: PolarFrameSpec, frequencyMHz: number, harm
   const lateralRadius = new Uint8Array(spec.samples);
   for (let si = 0; si < spec.samples; si++) {
     const r = (si + 0.5) * dr;
-    const sigmaLines = (lateralFwhmMm(r, spec.focusCm, frequencyMHz, harmonics, beamWidthBoost) / 10 / (r * dTheta)) * FWHM_TO_SIGMA;
-    lateralRadius[si] = gaussianTaps(sigmaLines, MAX_LATERAL_RADIUS, lateral, si * LATERAL_TAPS + MAX_LATERAL_RADIUS);
+    const sigmaLines =
+      (lateralFwhmMm(r, spec.focusCm, frequencyMHz, harmonics, beamWidthBoost) /
+        10 /
+        (r * dTheta)) *
+      FWHM_TO_SIGMA;
+    lateralRadius[si] = gaussianTaps(
+      sigmaLines,
+      MAX_LATERAL_RADIUS,
+      lateral,
+      si * LATERAL_TAPS + MAX_LATERAL_RADIUS,
+    );
   }
   // shift the axial taps so index 0 is offset −R (compact)
   const compact = axial.slice(MAX_AXIAL_RADIUS - axialRadius, MAX_AXIAL_RADIUS + axialRadius + 1);
-  return { key: psfKey(spec, frequencyMHz, harmonics, beamWidthBoost), axialRadius, axial: compact, lateralRadius, lateral };
+  return {
+    key: psfKey(spec, frequencyMHz, harmonics, beamWidthBoost),
+    axialRadius,
+    axial: compact,
+    lateralRadius,
+    lateral,
+  };
 }
 
 /** Axial filter of one line of complex samples (clamped at the ends) into tmp arrays. */
-function axialPass(re: Float32Array, im: Float32Array, base: number, samples: number, k: PsfKernels, tmpRe: Float32Array, tmpIm: Float32Array): void {
+function axialPass(
+  re: Float32Array,
+  im: Float32Array,
+  base: number,
+  samples: number,
+  k: PsfKernels,
+  tmpRe: Float32Array,
+  tmpIm: Float32Array,
+): void {
   const R = k.axialRadius;
   const w = k.axial;
   const last = samples - 1;
@@ -116,7 +159,16 @@ function axialPass(re: Float32Array, im: Float32Array, base: number, samples: nu
 }
 
 /** Separable PSF on a full frame of complex samples followed by envelope detection into `outAmp`. */
-export function formEnvelope(re: Float32Array, im: Float32Array, lines: number, samples: number, k: PsfKernels, outAmp: Float32Array, tmpRe: Float32Array, tmpIm: Float32Array): void {
+export function formEnvelope(
+  re: Float32Array,
+  im: Float32Array,
+  lines: number,
+  samples: number,
+  k: PsfKernels,
+  outAmp: Float32Array,
+  tmpRe: Float32Array,
+  tmpIm: Float32Array,
+): void {
   for (let li = 0; li < lines; li++) axialPass(re, im, li * samples, samples, k, tmpRe, tmpIm);
   const lastLine = lines - 1;
   for (let si = 0; si < samples; si++) {
@@ -182,7 +234,11 @@ export const LINE_LATTICE_PATH: readonly [number, number, number] = [1, 0.618034
  * 0.18 mm along one axis). A Monte Carlo over the lattice agreed with the axis-aligned value within 0.05 dB for every
  * oblique material direction tried, so a frame line needs no direction.
  */
-export function filteredScattererPower(axial: Float32Array, drCm: number, path: readonly number[] = [1, 0, 0]): number {
+export function filteredScattererPower(
+  axial: Float32Array,
+  drCm: number,
+  path: readonly number[] = [1, 0, 0],
+): number {
   const n = axial.length;
   const corr = (cells: number): number => {
     let c = 1;
@@ -225,18 +281,33 @@ export interface LineKernels extends PsfKernels {
   elevationCells: Float32Array;
 }
 
-export function lineKernelKey(frame: PolarFrameSpec, samples: number, frequencyMHz: number, harmonics: boolean, beamWidthBoost: number): string {
+export function lineKernelKey(
+  frame: PolarFrameSpec,
+  samples: number,
+  frequencyMHz: number,
+  harmonics: boolean,
+  beamWidthBoost: number,
+): string {
   return `line${samples}|${psfKey(frame, frequencyMHz, harmonics, beamWidthBoost)}`;
 }
 
-export function buildLineKernels(frame: PolarFrameSpec, samples: number, frequencyMHz: number, harmonics: boolean, beamWidthBoost = 0): LineKernels {
+export function buildLineKernels(
+  frame: PolarFrameSpec,
+  samples: number,
+  frequencyMHz: number,
+  harmonics: boolean,
+  beamWidthBoost = 0,
+): LineKernels {
   const ref = buildPsfKernels(frame, frequencyMHz, harmonics, beamWidthBoost);
   const drFrame = frame.depthCm / frame.samples;
   const dr = frame.depthCm / samples;
   const taps = new Float32Array(2 * MAX_LINE_AXIAL_RADIUS + 1);
   const sigma = (axialFwhmMm(frequencyMHz, harmonics) / 10 / dr) * FWHM_TO_SIGMA;
   const axialRadius = gaussianTaps(sigma, MAX_LINE_AXIAL_RADIUS, taps, MAX_LINE_AXIAL_RADIUS);
-  const axial = taps.slice(MAX_LINE_AXIAL_RADIUS - axialRadius, MAX_LINE_AXIAL_RADIUS + axialRadius + 1);
+  const axial = taps.slice(
+    MAX_LINE_AXIAL_RADIUS - axialRadius,
+    MAX_LINE_AXIAL_RADIUS + axialRadius + 1,
+  );
   const peak = (k: Float32Array, R: number, width: number): number => {
     let s = 0;
     for (let j = 0; j < width && R + j < k.length; j++) s += k[R + j]!;
@@ -247,7 +318,8 @@ export function buildLineKernels(frame: PolarFrameSpec, samples: number, frequen
   const elevationCells = new Float32Array(samples);
   for (let si = 0; si < samples; si++) {
     const r = (si + 0.5) * dr;
-    lateralCells[si] = 10 / lateralFwhmMm(r, frame.focusCm, frequencyMHz, harmonics, beamWidthBoost);
+    lateralCells[si] =
+      10 / lateralFwhmMm(r, frame.focusCm, frequencyMHz, harmonics, beamWidthBoost);
     elevationCells[si] = 1 / (2 * sliceHalfWidthCm(r, frame.focusCm));
   }
   return {
@@ -257,8 +329,13 @@ export function buildLineKernels(frame: PolarFrameSpec, samples: number, frequen
     axial,
     lateralRadius: new Uint8Array(0),
     lateral: new Float32Array(0),
-    incoherent: Math.sqrt(filteredScattererPower(ref.axial, drFrame) / filteredScattererPower(axial, dr, LINE_LATTICE_PATH)),
-    incoherentAxial: Math.sqrt(filteredScattererPower(ref.axial, drFrame) / filteredScattererPower(axial, dr)),
+    incoherent: Math.sqrt(
+      filteredScattererPower(ref.axial, drFrame) /
+        filteredScattererPower(axial, dr, LINE_LATTICE_PATH),
+    ),
+    incoherentAxial: Math.sqrt(
+      filteredScattererPower(ref.axial, drFrame) / filteredScattererPower(axial, dr),
+    ),
     specular: peak(ref.axial, ref.axialRadius, 2) / peak(axial, axialRadius, 2),
     single: peak(ref.axial, ref.axialRadius, 1) / peak(axial, axialRadius, 1),
     smooth: sum(ref.axial) / sum(axial),
@@ -268,7 +345,15 @@ export function buildLineKernels(frame: PolarFrameSpec, samples: number, frequen
 }
 
 /** Single scanline (M-mode): axial PSF and envelope only; the lateral beam enters through `LineKernels` (decision 84). */
-export function formEnvelopeLine(re: Float32Array, im: Float32Array, samples: number, k: PsfKernels, outAmp: Float32Array, tmpRe: Float32Array, tmpIm: Float32Array): void {
+export function formEnvelopeLine(
+  re: Float32Array,
+  im: Float32Array,
+  samples: number,
+  k: PsfKernels,
+  outAmp: Float32Array,
+  tmpRe: Float32Array,
+  tmpIm: Float32Array,
+): void {
   axialPass(re, im, 0, samples, k, tmpRe, tmpIm);
   for (let si = 0; si < samples; si++) {
     const a = tmpRe[si]!,
@@ -285,11 +370,24 @@ export function formEnvelopeLine(re: Float32Array, im: Float32Array, samples: nu
  * receive one), so the reuse errs in opposite directions on the two axes. An M-mode line has no neighbours and takes the
  * axial response at its own finer sampling (decision 84).
  */
-export function buildNoiseKernels(spec: PolarFrameSpec, frequencyMHz: number, harmonics: boolean): PsfKernels {
-  if (spec.lines > 1) return { ...buildPsfKernels(spec, frequencyMHz, harmonics, 0), key: `noise|${psfKey(spec, frequencyMHz, harmonics, 0)}` };
+export function buildNoiseKernels(
+  spec: PolarFrameSpec,
+  frequencyMHz: number,
+  harmonics: boolean,
+): PsfKernels {
+  if (spec.lines > 1)
+    return {
+      ...buildPsfKernels(spec, frequencyMHz, harmonics, 0),
+      key: `noise|${psfKey(spec, frequencyMHz, harmonics, 0)}`,
+    };
   const dr = spec.depthCm / spec.samples;
   const taps = new Float32Array(2 * MAX_LINE_AXIAL_RADIUS + 1);
-  const axialRadius = gaussianTaps((axialFwhmMm(frequencyMHz, harmonics) / 10 / dr) * FWHM_TO_SIGMA, MAX_LINE_AXIAL_RADIUS, taps, MAX_LINE_AXIAL_RADIUS);
+  const axialRadius = gaussianTaps(
+    (axialFwhmMm(frequencyMHz, harmonics) / 10 / dr) * FWHM_TO_SIGMA,
+    MAX_LINE_AXIAL_RADIUS,
+    taps,
+    MAX_LINE_AXIAL_RADIUS,
+  );
   return {
     key: `noise|${psfKey(spec, frequencyMHz, harmonics, 0)}`,
     axialRadius,
@@ -300,7 +398,15 @@ export function buildNoiseKernels(spec: PolarFrameSpec, frequencyMHz: number, ha
 }
 
 /** Separable filter of a frame of complex samples, in place in `re`/`im`: the axial pass, then the lateral one when the frame has more than one line. */
-export function filterComplex(re: Float32Array, im: Float32Array, lines: number, samples: number, k: PsfKernels, tmpRe: Float32Array, tmpIm: Float32Array): void {
+export function filterComplex(
+  re: Float32Array,
+  im: Float32Array,
+  lines: number,
+  samples: number,
+  k: PsfKernels,
+  tmpRe: Float32Array,
+  tmpIm: Float32Array,
+): void {
   for (let li = 0; li < lines; li++) axialPass(re, im, li * samples, samples, k, tmpRe, tmpIm);
   if (lines === 1) {
     re.set(tmpRe.subarray(0, samples));

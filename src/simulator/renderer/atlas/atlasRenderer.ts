@@ -1,5 +1,12 @@
 import type { BeamFrame } from '@/simulator/probe/pose';
-import type { DisplayConsole, PolarFrame, PolarFrameSpec, RenderHints, RendererBackend, Scene } from '../types';
+import type {
+  DisplayConsole,
+  PolarFrame,
+  PolarFrameSpec,
+  RenderHints,
+  RendererBackend,
+  Scene,
+} from '../types';
 import { qAngleBetween, qFromBasis } from '@/core/quat';
 import { distance } from '@/core/vec3';
 import { decodeTransmission, encodeTransmission, TRANS_DECODE } from '../transmissionCode';
@@ -96,7 +103,14 @@ export class AtlasRenderer implements RendererBackend {
   }
 
   private static sameSpec(a: PolarFrameSpec, b: PolarFrameSpec): boolean {
-    return a.lines === b.lines && a.samples === b.samples && a.depthCm === b.depthCm && Math.abs(a.sectorRad - b.sectorRad) < 1e-6 && a.elevationSamples === b.elevationSamples && a.focusCm === b.focusCm;
+    return (
+      a.lines === b.lines &&
+      a.samples === b.samples &&
+      a.depthCm === b.depthCm &&
+      Math.abs(a.sectorRad - b.sectorRad) < 1e-6 &&
+      a.elevationSamples === b.elevationSamples &&
+      a.focusCm === b.focusCm
+    );
   }
 
   /** Mode of the next frame under the cost hysteresis, without changing any state. */
@@ -118,18 +132,35 @@ export class AtlasRenderer implements RendererBackend {
     this.sourceMs = this.sourceMs < 0 ? cost : this.sourceMs + COST_EMA * (cost - this.sourceMs);
   }
 
-  renderDisplay(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, phase: number, out: PolarFrame, hints: RenderHints | undefined, con: DisplayConsole, display: Uint8ClampedArray): boolean {
+  renderDisplay(
+    scene: Scene,
+    beam: BeamFrame,
+    spec: PolarFrameSpec,
+    phase: number,
+    out: PolarFrame,
+    hints: RenderHints | undefined,
+    con: DisplayConsole,
+    display: Uint8ClampedArray,
+  ): boolean {
     const budget = hints?.budgetMs ?? Infinity;
     if (!this.source.renderDisplay || this.nextMode(budget) !== 'direct') return false;
     const t0 = performance.now();
     this.advanceMode(budget);
-    if (!this.source.renderDisplay(scene, beam, spec, phase, out, hints, con, display)) return false;
+    if (!this.source.renderDisplay(scene, beam, spec, phase, out, hints, con, display))
+      return false;
     this.measureSource(performance.now() - t0);
     this.composeStats('direct', Infinity, null, t0, hints);
     return true;
   }
 
-  render(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, phase: number, out: PolarFrame, hints?: RenderHints): void {
+  render(
+    scene: Scene,
+    beam: BeamFrame,
+    spec: PolarFrameSpec,
+    phase: number,
+    out: PolarFrame,
+    hints?: RenderHints,
+  ): void {
     const t0 = performance.now();
     const n = spec.lines * spec.samples;
     this.advanceMode(hints?.budgetMs ?? Infinity);
@@ -173,7 +204,11 @@ export class AtlasRenderer implements RendererBackend {
       this.source.render(scene, beam, spec, phase, out);
       this.measureSource(performance.now() - ts);
       // without a scene for arbitrary phases, keep frames that happen to fall on their slot (±¼ slot)
-      if (this.mode === 'cache' && hints?.stationary && Math.abs(slotF - Math.round(slotF)) <= SLOT_TOLERANCE) {
+      if (
+        this.mode === 'cache' &&
+        hints?.stationary &&
+        Math.abs(slotF - Math.round(slotF)) <= SLOT_TOLERANCE
+      ) {
         cine ??= this.addAnchor(beam, spec);
         if (!cine.amp[slot]) {
           this.store(cine, slot, out, n);
@@ -186,11 +221,19 @@ export class AtlasRenderer implements RendererBackend {
     this.composeStats(served, nearest, cine, t0, hints);
   }
 
-  private composeStats(served: 'direct' | 'cache', nearest: number, cine: Anchor | null, t0: number, hints: RenderHints | undefined): void {
+  private composeStats(
+    served: 'direct' | 'cache',
+    nearest: number,
+    cine: Anchor | null,
+    t0: number,
+    hints: RenderHints | undefined,
+  ): void {
     const src = this.source.stats();
     this.lastStats = {
       source: this.source.id,
-      ...(typeof src['gpuMs'] === 'number' ? { gpuMs: src['gpuMs'], readMs: src['readMs'] ?? 0, output: src['output'] ?? 'float' } : {}),
+      ...(typeof src['gpuMs'] === 'number'
+        ? { gpuMs: src['gpuMs'], readMs: src['readMs'] ?? 0, output: src['output'] ?? 'float' }
+        : {}),
       mode: this.mode,
       served,
       atlasAnchors: this.anchors.length,
@@ -198,7 +241,14 @@ export class AtlasRenderer implements RendererBackend {
       cineFill: cine ? `${cine.filled}/${ATLAS_PHASES}` : '-',
       sourceMs: Number(this.sourceMs.toFixed(2)),
       renderMs: Number((performance.now() - t0).toFixed(2)),
-      building: this.mode === 'direct' ? 'direct' : !hints?.stationary ? 'moving' : cine && cine.filled === ATLAS_PHASES ? 'idle' : `${cine?.filled ?? 0}/${ATLAS_PHASES}`,
+      building:
+        this.mode === 'direct'
+          ? 'direct'
+          : !hints?.stationary
+            ? 'moving'
+            : cine && cine.filled === ATLAS_PHASES
+              ? 'idle'
+              : `${cine?.filled ?? 0}/${ATLAS_PHASES}`,
     };
   }
 

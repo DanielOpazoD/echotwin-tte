@@ -161,7 +161,16 @@ export function anchors(m: HeartModel): Anchors {
     rvApexFrac: Math.min(0.9, Math.max(0.7, (a.rv.lengthCm + 0.8) / L)),
     // tricuspid annulus: its medial edge sits on the RV side of the septum, whatever the LV size or wall thickness
     // the tricuspid annulus is ~0.7 cm more apical than the mitral (normal apical offset 0.5–1 cm)
-    tvCenter: v3(-(m.lv.rMax * lvProfileG(m.lv.shape, 0.12) + a.lv.ivsdCm + 0.25 + a.tricuspid.annulusDiameterCm / 2), -0.2, 0.7),
+    tvCenter: v3(
+      -(
+        m.lv.rMax * lvProfileG(m.lv.shape, 0.12) +
+        a.lv.ivsdCm +
+        0.25 +
+        a.tricuspid.annulusDiameterCm / 2
+      ),
+      -0.2,
+      0.7,
+    ),
     tvR: a.tricuspid.annulusDiameterCm / 2,
     // the inlet sits deep in the anterior RV: pulling the whole tract up to the repositioned pulmonary valve
     // shortened it from 4.3 to 2.6 cm and cost the right ventricle 13% of its volume (162 -> 141 mL in the
@@ -202,7 +211,10 @@ export function anchors(m: HeartModel): Anchors {
     ivcB: add(ivcA, scale(ivcDir, 5.0)),
     ivcR: a.ivc.diameterCm / 2,
     hvA,
-    hvB: add(hvA, scale(normalize(add(add(scale(tPost, 0.6), scale(tRight, 0.5)), scale(tInf, 0.3))), 2.5)),
+    hvB: add(
+      hvA,
+      scale(normalize(add(add(scale(tPost, 0.6), scale(tRight, 0.5)), scale(tInf, 0.3))), 2.5),
+    ),
     // papillary azimuths (model frame = AHA − 28°): anterolateral at the lateral wall (AHA ≈ 0°, 3 o'clock in
     // PSAX), posteromedial at the inferior / inferoseptal junction (AHA ≈ 250°, 7–8 o'clock)
     papAzAL: -0.5,
@@ -240,33 +252,98 @@ export function heartLandmarks(m: HeartModel): Landmark[] {
     { id: 'mv', label: 'Válvula mitral', p: v3(0.2, -0.9, 0.7), radius: 1.2 },
     { id: 'av', label: 'Válvula aórtica', p: A.avCenter, radius: 1.0 },
     { id: 'lvot', label: 'TSVI', p: add(A.avCenter, scale(A.avAxis, -0.55)), radius: 0.9 },
-    { id: 'aortic-root', label: 'Raíz aórtica', p: add(A.avCenter, scale(A.avAxis, 2.2)), radius: 1.1 },
+    {
+      id: 'aortic-root',
+      label: 'Raíz aórtica',
+      p: add(A.avCenter, scale(A.avAxis, 2.2)),
+      radius: 1.1,
+    },
     { id: 'la', label: 'Aurícula izquierda', p: A.laCenter, radius: 1.5 },
     { id: 'ra', label: 'Aurícula derecha', p: A.raCenter, radius: 1.4 },
     { id: 'rv', label: 'Ventrículo derecho (entrada)', p: v3(rvc.x, -0.35, L * 0.35), radius: 1.3 },
     { id: 'pa', label: 'Tronco pulmonar', p: add(A.rvotB, scale(A.paDir, 1.5)), radius: 1.0 },
     { id: 'pa-bifurcation', label: 'Bifurcación pulmonar', p: A.paEnd, radius: 1.0 },
-    { id: 'rv-anterior', label: 'Ventrículo derecho (anterior)', p: v3((a + 0.6) * Math.cos(2.1), (b + 0.6) * Math.sin(2.1) + 0.5, L * 0.35), radius: 0.9 },
+    {
+      id: 'rv-anterior',
+      label: 'Ventrículo derecho (anterior)',
+      p: v3((a + 0.6) * Math.cos(2.1), (b + 0.6) * Math.sin(2.1) + 0.5, L * 0.35),
+      radius: 0.9,
+    },
     // derived from the infundibular anchor instead of fixed coordinates: pinned at (-1.7, 4.7, -1.2) it was
     // left behind in the pericardium the moment the outflow tract moved (decision 62)
     { id: 'rvot', label: 'TSVD', p: A.rvotM, radius: 1.0 },
     // RV inflow near the inferior (diaphragmatic) wall: what the subcostal window cuts first
-    { id: 'rv-inferior', label: 'Ventrículo derecho (inferior)', p: v3(-(a + 1.8) * 0.94, -(a + 1.8) * 0.35 - 0.2, L * 0.3), radius: 1.2 },
-    { id: 'tv', label: 'Válvula tricúspide', p: v3(A.tvCenter.x, A.tvCenter.y, A.tvCenter.z + 0.7), radius: 1.2 },
-    { id: 'ivs-anteroseptal', label: 'Septum anteroseptal', p: v3(-a * 0.5, b * 0.87, L * 0.45), radius: 0.9 },
-    { id: 'ivs-inferoseptal', label: 'Septum inferoseptal', p: v3(-a * 1.0, -b * 0.1, L * 0.45), radius: 0.9 },
-    { id: 'wall-inferolateral', label: 'Pared inferolateral', p: v3(a * 0.5, -b * 0.87, L * 0.45), radius: 0.9 },
-    { id: 'wall-anterolateral', label: 'Pared anterolateral', p: v3(a * 1.0, b * 0.1, L * 0.45), radius: 0.9 },
+    {
+      id: 'rv-inferior',
+      label: 'Ventrículo derecho (inferior)',
+      p: v3(-(a + 1.8) * 0.94, -(a + 1.8) * 0.35 - 0.2, L * 0.3),
+      radius: 1.2,
+    },
+    {
+      id: 'tv',
+      label: 'Válvula tricúspide',
+      p: v3(A.tvCenter.x, A.tvCenter.y, A.tvCenter.z + 0.7),
+      radius: 1.2,
+    },
+    {
+      id: 'ivs-anteroseptal',
+      label: 'Septum anteroseptal',
+      p: v3(-a * 0.5, b * 0.87, L * 0.45),
+      radius: 0.9,
+    },
+    {
+      id: 'ivs-inferoseptal',
+      label: 'Septum inferoseptal',
+      p: v3(-a * 1.0, -b * 0.1, L * 0.45),
+      radius: 0.9,
+    },
+    {
+      id: 'wall-inferolateral',
+      label: 'Pared inferolateral',
+      p: v3(a * 0.5, -b * 0.87, L * 0.45),
+      radius: 0.9,
+    },
+    {
+      id: 'wall-anterolateral',
+      label: 'Pared anterolateral',
+      p: v3(a * 1.0, b * 0.1, L * 0.45),
+      radius: 0.9,
+    },
     // A2C walls lie 60° from the A4C plane (AHA: anterior at 90°, anterolateral at 30°; here A4C is at 2°)
-    { id: 'wall-anterior', label: 'Pared anterior', p: v3(a * 0.469, b * 0.883, L * 0.45), radius: 0.9 },
-    { id: 'wall-inferior', label: 'Pared inferior', p: v3(-a * 0.469, -b * 0.883, L * 0.45), radius: 0.9 },
+    {
+      id: 'wall-anterior',
+      label: 'Pared anterior',
+      p: v3(a * 0.469, b * 0.883, L * 0.45),
+      radius: 0.9,
+    },
+    {
+      id: 'wall-inferior',
+      label: 'Pared inferior',
+      p: v3(-a * 0.469, -b * 0.883, L * 0.45),
+      radius: 0.9,
+    },
     { id: 'pap-al', label: 'Papilar anterolateral', p: papAt(A.papAzAL), radius: 0.7 },
     { id: 'desc-aorta', label: 'Aorta descendente', p: v3(1.5, -6.2, -2.5), radius: 1.0 },
     { id: 'pap-pm', label: 'Papilar posteromedial', p: papAt(A.papAzPM), radius: 0.7 },
     { id: 'ias', label: 'Septum interauricular', p: v3(A.iasX, -1.6, -2.2), radius: 1.0 },
-    { id: 'svc', label: 'Vena cava superior', p: add(A.svcA, scale(sub(A.svcB, A.svcA), 0.4)), radius: 0.9 },
-    { id: 'ivc', label: 'Vena cava inferior', p: add(A.ivcA, scale(sub(A.ivcB, A.ivcA), 0.4)), radius: 0.9 },
-    { id: 'hepatic-vein', label: 'Vena hepática', p: add(A.hvA, scale(sub(A.hvB, A.hvA), 0.5)), radius: 0.7 },
+    {
+      id: 'svc',
+      label: 'Vena cava superior',
+      p: add(A.svcA, scale(sub(A.svcB, A.svcA), 0.4)),
+      radius: 0.9,
+    },
+    {
+      id: 'ivc',
+      label: 'Vena cava inferior',
+      p: add(A.ivcA, scale(sub(A.ivcB, A.ivcA), 0.4)),
+      radius: 0.9,
+    },
+    {
+      id: 'hepatic-vein',
+      label: 'Vena hepática',
+      p: add(A.hvA, scale(sub(A.hvB, A.hvA), 0.5)),
+      radius: 0.7,
+    },
   ];
 }
 
@@ -304,7 +381,25 @@ export function anchorsCached(m: HeartModel): AnchorsCached {
 function extremeState(m: HeartModel, systole: boolean): CycleState {
   const { edvMl, esvMl } = m.physiology;
   const k = systole ? 1 : 0;
-  return { phase: 0, timeInBeatS: 0, rrS: 1, lvVolumeMl: systole ? esvMl : edvMl, contraction: k, mvOpen: 0, avOpen: 0, tvOpen: 0, pvOpen: 0, longitudinal: k, rvLongitudinal: k, atrialContraction: 0, atrialHold: 0, mitralFlowMlps: 0, aorticFlowMlps: 0, edvMl, esvMl };
+  return {
+    phase: 0,
+    timeInBeatS: 0,
+    rrS: 1,
+    lvVolumeMl: systole ? esvMl : edvMl,
+    contraction: k,
+    mvOpen: 0,
+    avOpen: 0,
+    tvOpen: 0,
+    pvOpen: 0,
+    longitudinal: k,
+    rvLongitudinal: k,
+    atrialContraction: 0,
+    atrialHold: 0,
+    mitralFlowMlps: 0,
+    aorticFlowMlps: 0,
+    edvMl,
+    esvMl,
+  };
 }
 
 /**
@@ -317,11 +412,31 @@ function extremeState(m: HeartModel, systole: boolean): CycleState {
  * structure at end-diastole and at end-systole (the aortic root descends with the base more than the pulmonary root).
  */
 function placePulmonaryRoot(m: HeartModel, A: AnchorsCached): void {
-  const poses = [computeHeartPose(m, extremeState(m, false)), computeHeartPose(m, extremeState(m, true))];
+  const poses = [
+    computeHeartPose(m, extremeState(m, false)),
+    computeHeartPose(m, extremeState(m, true)),
+  ];
   const rel = sub(A.rvotB, A.avCenter);
   const u = normalize(sub(rel, scale(A.avAxis, dot(rel, A.avAxis))));
-  const base = { rvotB: A.rvotB, paStj: A.paStj, paEnd: A.paEnd, rpaEnd: A.rpaEnd, lpaEnd: A.lpaEnd };
-  const smp: TissueSample = { tissue: 0, sdf: 0, nx: 0, ny: 0, nz: 1, mx: 0, my: 0, mz: 0, extraReflect: 0, structure: 0 } as unknown as TissueSample;
+  const base = {
+    rvotB: A.rvotB,
+    paStj: A.paStj,
+    paEnd: A.paEnd,
+    rpaEnd: A.rpaEnd,
+    lpaEnd: A.lpaEnd,
+  };
+  const smp: TissueSample = {
+    tissue: 0,
+    sdf: 0,
+    nx: 0,
+    ny: 0,
+    nz: 1,
+    mx: 0,
+    my: 0,
+    mz: 0,
+    extraReflect: 0,
+    structure: 0,
+  } as unknown as TissueSample;
   const e1 = A.pvE1,
     e2 = A.pvE2,
     d = A.paDir;
@@ -333,7 +448,11 @@ function placePulmonaryRoot(m: HeartModel, A: AnchorsCached): void {
     A.rpaEnd = add(base.rpaEnd, o);
     A.lpaEnd = add(base.lpaEnd, o);
   };
-  const inLumen = (s: Structure): boolean => s === Structure.PulmonaryArtery || s === Structure.PulmonaryValve || s === Structure.Rvot || s === Structure.RvCavity;
+  const inLumen = (s: Structure): boolean =>
+    s === Structure.PulmonaryArtery ||
+    s === Structure.PulmonaryValve ||
+    s === Structure.Rvot ||
+    s === Structure.RvCavity;
   const conflicts = (off: number): number => {
     moveTo(off);
     let bad = 0;

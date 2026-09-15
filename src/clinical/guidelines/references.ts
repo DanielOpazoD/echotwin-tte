@@ -21,7 +21,8 @@ export const GUIDELINE_REFERENCES: GuidelineReference[] = [
   {
     id: 'ase-tte-2019',
     society: 'ASE',
-    title: 'Guidelines for Performing a Comprehensive Transthoracic Echocardiographic Examination in Adults',
+    title:
+      'Guidelines for Performing a Comprehensive Transthoracic Echocardiographic Examination in Adults',
     year: 2019,
     url: 'https://www.asecho.org/guideline/comprehensive-tte-in-adults/',
     accessedAt: '2026-09-10',
@@ -38,7 +39,8 @@ export const GUIDELINE_REFERENCES: GuidelineReference[] = [
     accessedAt: '2026-09-10',
     usedBy: ['diastolic-function'],
     verification: 'title-verified',
-    notes: 'Diastolic algorithm module is scaffolded; cutoffs must be re-verified before enabling grading.',
+    notes:
+      'Diastolic algorithm module is scaffolded; cutoffs must be re-verified before enabling grading.',
   },
   {
     id: 'ase-right-heart-2025',
@@ -114,7 +116,8 @@ export const GUIDELINE_REFERENCES: GuidelineReference[] = [
   {
     id: 'ase-eacvi-aortic-stenosis-2017',
     society: 'EACVI/ASE',
-    title: 'Recommendations on the Echocardiographic Assessment of Aortic Valve Stenosis: A Focused Update',
+    title:
+      'Recommendations on the Echocardiographic Assessment of Aortic Valve Stenosis: A Focused Update',
     year: 2017,
     url: 'https://www.asecho.org/guideline/echocardiographic-assessment-of-aortic-valve-stenosis/',
     accessedAt: '2026-09-10',

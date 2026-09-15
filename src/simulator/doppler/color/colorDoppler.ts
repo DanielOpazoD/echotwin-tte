@@ -45,7 +45,11 @@ export const DOPPLER_SHADOW_TRANSMISSION = 0.02;
  * Two-way transmission of a frame sample relative to what soft tissue (0.5 dB/cm/MHz) would leave at its depth for the
  * acquisition that formed the frame (decisions 87 and 96): depth alone does not make a shadow.
  */
-export function relativeTransmission(transmission: number, depthCm: number, acquisition: ColorAcquisition): number {
+export function relativeTransmission(
+  transmission: number,
+  depthCm: number,
+  acquisition: ColorAcquisition,
+): number {
   const fAtten = acquisition.frequencyMHz * (acquisition.harmonics ? 1.2 : 1);
   return transmission / Math.exp(-0.23 * 0.5 * fAtten * depthCm);
 }
@@ -120,7 +124,13 @@ function smoothGrid(g: Float32Array, nL: number, nS: number, tmp: Float32Array):
  * complex Gaussian field, smoothed again as the packet and the sample volume average it. Computed per sample with its own
  * 3×3 kernels it cost 10 µs a sample (60 ms for a colour box of 6000 samples).
  */
-function estimateGrids(liMin: number, siMin: number, nL: number, nS: number, estimate: ColorEstimate): { velocity: Float32Array; power: Float32Array } {
+function estimateGrids(
+  liMin: number,
+  siMin: number,
+  nL: number,
+  nS: number,
+  estimate: ColorEstimate,
+): { velocity: Float32Array; power: Float32Array } {
   const n = nL * nS;
   const velocity = new Float32Array(n);
   const re = new Float32Array(n);
@@ -151,7 +161,14 @@ function estimateGrids(liMin: number, siMin: number, nL: number, nS: number, est
 }
 
 export function allocColorField(n: number): ColorField {
-  return { vel: new Float32Array(n).fill(NaN), variance: new Float32Array(n), power: new Float32Array(n), scaleMps: 0, baselineShiftMps: 0, invert: false };
+  return {
+    vel: new Float32Array(n).fill(NaN),
+    variance: new Float32Array(n),
+    power: new Float32Array(n),
+    scaleMps: 0,
+    baselineShiftMps: 0,
+    invert: false,
+  };
 }
 
 /**
@@ -171,7 +188,12 @@ export function computeColorField(
   frame: PolarFrame,
   s: ColorSettings,
   prev: ColorField | null,
-  axialVelocity: (idx: number, li: number, si: number, out: { v: number; disp: number; present: number }) => void,
+  axialVelocity: (
+    idx: number,
+    li: number,
+    si: number,
+    out: { v: number; disp: number; present: number },
+  ) => void,
   out: ColorField,
   acquisition: ColorAcquisition,
   estimate?: ColorEstimate,
@@ -190,11 +212,20 @@ export function computeColorField(
   out.baselineShiftMps = s.baselineShiftMps;
   out.invert = s.invert;
   // a history formed under another scale, baseline or inversion is not blended: its velocities are other phases
-  const history = prev && prev.scaleMps === s.scaleMps && prev.baselineShiftMps === s.baselineShiftMps && prev.invert === s.invert ? prev : null;
+  const history =
+    prev &&
+    prev.scaleMps === s.scaleMps &&
+    prev.baselineShiftMps === s.baselineShiftMps &&
+    prev.invert === s.invert
+      ? prev
+      : null;
   const gainLin = Math.pow(10, s.gainDb / 20);
   const bloomSamples = Math.max(0, Math.round((s.gainDb - 2) * 0.6)); // dilation radius grows with gain
   const nS = siMax - siMin + 1;
-  const grids = estimate && liMax >= liMin && nS > 0 ? estimateGrids(liMin, siMin, liMax - liMin + 1, nS, estimate) : null;
+  const grids =
+    estimate && liMax >= liMin && nS > 0
+      ? estimateGrids(liMin, siMin, liMax - liMin + 1, nS, estimate)
+      : null;
   for (let li = liMin; li <= liMax; li++) {
     for (let si = siMin; si <= siMax; si++) {
       const idx = li * samples + si;
@@ -207,7 +238,8 @@ export function computeColorField(
       if (!isBlood && bloomSamples > 0) {
         // blooming: colour bleeds onto adjacent tissue when gain is high
         for (let d = 1; d <= bloomSamples && !isBlood; d++) {
-          if (frame.tissue[idx - d] === Tissue.Blood || frame.tissue[idx + d] === Tissue.Blood) isBlood = true;
+          if (frame.tissue[idx - d] === Tissue.Blood || frame.tissue[idx + d] === Tissue.Blood)
+            isBlood = true;
           if (li > 0 && frame.tissue[idx - samples] === Tissue.Blood) isBlood = true;
           if (li < lines - 1 && frame.tissue[idx + samples] === Tissue.Blood) isBlood = true;
         }
@@ -217,7 +249,10 @@ export function computeColorField(
       if (!tmp.present) continue;
       const vTrue = s.invert ? -tmp.v : tmp.v;
       if (Math.abs(vTrue) < s.wallFilterMps) continue;
-      const expectedPower = Math.min(1, gainLin * Math.min(1, relTrans) * wallFilterResponse(Math.abs(vTrue), s.wallFilterMps));
+      const expectedPower = Math.min(
+        1,
+        gainLin * Math.min(1, relTrans) * wallFilterResponse(Math.abs(vTrue), s.wallFilterMps),
+      );
       let power = expectedPower;
       let vEstimate = vTrue;
       let variance = Math.min(1, tmp.disp * 1.6);
@@ -226,7 +261,12 @@ export function computeColorField(
         const g = (li - liMin) * nS + (si - siMin);
         const speckle = grids!.power[g]!;
         power = Math.min(1, expectedPower * speckle);
-        const sd = Math.hypot(s.scaleMps * ESTIMATE_SD_FLOOR, ESTIMATE_SD_WIDTH * tmp.disp * Math.abs(vTrue), (s.scaleMps * ESTIMATE_SD_THRESHOLD * COLOR_THRESHOLD) / Math.max(1e-3, gainLin * Math.min(1, relTrans) * speckle));
+        const sd = Math.hypot(
+          s.scaleMps * ESTIMATE_SD_FLOOR,
+          ESTIMATE_SD_WIDTH * tmp.disp * Math.abs(vTrue),
+          (s.scaleMps * ESTIMATE_SD_THRESHOLD * COLOR_THRESHOLD) /
+            Math.max(1e-3, gainLin * Math.min(1, relTrans) * speckle),
+        );
         vEstimate = vTrue + sd * grids!.velocity[g]!;
         // a weak or scattered estimate reads as spectral spread too
         variance = Math.min(1, variance + (sd / s.scaleMps) ** 2 * 4);
@@ -243,7 +283,11 @@ export function computeColorField(
         const a0 = (Math.PI * (pv - s.baselineShiftMps)) / s.scaleMps;
         const re = (1 - p) * power * Math.cos(a1) + p * pp * Math.cos(a0);
         const im = (1 - p) * power * Math.sin(a1) + p * pp * Math.sin(a0);
-        vel = aliasVelocity(s.baselineShiftMps + (s.scaleMps * Math.atan2(im, re)) / Math.PI, s.scaleMps, s.baselineShiftMps);
+        vel = aliasVelocity(
+          s.baselineShiftMps + (s.scaleMps * Math.atan2(im, re)) / Math.PI,
+          s.scaleMps,
+          s.baselineShiftMps,
+        );
         variance = variance * (1 - p) + (history.variance[idx] ?? variance) * p;
         pow = power * (1 - p) + pp * p;
       }
@@ -256,7 +300,13 @@ export function computeColorField(
 }
 
 /** Velocity → RGB (red toward, blue away; brighter = faster; green = variance). */
-export function colorMap(v: number, scale: number, variance: number, showVariance: boolean, out: [number, number, number]): void {
+export function colorMap(
+  v: number,
+  scale: number,
+  variance: number,
+  showVariance: boolean,
+  out: [number, number, number],
+): void {
   const t = Math.max(-1, Math.min(1, v / scale));
   const a = Math.abs(t);
   if (t >= 0) {
@@ -280,7 +330,13 @@ export function colorMap(v: number, scale: number, variance: number, showVarianc
  * Blend a polar colour field over a scan-converted grey image (85 % colour, 15 % grey) inside the colour
  * box, using the nearest polar sample of each pixel. The GPU present pass (gpu/glslImage.ts) does the same.
  */
-export function overlayColorField(rgba: Uint8ClampedArray, lut: ScanLut, vel: Float32Array, variance: Float32Array, c: ColorSettings): void {
+export function overlayColorField(
+  rgba: Uint8ClampedArray,
+  lut: ScanLut,
+  vel: Float32Array,
+  variance: Float32Array,
+  c: ColorSettings,
+): void {
   const rgb: [number, number, number] = [0, 0, 0];
   const S = lut.samples;
   const n = lut.idx.length;

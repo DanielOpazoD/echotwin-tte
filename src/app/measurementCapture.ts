@@ -15,13 +15,21 @@ export function structureAtPixel(hud: SimOutput, x: number, y: number): number {
   const { rCm, thetaRad } = pixelToPolar(m, x, y);
   const p = hud.polar;
   if (rCm < 0 || rCm > p.depthCm || Math.abs(thetaRad) > p.sectorRad / 2) return 0;
-  const li = Math.min(p.lines - 1, Math.max(0, Math.floor(((thetaRad + p.sectorRad / 2) / p.sectorRad) * p.lines)));
+  const li = Math.min(
+    p.lines - 1,
+    Math.max(0, Math.floor(((thetaRad + p.sectorRad / 2) / p.sectorRad) * p.lines)),
+  );
   const si = Math.min(p.samples - 1, Math.max(0, Math.floor((rCm / p.depthCm) * p.samples)));
   return hud.structure[li * p.samples + si] ?? 0;
 }
 
 /** Structures sampled along a display-space segment (n samples) and just beyond each end. */
-export function segmentStructures(hud: SimOutput, a: { x: number; y: number }, b: { x: number; y: number }, n = 24): { along: number[]; ends: [number, number] } {
+export function segmentStructures(
+  hud: SimOutput,
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+  n = 24,
+): { along: number[]; ends: [number, number] } {
   const along: number[] = [];
   for (let i = 0; i < n; i++) {
     const t = (i + 0.5) / n;
@@ -31,11 +39,21 @@ export function segmentStructures(hud: SimOutput, a: { x: number; y: number }, b
   const ux = (b.x - a.x) / L,
     uy = (b.y - a.y) / L;
   const beyond = 3; // px
-  return { along, ends: [structureAtPixel(hud, a.x - ux * beyond, a.y - uy * beyond), structureAtPixel(hud, b.x + ux * beyond, b.y + uy * beyond)] };
+  return {
+    along,
+    ends: [
+      structureAtPixel(hud, a.x - ux * beyond, a.y - uy * beyond),
+      structureAtPixel(hud, b.x + ux * beyond, b.y + uy * beyond),
+    ],
+  };
 }
 
 /** Structures sampled inside a closed contour (grid samples within its bounding box, point-in-polygon). */
-export function contourStructures(hud: SimOutput, pts: { x: number; y: number }[], grid = 14): number[] {
+export function contourStructures(
+  hud: SimOutput,
+  pts: { x: number; y: number }[],
+  grid = 14,
+): number[] {
   if (pts.length < 3) return [];
   let minX = Infinity,
     minY = Infinity,
@@ -77,7 +95,13 @@ export interface CaptureExtras {
 }
 
 /** Technique evaluation for a measurement taken on `hud`; null when the measurement has no protocol id. */
-export function evaluateCapture(spec: MeasurementSpec | undefined, hud: SimOutput, modality: string, phaseMarks: PhaseMarks | null, extras: CaptureExtras): Measurement['technique'] {
+export function evaluateCapture(
+  spec: MeasurementSpec | undefined,
+  hud: SimOutput,
+  modality: string,
+  phaseMarks: PhaseMarks | null,
+  extras: CaptureExtras,
+): Measurement['technique'] {
   if (!spec) return null;
   const ctx: MeasurementContext = {
     modality,

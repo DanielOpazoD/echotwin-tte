@@ -73,7 +73,9 @@ export function enumDefinesGlsl(): string {
     S_DESC_AO: Structure.DescendingAorta,
     S_LUNG: Structure.Lung,
   };
-  return [...Object.entries(T), ...Object.entries(S)].map(([k, v]) => `#define ${k} ${v}`).join('\n');
+  return [...Object.entries(T), ...Object.entries(S)]
+    .map(([k, v]) => `#define ${k} ${v}`)
+    .join('\n');
 }
 
 /** Shared GLSL: parameter access, lattice noise, signed-distance primitives. */

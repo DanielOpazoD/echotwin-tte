@@ -13,7 +13,11 @@ import { Structure } from '@/simulator/anatomy/tissue';
 /** Frame-level support for the measurement protocol: structure map, gate info, phase marks, auto-trace. */
 describe('measurement support in the simulator core', () => {
   const c = loadCaseById('normal-excellent-window');
-  const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, { position: 'left-lateral', respiration: 'expiration', headElevationDeg: 0 });
+  const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, {
+    position: 'left-lateral',
+    respiration: 'expiration',
+    headElevationDeg: 0,
+  });
   const heart = createHeartModel(c.anatomy, c.physiology, thorax.heartOffset, c.seed);
   heartLandmarks(heart);
   const a5c = canonicalControl(getViewTarget('a5c'), heart, thorax);
@@ -41,7 +45,16 @@ describe('measurement support in the simulator core', () => {
   });
 
   it('PW gate at the LVOT reports the LVOT structure, flow and a small beam–flow angle', () => {
-    const core = new SimulatorCore(c, baseInput({ probe: a5c, modality: 'pw', quality: 'low', cursorThetaRad: gateTheta, gateDepthCm: gateR }));
+    const core = new SimulatorCore(
+      c,
+      baseInput({
+        probe: a5c,
+        modality: 'pw',
+        quality: 'low',
+        cursorThetaRad: gateTheta,
+        gateDepthCm: gateR,
+      }),
+    );
     let out = null;
     for (let i = 0; i < 6; i++) out = core.step(0.05) ?? out;
     expect(out?.gate).not.toBeNull();
@@ -53,7 +66,17 @@ describe('measurement support in the simulator core', () => {
   });
 
   it('auto-trace of the LVOT spectrum returns a physiological envelope', () => {
-    const core = new SimulatorCore(c, baseInput({ probe: a5c, modality: 'pw', quality: 'low', cursorThetaRad: gateTheta, gateDepthCm: gateR, spectral: { ...DEFAULT_SPECTRAL, scaleMps: 2.0, wallFilterMps: 0.1 } }));
+    const core = new SimulatorCore(
+      c,
+      baseInput({
+        probe: a5c,
+        modality: 'pw',
+        quality: 'low',
+        cursorThetaRad: gateTheta,
+        gateDepthCm: gateR,
+        spectral: { ...DEFAULT_SPECTRAL, scaleMps: 2.0, wallFilterMps: 0.1 },
+      }),
+    );
     for (let i = 0; i < 60; i++) core.step(0.03); // ~1.8 s of strip
     const res = core.request({ kind: 'autoTrace', x0: 0, x1: 300 });
     expect(res).not.toBeNull();

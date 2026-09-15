@@ -3,8 +3,19 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { useHudStore, useSimStore } from '@/app/store';
 import { getCaseModels } from '@/app/caseModels';
-import { ribCenterY, ribDepth, ribRadiusAt, skinZ, type ThoraxModel } from '@/simulator/anatomy/thoraxModel';
-import { heartGhostPrimitives, heartToTorso, heartDirToTorso, type HeartModel } from '@/simulator/anatomy/heartModel';
+import {
+  ribCenterY,
+  ribDepth,
+  ribRadiusAt,
+  skinZ,
+  type ThoraxModel,
+} from '@/simulator/anatomy/thoraxModel';
+import {
+  heartGhostPrimitives,
+  heartToTorso,
+  heartDirToTorso,
+  type HeartModel,
+} from '@/simulator/anatomy/heartModel';
 import type { MeshReply, MeshRequest } from '@/workers/heartMesh.worker';
 import { beamFrameFromPose, poseFromControl, type BeamFrame } from '@/simulator/probe/pose';
 import { RotationDial } from './RotationDial';
@@ -72,11 +83,19 @@ export function TorsoView() {
     let phasesReady = 0;
     // extraction samples the implicit model hundreds of thousands of times: off the UI thread, with the
     // ghost showing until the surfaces arrive
-    const meshWorker = new Worker(new URL('../workers/heartMesh.worker.ts', import.meta.url), { type: 'module' });
+    const meshWorker = new Worker(new URL('../workers/heartMesh.worker.ts', import.meta.url), {
+      type: 'module',
+    });
     meshWorker.onmessage = (ev: MessageEvent<MeshReply>) => {
       const f = heart.frame;
-      const basis = new THREE.Matrix4().makeBasis(new THREE.Vector3(f.ex.x, f.ex.y, f.ex.z), new THREE.Vector3(f.ey.x, f.ey.y, f.ey.z), new THREE.Vector3(f.ez.x, f.ez.y, f.ez.z));
-      const placement = new THREE.Matrix4().makeTranslation(f.origin.x, f.origin.y, f.origin.z).multiply(basis);
+      const basis = new THREE.Matrix4().makeBasis(
+        new THREE.Vector3(f.ex.x, f.ex.y, f.ex.z),
+        new THREE.Vector3(f.ey.x, f.ey.y, f.ey.z),
+        new THREE.Vector3(f.ez.x, f.ez.y, f.ez.z),
+      );
+      const placement = new THREE.Matrix4()
+        .makeTranslation(f.origin.x, f.origin.y, f.origin.z)
+        .multiply(basis);
       for (const g of ev.data.groups) {
         if (!g.indices.length) continue;
         const geom = new THREE.BufferGeometry();
@@ -90,7 +109,15 @@ export function TorsoView() {
         }
         perPhase[ev.data.index] = geom;
         if (!meshByGroup.has(g.id)) {
-          const mat = new THREE.MeshStandardMaterial({ color: g.color, roughness: 0.55, metalness: 0.05, transparent: g.opacity < 1, opacity: g.opacity, depthWrite: g.opacity >= 1, side: THREE.DoubleSide });
+          const mat = new THREE.MeshStandardMaterial({
+            color: g.color,
+            roughness: 0.55,
+            metalness: 0.05,
+            transparent: g.opacity < 1,
+            opacity: g.opacity,
+            depthWrite: g.opacity >= 1,
+            side: THREE.DoubleSide,
+          });
           meshMaterials.push(mat);
           const mesh = new THREE.Mesh(geom, mat);
           mesh.applyMatrix4(placement);
@@ -107,10 +134,19 @@ export function TorsoView() {
     // heart that stands still beside a beating image gives the model away far more than half a point of
     // facets (decisions 67 and 68).
     const MESH_PHASES = Array.from({ length: 10 }, (_, i) => i / 10);
-    meshWorker.postMessage({ caseId, patient, stepCm: 0.26, phases: MESH_PHASES } satisfies MeshRequest);
+    meshWorker.postMessage({
+      caseId,
+      patient,
+      stepCm: 0.26,
+      phases: MESH_PHASES,
+    } satisfies MeshRequest);
     // examination axes: beam axis, elevation normal and the in-plane lateral direction
     const axisGroup = new THREE.Group();
-    const axisLine = (color: number): THREE.Line => new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.9 }));
+    const axisLine = (color: number): THREE.Line =>
+      new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]),
+        new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.9 }),
+      );
     const beamAxis = axisLine(0xffc857);
     const elevAxis = axisLine(0x7ce8a0);
     const latAxis = axisLine(0x5cc8ff);
@@ -120,10 +156,19 @@ export function TorsoView() {
     // ---- probe ----
     const { probe, marker } = buildProbe();
     scene.add(probe);
-    const fanMat = new THREE.MeshBasicMaterial({ color: 0x5cc8ff, transparent: true, opacity: 0.14, side: THREE.DoubleSide, depthWrite: false });
+    const fanMat = new THREE.MeshBasicMaterial({
+      color: 0x5cc8ff,
+      transparent: true,
+      opacity: 0.14,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
     const fan = new THREE.Mesh(new THREE.BufferGeometry(), fanMat);
     scene.add(fan);
-    const fanEdges = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0x5cc8ff, transparent: true, opacity: 0.6 }));
+    const fanEdges = new THREE.LineSegments(
+      new THREE.BufferGeometry(),
+      new THREE.LineBasicMaterial({ color: 0x5cc8ff, transparent: true, opacity: 0.6 }),
+    );
     scene.add(fanEdges);
 
     // ---- camera / interaction ----
@@ -131,7 +176,11 @@ export function TorsoView() {
     const mouse = new THREE.Vector2();
     const orbit = { az: 0.12, el: 0.08, r: 54, tx: 2, ty: -1.5, tz: -6 };
     const updateCamera = () => {
-      camera.position.set(orbit.tx + orbit.r * Math.sin(orbit.az) * Math.cos(orbit.el), orbit.ty + orbit.r * Math.sin(orbit.el), orbit.tz + orbit.r * Math.cos(orbit.az) * Math.cos(orbit.el));
+      camera.position.set(
+        orbit.tx + orbit.r * Math.sin(orbit.az) * Math.cos(orbit.el),
+        orbit.ty + orbit.r * Math.sin(orbit.el),
+        orbit.tz + orbit.r * Math.cos(orbit.az) * Math.cos(orbit.el),
+      );
       camera.lookAt(orbit.tx, orbit.ty, orbit.tz);
     };
     updateCamera();
@@ -149,10 +198,19 @@ export function TorsoView() {
         updateCamera();
       },
     };
-    let drag: { mode: 'slide' | 'rock' | 'tilt' | 'orbit' | 'rotate' | null; x: number; y: number; cx: number; cy: number } = { mode: null, x: 0, y: 0, cx: 0, cy: 0 };
+    let drag: {
+      mode: 'slide' | 'rock' | 'tilt' | 'orbit' | 'rotate' | null;
+      x: number;
+      y: number;
+      cx: number;
+      cy: number;
+    } = { mode: null, x: 0, y: 0, cx: 0, cy: 0 };
     const toNdc = (e: MouseEvent) => {
       const r = renderer.domElement.getBoundingClientRect();
-      mouse.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+      mouse.set(
+        ((e.clientX - r.left) / r.width) * 2 - 1,
+        -((e.clientY - r.top) / r.height) * 2 + 1,
+      );
       return r;
     };
     const pickSkin = (e: MouseEvent): { u: number; v: number } | null => {
@@ -230,7 +288,9 @@ export function TorsoView() {
         zoomRef.current?.zoomBy(e.deltaY > 0 ? 1.1 : 0.9);
         return;
       }
-      useSimStore.getState().nudgeProbe({ rotationDeg: Math.sign(e.deltaY) * (e.shiftKey ? 10 : 3) });
+      useSimStore
+        .getState()
+        .nudgeProbe({ rotationDeg: Math.sign(e.deltaY) * (e.shiftKey ? 10 : 3) });
     };
     const dom = renderer.domElement;
     dom.addEventListener('mousedown', onDown);
@@ -267,7 +327,11 @@ export function TorsoView() {
       updateFan(fan, fanEdges, beam, st.settings.depthCm, st.settings.sectorDeg);
       // clip the heart with the imaging plane, and point the axes along the probe
       cutPlane.normal.set(beam.normal.x, beam.normal.y, beam.normal.z);
-      cutPlane.constant = -(beam.normal.x * beam.origin.x + beam.normal.y * beam.origin.y + beam.normal.z * beam.origin.z);
+      cutPlane.constant = -(
+        beam.normal.x * beam.origin.x +
+        beam.normal.y * beam.origin.y +
+        beam.normal.z * beam.origin.z
+      );
       const clip = st.ui.navCut ? [cutPlane] : [];
       for (const m of meshMaterials) m.clippingPlanes = clip;
       const vis: Record<string, boolean> = {
@@ -294,7 +358,11 @@ export function TorsoView() {
       axisGroup.visible = st.ui.navAxes;
       if (st.ui.navAxes) {
         const o = new THREE.Vector3(beam.origin.x, beam.origin.y, beam.origin.z);
-        const set = (line: THREE.Line, dir: { x: number; y: number; z: number }, len: number): void => {
+        const set = (
+          line: THREE.Line,
+          dir: { x: number; y: number; z: number },
+          len: number,
+        ): void => {
           const p = new THREE.Vector3(o.x + dir.x * len, o.y + dir.y * len, o.z + dir.z * len);
           line.geometry.setFromPoints([o, p]);
         };
@@ -305,7 +373,8 @@ export function TorsoView() {
       skeleton.visible = st.ui.showSkeleton;
       // the skin is a layer of its own: hiding the bones used to make it opaque, which hid the heart
       skin.visible = st.ui.navSkin;
-      (skin.material as THREE.MeshStandardMaterial).opacity = st.ui.navHeart || st.ui.navChambers || st.ui.navVessels ? 0.32 : 0.85;
+      (skin.material as THREE.MeshStandardMaterial).opacity =
+        st.ui.navHeart || st.ui.navChambers || st.ui.navVessels ? 0.32 : 0.85;
       renderer.render(scene, camera);
     };
     tick();
@@ -328,7 +397,11 @@ export function TorsoView() {
       <div className="torso-tools">
         <RotationDial />
         <div className="torso-buttons">
-          <button onClick={() => zoomRef.current?.zoomBy(0.85)} title="Acercar (Ctrl/⌘ + rueda)" aria-label="Acercar">
+          <button
+            onClick={() => zoomRef.current?.zoomBy(0.85)}
+            title="Acercar (Ctrl/⌘ + rueda)"
+            aria-label="Acercar"
+          >
             +
           </button>
           <button onClick={() => zoomRef.current?.zoomBy(1.18)} title="Alejar" aria-label="Alejar">
@@ -337,33 +410,68 @@ export function TorsoView() {
           <button onClick={() => zoomRef.current?.center()} title="Centrar la cámara en la sonda">
             Sonda
           </button>
-          <button className={showSkeleton ? 'active' : ''} onClick={() => setUi({ showSkeleton: !showSkeleton })} title="Mostrar/ocultar costillas y esternón bajo la piel">
+          <button
+            className={showSkeleton ? 'active' : ''}
+            onClick={() => setUi({ showSkeleton: !showSkeleton })}
+            title="Mostrar/ocultar costillas y esternón bajo la piel"
+          >
             Hueso
           </button>
-          <button className={nav.navSkin ? 'active' : ''} onClick={() => setUi({ navSkin: !nav.navSkin })} title="Mostrar/ocultar la piel del tórax">
+          <button
+            className={nav.navSkin ? 'active' : ''}
+            onClick={() => setUi({ navSkin: !nav.navSkin })}
+            title="Mostrar/ocultar la piel del tórax"
+          >
             Piel
           </button>
-          <button className={nav.navHeart ? 'active' : ''} onClick={() => setUi({ navHeart: !nav.navHeart })} title="Miocardio del modelo 3D">
+          <button
+            className={nav.navHeart ? 'active' : ''}
+            onClick={() => setUi({ navHeart: !nav.navHeart })}
+            title="Miocardio del modelo 3D"
+          >
             Miocardio
           </button>
-          <button className={nav.navChambers ? 'active' : ''} onClick={() => setUi({ navChambers: !nav.navChambers })} title="Cavidades y aurículas">
+          <button
+            className={nav.navChambers ? 'active' : ''}
+            onClick={() => setUi({ navChambers: !nav.navChambers })}
+            title="Cavidades y aurículas"
+          >
             Cavidades
           </button>
-          <button className={nav.navValves ? 'active' : ''} onClick={() => setUi({ navValves: !nav.navValves })} title="Válvulas y cuerdas">
+          <button
+            className={nav.navValves ? 'active' : ''}
+            onClick={() => setUi({ navValves: !nav.navValves })}
+            title="Válvulas y cuerdas"
+          >
             Válvulas
           </button>
-          <button className={nav.navVessels ? 'active' : ''} onClick={() => setUi({ navVessels: !nav.navVessels })} title="Raíz aórtica, pulmonar, cavas y venas pulmonares">
+          <button
+            className={nav.navVessels ? 'active' : ''}
+            onClick={() => setUi({ navVessels: !nav.navVessels })}
+            title="Raíz aórtica, pulmonar, cavas y venas pulmonares"
+          >
             Vasos
           </button>
-          <button className={nav.navAxes ? 'active' : ''} onClick={() => setUi({ navAxes: !nav.navAxes })} title="Ejes de examinación: haz, elevación y lateral">
+          <button
+            className={nav.navAxes ? 'active' : ''}
+            onClick={() => setUi({ navAxes: !nav.navAxes })}
+            title="Ejes de examinación: haz, elevación y lateral"
+          >
             Ejes
           </button>
-          <button className={nav.navCut ? 'active' : ''} onClick={() => setUi({ navCut: !nav.navCut })} title="Cortar el corazón 3D por el plano de imagen">
+          <button
+            className={nav.navCut ? 'active' : ''}
+            onClick={() => setUi({ navCut: !nav.navCut })}
+            title="Cortar el corazón 3D por el plano de imagen"
+          >
             Corte
           </button>
         </div>
       </div>
-      <div className="torso-help">Arrastrar piel: deslizar · Arrastrar marcador azul o rueda: rotar · Shift+arrastrar: rock · Alt+arrastrar: tilt · Botón derecho: orbitar</div>
+      <div className="torso-help">
+        Arrastrar piel: deslizar · Arrastrar marcador azul o rueda: rotar · Shift+arrastrar: rock ·
+        Alt+arrastrar: tilt · Botón derecho: orbitar
+      </div>
     </div>
   );
 }
@@ -373,7 +481,12 @@ export function TorsoView() {
 // ------------------------------------------------------------------------------------------------
 
 /** Superellipse cross-section point at angle θ (0 = front centre), scaled inward by `inset` cm. */
-function crossSection(t: ThoraxModel, theta: number, y: number, inset: number): { x: number; z: number } {
+function crossSection(
+  t: ThoraxModel,
+  theta: number,
+  y: number,
+  inset: number,
+): { x: number; z: number } {
   const n = t.n;
   const aw = t.aw - inset;
   const b = t.bDepth - inset;
@@ -412,15 +525,29 @@ function buildSkin(t: ThoraxModel): THREE.Mesh {
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setIndex(idx);
   g.computeVertexNormals();
-  const mat = new THREE.MeshStandardMaterial({ color: 0xd9b59a, roughness: 0.75, metalness: 0.02, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false });
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0xd9b59a,
+    roughness: 0.75,
+    metalness: 0.02,
+    transparent: true,
+    opacity: 0.55,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
   const mesh = new THREE.Mesh(g, mat);
   mesh.renderOrder = 2;
   // neck + shoulders (cosmetic landmarks: suprasternal notch sits between them)
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(5.2, 6.2, 9, 24), new THREE.MeshStandardMaterial({ color: 0xd9b59a, roughness: 0.8 }));
+  const neck = new THREE.Mesh(
+    new THREE.CylinderGeometry(5.2, 6.2, 9, 24),
+    new THREE.MeshStandardMaterial({ color: 0xd9b59a, roughness: 0.8 }),
+  );
   neck.position.set(0, 16.5, -t.bDepth * 0.55);
   mesh.add(neck);
   for (const side of [-1, 1]) {
-    const sh = new THREE.Mesh(new THREE.SphereGeometry(5.5, 24, 16), new THREE.MeshStandardMaterial({ color: 0xd9b59a, roughness: 0.8 }));
+    const sh = new THREE.Mesh(
+      new THREE.SphereGeometry(5.5, 24, 16),
+      new THREE.MeshStandardMaterial({ color: 0xd9b59a, roughness: 0.8 }),
+    );
     sh.scale.set(1.35, 0.85, 1);
     sh.position.set(side * (t.aw + 1.5), 10.5, -t.bDepth * 0.6);
     mesh.add(sh);
@@ -431,7 +558,12 @@ function buildSkin(t: ThoraxModel): THREE.Mesh {
 function buildSkeleton(t: ThoraxModel): THREE.Group {
   const g = new THREE.Group();
   const bone = new THREE.MeshStandardMaterial({ color: 0xe9e2d2, roughness: 0.55 });
-  const cartilage = new THREE.MeshStandardMaterial({ color: 0xcfd9e6, roughness: 0.5, transparent: true, opacity: 0.85 });
+  const cartilage = new THREE.MeshStandardMaterial({
+    color: 0xcfd9e6,
+    roughness: 0.5,
+    transparent: true,
+    opacity: 0.85,
+  });
   const depth = ribDepth(t);
   const thMax = 1.4;
   // ribs 1–10, both sides; ribs run posterior-superior to anterior-inferior; 8–10 stop short of the sternum
@@ -452,8 +584,19 @@ function buildSkeleton(t: ThoraxModel): THREE.Group {
       }
       if (pts.length < 3) continue;
       const r = ribRadiusAt(t, 5) * 0.9;
-      g.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 40, r, 8, false), k <= 7 && cart.length >= 3 ? bone : bone));
-      if (cart.length >= 3) g.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(cart), 12, r * 1.05, 8, false), cartilage));
+      g.add(
+        new THREE.Mesh(
+          new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 40, r, 8, false),
+          k <= 7 && cart.length >= 3 ? bone : bone,
+        ),
+      );
+      if (cart.length >= 3)
+        g.add(
+          new THREE.Mesh(
+            new THREE.TubeGeometry(new THREE.CatmullRomCurve3(cart), 12, r * 1.05, 8, false),
+            cartilage,
+          ),
+        );
     }
   }
   // sternum: manubrium, body, xiphoid
@@ -467,8 +610,17 @@ function buildSkeleton(t: ThoraxModel): THREE.Group {
   g.add(manubrium, body, xiphoid);
   // clavicles
   for (const side of [-1, 1]) {
-    const pts = [new THREE.Vector3(side * 1.9, 10.6, sz(10.6) + 0.6), new THREE.Vector3(side * 7, 11.6, sz(10.6) - 0.6), new THREE.Vector3(side * 13.5, 12.4, sz(10.6) - 3.6)];
-    g.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 16, 0.45, 8, false), bone));
+    const pts = [
+      new THREE.Vector3(side * 1.9, 10.6, sz(10.6) + 0.6),
+      new THREE.Vector3(side * 7, 11.6, sz(10.6) - 0.6),
+      new THREE.Vector3(side * 13.5, 12.4, sz(10.6) - 3.6),
+    ];
+    g.add(
+      new THREE.Mesh(
+        new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 16, 0.45, 8, false),
+        bone,
+      ),
+    );
   }
   return g;
 }
@@ -476,9 +628,19 @@ function buildSkeleton(t: ThoraxModel): THREE.Group {
 function buildHeartGhost(heart: HeartModel): THREE.Group {
   const g = new THREE.Group();
   const f = heart.frame;
-  const basis = new THREE.Matrix4().makeBasis(new THREE.Vector3(f.ex.x, f.ex.y, f.ex.z), new THREE.Vector3(f.ey.x, f.ey.y, f.ey.z), new THREE.Vector3(f.ez.x, f.ez.y, f.ez.z));
+  const basis = new THREE.Matrix4().makeBasis(
+    new THREE.Vector3(f.ex.x, f.ex.y, f.ex.z),
+    new THREE.Vector3(f.ey.x, f.ey.y, f.ey.z),
+    new THREE.Vector3(f.ez.x, f.ez.y, f.ez.z),
+  );
   for (const p of heartGhostPrimitives(heart)) {
-    const mat = new THREE.MeshStandardMaterial({ color: p.color, transparent: true, opacity: p.opacity, roughness: 0.6, depthWrite: false });
+    const mat = new THREE.MeshStandardMaterial({
+      color: p.color,
+      transparent: true,
+      opacity: p.opacity,
+      roughness: 0.6,
+      depthWrite: false,
+    });
     if (p.kind === 'ellipsoid') {
       const m = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), mat);
       const c = heartToTorso(f, p.center);
@@ -491,7 +653,10 @@ function buildHeartGhost(heart: HeartModel): THREE.Group {
         b = heartToTorso(f, p.end);
       const dir = new THREE.Vector3(b.x - a.x, b.y - a.y, b.z - a.z);
       const len = dir.length();
-      const m = new THREE.Mesh(new THREE.CylinderGeometry(p.radii.x, p.radii.x * 0.9, len, 16), mat);
+      const m = new THREE.Mesh(
+        new THREE.CylinderGeometry(p.radii.x, p.radii.x * 0.9, len, 16),
+        mat,
+      );
       m.position.set((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2);
       m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
       g.add(m);
@@ -501,7 +666,19 @@ function buildHeartGhost(heart: HeartModel): THREE.Group {
   const apex = heartToTorso(f, { x: 0, y: 0, z: heart.lv.lengthCm });
   const base = heartToTorso(f, { x: 0, y: 0, z: 0 });
   void heartDirToTorso;
-  const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(base.x, base.y, base.z), new THREE.Vector3(apex.x, apex.y, apex.z)]), new THREE.LineDashedMaterial({ color: 0xffc857, dashSize: 0.5, gapSize: 0.3, transparent: true, opacity: 0.7 }));
+  const line = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(base.x, base.y, base.z),
+      new THREE.Vector3(apex.x, apex.y, apex.z),
+    ]),
+    new THREE.LineDashedMaterial({
+      color: 0xffc857,
+      dashSize: 0.5,
+      gapSize: 0.3,
+      transparent: true,
+      opacity: 0.7,
+    }),
+  );
   line.computeLineDistances();
   g.add(line);
   g.renderOrder = 1;
@@ -521,8 +698,16 @@ function buildHeartGhost(heart: HeartModel): THREE.Group {
  */
 function buildProbe(): { probe: THREE.Group; marker: THREE.Group } {
   const probe = new THREE.Group();
-  const shell = new THREE.MeshStandardMaterial({ color: 0xd7dbe0, roughness: 0.5, metalness: 0.05 });
-  const collar = new THREE.MeshStandardMaterial({ color: 0x8b939c, roughness: 0.55, metalness: 0.1 });
+  const shell = new THREE.MeshStandardMaterial({
+    color: 0xd7dbe0,
+    roughness: 0.5,
+    metalness: 0.05,
+  });
+  const collar = new THREE.MeshStandardMaterial({
+    color: 0x8b939c,
+    roughness: 0.55,
+    metalness: 0.1,
+  });
   const lens = new THREE.MeshStandardMaterial({ color: 0x23282e, roughness: 0.25 });
   const rubber = new THREE.MeshStandardMaterial({ color: 0x2a2e34, roughness: 0.8 });
   // head: 2,8 × 1,8 cm footprint, the array running along x
@@ -530,12 +715,26 @@ function buildProbe(): { probe: THREE.Group; marker: THREE.Group } {
   head.position.z = -0.76;
   // the acoustic lens is convex, not flat: a shallow spherical cap flattened in elevation
   const capR = 2.4;
-  const lensMesh = new THREE.Mesh(new THREE.SphereGeometry(capR, 32, 12, 0, Math.PI * 2, 0, Math.asin(1.36 / capR)), lens);
+  const lensMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(capR, 32, 12, 0, Math.PI * 2, 0, Math.asin(1.36 / capR)),
+    lens,
+  );
   lensMesh.rotation.x = Math.PI / 2; // the cap sits around +y: a positive turn points it at +z, into the patient
   lensMesh.scale.set(1, 1, 0.66); // scale is applied before the rotation, so local z becomes elevation: 1,8 cm
   lensMesh.position.z = -capR + 0.04; // cap apex ends up 0.4 mm proud of the contact face
   // shoulders: the head widens into the barrel instead of meeting it in a step
-  const shoulder = new THREE.Mesh(new THREE.LatheGeometry([new THREE.Vector2(1.4, 0), new THREE.Vector2(1.34, 0.3), new THREE.Vector2(1.2, 0.7), new THREE.Vector2(1.04, 1.15)], 28), shell);
+  const shoulder = new THREE.Mesh(
+    new THREE.LatheGeometry(
+      [
+        new THREE.Vector2(1.4, 0),
+        new THREE.Vector2(1.34, 0.3),
+        new THREE.Vector2(1.2, 0.7),
+        new THREE.Vector2(1.04, 1.15),
+      ],
+      28,
+    ),
+    shell,
+  );
   shoulder.rotation.x = -Math.PI / 2; // lathe axis (+y) → −z, out of the patient
   shoulder.scale.set(1, 1, 0.72); // oval section, flattened in elevation
   shoulder.position.z = -1.5;
@@ -552,7 +751,10 @@ function buildProbe(): { probe: THREE.Group; marker: THREE.Group } {
   const relief = new THREE.Group();
   for (let i = 0; i < 5; i++) {
     const t = i / 4;
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.62 - t * 0.28, 0.12 - t * 0.04, 8, 20), rubber);
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(0.62 - t * 0.28, 0.12 - t * 0.04, 8, 20),
+      rubber,
+    );
     ring.position.z = -(10.15 + t * 1.15);
     relief.add(ring);
   }
@@ -565,21 +767,43 @@ function buildProbe(): { probe: THREE.Group; marker: THREE.Group } {
   band.scale.set(1, 1, 0.78);
   band.position.z = -9.95;
   const cable = new THREE.Mesh(
-    new THREE.TubeGeometry(new THREE.CatmullRomCurve3([new THREE.Vector3(0, 0, -11.4), new THREE.Vector3(0.2, 0.5, -13.2), new THREE.Vector3(0.7, 2.2, -15.4)]), 14, 0.3, 10, false),
+    new THREE.TubeGeometry(
+      new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0, 0, -11.4),
+        new THREE.Vector3(0.2, 0.5, -13.2),
+        new THREE.Vector3(0.7, 2.2, -15.4),
+      ]),
+      14,
+      0.3,
+      10,
+      false,
+    ),
     rubber,
   );
   // index marker: the ridge and dot on the +x (screen-right) side, and the handle the mouse grabs to rotate
   const marker = new THREE.Group();
-  const ridge = new THREE.Mesh(new RoundedBoxGeometry(0.26, 0.62, 1.0, 2, 0.1), new THREE.MeshStandardMaterial({ color: 0x2f7fd0, roughness: 0.45 }));
+  const ridge = new THREE.Mesh(
+    new RoundedBoxGeometry(0.26, 0.62, 1.0, 2, 0.1),
+    new THREE.MeshStandardMaterial({ color: 0x2f7fd0, roughness: 0.45 }),
+  );
   ridge.position.set(1.42, 0, -0.8);
-  const dot = new THREE.Mesh(new THREE.SphereGeometry(0.26, 16, 12), new THREE.MeshStandardMaterial({ color: 0x5cb0ee, emissive: 0x123c5e, roughness: 0.35 }));
+  const dot = new THREE.Mesh(
+    new THREE.SphereGeometry(0.26, 16, 12),
+    new THREE.MeshStandardMaterial({ color: 0x5cb0ee, emissive: 0x123c5e, roughness: 0.35 }),
+  );
   dot.position.set(1.32, 0, -2.1);
   marker.add(ridge, dot);
   probe.add(head, lensMesh, shoulder, handle, relief, band, cable, marker);
   return { probe, marker };
 }
 
-function updateFan(fan: THREE.Mesh, edges: THREE.LineSegments, beam: BeamFrame, depth: number, sectorDeg: number): void {
+function updateFan(
+  fan: THREE.Mesh,
+  edges: THREE.LineSegments,
+  beam: BeamFrame,
+  depth: number,
+  sectorDeg: number,
+): void {
   const half = (sectorDeg * Math.PI) / 360;
   const verts: number[] = [];
   const o = beam.origin;
@@ -587,7 +811,11 @@ function updateFan(fan: THREE.Mesh, edges: THREE.LineSegments, beam: BeamFrame, 
   const at = (a: number, r: number) => {
     const c = Math.cos(a),
       s = Math.sin(a);
-    return [o.x + (beam.forward.x * c + beam.lateral.x * s) * r, o.y + (beam.forward.y * c + beam.lateral.y * s) * r, o.z + (beam.forward.z * c + beam.lateral.z * s) * r] as const;
+    return [
+      o.x + (beam.forward.x * c + beam.lateral.x * s) * r,
+      o.y + (beam.forward.y * c + beam.lateral.y * s) * r,
+      o.z + (beam.forward.z * c + beam.lateral.z * s) * r,
+    ] as const;
   };
   for (let i = 0; i < n; i++) {
     const p0 = at(-half + (2 * half * i) / n, depth),

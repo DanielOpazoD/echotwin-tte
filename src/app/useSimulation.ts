@@ -9,7 +9,10 @@ import { frameBus } from './frameBus';
  * Drives the simulator from requestAnimationFrame: snapshots the store into a SimInput, sends it,
  * and publishes outputs back (the HUD state). The heavy work happens in the worker.
  */
-export function useSimulation(displaySize: { width: number; height: number }, onFrame: (out: SimOutput) => void): void {
+export function useSimulation(
+  displaySize: { width: number; height: number },
+  onFrame: (out: SimOutput) => void,
+): void {
   const clientRef = useRef<SimClient | null>(null);
   const sizeRef = useRef(displaySize);
   const onFrameRef = useRef(onFrame);

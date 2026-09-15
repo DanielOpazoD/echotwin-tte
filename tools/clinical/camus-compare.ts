@@ -19,9 +19,22 @@ import { readdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { parseNifti, type NiftiVolume } from '@/clinical/nifti';
-import { identifyLabels, imageStats, orientApical, type ImageStats, type RegionImage } from '@/clinical/regionStats';
+import {
+  identifyLabels,
+  imageStats,
+  orientApical,
+  type ImageStats,
+  type RegionImage,
+} from '@/clinical/regionStats';
 import { apicalGeometry, type ApicalGeometry } from '@/clinical/apicalGeometry';
-import { apicalStats, meanStat, presentApical, renderApicalRealizations, type ApicalRender, type ConsoleOverride } from '@/simulator/renderer/clinicalImage';
+import {
+  apicalStats,
+  meanStat,
+  presentApical,
+  renderApicalRealizations,
+  type ApicalRender,
+  type ConsoleOverride,
+} from '@/simulator/renderer/clinicalImage';
 import { DEFAULT_ACQUISITION } from '@/simulator/renderer/types';
 
 const arg = (name: string): string | undefined => {
@@ -46,7 +59,9 @@ if (!camusDir) {
 }
 const camusAbs = resolve(camusDir);
 if (camusAbs === repoRoot || camusAbs.startsWith(repoRoot + sep)) {
-  process.stderr.write(`CAMUS_DIR (${camusAbs}) está dentro del repositorio público. Muévelo fuera: los datos clínicos no pueden acabar en git.\n`);
+  process.stderr.write(
+    `CAMUS_DIR (${camusAbs}) está dentro del repositorio público. Muévelo fuera: los datos clínicos no pueden acabar en git.\n`,
+  );
   process.exit(2);
 }
 
@@ -62,7 +77,8 @@ function camusFrame(img: NiftiVolume, gt: NiftiVolume, t: number): RegionImage {
   const plane = w * h;
   const grey = new Float32Array(plane);
   const labels = new Uint8Array(plane);
-  let lo = Infinity, hi = -Infinity;
+  let lo = Infinity,
+    hi = -Infinity;
   for (let i = 0; i < plane; i++) {
     const v = img.voxels[i + t * plane]!;
     grey[i] = v;
@@ -70,7 +86,8 @@ function camusFrame(img: NiftiVolume, gt: NiftiVolume, t: number): RegionImage {
     if (v > hi) hi = v;
     labels[i] = Math.round(gt.voxels[i + t * plane]!);
   }
-  if (lo < 0 || hi > 255) for (let i = 0; i < plane; i++) grey[i] = (255 * (grey[i]! - lo)) / Math.max(1e-6, hi - lo);
+  if (lo < 0 || hi > 255)
+    for (let i = 0; i < plane; i++) grey[i] = (255 * (grey[i]! - lo)) / Math.max(1e-6, hi - lo);
   return { width: w, height: h, grey, labels, mmPerPx: [img.spacing[0], img.spacing[1]] };
 }
 
@@ -90,10 +107,18 @@ const METRICS: [string, string, Scalar][] = [
   ['levelStdSlope', 'Local std against local grey (slope)', (s) => s.levelStdSlope],
   ['brightGreyP99', 'Bright end: p99 of non-black grey', (s) => s.brightGreyP99],
 ];
-interface Quartiles { median: number; p10: number; p25: number; p75: number; p90: number; n: number }
+interface Quartiles {
+  median: number;
+  p10: number;
+  p25: number;
+  p75: number;
+  p90: number;
+  n: number;
+}
 const quantiles = (v: number[]): Quartiles => {
   const s = v.filter(Number.isFinite).sort((a, b) => a - b);
-  const at = (q: number): number => (s.length ? s[Math.min(s.length - 1, Math.floor(q * s.length))]! : NaN);
+  const at = (q: number): number =>
+    s.length ? s[Math.min(s.length - 1, Math.floor(q * s.length))]! : NaN;
   return { median: at(0.5), p10: at(0.1), p25: at(0.25), p75: at(0.75), p90: at(0.9), n: s.length };
 };
 
@@ -115,11 +140,15 @@ const push = (key: string, st: ImageStats): void => {
   if (!clinical.has(key)) clinical.set(key, []);
   clinical.get(key)!.push(st);
 };
-let rejected = 0, missing = 0;
+let rejected = 0,
+  missing = 0;
 // apical geometry of the optimal-window images (decision 92), keyed by view and phase
 const geometry = new Map<string, ApicalGeometry[]>();
 const qualityCount: Record<string, number> = {};
-const patients = readdirSync(camusAbs).filter((n) => /^patient\d+$/.test(n)).sort().slice(0, limit);
+const patients = readdirSync(camusAbs)
+  .filter((n) => /^patient\d+$/.test(n))
+  .sort()
+  .slice(0, limit);
 for (const p of patients)
   for (const ch of ['4CH', '2CH'] as const) {
     const quality = readCfg(join(camusAbs, p, `Info_${ch}.cfg`))['ImageQuality'] ?? 'Unknown';
@@ -127,9 +156,16 @@ for (const p of patients)
     for (const phase of ['ED', 'ES'] as const) {
       const imgPath = join(camusAbs, p, `${p}_${ch}_${phase}.nii.gz`);
       const gtPath = join(camusAbs, p, `${p}_${ch}_${phase}_gt.nii.gz`);
-      if (!existsSync(imgPath) || !existsSync(gtPath)) { missing++; continue; }
-      const img = readVolume(imgPath), gt = readVolume(gtPath);
-      if (img.dims[0] !== gt.dims[0] || img.dims[1] !== gt.dims[1]) { rejected++; continue; }
+      if (!existsSync(imgPath) || !existsSync(gtPath)) {
+        missing++;
+        continue;
+      }
+      const img = readVolume(imgPath),
+        gt = readVolume(gtPath);
+      if (img.dims[0] !== gt.dims[0] || img.dims[1] !== gt.dims[1]) {
+        rejected++;
+        continue;
+      }
       const frame = camusFrame(img, gt, 0);
       try {
         identifyLabels(frame.labels, frame.width, frame.height);
@@ -150,7 +186,12 @@ for (const p of patients)
   }
 
 /** The default-console image (first noise realization) of the first scatterer realization, for the geometry comparison. */
-function presentApicalFrame(cache: Map<string, ApicalRender[]>, caseId: string, view: 'a4c' | 'a2c', phase: 'ED' | 'ES'): RegionImage {
+function presentApicalFrame(
+  cache: Map<string, ApicalRender[]>,
+  caseId: string,
+  view: 'a4c' | 'a2c',
+  phase: 'ED' | 'ES',
+): RegionImage {
   const key = `${caseId}|${view}|${phase}`;
   if (!cache.has(key)) cache.set(key, renderApicalRealizations(caseId, view, phase === 'ED'));
   return presentApical(cache.get(key)![0]!);
@@ -159,21 +200,30 @@ function presentApicalFrame(cache: Map<string, ApicalRender[]>, caseId: string, 
 // each simulator view is rendered once per scatterer realization; consoles only change its presentation, averaged over
 // scatterer and receiver-noise realizations (decisions 91 and 99)
 const renders = new Map<string, ApicalRender[]>();
-const simStats = (caseId: string, view: 'a4c' | 'a2c', phase: 'ED' | 'ES', consoleOverride: ConsoleOverride = {}): ImageStats[] => {
+const simStats = (
+  caseId: string,
+  view: 'a4c' | 'a2c',
+  phase: 'ED' | 'ES',
+  consoleOverride: ConsoleOverride = {},
+): ImageStats[] => {
   const key = `${caseId}|${view}|${phase}`;
   if (!renders.has(key)) renders.set(key, renderApicalRealizations(caseId, view, phase === 'ED'));
   return renders.get(key)!.flatMap((r) => apicalStats(r, consoleOverride));
 };
 
 const report: Record<string, unknown> = {
-  source: 'CAMUS — Leclerc et al., IEEE TMI 38(9):2198-2210, 2019, doi:10.1109/TMI.2019.2900516 (aggregate statistics only)',
+  source:
+    'CAMUS — Leclerc et al., IEEE TMI 38(9):2198-2210, 2019, doi:10.1109/TMI.2019.2900516 (aggregate statistics only)',
   patients: patients.length,
   sequencesByQuality: qualityCount,
   rejectedFrames: rejected,
   missingFrames: missing,
   comparisons: {},
 };
-const VIEWS = [['4CH', 'a4c'], ['2CH', 'a2c']] as const;
+const VIEWS = [
+  ['4CH', 'a4c'],
+  ['2CH', 'a2c'],
+] as const;
 const PHASES = ['ED', 'ES'] as const;
 // the optimal window is the reference; the difficult one is printed for information only
 const PAIRS: [string, string, string][] = [
@@ -186,14 +236,18 @@ for (const [caseId, quality, label] of PAIRS)
       const clin = clinical.get(`${ch}-${phase}-${quality}`) ?? [];
       const all = clinical.get(`${ch}-${phase}-all`) ?? [];
       const sim = simStats(caseId, view, phase);
-      process.stdout.write(`\n=== ${label} — ${ch} ${phase} (CAMUS ${quality} n=${clin.length}, all n=${all.length}) vs simulator ${view}\n`);
+      process.stdout.write(
+        `\n=== ${label} — ${ch} ${phase} (CAMUS ${quality} n=${clin.length}, all n=${all.length}) vs simulator ${view}\n`,
+      );
       const rows: Record<string, unknown> = {};
       for (const [, name, get] of METRICS) {
         const q = quantiles(clin.map(get));
         const qa = quantiles(all.map(get));
         const s = meanStat(sim, get);
         const inside = Number.isFinite(q.p25) && s >= q.p25 && s <= q.p75;
-        process.stdout.write(`  ${name.padEnd(38)} ${quality.padEnd(4)} ${q.median.toFixed(2).padStart(7)} [${q.p25.toFixed(2)}–${q.p75.toFixed(2)}]  all ${qa.median.toFixed(2).padStart(7)}   sim ${s.toFixed(2).padStart(7)}  ${Number.isFinite(q.median) ? (inside ? 'within IQR' : 'OUTSIDE IQR') : ''}\n`);
+        process.stdout.write(
+          `  ${name.padEnd(38)} ${quality.padEnd(4)} ${q.median.toFixed(2).padStart(7)} [${q.p25.toFixed(2)}–${q.p75.toFixed(2)}]  all ${qa.median.toFixed(2).padStart(7)}   sim ${s.toFixed(2).padStart(7)}  ${Number.isFinite(q.median) ? (inside ? 'within IQR' : 'OUTSIDE IQR') : ''}\n`,
+        );
         rows[name] = { camus: q, camusAll: qa, simulator: s, withinIqr: inside };
       }
       (report['comparisons'] as Record<string, unknown>)[`${caseId}:${ch}-${phase}`] = rows;
@@ -206,12 +260,15 @@ if (process.argv.includes('--sweep-console')) {
   // and scoring it would pick a worse console to compensate for post-processing that is not there.
   const SCORED = METRICS.filter(([k]) => !k.startsWith('speckleCell'));
   const results: { cfg: string; score: number; override: ConsoleOverride }[] = [];
-  process.stdout.write('\n=== console sweep against CAMUS Good: mean |sim - median| / IQR over 4 conditions (lower is better)\n');
+  process.stdout.write(
+    '\n=== console sweep against CAMUS Good: mean |sim - median| / IQR over 4 conditions (lower is better)\n',
+  );
   for (const grayMap of ['clinical', 's-curve', 'linear', 'high-contrast'] as const)
     for (const dynamicRangeDb of [55, 60, 65, 70, 75, 80])
       for (const gainDb of [-4, -2, 0, 2, 4]) {
         const override: ConsoleOverride = { grayMap, dynamicRangeDb, gainDb };
-        let sum = 0, n = 0;
+        let sum = 0,
+          n = 0;
         for (const [ch, view] of VIEWS)
           for (const phase of PHASES) {
             const clin = clinical.get(`${ch}-${phase}-Good`) ?? [];
@@ -227,10 +284,18 @@ if (process.argv.includes('--sweep-console')) {
         results.push({ cfg, score: sum / Math.max(1, n), override });
       }
   results.sort((x, y) => x.score - y.score);
-  for (const r of results.slice(0, 12)) process.stdout.write(`  ${r.cfg.padEnd(30)} score ${r.score.toFixed(2)}\n`);
+  for (const r of results.slice(0, 12))
+    process.stdout.write(`  ${r.cfg.padEnd(30)} score ${r.score.toFixed(2)}\n`);
   const d = DEFAULT_ACQUISITION;
-  const current = results.find((r) => r.override.grayMap === d.grayMap && r.override.dynamicRangeDb === d.dynamicRangeDb && r.override.gainDb === d.gainDb);
-  process.stdout.write(`\nbest console: ${results[0]!.cfg} (score ${results[0]!.score.toFixed(2)}); current default ${d.grayMap} DR ${d.dynamicRangeDb} gain ${d.gainDb}: ${current ? current.score.toFixed(2) : 'not in the grid'}; worst: ${results.at(-1)!.cfg} (${results.at(-1)!.score.toFixed(2)})\n`);
+  const current = results.find(
+    (r) =>
+      r.override.grayMap === d.grayMap &&
+      r.override.dynamicRangeDb === d.dynamicRangeDb &&
+      r.override.gainDb === d.gainDb,
+  );
+  process.stdout.write(
+    `\nbest console: ${results[0]!.cfg} (score ${results[0]!.score.toFixed(2)}); current default ${d.grayMap} DR ${d.dynamicRangeDb} gain ${d.gainDb}: ${current ? current.score.toFixed(2) : 'not in the grid'}; worst: ${results.at(-1)!.cfg} (${results.at(-1)!.score.toFixed(2)})\n`,
+  );
   report['consoleSweep'] = results.map(({ cfg, score }) => ({ cfg, score }));
 }
 
@@ -278,15 +343,22 @@ const GEOMETRY_METRICS: [keyof ApicalGeometry, string][] = [
   ['septalMinusLateralGrey', 'Septal minus lateral wall grey (4CH)'],
 ];
 {
-  process.stdout.write('\n=== apical geometry: CAMUS Good vs simulator (normal-excellent-window, default console)\n');
+  process.stdout.write(
+    '\n=== apical geometry: CAMUS Good vs simulator (normal-excellent-window, default console)\n',
+  );
   for (const [ch, view] of VIEWS)
     for (const phase of PHASES) {
       const clin = geometry.get(`${ch}-${phase}`) ?? [];
-      const sim = apicalGeometry(presentApicalFrame(renders, 'normal-excellent-window', view, phase), ch);
+      const sim = apicalGeometry(
+        presentApicalFrame(renders, 'normal-excellent-window', view, phase),
+        ch,
+      );
       for (const [k, name] of GEOMETRY_METRICS) {
         const q = quantiles(clin.map((g) => g[k]));
         if (!Number.isFinite(q.median)) continue;
-        process.stdout.write(`  ${ch} ${phase} ${name.padEnd(62)} ${q.median.toFixed(1).padStart(6)} [${q.p25.toFixed(1)}–${q.p75.toFixed(1)}]  sim ${sim[k].toFixed(1).padStart(6)}\n`);
+        process.stdout.write(
+          `  ${ch} ${phase} ${name.padEnd(62)} ${q.median.toFixed(1).padStart(6)} [${q.p25.toFixed(1)}–${q.p75.toFixed(1)}]  sim ${sim[k].toFixed(1).padStart(6)}\n`,
+        );
       }
     }
 }
@@ -299,7 +371,8 @@ if (geometryOut) {
       body += `  '${ch}-${phase}': {\n`;
       for (const [k] of GEOMETRY_METRICS) {
         const q = quantiles(clin.map((g) => g[k]));
-        if (Number.isFinite(q.median)) body += `    ${k}: { median: ${f(q.median)}, p10: ${f(q.p10)}, p25: ${f(q.p25)}, p75: ${f(q.p75)}, p90: ${f(q.p90)}, n: ${q.n} },\n`;
+        if (Number.isFinite(q.median))
+          body += `    ${k}: { median: ${f(q.median)}, p10: ${f(q.p10)}, p25: ${f(q.p25)}, p75: ${f(q.p75)}, p90: ${f(q.p90)}, n: ${q.n} },\n`;
       }
       body += '  },\n';
     }
@@ -320,7 +393,9 @@ if (geometryOut) {
   process.stdout.write(`apical geometry reference written to ${geometryOut}\n`);
 }
 
-process.stdout.write(`\npatients ${patients.length} · sequences by quality ${JSON.stringify(qualityCount)} · frames rejected by the label check ${rejected} · frames missing ${missing}\n`);
+process.stdout.write(
+  `\npatients ${patients.length} · sequences by quality ${JSON.stringify(qualityCount)} · frames rejected by the label check ${rejected} · frames missing ${missing}\n`,
+);
 if (outFile) {
   writeFileSync(outFile, JSON.stringify(report, null, 2));
   process.stdout.write(`aggregate statistics written to ${outFile}\n`);

@@ -19,10 +19,21 @@ describe('method of discs from a traced contour', () => {
     const exact = (2 / 3) * Math.PI * a * a * L; // half of a prolate spheroid 4/3·π·a²·L
     expect(Math.abs(vol - exact) / exact).toBeLessThan(0.03);
     // biplane with the same contour = same volume
-    expect(simpsonBiplaneVolume(prof.diametersCm, prof.diametersCm, prof.longAxisCm)).toBeCloseTo(vol, 6);
+    expect(simpsonBiplaneVolume(prof.diametersCm, prof.diametersCm, prof.longAxisCm)).toBeCloseTo(
+      vol,
+      6,
+    );
   });
   it('returns null for too few points and is orientation independent', () => {
-    expect(discProfileFromContour([{ x: 0, y: 0 }, { x: 1, y: 1 }], 10)).toBeNull();
+    expect(
+      discProfileFromContour(
+        [
+          { x: 0, y: 0 },
+          { x: 1, y: 1 },
+        ],
+        10,
+      ),
+    ).toBeNull();
     const a = 2,
       L = 6,
       pxPerCm = 10;
@@ -31,7 +42,10 @@ describe('method of discs from a traced contour', () => {
         const th = -Math.PI / 2 + (Math.PI * i) / 40;
         const x = a * Math.sin(th),
           y = L * Math.cos(th);
-        return { x: 200 + (x * Math.cos(rot) - y * Math.sin(rot)) * pxPerCm, y: 200 + (x * Math.sin(rot) + y * Math.cos(rot)) * pxPerCm };
+        return {
+          x: 200 + (x * Math.cos(rot) - y * Math.sin(rot)) * pxPerCm,
+          y: 200 + (x * Math.sin(rot) + y * Math.cos(rot)) * pxPerCm,
+        };
       });
     const v0 = simpsonSinglePlaneVolume(discProfileFromContour(mk(0), pxPerCm)!.diametersCm, L);
     const v1 = simpsonSinglePlaneVolume(discProfileFromContour(mk(1.1), pxPerCm)!.diametersCm, L);

@@ -33,6 +33,9 @@ export function lerpControl(a: ProbeControl, b: ProbeControl, t: number): ProbeC
 /** Duration (ms) proportional to the manipulation needed: translation + angles, clamped to 0.8–3.5 s. */
 export function presetDurationMs(a: ProbeControl, b: ProbeControl): number {
   const dist = Math.hypot(b.u - a.u, b.v - a.v);
-  const ang = Math.abs(shortestArcDeg(a.rotationDeg, b.rotationDeg)) + Math.abs(b.tiltDeg - a.tiltDeg) + Math.abs(b.rockDeg - a.rockDeg);
+  const ang =
+    Math.abs(shortestArcDeg(a.rotationDeg, b.rotationDeg)) +
+    Math.abs(b.tiltDeg - a.tiltDeg) +
+    Math.abs(b.rockDeg - a.rockDeg);
   return Math.max(800, Math.min(3500, 500 + dist * 220 + ang * 9));
 }

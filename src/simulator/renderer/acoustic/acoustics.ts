@@ -30,7 +30,13 @@ export const SPECULAR_HARMONIC = 1.1;
 export const SPECULAR_WINDOW_MIN = 0.15;
 
 export function heteroDb(tissue: number): number {
-  return tissue === Tissue.Myocardium ? HETERO_DB_MYO : tissue === Tissue.Liver ? HETERO_DB_LIVER : tissue === Tissue.Muscle ? HETERO_DB_MUSCLE : 0;
+  return tissue === Tissue.Myocardium
+    ? HETERO_DB_MYO
+    : tissue === Tissue.Liver
+      ? HETERO_DB_LIVER
+      : tissue === Tissue.Muscle
+        ? HETERO_DB_MUSCLE
+        : 0;
 }
 
 export function acousticDefinesGlsl(envelopeNorm: number): string {

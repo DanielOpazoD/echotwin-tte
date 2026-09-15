@@ -32,7 +32,10 @@ export function RotationDial() {
     setProbe({ rotationDeg: Math.round(rot) });
   };
   return (
-    <div className="dial" title="Orientación del marcador de la sonda (arrastra el punto para rotar)">
+    <div
+      className="dial"
+      title="Orientación del marcador de la sonda (arrastra el punto para rotar)"
+    >
       <svg
         viewBox="0 0 88 88"
         width={88}

@@ -1,9 +1,32 @@
 import { Structure, Tissue, type TissueSample } from './tissue';
-import { sdCapsule, sdEllipsoid, sdRoundCone, sdSegmentChain, sdTorusZ, smax, smin, type ChainHit } from './sdf';
+import {
+  sdCapsule,
+  sdEllipsoid,
+  sdRoundCone,
+  sdSegmentChain,
+  sdTorusZ,
+  smax,
+  smin,
+  type ChainHit,
+} from './sdf';
 import { lvCavityRadius, lvCavitySdf, lvProfileG, lvSdfNormal } from './lvShape';
 import { fastAtan2, latticeNoise3 } from '@/core/noise';
-import { aorticCoaptationBand, aorticCuspDistance, aorticHit, rootRadiusAt, AV_COAPT_HALF } from './aorticValve';
-import { inflowTaper, insideMitralOutline, mitralAnnulusDistance, mitralDistance, mitralHingeZ, mitralHit, mitralInflowSdf } from './mitralValve';
+import {
+  aorticCoaptationBand,
+  aorticCuspDistance,
+  aorticHit,
+  rootRadiusAt,
+  AV_COAPT_HALF,
+} from './aorticValve';
+import {
+  inflowTaper,
+  insideMitralOutline,
+  mitralAnnulusDistance,
+  mitralDistance,
+  mitralHingeZ,
+  mitralHit,
+  mitralInflowSdf,
+} from './mitralValve';
 import { ROOT_EXCURSION } from './heartFrame';
 import { TWO_PI, saddleOffset, skirtDistance, skirtHit, tvInflowSdf } from './valveSkirt';
 import { septalShiftAt, wallThicknessAt } from './lvWall';
@@ -45,7 +68,14 @@ function setSample(
  * Classify a heart-frame point. Writes into `out` and returns true when the point belongs to a
  * cardiac structure (including pericardium/effusion); false when outside the heart.
  */
-export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: number, z: number, out: TissueSample): boolean {
+export function classifyHeart(
+  m: HeartModel,
+  hp: HeartPose,
+  x0: number,
+  y: number,
+  z: number,
+  out: TissueSample,
+): boolean {
   // swinging heart (tamponade): rigid translation of the whole heart inside the pericardial sac
   const x = x0 - hp.swingX;
   const bc = m.boundCenter;
@@ -85,7 +115,10 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
       rootT = t;
       // sinuses of Valsalva bulge at the cusp centres (trefoil in short axis, ±6 %), narrowing at the commissures;
       // the bulge fades to nothing at the annulus and at the sinotubular junction
-      rootPhi = fastAtan2(rootQx * A.avE2.x + rootQy * A.avE2.y + rootQz * A.avE2.z, rootQx * A.avE1.x + rootQy * A.avE1.y + rootQz * A.avE1.z);
+      rootPhi = fastAtan2(
+        rootQx * A.avE2.x + rootQy * A.avE2.y + rootQz * A.avE2.z,
+        rootQx * A.avE1.x + rootQy * A.avE1.y + rootQz * A.avE1.z,
+      );
       rootR = rootRadiusAt(hp.valves.root, t, rootPhi);
     }
   }
@@ -102,7 +135,19 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
   {
     const t = mitralDistance(x, y, z, V.mitral);
     if (mitralHit.d < t) {
-      setSample(out, Tissue.Valve, mitralHit.d - t, mitralHit.nx, mitralHit.ny, mitralHit.nz, x, y, z, m.anatomy.mitral.calcification, mitralHit.leaflet === 0 ? Structure.MitralAnterior : Structure.MitralPosterior);
+      setSample(
+        out,
+        Tissue.Valve,
+        mitralHit.d - t,
+        mitralHit.nx,
+        mitralHit.ny,
+        mitralHit.nz,
+        x,
+        y,
+        z,
+        m.anatomy.mitral.calcification,
+        mitralHit.leaflet === 0 ? Structure.MitralAnterior : Structure.MitralPosterior,
+      );
       return true;
     }
   }
@@ -112,7 +157,19 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
     if (aorticHit.d < half) {
       const ur = 1 / (rootRr || 1);
       const ax = A.avAxis;
-      setSample(out, Tissue.Valve, aorticHit.d - half, aorticHit.nr * rootQx * ur + aorticHit.nt * ax.x, aorticHit.nr * rootQy * ur + aorticHit.nt * ax.y, aorticHit.nr * rootQz * ur + aorticHit.nt * ax.z, x, y, z, m.anatomy.aorticValve.calcification, Structure.AorticValve);
+      setSample(
+        out,
+        Tissue.Valve,
+        aorticHit.d - half,
+        aorticHit.nr * rootQx * ur + aorticHit.nt * ax.x,
+        aorticHit.nr * rootQy * ur + aorticHit.nt * ax.y,
+        aorticHit.nr * rootQz * ur + aorticHit.nt * ax.z,
+        x,
+        y,
+        z,
+        m.anatomy.aorticValve.calcification,
+        Structure.AorticValve,
+      );
       return true;
     }
   }
@@ -134,7 +191,19 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
           uy = rootQy / (rootRr || 1),
           uz = rootQz / (rootRr || 1);
         const ax = A.avAxis;
-        setSample(out, Tissue.Valve, dist - AV_COAPT_HALF, ax.y * uz - ax.z * uy, ax.z * ux - ax.x * uz, ax.x * uy - ax.y * ux, x, y, z, m.anatomy.aorticValve.calcification, Structure.AorticValve);
+        setSample(
+          out,
+          Tissue.Valve,
+          dist - AV_COAPT_HALF,
+          ax.y * uz - ax.z * uy,
+          ax.z * ux - ax.x * uz,
+          ax.x * uy - ax.y * ux,
+          x,
+          y,
+          z,
+          m.anatomy.aorticValve.calcification,
+          Structure.AorticValve,
+        );
         return true;
       }
     }
@@ -143,7 +212,21 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
   // the aortic root or its wall: at the level of the sinuses they used to replace 0.3 cm of the anterior aortic wall
   // (decision 75)
   const outsideAorticRoot = rootT <= -1.6 || rootRr > rootR + 0.22;
-  if (outsideAorticRoot && sdCapsule(x, y, z, A.rvotM.x, A.rvotM.y, A.rvotM.z + hp.pvZ, A.paEnd.x, A.paEnd.y, A.paEnd.z, A.paR + 0.02) < 0) {
+  if (
+    outsideAorticRoot &&
+    sdCapsule(
+      x,
+      y,
+      z,
+      A.rvotM.x,
+      A.rvotM.y,
+      A.rvotM.z + hp.pvZ,
+      A.paEnd.x,
+      A.paEnd.y,
+      A.paEnd.z,
+      A.paR + 0.02,
+    ) < 0
+  ) {
     for (let i = 0; i < 3; i++) {
       const wx = V.pvWidths[i * 3]!,
         wy = V.pvWidths[i * 3 + 1]!,
@@ -155,7 +238,19 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
         const dx = V.pvSegs[o + 3]!,
           dy = V.pvSegs[o + 4]!,
           dz = V.pvSegs[o + 5]!;
-        setSample(out, Tissue.Valve, hit.d - t, dy * wz - dz * wy, dz * wx - dx * wz, dx * wy - dy * wx, x, y, z, 0, Structure.PulmonaryValve);
+        setSample(
+          out,
+          Tissue.Valve,
+          hit.d - t,
+          dy * wz - dz * wy,
+          dz * wx - dx * wz,
+          dx * wy - dy * wx,
+          x,
+          y,
+          z,
+          0,
+          Structure.PulmonaryValve,
+        );
         return true;
       }
     }
@@ -167,7 +262,19 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
       const dxt = x - V.tv.cx,
         dyt = y - V.tv.cy;
       const rr = Math.hypot(dxt, dyt) || 1;
-      setSample(out, Tissue.Valve, skirtHit.d - t, dxt / rr, dyt / rr, 0.8, x, y, z, 0, V.tv.zones[skirtHit.zone]!.structure);
+      setSample(
+        out,
+        Tissue.Valve,
+        skirtHit.d - t,
+        dxt / rr,
+        dyt / rr,
+        0.8,
+        x,
+        y,
+        z,
+        0,
+        V.tv.zones[skirtHit.zone]!.structure,
+      );
       return true;
     }
   }
@@ -175,13 +282,46 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
   {
     const dR = mitralAnnulusDistance(x, y, z, V.mitral, 0.11);
     if (dR < 0) {
-      setSample(out, Tissue.Fibrous, dR, x - V.mitral.cx, y - V.mitral.cy, 0, x, y, z, 0.15 * m.anatomy.mitral.calcification, Structure.MitralAnnulus);
+      setSample(
+        out,
+        Tissue.Fibrous,
+        dR,
+        x - V.mitral.cx,
+        y - V.mitral.cy,
+        0,
+        x,
+        y,
+        z,
+        0.15 * m.anatomy.mitral.calcification,
+        Structure.MitralAnnulus,
+      );
       return true;
     }
     const q = V.tvRing;
-    const dT = sdTorusZ(x, y, z - saddleOffset(fastAtan2(y - q[1], x - q[0]), V.tv.zones[0]!.phi, V.tv.saddle), q[0], q[1], q[2], q[3], 0.09);
+    const dT = sdTorusZ(
+      x,
+      y,
+      z - saddleOffset(fastAtan2(y - q[1], x - q[0]), V.tv.zones[0]!.phi, V.tv.saddle),
+      q[0],
+      q[1],
+      q[2],
+      q[3],
+      0.09,
+    );
     if (dT < 0) {
-      setSample(out, Tissue.Fibrous, dT, x - q[0], y - q[1], 0, x, y, z, 0, Structure.TricuspidAnnulus);
+      setSample(
+        out,
+        Tissue.Fibrous,
+        dT,
+        x - q[0],
+        y - q[1],
+        0,
+        x,
+        y,
+        z,
+        0,
+        Structure.TricuspidAnnulus,
+      );
       return true;
     }
   }
@@ -189,7 +329,18 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
   for (let i = 0; i < V.chordaeCount; i++) {
     const o = i * 6;
     const c = V.chordae;
-    const d = sdCapsule(x, y, z, c[o]!, c[o + 1]!, c[o + 2]!, c[o + 3]!, c[o + 4]!, c[o + 5]!, 0.045);
+    const d = sdCapsule(
+      x,
+      y,
+      z,
+      c[o]!,
+      c[o + 1]!,
+      c[o + 2]!,
+      c[o + 3]!,
+      c[o + 4]!,
+      c[o + 5]!,
+      0.045,
+    );
     if (d < 0) {
       setSample(out, Tissue.Chordae, d, 0, 0, 1, x, y, z, 0, Structure.Chordae);
       return true;
@@ -219,7 +370,18 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
   const lsc = hp.longScale;
   // trabeculation: rough endocardium with longitudinal ridges (material coordinates, so it moves with the
   // wall), growing from the mid cavity to the apex
-  const trab = levelFrac > 0.45 ? 0.2 * Math.min(1, (levelFrac - 0.45) / 0.35) * (latticeNoise3((x / rsc) * 2.6 + 11.3, (y / rsc) * 2.6 + 2.9, ((z - lv.lengthCm) / lsc) * 1.1 + 6.1, m.wallNoise) - 0.5) : 0;
+  const trab =
+    levelFrac > 0.45
+      ? 0.2 *
+        Math.min(1, (levelFrac - 0.45) / 0.35) *
+        (latticeNoise3(
+          (x / rsc) * 2.6 + 11.3,
+          (y / rsc) * 2.6 + 2.9,
+          ((z - lv.lengthCm) / lsc) * 1.1 + 6.1,
+          m.wallNoise,
+        ) -
+          0.5)
+      : 0;
   const dCavR = dCav - regional + trab;
   // wall thickness: interpolate septal (az≈π, i.e. x<0) vs free wall
   const septalness = 0.5 - 0.5 * Math.cos(az); // 1 at septum (az=π), 0 at lateral
@@ -242,11 +404,35 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
     const dPm = sdRoundCone(x, y, z, P[8]!, P[9]!, P[10]!, P[11]!, P[12]!, P[13]!, P[14]!, P[15]!);
     const dPap = Math.min(dPa, dPm);
     if (dPap < 0) {
-      setSample(out, Tissue.Myocardium, dPap, x, y, 0, x / rsc, y / rsc, z / lsc, 0, Structure.PapillaryMuscle);
+      setSample(
+        out,
+        Tissue.Myocardium,
+        dPap,
+        x,
+        y,
+        0,
+        x / rsc,
+        y / rsc,
+        z / lsc,
+        0,
+        Structure.PapillaryMuscle,
+      );
       return true;
     }
     // LV blood (the inflow column basal to the hinge plane belongs to the atrium)
-    setSample(out, Tissue.Blood, dLvBlood, nx0, ny0, nz0, x / rsc, y / rsc, (z - lv.lengthCm) / lsc, 0, dCavR >= 0 && z < zHinge ? Structure.LaCavity : Structure.LvCavity);
+    setSample(
+      out,
+      Tissue.Blood,
+      dLvBlood,
+      nx0,
+      ny0,
+      nz0,
+      x / rsc,
+      y / rsc,
+      (z - lv.lengthCm) / lsc,
+      0,
+      dCavR >= 0 && z < zHinge ? Structure.LaCavity : Structure.LvCavity,
+    );
     return true;
   }
   const wallT = tNow;
@@ -263,7 +449,19 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
     const dIn = -Math.min(dEllR, wallT - dEllR);
     const nearEpi = wallT - dEllR < dEllR;
     const sign = nearEpi ? 1 : -1;
-    setSample(out, Tissue.Myocardium, dIn, sign * nx0, sign * ny0, sign * nz0, x / rsc, y / rsc, (z - lv.lengthCm) / lsc, 0, structure);
+    setSample(
+      out,
+      Tissue.Myocardium,
+      dIn,
+      sign * nx0,
+      sign * ny0,
+      sign * nz0,
+      x / rsc,
+      y / rsc,
+      (z - lv.lengthCm) / lsc,
+      0,
+      structure,
+    );
     return true;
   }
   // Annular plane region (inside the ellipsoid but basal to the annulus): mitral orifice is blood
@@ -285,12 +483,36 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
       R = rootR;
     const wall = 0.2;
     if (rr < R) {
-      setSample(out, Tissue.Blood, rr - R, rootQx / rr, rootQy / rr, rootQz / rr, x, y, z - zAnn * ROOT_EXCURSION, 0, t < 0 ? Structure.Lvot : Structure.AorticRoot);
+      setSample(
+        out,
+        Tissue.Blood,
+        rr - R,
+        rootQx / rr,
+        rootQy / rr,
+        rootQz / rr,
+        x,
+        y,
+        z - zAnn * ROOT_EXCURSION,
+        0,
+        t < 0 ? Structure.Lvot : Structure.AorticRoot,
+      );
       return true;
     }
     if (rr < R + wall) {
       const dIn = -Math.min(rr - R, R + wall - rr);
-      setSample(out, Tissue.VesselWall, dIn, rootQx / rr, rootQy / rr, rootQz / rr, x, y, z, 0, Structure.AorticRoot);
+      setSample(
+        out,
+        Tissue.VesselWall,
+        dIn,
+        rootQx / rr,
+        rootQy / rr,
+        rootQz / rr,
+        x,
+        y,
+        z,
+        0,
+        Structure.AorticRoot,
+      );
       return true;
     }
   }
@@ -319,14 +541,42 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
     // LA: ellipsoid flattened against the septum (medial clip), against the oesophagus / descending aorta
     // (posterior clip) and under the pulmonary bifurcation (roof clip)
     const dEllLa = sdEllipsoid(x, y, z, la.x, la.y, czL, lr.x * bo, lr.y * bo, rzL);
-    const dFreeLa = smax(smax(dEllLa, la.y - 0.72 * lr.y * bo - y, 0.6), zTop + 0.15 * rzL - z, 0.5);
+    const dFreeLa = smax(
+      smax(dEllLa, la.y - 0.72 * lr.y * bo - y, 0.6),
+      zTop + 0.15 * rzL - z,
+      0.5,
+    );
     const d = smax(dFreeLa, xIas + tIas / 2 - x, 0.3);
     if (d < 0) {
-      setSample(out, Tissue.Blood, d, (x - la.x) / lr.x, (y - la.y) / lr.y, (z - czL) / rzL, x, y, z, 0, Structure.LaCavity);
+      setSample(
+        out,
+        Tissue.Blood,
+        d,
+        (x - la.x) / lr.x,
+        (y - la.y) / lr.y,
+        (z - czL) / rzL,
+        x,
+        y,
+        z,
+        0,
+        Structure.LaCavity,
+      );
       return true;
     }
     if (dFreeLa < 0.25 && x > xIas + tIas / 2) {
-      setSample(out, Tissue.Myocardium, -Math.min(dFreeLa, 0.25 - dFreeLa), (x - la.x) / lr.x, (y - la.y) / lr.y, (z - czL) / rzL, x, y, z, 0, Structure.LaWall);
+      setSample(
+        out,
+        Tissue.Myocardium,
+        -Math.min(dFreeLa, 0.25 - dFreeLa),
+        (x - la.x) / lr.x,
+        (y - la.y) / lr.y,
+        (z - czL) / rzL,
+        x,
+        y,
+        z,
+        0,
+        Structure.LaWall,
+      );
       return true;
     }
     // RA: rounder, flattened against the septum and posteriorly
@@ -345,7 +595,19 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
     const dFreeRa = smax(dEllRa, ra.y - 0.8 * rr.y * bo - y, 0.6);
     const dR = smax(dFreeRa, x - (xIas - tIas / 2), 0.3);
     if (dR < 0) {
-      setSample(out, Tissue.Blood, dR, (x - ra.x) / rr.x, (y - ra.y) / rr.y, (z - czR) / rzR, x, y, z, 0, Structure.RaCavity);
+      setSample(
+        out,
+        Tissue.Blood,
+        dR,
+        (x - ra.x) / rr.x,
+        (y - ra.y) / rr.y,
+        (z - czR) / rzR,
+        x,
+        y,
+        z,
+        0,
+        Structure.RaCavity,
+      );
       return true;
     }
     if (dFreeRa < 0.22 && x < xIas - tIas / 2) {
@@ -359,17 +621,56 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
         // past the annulus the blood belongs to the ventricle, as it does on the left where the LV cavity
         // claims the mitral orifice: calling it atrium instead stretched ra-long past its reference range
         const past = z > A.tvCenter.z + hp.tvZ * 0.7;
-        setSample(out, Tissue.Blood, dFreeRa - 0.22, (x - ra.x) / rr.x, (y - ra.y) / rr.y, (z - czR) / rzR, x, y, z, 0, past ? Structure.RvCavity : Structure.RaCavity);
+        setSample(
+          out,
+          Tissue.Blood,
+          dFreeRa - 0.22,
+          (x - ra.x) / rr.x,
+          (y - ra.y) / rr.y,
+          (z - czR) / rzR,
+          x,
+          y,
+          z,
+          0,
+          past ? Structure.RvCavity : Structure.RaCavity,
+        );
         return true;
       }
-      setSample(out, Tissue.Myocardium, -Math.min(dFreeRa, 0.22 - dFreeRa), (x - ra.x) / rr.x, (y - ra.y) / rr.y, (z - czR) / rzR, x, y, z, 0, Structure.RaWall);
+      setSample(
+        out,
+        Tissue.Myocardium,
+        -Math.min(dFreeRa, 0.22 - dFreeRa),
+        (x - ra.x) / rr.x,
+        (y - ra.y) / rr.y,
+        (z - czR) / rzR,
+        x,
+        y,
+        z,
+        0,
+        Structure.RaWall,
+      );
       return true;
     }
     // interatrial septum: slab between the clipped atria wherever either atrium reaches the septal plane
     // (behind the aortic root in PSAX-AV as well as in A4C and subcostal views)
     if (Math.abs(x - xIas) <= tIas / 2 && z < zAnn + 0.4) {
-      if (sdEllipsoid(xIas, y, z, la.x, la.y, czL, lr.x * bo, lr.y * bo, rzL) < 0.45 || sdEllipsoid(xIas, y, z, ra.x, ra.y, czR, rr.x * bo * raC, rr.y * bo * raC, rzR) < 0.45) {
-        setSample(out, Tissue.Myocardium, -(tIas / 2 - Math.abs(x - xIas)), 1, 0, 0, x, y, z, 0, Structure.InteratrialSeptum);
+      if (
+        sdEllipsoid(xIas, y, z, la.x, la.y, czL, lr.x * bo, lr.y * bo, rzL) < 0.45 ||
+        sdEllipsoid(xIas, y, z, ra.x, ra.y, czR, rr.x * bo * raC, rr.y * bo * raC, rzR) < 0.45
+      ) {
+        setSample(
+          out,
+          Tissue.Myocardium,
+          -(tIas / 2 - Math.abs(x - xIas)),
+          1,
+          0,
+          0,
+          x,
+          y,
+          z,
+          0,
+          Structure.InteratrialSeptum,
+        );
         return true;
       }
     }
@@ -381,14 +682,27 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
       const ax1 = la.x + lr.x * 0.95,
         ay1 = ay0 + 2.0,
         az1 = czL + 0.9;
-      const lob = 0.12 * (latticeNoise3(x * 2.3 + 1.7, y * 2.3 + 4.2, z * 2.3 + 8.8, m.wallNoise) - 0.5);
+      const lob =
+        0.12 * (latticeNoise3(x * 2.3 + 1.7, y * 2.3 + 4.2, z * 2.3 + 8.8, m.wallNoise) - 0.5);
       const dApp = sdCapsule(x, y, z, ax0, ay0, az0, ax1, ay1, az1, 0.55 * bo + lob);
       if (dApp < 0) {
         setSample(out, Tissue.Blood, dApp, 0, 1, 0, x, y, z, 0, Structure.LaAppendage);
         return true;
       }
       if (dApp < 0.18) {
-        setSample(out, Tissue.Myocardium, -Math.min(dApp, 0.18 - dApp), 0, 1, 0, x, y, z, 0, Structure.LaWall);
+        setSample(
+          out,
+          Tissue.Myocardium,
+          -Math.min(dApp, 0.18 - dApp),
+          0,
+          1,
+          0,
+          x,
+          y,
+          z,
+          0,
+          Structure.LaWall,
+        );
         return true;
       }
     }
@@ -398,36 +712,105 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
       const px = la.x + sx * lr.x * 0.6;
       const pz = czL + (i < 2 ? -0.7 : 0.6);
       const py0 = la.y - lr.y * 0.7;
-      const dPv = sdCapsule(x, y, z, px, py0, pz, px + sx * 1.2, py0 - 2.2, pz + (i < 2 ? -0.6 : 0.5), 0.45);
+      const dPv = sdCapsule(
+        x,
+        y,
+        z,
+        px,
+        py0,
+        pz,
+        px + sx * 1.2,
+        py0 - 2.2,
+        pz + (i < 2 ? -0.6 : 0.5),
+        0.45,
+      );
       if (dPv < 0) {
         setSample(out, Tissue.Blood, dPv, 0, -1, 0, x, y, z, 0, Structure.PulmonaryVein);
         return true;
       }
       if (dPv < 0.12) {
-        setSample(out, Tissue.VesselWall, -Math.min(dPv, 0.12 - dPv), 0, -1, 0, x, y, z, 0, Structure.PulmonaryVein);
+        setSample(
+          out,
+          Tissue.VesselWall,
+          -Math.min(dPv, 0.12 - dPv),
+          0,
+          -1,
+          0,
+          x,
+          y,
+          z,
+          0,
+          Structure.PulmonaryVein,
+        );
         return true;
       }
     }
     // venae cavae: the superior enters the RA roof from above (torso superior), the inferior its floor from
     // below and behind through the liver, joined by a hepatic vein (subcostal views); the IVC narrows with the sniff
     {
-      const dSvc = sdCapsule(x, y, z, A.svcA.x, A.svcA.y, A.svcA.z, A.svcB.x, A.svcB.y, A.svcB.z, A.svcR);
+      const dSvc = sdCapsule(
+        x,
+        y,
+        z,
+        A.svcA.x,
+        A.svcA.y,
+        A.svcA.z,
+        A.svcB.x,
+        A.svcB.y,
+        A.svcB.z,
+        A.svcR,
+      );
       if (dSvc < 0) {
         setSample(out, Tissue.Blood, dSvc, 0, 0, -1, x, y, z, 0, Structure.Svc);
         return true;
       }
       if (dSvc < 0.12) {
-        setSample(out, Tissue.VesselWall, -Math.min(dSvc, 0.12 - dSvc), 0, 0, -1, x, y, z, 0, Structure.Svc);
+        setSample(
+          out,
+          Tissue.VesselWall,
+          -Math.min(dSvc, 0.12 - dSvc),
+          0,
+          0,
+          -1,
+          x,
+          y,
+          z,
+          0,
+          Structure.Svc,
+        );
         return true;
       }
       const rI = A.ivcR * (1 - hp.ivcCollapse);
-      const dIvc = sdCapsule(x, y, z, A.ivcA.x, A.ivcA.y, A.ivcA.z, A.ivcB.x, A.ivcB.y, A.ivcB.z, rI);
+      const dIvc = sdCapsule(
+        x,
+        y,
+        z,
+        A.ivcA.x,
+        A.ivcA.y,
+        A.ivcA.z,
+        A.ivcB.x,
+        A.ivcB.y,
+        A.ivcB.z,
+        rI,
+      );
       if (dIvc < 0) {
         setSample(out, Tissue.Blood, dIvc, 0, 0, 1, x, y, z, 0, Structure.Ivc);
         return true;
       }
       if (dIvc < 0.12) {
-        setSample(out, Tissue.VesselWall, -Math.min(dIvc, 0.12 - dIvc), 0, 0, 1, x, y, z, 0, Structure.Ivc);
+        setSample(
+          out,
+          Tissue.VesselWall,
+          -Math.min(dIvc, 0.12 - dIvc),
+          0,
+          0,
+          1,
+          x,
+          y,
+          z,
+          0,
+          Structure.Ivc,
+        );
         return true;
       }
       const dHv = sdCapsule(x, y, z, A.hvA.x, A.hvA.y, A.hvA.z, A.hvB.x, A.hvB.y, A.hvB.z, 0.4);
@@ -436,7 +819,19 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
         return true;
       }
       if (dHv < 0.08) {
-        setSample(out, Tissue.VesselWall, -Math.min(dHv, 0.08 - dHv), 0, 0, 1, x, y, z, 0, Structure.HepaticVein);
+        setSample(
+          out,
+          Tissue.VesselWall,
+          -Math.min(dHv, 0.08 - dHv),
+          0,
+          0,
+          1,
+          x,
+          y,
+          z,
+          0,
+          Structure.HepaticVein,
+        );
         return true;
       }
     }
@@ -444,15 +839,43 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
     {
       // outside the inferior wall, which at the annulus follows the posterior mitral annulus
       const mvI = V.mitral;
-      const rInflow = -mvI.cy + Math.sqrt(Math.max(0, mvI.R * mvI.R - mvI.cx * mvI.cx)) - inflowTaper(0.6, mvI);
-      const gy = -(Math.max(lvCavityRadius(sh, hp.prof, -Math.PI / 2, zAnn + 0.6), rInflow) + lv.lvpwd * hp.thickK + 0.4);
-      const dCs = sdCapsule(x, y, z, 2.2, gy * 0.85, zAnn + 0.35, ra.x + rr.x * 0.4, gy * 0.7, zAnn + 0.1, 0.33);
+      const rInflow =
+        -mvI.cy + Math.sqrt(Math.max(0, mvI.R * mvI.R - mvI.cx * mvI.cx)) - inflowTaper(0.6, mvI);
+      const gy = -(
+        Math.max(lvCavityRadius(sh, hp.prof, -Math.PI / 2, zAnn + 0.6), rInflow) +
+        lv.lvpwd * hp.thickK +
+        0.4
+      );
+      const dCs = sdCapsule(
+        x,
+        y,
+        z,
+        2.2,
+        gy * 0.85,
+        zAnn + 0.35,
+        ra.x + rr.x * 0.4,
+        gy * 0.7,
+        zAnn + 0.1,
+        0.33,
+      );
       if (dCs < 0) {
         setSample(out, Tissue.Blood, dCs, 0, -1, 0, x, y, z, 0, Structure.CoronarySinus);
         return true;
       }
       if (dCs < 0.1) {
-        setSample(out, Tissue.VesselWall, -Math.min(dCs, 0.1 - dCs), 0, -1, 0, x, y, z, 0, Structure.CoronarySinus);
+        setSample(
+          out,
+          Tissue.VesselWall,
+          -Math.min(dCs, 0.1 - dCs),
+          0,
+          -1,
+          0,
+          x,
+          y,
+          z,
+          0,
+          Structure.CoronarySinus,
+        );
         return true;
       }
     }
@@ -470,17 +893,86 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
     const pvZ = hp.pvZ;
     const zo = z - pvZ;
     const dRvot = Math.min(
-      sdRoundCone(x, y, zo, A.rvotA.x, A.rvotA.y, A.rvotA.z, A.rvotM.x, A.rvotM.y, A.rvotM.z, A.rvotRa * k, A.rvotRm * k),
-      sdRoundCone(x, y, zo, A.rvotM.x, A.rvotM.y, A.rvotM.z, A.rvotB.x, A.rvotB.y, A.rvotB.z, A.rvotRm * k, A.rvotR * k),
+      sdRoundCone(
+        x,
+        y,
+        zo,
+        A.rvotA.x,
+        A.rvotA.y,
+        A.rvotA.z,
+        A.rvotM.x,
+        A.rvotM.y,
+        A.rvotM.z,
+        A.rvotRa * k,
+        A.rvotRm * k,
+      ),
+      sdRoundCone(
+        x,
+        y,
+        zo,
+        A.rvotM.x,
+        A.rvotM.y,
+        A.rvotM.z,
+        A.rvotB.x,
+        A.rvotB.y,
+        A.rvotB.z,
+        A.rvotRm * k,
+        A.rvotR * k,
+      ),
     );
     // pulmonary trunk from the valve to the bifurcation; right branch behind the ascending aorta, left branch
     const dPa = Math.min(
-      sdRoundCone(x, y, zo, A.rvotB.x, A.rvotB.y, A.rvotB.z, A.paStj.x, A.paStj.y, A.paStj.z, A.paRootR, A.paR),
+      sdRoundCone(
+        x,
+        y,
+        zo,
+        A.rvotB.x,
+        A.rvotB.y,
+        A.rvotB.z,
+        A.paStj.x,
+        A.paStj.y,
+        A.paStj.z,
+        A.paRootR,
+        A.paR,
+      ),
       // the trunk runs from the moving junction to the bifurcation, which stays
-      sdCapsule(x, y, z, A.paStj.x, A.paStj.y, A.paStj.z + pvZ, A.paEnd.x, A.paEnd.y, A.paEnd.z, A.paR),
+      sdCapsule(
+        x,
+        y,
+        z,
+        A.paStj.x,
+        A.paStj.y,
+        A.paStj.z + pvZ,
+        A.paEnd.x,
+        A.paEnd.y,
+        A.paEnd.z,
+        A.paR,
+      ),
     );
-    const dRpa = sdCapsule(x, y, z, A.paEnd.x, A.paEnd.y, A.paEnd.z, A.rpaEnd.x, A.rpaEnd.y, A.rpaEnd.z, A.rpaR);
-    const dLpa = sdCapsule(x, y, z, A.paEnd.x, A.paEnd.y, A.paEnd.z, A.lpaEnd.x, A.lpaEnd.y, A.lpaEnd.z, A.lpaR);
+    const dRpa = sdCapsule(
+      x,
+      y,
+      z,
+      A.paEnd.x,
+      A.paEnd.y,
+      A.paEnd.z,
+      A.rpaEnd.x,
+      A.rpaEnd.y,
+      A.rpaEnd.z,
+      A.rpaR,
+    );
+    const dLpa = sdCapsule(
+      x,
+      y,
+      z,
+      A.paEnd.x,
+      A.paEnd.y,
+      A.paEnd.z,
+      A.lpaEnd.x,
+      A.lpaEnd.y,
+      A.lpaEnd.z,
+      A.lpaR,
+    );
     const dTrunk = Math.min(dPa, dRpa, dLpa);
     const vx = x - A.rvotB.x,
       vy = y - A.rvotB.y,
@@ -490,7 +982,19 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
       return true;
     }
     if (dTrunk < 0.18 && dRvot > 0) {
-      setSample(out, Tissue.VesselWall, -Math.min(dTrunk, 0.18 - dTrunk), vx, vy, vz, x, y, z, 0, Structure.PulmonaryArtery);
+      setSample(
+        out,
+        Tissue.VesselWall,
+        -Math.min(dTrunk, 0.18 - dTrunk),
+        vx,
+        vy,
+        vz,
+        x,
+        y,
+        z,
+        0,
+        Structure.PulmonaryArtery,
+      );
       return true;
     }
     // tricuspid inflow: the RV cavity and its wall reach the whole annulus. The crescent is closed at the tricuspid
@@ -525,12 +1029,40 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
         }
       }
       const rr = Math.hypot(x, y) || 1;
-      setSample(out, Tissue.Blood, dCavRv, x / rr, y / rr, 0, x / (1 - 0.3 * s), y / (1 - 0.3 * s), z, 0, dRvot < dRvU ? Structure.Rvot : dRv >= 0 && z <= A.tvCenter.z + hp.tvZ * 0.7 ? Structure.RaCavity : Structure.RvCavity);
+      setSample(
+        out,
+        Tissue.Blood,
+        dCavRv,
+        x / rr,
+        y / rr,
+        0,
+        x / (1 - 0.3 * s),
+        y / (1 - 0.3 * s),
+        z,
+        0,
+        dRvot < dRvU
+          ? Structure.Rvot
+          : dRv >= 0 && z <= A.tvCenter.z + hp.tvZ * 0.7
+            ? Structure.RaCavity
+            : Structure.RvCavity,
+      );
       return true;
     }
     if (dCavRv < fw) {
       const rr = Math.hypot(x, y) || 1;
-      setSample(out, Tissue.Myocardium, -Math.min(dCavRv, fw - dCavRv), x / rr, y / rr, 0, x / (1 - 0.3 * s), y / (1 - 0.3 * s), z, 0, Structure.RvWall);
+      setSample(
+        out,
+        Tissue.Myocardium,
+        -Math.min(dCavRv, fw - dCavRv),
+        x / rr,
+        y / rr,
+        0,
+        x / (1 - 0.3 * s),
+        y / (1 - 0.3 * s),
+        z,
+        0,
+        Structure.RvWall,
+      );
       return true;
     }
   }
@@ -550,25 +1082,87 @@ export function classifyHeart(m: HeartModel, hp: HeartPose, x0: number, y: numbe
     // front, the arterial reflection on the trunk) while they descend in systole (decision 111). One envelope stands for the
     // epicardial fat, the pericardium and the effusion here; moved with the tract, the effusion of the tamponade case, which
     // reaches the transducer face in the parasternal views (chestWall.test.ts), changed its near field with every beat.
-    const dRvotEpi = sdCapsule(x, y, z, A.rvotA.x, A.rvotA.y, A.rvotA.z, A.rvotB.x, A.rvotB.y, A.rvotB.z, A.rvotRa + fw);
+    const dRvotEpi = sdCapsule(
+      x,
+      y,
+      z,
+      A.rvotA.x,
+      A.rvotA.y,
+      A.rvotA.z,
+      A.rvotB.x,
+      A.rvotB.y,
+      A.rvotB.z,
+      A.rvotRa + fw,
+    );
     const dPaEpi = Math.min(
-      sdRoundCone(x, y, z, A.rvotB.x, A.rvotB.y, A.rvotB.z, A.paStj.x, A.paStj.y, A.paStj.z, A.paRootR + 0.2, A.paR + 0.2),
-      sdCapsule(x, y, z, A.paStj.x, A.paStj.y, A.paStj.z, A.paEnd.x, A.paEnd.y, A.paEnd.z, A.paR + 0.2),
+      sdRoundCone(
+        x,
+        y,
+        z,
+        A.rvotB.x,
+        A.rvotB.y,
+        A.rvotB.z,
+        A.paStj.x,
+        A.paStj.y,
+        A.paStj.z,
+        A.paRootR + 0.2,
+        A.paR + 0.2,
+      ),
+      sdCapsule(
+        x,
+        y,
+        z,
+        A.paStj.x,
+        A.paStj.y,
+        A.paStj.z,
+        A.paEnd.x,
+        A.paEnd.y,
+        A.paEnd.z,
+        A.paR + 0.2,
+      ),
     );
     // the cardiac silhouette is the smooth union of the epicardial surfaces: the grooves between chambers and
     // the space between outflow and root are filled with epicardial fat, and one pericardium wraps the whole heart
-    const dEpi = smin(smin(smin(dLvEpi, dRvEpi, 0.8), smin(dLaEpi, dRaEpi, 0.8), 0.8), smin(dRvotEpi, dPaEpi, 0.8), 0.8);
+    const dEpi = smin(
+      smin(smin(dLvEpi, dRvEpi, 0.8), smin(dLaEpi, dRaEpi, 0.8), 0.8),
+      smin(dRvotEpi, dPaEpi, 0.8),
+      0.8,
+    );
     const eff = hp.effusion;
     if (dEpi < 0) {
       setSample(out, Tissue.Fat, dEpi, nx0, ny0, nz0, x, y, z, 0, Structure.EpicardialFat);
       return true;
     }
     if (dEpi < 0.12) {
-      setSample(out, Tissue.Pericardium, -Math.min(Math.max(dEpi, 0), 0.12 - Math.max(dEpi, 0)), nx0, ny0, nz0, x, y, z, 0, Structure.Pericardium);
+      setSample(
+        out,
+        Tissue.Pericardium,
+        -Math.min(Math.max(dEpi, 0), 0.12 - Math.max(dEpi, 0)),
+        nx0,
+        ny0,
+        nz0,
+        x,
+        y,
+        z,
+        0,
+        Structure.Pericardium,
+      );
       return true;
     }
     if (eff > 0 && dEpi < 0.12 + eff) {
-      setSample(out, Tissue.Fluid, dEpi - 0.12 - eff, nx0, ny0, nz0, x, y, z, 0, Structure.PericardialEffusion);
+      setSample(
+        out,
+        Tissue.Fluid,
+        dEpi - 0.12 - eff,
+        nx0,
+        ny0,
+        nz0,
+        x,
+        y,
+        z,
+        0,
+        Structure.PericardialEffusion,
+      );
       return true;
     }
     if (eff > 0 && dEpi < 0.12 + eff + 0.12) {

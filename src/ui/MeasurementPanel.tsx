@@ -2,7 +2,13 @@ import { useSimStore } from '@/app/store';
 import { loadCaseById } from '@/cases';
 import { MEASUREMENT_SPECS, type MeasurementSpec } from '@/simulator/measurements/protocol';
 
-const GROUP_LABEL: Record<MeasurementSpec['group'], string> = { lv: 'Ventrículo izquierdo', 'lvot-av': 'TSVI y válvula aórtica', diastole: 'Función diastólica', right: 'Corazón derecho', atria: 'Aurículas' };
+const GROUP_LABEL: Record<MeasurementSpec['group'], string> = {
+  lv: 'Ventrículo izquierdo',
+  'lvot-av': 'TSVI y válvula aórtica',
+  diastole: 'Función diastólica',
+  right: 'Corazón derecho',
+  atria: 'Aurículas',
+};
 
 /**
  * Measurement protocol panel (spec 16, 28): the case's required measurements first, then the rest
@@ -13,34 +19,71 @@ export function MeasurementPanel() {
   const s = useSimStore();
   const caseDef = loadCaseById(s.caseId);
   const requiredIds = caseDef.requiredMeasurements.map((r) => r.measurementId);
-  const active = s.activeMeasurementId ? MEASUREMENT_SPECS.find((m) => m.id === s.activeMeasurementId) : undefined;
+  const active = s.activeMeasurementId
+    ? MEASUREMENT_SPECS.find((m) => m.id === s.activeMeasurementId)
+    : undefined;
   const latestOf = (id: string) => {
-    for (let i = s.measurements.length - 1; i >= 0; i--) if (s.measurements[i]!.measurementId === id) return s.measurements[i]!;
+    for (let i = s.measurements.length - 1; i >= 0; i--)
+      if (s.measurements[i]!.measurementId === id) return s.measurements[i]!;
     return null;
   };
   const row = (spec: MeasurementSpec) => {
     const m = latestOf(spec.id);
-    const level = m?.technique ? (m.technique.findings.some((f) => f.level === 'invalid') ? 'invalid' : m.technique.findings.some((f) => f.level === 'warn') ? 'warn' : 'ok') : null;
+    const level = m?.technique
+      ? m.technique.findings.some((f) => f.level === 'invalid')
+        ? 'invalid'
+        : m.technique.findings.some((f) => f.level === 'warn')
+          ? 'warn'
+          : 'ok'
+      : null;
     const isActive = s.activeMeasurementId === spec.id;
     return (
-      <div key={spec.id} className={`protocol-row ${isActive ? 'active' : ''}`} data-measurement={spec.id}>
-        <button className={isActive ? 'active' : ''} onClick={() => s.setActiveMeasurement(isActive ? null : spec.id)} title={spec.instruction} aria-label={`Medir ${spec.label}`}>
+      <div
+        key={spec.id}
+        className={`protocol-row ${isActive ? 'active' : ''}`}
+        data-measurement={spec.id}
+      >
+        <button
+          className={isActive ? 'active' : ''}
+          onClick={() => s.setActiveMeasurement(isActive ? null : spec.id)}
+          title={spec.instruction}
+          aria-label={`Medir ${spec.label}`}
+        >
           {spec.shortLabel}
         </button>
         <span className="protocol-value">
-          {m ? `${m.value.toFixed(spec.kind === 'time' || spec.kind === 'volume' ? 0 : spec.units === 'cm/s' ? 1 : 2)} ${spec.units}` : '—'}
-          {level && <span className={`pill ${level === 'ok' ? 'ok' : level === 'warn' ? 'warn' : 'bad'}`} title={m?.technique?.findings.filter((f) => f.level !== 'ok').map((f) => f.message).join(' ') ?? ''}>{level === 'ok' ? 'técnica ok' : level === 'warn' ? 'revisar' : 'inválida'}</span>}
+          {m
+            ? `${m.value.toFixed(spec.kind === 'time' || spec.kind === 'volume' ? 0 : spec.units === 'cm/s' ? 1 : 2)} ${spec.units}`
+            : '—'}
+          {level && (
+            <span
+              className={`pill ${level === 'ok' ? 'ok' : level === 'warn' ? 'warn' : 'bad'}`}
+              title={
+                m?.technique?.findings
+                  .filter((f) => f.level !== 'ok')
+                  .map((f) => f.message)
+                  .join(' ') ?? ''
+              }
+            >
+              {level === 'ok' ? 'técnica ok' : level === 'warn' ? 'revisar' : 'inválida'}
+            </span>
+          )}
         </span>
       </div>
     );
   };
   const required = MEASUREMENT_SPECS.filter((m) => requiredIds.includes(m.id));
-  const groups = (['lv', 'lvot-av', 'diastole', 'right', 'atria'] as const).map((g) => ({ g, items: MEASUREMENT_SPECS.filter((m) => m.group === g && !requiredIds.includes(m.id)) }));
+  const groups = (['lv', 'lvot-av', 'diastole', 'right', 'atria'] as const).map((g) => ({
+    g,
+    items: MEASUREMENT_SPECS.filter((m) => m.group === g && !requiredIds.includes(m.id)),
+  }));
   return (
     <div className="protocol">
       {active && (
         <div className="protocol-instruction" role="status">
-          <strong>{active.label}</strong> · {active.modalities.map((m) => m.toUpperCase()).join('/')} · {active.views.map((v) => v.toUpperCase()).join('/')}
+          <strong>{active.label}</strong> ·{' '}
+          {active.modalities.map((m) => m.toUpperCase()).join('/')} ·{' '}
+          {active.views.map((v) => v.toUpperCase()).join('/')}
           <div className="small">{active.instruction}</div>
           <button onClick={() => s.setActiveMeasurement(null)}>Cancelar</button>
         </div>

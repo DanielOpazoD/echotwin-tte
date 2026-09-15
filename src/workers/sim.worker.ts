@@ -40,7 +40,13 @@ function tick(): void {
     const out = core.step(dt);
     const stepMs = performance.now() - t0;
     if (out && outstanding < 2) {
-      out.stats = { ...out.stats, stepMs: Number(stepMs.toFixed(1)), postMs: Number(lastPostMs.toFixed(2)), lateMs: Number(lateMs.toFixed(1)), dropped };
+      out.stats = {
+        ...out.stats,
+        stepMs: Number(stepMs.toFixed(1)),
+        postMs: Number(lastPostMs.toFixed(2)),
+        lateMs: Number(lateMs.toFixed(1)),
+        dropped,
+      };
       outstanding++;
       const tp = performance.now();
       post({ type: 'frame', output: out }, out.bitmap ? [out.rgba, out.bitmap] : [out.rgba]);
@@ -58,7 +64,10 @@ function tick(): void {
     nextDue = nextDue > 0 && tStart - nextDue < targetMs ? nextDue + targetMs : tStart + targetMs;
     schedule(Math.max(1, nextDue - performance.now()));
   } catch (e) {
-    post({ type: 'error', message: e instanceof Error ? e.message + '\n' + (e.stack ?? '') : String(e) });
+    post({
+      type: 'error',
+      message: e instanceof Error ? e.message + '\n' + (e.stack ?? '') : String(e),
+    });
     schedule(500);
   }
 }
@@ -73,7 +82,13 @@ self.onmessage = (ev: MessageEvent<MainToWorker>) => {
       outstanding = 0;
       nextDue = 0;
       lastFps = 30;
-      post({ type: 'ready', truth: core.truth, caseId: msg.caseDef.id, phaseMarks: core.phaseMarks(), lvLengthCm: core.lvLengthCm() });
+      post({
+        type: 'ready',
+        truth: core.truth,
+        caseId: msg.caseDef.id,
+        phaseMarks: core.phaseMarks(),
+        lvLengthCm: core.lvLengthCm(),
+      });
       schedule(1);
       return;
     }
@@ -92,6 +107,9 @@ self.onmessage = (ev: MessageEvent<MainToWorker>) => {
       post({ type: 'response', id: msg.id, res: core.request(msg.req) });
     }
   } catch (e) {
-    post({ type: 'error', message: e instanceof Error ? e.message + '\n' + (e.stack ?? '') : String(e) });
+    post({
+      type: 'error',
+      message: e instanceof Error ? e.message + '\n' + (e.stack ?? '') : String(e),
+    });
   }
 };

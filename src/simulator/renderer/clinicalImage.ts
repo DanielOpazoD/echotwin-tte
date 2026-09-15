@@ -5,11 +5,24 @@ import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleMo
 import { Structure } from '@/simulator/anatomy/tissue';
 import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
 import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
-import { imageStats, LABEL, orientApical, type ImageStats, type RegionImage } from '@/clinical/regionStats';
+import {
+  imageStats,
+  LABEL,
+  orientApical,
+  type ImageStats,
+  type RegionImage,
+} from '@/clinical/regionStats';
 import { ProceduralSliceRenderer } from './procedural/sliceRenderer';
 import { applyConsole, createConsoleState } from './postprocess/consolePipeline';
 import { buildScanLut, computeSectorMapping, scanConvertLut } from './scanConvert';
-import { allocPolarFrame, DEFAULT_ACQUISITION, polarSpecFor, type AcquisitionSettings, type PolarFrame, type Scene } from './types';
+import {
+  allocPolarFrame,
+  DEFAULT_ACQUISITION,
+  polarSpecFor,
+  type AcquisitionSettings,
+  type PolarFrame,
+  type Scene,
+} from './types';
 
 /**
  * The simulator's apical images as the clinical comparison measures them (decisions 69-70): the high tier the
@@ -26,26 +39,58 @@ export interface ApicalRender {
 }
 
 /** The console controls a clinical comparison may vary; anything else would change the render itself. */
-export type ConsoleOverride = Partial<Pick<AcquisitionSettings, 'grayMap' | 'dynamicRangeDb' | 'gainDb'>>;
+export type ConsoleOverride = Partial<
+  Pick<AcquisitionSettings, 'grayMap' | 'dynamicRangeDb' | 'gainDb'>
+>;
 
 /**
  * Canonical apical view of a case at end-diastole (phase 0) or end-systole (end of ejection). `scatterSeed` picks the
  * scatterer realization (and the receiver noise of its presentation); the case seed by default.
  */
-export function renderApical(caseId: string, viewId: 'a4c' | 'a2c', ed: boolean, scatterSeed?: number): ApicalRender {
+export function renderApical(
+  caseId: string,
+  viewId: 'a4c' | 'a2c',
+  ed: boolean,
+  scatterSeed?: number,
+): ApicalRender {
   const c = loadCaseById(caseId);
-  const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, { position: 'left-lateral', respiration: 'expiration', headElevationDeg: 0 }, c.anatomy.ivc.collapsePct);
-  const heart = createHeartModel(c.anatomy, c.physiology, thorax.heartOffset, c.seed, thorax.ivcCollapse);
-  const tables = buildBeatTables(60 / c.rhythm.heartRateBpm, c.physiology, c.rhythm, c.hemodynamics);
+  const thorax = createThoraxModel(
+    c.bodyHabitus,
+    c.acousticWindow,
+    { position: 'left-lateral', respiration: 'expiration', headElevationDeg: 0 },
+    c.anatomy.ivc.collapsePct,
+  );
+  const heart = createHeartModel(
+    c.anatomy,
+    c.physiology,
+    thorax.heartOffset,
+    c.seed,
+    thorax.ivcCollapse,
+  );
+  const tables = buildBeatTables(
+    60 / c.rhythm.heartRateBpm,
+    c.physiology,
+    c.rhythm,
+    c.hemodynamics,
+  );
   const phase = ed ? 0 : tables.timings.ejectionEndS / tables.rrS;
   const settings = DEFAULT_ACQUISITION;
   const spec = polarSpecFor(settings, 'high');
-  const beam = beamFrameFromPose(poseFromControl(thorax, canonicalControl(getViewTarget(viewId), heart, thorax)), 1);
+  const beam = beamFrameFromPose(
+    poseFromControl(thorax, canonicalControl(getViewTarget(viewId), heart, thorax)),
+    1,
+  );
   const scene: Scene = {
     heart,
     heartPose: computeHeartPose(heart, cycleStateAt(tables, phase)),
     thorax,
-    physics: { frequencyMHz: settings.frequencyMHz, harmonics: settings.harmonics, clutterLevel: c.acousticWindow.clutterLevel, windowAttenuation: c.acousticWindow.chestWallAttenuation, seed: scatterSeed ?? c.seed },
+    physics: {
+      frequencyMHz: settings.frequencyMHz,
+      harmonics: settings.harmonics,
+      clutterLevel: c.acousticWindow.clutterLevel,
+      windowAttenuation: c.acousticWindow.chestWallAttenuation,
+      seed: scatterSeed ?? c.seed,
+    },
   };
   const frame = allocPolarFrame(spec);
   new ProceduralSliceRenderer().render(scene, beam, spec, phase, frame);
@@ -61,18 +106,34 @@ export function renderApical(caseId: string, viewId: 'a4c' | 'a2c', ed: boolean,
 export const SPECKLE_REALIZATIONS = 8;
 
 /** The canonical apical view rendered once per scatterer realization (seeds follow the case seed). */
-export function renderApicalRealizations(caseId: string, viewId: 'a4c' | 'a2c', ed: boolean): ApicalRender[] {
+export function renderApicalRealizations(
+  caseId: string,
+  viewId: 'a4c' | 'a2c',
+  ed: boolean,
+): ApicalRender[] {
   const seed = loadCaseById(caseId).seed;
-  return Array.from({ length: SPECKLE_REALIZATIONS }, (_, k) => renderApical(caseId, viewId, ed, seed + k));
+  return Array.from({ length: SPECKLE_REALIZATIONS }, (_, k) =>
+    renderApical(caseId, viewId, ed, seed + k),
+  );
 }
 
-const LV_WALL = new Set<number>([Structure.LvWallSeptal, Structure.LvWallLateral, Structure.LvWallAnterior, Structure.LvWallInferior, Structure.LvApex]);
+const LV_WALL = new Set<number>([
+  Structure.LvWallSeptal,
+  Structure.LvWallLateral,
+  Structure.LvWallAnterior,
+  Structure.LvWallInferior,
+  Structure.LvApex,
+]);
 
 /**
  * The displayed image of a render under a console (default acquisition unless overridden), apex up, atrium deep. The
  * console frame index selects the receiver-noise realization.
  */
-export function presentApical(render: ApicalRender, consoleOverride: ConsoleOverride = {}, frameIndex = 0): RegionImage {
+export function presentApical(
+  render: ApicalRender,
+  consoleOverride: ConsoleOverride = {},
+  frameIndex = 0,
+): RegionImage {
   const { frame } = render;
   const spec = frame.spec;
   const settings = { ...DEFAULT_ACQUISITION, ...consoleOverride };
@@ -93,7 +154,14 @@ export function presentApical(render: ApicalRender, consoleOverride: ConsoleOver
     grey[p] = rgba[p * 4]!;
     if (lut.idx[p]! < 0) continue;
     const st = frame.structure[lut.li[p]! * N + lut.si[p]!]!;
-    labels[p] = st === Structure.LvCavity ? LABEL.cavity : LV_WALL.has(st) ? LABEL.myocardium : st === Structure.LaCavity ? LABEL.atrium : LABEL.background;
+    labels[p] =
+      st === Structure.LvCavity
+        ? LABEL.cavity
+        : LV_WALL.has(st)
+          ? LABEL.myocardium
+          : st === Structure.LaCavity
+            ? LABEL.atrium
+            : LABEL.background;
   }
   const mm = 10 / mapping.pxPerCm;
   return orientApical({ width: W, height: H, grey, labels, mmPerPx: [mm, mm] });
@@ -107,8 +175,14 @@ export function presentApical(render: ApicalRender, consoleOverride: ConsoleOver
 export const NOISE_REALIZATIONS = 4;
 
 /** Image statistics of a render under a console, one per receiver-noise realization. */
-export function apicalStats(render: ApicalRender, consoleOverride: ConsoleOverride = {}, realizations = NOISE_REALIZATIONS): ImageStats[] {
-  return Array.from({ length: realizations }, (_, fi) => imageStats(presentApical(render, consoleOverride, fi)));
+export function apicalStats(
+  render: ApicalRender,
+  consoleOverride: ConsoleOverride = {},
+  realizations = NOISE_REALIZATIONS,
+): ImageStats[] {
+  return Array.from({ length: realizations }, (_, fi) =>
+    imageStats(presentApical(render, consoleOverride, fi)),
+  );
 }
 
 /** Mean of one statistic over realizations. */

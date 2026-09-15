@@ -6,21 +6,44 @@ import { computeGroundTruth } from '@/simulator/hemodynamics/groundTruth';
 describe('structured impression', () => {
   it('derives the expected findings of each case from its truth', () => {
     const f = (id: string) => expectedFindings(computeGroundTruth(loadCaseById(id)));
-    expect(f('normal-excellent-window')).toEqual(expect.arrayContaining(['normal-study', 'ef-normal', 'as-none', 'mr-none']));
-    expect(f('hfref-severe-mr')).toEqual(expect.arrayContaining(['ef-severe', 'lv-dilated', 'mr-moderate', 'la-dilated', 'diastolic-dysfunction']));
+    expect(f('normal-excellent-window')).toEqual(
+      expect.arrayContaining(['normal-study', 'ef-normal', 'as-none', 'mr-none']),
+    );
+    expect(f('hfref-severe-mr')).toEqual(
+      expect.arrayContaining([
+        'ef-severe',
+        'lv-dilated',
+        'mr-moderate',
+        'la-dilated',
+        'diastolic-dysfunction',
+      ]),
+    );
     expect(f('hfref-severe-mr')).not.toContain('normal-study');
     expect(f('inferior-rwma')).toContain('rwma');
     expect(f('aortic-stenosis-moderate')).toContain('as-moderate');
     expect(f('aortic-stenosis-severe')).toContain('as-severe');
-    expect(f('hocm-sam')).toEqual(expect.arrayContaining(['asymmetric-septal-hypertrophy', 'lvot-obstruction']));
+    expect(f('hocm-sam')).toEqual(
+      expect.arrayContaining(['asymmetric-septal-hypertrophy', 'lvot-obstruction']),
+    );
     expect(f('mvp-primary-mr')).toContain('mr-severe');
-    expect(f('pulmonary-hypertension-rv')).toEqual(expect.arrayContaining(['rv-dilated', 'rv-dysfunction', 'ph-probable', 'tr-significant']));
-    expect(f('pericardial-effusion-tamponade')).toEqual(expect.arrayContaining(['effusion', 'tamponade']));
-    expect(f('af-diastolic')).toEqual(expect.arrayContaining(['af', 'la-dilated', 'diastolic-dysfunction']));
+    expect(f('pulmonary-hypertension-rv')).toEqual(
+      expect.arrayContaining(['rv-dilated', 'rv-dysfunction', 'ph-probable', 'tr-significant']),
+    );
+    expect(f('pericardial-effusion-tamponade')).toEqual(
+      expect.arrayContaining(['effusion', 'tamponade']),
+    );
+    expect(f('af-diastolic')).toEqual(
+      expect.arrayContaining(['af', 'la-dilated', 'diastolic-dysfunction']),
+    );
     expect(f('artifact-challenge')).toContain('as-mild');
   });
   it('every expected finding id exists in the catalogue and exclusive groups never co-occur', () => {
-    for (const id of ['normal-excellent-window', 'hfref-severe-mr', 'hocm-sam', 'pulmonary-hypertension-rv']) {
+    for (const id of [
+      'normal-excellent-window',
+      'hfref-severe-mr',
+      'hocm-sam',
+      'pulmonary-hypertension-rv',
+    ]) {
       const exp = expectedFindings(computeGroundTruth(loadCaseById(id)));
       const groups = new Map<string, number>();
       for (const e of exp) {

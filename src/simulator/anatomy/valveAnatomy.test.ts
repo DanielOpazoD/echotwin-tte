@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { CASE_INPUTS, loadCaseById } from '@/cases';
-import { classifyHeart, computeHeartPose, createHeartModel, heartAnchors, heartToTorso, ROOT_EXCURSION, torsoToHeart, type HeartModel, type HeartPose } from './heartModel';
+import {
+  classifyHeart,
+  computeHeartPose,
+  createHeartModel,
+  heartAnchors,
+  heartToTorso,
+  ROOT_EXCURSION,
+  torsoToHeart,
+  type HeartModel,
+  type HeartPose,
+} from './heartModel';
 import { mitralFreeEdge, mitralLeafletPoint, MV_BINS } from './mitralValve';
 import { rootRadiusAt } from './aorticValve';
 import { createThoraxModel, type ThoraxModel } from './thoraxModel';
@@ -17,9 +27,25 @@ import { add, cross, dot, normalize, scale, sub, v3, type Vec3 } from '@/core/ve
  */
 function setup(id: string) {
   const c = loadCaseById(id);
-  const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, { position: 'left-lateral', respiration: 'expiration', headElevationDeg: 0 }, c.anatomy.ivc.collapsePct);
-  const heart = createHeartModel(c.anatomy, c.physiology, thorax.heartOffset, c.seed, thorax.ivcCollapse);
-  const tables = buildBeatTables(60 / c.rhythm.heartRateBpm, c.physiology, c.rhythm, c.hemodynamics);
+  const thorax = createThoraxModel(
+    c.bodyHabitus,
+    c.acousticWindow,
+    { position: 'left-lateral', respiration: 'expiration', headElevationDeg: 0 },
+    c.anatomy.ivc.collapsePct,
+  );
+  const heart = createHeartModel(
+    c.anatomy,
+    c.physiology,
+    thorax.heartOffset,
+    c.seed,
+    thorax.ivcCollapse,
+  );
+  const tables = buildBeatTables(
+    60 / c.rhythm.heartRateBpm,
+    c.physiology,
+    c.rhythm,
+    c.hemodynamics,
+  );
   return { c, heart, tables, thorax };
 }
 
@@ -34,9 +60,16 @@ describe('valve apparatus continuity', () => {
       const lumen = [Structure.AorticRoot, Structure.AorticValve];
       const diameter = (t: number): number => {
         const cz = A.avCenter.z + pose.zAnn * ROOT_EXCURSION;
-        const c0 = [A.avCenter.x + A.avAxis.x * t, A.avCenter.y + A.avAxis.y * t, cz + A.avAxis.z * t];
+        const c0 = [
+          A.avCenter.x + A.avAxis.x * t,
+          A.avCenter.y + A.avAxis.y * t,
+          cz + A.avAxis.z * t,
+        ];
         const e = A.avE2;
-        const inside = (u: number): boolean => classifyHeart(heart, pose, c0[0]! + e.x * u, c0[1]! + e.y * u, c0[2]! + e.z * u, s) && lumen.includes(s.structure) && s.tissue !== Tissue.VesselWall;
+        const inside = (u: number): boolean =>
+          classifyHeart(heart, pose, c0[0]! + e.x * u, c0[1]! + e.y * u, c0[2]! + e.z * u, s) &&
+          lumen.includes(s.structure) &&
+          s.tissue !== Tissue.VesselWall;
         let a = 0,
           b = 0;
         while (a > -3 && inside(a - 0.01)) a -= 0.01;
@@ -54,7 +87,10 @@ describe('valve apparatus continuity', () => {
         }
         prev = d;
       }
-      expect(worst, `${input.id}: largest diameter change over 0.5 mm of root, at t = ${at.toFixed(2)} cm`).toBeLessThan(0.1);
+      expect(
+        worst,
+        `${input.id}: largest diameter change over 0.5 mm of root, at t = ${at.toFixed(2)} cm`,
+      ).toBeLessThan(0.1);
     }
   });
 
@@ -75,24 +111,38 @@ describe('valve apparatus continuity', () => {
       for (let k = 0; k < 8; k++) {
         const a = (k / 8) * 2 * Math.PI;
         const r = 0.03;
-        const x = A.avCenter.x + A.avAxis.x * t + (A.avE1.x * Math.cos(a) + A.avE2.x * Math.sin(a)) * r;
-        const y = A.avCenter.y + A.avAxis.y * t + (A.avE1.y * Math.cos(a) + A.avE2.y * Math.sin(a)) * r;
+        const x =
+          A.avCenter.x + A.avAxis.x * t + (A.avE1.x * Math.cos(a) + A.avE2.x * Math.sin(a)) * r;
+        const y =
+          A.avCenter.y + A.avAxis.y * t + (A.avE1.y * Math.cos(a) + A.avE2.y * Math.sin(a)) * r;
         const z = cz + A.avAxis.z * t + (A.avE1.z * Math.cos(a) + A.avE2.z * Math.sin(a)) * r;
-        if (classifyHeart(heart, pose, x, y, z, s) && s.structure === Structure.AorticValve) hits.push(t.toFixed(2));
+        if (classifyHeart(heart, pose, x, y, z, s) && s.structure === Structure.AorticValve)
+          hits.push(t.toFixed(2));
       }
     expect(hits, 'valve tissue on the ventricular side of the coaptation band').toEqual([]);
   });
 });
 
 /** The same pose with the mitral leaflets removed (the annulus, chordae and everything else stay). */
-const withoutLeaflets = (pose: HeartPose): HeartPose => ({ ...pose, valves: { ...pose.valves, mitral: { ...pose.valves.mitral, thickness: -10 } } });
+const withoutLeaflets = (pose: HeartPose): HeartPose => ({
+  ...pose,
+  valves: { ...pose.valves, mitral: { ...pose.valves.mitral, thickness: -10 } },
+});
 
 /**
  * Closed mitral valve as drawn in a view: displacement of the leaflets toward the atrium (billow) and toward the apex
  * (tenting) relative to the line through the two annulus points the plane cuts.
  */
-function closedValveInView(heart: HeartModel, thorax: ThoraxModel, pose: HeartPose, viewId: string): { billow: number; tenting: number } {
-  const beam = beamFrameFromPose(poseFromControl(thorax, canonicalControl(getViewTarget(viewId), heart, thorax)), 1);
+function closedValveInView(
+  heart: HeartModel,
+  thorax: ThoraxModel,
+  pose: HeartPose,
+  viewId: string,
+): { billow: number; tenting: number } {
+  const beam = beamFrameFromPose(
+    poseFromControl(thorax, canonicalControl(getViewTarget(viewId), heart, thorax)),
+    1,
+  );
   const mv = pose.valves.mitral;
   const d0 = sub(heartToTorso(heart.frame, v3(mv.cx, mv.cy, mv.cz)), beam.origin);
   const cLat = dot(d0, beam.lateral),
@@ -106,13 +156,23 @@ function closedValveInView(heart: HeartModel, thorax: ThoraxModel, pose: HeartPo
     for (let j = -84; j <= 84; j++) {
       const lat = cLat + i * STEP,
         dep = cDep + j * STEP;
-      const p = torsoToHeart(heart.frame, add(beam.origin, add(scale(beam.forward, dep), scale(beam.lateral, lat))));
+      const p = torsoToHeart(
+        heart.frame,
+        add(beam.origin, add(scale(beam.forward, dep), scale(beam.lateral, lat))),
+      );
       if (!classifyHeart(heart, pose, p.x, p.y, p.z, s)) continue;
       if (s.structure === Structure.MitralAnnulus) ring.push([lat, dep]);
-      else if (s.structure === Structure.MitralAnterior || s.structure === Structure.MitralPosterior) leaf.push([lat, dep]);
+      else if (
+        s.structure === Structure.MitralAnterior ||
+        s.structure === Structure.MitralPosterior
+      )
+        leaf.push([lat, dep]);
       else if (s.structure === Structure.LaCavity) atrium.push([lat, dep]);
     }
-  const mean = (q: [number, number][]): [number, number] => [q.reduce((a, p) => a + p[0], 0) / q.length, q.reduce((a, p) => a + p[1], 0) / q.length];
+  const mean = (q: [number, number][]): [number, number] => [
+    q.reduce((a, p) => a + p[0], 0) / q.length,
+    q.reduce((a, p) => a + p[1], 0) / q.length,
+  ];
   // the plane cuts the annulus twice: split the ring samples along their principal direction
   const [mx, my] = mean(ring);
   let sxx = 0,
@@ -124,7 +184,8 @@ function closedValveInView(heart: HeartModel, thorax: ThoraxModel, pose: HeartPo
     syy += (y - my) ** 2;
   }
   const ang = 0.5 * Math.atan2(2 * sxy, sxx - syy);
-  const side = ([x, y]: [number, number]): boolean => (x - mx) * Math.cos(ang) + (y - my) * Math.sin(ang) < 0;
+  const side = ([x, y]: [number, number]): boolean =>
+    (x - mx) * Math.cos(ang) + (y - my) * Math.sin(ang) < 0;
   const [ax, ay] = mean(ring.filter(side)),
     [bx, by] = mean(ring.filter((p) => !side(p)));
   const len = Math.hypot(bx - ax, by - ay);
@@ -174,9 +235,16 @@ describe('mitral apparatus (decision 76)', () => {
               const r = Math.hypot(a, b);
               if (r >= nearest) continue;
               classifyHeart(heart, pose, hx + mv.ux * a + pose.swingX, hy + mv.uy * a, hz + b, s);
-              if ((s.tissue === Tissue.VesselWall && s.structure === Structure.AorticRoot) || (s.tissue === Tissue.Fibrous && s.structure !== Structure.MitralAnnulus)) nearest = r;
+              if (
+                (s.tissue === Tissue.VesselWall && s.structure === Structure.AorticRoot) ||
+                (s.tissue === Tissue.Fibrous && s.structure !== Structure.MitralAnnulus)
+              )
+                nearest = r;
             }
-          if (nearest > 0.3) problems.push(`${input.id} @${phase.toFixed(2)}: anterior hinge ${nearest.toFixed(2)} cm from the root wall`);
+          if (nearest > 0.3)
+            problems.push(
+              `${input.id} @${phase.toFixed(2)}: anterior hinge ${nearest.toFixed(2)} cm from the root wall`,
+            );
         }
         // posterior: ventricular blood just inside the hinge (past the fibrous ring), wall behind it
         {
@@ -188,15 +256,26 @@ describe('mitral apparatus (decision 76)', () => {
           const hidden = withoutLeaflets(pose);
           let blood = Infinity;
           for (let d = 0; d <= 1.2; d += 0.02) {
-            classifyHeart(heart, hidden, hx + mv.ux * d + pose.swingX, hy + mv.uy * d, hz + 0.15, s);
+            classifyHeart(
+              heart,
+              hidden,
+              hx + mv.ux * d + pose.swingX,
+              hy + mv.uy * d,
+              hz + 0.15,
+              s,
+            );
             if (s.tissue === Tissue.Blood) {
               blood = d;
               break;
             }
           }
-          if (blood > 0.2) problems.push(`${input.id} @${phase.toFixed(2)}: ${blood.toFixed(2)} cm of tissue between the posterior hinge and the cavity`);
+          if (blood > 0.2)
+            problems.push(
+              `${input.id} @${phase.toFixed(2)}: ${blood.toFixed(2)} cm of tissue between the posterior hinge and the cavity`,
+            );
           classifyHeart(heart, hidden, hx - mv.ux * 0.2 + pose.swingX, hy - mv.uy * 0.2, hz, s);
-          if (s.tissue === Tissue.Blood) problems.push(`${input.id} @${phase.toFixed(2)}: blood behind the posterior annulus`);
+          if (s.tissue === Tissue.Blood)
+            problems.push(`${input.id} @${phase.toFixed(2)}: blood behind the posterior annulus`);
         }
       }
     }
@@ -221,7 +300,10 @@ describe('mitral apparatus (decision 76)', () => {
             for (const along of [0.4, 0.7, 1]) {
               mitralLeafletPoint(pose.valves.mitral, leaflet, q, along, pt);
               classifyHeart(heart, hidden, pt[0]! + pose.swingX, pt[1]!, pt[2]!, s);
-              if (s.tissue !== Tissue.Blood && s.tissue !== Tissue.Chordae) problems.push(`${input.id} @${phase.toFixed(2)} ${leaflet ? 'posterior' : 'anterior'} q ${q} at ${along}: tissue ${s.tissue}, structure ${s.structure}`);
+              if (s.tissue !== Tissue.Blood && s.tissue !== Tissue.Chordae)
+                problems.push(
+                  `${input.id} @${phase.toFixed(2)} ${leaflet ? 'posterior' : 'anterior'} q ${q} at ${along}: tissue ${s.tissue}, structure ${s.structure}`,
+                );
             }
       }
     }
@@ -236,7 +318,13 @@ describe('mitral apparatus (decision 76)', () => {
       if (input.id === 'hocm-sam') continue; // systolic anterior motion: the anterior leaflet leaves the coaptation by design
       const { heart, tables, thorax } = setup(input.id);
       const t = tables.timings;
-      const pose = computeHeartPose(heart, cycleStateAt(tables, (t.ejectionStartS + 0.5 * (t.ejectionEndS - t.ejectionStartS)) / tables.rrS));
+      const pose = computeHeartPose(
+        heart,
+        cycleStateAt(
+          tables,
+          (t.ejectionStartS + 0.5 * (t.ejectionEndS - t.ejectionStartS)) / tables.rrS,
+        ),
+      );
       const plax = closedValveInView(heart, thorax, pose, 'plax');
       const a4c = closedValveInView(heart, thorax, pose, 'a4c');
       const label = `${input.id}: PLAX billow ${plax.billow.toFixed(2)}, tenting ${plax.tenting.toFixed(2)}; A4C billow ${a4c.billow.toFixed(2)}`;
@@ -246,33 +334,80 @@ describe('mitral apparatus (decision 76)', () => {
       }
       // the dilated, spherical ventricle tethers its valve: tenting height 8–12 mm with functional MR, 5–6 mm normal
       const [lo, hi] = input.id === 'hfref-severe-mr' ? [0.7, 1.2] : [0.15, 0.6];
-      if (!(plax.billow <= 0.2 && plax.tenting >= lo && plax.tenting <= hi && a4c.billow <= 0.35)) problems.push(label);
+      if (!(plax.billow <= 0.2 && plax.tenting >= lo && plax.tenting <= hi && a4c.billow <= 0.35))
+        problems.push(label);
     }
     expect(problems).toEqual([]);
   });
 
-  it('the tether comes from the papillary muscles, not from the case: longer chordae release the remodelled ventricle\'s valve (decision 82)', () => {
+  it("the tether comes from the papillary muscles, not from the case: longer chordae release the remodelled ventricle's valve (decision 82)", () => {
     const tenting = (c: ReturnType<typeof loadCaseById>): number => {
-      const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, { position: 'left-lateral', respiration: 'expiration', headElevationDeg: 0 }, c.anatomy.ivc.collapsePct);
-      const heart = createHeartModel(c.anatomy, c.physiology, thorax.heartOffset, c.seed, thorax.ivcCollapse);
-      const tables = buildBeatTables(60 / c.rhythm.heartRateBpm, c.physiology, c.rhythm, c.hemodynamics);
+      const thorax = createThoraxModel(
+        c.bodyHabitus,
+        c.acousticWindow,
+        { position: 'left-lateral', respiration: 'expiration', headElevationDeg: 0 },
+        c.anatomy.ivc.collapsePct,
+      );
+      const heart = createHeartModel(
+        c.anatomy,
+        c.physiology,
+        thorax.heartOffset,
+        c.seed,
+        thorax.ivcCollapse,
+      );
+      const tables = buildBeatTables(
+        60 / c.rhythm.heartRateBpm,
+        c.physiology,
+        c.rhythm,
+        c.hemodynamics,
+      );
       const t = tables.timings;
-      const pose = computeHeartPose(heart, cycleStateAt(tables, (t.ejectionStartS + 0.5 * (t.ejectionEndS - t.ejectionStartS)) / tables.rrS));
+      const pose = computeHeartPose(
+        heart,
+        cycleStateAt(
+          tables,
+          (t.ejectionStartS + 0.5 * (t.ejectionEndS - t.ejectionStartS)) / tables.rrS,
+        ),
+      );
       return closedValveInView(heart, thorax, pose, 'plax').tenting;
     };
     const hf = loadCaseById('hfref-severe-mr');
     const tethered = tenting(hf);
     // the same ventricle with an apparatus long enough to span its displaced papillary muscles
-    const released = tenting({ ...hf, anatomy: { ...hf.anatomy, mitral: { ...hf.anatomy.mitral, anteriorLeafletLengthCm: 3.0, posteriorLeafletLengthCm: 1.9 } } });
+    const released = tenting({
+      ...hf,
+      anatomy: {
+        ...hf.anatomy,
+        mitral: {
+          ...hf.anatomy.mitral,
+          anteriorLeafletLengthCm: 3.0,
+          posteriorLeafletLengthCm: 1.9,
+        },
+      },
+    });
     const normal = tenting(loadCaseById('normal-excellent-window'));
-    expect(tethered - normal, `tenting ${tethered.toFixed(2)} vs normal ${normal.toFixed(2)}`).toBeGreaterThan(0.3);
-    expect(Math.abs(released - normal), `released ${released.toFixed(2)} vs normal ${normal.toFixed(2)}`).toBeLessThan(0.08);
+    expect(
+      tethered - normal,
+      `tenting ${tethered.toFixed(2)} vs normal ${normal.toFixed(2)}`,
+    ).toBeGreaterThan(0.3);
+    expect(
+      Math.abs(released - normal),
+      `released ${released.toFixed(2)} vs normal ${normal.toFixed(2)}`,
+    ).toBeLessThan(0.08);
   });
 });
 
 /** Largest gap (cm) between the pieces of closed tricuspid leaflet drawn in a view; 0 when they form one piece. */
-function tricuspidGapInView(heart: HeartModel, thorax: ThoraxModel, pose: HeartPose, viewId: string): number {
-  const beam = beamFrameFromPose(poseFromControl(thorax, canonicalControl(getViewTarget(viewId), heart, thorax)), 1);
+function tricuspidGapInView(
+  heart: HeartModel,
+  thorax: ThoraxModel,
+  pose: HeartPose,
+  viewId: string,
+): number {
+  const beam = beamFrameFromPose(
+    poseFromControl(thorax, canonicalControl(getViewTarget(viewId), heart, thorax)),
+    1,
+  );
   const tv = pose.valves.tv;
   const d0 = sub(heartToTorso(heart.frame, v3(tv.cx + pose.swingX, tv.cy, tv.cz)), beam.origin);
   const cLat = dot(d0, beam.lateral),
@@ -284,8 +419,20 @@ function tricuspidGapInView(heart: HeartModel, thorax: ThoraxModel, pose: HeartP
   const grid = new Uint8Array(N * N);
   for (let i = 0; i < N; i++)
     for (let j = 0; j < N; j++) {
-      const p = torsoToHeart(heart.frame, add(beam.origin, add(scale(beam.forward, cDep + (j - N / 2) * STEP), scale(beam.lateral, cLat + (i - N / 2) * STEP))));
-      if (classifyHeart(heart, pose, p.x, p.y, p.z, s) && s.structure === Structure.TricuspidValve) {
+      const p = torsoToHeart(
+        heart.frame,
+        add(
+          beam.origin,
+          add(
+            scale(beam.forward, cDep + (j - N / 2) * STEP),
+            scale(beam.lateral, cLat + (i - N / 2) * STEP),
+          ),
+        ),
+      );
+      if (
+        classifyHeart(heart, pose, p.x, p.y, p.z, s) &&
+        s.structure === Structure.TricuspidValve
+      ) {
         grid[i * N + j] = 1;
         cells.push([i, j]);
       }
@@ -305,7 +452,8 @@ function tricuspidGapInView(heart: HeartModel, thorax: ThoraxModel, pose: HeartP
         for (let db = -1; db <= 1; db++) {
           const na = a + da,
             nb = b + db;
-          if (na < 0 || nb < 0 || na >= N || nb >= N || !grid[na * N + nb] || seen[na * N + nb]) continue;
+          if (na < 0 || nb < 0 || na >= N || nb >= N || !grid[na * N + nb] || seen[na * N + nb])
+            continue;
           seen[na * N + nb] = 1;
           stack.push([na, nb]);
         }
@@ -315,7 +463,8 @@ function tricuspidGapInView(heart: HeartModel, thorax: ThoraxModel, pose: HeartP
   if (pieces.length < 2) return 0;
   pieces.sort((x, y) => y.length - x.length);
   let gap = Infinity;
-  for (const [a, b] of pieces[0]!) for (const [c, d] of pieces[1]!) gap = Math.min(gap, Math.hypot(a - c, b - d) * STEP);
+  for (const [a, b] of pieces[0]!)
+    for (const [c, d] of pieces[1]!) gap = Math.min(gap, Math.hypot(a - c, b - d) * STEP);
   return gap;
 }
 
@@ -331,26 +480,34 @@ describe('tricuspid apparatus (decision 78)', () => {
       for (let i = 0; i < 10; i++) {
         const pose = computeHeartPose(heart, cycleStateAt(tables, i / 10));
         const tv = pose.valves.tv;
-        const hidden: HeartPose = { ...pose, valves: { ...pose.valves, tv: { ...tv, thickness: -10 } } };
-        const at = (x: number, y: number, z: number): Tissue => (classifyHeart(heart, hidden, x + pose.swingX, y, z, s) ? s.tissue : Tissue.None);
-        const hingeZ = (ang: number): number => tv.cz + tv.saddle * Math.sin(ang - tv.zones[0]!.phi) ** 2;
+        const hidden: HeartPose = {
+          ...pose,
+          valves: { ...pose.valves, tv: { ...tv, thickness: -10 } },
+        };
+        const at = (x: number, y: number, z: number): Tissue =>
+          classifyHeart(heart, hidden, x + pose.swingX, y, z, s) ? s.tissue : Tissue.None;
+        const hingeZ = (ang: number): number =>
+          tv.cz + tv.saddle * Math.sin(ang - tv.zones[0]!.phi) ** 2;
         const label = `${input.id} @${(i / 10).toFixed(1)}`;
         // lateral hinge (−x, toward the free wall): heart behind it, ventricular blood within 2 mm inside it
-        if (at(tv.cx - tv.R - 0.2, tv.cy, hingeZ(Math.PI)) === Tissue.None) problems.push(`${label}: outside the heart behind the lateral hinge`);
+        if (at(tv.cx - tv.R - 0.2, tv.cy, hingeZ(Math.PI)) === Tissue.None)
+          problems.push(`${label}: outside the heart behind the lateral hinge`);
         let blood = Infinity;
         for (let d = 0; d <= 1; d += 0.02)
           if (at(tv.cx - tv.R + d, tv.cy, hingeZ(Math.PI) + 0.15) === Tissue.Blood) {
             blood = d;
             break;
           }
-        if (blood > 0.2) problems.push(`${label}: ${blood.toFixed(2)} cm between the lateral hinge and the blood`);
+        if (blood > 0.2)
+          problems.push(`${label}: ${blood.toFixed(2)} cm between the lateral hinge and the blood`);
         // the orifice is open: no wall along the axis from 1 cm on the atrial side to 1 cm on the ventricular side
         let wall = 0;
         for (let dz = -1; dz <= 1; dz += 0.02) {
           const t = at(tv.cx, tv.cy, tv.cz + dz);
           if (t === Tissue.Myocardium || t === Tissue.Fibrous) wall += 0.02;
         }
-        if (wall > 0.05) problems.push(`${label}: ${wall.toFixed(2)} cm of wall across the orifice`);
+        if (wall > 0.05)
+          problems.push(`${label}: ${wall.toFixed(2)} cm of wall across the orifice`);
       }
     }
     expect(problems).toEqual([]);
@@ -368,9 +525,16 @@ describe('tricuspid apparatus (decision 78)', () => {
       for (let i = 0; i < 40; i++) {
         const state = cycleStateAt(tables, i / 40);
         const pose = computeHeartPose(heart, state);
-        worst = Math.max(worst, Math.abs(pose.valves.tv.cz - (A.tvCenter.z + pose.tvZ)), Math.abs(pose.tvZ - c.physiology.tapseCm * state.rvLongitudinal));
+        worst = Math.max(
+          worst,
+          Math.abs(pose.valves.tv.cz - (A.tvCenter.z + pose.tvZ)),
+          Math.abs(pose.tvZ - c.physiology.tapseCm * state.rvLongitudinal),
+        );
       }
-      if (worst > 1e-6) problems.push(`${input.id}: ${(worst * 10).toFixed(1)} mm between the leaflet ring and the pose's tricuspid displacement`);
+      if (worst > 1e-6)
+        problems.push(
+          `${input.id}: ${(worst * 10).toFixed(1)} mm between the leaflet ring and the pose's tricuspid displacement`,
+        );
     }
     expect(problems).toEqual([]);
   });
@@ -385,15 +549,30 @@ describe('tricuspid apparatus (decision 78)', () => {
         const pose = computeHeartPose(heart, cycleStateAt(tables, phase));
         const tv = pose.valves.tv;
         if (1 - tv.closed < 0.5) continue;
-        const hidden: HeartPose = { ...pose, valves: { ...pose.valves, tv: { ...tv, thickness: -10 } } };
+        const hidden: HeartPose = {
+          ...pose,
+          valves: { ...pose.valves, tv: { ...tv, thickness: -10 } },
+        };
         for (const zn of tv.zones)
           for (const off of [-0.6, 0, 0.6]) {
             const ang = zn.phi + off * zn.halfSpan;
             for (const v of [2, 3]) {
               const rho = zn.prof[v * 2]!,
                 zz = zn.prof[v * 2 + 1]!;
-              if (!classifyHeart(heart, hidden, tv.cx + rho * Math.cos(ang) + pose.swingX, tv.cy + rho * Math.sin(ang), tv.cz + zz + tv.saddle * Math.sin(ang - tv.zones[0]!.phi) ** 2, s) || (s.tissue !== Tissue.Blood && s.tissue !== Tissue.Chordae))
-                problems.push(`${input.id} @${phase.toFixed(2)} leaflet at ${((ang * 180) / Math.PI).toFixed(0)}°, vertex ${v}: tissue ${s.tissue}`);
+              if (
+                !classifyHeart(
+                  heart,
+                  hidden,
+                  tv.cx + rho * Math.cos(ang) + pose.swingX,
+                  tv.cy + rho * Math.sin(ang),
+                  tv.cz + zz + tv.saddle * Math.sin(ang - tv.zones[0]!.phi) ** 2,
+                  s,
+                ) ||
+                (s.tissue !== Tissue.Blood && s.tissue !== Tissue.Chordae)
+              )
+                problems.push(
+                  `${input.id} @${phase.toFixed(2)} leaflet at ${((ang * 180) / Math.PI).toFixed(0)}°, vertex ${v}: tissue ${s.tissue}`,
+                );
             }
           }
       }
@@ -408,7 +587,13 @@ describe('tricuspid apparatus (decision 78)', () => {
     for (const input of CASE_INPUTS) {
       const { heart, tables, thorax } = setup(input.id);
       const t = tables.timings;
-      const pose = computeHeartPose(heart, cycleStateAt(tables, (t.ejectionStartS + 0.5 * (t.ejectionEndS - t.ejectionStartS)) / tables.rrS));
+      const pose = computeHeartPose(
+        heart,
+        cycleStateAt(
+          tables,
+          (t.ejectionStartS + 0.5 * (t.ejectionEndS - t.ejectionStartS)) / tables.rrS,
+        ),
+      );
       for (const view of ['a4c', 'rv-focused', 'a5c']) {
         const gap = tricuspidGapInView(heart, thorax, pose, view);
         if (gap > 0.05) problems.push(`${input.id} ${view}: ${gap.toFixed(2)} cm`);
@@ -420,13 +605,23 @@ describe('tricuspid apparatus (decision 78)', () => {
 
 describe('aortic cusps (decision 79)', () => {
   /** Root-frame point → heart frame (the root centre follows the base by ROOT_EXCURSION). */
-  const rootPoint = (heart: HeartModel, pose: HeartPose, t: number, r: number, phi: number): [number, number, number] => {
+  const rootPoint = (
+    heart: HeartModel,
+    pose: HeartPose,
+    t: number,
+    r: number,
+    phi: number,
+  ): [number, number, number] => {
     const A = heartAnchors(heart);
     const cz = A.avCenter.z + pose.zAnn * ROOT_EXCURSION;
     const ux = A.avE1.x * Math.cos(phi) + A.avE2.x * Math.sin(phi),
       uy = A.avE1.y * Math.cos(phi) + A.avE2.y * Math.sin(phi),
       uz = A.avE1.z * Math.cos(phi) + A.avE2.z * Math.sin(phi);
-    return [A.avCenter.x + A.avAxis.x * t + ux * r + pose.swingX, A.avCenter.y + A.avAxis.y * t + uy * r, cz + A.avAxis.z * t + uz * r];
+    return [
+      A.avCenter.x + A.avAxis.x * t + ux * r + pose.swingX,
+      A.avCenter.y + A.avAxis.y * t + uy * r,
+      cz + A.avAxis.z * t + uz * r,
+    ];
   };
 
   it('the closed normal valve has the published heights: effective ~9 mm, coaptation 4-5 mm, geometric > 16 mm', () => {
@@ -441,7 +636,10 @@ describe('aortic cusps (decision 79)', () => {
     for (let t = 0; t < 2; t += 0.01) {
       for (let k = 0; k < 6; k++) {
         const p = rootPoint(heart, pose, t, 0.012, (k * Math.PI) / 3);
-        if (classifyHeart(heart, pose, p[0], p[1], p[2], s) && s.structure === Structure.AorticValve) {
+        if (
+          classifyHeart(heart, pose, p[0], p[1], p[2], s) &&
+          s.structure === Structure.AorticValve
+        ) {
           bottom = Math.min(bottom, t);
           top = Math.max(top, t);
         }
@@ -459,7 +657,10 @@ describe('aortic cusps (decision 79)', () => {
       let tc = NaN;
       for (let t = -0.3; t < 1; t += 0.005) {
         const p = rootPoint(heart, pose, t, r, 0.5);
-        if (classifyHeart(heart, pose, p[0], p[1], p[2], s) && s.structure === Structure.AorticValve) {
+        if (
+          classifyHeart(heart, pose, p[0], p[1], p[2], s) &&
+          s.structure === Structure.AorticValve
+        ) {
           tc = t;
           break;
         }
@@ -481,7 +682,9 @@ describe('aortic cusps (decision 79)', () => {
     const s = makeSample();
     const valveAt = (r: number, phi: number): boolean => {
       const p = rootPoint(heart, pose, t, r, phi);
-      return classifyHeart(heart, pose, p[0], p[1], p[2], s) && s.structure === Structure.AorticValve;
+      return (
+        classifyHeart(heart, pose, p[0], p[1], p[2], s) && s.structure === Structure.AorticValve
+      );
     };
     const problems: string[] = [];
     for (let i = 0; i < av.count; i++) {
@@ -495,19 +698,25 @@ describe('aortic cusps (decision 79)', () => {
         n++;
         const reach = r < 0.6 * R ? 0.12 : 0.35;
         let hit = false;
-        for (let d = -reach; d <= reach && !hit; d += 0.01) hit = valveAt(r, commissure + d / Math.max(r, 0.1));
+        for (let d = -reach; d <= reach && !hit; d += 0.01)
+          hit = valveAt(r, commissure + d / Math.max(r, 0.1));
         if (hit) covered++;
       }
-      if (covered / n < 0.9) problems.push(`commissure ${i}: ${((100 * covered) / n).toFixed(0)}% of the line`);
+      if (covered / n < 0.9)
+        problems.push(`commissure ${i}: ${((100 * covered) / n).toFixed(0)}% of the line`);
       // across the middle of each cusp, nothing between a third of the radius and the wall
-      for (let r = 0.35 * R; r < 0.85 * R; r += 0.02) if (valveAt(r, centre)) problems.push(`cusp ${i}: tissue at ${(r / R).toFixed(2)} R`);
+      for (let r = 0.35 * R; r < 0.85 * R; r += 0.02)
+        if (valveAt(r, centre)) problems.push(`cusp ${i}: tissue at ${(r / R).toFixed(2)} R`);
     }
     expect(problems).toEqual([]);
   });
 
   it('the parasternal short axis of the great vessels cuts the closed valve at its coaptation: the centre of the Y is in the image', () => {
     const { heart, tables, thorax } = setup('normal-excellent-window');
-    const beam = beamFrameFromPose(poseFromControl(thorax, canonicalControl(getViewTarget('psax-av'), heart, thorax)), 1);
+    const beam = beamFrameFromPose(
+      poseFromControl(thorax, canonicalControl(getViewTarget('psax-av'), heart, thorax)),
+      1,
+    );
     const A = heartAnchors(heart);
     const s = makeSample();
     for (const phase of [0, 0.7, 0.9]) {
@@ -517,7 +726,9 @@ describe('aortic cusps (decision 79)', () => {
       const n = sub(torsoToHeart(heart.frame, beam.normal), torsoToHeart(heart.frame, v3()));
       const o = torsoToHeart(heart.frame, beam.origin);
       const cz = A.avCenter.z + pose.zAnn * ROOT_EXCURSION;
-      const tAxis = -(n.x * (A.avCenter.x - o.x) + n.y * (A.avCenter.y - o.y) + n.z * (cz - o.z)) / (n.x * A.avAxis.x + n.y * A.avAxis.y + n.z * A.avAxis.z);
+      const tAxis =
+        -(n.x * (A.avCenter.x - o.x) + n.y * (A.avCenter.y - o.y) + n.z * (cz - o.z)) /
+        (n.x * A.avAxis.x + n.y * A.avAxis.y + n.z * A.avAxis.z);
       expect(tAxis, `plane level on the root axis @${phase}`).toBeGreaterThan(av.eH - av.cH);
       expect(tAxis, `plane level on the root axis @${phase}`).toBeLessThan(av.eH);
       const hub = rootPoint(heart, pose, tAxis, 0, 0);
@@ -527,15 +738,18 @@ describe('aortic cusps (decision 79)', () => {
       let found = false;
       for (let i = -8; i <= 8 && !found; i++)
         for (let j = -8; j <= 8 && !found; j++) {
-          const pT = add(beam.origin, add(scale(beam.forward, dep0 + j * 0.025), scale(beam.lateral, lat0 + i * 0.025)));
+          const pT = add(
+            beam.origin,
+            add(scale(beam.forward, dep0 + j * 0.025), scale(beam.lateral, lat0 + i * 0.025)),
+          );
           const p = torsoToHeart(heart.frame, pT);
-          found = classifyHeart(heart, pose, p.x, p.y, p.z, s) && s.structure === Structure.AorticValve;
+          found =
+            classifyHeart(heart, pose, p.x, p.y, p.z, s) && s.structure === Structure.AorticValve;
         }
       expect(found, `valve tissue within 2 mm of the axis in PSAX-AV @${phase}`).toBe(true);
     }
   });
 });
-
 
 describe('mitral leaflet motion in the parasternal M-mode (decision 100)', () => {
   it('the anterior leaflet edge traces the normal E, F and A points along the parasternal beam', () => {
@@ -547,7 +761,10 @@ describe('mitral leaflet motion in the parasternal M-mode (decision 100)', () =>
     // Before: the valve closed completely in diastasis, 5 mm past the closed position, and the E-F slope read 185 mm/s.
     for (const id of ['normal-excellent-window', 'normal-difficult-window']) {
       const { heart, tables, thorax } = setup(id);
-      const beam = beamFrameFromPose(poseFromControl(thorax, canonicalControl(getViewTarget('plax'), heart, thorax)), 1);
+      const beam = beamFrameFromPose(
+        poseFromControl(thorax, canonicalControl(getViewTarget('plax'), heart, thorax)),
+        1,
+      );
       const t = tables.timings;
       const N = 512;
       const dt = tables.rrS / N;
@@ -560,13 +777,15 @@ describe('mitral leaflet motion in the parasternal M-mode (decision 100)', () =>
       });
       const inWindow = (k: number, from: number, to: number) => k * dt >= from && k * dt < to;
       let kE = Math.ceil(t.mitralOpenS / dt);
-      for (let k = kE; inWindow(k, t.mitralOpenS, t.aStartS); k++) if (states[k]!.mvOpen > states[kE]!.mvOpen) kE = k;
+      for (let k = kE; inWindow(k, t.mitralOpenS, t.aStartS); k++)
+        if (states[k]!.mvOpen > states[kE]!.mvOpen) kE = k;
       const dir = scale(sub(tips[kE]!, beam.origin), 1);
       const unit = scale(dir, 1 / Math.hypot(dir.x, dir.y, dir.z));
       const closed = dot(sub(tips[Math.floor(t.mitralOpenS / dt) - 1]!, beam.origin), unit);
       const exc = tips.map((p) => (closed - dot(sub(p, beam.origin), unit)) * 10); // mm toward the probe
       let kEp = kE;
-      for (let k = Math.ceil(t.mitralOpenS / dt); inWindow(k, t.mitralOpenS, t.aStartS); k++) if (exc[k]! > exc[kEp]!) kEp = k;
+      for (let k = Math.ceil(t.mitralOpenS / dt); inWindow(k, t.mitralOpenS, t.aStartS); k++)
+        if (exc[k]! > exc[kEp]!) kEp = k;
       let kA = Math.ceil(t.aStartS / dt);
       for (let k = kA; inWindow(k, t.aStartS, t.aEndS); k++) if (exc[k]! > exc[kA]!) kA = k;
       let sum = 0,
@@ -603,7 +822,11 @@ describe('mitral leaflet motion in the parasternal M-mode (decision 100)', () =>
 /** Centre of the pulmonary valve this frame: the centroid of the three cusp hinges (it moves with the base, decision 111). */
 const pulmonaryValveCentre = (pose: HeartPose) => {
   const g = pose.valves.pvSegs;
-  return v3((g[0]! + g[12]! + g[24]!) / 3, (g[1]! + g[13]! + g[25]!) / 3, (g[2]! + g[14]! + g[26]!) / 3);
+  return v3(
+    (g[0]! + g[12]! + g[24]!) / 3,
+    (g[1]! + g[13]! + g[25]!) / 3,
+    (g[2]! + g[14]! + g[26]!) / 3,
+  );
 };
 
 describe('pulmonary root (decision 109)', () => {
@@ -642,10 +865,16 @@ describe('pulmonary root (decision 109)', () => {
         const label = `${input.id} @${phase}`;
         // at the valve plane the cusp hinges lie against the wall: the blood ends within 2 mm of them, as at the tricuspid annulus
         const atValve = bloodRadii(0)[15]!;
-        if (atValve > A.pvR + 0.2) problems.push(`${label}: trunk blood ${atValve.toFixed(2)} cm from the axis at the valve plane, cusps hinged at ${A.pvR.toFixed(2)}`);
+        if (atValve > A.pvR + 0.2)
+          problems.push(
+            `${label}: trunk blood ${atValve.toFixed(2)} cm from the axis at the valve plane, cusps hinged at ${A.pvR.toFixed(2)}`,
+          );
         // past the sinotubular junction the trunk has the diameter of the case
         const median = bloodRadii(2.2)[8]!;
-        if (Math.abs(2 * median - c.anatomy.pulmonaryArtery.trunkDiameterCm) > 0.1) problems.push(`${label}: trunk ${(2 * median).toFixed(2)} cm at 2.2 cm from the valve, case ${c.anatomy.pulmonaryArtery.trunkDiameterCm} cm`);
+        if (Math.abs(2 * median - c.anatomy.pulmonaryArtery.trunkDiameterCm) > 0.1)
+          problems.push(
+            `${label}: trunk ${(2 * median).toFixed(2)} cm at 2.2 cm from the valve, case ${c.anatomy.pulmonaryArtery.trunkDiameterCm} cm`,
+          );
       }
     }
     expect(problems).toEqual([]);
@@ -663,7 +892,10 @@ describe('outflow tract and pulmonary root motion (decision 111)', () => {
       const pose = computeHeartPose(heart, cycleStateAt(tables, i / 50));
       if (pose.zAnn > es.zAnn) es = pose;
     }
-    const move = sub(heartToTorso(heart.frame, pulmonaryValveCentre(es)), heartToTorso(heart.frame, pulmonaryValveCentre(ed)));
+    const move = sub(
+      heartToTorso(heart.frame, pulmonaryValveCentre(es)),
+      heartToTorso(heart.frame, pulmonaryValveCentre(ed)),
+    );
     const report = `torso displacement (+x left, +y cranial, +z anterior): ${[move.x, move.y, move.z].map((x) => x.toFixed(2)).join(', ')} cm`;
     expect(Math.hypot(move.x, move.y, move.z), report).toBeGreaterThan(0.5);
     expect(Math.hypot(move.x, move.y, move.z), report).toBeLessThan(1.1);
@@ -679,7 +911,12 @@ describe('pulmonary root beside the aortic root (decision 112)', () => {
     // 22-44% of the pulmonary root lumen was aortic root, aortic valve or left ventricular wall, and so were 17-33 of the
     // 64 points of the ring where the cusps hinge, so the valve had no cusp tissue on that side.
     const s = makeSample();
-    const allowed = new Set([Structure.PulmonaryArtery, Structure.PulmonaryValve, Structure.Rvot, Structure.RvCavity]);
+    const allowed = new Set([
+      Structure.PulmonaryArtery,
+      Structure.PulmonaryValve,
+      Structure.Rvot,
+      Structure.RvCavity,
+    ]);
     const problems: string[] = [];
     for (const input of CASE_INPUTS) {
       const { heart, tables } = setup(input.id);
@@ -704,17 +941,21 @@ describe('pulmonary root beside the aortic root (decision 112)', () => {
           const r = A.paRootR + ((A.paR - A.paRootR) * t) / 1.9 - 0.05;
           for (let k = 0; k < 36; k++) {
             const a = (k / 36) * 2 * Math.PI;
-            probe(add(add(c, scale(d, t)), add(scale(e1, r * Math.cos(a)), scale(e2, r * Math.sin(a)))));
+            probe(
+              add(add(c, scale(d, t)), add(scale(e1, r * Math.cos(a)), scale(e2, r * Math.sin(a)))),
+            );
           }
         }
         for (let k = 0; k < 64; k++) {
           const a = (k / 64) * 2 * Math.PI;
           probe(add(c, add(scale(e1, A.pvR * Math.cos(a)), scale(e2, A.pvR * Math.sin(a)))));
         }
-        if (found.size) problems.push(`${input.id} @${i / 10}: ${[...found].map(([name, k]) => `${name} ${((k / n) * 100).toFixed(1)}%`).join(', ')}`);
+        if (found.size)
+          problems.push(
+            `${input.id} @${i / 10}: ${[...found].map(([name, k]) => `${name} ${((k / n) * 100).toFixed(1)}%`).join(', ')}`,
+          );
       }
     }
     expect(problems).toEqual([]);
   });
 });
-

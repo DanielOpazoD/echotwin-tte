@@ -17,7 +17,13 @@ export interface SectorMapping {
   invertLR: boolean;
 }
 
-export function computeSectorMapping(spec: PolarFrameSpec, width: number, height: number, invertLR: boolean, zoom = 1): SectorMapping {
+export function computeSectorMapping(
+  spec: PolarFrameSpec,
+  width: number,
+  height: number,
+  invertLR: boolean,
+  zoom = 1,
+): SectorMapping {
   const margin = 14;
   const usableH = height - margin * 2;
   const halfAngle = spec.sectorRad / 2;
@@ -25,16 +31,33 @@ export function computeSectorMapping(spec: PolarFrameSpec, width: number, height
   const pxByH = usableH / spec.depthCm;
   const pxByW = usableW / (2 * spec.depthCm * Math.sin(halfAngle));
   const pxPerCm = Math.min(pxByH, pxByW) * zoom;
-  return { apexX: width / 2, apexY: margin, pxPerCm, width, height, sectorRad: spec.sectorRad, depthCm: spec.depthCm, invertLR };
+  return {
+    apexX: width / 2,
+    apexY: margin,
+    pxPerCm,
+    width,
+    height,
+    sectorRad: spec.sectorRad,
+    depthCm: spec.depthCm,
+    invertLR,
+  };
 }
 
-export function pixelToPolar(m: SectorMapping, px: number, py: number): { rCm: number; thetaRad: number } {
+export function pixelToPolar(
+  m: SectorMapping,
+  px: number,
+  py: number,
+): { rCm: number; thetaRad: number } {
   const dx = (px - m.apexX) * (m.invertLR ? -1 : 1);
   const dy = py - m.apexY;
   return { rCm: Math.hypot(dx, dy) / m.pxPerCm, thetaRad: Math.atan2(dx, dy) };
 }
 
-export function polarToPixel(m: SectorMapping, rCm: number, thetaRad: number): { x: number; y: number } {
+export function polarToPixel(
+  m: SectorMapping,
+  rCm: number,
+  thetaRad: number,
+): { x: number; y: number } {
   const dx = rCm * m.pxPerCm * Math.sin(thetaRad) * (m.invertLR ? -1 : 1);
   const dy = rCm * m.pxPerCm * Math.cos(thetaRad);
   return { x: m.apexX + dx, y: m.apexY + dy };
@@ -168,7 +191,11 @@ const LITTLE_ENDIAN = new Uint8Array(new Uint32Array([1]).buffer)[0] === 1;
  * Fast path: one native fill for the background and a fixed-point bilinear gather over the in-sector
  * list written as 32-bit pixels (≤ 1 gray level from the float reference).
  */
-export function scanConvertLut(polar: Uint8ClampedArray, lut: ScanLut, rgba: Uint8ClampedArray): void {
+export function scanConvertLut(
+  polar: Uint8ClampedArray,
+  lut: ScanLut,
+  rgba: Uint8ClampedArray,
+): void {
   const n = lut.idx.length;
   if (LITTLE_ENDIAN && rgba.byteOffset % 4 === 0 && rgba.length >= n * 4) {
     const px = new Uint32Array(rgba.buffer, rgba.byteOffset, n);
@@ -186,7 +213,8 @@ export function scanConvertLut(polar: Uint8ClampedArray, lut: ScanLut, rgba: Uin
       const v10 = polar[i + dl]!;
       const v01 = polar[i + ds]!;
       const v11 = polar[i + dl + ds]!;
-      const g = ((v00 * (1024 - lt) + v10 * lt) * (1024 - st) + (v01 * (1024 - lt) + v11 * lt) * st) >>> 20;
+      const g =
+        ((v00 * (1024 - lt) + v10 * lt) * (1024 - st) + (v01 * (1024 - lt) + v11 * lt) * st) >>> 20;
       px[inPix[k]!] = (0xff000000 | (g * 0x010101)) >>> 0;
     }
     return;
@@ -195,7 +223,11 @@ export function scanConvertLut(polar: Uint8ClampedArray, lut: ScanLut, rgba: Uin
 }
 
 /** Float bilinear gather (reference for the fast path and fallback on big-endian hosts). */
-export function scanConvertLutReference(polar: Uint8ClampedArray, lut: ScanLut, rgba: Uint8ClampedArray): void {
+export function scanConvertLutReference(
+  polar: Uint8ClampedArray,
+  lut: ScanLut,
+  rgba: Uint8ClampedArray,
+): void {
   const n = lut.idx.length;
   const S = lut.samples;
   const lines = lut.lines;
@@ -224,7 +256,12 @@ export function scanConvertLutReference(polar: Uint8ClampedArray, lut: ScanLut, 
 }
 
 /** Reference (LUT-free) implementation, kept for tests and offline tools. */
-export function scanConvert(polar: Uint8ClampedArray, spec: PolarFrameSpec, m: SectorMapping, rgba: Uint8ClampedArray): void {
+export function scanConvert(
+  polar: Uint8ClampedArray,
+  spec: PolarFrameSpec,
+  m: SectorMapping,
+  rgba: Uint8ClampedArray,
+): void {
   const lut = buildScanLut(spec, m);
   scanConvertLut(polar, lut, rgba);
 }
@@ -238,7 +275,10 @@ export const LUT_TEXEL_INSIDE = 2048;
  * next-sample flag << 10. Outside the sector every channel is 0. The GPU gather with these integers is the
  * same arithmetic as `scanConvertLut`, so both produce identical grey levels.
  */
-export function packScanLutTexels(lut: ScanLut, out?: Uint16Array<ArrayBuffer>): Uint16Array<ArrayBuffer> {
+export function packScanLutTexels(
+  lut: ScanLut,
+  out?: Uint16Array<ArrayBuffer>,
+): Uint16Array<ArrayBuffer> {
   const n = lut.idx.length;
   const t = out && out.length === n * 4 ? out.fill(0) : new Uint16Array(n * 4);
   const S = lut.samples;

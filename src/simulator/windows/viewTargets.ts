@@ -3,8 +3,20 @@ import { add, dot, normalize, scale, sub, v3 } from '@/core/vec3';
 import type { HeartModel } from '@/simulator/anatomy/heartModel';
 import { lvProfileG } from '@/simulator/anatomy/lvShape';
 import { AV_AXIS, heartDirToTorso, heartToTorso } from '@/simulator/anatomy/heartModel';
-import { isAnteriorLung, ribSpacingAt, skinZ, snapToIntercostal, type ThoraxModel } from '@/simulator/anatomy/thoraxModel';
-import { beamFrameFromPose, controlAimingAt, poseFromControl, type BeamFrame, type ProbeControl } from '@/simulator/probe/pose';
+import {
+  isAnteriorLung,
+  ribSpacingAt,
+  skinZ,
+  snapToIntercostal,
+  type ThoraxModel,
+} from '@/simulator/anatomy/thoraxModel';
+import {
+  beamFrameFromPose,
+  controlAimingAt,
+  poseFromControl,
+  type BeamFrame,
+  type ProbeControl,
+} from '@/simulator/probe/pose';
 
 export type WindowId = 'parasternal' | 'apical' | 'subcostal' | 'suprasternal';
 
@@ -81,7 +93,12 @@ export function buildViewTargets(): ViewTarget[] {
         'Coloca la sonda en el 3.º–4.º espacio intercostal paraesternal izquierdo con el marcador hacia el hombro derecho.',
         'El VI debe verse alargado, con la válvula mitral y aórtica alineadas y la AI bajo la raíz aórtica.',
       ],
-      commonErrors: ['Plano oblicuo (VI acortado o redondeado)', 'Demasiado alto: solo aorta y AI', 'Demasiado bajo: aparecen papilares', 'Sonda sobre costilla'],
+      commonErrors: [
+        'Plano oblicuo (VI acortado o redondeado)',
+        'Demasiado alto: solo aorta y AI',
+        'Demasiado bajo: aparecen papilares',
+        'Sonda sobre costilla',
+      ],
       tolerance: { planeAngleDeg: 18, inPlaneRotationDeg: 20, offsetCm: 1.5 },
     },
     {
@@ -98,7 +115,11 @@ export function buildViewTargets(): ViewTarget[] {
       // Perpendicular to the long axis those fall at -1.08, 0.27 and -3.67 cm.
       planeRight: R(v3(0.866, 0.5, 0)),
       planeDown: R(v3(0.5, -0.866, 0)),
-      target: v3(AV_CENTER.x + AV_AXIS.x * 0.7, AV_CENTER.y + AV_AXIS.y * 0.7, AV_CENTER.z + AV_AXIS.z * 0.7), // coaptation level
+      target: v3(
+        AV_CENTER.x + AV_AXIS.x * 0.7,
+        AV_CENTER.y + AV_AXIS.y * 0.7,
+        AV_CENTER.z + AV_AXIS.z * 0.7,
+      ), // coaptation level
       skin: { u: 2.6, v: 1.6 },
       requiredLandmarks: [
         { landmarkId: 'av', weight: 1.5, required: true },
@@ -114,8 +135,13 @@ export function buildViewTargets(): ViewTarget[] {
       ],
       recommendedDepthRangeCm: [12, 16],
       recommendedFocusCm: 7,
-      hints: ['Desde PLAX rota 90° en sentido horario y angula ligeramente hacia la base hasta ver la válvula aórtica en el centro con sus tres velos.'],
-      commonErrors: ['Rotación incompleta (plano oblicuo)', 'Nivel demasiado bajo: mitral en vez de aórtica'],
+      hints: [
+        'Desde PLAX rota 90° en sentido horario y angula ligeramente hacia la base hasta ver la válvula aórtica en el centro con sus tres velos.',
+      ],
+      commonErrors: [
+        'Rotación incompleta (plano oblicuo)',
+        'Nivel demasiado bajo: mitral en vez de aórtica',
+      ],
       tolerance: { planeAngleDeg: 18, inPlaneRotationDeg: 25, offsetCm: 1.5 },
     },
     {
@@ -139,7 +165,9 @@ export function buildViewTargets(): ViewTarget[] {
       ],
       recommendedDepthRangeCm: [12, 16],
       recommendedFocusCm: 8,
-      hints: ['Desde el nivel aórtico angula (abanica) hacia el ápex hasta ver la mitral en "boca de pez".'],
+      hints: [
+        'Desde el nivel aórtico angula (abanica) hacia el ápex hasta ver la mitral en "boca de pez".',
+      ],
       commonErrors: ['VI ovalado por plano oblicuo', 'Nivel papilar por exceso de angulación'],
       tolerance: { planeAngleDeg: 18, inPlaneRotationDeg: 25, offsetCm: 1.5 },
     },
@@ -164,7 +192,9 @@ export function buildViewTargets(): ViewTarget[] {
       ],
       recommendedDepthRangeCm: [12, 16],
       recommendedFocusCm: 9,
-      hints: ['Angula un poco más hacia el ápex: los dos músculos papilares deben verse simétricos y el VI circular.'],
+      hints: [
+        'Angula un poco más hacia el ápex: los dos músculos papilares deben verse simétricos y el VI circular.',
+      ],
       commonErrors: ['VI ovalado (oblicuo)', 'Un solo papilar visible por rotación incorrecta'],
       tolerance: { planeAngleDeg: 18, inPlaneRotationDeg: 25, offsetCm: 1.5 },
     },
@@ -188,8 +218,13 @@ export function buildViewTargets(): ViewTarget[] {
       ],
       recommendedDepthRangeCm: [10, 14],
       recommendedFocusCm: 8,
-      hints: ['Desde el nivel papilar sigue angulando hacia el ápex (o baja un espacio): el VI se ve pequeño y circular, sin papilares.'],
-      commonErrors: ['Nivel papilar por angulación insuficiente', 'Sector fuera del corazón por exceso de angulación'],
+      hints: [
+        'Desde el nivel papilar sigue angulando hacia el ápex (o baja un espacio): el VI se ve pequeño y circular, sin papilares.',
+      ],
+      commonErrors: [
+        'Nivel papilar por angulación insuficiente',
+        'Sector fuera del corazón por exceso de angulación',
+      ],
       tolerance: { planeAngleDeg: 18, inPlaneRotationDeg: 25, offsetCm: 1.5 },
     },
     {
@@ -217,8 +252,15 @@ export function buildViewTargets(): ViewTarget[] {
       ],
       recommendedDepthRangeCm: [14, 18],
       recommendedFocusCm: 10,
-      hints: ['Sonda en el ápex (5.º espacio, línea medioclavicular) con el marcador hacia la izquierda del paciente; el haz apunta hacia el hombro derecho.', 'El VI debe verse largo, con el ápex en la punta del sector y las cuatro cámaras con ambos septos.'],
-      commonErrors: ['Acortamiento (ápex no verdadero)', 'Plano anterior: aparece la aorta (A5C)', 'Plano posterior: seno coronario'],
+      hints: [
+        'Sonda en el ápex (5.º espacio, línea medioclavicular) con el marcador hacia la izquierda del paciente; el haz apunta hacia el hombro derecho.',
+        'El VI debe verse largo, con el ápex en la punta del sector y las cuatro cámaras con ambos septos.',
+      ],
+      commonErrors: [
+        'Acortamiento (ápex no verdadero)',
+        'Plano anterior: aparece la aorta (A5C)',
+        'Plano posterior: seno coronario',
+      ],
       tolerance: { planeAngleDeg: 15, inPlaneRotationDeg: 20, offsetCm: 1.5 },
     },
     {
@@ -244,7 +286,9 @@ export function buildViewTargets(): ViewTarget[] {
       penaltyLandmarks: [],
       recommendedDepthRangeCm: [14, 18],
       recommendedFocusCm: 10,
-      hints: ['Desde A4C angula ligeramente anterior (hacia arriba) hasta abrir el TSVI y la válvula aórtica en el centro.'],
+      hints: [
+        'Desde A4C angula ligeramente anterior (hacia arriba) hasta abrir el TSVI y la válvula aórtica en el centro.',
+      ],
       commonErrors: ['Demasiado anterior: se pierde la tricúspide', 'TSVI no alineado con el haz'],
       tolerance: { planeAngleDeg: 15, inPlaneRotationDeg: 20, offsetCm: 1.5 },
     },
@@ -271,8 +315,13 @@ export function buildViewTargets(): ViewTarget[] {
       ],
       recommendedDepthRangeCm: [14, 18],
       recommendedFocusCm: 10,
-      hints: ['Desde A4C rota ~60° en sentido antihorario sin desplazar la sonda: el VD desaparece y quedan VI, mitral y AI.'],
-      commonErrors: ['Rotación insuficiente: VD todavía visible', 'Rotación excesiva: aparece la aorta (A3C)'],
+      hints: [
+        'Desde A4C rota ~60° en sentido antihorario sin desplazar la sonda: el VD desaparece y quedan VI, mitral y AI.',
+      ],
+      commonErrors: [
+        'Rotación insuficiente: VD todavía visible',
+        'Rotación excesiva: aparece la aorta (A3C)',
+      ],
       tolerance: { planeAngleDeg: 15, inPlaneRotationDeg: 20, offsetCm: 1.5 },
     },
     {
@@ -297,7 +346,9 @@ export function buildViewTargets(): ViewTarget[] {
       ],
       recommendedDepthRangeCm: [14, 18],
       recommendedFocusCm: 10,
-      hints: ['Desde A2C rota ~60° más en sentido antihorario hasta ver el TSVI y la aorta: es el PLAX visto desde el ápex.'],
+      hints: [
+        'Desde A2C rota ~60° más en sentido antihorario hasta ver el TSVI y la aorta: es el PLAX visto desde el ápex.',
+      ],
       commonErrors: ['Plano intermedio A2C/A3C sin aorta clara'],
       tolerance: { planeAngleDeg: 15, inPlaneRotationDeg: 20, offsetCm: 1.5 },
     },
@@ -334,7 +385,11 @@ export function buildViewTargets(): ViewTarget[] {
         'Sonda bajo el apéndice xifoides, casi plana sobre el abdomen y con el marcador hacia la izquierda del paciente; el haz atraviesa el hígado hacia el hombro izquierdo.',
         'El hígado ocupa el campo cercano; debajo aparecen el VD y la AD y, más profundos, el VI y la AI con el tabique interauricular perpendicular al haz.',
       ],
-      commonErrors: ['Sonda demasiado inclinada: sólo hígado', 'Plano anterior: TSVI en vez de las aurículas (subcostal 5C)', 'Abdomen tenso (rodillas sin flexionar)'],
+      commonErrors: [
+        'Sonda demasiado inclinada: sólo hígado',
+        'Plano anterior: TSVI en vez de las aurículas (subcostal 5C)',
+        'Abdomen tenso (rodillas sin flexionar)',
+      ],
       tolerance: { planeAngleDeg: 20, inPlaneRotationDeg: 25, offsetCm: 2.0 },
     },
     {
@@ -358,8 +413,14 @@ export function buildViewTargets(): ViewTarget[] {
       ],
       recommendedDepthRangeCm: [14, 20],
       recommendedFocusCm: 8,
-      hints: ['Desde la subcostal de cuatro cámaras rota ~90° antihorario (marcador hacia la cabeza) y angula hacia la derecha del paciente hasta ver la vena cava inferior entrando en la aurícula derecha, con la vena hepática.', 'Mide el diámetro 1–2 cm antes de la desembocadura y observa el colapso con la inspiración brusca.'],
-      commonErrors: ['Confundir la aorta abdominal (pulsátil, a la izquierda) con la cava', 'Corte oblicuo de la cava: diámetro falsamente pequeño'],
+      hints: [
+        'Desde la subcostal de cuatro cámaras rota ~90° antihorario (marcador hacia la cabeza) y angula hacia la derecha del paciente hasta ver la vena cava inferior entrando en la aurícula derecha, con la vena hepática.',
+        'Mide el diámetro 1–2 cm antes de la desembocadura y observa el colapso con la inspiración brusca.',
+      ],
+      commonErrors: [
+        'Confundir la aorta abdominal (pulsátil, a la izquierda) con la cava',
+        'Corte oblicuo de la cava: diámetro falsamente pequeño',
+      ],
       tolerance: { planeAngleDeg: 20, inPlaneRotationDeg: 30, offsetCm: 2.0 },
     },
     {
@@ -380,7 +441,9 @@ export function buildViewTargets(): ViewTarget[] {
       penaltyLandmarks: [{ landmarkId: 'av', weight: 1, required: false }],
       recommendedDepthRangeCm: [14, 18],
       recommendedFocusCm: 9,
-      hints: ['Desde A4C desplaza la sonda ligeramente medial y rota un poco antihorario para maximizar el VD manteniendo el ápex.'],
+      hints: [
+        'Desde A4C desplaza la sonda ligeramente medial y rota un poco antihorario para maximizar el VD manteniendo el ápex.',
+      ],
       commonErrors: ['Simple zoom sin cambio de plano', 'Pérdida del ápex del VD'],
       tolerance: { planeAngleDeg: 15, inPlaneRotationDeg: 20, offsetCm: 1.5 },
     },
@@ -400,7 +463,12 @@ export function getViewTarget(id: string): ViewTarget {
  * Apical views prefer the skin projection of the LV apex; parasternal views prefer the intercostal
  * space of the window definition. This is how a sonographer "finds" the plane: slide a little.
  */
-export function skinPointOnPlane(thorax: ThoraxModel, plane: { target: Vec3; normal: Vec3 }, preferred: { u: number; v: number }, maxShiftCm = 2.5): { u: number; v: number } {
+export function skinPointOnPlane(
+  thorax: ThoraxModel,
+  plane: { target: Vec3; normal: Vec3 },
+  preferred: { u: number; v: number },
+  maxShiftCm = 2.5,
+): { u: number; v: number } {
   const n = plane.normal;
   const inSkin = Math.hypot(n.x, n.y);
   if (inSkin < 1e-3) return preferred;
@@ -452,7 +520,11 @@ export function lungOcclusion(thorax: ThoraxModel, control: ProbeControl, target
  * ventricle, sampled within 0.5 cm of the image plane and inside the 80° sector, with lung anywhere between the probe
  * and the sample. The renderer shows only reverberation behind the pleura, so this is the wall the image loses.
  */
-export function ventricleHiddenShare(heart: HeartModel, thorax: ThoraxModel, control: ProbeControl): number {
+export function ventricleHiddenShare(
+  heart: HeartModel,
+  thorax: ThoraxModel,
+  control: ProbeControl,
+): number {
   const beam = beamFrameFromPose(poseFromControl(thorax, control), 1);
   const { lengthCm: L, rMax, shape } = heart.lv;
   const halfSector = (40 * Math.PI) / 180;
@@ -463,7 +535,10 @@ export function ventricleHiddenShare(heart: HeartModel, thorax: ThoraxModel, con
     const r = rMax * lvProfileG(shape, zeta) + 0.45;
     for (let k = 0; k < 48; k++) {
       const phi = (k / 48) * 2 * Math.PI;
-      const pT = heartToTorso(heart.frame, v3(r * Math.cos(phi), r * shape.ratio * Math.sin(phi), zeta * L));
+      const pT = heartToTorso(
+        heart.frame,
+        v3(r * Math.cos(phi), r * shape.ratio * Math.sin(phi), zeta * L),
+      );
       const d = sub(pT, beam.origin);
       if (Math.abs(dot(d, beam.normal)) > 0.5) continue;
       const dep = dot(d, beam.forward);
@@ -483,7 +558,11 @@ export function ventricleHiddenShare(heart: HeartModel, thorax: ThoraxModel, con
 }
 
 /** Canonical probe control for a view target, computed from the case anatomy (for scoring/ghost only). */
-export function canonicalControl(view: ViewTarget, heart: HeartModel, thorax: ThoraxModel): ProbeControl {
+export function canonicalControl(
+  view: ViewTarget,
+  heart: HeartModel,
+  thorax: ThoraxModel,
+): ProbeControl {
   const plane = canonicalPlane(view, heart);
   let preferred = view.skin;
   let skin = preferred;
@@ -501,8 +580,17 @@ export function canonicalControl(view: ViewTarget, heart: HeartModel, thorax: Th
     // (always choosing the apex's own space instead foreshortened A4C from 9° to 31–41° in three cases).
     const near = snapToIntercostal(thorax, slid.u, slid.v);
     const spacing = ribSpacingAt(thorax, slid.u);
-    const other = snapToIntercostal(thorax, slid.u, near.v + (slid.v > near.v ? spacing : -spacing));
-    const hidden = (p: { u: number; v: number }): number => lungOcclusion(thorax, controlAimingAt(thorax, p.u, p.v, plane.target, plane.right, 0.6), plane.target);
+    const other = snapToIntercostal(
+      thorax,
+      slid.u,
+      near.v + (slid.v > near.v ? spacing : -spacing),
+    );
+    const hidden = (p: { u: number; v: number }): number =>
+      lungOcclusion(
+        thorax,
+        controlAimingAt(thorax, p.u, p.v, plane.target, plane.right, 0.6),
+        plane.target,
+      );
     skin = hidden(other) < hidden(near) - 0.1 ? other : near;
     // Within that space the slide toward the plane stops before the lung covers the ventricle. Sliding the full 2 cm put
     // the A2C probe over the lung border: the lingula hid 35% of the LV wall in the normal case — the anterior wall — and
@@ -511,9 +599,16 @@ export function canonicalControl(view: ViewTarget, heart: HeartModel, thorax: Th
     // than 5 points above the clearest position this window allows.
     const back = Math.sign(preferred.u - skin.u);
     const stops = [skin];
-    for (let d = 0.5; d < Math.abs(preferred.u - skin.u); d += 0.5) stops.push(snapToIntercostal(thorax, skin.u + back * d, skin.v));
-    if (Math.abs(preferred.u - skin.u) > 0.25) stops.push(snapToIntercostal(thorax, preferred.u, skin.v));
-    const hiddenAt = (p: { u: number; v: number }): number => ventricleHiddenShare(heart, thorax, controlAimingAt(thorax, p.u, p.v, plane.target, plane.right, 0.6));
+    for (let d = 0.5; d < Math.abs(preferred.u - skin.u); d += 0.5)
+      stops.push(snapToIntercostal(thorax, skin.u + back * d, skin.v));
+    if (Math.abs(preferred.u - skin.u) > 0.25)
+      stops.push(snapToIntercostal(thorax, preferred.u, skin.v));
+    const hiddenAt = (p: { u: number; v: number }): number =>
+      ventricleHiddenShare(
+        heart,
+        thorax,
+        controlAimingAt(thorax, p.u, p.v, plane.target, plane.right, 0.6),
+      );
     // a clear first position needs no search: it is the longest slide and within any tolerance
     if (stops.length > 1 && hiddenAt(skin) > 0.1) {
       const hid = stops.map(hiddenAt);
@@ -555,10 +650,19 @@ export function canonicalBeam(view: ViewTarget, heart: HeartModel, thorax: Thora
 }
 
 /** Torso-frame plane basis for a view target (used by tests and the ghost overlay). */
-export function canonicalPlane(view: ViewTarget, heart: HeartModel): { target: Vec3; right: Vec3; down: Vec3; normal: Vec3 } {
+export function canonicalPlane(
+  view: ViewTarget,
+  heart: HeartModel,
+): { target: Vec3; right: Vec3; down: Vec3; normal: Vec3 } {
   const target = heartToTorso(heart.frame, view.target);
   const right = heartDirToTorso(heart.frame, view.planeRight);
   const down = heartDirToTorso(heart.frame, view.planeDown);
-  const n = normalize(v3(right.y * down.z - right.z * down.y, right.z * down.x - right.x * down.z, right.x * down.y - right.y * down.x));
+  const n = normalize(
+    v3(
+      right.y * down.z - right.z * down.y,
+      right.z * down.x - right.x * down.z,
+      right.x * down.y - right.y * down.x,
+    ),
+  );
   return { target, right, down, normal: n };
 }

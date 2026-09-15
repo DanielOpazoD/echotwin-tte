@@ -1,11 +1,34 @@
 import type { CycleState } from '@/simulator/cardiac-cycle/cycleModel';
 import { Structure } from './tissue';
 import { smin } from './sdf';
-import { allocLvProfileTable, axialWallFactor, buildLvProfile, lvCavityRadius, lvCavitySdf, solveThickening, type LvProfileTable } from './lvShape';
+import {
+  allocLvProfileTable,
+  axialWallFactor,
+  buildLvProfile,
+  lvCavityRadius,
+  lvCavitySdf,
+  solveThickening,
+  type LvProfileTable,
+} from './lvShape';
 import { buildAorticValve, type AorticValve, type RootProfile } from './aorticValve';
-import { buildMitralValve, fitOpenLeaflets, mitralFreeEdge, mitralInflowSdf, papillaryTether, type MitralValve } from './mitralValve';
+import {
+  buildMitralValve,
+  fitOpenLeaflets,
+  mitralFreeEdge,
+  mitralInflowSdf,
+  papillaryTether,
+  type MitralValve,
+} from './mitralValve';
 import { ROOT_EXCURSION, PV_ROOT_EXCURSION } from './heartFrame';
-import { TWO_PI, buildCuspChains, buildProfile, saddleOffset, skirtTip, tvInflowSdf, type SkirtDesc } from './valveSkirt';
+import {
+  TWO_PI,
+  buildCuspChains,
+  buildProfile,
+  saddleOffset,
+  skirtTip,
+  tvInflowSdf,
+  type SkirtDesc,
+} from './valveSkirt';
 import { septalShiftAt } from './lvWall';
 import { rvRadii, rvRad } from './rv';
 import { anchorsCached } from './anchors';
@@ -109,12 +132,17 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
   const lengthNow = lv.lengthCm - zAnn; // apex fixed at z = L
   const volNow = state.lvVolumeMl;
   // cavity radius from the volume tables: V = π·ratio·R²·L·∫g² over the bullet profile
-  const rMax0 = Math.sqrt(Math.max(volNow, 5) / (Math.PI * sh.ratio * Math.max(lengthNow, 1) * sh.I));
+  const rMax0 = Math.sqrt(
+    Math.max(volNow, 5) / (Math.PI * sh.ratio * Math.max(lengthNow, 1) * sh.I),
+  );
   // regional wall-motion abnormalities keep their segments at the end-diastolic radius; the remaining
   // segments contract more (compensatory hyperkinesia) so that the surface-averaged radius — and the
   // cavity volume — still follow the tables: R²·(1 − F) + F·R_ED² = R0²
   const F = Math.min(0.6, m.regionalMeanFrac);
-  const rMax = rMax0 < lv.rMax && F > 0 ? Math.max(0.5, Math.sqrt(Math.max(0.25, (rMax0 * rMax0 - F * lv.rMax * lv.rMax) / (1 - F)))) : rMax0;
+  const rMax =
+    rMax0 < lv.rMax && F > 0
+      ? Math.max(0.5, Math.sqrt(Math.max(0.25, (rMax0 * rMax0 - F * lv.rMax * lv.rMax) / (1 - F))))
+      : rMax0;
   const prof = buildLvProfile(sh, rMax, lengthNow, zAnn, allocLvProfileTable());
   // incompressible myocardium: the thickening factor keeps the shell volume of the end-diastolic wall
   const tBase = (lv.ivsd + lv.lvpwd) / 2;
@@ -122,7 +150,12 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
   // The traced end-diastolic cavity (the volume tables follow the ASE tracing convention) includes the
   // blood among the trabeculae; in systole that trabecular layer compacts against the wall, so the
   // apparent wall gains ~12 % of the shell volume on top of mass conservation of the compact wall.
-  const thickK = solveThickening(prof, sh.ratio, tMean, lv.wallVolumeMl * (1 + 0.12 * state.contraction));
+  const thickK = solveThickening(
+    prof,
+    sh.ratio,
+    tMean,
+    lv.wallVolumeMl * (1 + 0.12 * state.contraction),
+  );
   const radialScale = rMax / lv.rMax;
   const longScale = lengthNow / lv.lengthCm;
   const open = state.mvOpen;
@@ -141,7 +174,8 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
   const postOpen = [-0.61 * openScale, -0.79 * openScale, -0.96 * openScale];
   const mvAngleAnt = antClosed[1]! + (antOpen[1]! - antClosed[1]!) * open;
   const mvAnglePost = postClosed[1]! + (postOpen[1]! - postClosed[1]!) * open;
-  const avOpenAngle = 0.15 + (1.35 * m.anatomy.aorticValve.maxOpeningFraction - 0.15) * state.avOpen;
+  const avOpenAngle =
+    0.15 + (1.35 * m.anatomy.aorticValve.maxOpeningFraction - 0.15) * state.avOpen;
   const tvAngleAnt = -1.0 + (0.6 + 1.0) * state.tvOpen;
   const tvAnglePost = 0.8 + (-0.7 - 0.8) * state.tvOpen;
   const A = anchorsCached(m);
@@ -171,8 +205,24 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
     open,
     state.contraction,
     -(1 - ROOT_EXCURSION) * zAnn,
-    papillaryTether(tipAL[0], tipAL[1], tipAL[2], A.mvCenter.x, A.mvCenter.y, zAnn, m.anatomy.mitral),
-    papillaryTether(tipPM[0], tipPM[1], tipPM[2], A.mvCenter.x, A.mvCenter.y, zAnn, m.anatomy.mitral),
+    papillaryTether(
+      tipAL[0],
+      tipAL[1],
+      tipAL[2],
+      A.mvCenter.x,
+      A.mvCenter.y,
+      zAnn,
+      m.anatomy.mitral,
+    ),
+    papillaryTether(
+      tipPM[0],
+      tipPM[1],
+      tipPM[2],
+      A.mvCenter.x,
+      A.mvCenter.y,
+      zAnn,
+      m.anatomy.mitral,
+    ),
   );
   {
     // inflow below the annulus: from the outline where it lies farthest outside the cavity profile, straight to just
@@ -198,14 +248,31 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
     const c = Math.cos(worstAz),
       sn = Math.sin(worstAz);
     const b = -mitral.cx * c - mitral.cy * sn;
-    const rOut = -b + Math.sqrt(Math.max(0, b * b - (mitral.cx * mitral.cx + mitral.cy * mitral.cy) + mitral.R * mitral.R));
+    const rOut =
+      -b +
+      Math.sqrt(
+        Math.max(0, b * b - (mitral.cx * mitral.cx + mitral.cy * mitral.cy) + mitral.R * mitral.R),
+      );
     mitral.inflowDepth = hMax;
-    mitral.inflowSlope = Math.max(0, (rOut - lvCavityRadius(sh, prof, worstAz, zAnn + hMax) + 0.15) / hMax);
+    mitral.inflowSlope = Math.max(
+      0,
+      (rOut - lvCavityRadius(sh, prof, worstAz, zAnn + hMax) + 0.15) / hMax,
+    );
     // the open leaflets swing apically into the ventricle, so the annular plane that clips the profile is not a wall here;
     // the septum is where the classifier puts it, flattened toward the LV by a pressure-loaded RV
     fitOpenLeaflets(mitral, (px, py, pz) => {
-      const xs = px - septalShiftAt(septalShiftCm, Math.atan2(py, px), Math.min(1, Math.max(0, (pz - zAnn) / Math.max(lengthNow, 1))));
-      return smin(lvCavitySdf(prof, sh.ratio, xs, py, pz), mitralInflowSdf(px, py, pz, mitral), 0.3);
+      const xs =
+        px -
+        septalShiftAt(
+          septalShiftCm,
+          Math.atan2(py, px),
+          Math.min(1, Math.max(0, (pz - zAnn) / Math.max(lengthNow, 1))),
+        );
+      return smin(
+        lvCavitySdf(prof, sh.ratio, xs, py, pz),
+        mitralInflowSdf(px, py, pz, mitral),
+        0.3,
+      );
     });
   }
   // Tricuspid valve: three radial leaflets — anterior (largest), septal (hanging along the septum, the +x side
@@ -244,9 +311,24 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
       closedProf[2 + i * 2] = tvRNow * (1 - 0.97 * TV_CLOSED_REACH[i]!);
       closedProf[3 + i * 2] = TV_TENTING_CM * TV_CLOSED_DEPTH[i]!;
     }
-    const blendProfiles = (open: Float64Array): Float64Array => open.map((v, i) => closedProf[i]! + (v - closedProf[i]!) * tvOpen);
+    const blendProfiles = (open: Float64Array): Float64Array =>
+      open.map((v, i) => closedProf[i]! + (v - closedProf[i]!) * tvOpen);
     const rvCavity = (px: number, py: number, pz: number): number => {
-      rvRadii(m, A, prof, thickK, zAnn, lengthNow, tvZ, state.contraction, septalShiftCm, rvCollapse, Math.atan2(py, px), pz, rvRad);
+      rvRadii(
+        m,
+        A,
+        prof,
+        thickK,
+        zAnn,
+        lengthNow,
+        tvZ,
+        state.contraction,
+        septalShiftCm,
+        rvCollapse,
+        Math.atan2(py, px),
+        pz,
+        rvRad,
+      );
       let d = 1e3;
       const u = rvRad[1]!;
       if (u > 0 && u < 1) {
@@ -258,7 +340,16 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
       return smin(d, tvInflowSdf(px, py, pz, tv, tvZ), 0.3);
     };
     // zones first (the saddle and the inflow column refer to zone 0), then each open profile fitted
-    for (const [phi, halfSpan, lenFrac, opened] of zoneDefs) tv.zones.push({ phi, halfSpan, prof: blendProfiles(buildProfile(tvRNow, opened, (A.tvR * lenFrac) / 3)), kind: 0, lobes: 0, c: 0, structure: Structure.TricuspidValve });
+    for (const [phi, halfSpan, lenFrac, opened] of zoneDefs)
+      tv.zones.push({
+        phi,
+        halfSpan,
+        prof: blendProfiles(buildProfile(tvRNow, opened, (A.tvR * lenFrac) / 3)),
+        kind: 0,
+        lobes: 0,
+        c: 0,
+        structure: Structure.TricuspidValve,
+      });
     const rots: number[] = [];
     for (let zi = 0; zi < zoneDefs.length; zi++) {
       const [phi, halfSpan, lenFrac, opened] = zoneDefs[zi]!;
@@ -266,7 +357,11 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
       let rot = 0;
       if (tvOpen > 0) {
         const clear = (r: number): boolean => {
-          const pr = buildProfile(tvRNow, opened.map((a) => a + r), segLen);
+          const pr = buildProfile(
+            tvRNow,
+            opened.map((a) => a + r),
+            segLen,
+          );
           for (const off of [-0.6, 0, 0.6]) {
             const ang = phi + off * halfSpan;
             const ca = Math.cos(ang),
@@ -276,10 +371,18 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
               const j = i >> 1,
                 t = i % 2 ? 0.5 : 0;
               const rho = i % 2 ? pr[j * 2]! + (pr[j * 2 + 2]! - pr[j * 2]!) * t : pr[j * 2]!;
-              const zz = i % 2 ? pr[j * 2 + 1]! + (pr[j * 2 + 3]! - pr[j * 2 + 1]!) * t : pr[j * 2 + 1]!;
+              const zz =
+                i % 2 ? pr[j * 2 + 1]! + (pr[j * 2 + 3]! - pr[j * 2 + 1]!) * t : pr[j * 2 + 1]!;
               const need = Math.min(0.25, 0.4 * (Math.hypot(tvRNow - rho, zz) - 0.15));
               if (need <= 0) continue;
-              if (rvCavity(tv.cx + rho * ca, tv.cy + rho * sa, tv.cz + zz + saddleOffset(ang, zoneDefs[0]![0], tv.saddle)) > -need) return false;
+              if (
+                rvCavity(
+                  tv.cx + rho * ca,
+                  tv.cy + rho * sa,
+                  tv.cz + zz + saddleOffset(ang, zoneDefs[0]![0], tv.saddle),
+                ) > -need
+              )
+                return false;
             }
           }
           return true;
@@ -305,17 +408,46 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
     for (let zi = 0; zi < zoneDefs.length; zi++) {
       const [, , lenFrac, opened] = zoneDefs[zi]!;
       const rot = Math.max(rots[zi]!, maxRot - 0.2);
-      tv.zones[zi]!.prof = blendProfiles(buildProfile(tvRNow, opened.map((a) => a + rot), (A.tvR * lenFrac) / 3));
+      tv.zones[zi]!.prof = blendProfiles(
+        buildProfile(
+          tvRNow,
+          opened.map((a) => a + rot),
+          (A.tvR * lenFrac) / 3,
+        ),
+      );
     }
   }
   // aortic cusps: pockets on the sinus wall opening by the cycle's opening times the case's maximum (decision 79)
-  const aortic = buildAorticValve(cusps, Math.max(0, Math.min(1, state.avOpen)) * m.anatomy.aorticValve.maxOpeningFraction, m.anatomy.aorticValve.cuspThicknessCm);
-  const root: RootProfile = { avR: A.avR, sinusR: A.sinusR, ascR: A.ascR, lvotR: m.anatomy.aorta.lvotDiameterCm / 2, count: cusps };
+  const aortic = buildAorticValve(
+    cusps,
+    Math.max(0, Math.min(1, state.avOpen)) * m.anatomy.aorticValve.maxOpeningFraction,
+    m.anatomy.aorticValve.cuspThicknessCm,
+  );
+  const root: RootProfile = {
+    avR: A.avR,
+    sinusR: A.sinusR,
+    ascR: A.ascR,
+    lvotR: m.anatomy.aorta.lvotDiameterCm / 2,
+    count: cusps,
+  };
   // pulmonary valve: three cusps hinged at the outflow–trunk junction on the trunk axis, opening with RV ejection
   const pvSegs = new Float64Array(36);
   const pvWidths = new Float64Array(9);
   const pvZ = PV_ROOT_EXCURSION * zAnn;
-  const pvSegLen = buildCuspChains(A.rvotB.x, A.rvotB.y, A.rvotB.z + pvZ, A.paDir, A.pvE1, A.pvE2, A.pvR, Math.max(0, Math.min(1, state.pvOpen)), 3, pvSegs, pvWidths, 0.2);
+  const pvSegLen = buildCuspChains(
+    A.rvotB.x,
+    A.rvotB.y,
+    A.rvotB.z + pvZ,
+    A.paDir,
+    A.pvE1,
+    A.pvE2,
+    A.pvR,
+    Math.max(0, Math.min(1, state.pvOpen)),
+    3,
+    pvSegs,
+    pvWidths,
+    0.2,
+  );
   // papillary muscles: round cones rooted inside the wall (level ζb) leaning into the cavity toward the
   // annulus (tip at level ζt, about halfway to the axis); they move with the wall and thicken in systole
   const paps = new Float64Array(16);
@@ -326,19 +458,68 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
     const rb = lvCavityRadius(sh, prof, paz, zb) + 0.25;
     const tip = i === 0 ? tipAL : tipPM;
     const grow = 0.9 + 0.3 * state.contraction;
-    paps.set([rb * Math.cos(paz), rb * Math.sin(paz), zb, tip[0], tip[1], tip[2], A.papR * grow, A.papR * 0.65 * grow], i * 8);
+    paps.set(
+      [
+        rb * Math.cos(paz),
+        rb * Math.sin(paz),
+        zb,
+        tip[0],
+        tip[1],
+        tip[2],
+        A.papR * grow,
+        A.papR * 0.65 * grow,
+      ],
+      i * 8,
+    );
   }
   // RV anterior papillary muscle: cone from the free wall at the moderator-band insertion toward the tricuspid
   const rvPap = new Float64Array(8);
   {
     const zb = zAnn + A.rvPapZetaBase * lengthNow;
     const zt = zAnn + A.rvPapZetaTip * lengthNow;
-    rvRadii(m, A, prof, thickK, zAnn, lengthNow, tvZ, state.contraction, septalShiftCm, rvCollapse, A.rvPapAz, zb, rvRad);
+    rvRadii(
+      m,
+      A,
+      prof,
+      thickK,
+      zAnn,
+      lengthNow,
+      tvZ,
+      state.contraction,
+      septalShiftCm,
+      rvCollapse,
+      A.rvPapAz,
+      zb,
+      rvRad,
+    );
     const rb = rvRad[2]! + 0.15;
-    rvRadii(m, A, prof, thickK, zAnn, lengthNow, tvZ, state.contraction, septalShiftCm, rvCollapse, A.rvPapAz + 0.1, zt, rvRad);
+    rvRadii(
+      m,
+      A,
+      prof,
+      thickK,
+      zAnn,
+      lengthNow,
+      tvZ,
+      state.contraction,
+      septalShiftCm,
+      rvCollapse,
+      A.rvPapAz + 0.1,
+      zt,
+      rvRad,
+    );
     const rt = rvRad[0]! + 0.5 * (rvRad[2]! - rvRad[0]!);
     const grow = 0.9 + 0.3 * state.contraction;
-    rvPap.set([rb * Math.cos(A.rvPapAz), rb * Math.sin(A.rvPapAz), zb, rt * Math.cos(A.rvPapAz + 0.1), rt * Math.sin(A.rvPapAz + 0.1), zt, 0.42 * grow, 0.28 * grow]);
+    rvPap.set([
+      rb * Math.cos(A.rvPapAz),
+      rb * Math.sin(A.rvPapAz),
+      zb,
+      rt * Math.cos(A.rvPapAz + 0.1),
+      rt * Math.sin(A.rvPapAz + 0.1),
+      zt,
+      0.42 * grow,
+      0.28 * grow,
+    ]);
   }
   // chordae tendineae: two primary chordae per mitral leaflet half from the free edge to each papillary tip
   // (anterolateral papillary ← lateral half, posteromedial ← medial half), plus two from the anterior

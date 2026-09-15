@@ -3,9 +3,20 @@
  * equivalence test (e2e/gpu-equivalence.spec.ts) compares both on the canonical views.
  */
 import { LV_PROF_BINS } from '@/simulator/anatomy/lvShape';
-import { AV_COAPT_HALF, ROOT_ASC_T, ROOT_EXCURSION, ROOT_SINUS_T, ROOT_STJ_T } from '@/simulator/anatomy/heartModel';
+import {
+  AV_COAPT_HALF,
+  ROOT_ASC_T,
+  ROOT_EXCURSION,
+  ROOT_SINUS_T,
+  ROOT_STJ_T,
+} from '@/simulator/anatomy/heartModel';
 import { AV_PHI0 } from '@/simulator/anatomy/aorticValve';
-import { AML_ARC_EXTENSION, CLOSED_DEPTH, CLOSED_REACH, MV_BINS } from '@/simulator/anatomy/mitralValve';
+import {
+  AML_ARC_EXTENSION,
+  CLOSED_DEPTH,
+  CLOSED_REACH,
+  MV_BINS,
+} from '@/simulator/anatomy/mitralValve';
 
 const f = (v: number): string => (Number.isInteger(v) ? `${v}.0` : `${v}`);
 

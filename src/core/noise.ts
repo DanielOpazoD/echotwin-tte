@@ -38,9 +38,21 @@ export function valueNoise3(x: number, y: number, z: number, seed: number): numb
  * noises squared gives a heavy-tailed positive factor with mean ≈ 1.
  * `freq` in cycles/cm; anisotropy: axial (z) grain finer than lateral (x,y) as in real speckle.
  */
-export function speckle(x: number, y: number, z: number, freqLateral: number, freqAxial: number, seed: number): number {
+export function speckle(
+  x: number,
+  y: number,
+  z: number,
+  freqLateral: number,
+  freqAxial: number,
+  seed: number,
+): number {
   const n1 = valueNoise3(x * freqLateral, y * freqLateral, z * freqAxial, seed);
-  const n2 = valueNoise3(x * freqLateral * 1.93 + 17.3, y * freqLateral * 1.93 + 5.1, z * freqAxial * 1.93 + 9.7, seed ^ 0x5bd1e995);
+  const n2 = valueNoise3(
+    x * freqLateral * 1.93 + 17.3,
+    y * freqLateral * 1.93 + 5.1,
+    z * freqAxial * 1.93 + 9.7,
+    seed ^ 0x5bd1e995,
+  );
   const v = (n1 * 0.65 + n2 * 0.35) * 2; // mean ≈ 1
   return v * v * 0.75 + 0.25; // keep positive, mean ≈ 1, heavy tail
 }
@@ -59,7 +71,9 @@ export function noiseLattice(seed: number): Uint8Array {
   if (l) return l;
   l = new Uint8Array(LAT * LAT * LAT);
   let i = 0;
-  for (let z = 0; z < LAT; z++) for (let y = 0; y < LAT; y++) for (let x = 0; x < LAT; x++) l[i++] = Math.floor(hash3(x, y, z, seed) * 255.999);
+  for (let z = 0; z < LAT; z++)
+    for (let y = 0; y < LAT; y++)
+      for (let x = 0; x < LAT; x++) l[i++] = Math.floor(hash3(x, y, z, seed) * 255.999);
   latticeCache.set(seed, l);
   return l;
 }

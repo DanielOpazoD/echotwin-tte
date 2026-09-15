@@ -19,23 +19,53 @@ test.beforeEach(async ({ page }) => {
   await waitForFrames(page, 3);
 });
 
-test('a curriculum task completes when the PLAX preset reaches its score and the progress persists across reloads', async ({ page }) => {
+test('a curriculum task completes when the PLAX preset reaches its score and the progress persists across reloads', async ({
+  page,
+}) => {
   await page.getByRole('button', { name: 'PLAX' }).click();
-  await page.waitForFunction(() => (window as unknown as { __echotwin: { useSimStore: { getState: () => { presetAnim: unknown } } } }).__echotwin.useSimStore.getState().presetAnim === null, null, { timeout: 20000 });
-  await page.waitForFunction(() => Boolean((window as unknown as { __echotwin: { useSimStore: { getState: () => { progress: { completedTasks: Record<string, number> } } } } }).__echotwin.useSimStore.getState().progress.completedTasks['plax-70']), null, { timeout: 20000 });
+  await page.waitForFunction(
+    () =>
+      (
+        window as unknown as {
+          __echotwin: { useSimStore: { getState: () => { presetAnim: unknown } } };
+        }
+      ).__echotwin.useSimStore.getState().presetAnim === null,
+    null,
+    { timeout: 20000 },
+  );
+  await page.waitForFunction(
+    () =>
+      Boolean(
+        (
+          window as unknown as {
+            __echotwin: {
+              useSimStore: {
+                getState: () => { progress: { completedTasks: Record<string, number> } };
+              };
+            };
+          }
+        ).__echotwin.useSimStore.getState().progress.completedTasks['plax-70'],
+      ),
+    null,
+    { timeout: 20000 },
+  );
   await page.getByRole('button', { name: 'Currículo' }).click();
   await expect(page.locator('[data-task="plax-70"]')).toHaveAttribute('data-done', '1');
   await expect(page.locator('[data-task="a4c-70"]')).toHaveAttribute('data-done', '0');
   await page.reload();
   await waitForFrames(page, 2);
-  const st = (await getStore(page)) as unknown as { progress: { completedTasks: Record<string, number>; events: { kind: string }[] } };
+  const st = (await getStore(page)) as unknown as {
+    progress: { completedTasks: Record<string, number>; events: { kind: string }[] };
+  };
   expect(st.progress.completedTasks['plax-70']).toBeTruthy();
   expect(st.progress.events.some((e) => e.kind === 'view')).toBe(true);
   await page.getByRole('button', { name: 'Progreso' }).click();
   await expect(page.locator('[data-progress-view="plax"] td').nth(1)).not.toHaveText('—');
 });
 
-test('the guidance panel explains causes and the report scores a structured impression', async ({ page }) => {
+test('the guidance panel explains causes and the report scores a structured impression', async ({
+  page,
+}) => {
   // an imperfect pose (start probe) yields at least one causal explanation
   await expect(page.locator('.guidance .causes')).toHaveCount(1);
   await page.getByRole('button', { name: 'Informe' }).click();

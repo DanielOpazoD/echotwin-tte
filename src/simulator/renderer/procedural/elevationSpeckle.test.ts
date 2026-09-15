@@ -5,7 +5,13 @@ import { createThoraxModel } from '@/simulator/anatomy/thoraxModel';
 import { Tissue } from '@/simulator/anatomy/tissue';
 import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
-import { allocPolarFrame, DEFAULT_ACQUISITION, polarSpecFor, type PolarFrame, type Scene } from '@/simulator/renderer/types';
+import {
+  allocPolarFrame,
+  DEFAULT_ACQUISITION,
+  polarSpecFor,
+  type PolarFrame,
+  type Scene,
+} from '@/simulator/renderer/types';
 import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
 import { add, scale } from '@/core/vec3';
 import { ProceduralSliceRenderer } from './sliceRenderer';
@@ -20,17 +26,53 @@ import { ProceduralSliceRenderer } from './sliceRenderer';
 describe('frame speckle across the slice thickness', () => {
   it('keeps its correlation for a fraction of the slice and loses it over the slice', () => {
     const c = loadCaseById('normal-excellent-window');
-    const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, { position: 'left-lateral', respiration: 'expiration', headElevationDeg: 0 }, c.anatomy.ivc.collapsePct);
-    const tables = buildBeatTables(60 / c.rhythm.heartRateBpm, c.physiology, c.rhythm, c.hemodynamics);
-    const reference = createHeartModel(c.anatomy, c.physiology, thorax.heartOffset, c.seed, thorax.ivcCollapse);
-    const beam = beamFrameFromPose(poseFromControl(thorax, canonicalControl(getViewTarget('a4c'), reference, thorax)), 1);
+    const thorax = createThoraxModel(
+      c.bodyHabitus,
+      c.acousticWindow,
+      { position: 'left-lateral', respiration: 'expiration', headElevationDeg: 0 },
+      c.anatomy.ivc.collapsePct,
+    );
+    const tables = buildBeatTables(
+      60 / c.rhythm.heartRateBpm,
+      c.physiology,
+      c.rhythm,
+      c.hemodynamics,
+    );
+    const reference = createHeartModel(
+      c.anatomy,
+      c.physiology,
+      thorax.heartOffset,
+      c.seed,
+      thorax.ivcCollapse,
+    );
+    const beam = beamFrameFromPose(
+      poseFromControl(thorax, canonicalControl(getViewTarget('a4c'), reference, thorax)),
+      1,
+    );
     const spec = polarSpecFor({ ...DEFAULT_ACQUISITION }, 'medium');
     const renderer = new ProceduralSliceRenderer();
-    const physics = { frequencyMHz: 2.5, harmonics: true, clutterLevel: 0, windowAttenuation: c.acousticWindow.chestWallAttenuation, seed: c.seed };
+    const physics = {
+      frequencyMHz: 2.5,
+      harmonics: true,
+      clutterLevel: 0,
+      windowAttenuation: c.acousticWindow.chestWallAttenuation,
+      seed: c.seed,
+    };
     /** The heart moved `shiftCm` along the plane normal, the probe fixed: a pure elevational translation. */
     const render = (shiftCm: number): PolarFrame => {
-      const heart = createHeartModel(c.anatomy, c.physiology, add(thorax.heartOffset, scale(beam.normal, shiftCm)), c.seed, thorax.ivcCollapse);
-      const scene: Scene = { heart, heartPose: computeHeartPose(heart, cycleStateAt(tables, 0.1)), thorax, physics };
+      const heart = createHeartModel(
+        c.anatomy,
+        c.physiology,
+        add(thorax.heartOffset, scale(beam.normal, shiftCm)),
+        c.seed,
+        thorax.ivcCollapse,
+      );
+      const scene: Scene = {
+        heart,
+        heartPose: computeHeartPose(heart, cycleStateAt(tables, 0.1)),
+        thorax,
+        physics,
+      };
       const f = allocPolarFrame(spec);
       renderer.render(scene, beam, spec, 0.1, f);
       return f;
@@ -43,7 +85,14 @@ describe('frame speckle across the slice thickness', () => {
         for (let ds = -3; ds <= 3; ds++) {
           const l = li + dl,
             s = si + ds;
-          if (l < 0 || l >= spec.lines || s < 0 || s >= S || f.tissue[l * S + s] !== Tissue.Myocardium) return false;
+          if (
+            l < 0 ||
+            l >= spec.lines ||
+            s < 0 ||
+            s >= S ||
+            f.tissue[l * S + s] !== Tissue.Myocardium
+          )
+            return false;
         }
       return true;
     };
@@ -70,7 +119,10 @@ describe('frame speckle across the slice thickness', () => {
           n++;
         }
       expect(n).toBeGreaterThan(500);
-      return (sab / n - (sa / n) * (sb / n)) / Math.sqrt((saa / n - (sa / n) ** 2) * (sbb / n - (sb / n) ** 2));
+      return (
+        (sab / n - (sa / n) * (sb / n)) /
+        Math.sqrt((saa / n - (sa / n) ** 2) * (sbb / n - (sb / n) ** 2))
+      );
     };
     const near = correlation(0.02);
     const across = correlation(0.32);

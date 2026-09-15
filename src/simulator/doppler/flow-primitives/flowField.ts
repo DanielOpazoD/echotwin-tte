@@ -1,4 +1,9 @@
-import { heartAnchors, ROOT_EXCURSION, type HeartModel, type HeartPose } from '@/simulator/anatomy/heartModel';
+import {
+  heartAnchors,
+  ROOT_EXCURSION,
+  type HeartModel,
+  type HeartPose,
+} from '@/simulator/anatomy/heartModel';
 import type { BeatTables } from '@/simulator/cardiac-cycle/cycleModel';
 import { sampleTable } from '@/simulator/cardiac-cycle/cycleModel';
 import type { CaseDefinition } from '@/cases/schema';
@@ -47,7 +52,13 @@ export interface FlowFieldParams {
   /** Dynamic/subaortic LVOT obstruction: maximal area reduction fraction and its onset (fraction of ejection). */
   lvotObstruction: { fMax: number; dynamic: boolean } | null;
   /** Pulmonary venous flow: the four ostia (heart frame at ED) and the S/D/Ar peak velocities (m/s). */
-  pulmonaryVeins: { laCenter: { x: number; y: number; z: number }; laR: { x: number; y: number; z: number }; sMps: number; dMps: number; arMps: number };
+  pulmonaryVeins: {
+    laCenter: { x: number; y: number; z: number };
+    laR: { x: number; y: number; z: number };
+    sMps: number;
+    dMps: number;
+    arMps: number;
+  };
   /** Colour M-mode flow propagation velocity (cm/s) the conventional slope reads, and the filling-wave speed that gives it. */
   inflowPropagationCmps: number;
   inflowWaveCmps: number;
@@ -75,7 +86,9 @@ const INFLOW_DECAY_CM = 5;
 
 /** Fraction of the core velocity left `zr` cm beyond the annulus, fading over the last centimetre before the apex. */
 function inflowAxial(zr: number, lengthNow: number): number {
-  return smoothstep(0.2, 1.2, lengthNow - zr) / (1 + Math.max(0, zr - INFLOW_CORE_CM) / INFLOW_DECAY_CM);
+  return (
+    smoothstep(0.2, 1.2, lengthNow - zr) / (1 + Math.max(0, zr - INFLOW_CORE_CM) / INFLOW_DECAY_CM)
+  );
 }
 
 /**
@@ -83,7 +96,13 @@ function inflowAxial(zr: number, lengthNow: number): number {
  * (decision 102): the wave takes (zr − INFLOW_CORE_CM)/speed to arrive. Zero for a wave that would have left before the
  * beat began, when the ventricle already contracts.
  */
-function inflowFlow(tables: BeatTables, phase: number, zr: number, waveCmps: number, table: Float32Array = tables.mitralFlowMlps): number {
+function inflowFlow(
+  tables: BeatTables,
+  phase: number,
+  zr: number,
+  waveCmps: number,
+  table: Float32Array = tables.mitralFlowMlps,
+): number {
   const delayed = phase - Math.max(0, zr - INFLOW_CORE_CM) / (waveCmps * tables.rrS);
   return delayed < 0 ? 0 : sampleTable(table, delayed);
 }
@@ -94,19 +113,32 @@ function inflowFlow(tables: BeatTables, phase: number, zr: number, waveCmps: num
  * velocity reaches half the early-filling maximum at the tips, fitted against depth. The core slows with depth and the
  * annulus recoils during early filling, so the contour runs slower than the wave. NaN when the contour does not reach 4 cm.
  */
-export function conventionalPropagation(tables: BeatTables, mapseCm: number, lvLengthCm: number, mvAreaCm2: number, waveCmps: number): number {
+export function conventionalPropagation(
+  tables: BeatTables,
+  mapseCm: number,
+  lvLengthCm: number,
+  mvAreaCm2: number,
+  waveCmps: number,
+): number {
   const tm = tables.timings;
   const velocity = (z: number, t: number): number => {
     const phase = t / tables.rrS;
     const zAnn = mapseCm * sampleTable(tables.longitudinal, phase);
     const zr = z - zAnn;
     if (zr < 0) return 0;
-    return (inflowFlow(tables, phase, zr, waveCmps) / mvAreaCm2 / 100) * inflowAxial(zr, lvLengthCm - zAnn);
+    return (
+      (inflowFlow(tables, phase, zr, waveCmps) / mvAreaCm2 / 100) *
+      inflowAxial(zr, lvLengthCm - zAnn)
+    );
   };
   const t0 = tm.mitralOpenS;
   // the maximum of the early wave at the tips: up to atrial contraction, or 50 ms past the E peak when atrial contraction
   // starts before it; its front reaches each depth first, whenever that is in diastole
-  const eEnd = Math.min(tables.rrS, t0 + 0.5, tm.hasAWave ? Math.max(tm.aStartS, t0 + tm.eAccelS + 0.05) : Infinity);
+  const eEnd = Math.min(
+    tables.rrS,
+    t0 + 0.5,
+    tm.hasAWave ? Math.max(tm.aStartS, t0 + tm.eAccelS + 0.05) : Infinity,
+  );
   const tEnd = tables.rrS;
   const tips = mapseCm * sampleTable(tables.longitudinal, t0 / tables.rrS) + INFLOW_CORE_CM;
   let vMax = 0;
@@ -134,10 +166,17 @@ export function conventionalPropagation(tables: BeatTables, mapseCm: number, lvL
 }
 
 /** Filling-wave speed (cm/s) at which the conventional slope reads `targetCmps`; the fastest tried when none is fast enough. */
-export function solveInflowWave(tables: BeatTables, mapseCm: number, lvLengthCm: number, mvAreaCm2: number, targetCmps: number): number {
+export function solveInflowWave(
+  tables: BeatTables,
+  mapseCm: number,
+  lvLengthCm: number,
+  mvAreaCm2: number,
+  targetCmps: number,
+): number {
   let lo = Math.log(5),
     hi = Math.log(5000);
-  const reads = (logSpeed: number): number => conventionalPropagation(tables, mapseCm, lvLengthCm, mvAreaCm2, Math.exp(logSpeed));
+  const reads = (logSpeed: number): number =>
+    conventionalPropagation(tables, mapseCm, lvLengthCm, mvAreaCm2, Math.exp(logSpeed));
   if (!(reads(hi) > targetCmps)) return Math.exp(hi);
   for (let it = 0; it < 24; it++) {
     const mid = 0.5 * (lo + hi);
@@ -151,11 +190,18 @@ export function solveInflowWave(tables: BeatTables, mapseCm: number, lvLengthCm:
  * Pulmonary venous velocities (spec 63): S follows the annular descent (LA reservoir) and is blunted by
  * mitral regurgitation, D mirrors the mitral E wave (conduit) and Ar is the atrial reversal (absent in AF).
  */
-export function pulmonaryVeinPeaks(c: CaseDefinition): { sMps: number; dMps: number; arMps: number } {
+export function pulmonaryVeinPeaks(c: CaseDefinition): {
+  sMps: number;
+  dMps: number;
+  arMps: number;
+} {
   const mrEro = c.hemodynamics.regurgitation.mr?.eroaCm2 ?? 0;
   const s = 0.55 * Math.min(1.3, c.physiology.mapseCm / 1.3) * (1 - 0.9 * Math.min(1, mrEro / 0.4));
   const d = 0.58 * (c.physiology.ePeakMps / 0.8);
-  const ar = c.rhythm.type === 'atrial-fibrillation' || c.physiology.aPeakMps <= 0 ? 0 : 0.22 + 0.12 * Math.min(1, (c.physiology.aPeakMps - 0.4) / 0.5);
+  const ar =
+    c.rhythm.type === 'atrial-fibrillation' || c.physiology.aPeakMps <= 0
+      ? 0
+      : 0.22 + 0.12 * Math.min(1, (c.physiology.aPeakMps - 0.4) / 0.5);
   return { sMps: Math.max(0, s), dMps: d, arMps: ar };
 }
 
@@ -168,7 +214,12 @@ export function lvotNarrowing(fMax: number, dynamic: boolean, u: number): number
 }
 
 /** Solve the maximal LVOT narrowing so that the peak LVOT velocity matches the case's peak gradient. */
-export function solveLvotObstruction(tables: BeatTables, lvotAreaCm2: number, peakGradientMmHg: number, dynamic: boolean): { fMax: number; dynamic: boolean } | null {
+export function solveLvotObstruction(
+  tables: BeatTables,
+  lvotAreaCm2: number,
+  peakGradientMmHg: number,
+  dynamic: boolean,
+): { fMax: number; dynamic: boolean } | null {
   if (peakGradientMmHg <= 0) return null;
   const vTarget = Math.sqrt(peakGradientMmHg / 4);
   const tm = tables.timings;
@@ -195,7 +246,11 @@ export function solveLvotObstruction(tables: BeatTables, lvotAreaCm2: number, pe
   return { fMax: (lo + hi) / 2, dynamic };
 }
 
-export function buildFlowParams(c: CaseDefinition, heart: HeartModel, tables: BeatTables): FlowFieldParams {
+export function buildFlowParams(
+  c: CaseDefinition,
+  heart: HeartModel,
+  tables: BeatTables,
+): FlowFieldParams {
   const A = heartAnchors(heart);
   const turbulence: Record<string, number> = {};
   const enabled: Record<string, boolean> = {};
@@ -203,7 +258,9 @@ export function buildFlowParams(c: CaseDefinition, heart: HeartModel, tables: Be
     turbulence[fp.site] = fp.turbulence;
     enabled[fp.site] = fp.enabled;
   }
-  const tr = c.hemodynamics.trPresent ? Math.sqrt(Math.max(0, (c.hemodynamics.paspMmHg - c.hemodynamics.rapMmHg) / 4)) : null;
+  const tr = c.hemodynamics.trPresent
+    ? Math.sqrt(Math.max(0, (c.hemodynamics.paspMmHg - c.hemodynamics.rapMmHg) / 4))
+    : null;
   return {
     lvotAreaCm2: circularArea(c.anatomy.aorta.lvotDiameterCm),
     avAreaCm2: c.hemodynamics.avEffectiveAreaCm2,
@@ -225,17 +282,38 @@ export function buildFlowParams(c: CaseDefinition, heart: HeartModel, tables: Be
     mrJetDirRad: ((c.hemodynamics.regurgitation.mr?.jetDirectionDeg ?? 0) * Math.PI) / 180,
     arEroCm2: c.hemodynamics.regurgitation.ar?.eroaCm2 ?? 0,
     trEroCm2: c.hemodynamics.regurgitation.tr?.eroaCm2 ?? null,
-    lvotObstruction: solveLvotObstruction(tables, circularArea(c.anatomy.aorta.lvotDiameterCm), c.hemodynamics.lvotPeakGradientMmHg, c.anatomy.mitral.samSeverity > 0),
+    lvotObstruction: solveLvotObstruction(
+      tables,
+      circularArea(c.anatomy.aorta.lvotDiameterCm),
+      c.hemodynamics.lvotPeakGradientMmHg,
+      c.anatomy.mitral.samSeverity > 0,
+    ),
     pulmonaryVeins: { laCenter: A.laCenter, laR: A.laR, ...pulmonaryVeinPeaks(c) },
     inflowPropagationCmps: flowPropagationCmps(c),
-    inflowWaveCmps: solveInflowWave(tables, c.physiology.mapseCm, heart.lv.lengthCm, tables.mvEffectiveAreaCm2, flowPropagationCmps(c)),
+    inflowWaveCmps: solveInflowWave(
+      tables,
+      c.physiology.mapseCm,
+      heart.lv.lengthCm,
+      tables.mvEffectiveAreaCm2,
+      flowPropagationCmps(c),
+    ),
   };
 }
 
-const SYSTOLE_SHAPE = (u: number): number => (u <= 0 || u >= 1 ? 0 : Math.pow(Math.sin(Math.PI * u), 0.8));
+const SYSTOLE_SHAPE = (u: number): number =>
+  u <= 0 || u >= 1 ? 0 : Math.pow(Math.sin(Math.PI * u), 0.8);
 
 /** Sample the flow field at heart-frame point (x,y,z) for the given phase. */
-export function sampleFlow(p: FlowFieldParams, tables: BeatTables, hp: HeartPose, phase: number, x: number, y: number, z: number, out: FlowSample): void {
+export function sampleFlow(
+  p: FlowFieldParams,
+  tables: BeatTables,
+  hp: HeartPose,
+  phase: number,
+  x: number,
+  y: number,
+  z: number,
+  out: FlowSample,
+): void {
   out.vx = 0;
   out.vy = 0;
   out.vz = 0;
@@ -246,7 +324,10 @@ export function sampleFlow(p: FlowFieldParams, tables: BeatTables, hp: HeartPose
 
   // ---- Mitral inflow: from the LA through the annulus into the LV toward the apex ----
   const zrMv = z - zAnn; // distance beyond the annulus into the LV
-  const qmv = p.enabled['mitral-inflow'] !== false && zrMv > -2.5 && zrMv < hp.lengthNow - 0.2 ? inflowFlow(tables, phase, zrMv, p.inflowWaveCmps) : 0; // mL/s
+  const qmv =
+    p.enabled['mitral-inflow'] !== false && zrMv > -2.5 && zrMv < hp.lengthNow - 0.2
+      ? inflowFlow(tables, phase, zrMv, p.inflowWaveCmps)
+      : 0; // mL/s
   if (qmv > 1) {
     const dx = x - p.mvCenter.x,
       dy = y - p.mvCenter.y;
@@ -268,7 +349,10 @@ export function sampleFlow(p: FlowFieldParams, tables: BeatTables, hp: HeartPose
         mag = v0 * prof * inflowAxial(zr, hp.lengthNow);
       }
       out.vz += mag; // toward the apex
-      out.dispersion = Math.max(out.dispersion, (p.turbulence['mitral-inflow'] ?? 0.04) + 0.15 * Math.min(1, rho / R));
+      out.dispersion = Math.max(
+        out.dispersion,
+        (p.turbulence['mitral-inflow'] ?? 0.04) + 0.15 * Math.min(1, rho / R),
+      );
       out.present = 1;
     }
   }
@@ -295,7 +379,8 @@ export function sampleFlow(p: FlowFieldParams, tables: BeatTables, hp: HeartPose
         let narrow = 0;
         if (p.lvotObstruction) {
           const tm = tables.timings;
-          const u = (phase * tables.rrS - tm.ejectionStartS) / (tm.ejectionEndS - tm.ejectionStartS);
+          const u =
+            (phase * tables.rrS - tm.ejectionStartS) / (tm.ejectionEndS - tm.ejectionStartS);
           const w = Math.exp(-((t + 0.6) * (t + 0.6)) / (2 * 0.45 * 0.45));
           narrow = lvotNarrowing(p.lvotObstruction.fMax, p.lvotObstruction.dynamic, u) * w;
         }
@@ -317,8 +402,18 @@ export function sampleFlow(p: FlowFieldParams, tables: BeatTables, hp: HeartPose
         out.vx += ax.x * v * prof;
         out.vy += ax.y * v * prof;
         out.vz += ax.z * v * prof;
-        const stenotic = p.avAreaCm2 < 2.0 && t > 0 ? Math.min(0.6, (2.0 - p.avAreaCm2) * 0.5) : p.lvotObstruction && t < 0 ? 0.4 * (1 - area / p.lvotAreaCm2) : 0;
-        out.dispersion = Math.max(out.dispersion, (p.turbulence['lvot'] ?? 0.04) + stenotic * (t > 0 ? 1 : 0.3) + 0.1 * Math.pow(rho / R, 4));
+        const stenotic =
+          p.avAreaCm2 < 2.0 && t > 0
+            ? Math.min(0.6, (2.0 - p.avAreaCm2) * 0.5)
+            : p.lvotObstruction && t < 0
+              ? 0.4 * (1 - area / p.lvotAreaCm2)
+              : 0;
+        out.dispersion = Math.max(
+          out.dispersion,
+          (p.turbulence['lvot'] ?? 0.04) +
+            stenotic * (t > 0 ? 1 : 0.3) +
+            0.1 * Math.pow(rho / R, 4),
+        );
         out.present = 1;
       }
     }
@@ -326,7 +421,10 @@ export function sampleFlow(p: FlowFieldParams, tables: BeatTables, hp: HeartPose
   // ---- Tricuspid inflow (mirrors mitral, larger area, slight delay) ----
   if (p.enabled['tricuspid-inflow'] !== false) {
     const zr = z - (p.tvCenter.z + hp.tvZ);
-    const qtv = zr > -2.2 && zr < 5 ? inflowFlow(tables, phase - 0.01, zr, p.inflowWaveCmps, tables.tricuspidFlowMlps) : 0;
+    const qtv =
+      zr > -2.2 && zr < 5
+        ? inflowFlow(tables, phase - 0.01, zr, p.inflowWaveCmps, tables.tricuspidFlowMlps)
+        : 0;
     if (qtv > 1) {
       const dx = x - p.tvCenter.x,
         dy = y - p.tvCenter.y;
@@ -334,7 +432,12 @@ export function sampleFlow(p: FlowFieldParams, tables: BeatTables, hp: HeartPose
       const R = p.tvR * 1.05;
       if (rho < R + Math.max(0, zr) * 0.35) {
         const v0 = qtv / p.tvAreaCm2 / 100;
-        const mag = zr < 0 ? v0 * Math.min(1, (R * R) / (2 * Math.max(0.6, -zr) ** 2)) * 0.9 : v0 * (1 - Math.pow(Math.min(1, rho / (R + zr * 0.35)), 6)) * (zr < 1.2 ? 1 : 1 / (1 + (zr - 1.2) / 2.2));
+        const mag =
+          zr < 0
+            ? v0 * Math.min(1, (R * R) / (2 * Math.max(0.6, -zr) ** 2)) * 0.9
+            : v0 *
+              (1 - Math.pow(Math.min(1, rho / (R + zr * 0.35)), 6)) *
+              (zr < 1.2 ? 1 : 1 / (1 + (zr - 1.2) / 2.2));
         out.vz += mag;
         out.dispersion = Math.max(out.dispersion, p.turbulence['tricuspid-inflow'] ?? 0.04);
         out.present = 1;
@@ -414,7 +517,16 @@ export function sampleFlow(p: FlowFieldParams, tables: BeatTables, hp: HeartPose
 }
 
 /** Pulmonary venous flow in the four vein stubs and their ostia (geometry mirrors heartModel's veins). */
-export function samplePulmonaryVeins(p: FlowFieldParams, tables: BeatTables, hp: HeartPose, phase: number, x: number, y: number, z: number, out: FlowSample): void {
+export function samplePulmonaryVeins(
+  p: FlowFieldParams,
+  tables: BeatTables,
+  hp: HeartPose,
+  phase: number,
+  x: number,
+  y: number,
+  z: number,
+  out: FlowSample,
+): void {
   if (p.enabled['pulmonary-vein'] === false) return;
   const pv = p.pulmonaryVeins;
   const la = pv.laCenter,
@@ -477,7 +589,16 @@ export function samplePulmonaryVeins(p: FlowFieldParams, tables: BeatTables, hp:
 }
 
 /** Regurgitant jets (MR in systole into the LA, AR in diastole into the LV) with proximal flow convergence (PISA). */
-export function sampleRegurgitantJets(p: FlowFieldParams, tables: BeatTables, hp: HeartPose, phase: number, x: number, y: number, z: number, out: FlowSample): void {
+export function sampleRegurgitantJets(
+  p: FlowFieldParams,
+  tables: BeatTables,
+  hp: HeartPose,
+  phase: number,
+  x: number,
+  y: number,
+  z: number,
+  out: FlowSample,
+): void {
   const zAnn = hp.zAnn;
   // ---- MR jet ----
   if (p.enabled['mr-jet'] !== false && p.mrEroCm2 > 0) {
@@ -571,7 +692,12 @@ export function sampleRegurgitantJets(p: FlowFieldParams, tables: BeatTables, hp
 }
 
 /** Structures of the right ventricle, whose tissue moves with the tricuspid annulus. */
-const RV_TISSUE = new Set<number>([Structure.RvWall, Structure.TricuspidAnnulus, Structure.RvPapillary, Structure.ModeratorBand]);
+const RV_TISSUE = new Set<number>([
+  Structure.RvWall,
+  Structure.TricuspidAnnulus,
+  Structure.RvPapillary,
+  Structure.ModeratorBand,
+]);
 
 /**
  * Tissue (myocardial) velocity for TDI (m/s, heart frame) at heart-frame point (x, y, z): the longitudinal annular motion of
@@ -580,20 +706,40 @@ const RV_TISSUE = new Set<number>([Structure.RvWall, Structure.TricuspidAnnulus,
  * walls between by a cosine of the azimuth. Every wall used to move alike, so tissue Doppler at the lateral annulus read
  * the septal e′: 8.6 cm/s where the normal case's 14 cm/s projected to 10.6, 16–29% low in the twelve cases.
  */
-export function sampleTissueVelocity(heart: HeartModel, tables: BeatTables, phase: number, x: number, y: number, z: number, structure = -1): { vx: number; vy: number; vz: number } {
+export function sampleTissueVelocity(
+  heart: HeartModel,
+  tables: BeatTables,
+  phase: number,
+  x: number,
+  y: number,
+  z: number,
+  structure = -1,
+): { vx: number; vy: number; vz: number } {
   if (RV_TISSUE.has(structure)) {
     // the right ventricle moves with its own annular table and TAPSE (decision 106), from the tricuspid annulus to its apex
     const A = heartAnchors(heart);
     const apexZ = A.rvApexFrac * heart.lv.lengthCm;
-    const rvLevel = Math.min(1, Math.max(0, (z - A.tvCenter.z) / Math.max(1, apexZ - A.tvCenter.z)));
-    return { vx: 0, vy: 0, vz: (heart.physiology.tapseCm * sampleTable(tables.rvLongitudinalVelocity, phase) * (1 - rvLevel)) / 100 };
+    const rvLevel = Math.min(
+      1,
+      Math.max(0, (z - A.tvCenter.z) / Math.max(1, apexZ - A.tvCenter.z)),
+    );
+    return {
+      vx: 0,
+      vy: 0,
+      vz:
+        (heart.physiology.tapseCm *
+          sampleTable(tables.rvLongitudinalVelocity, phase) *
+          (1 - rvLevel)) /
+        100,
+    };
   }
   const longVel = sampleTable(tables.longitudinalVelocity, phase); // fraction of MAPSE per s
   const mapse = heart.physiology.mapseCm;
   const level = Math.min(1, Math.max(0, z / heart.lv.lengthCm));
   const rho = Math.hypot(x, y);
   const lateralness = rho > 1e-6 ? 0.5 * (1 + x / rho) : 0.5; // 1 at the lateral wall (+x), 0 at the septum (−x)
-  const wall = 1 + (heart.physiology.ePrimeLateralCmps / heart.physiology.ePrimeSeptalCmps - 1) * lateralness;
+  const wall =
+    1 + (heart.physiology.ePrimeLateralCmps / heart.physiology.ePrimeSeptalCmps - 1) * lateralness;
   const vz = (mapse * longVel * (1 - level) * wall) / 100; // cm/s → m/s, +z = toward the apex (systole)
   return { vx: 0, vy: 0, vz };
 }

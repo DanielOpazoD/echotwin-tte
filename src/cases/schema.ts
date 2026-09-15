@@ -74,7 +74,9 @@ export const AnatomySchema = z.object({
   }),
   tricuspid: z.object({ annulusDiameterCm: z.number().min(2).max(5.5) }),
   /** Main pulmonary artery diameter (cm); dilated in pulmonary hypertension (decision 109). */
-  pulmonaryArtery: z.object({ trunkDiameterCm: z.number().min(1.5).max(5) }).default({ trunkDiameterCm: 2.3 }),
+  pulmonaryArtery: z
+    .object({ trunkDiameterCm: z.number().min(1.5).max(5) })
+    .default({ trunkDiameterCm: 2.3 }),
   ivc: z.object({ diameterCm: z.number().min(0.8).max(3.5), collapsePct: pct }),
   pericardium: z.object({
     effusionCm: z.number().min(0).max(4).default(0),
@@ -127,8 +129,18 @@ export const HemodynamicsSchema = z.object({
   lvotPeakGradientMmHg: z.number().min(0).max(150).default(0),
   regurgitation: z
     .object({
-      mr: z.object({ eroaCm2: z.number().min(0).max(1.2), jetDirectionDeg: z.number().min(-60).max(60) }).optional(),
-      ar: z.object({ eroaCm2: z.number().min(0).max(1.0), phtMs: z.number().min(100).max(1000).default(450) }).optional(),
+      mr: z
+        .object({
+          eroaCm2: z.number().min(0).max(1.2),
+          jetDirectionDeg: z.number().min(-60).max(60),
+        })
+        .optional(),
+      ar: z
+        .object({
+          eroaCm2: z.number().min(0).max(1.0),
+          phtMs: z.number().min(100).max(1000).default(450),
+        })
+        .optional(),
       tr: z.object({ eroaCm2: z.number().min(0).max(1.5) }).optional(),
     })
     .default({}),
@@ -145,18 +157,39 @@ export const AcousticWindowSchema = z.object({
 
 export const FlowPrimitiveSchema = z.object({
   id: z.string(),
-  site: z.enum(['mitral-inflow', 'lvot', 'aortic-valve', 'tricuspid-inflow', 'rvot', 'mr-jet', 'tr-jet', 'ar-jet', 'pulmonary-vein']),
+  site: z.enum([
+    'mitral-inflow',
+    'lvot',
+    'aortic-valve',
+    'tricuspid-inflow',
+    'rvot',
+    'mr-jet',
+    'tr-jet',
+    'ar-jet',
+    'pulmonary-vein',
+  ]),
   enabled: z.boolean().default(true),
   turbulence: unit01.default(0.05),
 });
 
 export const ArtifactConfigSchema = z.object({
-  type: z.enum(['rib-shadow', 'lung-reverberation', 'near-field-clutter', 'calcium-shadow', 'mirror', 'side-lobe', 'beam-width']),
+  type: z.enum([
+    'rib-shadow',
+    'lung-reverberation',
+    'near-field-clutter',
+    'calcium-shadow',
+    'mirror',
+    'side-lobe',
+    'beam-width',
+  ]),
   intensity: unit01,
   enabled: z.boolean().default(true),
 });
 
-export const RequiredViewSchema = z.object({ viewId: z.string(), minScore: z.number().min(0).max(100).default(60) });
+export const RequiredViewSchema = z.object({
+  viewId: z.string(),
+  minScore: z.number().min(0).max(100).default(60),
+});
 export const RequiredMeasurementSchema = z.object({
   measurementId: z.string(),
   tolerancePct: z.number().min(1).max(50).default(15),
@@ -217,9 +250,12 @@ export function validateCase(input: unknown): CaseValidationResult {
   const c = parsed.data;
   const errors: string[] = [];
   if (c.physiology.esvMl >= c.physiology.edvMl) errors.push('physiology.esvMl must be < edvMl');
-  if (c.hemodynamics.diastolicBpMmHg >= c.hemodynamics.systolicBpMmHg) errors.push('diastolic BP must be < systolic BP');
+  if (c.hemodynamics.diastolicBpMmHg >= c.hemodynamics.systolicBpMmHg)
+    errors.push('diastolic BP must be < systolic BP');
   if (c.rhythm.type === 'atrial-fibrillation' && c.physiology.aPeakMps > 0)
-    errors.push('atrial fibrillation cannot have an organized A wave (physiology.aPeakMps must be 0)');
+    errors.push(
+      'atrial fibrillation cannot have an organized A wave (physiology.aPeakMps must be 0)',
+    );
   if (c.anatomy.aorta.lvotDiameterCm > c.anatomy.aorta.annulusCm + 0.3)
     errors.push('LVOT diameter should not exceed the aortic annulus by more than 3 mm');
   return errors.length ? { ok: false, errors } : { ok: true, case: c, errors: [] };

@@ -8,7 +8,14 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { encodePng } from './png';
 import { loadCaseById } from '@/cases';
-import { classifyHeart, computeHeartPose, createHeartModel, heartLandmarks, heartToTorso, torsoToHeart } from '@/simulator/anatomy/heartModel';
+import {
+  classifyHeart,
+  computeHeartPose,
+  createHeartModel,
+  heartLandmarks,
+  heartToTorso,
+  torsoToHeart,
+} from '@/simulator/anatomy/heartModel';
 import { classifyThorax, createThoraxModel } from '@/simulator/anatomy/thoraxModel';
 import { makeSample, Structure, Tissue } from '@/simulator/anatomy/tissue';
 import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
@@ -19,11 +26,17 @@ import { add, dot, scale, sub, v3 } from '@/core/vec3';
 const outDir = process.argv[2] ?? 'tools/offline/render/out';
 mkdirSync(outDir, { recursive: true });
 const c = loadCaseById(process.argv[4] ?? 'normal-excellent-window');
-const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, { position: 'left-lateral', respiration: 'expiration', headElevationDeg: 0 });
+const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, {
+  position: 'left-lateral',
+  respiration: 'expiration',
+  headElevationDeg: 0,
+});
 const heart = createHeartModel(c.anatomy, c.physiology, thorax.heartOffset, c.seed);
 const landmarks = heartLandmarks(heart);
 const tables = buildBeatTables(60 / c.rhythm.heartRateBpm, c.physiology, c.rhythm, c.hemodynamics);
-const views = process.argv[3] ? process.argv[3].split(',') : ['plax', 'psax-av', 'psax-mv', 'psax-pm', 'a4c', 'a2c', 'a3c'];
+const views = process.argv[3]
+  ? process.argv[3].split(',')
+  : ['plax', 'psax-av', 'psax-mv', 'psax-pm', 'a4c', 'a2c', 'a3c'];
 const DEPTH = 16;
 const HALF = 8; // lateral half-width (cm)
 const PX = 30; // px per cm
@@ -101,8 +114,10 @@ for (const id of views) {
         const pT = add(beam.origin, add(scale(beam.forward, dep), scale(beam.lateral, lat)));
         const pH = torsoToHeart(heart.frame, pT);
         let col: [number, number, number] = [0, 0, 0];
-        if (classifyHeart(heart, pose, pH.x, pH.y, pH.z, s)) col = colours[s.structure] ?? tissueFallback[s.tissue] ?? [255, 0, 255];
-        else if (classifyThorax(thorax, pT.x, pT.y, pT.z, s)) col = tissueFallback[s.tissue] ?? [80, 80, 80];
+        if (classifyHeart(heart, pose, pH.x, pH.y, pH.z, s))
+          col = colours[s.structure] ?? tissueFallback[s.tissue] ?? [255, 0, 255];
+        else if (classifyThorax(thorax, pT.x, pT.y, pT.z, s))
+          col = tissueFallback[s.tissue] ?? [80, 80, 80];
         const o = (py * W + px) * 4;
         rgba[o] = col[0];
         rgba[o + 1] = col[1];

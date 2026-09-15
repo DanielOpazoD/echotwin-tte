@@ -13,7 +13,12 @@ import { computeHeartPose, createHeartModel } from '@/simulator/anatomy/heartMod
 import { createThoraxModel } from '@/simulator/anatomy/thoraxModel';
 import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { ProceduralSliceRenderer } from '@/simulator/renderer/procedural/sliceRenderer';
-import { allocPolarFrame, DEFAULT_ACQUISITION, polarSpecFor, type Scene } from '@/simulator/renderer/types';
+import {
+  allocPolarFrame,
+  DEFAULT_ACQUISITION,
+  polarSpecFor,
+  type Scene,
+} from '@/simulator/renderer/types';
 import { applyConsole, createConsoleState } from '@/simulator/renderer/postprocess/consolePipeline';
 import { computeSectorMapping, scanConvert } from '@/simulator/renderer/scanConvert';
 import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
@@ -29,13 +34,29 @@ const commit = ((): string => {
   }
 })();
 const VIEWS = ['plax', 'psax-av', 'psax-mv', 'psax-pm', 'a4c', 'a2c', 'a3c', 'a5c'];
-const PHASES: [string, (rr: number, t: { ejectionStartS: number; ejectionEndS: number; mitralOpenS: number; eAccelS: number }) => number][] = [
+const PHASES: [
+  string,
+  (
+    rr: number,
+    t: { ejectionStartS: number; ejectionEndS: number; mitralOpenS: number; eAccelS: number },
+  ) => number,
+][] = [
   ['telediastole', () => 0],
   ['mesosistole', (rr, t) => (t.ejectionStartS + 0.45 * (t.ejectionEndS - t.ejectionStartS)) / rr],
   ['diastole-precoz', (rr, t) => (t.mitralOpenS + t.eAccelS) / rr],
 ];
-const RUBRIC = ['anatomia_1_5', 'movimiento_1_5', 'textura_1_5', 'artefactos_1_5', 'doppler_1_5', 'utilidad_docente_1_5', 'defecto_principal'];
-const rows: string[] = [['commit', 'caso', 'vista', 'cuadro', 'archivo', 'evaluador', ...RUBRIC].join(',')];
+const RUBRIC = [
+  'anatomia_1_5',
+  'movimiento_1_5',
+  'textura_1_5',
+  'artefactos_1_5',
+  'doppler_1_5',
+  'utilidad_docente_1_5',
+  'defecto_principal',
+];
+const rows: string[] = [
+  ['commit', 'caso', 'vista', 'cuadro', 'archivo', 'evaluador', ...RUBRIC].join(','),
+];
 const renderer = new ProceduralSliceRenderer();
 const settings = { ...DEFAULT_ACQUISITION };
 const spec = polarSpecFor(settings, 'high');
@@ -46,9 +67,18 @@ const mapping = computeSectorMapping(spec, W, H, false);
 let count = 0;
 for (const input of CASE_INPUTS) {
   const c = loadCaseById(input.id);
-  const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, { position: 'left-lateral', respiration: 'expiration', headElevationDeg: 0 });
+  const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, {
+    position: 'left-lateral',
+    respiration: 'expiration',
+    headElevationDeg: 0,
+  });
   const heart = createHeartModel(c.anatomy, c.physiology, thorax.heartOffset, c.seed);
-  const tables = buildBeatTables(60 / c.rhythm.heartRateBpm, c.physiology, c.rhythm, c.hemodynamics);
+  const tables = buildBeatTables(
+    60 / c.rhythm.heartRateBpm,
+    c.physiology,
+    c.rhythm,
+    c.hemodynamics,
+  );
   const caseDir = join(outDir, c.id);
   mkdirSync(caseDir, { recursive: true });
   for (const viewId of VIEWS) {
@@ -61,7 +91,13 @@ for (const input of CASE_INPUTS) {
         heart,
         heartPose: computeHeartPose(heart, cycleStateAt(tables, phase)),
         thorax,
-        physics: { frequencyMHz: settings.frequencyMHz, harmonics: settings.harmonics, clutterLevel: c.acousticWindow.clutterLevel, windowAttenuation: c.acousticWindow.chestWallAttenuation, seed: c.seed },
+        physics: {
+          frequencyMHz: settings.frequencyMHz,
+          harmonics: settings.harmonics,
+          clutterLevel: c.acousticWindow.clutterLevel,
+          windowAttenuation: c.acousticWindow.chestWallAttenuation,
+          seed: c.seed,
+        },
       };
       const frame = allocPolarFrame(spec);
       renderer.render(scene, beam, spec, phase, frame);

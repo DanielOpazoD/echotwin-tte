@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { identifyLabels, imageStats, orientApical, LABEL, type RegionImage } from './regionStats';
 
 /** Apical-like phantom: LV cavity disk wrapped by a myocardial ring open at the base, atrium below it. */
-function phantom(opts: { cavityGrey: number; myoGrey: number; atriumGrey: number; noise?: (x: number, y: number) => number }): RegionImage {
+function phantom(opts: {
+  cavityGrey: number;
+  myoGrey: number;
+  atriumGrey: number;
+  noise?: (x: number, y: number) => number;
+}): RegionImage {
   const w = 160,
     h = 200;
   const grey = new Float32Array(w * h);
@@ -13,9 +18,17 @@ function phantom(opts: { cavityGrey: number; myoGrey: number; atriumGrey: number
       const dLv = Math.hypot((x - 80) / 34, (y - 80) / 50);
       const dLa = Math.hypot((x - 80) / 28, (y - 158) / 24);
       if (dLv < 1) labels[i] = LABEL.cavity;
-      else if (dLv < 1.35 && y < 118) labels[i] = LABEL.myocardium; // ring open toward the base
+      else if (dLv < 1.35 && y < 118)
+        labels[i] = LABEL.myocardium; // ring open toward the base
       else if (dLa < 1) labels[i] = LABEL.atrium;
-      const base = labels[i] === LABEL.cavity ? opts.cavityGrey : labels[i] === LABEL.myocardium ? opts.myoGrey : labels[i] === LABEL.atrium ? opts.atriumGrey : 0;
+      const base =
+        labels[i] === LABEL.cavity
+          ? opts.cavityGrey
+          : labels[i] === LABEL.myocardium
+            ? opts.myoGrey
+            : labels[i] === LABEL.atrium
+              ? opts.atriumGrey
+              : 0;
       grey[i] = base + (opts.noise ? opts.noise(x, y) : 0);
     }
   return { width: w, height: h, grey, labels, mmPerPx: [0.3, 0.3] };
@@ -40,7 +53,11 @@ describe('clinical region statistics', () => {
 
   it('orients a transposed or upside-down apical image so the atrium ends up deeper than the ventricle', () => {
     const img = phantom({ cavityGrey: 5, myoGrey: 100, atriumGrey: 30 });
-    const flipped: RegionImage = { ...img, grey: new Float32Array(img.grey.length), labels: new Uint8Array(img.labels.length) };
+    const flipped: RegionImage = {
+      ...img,
+      grey: new Float32Array(img.grey.length),
+      labels: new Uint8Array(img.labels.length),
+    };
     for (let y = 0; y < img.height; y++)
       for (let x = 0; x < img.width; x++) {
         flipped.grey[x + (img.height - 1 - y) * img.width] = img.grey[x + y * img.width]!;
@@ -49,8 +66,14 @@ describe('clinical region statistics', () => {
     const back = orientApical(flipped);
     expect(imageStats(back).tissueBloodContrast).toBe(95);
     const centroidY = (im: RegionImage, l: number): number => {
-      let s = 0, n = 0;
-      for (let y = 0; y < im.height; y++) for (let x = 0; x < im.width; x++) if (im.labels[x + y * im.width] === l) { s += y; n++; }
+      let s = 0,
+        n = 0;
+      for (let y = 0; y < im.height; y++)
+        for (let x = 0; x < im.width; x++)
+          if (im.labels[x + y * im.width] === l) {
+            s += y;
+            n++;
+          }
       return s / n;
     };
     expect(centroidY(back, LABEL.atrium)).toBeGreaterThan(centroidY(back, LABEL.cavity));
@@ -92,7 +115,8 @@ describe('clinical region statistics', () => {
           const i = x + y * w;
           labels[i] = y < 100 ? LABEL.cavity : y < 200 ? LABEL.myocardium : LABEL.atrium;
           const db = 20 * Math.log10(amp[i]!) + (y < 100 ? -22 : y < 200 ? 0 : -14);
-          grey[i] = 255 * grayMap(Math.min(1, Math.max(0, (db + dynamicRangeDb - 12) / dynamicRangeDb)));
+          grey[i] =
+            255 * grayMap(Math.min(1, Math.max(0, (db + dynamicRangeDb - 12) / dynamicRangeDb)));
         }
       return { width: w, height: h, grey, labels, mmPerPx: [0.3, 0.3] };
     };
@@ -107,7 +131,15 @@ describe('clinical region statistics', () => {
   it('takes the white end of the image from its non-black pixels only', () => {
     const grey = new Float32Array(200 * 100);
     for (let g = 1; g <= 200; g++) for (let k = 0; k < 10; k++) grey[(g - 1) * 10 + k] = g; // 2000 lit pixels, 18000 black
-    expect(imageStats({ width: 200, height: 100, grey, labels: new Uint8Array(200 * 100), mmPerPx: [0.3, 0.3] }).brightGreyP99).toBe(198);
+    expect(
+      imageStats({
+        width: 200,
+        height: 100,
+        grey,
+        labels: new Uint8Array(200 * 100),
+        mmPerPx: [0.3, 0.3],
+      }).brightGreyP99,
+    ).toBe(198);
   });
 
   it('measures the same speckle cell in a thin wall and in a thick one', () => {
@@ -144,10 +176,12 @@ describe('clinical region statistics', () => {
       for (let y = 8; y < h - 8; y++)
         for (let x = 0; x < w; x++) {
           const d = Math.abs(x - w / 2);
-          labels[x + y * w] = d < 40 ? LABEL.cavity : d < 40 + wallPx ? LABEL.myocardium : LABEL.background;
+          labels[x + y * w] =
+            d < 40 ? LABEL.cavity : d < 40 + wallPx ? LABEL.myocardium : LABEL.background;
           grey[x + y * w] = 100 + 400 * texture[x + y * w]!;
         }
-      return imageStats({ width: w, height: h, grey, labels, mmPerPx: [0.3, 0.3] }).speckleCellMm.horizontal;
+      return imageStats({ width: w, height: h, grey, labels, mmPerPx: [0.3, 0.3] }).speckleCellMm
+        .horizontal;
     };
     const thin = cell(30),
       thick = cell(80);

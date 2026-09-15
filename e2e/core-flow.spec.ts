@@ -5,22 +5,31 @@ test.describe('EchoTwin TTE core flow', () => {
   test.beforeEach(async ({ page }) => {
     // the controls tutorial is skipped for the flow tests (it has its own test below)
     await page.addInitScript(() => {
-      if (!localStorage.getItem('echotwin.prefs.v1')) localStorage.setItem('echotwin.prefs.v1', JSON.stringify({ tutorialDone: true }));
+      if (!localStorage.getItem('echotwin.prefs.v1'))
+        localStorage.setItem('echotwin.prefs.v1', JSON.stringify({ tutorialDone: true }));
     });
     await page.goto('/');
     await waitForFrames(page, 3);
   });
 
-  test('loads the normal case, shows the disclaimer and renders a non-black image', async ({ page }) => {
-    await expect(page.getByText('Simulador educacional con pacientes sintéticos', { exact: false }).first()).toBeVisible();
-    await expect(page.getByText('Normal — ventana excelente', { exact: false }).first()).toBeVisible();
+  test('loads the normal case, shows the disclaimer and renders a non-black image', async ({
+    page,
+  }) => {
+    await expect(
+      page.getByText('Simulador educacional con pacientes sintéticos', { exact: false }).first(),
+    ).toBeVisible();
+    await expect(
+      page.getByText('Normal — ventana excelente', { exact: false }).first(),
+    ).toBeVisible();
     const mean = await imageMean(page);
     expect(mean).toBeGreaterThan(4);
     const hud = await getHud(page);
     expect(hud?.['view']).toBeTruthy();
   });
 
-  test('moving the probe with the keyboard changes the pose and the recognised view score', async ({ page }) => {
+  test('moving the probe with the keyboard changes the pose and the recognised view score', async ({
+    page,
+  }) => {
     const before = await getStore(page);
     const probeBefore = before['probe'] as { rotationDeg: number; u: number };
     await page.keyboard.press('e');
@@ -37,12 +46,19 @@ test.describe('EchoTwin TTE core flow', () => {
     const hud1 = await getHud(page);
     const v0 = hud0?.['view'] as { score: number; inPlaneRotationDeg: number } | null;
     const v1 = hud1?.['view'] as { score: number; inPlaneRotationDeg: number } | null;
-    expect(v0 && v1 && (v0.score !== v1.score || Math.abs(v0.inPlaneRotationDeg - v1.inPlaneRotationDeg) > 5)).toBeTruthy();
+    expect(
+      v0 &&
+        v1 &&
+        (v0.score !== v1.score || Math.abs(v0.inPlaneRotationDeg - v1.inPlaneRotationDeg) > 5),
+    ).toBeTruthy();
   });
 
   test('colour Doppler can be enabled and its scale changed', async ({ page }) => {
     await page.getByRole('button', { name: 'Color', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Color', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: 'Color', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
     const scale = page.getByRole('slider', { name: 'Escala (Nyquist)' });
     await scale.fill('0.3');
     const s = await getStore(page);
@@ -103,18 +119,36 @@ test.describe('EchoTwin TTE core flow', () => {
   test('the image keeps updating after visiting another screen', async ({ page }) => {
     // the display unmounts on the other screens; frames must still be acknowledged or the worker stops delivering
     const setScreen = (screen: string) =>
-      page.evaluate((s) => (window as unknown as { __echotwin: { useSimStore: { getState: () => { setUi: (u: { screen: string }) => void } } } }).__echotwin.useSimStore.getState().setUi({ screen: s }), screen);
+      page.evaluate(
+        (s) =>
+          (
+            window as unknown as {
+              __echotwin: {
+                useSimStore: { getState: () => { setUi: (u: { screen: string }) => void } };
+              };
+            }
+          ).__echotwin.useSimStore
+            .getState()
+            .setUi({ screen: s }),
+        screen,
+      );
     await setScreen('references');
     await page.waitForTimeout(2000);
     await setScreen('simulator');
     const f0 = ((await getHud(page))?.['frameId'] as number | undefined) ?? 0;
-    await expect.poll(async () => (((await getHud(page))?.['frameId'] as number | undefined) ?? 0) - f0, { timeout: 30_000 }).toBeGreaterThan(3);
+    await expect
+      .poll(async () => (((await getHud(page))?.['frameId'] as number | undefined) ?? 0) - f0, {
+        timeout: 30_000,
+      })
+      .toBeGreaterThan(3);
     await expect.poll(() => imageMean(page), { timeout: 30_000 }).toBeGreaterThan(4);
   });
 });
 
 test('a preset view moves the probe continuously and reaches the target view', async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('echotwin.prefs.v1', JSON.stringify({ tutorialDone: true })));
+  await page.addInitScript(() =>
+    localStorage.setItem('echotwin.prefs.v1', JSON.stringify({ tutorialDone: true })),
+  );
   await page.goto('/');
   await waitForFrames(page, 3);
   const before = (await getStore(page))['probe'] as { u: number; v: number; rotationDeg: number };
@@ -123,10 +157,16 @@ test('a preset view moves the probe continuously and reaches the target view', a
   const mid = (await getStore(page))['probe'] as { u: number; v: number; rotationDeg: number };
   // still travelling: between the start and the apical window
   expect(Math.hypot(mid.u - before.u, mid.v - before.v)).toBeGreaterThan(0.1);
-  await page.waitForFunction(() => {
-    const w = window as unknown as { __echotwin: { useSimStore: { getState: () => { presetAnim: unknown } } } };
-    return w.__echotwin.useSimStore.getState().presetAnim === null;
-  }, undefined, { timeout: 8000 });
+  await page.waitForFunction(
+    () => {
+      const w = window as unknown as {
+        __echotwin: { useSimStore: { getState: () => { presetAnim: unknown } } };
+      };
+      return w.__echotwin.useSimStore.getState().presetAnim === null;
+    },
+    undefined,
+    { timeout: 8000 },
+  );
   await page.waitForTimeout(1500);
   const hud = await getHud(page);
   const view = hud?.['view'] as { bestViewId: string; score: number };

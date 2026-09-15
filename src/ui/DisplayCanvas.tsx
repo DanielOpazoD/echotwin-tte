@@ -29,7 +29,12 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
   const [size, setSize] = useState({ width: 640, height: 520 });
   const pendingRef = useRef<Pending>({ points: [] });
   const lastOutRef = useRef<SimOutput | null>(null);
-  const dragRef = useRef<{ kind: 'box-move' | 'box-resize' | 'cursor' | 'none'; startX: number; startY: number; box?: { t0: number; t1: number; r0: number; r1: number } }>({ kind: 'none', startX: 0, startY: 0 });
+  const dragRef = useRef<{
+    kind: 'box-move' | 'box-resize' | 'cursor' | 'none';
+    startX: number;
+    startY: number;
+    box?: { t0: number; t1: number; r0: number; r1: number };
+  }>({ kind: 'none', startX: 0, startY: 0 });
   const onSize = props.onSize;
 
   useEffect(() => {
@@ -61,7 +66,12 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
         // formed on the GPU (decision 54): a texture copy, then release the bitmap's GPU memory
         ctx.drawImage(out.bitmap, 0, 0);
         out.bitmap.close();
-      } else ctx.putImageData(new ImageData(new Uint8ClampedArray(out.rgba), out.width, out.height), 0, 0);
+      } else
+        ctx.putImageData(
+          new ImageData(new Uint8ClampedArray(out.rgba), out.width, out.height),
+          0,
+          0,
+        );
     };
     const redrawOverlay = () => {
       const out = lastOutRef.current;
@@ -110,18 +120,44 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
     if (st.modality === 'color' && inSector) {
       const { rCm, thetaRad } = pixelToPolar(m, p.x, p.y);
       const c = st.color;
-      const inside = rCm >= c.boxRMinCm && rCm <= c.boxRMaxCm && thetaRad >= c.boxThetaMinRad && thetaRad <= c.boxThetaMaxRad;
-      dragRef.current = { kind: inside && !e.shiftKey ? 'box-move' : 'box-resize', startX: p.x, startY: p.y, box: { t0: c.boxThetaMinRad, t1: c.boxThetaMaxRad, r0: c.boxRMinCm, r1: c.boxRMaxCm } };
+      const inside =
+        rCm >= c.boxRMinCm &&
+        rCm <= c.boxRMaxCm &&
+        thetaRad >= c.boxThetaMinRad &&
+        thetaRad <= c.boxThetaMaxRad;
+      dragRef.current = {
+        kind: inside && !e.shiftKey ? 'box-move' : 'box-resize',
+        startX: p.x,
+        startY: p.y,
+        box: { t0: c.boxThetaMinRad, t1: c.boxThetaMaxRad, r0: c.boxRMinCm, r1: c.boxRMaxCm },
+      };
       if (!inside && !e.shiftKey) {
         // start a new box centred on the click
-        st.setColor({ boxThetaMinRad: thetaRad - 0.25, boxThetaMaxRad: thetaRad + 0.25, boxRMinCm: Math.max(0.5, rCm - 3), boxRMaxCm: Math.min(m.depthCm, rCm + 3) });
+        st.setColor({
+          boxThetaMinRad: thetaRad - 0.25,
+          boxThetaMaxRad: thetaRad + 0.25,
+          boxRMinCm: Math.max(0.5, rCm - 3),
+          boxRMaxCm: Math.min(m.depthCm, rCm + 3),
+        });
         dragRef.current.kind = 'none';
       }
       return;
     }
-    if ((st.modality === 'pw' || st.modality === 'cw' || st.modality === 'tdi' || st.modality === 'm-mode' || st.modality === 'cmm') && inSector) {
+    if (
+      (st.modality === 'pw' ||
+        st.modality === 'cw' ||
+        st.modality === 'tdi' ||
+        st.modality === 'm-mode' ||
+        st.modality === 'cmm') &&
+      inSector
+    ) {
       const { rCm, thetaRad } = pixelToPolar(m, p.x, p.y);
-      st.setCursor(Math.max(-m.sectorRad / 2, Math.min(m.sectorRad / 2, thetaRad)), st.modality === 'pw' || st.modality === 'tdi' ? Math.max(1, Math.min(m.depthCm - 0.5, rCm)) : undefined);
+      st.setCursor(
+        Math.max(-m.sectorRad / 2, Math.min(m.sectorRad / 2, thetaRad)),
+        st.modality === 'pw' || st.modality === 'tdi'
+          ? Math.max(1, Math.min(m.depthCm - 0.5, rCm))
+          : undefined,
+      );
       dragRef.current = { kind: 'cursor', startX: p.x, startY: p.y };
     }
   };
@@ -133,18 +169,31 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
     const m = hud.sector;
     if (dragRef.current.kind === 'cursor') {
       const { rCm, thetaRad } = pixelToPolar(m, p.x, Math.min(p.y, m.height - 1));
-      st.setCursor(Math.max(-m.sectorRad / 2, Math.min(m.sectorRad / 2, thetaRad)), st.modality === 'pw' || st.modality === 'tdi' ? Math.max(1, Math.min(m.depthCm - 0.5, rCm)) : undefined);
+      st.setCursor(
+        Math.max(-m.sectorRad / 2, Math.min(m.sectorRad / 2, thetaRad)),
+        st.modality === 'pw' || st.modality === 'tdi'
+          ? Math.max(1, Math.min(m.depthCm - 0.5, rCm))
+          : undefined,
+      );
     } else if (dragRef.current.kind === 'box-move' && dragRef.current.box) {
       const a = pixelToPolar(m, dragRef.current.startX, dragRef.current.startY);
       const b = pixelToPolar(m, p.x, p.y);
       const dt = b.thetaRad - a.thetaRad,
         dr = b.rCm - a.rCm;
       const bx = dragRef.current.box;
-      st.setColor({ boxThetaMinRad: bx.t0 + dt, boxThetaMaxRad: bx.t1 + dt, boxRMinCm: Math.max(0.5, bx.r0 + dr), boxRMaxCm: Math.min(m.depthCm, bx.r1 + dr) });
+      st.setColor({
+        boxThetaMinRad: bx.t0 + dt,
+        boxThetaMaxRad: bx.t1 + dt,
+        boxRMinCm: Math.max(0.5, bx.r0 + dr),
+        boxRMaxCm: Math.min(m.depthCm, bx.r1 + dr),
+      });
     } else if (dragRef.current.kind === 'box-resize' && dragRef.current.box) {
       const b = pixelToPolar(m, p.x, p.y);
       const bx = dragRef.current.box;
-      st.setColor({ boxThetaMaxRad: Math.max(bx.t0 + 0.08, b.thetaRad), boxRMaxCm: Math.max(bx.r0 + 1, Math.min(m.depthCm, b.rCm)) });
+      st.setColor({
+        boxThetaMaxRad: Math.max(bx.t0 + 0.08, b.thetaRad),
+        boxRMaxCm: Math.max(bx.r0 + 1, Math.min(m.depthCm, b.rCm)),
+      });
     }
   };
   const onMouseUp = () => {
@@ -161,7 +210,24 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
     const spec = specFor(st.activeMeasurementId);
     const modality = st.modality === 'color' ? '2d' : st.modality;
     const redraw = () => useHudStore.getState().setHud({ ...hud });
-    const commit = (ms: Omit<Measurement, 'id' | 'createdAt' | 'frameId' | 'phase' | 'timeS' | 'sourceViewId' | 'viewScore' | 'imageQualityScore' | 'userAssisted' | 'referenceGuidelineIds' | 'measurementId' | 'technique'>, extras: CaptureExtras = {}) => {
+    const commit = (
+      ms: Omit<
+        Measurement,
+        | 'id'
+        | 'createdAt'
+        | 'frameId'
+        | 'phase'
+        | 'timeS'
+        | 'sourceViewId'
+        | 'viewScore'
+        | 'imageQualityScore'
+        | 'userAssisted'
+        | 'referenceGuidelineIds'
+        | 'measurementId'
+        | 'technique'
+      >,
+      extras: CaptureExtras = {},
+    ) => {
       st.addMeasurement({
         ...ms,
         label: spec ? spec.label : ms.label,
@@ -181,7 +247,8 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
       pend.points = [];
       if (spec) st.setActiveMeasurement(null);
     };
-    const stripVelocity = (y: number) => strip.topValue + ((y - strip.y) / strip.height) * (strip.bottomValue - strip.topValue);
+    const stripVelocity = (y: number) =>
+      strip.topValue + ((y - strip.y) / strip.height) * (strip.bottomValue - strip.topValue);
     const velocityUnits = modality === 'tdi' ? 'cm/s' : 'm/s';
     const velocityScale = modality === 'tdi' ? 100 : 1;
     if (st.activeTool === 'caliper') {
@@ -190,7 +257,17 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
       if (pend.points.length === 2) {
         const [a, b] = pend.points as [{ x: number; y: number }, { x: number; y: number }];
         const cm = Math.hypot(a.x - b.x, a.y - b.y) / m.pxPerCm;
-        commit({ kind: 'linear', label: 'Distancia', value: cm, units: 'cm', modality, geometry: [a, b] }, { segment: [a, b] });
+        commit(
+          {
+            kind: 'linear',
+            label: 'Distancia',
+            value: cm,
+            units: 'cm',
+            modality,
+            geometry: [a, b],
+          },
+          { segment: [a, b] },
+        );
       }
       redraw();
       return;
@@ -198,7 +275,15 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
     if (st.activeTool === 'velocity') {
       if (strip.kind !== 'spectral' || p.y < strip.y) return;
       const v = Math.abs(stripVelocity(p.y));
-      commit({ kind: 'velocity', label: 'Velocidad', value: v * velocityScale, units: velocityUnits, modality, geometry: [p], derived: { gradientMmHg: 4 * v * v } });
+      commit({
+        kind: 'velocity',
+        label: 'Velocidad',
+        value: v * velocityScale,
+        units: velocityUnits,
+        modality,
+        geometry: [p],
+        derived: { gradientMmHg: 4 * v * v },
+      });
       return;
     }
     if (st.activeTool === 'time') {
@@ -207,7 +292,14 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
       if (pend.points.length === 2) {
         const [a, b] = pend.points as [{ x: number; y: number }, { x: number; y: number }];
         const ms = Math.abs(a.x - b.x) * strip.secondsPerColumn * 1000;
-        commit({ kind: 'time', label: 'Tiempo', value: ms, units: 'ms', modality, geometry: [a, b] });
+        commit({
+          kind: 'time',
+          label: 'Tiempo',
+          value: ms,
+          units: 'ms',
+          modality,
+          geometry: [a, b],
+        });
       }
       redraw();
       return;
@@ -224,9 +316,18 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
           t1 = b.x * strip.secondsPerColumn;
         if (v0 > v1 && t1 > t0) {
           const tInt = t1 + (v1 * (t1 - t0)) / (v0 - v1);
-          const yBase = strip.y + ((0 - strip.topValue) / (strip.bottomValue - strip.topValue)) * strip.height;
+          const yBase =
+            strip.y + ((0 - strip.topValue) / (strip.bottomValue - strip.topValue)) * strip.height;
           const intercept = { x: tInt / strip.secondsPerColumn, y: yBase };
-          commit({ kind: 'time', label: 'Tiempo de desaceleración', value: (tInt - t0) * 1000, units: 'ms', modality, geometry: [a, b, intercept], derived: { peakMps: v0 } });
+          commit({
+            kind: 'time',
+            label: 'Tiempo de desaceleración',
+            value: (tInt - t0) * 1000,
+            units: 'ms',
+            modality,
+            geometry: [a, b, intercept],
+            derived: { peakMps: v0 },
+          });
         } else pend.points = [];
       }
       redraw();
@@ -237,8 +338,16 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
       pend.points.push(p);
       if (pend.points.length === 2) {
         const [a, b] = pend.points as [{ x: number; y: number }, { x: number; y: number }];
-        const cm = (Math.abs(a.y - b.y) / strip.height) * Math.abs(strip.bottomValue - strip.topValue);
-        commit({ kind: 'linear', label: 'Excursión (modo M)', value: cm, units: 'cm', modality, geometry: [a, b] });
+        const cm =
+          (Math.abs(a.y - b.y) / strip.height) * Math.abs(strip.bottomValue - strip.topValue);
+        commit({
+          kind: 'linear',
+          label: 'Excursión (modo M)',
+          value: cm,
+          units: 'cm',
+          modality,
+          geometry: [a, b],
+        });
       }
       redraw();
       return;
@@ -250,9 +359,22 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
         const prof = discProfileFromContour(pts, m.pxPerCm);
         if (prof) {
           const vol = volumeFromProfileMl(prof);
-          const trueL = st.lvLengthCm !== null ? (spec?.phase === 'es' ? st.lvLengthCm - 1.2 : st.lvLengthCm) : null;
+          const trueL =
+            st.lvLengthCm !== null
+              ? spec?.phase === 'es'
+                ? st.lvLengthCm - 1.2
+                : st.lvLengthCm
+              : null;
           commit(
-            { kind: 'volume', label: 'Volumen VI (Simpson monoplano)', value: vol, units: 'mL', modality, geometry: pts, derived: { longAxisCm: prof.longAxisCm, discs: prof.diametersCm.length } },
+            {
+              kind: 'volume',
+              label: 'Volumen VI (Simpson monoplano)',
+              value: vol,
+              units: 'mL',
+              modality,
+              geometry: pts,
+              derived: { longAxisCm: prof.longAxisCm, discs: prof.diametersCm.length },
+            },
             { contour: pts, longAxisCm: prof.longAxisCm, trueLongAxisCm: trueL },
           );
         } else pend.points = [];
@@ -271,13 +393,39 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
         pend.points = [];
         const x0 = Math.min(a.x, b.x),
           x1 = Math.max(a.x, b.x);
-        void frameBus.request({ kind: 'autoTrace', x0: Math.round(x0 - strip.x), x1: Math.round(x1 - strip.x) }).then((res) => {
-          if (!res || res.kind !== 'autoTrace' || res.velocitiesMps.length < 2) return;
-          const s = summarizeEnvelope(res.velocitiesMps, res.secondsPerColumn);
-          const geometry = res.velocitiesMps.map((v, i) => ({ x: strip.x + res.x0 + i, y: strip.y + ((v - strip.topValue) / (strip.bottomValue - strip.topValue)) * strip.height }));
-          commit({ kind: 'vti', label: 'VTI (envolvente automática)', value: s.vtiCm, units: 'cm', modality, geometry, derived: { vmaxMps: s.vmaxMps, meanGradientMmHg: s.meanGradientMmHg, peakGradientMmHg: s.peakGradientMmHg } }, { userAssisted: true });
-          redraw();
-        });
+        void frameBus
+          .request({
+            kind: 'autoTrace',
+            x0: Math.round(x0 - strip.x),
+            x1: Math.round(x1 - strip.x),
+          })
+          .then((res) => {
+            if (!res || res.kind !== 'autoTrace' || res.velocitiesMps.length < 2) return;
+            const s = summarizeEnvelope(res.velocitiesMps, res.secondsPerColumn);
+            const geometry = res.velocitiesMps.map((v, i) => ({
+              x: strip.x + res.x0 + i,
+              y:
+                strip.y +
+                ((v - strip.topValue) / (strip.bottomValue - strip.topValue)) * strip.height,
+            }));
+            commit(
+              {
+                kind: 'vti',
+                label: 'VTI (envolvente automática)',
+                value: s.vtiCm,
+                units: 'cm',
+                modality,
+                geometry,
+                derived: {
+                  vmaxMps: s.vmaxMps,
+                  meanGradientMmHg: s.meanGradientMmHg,
+                  peakGradientMmHg: s.peakGradientMmHg,
+                },
+              },
+              { userAssisted: true },
+            );
+            redraw();
+          });
       }
       redraw();
       return;
@@ -300,7 +448,19 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
           vel.push(Math.abs(stripVelocity(y)));
         }
         const s = summarizeEnvelope(vel, strip.secondsPerColumn);
-        commit({ kind: 'vti', label: 'VTI', value: s.vtiCm, units: 'cm', modality, geometry: pts, derived: { vmaxMps: s.vmaxMps, meanGradientMmHg: s.meanGradientMmHg, peakGradientMmHg: s.peakGradientMmHg } });
+        commit({
+          kind: 'vti',
+          label: 'VTI',
+          value: s.vtiCm,
+          units: 'cm',
+          modality,
+          geometry: pts,
+          derived: {
+            vmaxMps: s.vmaxMps,
+            meanGradientMmHg: s.meanGradientMmHg,
+            peakGradientMmHg: s.peakGradientMmHg,
+          },
+        });
         return;
       }
       pend.points.push(p);
@@ -310,7 +470,12 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
 
   return (
     <div className="display-wrap" ref={wrapRef}>
-      <canvas ref={imgRef} width={size.width} height={size.height} aria-label="Imagen ecográfica simulada" />
+      <canvas
+        ref={imgRef}
+        width={size.width}
+        height={size.height}
+        aria-label="Imagen ecográfica simulada"
+      />
       <canvas
         ref={ovRef}
         className="overlay"
@@ -321,13 +486,31 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
         onMouseLeave={onMouseUp}
         aria-label="Superposiciones y herramientas de medición"
       />
-      <div className="disclaimer">Simulador educacional con pacientes sintéticos. No utilizar para diagnóstico ni toma de decisiones clínicas reales.</div>
+      <div className="disclaimer">
+        Simulador educacional con pacientes sintéticos. No utilizar para diagnóstico ni toma de
+        decisiones clínicas reales.
+      </div>
     </div>
   );
 }
 
-function drawOverlay(canvas: HTMLCanvasElement, hud: SimOutput, st: SimStore, pending: { x: number; y: number }[]): void {
-  const { modality, color, settings, cursorThetaRad: cursorTheta, gateDepthCm: gateDepth, spectral, ui, activeTool, measurements } = st;
+function drawOverlay(
+  canvas: HTMLCanvasElement,
+  hud: SimOutput,
+  st: SimStore,
+  pending: { x: number; y: number }[],
+): void {
+  const {
+    modality,
+    color,
+    settings,
+    cursorThetaRad: cursorTheta,
+    gateDepthCm: gateDepth,
+    spectral,
+    ui,
+    activeTool,
+    measurements,
+  } = st;
   const dpr = window.devicePixelRatio || 1;
   const W = hud.width,
     H = hud.height;
@@ -386,7 +569,15 @@ function drawOverlay(canvas: HTMLCanvasElement, hud: SimOutput, st: SimStore, pe
   }
   ctx.stroke();
   if (modality === 'color') {
-    drawArcBox(ctx, m, color.boxThetaMinRad, color.boxThetaMaxRad, color.boxRMinCm, color.boxRMaxCm, '#57d38c');
+    drawArcBox(
+      ctx,
+      m,
+      color.boxThetaMinRad,
+      color.boxThetaMaxRad,
+      color.boxRMinCm,
+      color.boxRMaxCm,
+      '#57d38c',
+    );
     const bx = W - 22,
       by = m.apexY + 20,
       bh = 90;
@@ -406,7 +597,13 @@ function drawOverlay(canvas: HTMLCanvasElement, hud: SimOutput, st: SimStore, pe
     ctx.fillText('↓ desde', bx - 44, by + bh / 2 + 8);
     ctx.font = '11px system-ui';
   }
-  if (modality === 'pw' || modality === 'cw' || modality === 'tdi' || modality === 'm-mode' || modality === 'cmm') {
+  if (
+    modality === 'pw' ||
+    modality === 'cw' ||
+    modality === 'tdi' ||
+    modality === 'm-mode' ||
+    modality === 'cmm'
+  ) {
     const p0 = polarToPixel(m, 0.3, cursorTheta);
     const p1 = polarToPixel(m, m.depthCm, cursorTheta);
     ctx.strokeStyle = modality === 'm-mode' || modality === 'cmm' ? '#5cc8ff' : '#ffc857';
@@ -443,7 +640,11 @@ function drawOverlay(canvas: HTMLCanvasElement, hud: SimOutput, st: SimStore, pe
         ctx.fillText(`${v.toFixed(2)}`, W - 4, Math.min(H - 8, Math.max(strip.y + 6, y)));
       }
       ctx.textAlign = 'left';
-      ctx.fillText(`${modality.toUpperCase()}  ${spectral.sweepSpeedMmPerS} mm/s  escala ±${spectral.scaleMps.toFixed(2)} m/s  WF ${Math.round(spectral.wallFilterMps * 100)} cm/s`, 6, strip.y + 8);
+      ctx.fillText(
+        `${modality.toUpperCase()}  ${spectral.sweepSpeedMmPerS} mm/s  escala ±${spectral.scaleMps.toFixed(2)} m/s  WF ${Math.round(spectral.wallFilterMps * 100)} cm/s`,
+        6,
+        strip.y + 8,
+      );
       const cols1s = strip.secondsPerColumn > 0 ? 1 / strip.secondsPerColumn : 0;
       if (cols1s > 0) {
         ctx.strokeStyle = 'rgba(154,164,181,0.35)';
@@ -508,16 +709,33 @@ function drawOverlay(canvas: HTMLCanvasElement, hud: SimOutput, st: SimStore, pe
   }
   ctx.lineWidth = 1.5;
   for (const ms of measurements) {
-    const sameFamily = ms.modality === modality || (ms.modality === '2d' && modality === 'color') || (ms.modality === 'color' && modality === '2d');
+    const sameFamily =
+      ms.modality === modality ||
+      (ms.modality === '2d' && modality === 'color') ||
+      (ms.modality === 'color' && modality === '2d');
     if (!sameFamily) continue;
     drawGeometry(ctx, ms.geometry, ms.kind, '#ffc857');
     const p = ms.geometry[ms.geometry.length - 1];
     if (p) {
       ctx.fillStyle = '#ffc857';
-      ctx.fillText(`${ms.label}: ${ms.value.toFixed(ms.kind === 'time' ? 0 : ms.kind === 'vti' ? 1 : 2)} ${ms.units}`, p.x + 6, p.y - 8);
+      ctx.fillText(
+        `${ms.label}: ${ms.value.toFixed(ms.kind === 'time' ? 0 : ms.kind === 'vti' ? 1 : 2)} ${ms.units}`,
+        p.x + 6,
+        p.y - 8,
+      );
     }
   }
-  if (pending.length) drawGeometry(ctx, pending, activeTool === 'caliper' || activeTool === 'tapse' ? 'linear' : activeTool === 'vti' || activeTool === 'simpson' ? 'vti' : 'time', '#5cc8ff');
+  if (pending.length)
+    drawGeometry(
+      ctx,
+      pending,
+      activeTool === 'caliper' || activeTool === 'tapse'
+        ? 'linear'
+        : activeTool === 'vti' || activeTool === 'simpson'
+          ? 'vti'
+          : 'time',
+      '#5cc8ff',
+    );
   ctx.lineWidth = 1;
   if (activeTool !== 'none') {
     ctx.fillStyle = '#5cc8ff';
@@ -527,7 +745,13 @@ function drawOverlay(canvas: HTMLCanvasElement, hud: SimOutput, st: SimStore, pe
   }
 }
 
-function drawArc(ctx: CanvasRenderingContext2D, m: SimOutput['sector'], rCm: number, t0: number, t1: number): void {
+function drawArc(
+  ctx: CanvasRenderingContext2D,
+  m: SimOutput['sector'],
+  rCm: number,
+  t0: number,
+  t1: number,
+): void {
   ctx.beginPath();
   const n = 24;
   for (let i = 0; i <= n; i++) {
@@ -539,7 +763,15 @@ function drawArc(ctx: CanvasRenderingContext2D, m: SimOutput['sector'], rCm: num
   ctx.stroke();
 }
 
-function drawArcBox(ctx: CanvasRenderingContext2D, m: SimOutput['sector'], t0: number, t1: number, r0: number, r1: number, color: string): void {
+function drawArcBox(
+  ctx: CanvasRenderingContext2D,
+  m: SimOutput['sector'],
+  t0: number,
+  t1: number,
+  r0: number,
+  r1: number,
+  color: string,
+): void {
   ctx.strokeStyle = color;
   ctx.lineWidth = 1.2;
   ctx.beginPath();
@@ -566,11 +798,17 @@ const TOOL_HINT: Record<SimStore['activeTool'], string> = {
   'auto-vti': 'VTI automático: clic al inicio y al final del latido sobre el espectro',
   time: 'Tiempo: clic en 2 puntos',
   slope: 'Tiempo de desaceleración: clic en el pico de E y luego sobre la pendiente',
-  simpson: 'Simpson: clic a lo largo del endocardio de anillo a anillo por el ápex, doble clic para cerrar',
+  simpson:
+    'Simpson: clic a lo largo del endocardio de anillo a anillo por el ápex, doble clic para cerrar',
   tapse: 'TAPSE: clic en la posición telediastólica y telesistólica del anillo en el modo M',
 };
 
-function drawGeometry(ctx: CanvasRenderingContext2D, pts: { x: number; y: number }[], kind: string, color: string): void {
+function drawGeometry(
+  ctx: CanvasRenderingContext2D,
+  pts: { x: number; y: number }[],
+  kind: string,
+  color: string,
+): void {
   ctx.strokeStyle = color;
   ctx.fillStyle = color;
   for (const p of pts) {
@@ -581,7 +819,10 @@ function drawGeometry(ctx: CanvasRenderingContext2D, pts: { x: number; y: number
     ctx.lineTo(p.x, p.y + 4);
     ctx.stroke();
   }
-  if (pts.length >= 2 && (kind === 'linear' || kind === 'time' || kind === 'vti' || kind === 'volume')) {
+  if (
+    pts.length >= 2 &&
+    (kind === 'linear' || kind === 'time' || kind === 'vti' || kind === 'volume')
+  ) {
     ctx.beginPath();
     ctx.moveTo(pts[0]!.x, pts[0]!.y);
     for (const p of pts.slice(1)) ctx.lineTo(p.x, p.y);

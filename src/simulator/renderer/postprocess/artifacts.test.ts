@@ -5,7 +5,14 @@ import { Tissue } from '@/simulator/anatomy/tissue';
 
 /** Case-configurable artifacts (spec 12): side lobes and mirror image act on the polar frame (beam width: psf.test.ts). */
 function frameWithReflector(): ReturnType<typeof allocPolarFrame> {
-  const spec = { lines: 41, samples: 160, sectorRad: 1.2, depthCm: 16, elevationSamples: 1, focusCm: 9 };
+  const spec = {
+    lines: 41,
+    samples: 160,
+    sectorRad: 1.2,
+    depthCm: 16,
+    elevationSamples: 1,
+    focusCm: 9,
+  };
   const f = allocPolarFrame(spec);
   f.amplitude.fill(0.02);
   f.transmission.fill(1);

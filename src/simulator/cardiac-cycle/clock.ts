@@ -29,7 +29,14 @@ export class CardiacClock {
     this.rng = createRng(seed ^ 0x9e3779b9);
     this.rrCurrent = this.nextRr(60 / rhythm.heartRateBpm);
     this.rrPrevious = this.rrCurrent;
-    this.state = { timeS: 0, beatIndex: 0, timeInBeatS: 0, rrS: this.rrCurrent, phase: 0, previousRrS: this.rrPrevious };
+    this.state = {
+      timeS: 0,
+      beatIndex: 0,
+      timeInBeatS: 0,
+      rrS: this.rrCurrent,
+      phase: 0,
+      previousRrS: this.rrPrevious,
+    };
   }
 
   get current(): ClockState {

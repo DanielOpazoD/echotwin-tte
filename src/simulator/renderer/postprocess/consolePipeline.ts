@@ -47,7 +47,11 @@ const CLINICAL_GREY_LOG = Math.log1p(CLINICAL_GREY_CURVE);
  * one by less than a quarter of the interval (a late step followed by an early one) weighs as a quarter, so it still
  * contributes.
  */
-export function persistenceOverTime(persistence: number, elapsedS: number, intervalS: number): number {
+export function persistenceOverTime(
+  persistence: number,
+  elapsedS: number,
+  intervalS: number,
+): number {
   if (!(persistence > 0) || !(intervalS > 0)) return 0;
   return Math.pow(persistence, Math.max(0.25, elapsedS / intervalS));
 }
@@ -69,7 +73,10 @@ const noiseKernelCache = new Map<string, PsfKernels>();
  * 3.3 RMS, where |z|² exceeds it with probability 1.5·10⁻⁵) and its low 10 bits the phase; the GPU passes evaluate the
  * same expressions on the same bits.
  */
-const NOISE_MAGNITUDE = Float32Array.from({ length: 65536 }, (_, i) => NOISE_RMS * Math.sqrt(-Math.log(1 - 0.999999 * (i / 65536))));
+const NOISE_MAGNITUDE = Float32Array.from(
+  { length: 65536 },
+  (_, i) => NOISE_RMS * Math.sqrt(-Math.log(1 - 0.999999 * (i / 65536))),
+);
 const NOISE_COS = Float32Array.from({ length: 1024 }, (_, i) => Math.cos((2 * Math.PI * i) / 1024));
 const NOISE_SIN = Float32Array.from({ length: 1024 }, (_, i) => Math.sin((2 * Math.PI * i) / 1024));
 
@@ -89,7 +96,17 @@ function noiseKernels(spec: PolarFrameSpec, settings: AcquisitionSettings): PsfK
  * Receiver noise of one frame or pulse, in place in `re`/`im` (decision 91): white complex Gaussian samples per line,
  * sample, frame index and seed, filtered by the receive response.
  */
-export function receiverNoise(k: PsfKernels, lines: number, samples: number, frameIndex: number, seed: number, re: Float32Array, im: Float32Array, tmpRe: Float32Array, tmpIm: Float32Array): void {
+export function receiverNoise(
+  k: PsfKernels,
+  lines: number,
+  samples: number,
+  frameIndex: number,
+  seed: number,
+  re: Float32Array,
+  im: Float32Array,
+  tmpRe: Float32Array,
+  tmpIm: Float32Array,
+): void {
   for (let li = 0; li < lines; li++)
     for (let si = 0; si < samples; si++) {
       const h = hash3(li, si, frameIndex, seed) * 4294967296;
@@ -111,7 +128,11 @@ function ensure(s: { buf: Float32Array }, n: number): Float32Array {
  * Per-sample amplification of the console: default depth compensation (0.38 dB/cm/MHz) plus the TGC curve,
  * capped at 60 dB, times the overall gain. The CPU console uses it in float64, the GPU console as a texture.
  */
-export function consoleCompensation(settings: AcquisitionSettings, spec: PolarFrameSpec, out: Float32Array | Float64Array): void {
+export function consoleCompensation(
+  settings: AcquisitionSettings,
+  spec: PolarFrameSpec,
+  out: Float32Array | Float64Array,
+): void {
   const dr = spec.depthCm / spec.samples;
   // 0.45, raised from 0.38 when the heart was moved behind the chest wall (decision 66): the extra 1.2 cm of
   // chest wall on the path attenuate more than the old compensation returned, and myocardial grey fell from
@@ -157,7 +178,14 @@ export interface ConsoleLineOptions {
   edgeStep: number;
 }
 
-export function applyConsole(frame: PolarFrame, settings: AcquisitionSettings, state: ConsoleState, outU8: Uint8ClampedArray, artifacts: ArtifactSettings = NO_ARTIFACTS, line: ConsoleLineOptions | null = null): void {
+export function applyConsole(
+  frame: PolarFrame,
+  settings: AcquisitionSettings,
+  state: ConsoleState,
+  outU8: Uint8ClampedArray,
+  artifacts: ArtifactSettings = NO_ARTIFACTS,
+  line: ConsoleLineOptions | null = null,
+): void {
   const { lines, samples, depthCm } = frame.spec;
   const n = lines * samples;
   const dr = depthCm / samples;
@@ -210,7 +238,8 @@ export function applyConsole(frame: PolarFrame, settings: AcquisitionSettings, s
       for (let si = s0 + 1; si < samples; si++) {
         const src = 2 * s0 - si;
         if (src < 0) break;
-        a[base + si] = (a[base + si] ?? 0) + (a[base + src] ?? 0) * gain * Math.exp(-(si - s0) * dr * 0.12);
+        a[base + si] =
+          (a[base + si] ?? 0) + (a[base + src] ?? 0) * gain * Math.exp(-(si - s0) * dr * 0.12);
       }
     }
   }
@@ -280,7 +309,8 @@ export function applyConsole(frame: PolarFrame, settings: AcquisitionSettings, s
     let y = a[i] ?? 0;
     if (settings.grayMap === 's-curve') y = y * y * (3 - 2 * y) * 0.85 + y * 0.15;
     else if (settings.grayMap === 'high-contrast') y = Math.pow(y, 1.6);
-    else if (settings.grayMap === 'clinical') y = Math.expm1(y * CLINICAL_GREY_LOG) / CLINICAL_GREY_CURVE;
+    else if (settings.grayMap === 'clinical')
+      y = Math.expm1(y * CLINICAL_GREY_LOG) / CLINICAL_GREY_CURVE;
     outU8[i] = Math.round(y * 255);
   }
   state.gpuHistory = false;

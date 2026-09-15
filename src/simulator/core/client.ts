@@ -1,5 +1,13 @@
 import type { CaseDefinition } from '@/cases/schema';
-import type { MainToWorker, PhaseMarks, SimInput, SimOutput, SimRequest, SimResponse, WorkerToMain } from './protocol';
+import type {
+  MainToWorker,
+  PhaseMarks,
+  SimInput,
+  SimOutput,
+  SimRequest,
+  SimResponse,
+  WorkerToMain,
+} from './protocol';
 import { SimulatorCore } from './simulatorCore';
 import type { StructuredEchoTruth } from '@/simulator/hemodynamics/groundTruth';
 
@@ -10,7 +18,12 @@ import type { StructuredEchoTruth } from '@/simulator/hemodynamics/groundTruth';
  */
 export interface SimClientHandlers {
   onFrame: (out: SimOutput) => void;
-  onReady: (truth: StructuredEchoTruth, caseId: string, phaseMarks: PhaseMarks, lvLengthCm: number) => void;
+  onReady: (
+    truth: StructuredEchoTruth,
+    caseId: string,
+    phaseMarks: PhaseMarks,
+    lvLengthCm: number,
+  ) => void;
   onError: (message: string) => void;
 }
 
@@ -27,7 +40,9 @@ export class SimClient {
     this.handlers = handlers;
     if (!forceInline && typeof Worker !== 'undefined') {
       try {
-        this.worker = new Worker(new URL('../../workers/sim.worker.ts', import.meta.url), { type: 'module' });
+        this.worker = new Worker(new URL('../../workers/sim.worker.ts', import.meta.url), {
+          type: 'module',
+        });
         this.worker.onmessage = (ev: MessageEvent<WorkerToMain>) => this.handle(ev.data);
         this.worker.onerror = (e) => handlers.onError(String(e.message ?? e));
         this.mode = 'worker';
@@ -44,7 +59,8 @@ export class SimClient {
 
   private handle(msg: WorkerToMain): void {
     if (msg.type === 'frame') this.handlers.onFrame(msg.output);
-    else if (msg.type === 'ready') this.handlers.onReady(msg.truth, msg.caseId, msg.phaseMarks, msg.lvLengthCm);
+    else if (msg.type === 'ready')
+      this.handlers.onReady(msg.truth, msg.caseId, msg.phaseMarks, msg.lvLengthCm);
     else if (msg.type === 'response') {
       const cb = this.pending.get(msg.id);
       if (cb) {
@@ -75,7 +91,12 @@ export class SimClient {
       return;
     }
     this.inline = new SimulatorCore(caseDef, input);
-    this.handlers.onReady(this.inline.truth, caseDef.id, this.inline.phaseMarks(), this.inline.lvLengthCm());
+    this.handlers.onReady(
+      this.inline.truth,
+      caseDef.id,
+      this.inline.phaseMarks(),
+      this.inline.lvLengthCm(),
+    );
     if (this.inlineTimer) clearInterval(this.inlineTimer);
     this.inlineLast = performance.now();
     this.inlineTimer = setInterval(() => {

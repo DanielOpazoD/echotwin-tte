@@ -4,9 +4,14 @@ import { getStore, waitForFrames } from './helpers';
 interface StoreView {
   activeTool: string;
   activeMeasurementId: string | null;
-  measurements: { measurementId: string | null; label: string; technique: { score: number; findings: { code: string; level: string }[] } | null }[];
+  measurements: {
+    measurementId: string | null;
+    label: string;
+    technique: { score: number; findings: { code: string; level: string }[] } | null;
+  }[];
 }
-const store = async (page: Parameters<typeof getStore>[0]): Promise<StoreView> => (await getStore(page)) as unknown as StoreView;
+const store = async (page: Parameters<typeof getStore>[0]): Promise<StoreView> =>
+  (await getStore(page)) as unknown as StoreView;
 
 /**
  * Measurement protocol with technique evaluation (spec 16, 28): a semantic measurement selected
@@ -14,15 +19,28 @@ const store = async (page: Parameters<typeof getStore>[0]): Promise<StoreView> =
  * with explanations and derived calculations.
  */
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('echotwin.prefs.v1', JSON.stringify({ tutorialDone: true })));
+  await page.addInitScript(() =>
+    localStorage.setItem('echotwin.prefs.v1', JSON.stringify({ tutorialDone: true })),
+  );
   await page.goto('/');
   await waitForFrames(page, 3);
 });
 
-test('LVOT diameter from the protocol panel is captured with a technique grade and reported', async ({ page }) => {
+test('LVOT diameter from the protocol panel is captured with a technique grade and reported', async ({
+  page,
+}) => {
   // move to PLAX with the preset (guided mode) and wait for the motion to end
   await page.getByRole('button', { name: 'PLAX' }).click();
-  await page.waitForFunction(() => (window as unknown as { __echotwin: { useSimStore: { getState: () => { presetAnim: unknown } } } }).__echotwin.useSimStore.getState().presetAnim === null, null, { timeout: 15000 });
+  await page.waitForFunction(
+    () =>
+      (
+        window as unknown as {
+          __echotwin: { useSimStore: { getState: () => { presetAnim: unknown } } };
+        }
+      ).__echotwin.useSimStore.getState().presetAnim === null,
+    null,
+    { timeout: 15000 },
+  );
   await waitForFrames(page, 3);
   await page.getByRole('button', { name: 'Medir Diámetro del TSVI' }).click();
   const st = await store(page);
@@ -43,7 +61,9 @@ test('LVOT diameter from the protocol panel is captured with a technique grade a
   expect(m.label).toBe('Diámetro del TSVI');
   expect(m.technique).not.toBeNull();
   expect(m.technique!.findings.length).toBeGreaterThan(3);
-  expect(m.technique!.findings.map((f) => f.code)).toEqual(expect.arrayContaining(['modality', 'phase', 'placement']));
+  expect(m.technique!.findings.map((f) => f.code)).toEqual(
+    expect.arrayContaining(['modality', 'phase', 'placement']),
+  );
   expect(m.technique!.score).toBeGreaterThan(0);
   expect(m.technique!.score).toBeLessThanOrEqual(1);
   // the panel shows the value and a technique pill; the tool is disarmed after capture
@@ -56,7 +76,9 @@ test('LVOT diameter from the protocol panel is captured with a technique grade a
   await expect(page.locator('tr[data-derived="lvot-area"]')).toHaveCount(1);
 });
 
-test('free tools stay available and record measurements without a protocol id', async ({ page }) => {
+test('free tools stay available and record measurements without a protocol id', async ({
+  page,
+}) => {
   await page.getByRole('button', { name: 'Caliper', exact: true }).click();
   await page.keyboard.press('Space');
   await waitForFrames(page, 1);

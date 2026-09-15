@@ -29,25 +29,100 @@ export interface HeartMeshOptions {
   smoothing?: number;
 }
 
-type GroupSpec = { id: string; label: string; color: number; opacity: number; has: (s: Structure, t: Tissue) => boolean };
+type GroupSpec = {
+  id: string;
+  label: string;
+  color: number;
+  opacity: number;
+  has: (s: Structure, t: Tissue) => boolean;
+};
 
 const isLvWall = (s: Structure): boolean =>
-  s === Structure.LvWallSeptal || s === Structure.LvWallLateral || s === Structure.LvWallAnterior || s === Structure.LvWallInferior || s === Structure.LvApex;
+  s === Structure.LvWallSeptal ||
+  s === Structure.LvWallLateral ||
+  s === Structure.LvWallAnterior ||
+  s === Structure.LvWallInferior ||
+  s === Structure.LvApex;
 
 /** Groups the navigator can show or hide independently. */
 export const MESH_GROUPS: GroupSpec[] = [
-  { id: 'lv-myocardium', label: 'Miocardio VI', color: 0xc4534f, opacity: 1, has: (s) => isLvWall(s) || s === Structure.PapillaryMuscle },
-  { id: 'rv-myocardium', label: 'Miocardio VD', color: 0x9a5f8a, opacity: 1, has: (s) => s === Structure.RvWall || s === Structure.ModeratorBand || s === Structure.RvPapillary },
-  { id: 'lv-cavity', label: 'Cavidad VI', color: 0x8f2b2b, opacity: 0.55, has: (s) => s === Structure.LvCavity || s === Structure.Lvot },
-  { id: 'rv-cavity', label: 'Cavidad VD', color: 0x3c4a8f, opacity: 0.5, has: (s) => s === Structure.RvCavity || s === Structure.Rvot },
-  { id: 'atria', label: 'Aurículas', color: 0x7a4a7a, opacity: 0.5, has: (s) => s === Structure.LaCavity || s === Structure.RaCavity || s === Structure.LaWall || s === Structure.RaWall || s === Structure.LaAppendage },
-  { id: 'valves', label: 'Válvulas', color: 0xf2e08a, opacity: 1, has: (s, t) => t === Tissue.Valve || s === Structure.Chordae || s === Structure.MitralAnnulus || s === Structure.TricuspidAnnulus },
-  { id: 'great-vessels', label: 'Grandes vasos', color: 0xcf6a6a, opacity: 0.7, has: (s) => s === Structure.AorticRoot || s === Structure.PulmonaryArtery || s === Structure.Svc || s === Structure.Ivc || s === Structure.PulmonaryVein || s === Structure.CoronarySinus },
+  {
+    id: 'lv-myocardium',
+    label: 'Miocardio VI',
+    color: 0xc4534f,
+    opacity: 1,
+    has: (s) => isLvWall(s) || s === Structure.PapillaryMuscle,
+  },
+  {
+    id: 'rv-myocardium',
+    label: 'Miocardio VD',
+    color: 0x9a5f8a,
+    opacity: 1,
+    has: (s) =>
+      s === Structure.RvWall || s === Structure.ModeratorBand || s === Structure.RvPapillary,
+  },
+  {
+    id: 'lv-cavity',
+    label: 'Cavidad VI',
+    color: 0x8f2b2b,
+    opacity: 0.55,
+    has: (s) => s === Structure.LvCavity || s === Structure.Lvot,
+  },
+  {
+    id: 'rv-cavity',
+    label: 'Cavidad VD',
+    color: 0x3c4a8f,
+    opacity: 0.5,
+    has: (s) => s === Structure.RvCavity || s === Structure.Rvot,
+  },
+  {
+    id: 'atria',
+    label: 'Aurículas',
+    color: 0x7a4a7a,
+    opacity: 0.5,
+    has: (s) =>
+      s === Structure.LaCavity ||
+      s === Structure.RaCavity ||
+      s === Structure.LaWall ||
+      s === Structure.RaWall ||
+      s === Structure.LaAppendage,
+  },
+  {
+    id: 'valves',
+    label: 'Válvulas',
+    color: 0xf2e08a,
+    opacity: 1,
+    has: (s, t) =>
+      t === Tissue.Valve ||
+      s === Structure.Chordae ||
+      s === Structure.MitralAnnulus ||
+      s === Structure.TricuspidAnnulus,
+  },
+  {
+    id: 'great-vessels',
+    label: 'Grandes vasos',
+    color: 0xcf6a6a,
+    opacity: 0.7,
+    has: (s) =>
+      s === Structure.AorticRoot ||
+      s === Structure.PulmonaryArtery ||
+      s === Structure.Svc ||
+      s === Structure.Ivc ||
+      s === Structure.PulmonaryVein ||
+      s === Structure.CoronarySinus,
+  },
 ];
 
-const DEFAULT_BOUNDS = { min: [-8, -7, -7] as [number, number, number], max: [7, 8, 12] as [number, number, number] };
+const DEFAULT_BOUNDS = {
+  min: [-8, -7, -7] as [number, number, number],
+  max: [7, 8, 12] as [number, number, number],
+};
 
-export function buildHeartMeshes(heart: HeartModel, pose: HeartPose, opts: HeartMeshOptions = {}): MeshGroup[] {
+export function buildHeartMeshes(
+  heart: HeartModel,
+  pose: HeartPose,
+  opts: HeartMeshOptions = {},
+): MeshGroup[] {
   const step = opts.stepCm ?? 0.35;
   const b = opts.bounds ?? DEFAULT_BOUNDS;
   const nx = Math.ceil((b.max[0] - b.min[0]) / step) + 1;
@@ -68,12 +143,25 @@ export function buildHeartMeshes(heart: HeartModel, pose: HeartPose, opts: Heart
         ids[o] = s.structure;
         tissues[o] = s.tissue;
       }
-  return MESH_GROUPS.map((g) => surfaceNet(g, ids, tissues, nx, ny, nz, b.min, step, opts.smoothing ?? 2));
+  return MESH_GROUPS.map((g) =>
+    surfaceNet(g, ids, tissues, nx, ny, nz, b.min, step, opts.smoothing ?? 2),
+  );
 }
 
-function surfaceNet(g: GroupSpec, ids: Uint8Array, tissues: Uint8Array, nx: number, ny: number, nz: number, min: [number, number, number], step: number, smoothing: number): MeshGroup {
+function surfaceNet(
+  g: GroupSpec,
+  ids: Uint8Array,
+  tissues: Uint8Array,
+  nx: number,
+  ny: number,
+  nz: number,
+  min: [number, number, number],
+  step: number,
+  smoothing: number,
+): MeshGroup {
   const inside = new Uint8Array(nx * ny * nz);
-  for (let o = 0; o < ids.length; o++) inside[o] = g.has(ids[o] as Structure, tissues[o] as Tissue) ? 1 : 0;
+  for (let o = 0; o < ids.length; o++)
+    inside[o] = g.has(ids[o] as Structure, tissues[o] as Tissue) ? 1 : 0;
   const at = (i: number, j: number, k: number): number => inside[(k * ny + j) * nx + i] ?? 0;
   const cellVertex = new Int32Array((nx - 1) * (ny - 1) * (nz - 1)).fill(-1);
   const pos: number[] = [];
@@ -82,7 +170,9 @@ function surfaceNet(g: GroupSpec, ids: Uint8Array, tissues: Uint8Array, nx: numb
     for (let j = 0; j < ny - 1; j++)
       for (let i = 0; i < nx - 1; i++) {
         let count = 0;
-        for (let dk = 0; dk < 2; dk++) for (let dj = 0; dj < 2; dj++) for (let di = 0; di < 2; di++) if (at(i + di, j + dj, k + dk)) count++;
+        for (let dk = 0; dk < 2; dk++)
+          for (let dj = 0; dj < 2; dj++)
+            for (let di = 0; di < 2; di++) if (at(i + di, j + dj, k + dk)) count++;
         if (count === 0 || count === 8) continue; // fully outside or fully inside: no surface here
         // the vertex belongs on the surface, so it is the average of the cube edges that cross it. Averaging the
         // inside corners instead drops it onto a corner wherever the wall is one cell thick, and the shell comes
@@ -116,7 +206,11 @@ function surfaceNet(g: GroupSpec, ids: Uint8Array, tissues: Uint8Array, nx: numb
             }
         if (!crossings) continue;
         cellVertex[cellIndex(i, j, k)] = pos.length / 3;
-        pos.push(min[0] + (i + cx / crossings) * step, min[1] + (j + cy / crossings) * step, min[2] + (k + cz / crossings) * step);
+        pos.push(
+          min[0] + (i + cx / crossings) * step,
+          min[1] + (j + cy / crossings) * step,
+          min[2] + (k + cz / crossings) * step,
+        );
       }
   // quads across every edge whose endpoints differ, built from the four cells sharing that edge
   const idx: number[] = [];
@@ -134,15 +228,44 @@ function surfaceNet(g: GroupSpec, ids: Uint8Array, tissues: Uint8Array, nx: numb
     for (let j = 1; j < ny - 1; j++)
       for (let i = 1; i < nx - 1; i++) {
         const here = at(i, j, k);
-        if (here !== at(i + 1, j, k)) quad(vertexAt(i, j - 1, k - 1), vertexAt(i, j, k - 1), vertexAt(i, j, k), vertexAt(i, j - 1, k), here === 0);
-        if (here !== at(i, j + 1, k)) quad(vertexAt(i - 1, j, k - 1), vertexAt(i, j, k - 1), vertexAt(i, j, k), vertexAt(i - 1, j, k), here !== 0);
-        if (here !== at(i, j, k + 1)) quad(vertexAt(i - 1, j - 1, k), vertexAt(i, j - 1, k), vertexAt(i, j, k), vertexAt(i - 1, j, k), here === 0);
+        if (here !== at(i + 1, j, k))
+          quad(
+            vertexAt(i, j - 1, k - 1),
+            vertexAt(i, j, k - 1),
+            vertexAt(i, j, k),
+            vertexAt(i, j - 1, k),
+            here === 0,
+          );
+        if (here !== at(i, j + 1, k))
+          quad(
+            vertexAt(i - 1, j, k - 1),
+            vertexAt(i, j, k - 1),
+            vertexAt(i, j, k),
+            vertexAt(i - 1, j, k),
+            here !== 0,
+          );
+        if (here !== at(i, j, k + 1))
+          quad(
+            vertexAt(i - 1, j - 1, k),
+            vertexAt(i, j - 1, k),
+            vertexAt(i, j, k),
+            vertexAt(i - 1, j, k),
+            here === 0,
+          );
       }
   const positions = new Float32Array(pos);
   smooth(positions, idx, smoothing);
   const normals = vertexNormals(positions, idx);
   smoothNormals(normals, idx, 2);
-  return { id: g.id, label: g.label, color: g.color, opacity: g.opacity, positions, normals, indices: new Uint32Array(idx) };
+  return {
+    id: g.id,
+    label: g.label,
+    color: g.color,
+    opacity: g.opacity,
+    positions,
+    normals,
+    indices: new Uint32Array(idx),
+  };
 }
 
 /**
@@ -268,7 +391,8 @@ function smooth(positions: Float32Array, indices: number[], passes: number): voi
     for (let v = 0; v < n; v++) {
       const d = deg[v]!;
       if (!d) continue;
-      for (let c = 0; c < 3; c++) positions[v * 3 + c] = positions[v * 3 + c]! * 0.5 + (sum[v * 3 + c]! / d) * 0.5;
+      for (let c = 0; c < 3; c++)
+        positions[v * 3 + c] = positions[v * 3 + c]! * 0.5 + (sum[v * 3 + c]! / d) * 0.5;
     }
   }
 }

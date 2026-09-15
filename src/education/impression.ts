@@ -5,7 +5,8 @@ import type { StructuredEchoTruth } from '@/simulator/hemodynamics/groundTruth';
  * of free text; the expected findings are derived from the model truth with guideline thresholds, so
  * the comparison is deterministic and explainable. Scored as F1 between selected and expected sets.
  */
-export type FindingDomain = 'lv' | 'valves' | 'right' | 'atria' | 'pericardium' | 'rhythm-diastole' | 'global';
+export type FindingDomain =
+  'lv' | 'valves' | 'right' | 'atria' | 'pericardium' | 'rhythm-diastole' | 'global';
 
 export interface Finding {
   id: string;
@@ -19,18 +20,38 @@ export const FINDINGS: Finding[] = [
   { id: 'normal-study', label: 'Estudio dentro de límites normales', domain: 'global' },
   { id: 'ef-normal', label: 'FEVI conservada (≥ 52 %)', domain: 'lv', exclusive: 'ef' },
   { id: 'ef-mild', label: 'Disfunción sistólica leve (41–51 %)', domain: 'lv', exclusive: 'ef' },
-  { id: 'ef-moderate', label: 'Disfunción sistólica moderada (30–40 %)', domain: 'lv', exclusive: 'ef' },
+  {
+    id: 'ef-moderate',
+    label: 'Disfunción sistólica moderada (30–40 %)',
+    domain: 'lv',
+    exclusive: 'ef',
+  },
   { id: 'ef-severe', label: 'Disfunción sistólica severa (< 30 %)', domain: 'lv', exclusive: 'ef' },
   { id: 'lv-dilated', label: 'Ventrículo izquierdo dilatado', domain: 'lv' },
   { id: 'lvh', label: 'Hipertrofia ventricular izquierda', domain: 'lv' },
   { id: 'asymmetric-septal-hypertrophy', label: 'Hipertrofia septal asimétrica', domain: 'lv' },
   { id: 'rwma', label: 'Alteración segmentaria de la motilidad', domain: 'lv' },
   { id: 'lvot-obstruction', label: 'Obstrucción dinámica del TSVI', domain: 'valves' },
-  { id: 'as-none', label: 'Sin estenosis aórtica significativa', domain: 'valves', exclusive: 'as' },
-  { id: 'as-mild', label: 'Estenosis aórtica leve / esclerosis', domain: 'valves', exclusive: 'as' },
+  {
+    id: 'as-none',
+    label: 'Sin estenosis aórtica significativa',
+    domain: 'valves',
+    exclusive: 'as',
+  },
+  {
+    id: 'as-mild',
+    label: 'Estenosis aórtica leve / esclerosis',
+    domain: 'valves',
+    exclusive: 'as',
+  },
   { id: 'as-moderate', label: 'Estenosis aórtica moderada', domain: 'valves', exclusive: 'as' },
   { id: 'as-severe', label: 'Estenosis aórtica severa', domain: 'valves', exclusive: 'as' },
-  { id: 'mr-none', label: 'Sin insuficiencia mitral significativa', domain: 'valves', exclusive: 'mr' },
+  {
+    id: 'mr-none',
+    label: 'Sin insuficiencia mitral significativa',
+    domain: 'valves',
+    exclusive: 'mr',
+  },
   { id: 'mr-mild', label: 'Insuficiencia mitral leve', domain: 'valves', exclusive: 'mr' },
   { id: 'mr-moderate', label: 'Insuficiencia mitral moderada', domain: 'valves', exclusive: 'mr' },
   { id: 'mr-severe', label: 'Insuficiencia mitral severa', domain: 'valves', exclusive: 'mr' },
@@ -38,13 +59,21 @@ export const FINDINGS: Finding[] = [
   { id: 'ar-present', label: 'Insuficiencia aórtica', domain: 'valves' },
   { id: 'rv-dilated', label: 'Ventrículo derecho dilatado', domain: 'right' },
   { id: 'rv-dysfunction', label: 'Disfunción sistólica del VD (TAPSE < 1,7 cm)', domain: 'right' },
-  { id: 'ph-probable', label: 'Probabilidad alta de hipertensión pulmonar (PSVD ≥ 50)', domain: 'right' },
+  {
+    id: 'ph-probable',
+    label: 'Probabilidad alta de hipertensión pulmonar (PSVD ≥ 50)',
+    domain: 'right',
+  },
   { id: 'tr-significant', label: 'Insuficiencia tricuspídea moderada o mayor', domain: 'right' },
   { id: 'la-dilated', label: 'Aurícula izquierda dilatada (> 34 mL/m²)', domain: 'atria' },
   { id: 'effusion', label: 'Derrame pericárdico', domain: 'pericardium' },
   { id: 'tamponade', label: 'Signos de taponamiento', domain: 'pericardium' },
   { id: 'af', label: 'Fibrilación auricular', domain: 'rhythm-diastole' },
-  { id: 'diastolic-dysfunction', label: 'Disfunción diastólica / presiones de llenado elevadas', domain: 'rhythm-diastole' },
+  {
+    id: 'diastolic-dysfunction',
+    label: 'Disfunción diastólica / presiones de llenado elevadas',
+    domain: 'rhythm-diastole',
+  },
 ];
 
 export function getFinding(id: string): Finding | undefined {
@@ -57,12 +86,14 @@ export function expectedFindings(t: StructuredEchoTruth): string[] {
   const ef = t.lv.efPct;
   out.add(ef >= 52 ? 'ef-normal' : ef >= 41 ? 'ef-mild' : ef >= 30 ? 'ef-moderate' : 'ef-severe');
   if (t.lv.edvMl / t.bsaM2 > 74 || t.lv.eddCm > 5.8) out.add('lv-dilated');
-  if (t.lv.ivsdCm >= 1.5 && t.lv.ivsdCm / Math.max(0.5, t.lv.lvpwdCm) >= 1.3) out.add('asymmetric-septal-hypertrophy');
+  if (t.lv.ivsdCm >= 1.5 && t.lv.ivsdCm / Math.max(0.5, t.lv.lvpwdCm) >= 1.3)
+    out.add('asymmetric-septal-hypertrophy');
   else if (t.lv.ivsdCm > 1.1 || t.lv.lvpwdCm > 1.1) out.add('lvh');
   if (t.wallMotion.abnormalSegments.length) out.add('rwma');
   if (t.lvot.peakGradientMmHg >= 30) out.add('lvot-obstruction');
   const av = t.aorticValve;
-  if (av.vmaxMps >= 4 || av.meanGradientMmHg >= 40 || av.continuityAvaCm2 <= 1.0) out.add('as-severe');
+  if (av.vmaxMps >= 4 || av.meanGradientMmHg >= 40 || av.continuityAvaCm2 <= 1.0)
+    out.add('as-severe');
   else if (av.vmaxMps >= 3) out.add('as-moderate');
   else if (av.vmaxMps >= 2) out.add('as-mild');
   else out.add('as-none');
@@ -80,7 +111,12 @@ export function expectedFindings(t: StructuredEchoTruth): string[] {
   if (t.pericardium.effusionCm > 0) out.add('effusion');
   if (t.pericardium.tamponade > 0.3) out.add('tamponade');
   if (t.rhythm === 'atrial-fibrillation') out.add('af');
-  if (t.mitral.eOverEPrimeAvg > 14 || (t.mitral.eOverA !== null && t.mitral.eOverA > 2) || (t.mitral.eOverA !== null && t.mitral.eOverA < 0.8 && t.la.volumeIndexMlM2 > 34)) out.add('diastolic-dysfunction');
+  if (
+    t.mitral.eOverEPrimeAvg > 14 ||
+    (t.mitral.eOverA !== null && t.mitral.eOverA > 2) ||
+    (t.mitral.eOverA !== null && t.mitral.eOverA < 0.8 && t.la.volumeIndexMlM2 > 34)
+  )
+    out.add('diastolic-dysfunction');
   // a study with only the "normal/none" statements is a normal study
   const abnormal = [...out].filter((id) => !['ef-normal', 'as-none', 'mr-none'].includes(id));
   if (abnormal.length === 0) out.add('normal-study');
@@ -95,7 +131,10 @@ export interface ImpressionScore {
 }
 
 /** F1 between the learner's selection and the expected findings; "normal/none" statements count like any other. */
-export function scoreImpression(selected: readonly string[], expected: readonly string[]): ImpressionScore {
+export function scoreImpression(
+  selected: readonly string[],
+  expected: readonly string[],
+): ImpressionScore {
   const sel = new Set(selected);
   const exp = new Set(expected);
   const correct = [...sel].filter((id) => exp.has(id));

@@ -1,11 +1,22 @@
 import type { Vec3 } from '@/core/vec3';
 import { dot, normalize, radToDeg, sub, v3 } from '@/core/vec3';
 import type { HeartModel } from '@/simulator/anatomy/heartModel';
-import { heartDirToTorso, heartLandmarks, heartRootAxis, heartToTorso } from '@/simulator/anatomy/heartModel';
+import {
+  heartDirToTorso,
+  heartLandmarks,
+  heartRootAxis,
+  heartToTorso,
+} from '@/simulator/anatomy/heartModel';
 import type { ThoraxModel } from '@/simulator/anatomy/thoraxModel';
 import type { BeamFrame, ProbeControl } from '@/simulator/probe/pose';
 import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
-import { canonicalBeam, canonicalPlane, VIEW_TARGETS, type ViewTarget, type WindowId } from '@/simulator/windows/viewTargets';
+import {
+  canonicalBeam,
+  canonicalPlane,
+  VIEW_TARGETS,
+  type ViewTarget,
+  type WindowId,
+} from '@/simulator/windows/viewTargets';
 import type { AcquisitionSettings, PolarFrame } from '@/simulator/renderer/types';
 import { Structure, Tissue } from '@/simulator/anatomy/tissue';
 import { CAMUS_GOOD } from '@/clinical/reference-values/camusImageStats';
@@ -124,7 +135,10 @@ function testLandmark(
   const inSector = depth > 0.4 && Math.abs(theta) < sectorRad / 2 - 0.02 && r < depthCm - 0.3;
   let transmission = 0;
   if (inSector) {
-    const li = Math.min(lines - 1, Math.max(0, Math.floor(((theta + sectorRad / 2) / sectorRad) * lines)));
+    const li = Math.min(
+      lines - 1,
+      Math.max(0, Math.floor(((theta + sectorRad / 2) / sectorRad) * lines)),
+    );
     const si = Math.min(samples - 1, Math.max(0, Math.floor((r / depthCm) * samples)));
     transmission = frame.transmission[li * samples + si] ?? 0;
   }
@@ -133,7 +147,15 @@ function testLandmark(
   // shadow test is relative to the expected soft-tissue attenuation at this depth
   const expected = expectedTransmission(r, frequencyMHz);
   const lit = transmission > 0.2 * expected;
-  return { id: '', visible: inSector && planeDist < tol && lit, planeDistCm: planeDist, inSector, transmission: lit ? 1 : 0, thetaRad: theta, rCm: r };
+  return {
+    id: '',
+    visible: inSector && planeDist < tol && lit,
+    planeDistCm: planeDist,
+    inSector,
+    transmission: lit ? 1 : 0,
+    thetaRad: theta,
+    rCm: r,
+  };
 }
 
 export interface AnalyzeInput {
@@ -151,7 +173,8 @@ export function analyzeView(input: AnalyzeInput): ViewAnalysis {
   const window = windowFromSkin(control.u, control.v);
   const landmarks = heartLandmarks(heart);
   const lmTorso = new Map<string, { p: Vec3; radius: number }>();
-  for (const l of landmarks) lmTorso.set(l.id, { p: heartToTorso(heart.frame, l.p), radius: l.radius });
+  for (const l of landmarks)
+    lmTorso.set(l.id, { p: heartToTorso(heart.frame, l.p), radius: l.radius });
   const lmTests = new Map<string, ReturnType<typeof testLandmark>>();
   for (const [id, l] of lmTorso) {
     const t = testLandmark(l.p, l.radius, beam, frame, settings.frequencyMHz);
@@ -178,7 +201,8 @@ export function analyzeView(input: AnalyzeInput): ViewAnalysis {
     if (st !== 0 && st < 25) {
       cardiac++;
       const r = ((i % samples) + 0.5) * dr;
-      if ((frame.transmission[i] ?? 0) < 0.2 * expectedTransmission(r, settings.frequencyMHz)) shadowed++;
+      if ((frame.transmission[i] ?? 0) < 0.2 * expectedTransmission(r, settings.frequencyMHz))
+        shadowed++;
       if (input.display) {
         const g = input.display[i] ?? 0;
         if (t === Tissue.Blood) {
@@ -199,18 +223,35 @@ export function analyzeView(input: AnalyzeInput): ViewAnalysis {
   }
   const heartCoverage = cardiac / (n / 3);
   const shadowFraction = cardiac ? shadowed / cardiac : 1;
-  const bloodMedian = lvBloodN >= MIN_LV_SAMPLES ? histogramMedian(hLvBlood, lvBloodN) : bloodN ? histogramMedian(hBlood, bloodN) : 0;
+  const bloodMedian =
+    lvBloodN >= MIN_LV_SAMPLES
+      ? histogramMedian(hLvBlood, lvBloodN)
+      : bloodN
+        ? histogramMedian(hBlood, bloodN)
+        : 0;
   const myoMedian = lvMyoN >= MIN_LV_SAMPLES ? histogramMedian(hLvMyo, lvMyoN) : 1;
   let gainScore = 1;
   const overgain = bloodMedian > BLOOD_OK;
-  if (overgain) gainScore -= Math.min(0.7, (GAIN_PENALTY_AT_FENCE * (bloodMedian - BLOOD_OK)) / (BLOOD_HINT - BLOOD_OK));
-  if (myoMedian < MYO_OK) gainScore -= Math.min(0.7, (GAIN_PENALTY_AT_FENCE * (MYO_OK - myoMedian)) / (MYO_OK - MYO_HINT));
+  if (overgain)
+    gainScore -= Math.min(
+      0.7,
+      (GAIN_PENALTY_AT_FENCE * (bloodMedian - BLOOD_OK)) / (BLOOD_HINT - BLOOD_OK),
+    );
+  if (myoMedian < MYO_OK)
+    gainScore -= Math.min(
+      0.7,
+      (GAIN_PENALTY_AT_FENCE * (MYO_OK - myoMedian)) / (MYO_OK - MYO_HINT),
+    );
   gainScore = Math.max(0, gainScore);
   const artifactsScore = Math.max(0, 1 - shadowFraction * 1.6);
 
   // candidate views in this window
   const candidates = VIEW_TARGETS.filter((v) => v.window === window);
-  const perView: { id: string; score: number; analysis: Partial<ViewAnalysis> & { components: ViewComponentScores } }[] = [];
+  const perView: {
+    id: string;
+    score: number;
+    analysis: Partial<ViewAnalysis> & { components: ViewComponentScores };
+  }[] = [];
   for (const view of candidates) {
     const plane = canonicalPlane(view, heart);
     // similarity is measured against the pose an expert can actually reach from this window in this
@@ -218,14 +259,18 @@ export function analyzeView(input: AnalyzeInput): ViewAnalysis {
     const canon = canonicalBeam(view, heart, input.thorax);
     const planeAngle = radToDeg(Math.acos(Math.min(1, Math.abs(dot(canon.normal, beam.normal)))));
     // in-plane rotation: compare the lateral axis with the canonical pose's lateral axis projected on the current plane
-    const rightProj = normalize(sub(canon.lateral, scaleV(beam.normal, dot(canon.lateral, beam.normal))));
+    const rightProj = normalize(
+      sub(canon.lateral, scaleV(beam.normal, dot(canon.lateral, beam.normal))),
+    );
     const inPlane = radToDeg(Math.acos(Math.min(1, Math.max(-1, dot(rightProj, beam.lateral)))));
     // offset: distance of the target from the beam centre line
     const d = sub(plane.target, beam.origin);
     const along = dot(d, beam.forward);
     const off = Math.hypot(dot(d, beam.lateral), dot(d, beam.normal));
     const tol = view.tolerance;
-    const planeScore = clamp01(1 - planeAngle / (tol.planeAngleDeg * 2)) * clamp01(1 - inPlane / (tol.inPlaneRotationDeg * 2.5));
+    const planeScore =
+      clamp01(1 - planeAngle / (tol.planeAngleDeg * 2)) *
+      clamp01(1 - inPlane / (tol.inPlaneRotationDeg * 2.5));
     // landmarks
     let got = 0,
       total = 0;
@@ -267,7 +312,8 @@ export function analyzeView(input: AnalyzeInput): ViewAnalysis {
     } else {
       // short axis: obliquity = deviation from perpendicular to the reference axis (LV long axis, or the
       // aortic root axis for the AV level); mild penalty because some obliquity is normal
-      const refAxis = view.id === 'psax-av' ? heartDirToTorso(heart.frame, heartRootAxis(heart)) : lvAxis;
+      const refAxis =
+        view.id === 'psax-av' ? heartDirToTorso(heart.frame, heartRootAxis(heart)) : lvAxis;
       const refAngle = radToDeg(Math.asin(Math.min(1, Math.abs(dot(refAxis, beam.normal)))));
       const obliquity = 90 - refAngle;
       geometryScore = clamp01(1 - Math.max(0, obliquity - 12) / 50);
@@ -275,7 +321,12 @@ export function analyzeView(input: AnalyzeInput): ViewAnalysis {
     }
     const centeringScore = clamp01(1 - off / 3.5) * (along > 0 ? 1 : 0);
     const [dLo, dHi] = view.recommendedDepthRangeCm;
-    const depthScore = settings.depthCm < dLo ? clamp01(1 - (dLo - settings.depthCm) / 5) : settings.depthCm > dHi ? clamp01(1 - (settings.depthCm - dHi) / 8) : 1;
+    const depthScore =
+      settings.depthCm < dLo
+        ? clamp01(1 - (dLo - settings.depthCm) / 5)
+        : settings.depthCm > dHi
+          ? clamp01(1 - (settings.depthCm - dHi) / 8)
+          : 1;
     const comps: ViewComponentScores = {
       plane: planeScore,
       landmarks: landmarkScore,
@@ -286,7 +337,8 @@ export function analyzeView(input: AnalyzeInput): ViewAnalysis {
       artifacts: artifactsScore,
     };
     let score = 0;
-    for (const k of Object.keys(WEIGHTS) as (keyof ViewComponentScores)[]) score += WEIGHTS[k] * comps[k];
+    for (const k of Object.keys(WEIGHTS) as (keyof ViewComponentScores)[])
+      score += WEIGHTS[k] * comps[k];
     // gates: a wrong plane cannot be rescued by landmarks that happen to be shared between views,
     // and a pose cannot score high with < 40% of its landmarks
     score *= 0.35 + 0.65 * planeScore;
@@ -311,13 +363,25 @@ export function analyzeView(input: AnalyzeInput): ViewAnalysis {
   const view = best ? VIEW_TARGETS.find((v) => v.id === best.id)! : null;
   const hints: string[] = [];
   if (!best || !view) {
-    hints.push(window === 'none' ? 'Sonda fuera de una ventana acústica útil: acércate al borde esternal izquierdo o al ápex.' : 'Ventana sin vistas definidas en esta versión.');
+    hints.push(
+      window === 'none'
+        ? 'Sonda fuera de una ventana acústica útil: acércate al borde esternal izquierdo o al ápex.'
+        : 'Ventana sin vistas definidas en esta versión.',
+    );
     return {
       window,
       bestViewId: null,
       bestViewName: '—',
       score: 0,
-      components: { plane: 0, landmarks: 0, geometry: 0, centering: 0, depth: 0, gain: gainScore, artifacts: artifactsScore },
+      components: {
+        plane: 0,
+        landmarks: 0,
+        geometry: 0,
+        centering: 0,
+        depth: 0,
+        gain: gainScore,
+        artifacts: artifactsScore,
+      },
       visibleLandmarks: [],
       missingLandmarks: [],
       penaltyLandmarksPresent: [],
@@ -332,17 +396,45 @@ export function analyzeView(input: AnalyzeInput): ViewAnalysis {
     };
   }
   const a = best.analysis;
-  hints.push(...poseHints(view, heart, input.thorax, control, a.planeAngleDeg ?? 0, a.inPlaneRotationDeg ?? 0, a.offsetCm ?? 0));
-  if (shadowFraction > 0.35) hints.push('Gran parte del corazón está en sombra: probablemente hay costilla o pulmón en el trayecto. Desplaza la sonda al espacio intercostal o pide espiración.');
-  if (heartCoverage < 0.08) hints.push('Casi no hay tejido cardíaco en el sector: reposiciona la sonda sobre la ventana.');
+  hints.push(
+    ...poseHints(
+      view,
+      heart,
+      input.thorax,
+      control,
+      a.planeAngleDeg ?? 0,
+      a.inPlaneRotationDeg ?? 0,
+      a.offsetCm ?? 0,
+    ),
+  );
+  if (shadowFraction > 0.35)
+    hints.push(
+      'Gran parte del corazón está en sombra: probablemente hay costilla o pulmón en el trayecto. Desplaza la sonda al espacio intercostal o pide espiración.',
+    );
+  if (heartCoverage < 0.08)
+    hints.push('Casi no hay tejido cardíaco en el sector: reposiciona la sonda sobre la ventana.');
   if ((a.missingLandmarks?.length ?? 0) > 0 && (a.planeAngleDeg ?? 0) < 12) {
-    const names = a.missingLandmarks!.slice(0, 3).map((id) => landmarks.find((l) => l.id === id)?.label ?? id);
+    const names = a
+      .missingLandmarks!.slice(0, 3)
+      .map((id) => landmarks.find((l) => l.id === id)?.label ?? id);
     hints.push(`Faltan referencias: ${names.join(', ')}.`);
   }
-  if (view.window === 'apical' && (a.foreshorteningDeg ?? 0) > 15) hints.push('El ápex está acortado: desplaza la sonda un espacio más abajo/lateral y angula hacia la base para alargar el VI.');
-  if (settings.depthCm > view.recommendedDepthRangeCm[1]) hints.push('Demasiada profundidad para esta vista: reduce la profundidad para ganar resolución y frame rate.');
-  if (settings.depthCm < view.recommendedDepthRangeCm[0]) hints.push('Profundidad insuficiente: las estructuras posteriores quedan fuera del sector.');
-  if (gainScore < 0.7) hints.push(overgain ? 'Exceso de ganancia: la sangre se aclara hacia el gris del miocardio. Baja la ganancia o ajusta TGC.' : 'Ganancia insuficiente: el miocardio se ve oscuro. Sube la ganancia.');
+  if (view.window === 'apical' && (a.foreshorteningDeg ?? 0) > 15)
+    hints.push(
+      'El ápex está acortado: desplaza la sonda un espacio más abajo/lateral y angula hacia la base para alargar el VI.',
+    );
+  if (settings.depthCm > view.recommendedDepthRangeCm[1])
+    hints.push(
+      'Demasiada profundidad para esta vista: reduce la profundidad para ganar resolución y frame rate.',
+    );
+  if (settings.depthCm < view.recommendedDepthRangeCm[0])
+    hints.push('Profundidad insuficiente: las estructuras posteriores quedan fuera del sector.');
+  if (gainScore < 0.7)
+    hints.push(
+      overgain
+        ? 'Exceso de ganancia: la sangre se aclara hacia el gris del miocardio. Baja la ganancia o ajusta TGC.'
+        : 'Ganancia insuficiente: el miocardio se ve oscuro. Sube la ganancia.',
+    );
   return {
     window,
     bestViewId: view.id,
@@ -369,12 +461,19 @@ function scaleV(v: Vec3, s: number): Vec3 {
 const clamp01 = (x: number): number => (x < 0 ? 0 : x > 1 ? 1 : x);
 
 /** Pose error used for hints: plane normal angle + lateral angle + target offset (radians/cm mix). */
-function poseError(view: ViewTarget, heart: HeartModel, thorax: ThoraxModel, c: ProbeControl): number {
+function poseError(
+  view: ViewTarget,
+  heart: HeartModel,
+  thorax: ThoraxModel,
+  c: ProbeControl,
+): number {
   const plane = canonicalPlane(view, heart);
   const canon = canonicalBeam(view, heart, thorax);
   const beam = beamFrameFromPose(poseFromControl(thorax, c));
   const e1 = Math.acos(Math.min(1, Math.abs(dot(canon.normal, beam.normal))));
-  const rightProj = normalize(sub(canon.lateral, scaleV(beam.normal, dot(canon.lateral, beam.normal))));
+  const rightProj = normalize(
+    sub(canon.lateral, scaleV(beam.normal, dot(canon.lateral, beam.normal))),
+  );
   const e2 = Math.acos(Math.min(1, Math.max(-1, dot(rightProj, beam.lateral))));
   const d = sub(plane.target, beam.origin);
   const off = Math.hypot(dot(d, beam.lateral), dot(d, beam.normal));
@@ -394,12 +493,40 @@ export function poseHints(
   const hints: string[] = [];
   if (planeAngleDeg < 8 && inPlaneDeg < 10 && offsetCm < 1.2) return hints;
   const base = poseError(view, heart, thorax, c);
-  const moves: { label: (d: number) => string; apply: (d: number) => ProbeControl; step: number }[] = [
-    { label: (d) => `Rota ${Math.abs(d)}° en sentido ${d > 0 ? 'horario' : 'antihorario'}`, apply: (d) => ({ ...c, rotationDeg: c.rotationDeg + d }), step: 10 },
-    { label: (d) => `Inclina (abanica) ${Math.abs(d)}° ${d > 0 ? 'hacia el marcador/arriba' : 'en sentido contrario/abajo'}`, apply: (d) => ({ ...c, tiltDeg: c.tiltDeg + d }), step: 8 },
-    { label: (d) => `Rockea ${Math.abs(d)}° ${d > 0 ? 'hacia el lado del marcador' : 'en contra del marcador'}`, apply: (d) => ({ ...c, rockDeg: c.rockDeg + d }), step: 8 },
-    { label: (d) => `Desliza ${Math.abs(d).toFixed(1)} cm ${d > 0 ? 'hacia la izquierda del paciente' : 'hacia el esternón'}`, apply: (d) => ({ ...c, u: c.u + d }), step: 1 },
-    { label: (d) => `Desliza ${Math.abs(d).toFixed(1)} cm ${d > 0 ? 'hacia la cabeza' : 'hacia los pies'} (otro espacio intercostal)`, apply: (d) => ({ ...c, v: c.v + d }), step: 1 },
+  const moves: {
+    label: (d: number) => string;
+    apply: (d: number) => ProbeControl;
+    step: number;
+  }[] = [
+    {
+      label: (d) => `Rota ${Math.abs(d)}° en sentido ${d > 0 ? 'horario' : 'antihorario'}`,
+      apply: (d) => ({ ...c, rotationDeg: c.rotationDeg + d }),
+      step: 10,
+    },
+    {
+      label: (d) =>
+        `Inclina (abanica) ${Math.abs(d)}° ${d > 0 ? 'hacia el marcador/arriba' : 'en sentido contrario/abajo'}`,
+      apply: (d) => ({ ...c, tiltDeg: c.tiltDeg + d }),
+      step: 8,
+    },
+    {
+      label: (d) =>
+        `Rockea ${Math.abs(d)}° ${d > 0 ? 'hacia el lado del marcador' : 'en contra del marcador'}`,
+      apply: (d) => ({ ...c, rockDeg: c.rockDeg + d }),
+      step: 8,
+    },
+    {
+      label: (d) =>
+        `Desliza ${Math.abs(d).toFixed(1)} cm ${d > 0 ? 'hacia la izquierda del paciente' : 'hacia el esternón'}`,
+      apply: (d) => ({ ...c, u: c.u + d }),
+      step: 1,
+    },
+    {
+      label: (d) =>
+        `Desliza ${Math.abs(d).toFixed(1)} cm ${d > 0 ? 'hacia la cabeza' : 'hacia los pies'} (otro espacio intercostal)`,
+      apply: (d) => ({ ...c, v: c.v + d }),
+      step: 1,
+    },
   ];
   const results: { gain: number; text: string }[] = [];
   for (const m of moves) {

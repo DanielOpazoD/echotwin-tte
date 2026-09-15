@@ -18,9 +18,16 @@ interface Comparison {
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('echotwin.prefs.v1', JSON.stringify({ tutorialDone: true })));
+  await page.addInitScript(() =>
+    localStorage.setItem('echotwin.prefs.v1', JSON.stringify({ tutorialDone: true })),
+  );
   await page.goto('/');
-  await page.waitForFunction(() => Boolean((window as unknown as { __echotwin?: { compareBackends?: unknown } }).__echotwin?.compareBackends));
+  await page.waitForFunction(() =>
+    Boolean(
+      (window as unknown as { __echotwin?: { compareBackends?: unknown } }).__echotwin
+        ?.compareBackends,
+    ),
+  );
 });
 
 const MATRIX: [string, string[], number[], ('low' | 'medium' | 'high')?, number?][] = [
@@ -41,10 +48,30 @@ const MATRIX: [string, string[], number[], ('low' | 'medium' | 'high')?, number?
 for (const [caseId, views, phases, tier, offsetV] of MATRIX) {
   for (const viewId of views) {
     for (const phase of phases) {
-      test(`${caseId} ${viewId} @${phase}${tier ? ` (${tier})` : ''}${offsetV ? ` probe v${offsetV > 0 ? '+' : ''}${offsetV}` : ''}: GPU frame matches the CPU reference`, async ({ page }) => {
+      test(`${caseId} ${viewId} @${phase}${tier ? ` (${tier})` : ''}${offsetV ? ` probe v${offsetV > 0 ? '+' : ''}${offsetV}` : ''}: GPU frame matches the CPU reference`, async ({
+        page,
+      }) => {
         const r = (await page.evaluate(
           ([v, p, c, t, o]) =>
-            (window as unknown as { __echotwin: { compareBackends: (v: string, p: number, c: string, t?: string, o?: number) => Comparison } }).__echotwin.compareBackends(v as string, p as number, c as string, t as string | undefined, o as number),
+            (
+              window as unknown as {
+                __echotwin: {
+                  compareBackends: (
+                    v: string,
+                    p: number,
+                    c: string,
+                    t?: string,
+                    o?: number,
+                  ) => Comparison;
+                };
+              }
+            ).__echotwin.compareBackends(
+              v as string,
+              p as number,
+              c as string,
+              t as string | undefined,
+              o as number,
+            ),
           [viewId, phase, caseId, tier ?? 'medium', offsetV ?? 0] as const,
         )) as Comparison;
         expect(r.error, 'WebGL2 must be available in the test browser').toBeUndefined();
@@ -79,13 +106,47 @@ interface ChainComparison {
 }
 const CHAIN: [string, string, number, 'medium' | 'high', Record<string, unknown>][] = [
   ['normal-excellent-window', 'plax', 0.35, 'medium', {}],
-  ['normal-excellent-window', 'a4c', 0, 'high', { grayMap: 'high-contrast', edgeEnhance: 0.6, persistence: 0.6, gainDb: 6, tgcDb: [0, 2, 4, 6, 6, 4, 2, 0], dynamicRangeDb: 45 }],
-  ['aortic-stenosis-severe', 'psax-av', 0.2, 'medium', { grayMap: 'linear', edgeEnhance: 0, persistence: 0, gainDb: -8, depthCm: 20 }],
+  [
+    'normal-excellent-window',
+    'a4c',
+    0,
+    'high',
+    {
+      grayMap: 'high-contrast',
+      edgeEnhance: 0.6,
+      persistence: 0.6,
+      gainDb: 6,
+      tgcDb: [0, 2, 4, 6, 6, 4, 2, 0],
+      dynamicRangeDb: 45,
+    },
+  ],
+  [
+    'aortic-stenosis-severe',
+    'psax-av',
+    0.2,
+    'medium',
+    { grayMap: 'linear', edgeEnhance: 0, persistence: 0, gainDb: -8, depthCm: 20 },
+  ],
 ];
 for (const [caseId, viewId, phase, tier, overrides] of CHAIN) {
-  test(`${caseId} ${viewId} @${phase} (${tier}): GPU console and present pass match the CPU image chain`, async ({ page }) => {
+  test(`${caseId} ${viewId} @${phase} (${tier}): GPU console and present pass match the CPU image chain`, async ({
+    page,
+  }) => {
     const r = (await page.evaluate(
-      ([v, p, c, t, o]) => (window as unknown as { __echotwin: { compareImageChain: (v: string, p: number, c: string, t: string, o: unknown) => ChainComparison } }).__echotwin.compareImageChain(v as string, p as number, c as string, t as string, o),
+      ([v, p, c, t, o]) =>
+        (
+          window as unknown as {
+            __echotwin: {
+              compareImageChain: (
+                v: string,
+                p: number,
+                c: string,
+                t: string,
+                o: unknown,
+              ) => ChainComparison;
+            };
+          }
+        ).__echotwin.compareImageChain(v as string, p as number, c as string, t as string, o),
       [viewId, phase, caseId, tier, overrides] as const,
     )) as ChainComparison;
     expect(r.error, 'WebGL2 must be available in the test browser').toBeUndefined();
@@ -95,7 +156,10 @@ for (const [caseId, viewId, phase, tier, overrides] of CHAIN) {
       const label = `frame ${f} (${r.framePaths[f]})`;
       expect(r.displayMeanAbsDiff[f], `${label} mean grey difference`).toBeLessThan(0.05);
       expect(r.displayMaxDiff[f], `${label} largest grey difference`).toBeLessThanOrEqual(2);
-      expect(r.displayFracOver1[f], `${label} samples differing by more than one grey level`).toBeLessThan(0.001);
+      expect(
+        r.displayFracOver1[f],
+        `${label} samples differing by more than one grey level`,
+      ).toBeLessThan(0.001);
     }
     expect(r.idsAgreement).toBe(1);
     expect(r.transMaxRelErr).toBeLessThan(0.02);

@@ -13,7 +13,10 @@ export function GuidancePanel() {
   if (mode === 'exam') {
     return (
       <div className="guidance">
-        <div className="small">Modo examen: sin ayudas de vista ni verdad de terreno. Adquiere, mide e informa; la puntuación se entrega al final.</div>
+        <div className="small">
+          Modo examen: sin ayudas de vista ni verdad de terreno. Adquiere, mide e informa; la
+          puntuación se entrega al final.
+        </div>
       </div>
     );
   }
@@ -38,7 +41,10 @@ export function GuidancePanel() {
         <span>
           {v.bestViewName}
           <br />
-          <span className="small">ventana: {v.window}{v.foreshorteningDeg > 0.5 ? ` · acortamiento ${v.foreshorteningDeg.toFixed(0)}°` : ''}</span>
+          <span className="small">
+            ventana: {v.window}
+            {v.foreshorteningDeg > 0.5 ? ` · acortamiento ${v.foreshorteningDeg.toFixed(0)}°` : ''}
+          </span>
         </span>
       </div>
       {targetId && (

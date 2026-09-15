@@ -36,7 +36,12 @@ export interface ThoraxModel {
   ivcCollapse: number;
 }
 
-export function createThoraxModel(habitus: BodyHabitusConfig, window: AcousticWindowConfig, patient: PatientState, ivcCollapsePct = 0): ThoraxModel {
+export function createThoraxModel(
+  habitus: BodyHabitusConfig,
+  window: AcousticWindowConfig,
+  patient: PatientState,
+  ivcCollapsePct = 0,
+): ThoraxModel {
   const ribRadius = Math.max(0.35, (habitus.ribSpacingCm - habitus.intercostalWidthCm) / 2);
   let lungShift = window.lungOverlapCm;
   const heartOffset = v3(0, 0, 0);
@@ -177,7 +182,13 @@ export function isAnteriorLung(t: ThoraxModel, x: number, y: number, z: number):
 }
 
 /** Classify a torso-frame point that is NOT inside the heart. Returns false for air outside the body. */
-export function classifyThorax(t: ThoraxModel, x: number, y: number, z: number, out: TissueSample): boolean {
+export function classifyThorax(
+  t: ThoraxModel,
+  x: number,
+  y: number,
+  z: number,
+  out: TissueSample,
+): boolean {
   const zs = skinZ(t, x, y);
   const depth = zs - z; // depth below skin along z
   if (depth < 0) {

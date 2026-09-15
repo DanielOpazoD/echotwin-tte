@@ -1,14 +1,40 @@
 import type { BeamFrame } from '@/simulator/probe/pose';
-import type { AcquisitionSettings, DisplayConsole, PolarFrame, PolarFrameSpec, RenderHints, RendererBackend, Scene } from '../types';
+import type {
+  AcquisitionSettings,
+  DisplayConsole,
+  PolarFrame,
+  PolarFrameSpec,
+  RenderHints,
+  RendererBackend,
+  Scene,
+} from '../types';
 import { TISSUE_PROPS } from '@/simulator/anatomy/tissue';
 import { noiseLattice } from '@/core/noise';
 import { GLSL_COMMON } from './glslCommon';
 import { GLSL_HEART } from './glslHeart';
 import { GLSL_THORAX } from './glslThorax';
-import { GLSL_PASS_A_MAIN, GLSL_PASS_B_MAIN, GLSL_PASS_C_MAIN, GLSL_PASS_D_MAIN, GLSL_VERT } from './glslPasses';
+import {
+  GLSL_PASS_A_MAIN,
+  GLSL_PASS_B_MAIN,
+  GLSL_PASS_C_MAIN,
+  GLSL_PASS_D_MAIN,
+  GLSL_VERT,
+} from './glslPasses';
 import { allocPacked, packScene, PARAM_TEXELS, type PackedScene } from './paramLayout';
-import { buildNoiseKernels, buildPsfKernels, LATERAL_TAPS, MAX_LATERAL_RADIUS, psfKey, type PsfKernels } from '../acoustic/psf';
-import { GLSL_CONSOLE_FRAG, GLSL_NOISE_AXIAL_FRAG, GLSL_NOISE_LATERAL_FRAG, GLSL_PRESENT_FRAG } from './glslImage';
+import {
+  buildNoiseKernels,
+  buildPsfKernels,
+  LATERAL_TAPS,
+  MAX_LATERAL_RADIUS,
+  psfKey,
+  type PsfKernels,
+} from '../acoustic/psf';
+import {
+  GLSL_CONSOLE_FRAG,
+  GLSL_NOISE_AXIAL_FRAG,
+  GLSL_NOISE_LATERAL_FRAG,
+  GLSL_PRESENT_FRAG,
+} from './glslImage';
 import { consoleCompensation, type ConsoleState } from '../postprocess/consolePipeline';
 import { TRANS_DECODE } from '../transmissionCode';
 import { packScanLutTexels, type ScanLut } from '../scanConvert';
@@ -32,12 +58,38 @@ export interface PresentRequest {
   readback?: Uint8Array;
 }
 
-const CONSOLE_UNIFORMS = ['uEnv', 'uIds', 'uComp', 'uHist', 'uNoise', 'uSamples', 'uDynRange', 'uEdge', 'uPersist', 'uGrayMap'] as const;
+const CONSOLE_UNIFORMS = [
+  'uEnv',
+  'uIds',
+  'uComp',
+  'uHist',
+  'uNoise',
+  'uSamples',
+  'uDynRange',
+  'uEdge',
+  'uPersist',
+  'uGrayMap',
+] as const;
 const NOISE_AXIAL_UNIFORMS = ['uKernels', 'uSamples', 'uSeed', 'uFrameIndex'] as const;
 const NOISE_LATERAL_UNIFORMS = ['uNoiseAx', 'uKernels', 'uLines'] as const;
-const PRESENT_UNIFORMS = ['uPacked', 'uLut', 'uColor', 'uPolar', 'uHeightPx', 'uLines', 'uSamples', 'uColorOn', 'uBox', 'uColorMap'] as const;
+const PRESENT_UNIFORMS = [
+  'uPacked',
+  'uLut',
+  'uColor',
+  'uPolar',
+  'uHeightPx',
+  'uLines',
+  'uSamples',
+  'uColorOn',
+  'uBox',
+  'uColorMap',
+] as const;
 type Locations<T extends readonly string[]> = Record<T[number], WebGLUniformLocation | null>;
-function uniformLocations<T extends readonly string[]>(gl: WebGL2RenderingContext, prog: WebGLProgram, names: T): Locations<T> {
+function uniformLocations<T extends readonly string[]>(
+  gl: WebGL2RenderingContext,
+  prog: WebGLProgram,
+  names: T,
+): Locations<T> {
   const o: Record<string, WebGLUniformLocation | null> = {};
   for (const n of names) o[n] = gl.getUniformLocation(prog, n);
   return o as Locations<T>;
@@ -49,7 +101,8 @@ let noiseKernelMemo: PsfKernels | null = null;
 /** The noise response of a frame geometry, rebuilt only when the geometry or the probe settings change. */
 function buildNoiseKernelsCached(spec: PolarFrameSpec, settings: AcquisitionSettings): PsfKernels {
   const key = `noise|${psfKey(spec, settings.frequencyMHz, settings.harmonics, 0)}`;
-  if (noiseKernelMemo?.key !== key) noiseKernelMemo = buildNoiseKernels(spec, settings.frequencyMHz, settings.harmonics);
+  if (noiseKernelMemo?.key !== key)
+    noiseKernelMemo = buildNoiseKernels(spec, settings.frequencyMHz, settings.harmonics);
   return noiseKernelMemo;
 }
 
@@ -155,7 +208,11 @@ export class Webgl2Renderer implements RendererBackend {
     const ext = gl.getExtension('EXT_color_buffer_float');
     if (!ext) throw new Error('EXT_color_buffer_float unavailable');
     const common = `#version 300 es\n${GLSL_COMMON}`;
-    this.progA = buildProgram(gl, GLSL_VERT, `${common}${GLSL_HEART}${GLSL_THORAX}${GLSL_PASS_A_MAIN}`);
+    this.progA = buildProgram(
+      gl,
+      GLSL_VERT,
+      `${common}${GLSL_HEART}${GLSL_THORAX}${GLSL_PASS_A_MAIN}`,
+    );
     this.progB = buildProgram(gl, GLSL_VERT, `${common}${GLSL_PASS_B_MAIN}`);
     this.progC = buildProgram(gl, GLSL_VERT, `${common}${GLSL_PASS_C_MAIN}`);
     this.progD = buildProgram(gl, GLSL_VERT, `${common}${GLSL_PASS_D_MAIN}`);
@@ -235,7 +292,14 @@ export class Webgl2Renderer implements RendererBackend {
   }
 
   stats(): Record<string, number | string> {
-    return { renderMs: Number(this.lastMs.toFixed(2)), gpuMs: Number(this.lastGpuMs.toFixed(2)), readMs: Number(this.lastReadMs.toFixed(2)), presentMs: Number(this.lastPresentMs.toFixed(2)), output: this.lastOutput, gpu: 'webgl2' };
+    return {
+      renderMs: Number(this.lastMs.toFixed(2)),
+      gpuMs: Number(this.lastGpuMs.toFixed(2)),
+      readMs: Number(this.lastReadMs.toFixed(2)),
+      presentMs: Number(this.lastPresentMs.toFixed(2)),
+      output: this.lastOutput,
+      gpu: 'webgl2',
+    };
   }
 
   /** Frees every GL object and the context itself; afterwards `render` throws and the other entry points decline. */
@@ -243,30 +307,91 @@ export class Webgl2Renderer implements RendererBackend {
     if (this.disposed) return;
     this.disposed = true;
     const gl = this.gl;
-    for (const p of [this.progA, this.progB, this.progC, this.progD, this.progConsole, this.progPresent, this.progNoiseA, this.progNoiseL]) gl.deleteProgram(p);
+    for (const p of [
+      this.progA,
+      this.progB,
+      this.progC,
+      this.progD,
+      this.progConsole,
+      this.progPresent,
+      this.progNoiseA,
+      this.progNoiseL,
+    ])
+      gl.deleteProgram(p);
     for (const t of [this.compTex, this.lutTex, this.colorTex, this.polarTex]) gl.deleteTexture(t);
     gl.deleteTexture(this.paramsTex);
     gl.deleteTexture(this.noiseTex);
     gl.deleteTexture(this.psfTex);
     gl.deleteTexture(this.noiseKernelTex);
     this.disposeTargets();
-    this.compKey = this.lutKeyUploaded = this.colorKey = this.polarKeyUploaded = this.psfKeyUploaded = this.noiseKernelKey = '';
+    this.compKey =
+      this.lutKeyUploaded =
+      this.colorKey =
+      this.polarKeyUploaded =
+      this.psfKeyUploaded =
+      this.noiseKernelKey =
+        '';
     this.noiseSeed = NaN;
     (gl.getExtension('WEBGL_lose_context') as { loseContext: () => void } | null)?.loseContext();
   }
 
   private disposeTargets(): void {
     const gl = this.gl;
-    for (const t of [this.texA0, this.texA1, this.texA2, this.texS0, this.texS1, this.texSC0, this.texSC1, this.texSIds, this.texB0, this.texB1, this.texC0, this.texD0, this.texNA, this.texNL, ...this.texHist, this.texPacked]) if (t) gl.deleteTexture(t);
-    for (const f of [this.fbA, this.fbS0, this.fbS1, this.fbB, this.fbC, this.fbD, this.fbNA, this.fbNL, ...this.fbConsole]) if (f) gl.deleteFramebuffer(f);
+    for (const t of [
+      this.texA0,
+      this.texA1,
+      this.texA2,
+      this.texS0,
+      this.texS1,
+      this.texSC0,
+      this.texSC1,
+      this.texSIds,
+      this.texB0,
+      this.texB1,
+      this.texC0,
+      this.texD0,
+      this.texNA,
+      this.texNL,
+      ...this.texHist,
+      this.texPacked,
+    ])
+      if (t) gl.deleteTexture(t);
+    for (const f of [
+      this.fbA,
+      this.fbS0,
+      this.fbS1,
+      this.fbB,
+      this.fbC,
+      this.fbD,
+      this.fbNA,
+      this.fbNL,
+      ...this.fbConsole,
+    ])
+      if (f) gl.deleteFramebuffer(f);
     this.texHist = [null, null];
     this.fbConsole = [null, null];
     this.texPacked = null;
     this.histValid = false;
     this.packedFresh = false;
-    this.texA0 = this.texA1 = this.texA2 = this.texS0 = this.texS1 = this.texSC0 = this.texSC1 = this.texSIds = null;
+    this.texA0 =
+      this.texA1 =
+      this.texA2 =
+      this.texS0 =
+      this.texS1 =
+      this.texSC0 =
+      this.texSC1 =
+      this.texSIds =
+        null;
     this.texB0 = this.texB1 = this.texC0 = this.texD0 = this.texNA = this.texNL = null;
-    this.fbA = this.fbS0 = this.fbS1 = this.fbB = this.fbC = this.fbD = this.fbNA = this.fbNL = null;
+    this.fbA =
+      this.fbS0 =
+      this.fbS1 =
+      this.fbB =
+      this.fbC =
+      this.fbD =
+      this.fbNA =
+      this.fbNL =
+        null;
   }
 
   private ensureNoise(seed: number): void {
@@ -317,11 +442,13 @@ export class Webgl2Renderer implements RendererBackend {
     const rows = spec.samples + 1;
     const data = new Float32Array(LATERAL_TAPS * rows * 4);
     const c = MAX_LATERAL_RADIUS;
-    for (let j = -k.axialRadius; j <= k.axialRadius; j++) data[(c + j) * 4] = k.axial[j + k.axialRadius]!;
+    for (let j = -k.axialRadius; j <= k.axialRadius; j++)
+      data[(c + j) * 4] = k.axial[j + k.axialRadius]!;
     data[c * 4 + 1] = k.axialRadius;
     for (let si = 0; si < spec.samples; si++) {
       const row = (si + 1) * LATERAL_TAPS;
-      for (let t = 0; t < LATERAL_TAPS; t++) data[(row + t) * 4] = k.lateral[si * LATERAL_TAPS + t]!;
+      for (let t = 0; t < LATERAL_TAPS; t++)
+        data[(row + t) * 4] = k.lateral[si * LATERAL_TAPS + t]!;
       data[(row + c) * 4 + 1] = k.lateralRadius[si]!;
     }
     const gl = this.gl;
@@ -451,7 +578,13 @@ export class Webgl2Renderer implements RendererBackend {
     this.gl.bindTexture(this.gl.TEXTURE_2D, tex);
   }
 
-  render(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, _phase: number, out: PolarFrame): void {
+  render(
+    scene: Scene,
+    beam: BeamFrame,
+    spec: PolarFrameSpec,
+    _phase: number,
+    out: PolarFrame,
+  ): void {
     if (this.disposed) throw new Error('Webgl2Renderer used after dispose');
     const t0 = performance.now();
     const gl = this.gl;
@@ -493,7 +626,16 @@ export class Webgl2Renderer implements RendererBackend {
    * whose packed RGBA8 output (grey, structure, tissue, transmission code) is the only read-back. The envelope
    * amplitude stays on the GPU. Advances the console state exactly like `applyConsole`.
    */
-  renderDisplay(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, _phase: number, out: PolarFrame, _hints: RenderHints | undefined, con: DisplayConsole, display: Uint8ClampedArray): boolean {
+  renderDisplay(
+    scene: Scene,
+    beam: BeamFrame,
+    spec: PolarFrameSpec,
+    _phase: number,
+    out: PolarFrame,
+    _hints: RenderHints | undefined,
+    con: DisplayConsole,
+    display: Uint8ClampedArray,
+  ): boolean {
     const gl = this.gl;
     if (this.disposed || gl.isContextLost()) return false;
     const t0 = performance.now();
@@ -532,7 +674,16 @@ export class Webgl2Renderer implements RendererBackend {
     gl.uniform1f(u.uDynRange, s.dynamicRangeDb);
     gl.uniform1f(u.uEdge, s.edgeEnhance > 0 ? s.edgeEnhance * 0.8 : 0);
     gl.uniform1f(u.uPersist, useHistory ? s.persistence : 0);
-    gl.uniform1i(u.uGrayMap, s.grayMap === 's-curve' ? 1 : s.grayMap === 'high-contrast' ? 2 : s.grayMap === 'clinical' ? 3 : 0);
+    gl.uniform1i(
+      u.uGrayMap,
+      s.grayMap === 's-curve'
+        ? 1
+        : s.grayMap === 'high-contrast'
+          ? 2
+          : s.grayMap === 'clinical'
+            ? 3
+            : 0,
+    );
     this.bindAt(2, this.texD0);
     this.bindAt(3, this.texB1);
     this.bindAt(4, this.compTex);
@@ -614,11 +765,15 @@ export class Webgl2Renderer implements RendererBackend {
     if (req.readback) {
       const tmp = new Uint8Array(W * H * 4);
       gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, tmp);
-      for (let y = 0; y < H; y++) req.readback.set(tmp.subarray((H - 1 - y) * W * 4, (H - y) * W * 4), y * W * 4);
+      for (let y = 0; y < H; y++)
+        req.readback.set(tmp.subarray((H - 1 - y) * W * 4, (H - y) * W * 4), y * W * 4);
       this.lastPresentMs = performance.now() - t0;
       return null;
     }
-    const bitmap = typeof OffscreenCanvas !== 'undefined' && canvas instanceof OffscreenCanvas ? canvas.transferToImageBitmap() : null;
+    const bitmap =
+      typeof OffscreenCanvas !== 'undefined' && canvas instanceof OffscreenCanvas
+        ? canvas.transferToImageBitmap()
+        : null;
     this.lastPresentMs = performance.now() - t0;
     return bitmap;
   }
@@ -633,7 +788,8 @@ export class Webgl2Renderer implements RendererBackend {
     const gl = this.gl;
     const w = spec.samples,
       h = spec.lines;
-    if (this.disposed || gl.isContextLost() || !this.histValid || this.fbW !== w || this.fbH !== h) return;
+    if (this.disposed || gl.isContextLost() || !this.histValid || this.fbW !== w || this.fbH !== h)
+      return;
     const n = w * h;
     if (this.histUpload.length !== n * 4) this.histUpload = new Float32Array(n * 4);
     const t = this.histUpload;
@@ -678,7 +834,17 @@ export class Webgl2Renderer implements RendererBackend {
     this.lutTexels = packScanLutTexels(lut, this.lutTexels);
     const gl = this.gl;
     this.bindAt(UPLOAD_UNIT, this.lutTex);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16UI, W, H, 0, gl.RGBA_INTEGER, gl.UNSIGNED_SHORT, this.lutTexels);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA16UI,
+      W,
+      H,
+      0,
+      gl.RGBA_INTEGER,
+      gl.UNSIGNED_SHORT,
+      this.lutTexels,
+    );
     this.bindAt(UPLOAD_UNIT, null);
     this.lutKeyUploaded = lut.key;
   }
@@ -765,8 +931,12 @@ function buildProgram(gl: WebGL2RenderingContext, vs: string, fs: string): WebGL
 
 /** Renderer string of a WebGL context, unmasked when the browser exposes it. */
 export function webglRendererName(gl: WebGL2RenderingContext): string {
-  const dbg = gl.getExtension('WEBGL_debug_renderer_info') as { UNMASKED_RENDERER_WEBGL: number } | null;
-  const name: unknown = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+  const dbg = gl.getExtension('WEBGL_debug_renderer_info') as {
+    UNMASKED_RENDERER_WEBGL: number;
+  } | null;
+  const name: unknown = dbg
+    ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL)
+    : gl.getParameter(gl.RENDERER);
   return typeof name === 'string' ? name : '';
 }
 
@@ -779,11 +949,26 @@ const SOFTWARE_GL = /swiftshader|llvmpipe|softpipe|software|basic render/i;
  * `allowSoftware` is set: a software rasteriser compiles the classifier in 20–60 s and needs hundreds of
  * milliseconds per frame, so the CPU tracer is faster there (decision 53). The reason is reported.
  */
-export function createWebgl2Renderer(canvas?: OffscreenCanvas | HTMLCanvasElement, options: { allowSoftware?: boolean } = {}): { renderer: Webgl2Renderer | null; reason: string } {
+export function createWebgl2Renderer(
+  canvas?: OffscreenCanvas | HTMLCanvasElement,
+  options: { allowSoftware?: boolean } = {},
+): { renderer: Webgl2Renderer | null; reason: string } {
   try {
-    const c = canvas ?? (typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(4, 4) : typeof document !== 'undefined' ? document.createElement('canvas') : null);
+    const c =
+      canvas ??
+      (typeof OffscreenCanvas !== 'undefined'
+        ? new OffscreenCanvas(4, 4)
+        : typeof document !== 'undefined'
+          ? document.createElement('canvas')
+          : null);
     if (!c) return { renderer: null, reason: 'no canvas available' };
-    const gl = c.getContext('webgl2', { antialias: false, depth: false, stencil: false, preserveDrawingBuffer: false, premultipliedAlpha: false }) as WebGL2RenderingContext | null;
+    const gl = c.getContext('webgl2', {
+      antialias: false,
+      depth: false,
+      stencil: false,
+      preserveDrawingBuffer: false,
+      premultipliedAlpha: false,
+    }) as WebGL2RenderingContext | null;
     if (!gl) return { renderer: null, reason: 'WebGL2 unavailable' };
     const name = webglRendererName(gl);
     if (!options.allowSoftware && SOFTWARE_GL.test(name)) {

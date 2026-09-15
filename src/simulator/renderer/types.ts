@@ -70,7 +70,13 @@ export interface PolarFrame {
 
 export function allocPolarFrame(spec: PolarFrameSpec): PolarFrame {
   const n = spec.lines * spec.samples;
-  return { spec, amplitude: new Float32Array(n), structure: new Uint8Array(n), transmission: new Float32Array(n), tissue: new Uint8Array(n) };
+  return {
+    spec,
+    amplitude: new Float32Array(n),
+    structure: new Uint8Array(n),
+    transmission: new Float32Array(n),
+    tissue: new Uint8Array(n),
+  };
 }
 
 export interface ScenePhysics {
@@ -114,24 +120,53 @@ export interface DisplayConsole {
 
 export interface RendererBackend {
   readonly id: 'atlas' | 'procedural' | 'webgl2-procedural' | 'webgpu-procedural' | 'remote-cuda';
-  render(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, phase: number, out: PolarFrame, hints?: RenderHints): void;
+  render(
+    scene: Scene,
+    beam: BeamFrame,
+    spec: PolarFrameSpec,
+    phase: number,
+    out: PolarFrame,
+    hints?: RenderHints,
+  ): void;
   /**
    * Optional: render and form the displayed polar image in one go (GPU console, decision 54). Fills `display`
    * and the structure, tissue and transmission maps of `out` (not the amplitude) and advances the console
    * state. Returns false when this frame cannot be formed that way; the caller then uses `render` and the CPU
    * console.
    */
-  renderDisplay?(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, phase: number, out: PolarFrame, hints: RenderHints | undefined, console: DisplayConsole, display: Uint8ClampedArray): boolean;
+  renderDisplay?(
+    scene: Scene,
+    beam: BeamFrame,
+    spec: PolarFrameSpec,
+    phase: number,
+    out: PolarFrame,
+    hints: RenderHints | undefined,
+    console: DisplayConsole,
+    display: Uint8ClampedArray,
+  ): boolean;
   /** Optional diagnostics for the dev HUD. */
   stats(): Record<string, number | string>;
   dispose(): void;
 }
 
-export function polarSpecFor(settings: AcquisitionSettings, tier: 'low' | 'medium' | 'high'): PolarFrameSpec {
-  const baseLines = settings.lineDensity === 'low' ? 64 : settings.lineDensity === 'high' ? 160 : 112;
+export function polarSpecFor(
+  settings: AcquisitionSettings,
+  tier: 'low' | 'medium' | 'high',
+): PolarFrameSpec {
+  const baseLines =
+    settings.lineDensity === 'low' ? 64 : settings.lineDensity === 'high' ? 160 : 112;
   const tierMul = tier === 'low' ? 0.75 : tier === 'high' ? 1.35 : 1;
   const lines = Math.round((baseLines * tierMul * settings.sectorDeg) / 75);
-  const samples = Math.round((tier === 'low' ? 160 : tier === 'high' ? 320 : 224) * Math.sqrt(settings.depthCm / 16));
+  const samples = Math.round(
+    (tier === 'low' ? 160 : tier === 'high' ? 320 : 224) * Math.sqrt(settings.depthCm / 16),
+  );
   // slice-thickness averaging triples the classification work, so it is reserved for the high tier (GPU / offline)
-  return { lines: Math.max(32, lines), samples: Math.max(96, samples), sectorRad: (settings.sectorDeg * Math.PI) / 180, depthCm: settings.depthCm, elevationSamples: tier === 'high' ? 3 : 1, focusCm: settings.focusCm };
+  return {
+    lines: Math.max(32, lines),
+    samples: Math.max(96, samples),
+    sectorRad: (settings.sectorDeg * Math.PI) / 180,
+    depthCm: settings.depthCm,
+    elevationSamples: tier === 'high' ? 3 : 1,
+    focusCm: settings.focusCm,
+  };
 }

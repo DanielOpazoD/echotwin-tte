@@ -1,9 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import type { ImageStats } from '@/clinical/regionStats';
 import { apicalGeometry, type ApicalGeometry } from '@/clinical/apicalGeometry';
-import { CAMUS_GOOD_GEOMETRY, type ApicalGeometryMetric } from '@/clinical/reference-values/camusApicalGeometry';
+import {
+  CAMUS_GOOD_GEOMETRY,
+  type ApicalGeometryMetric,
+} from '@/clinical/reference-values/camusApicalGeometry';
 import { CAMUS_GOOD, type CamusMetric } from '@/clinical/reference-values/camusImageStats';
-import { apicalStats, meanStat, NOISE_REALIZATIONS, presentApical, renderApicalRealizations, type ApicalRender } from './clinicalImage';
+import {
+  apicalStats,
+  meanStat,
+  NOISE_REALIZATIONS,
+  presentApical,
+  renderApicalRealizations,
+  type ApicalRender,
+} from './clinicalImage';
 
 /**
  * The simulator against clinical optimal-window images (decisions 70 and 74). The excellent-window case, rendered and
@@ -39,7 +49,8 @@ const CONDITIONS = [
 const renders = new Map<string, ApicalRender[]>();
 const renderOnce = (view: 'a4c' | 'a2c', ed: boolean): ApicalRender[] => {
   const key = `${view}|${ed}`;
-  if (!renders.has(key)) renders.set(key, renderApicalRealizations('normal-excellent-window', view, ed));
+  if (!renders.has(key))
+    renders.set(key, renderApicalRealizations('normal-excellent-window', view, ed));
   return renders.get(key)!;
 };
 
@@ -138,19 +149,29 @@ const KNOWN_GEOMETRY_DEVIATIONS: ReadonlyMap<string, number> = new Map([
 ]);
 
 /** Signed distance outside the quartiles in quartile widths: negative below p25, positive above p75, 0 inside. */
-const outsideQuartiles = (v: number, q: { p25: number; p75: number }): number => (v < q.p25 ? (v - q.p25) / (q.p75 - q.p25) : v > q.p75 ? (v - q.p75) / (q.p75 - q.p25) : 0);
+const outsideQuartiles = (v: number, q: { p25: number; p75: number }): number =>
+  v < q.p25 ? (v - q.p25) / (q.p75 - q.p25) : v > q.p75 ? (v - q.p75) / (q.p75 - q.p25) : 0;
 
 /** Undeclared, stale and moved entries of one condition's measured values against a reference and its declarations. */
-function audit(key: string, values: [string, number, { p25: number; p75: number; median: number }][], declared: ReadonlyMap<string, number>, out: { outside: string[]; stale: string[]; moved: string[] }): void {
+function audit(
+  key: string,
+  values: [string, number, { p25: number; p75: number; median: number }][],
+  declared: ReadonlyMap<string, number>,
+  out: { outside: string[]; stale: string[]; moved: string[] },
+): void {
   for (const [metric, v, q] of values) {
     const raw = outsideQuartiles(v, q);
     const d = Math.abs(raw) < QUARTILE_EDGE ? 0 : raw;
     const id = `${key}:${metric}`;
     const baseline = declared.get(id);
-    if (d !== 0 && baseline === undefined) out.outside.push(`${id} = ${v.toFixed(2)} outside [${q.p25}, ${q.p75}] (median ${q.median})`);
-    if (d === 0 && baseline !== undefined) out.stale.push(`${id} = ${v.toFixed(2)} is inside [${q.p25}, ${q.p75}]`);
+    if (d !== 0 && baseline === undefined)
+      out.outside.push(`${id} = ${v.toFixed(2)} outside [${q.p25}, ${q.p75}] (median ${q.median})`);
+    if (d === 0 && baseline !== undefined)
+      out.stale.push(`${id} = ${v.toFixed(2)} is inside [${q.p25}, ${q.p75}]`);
     if (d !== 0 && baseline !== undefined && Math.abs(d - baseline) > BASELINE_TOLERANCE)
-      out.moved.push(`${id} = ${v.toFixed(2)}: ${d.toFixed(2)} quartile widths outside against a baseline of ${baseline} (${Math.abs(d) > Math.abs(baseline) ? 'regression' : 'improvement: lower the baseline'})`);
+      out.moved.push(
+        `${id} = ${v.toFixed(2)}: ${d.toFixed(2)} quartile widths outside against a baseline of ${baseline} (${Math.abs(d) > Math.abs(baseline) ? 'regression' : 'improvement: lower the baseline'})`,
+      );
   }
 }
 
@@ -158,30 +179,67 @@ describe('the default console against clinical optimal-window images (CAMUS Good
   it('declared deviations name real conditions and metrics', () => {
     const real = new Set(CONDITIONS.flatMap(([k]) => CHECKED.map(([m]) => `${k}:${m}`)));
     expect([...KNOWN_DEVIATIONS.keys()].filter((d) => !real.has(d))).toEqual([]);
-    const realGeometry = new Set(CONDITIONS.flatMap(([k]) => Object.keys(CAMUS_GOOD_GEOMETRY[k]).map((m) => `${k}:${m}`)));
+    const realGeometry = new Set(
+      CONDITIONS.flatMap(([k]) => Object.keys(CAMUS_GOOD_GEOMETRY[k]).map((m) => `${k}:${m}`)),
+    );
     expect([...KNOWN_GEOMETRY_DEVIATIONS.keys()].filter((d) => !realGeometry.has(d))).toEqual([]);
-    expect([...KNOWN_GEOMETRY_DEVIATIONS.entries()].filter(([, b]) => Math.abs(b) < QUARTILE_EDGE)).toEqual([]);
+    expect(
+      [...KNOWN_GEOMETRY_DEVIATIONS.entries()].filter(([, b]) => Math.abs(b) < QUARTILE_EDGE),
+    ).toEqual([]);
     // a baseline states which side of the quartiles the deviation is on
-    expect([...KNOWN_DEVIATIONS.entries()].filter(([, b]) => Math.abs(b) < QUARTILE_EDGE)).toEqual([]);
+    expect([...KNOWN_DEVIATIONS.entries()].filter(([, b]) => Math.abs(b) < QUARTILE_EDGE)).toEqual(
+      [],
+    );
   });
 
-  it('apical grey levels, contrast and texture fall inside the clinical interquartile range', { timeout: 360_000 }, () => {
-    const out = { outside: [] as string[], stale: [] as string[], moved: [] as string[] };
-    for (const [key, view, ed] of CONDITIONS) {
-      const stats = renderOnce(view, ed).flatMap((r) => apicalStats(r));
-      audit(key, CHECKED.map(([metric, get]) => [metric, meanStat(stats, get), CAMUS_GOOD[key][metric]]), KNOWN_DEVIATIONS, out);
-    }
-    // one assertion, so a failure lists undeclared, stale and moved entries together
-    expect(out, 'undeclared deviations from CAMUS Good, declared ones that no longer deviate, and declared ones that moved from their baseline').toEqual({ outside: [], stale: [], moved: [] });
-  });
+  it(
+    'apical grey levels, contrast and texture fall inside the clinical interquartile range',
+    { timeout: 360_000 },
+    () => {
+      const out = { outside: [] as string[], stale: [] as string[], moved: [] as string[] };
+      for (const [key, view, ed] of CONDITIONS) {
+        const stats = renderOnce(view, ed).flatMap((r) => apicalStats(r));
+        audit(
+          key,
+          CHECKED.map(([metric, get]) => [metric, meanStat(stats, get), CAMUS_GOOD[key][metric]]),
+          KNOWN_DEVIATIONS,
+          out,
+        );
+      }
+      // one assertion, so a failure lists undeclared, stale and moved entries together
+      expect(
+        out,
+        'undeclared deviations from CAMUS Good, declared ones that no longer deviate, and declared ones that moved from their baseline',
+      ).toEqual({ outside: [], stale: [], moved: [] });
+    },
+  );
 
-  it('the left ventricle sits in the apical sector where clinical images put it', { timeout: 180_000 }, () => {
-    const out = { outside: [] as string[], stale: [] as string[], moved: [] as string[] };
-    for (const [key, view, ed] of CONDITIONS) {
-      const g = renderOnce(view, ed).flatMap((r) => Array.from({ length: NOISE_REALIZATIONS }, (_, fi) => apicalGeometry(presentApical(r, {}, fi), key.startsWith('4CH') ? '4CH' : '2CH')));
-      const ref = CAMUS_GOOD_GEOMETRY[key];
-      audit(key, (Object.keys(ref) as ApicalGeometryMetric[]).map((m) => [m, g.reduce((a, x) => a + x[m as keyof ApicalGeometry], 0) / g.length, ref[m]!]), KNOWN_GEOMETRY_DEVIATIONS, out);
-    }
-    expect(out, 'undeclared, stale and moved apical geometry deviations from CAMUS Good').toEqual({ outside: [], stale: [], moved: [] });
-  });
+  it(
+    'the left ventricle sits in the apical sector where clinical images put it',
+    { timeout: 180_000 },
+    () => {
+      const out = { outside: [] as string[], stale: [] as string[], moved: [] as string[] };
+      for (const [key, view, ed] of CONDITIONS) {
+        const g = renderOnce(view, ed).flatMap((r) =>
+          Array.from({ length: NOISE_REALIZATIONS }, (_, fi) =>
+            apicalGeometry(presentApical(r, {}, fi), key.startsWith('4CH') ? '4CH' : '2CH'),
+          ),
+        );
+        const ref = CAMUS_GOOD_GEOMETRY[key];
+        audit(
+          key,
+          (Object.keys(ref) as ApicalGeometryMetric[]).map((m) => [
+            m,
+            g.reduce((a, x) => a + x[m as keyof ApicalGeometry], 0) / g.length,
+            ref[m]!,
+          ]),
+          KNOWN_GEOMETRY_DEVIATIONS,
+          out,
+        );
+      }
+      expect(out, 'undeclared, stale and moved apical geometry deviations from CAMUS Good').toEqual(
+        { outside: [], stale: [], moved: [] },
+      );
+    },
+  );
 });

@@ -61,7 +61,13 @@ export interface ImageStats {
 }
 
 /** Removes a band of `radius` pixels from the border of a region, so partial-volume edges do not bias the stats. */
-export function erode(labels: Uint8Array, w: number, h: number, label: number, radius: number): Uint8Array {
+export function erode(
+  labels: Uint8Array,
+  w: number,
+  h: number,
+  label: number,
+  radius: number,
+): Uint8Array {
   const out = new Uint8Array(labels.length);
   for (let y = radius; y < h - radius; y++)
     for (let x = radius; x < w - radius; x++) {
@@ -79,7 +85,8 @@ export function erode(labels: Uint8Array, w: number, h: number, label: number, r
 
 function summarise(values: number[]): RegionSummary {
   const n = values.length;
-  if (n === 0) return { n: 0, mean: NaN, median: NaN, p10: NaN, p90: NaN, histogram: new Array(16).fill(0) };
+  if (n === 0)
+    return { n: 0, mean: NaN, median: NaN, p10: NaN, p90: NaN, histogram: new Array(16).fill(0) };
   const s = [...values].sort((a, b) => a - b);
   const at = (q: number): number => s[Math.min(n - 1, Math.floor(q * n))]!;
   const histogram = new Array(16).fill(0);
@@ -118,12 +125,19 @@ export function identifyLabels(labels: Uint8Array, w: number, h: number): void {
         contact.set(key, (contact.get(key) ?? 0) + 1);
       }
     }
-  const bgFraction = (l: number): number => (contact.get(`${l}-0`) ?? 0) / Math.max(1, perimeter[l]!);
+  const bgFraction = (l: number): number =>
+    (contact.get(`${l}-0`) ?? 0) / Math.max(1, perimeter[l]!);
   const cavity = [1, 2, 3].reduce((best, l) => (bgFraction(l) < bgFraction(best) ? l : best), 1);
-  if (cavity !== LABEL.cavity) throw new Error(`labels: the region least exposed to background is ${cavity}, expected ${LABEL.cavity} for the LV cavity`);
+  if (cavity !== LABEL.cavity)
+    throw new Error(
+      `labels: the region least exposed to background is ${cavity}, expected ${LABEL.cavity} for the LV cavity`,
+    );
   const withCavity = (l: number): number => contact.get(`${l}-${cavity}`) ?? 0;
   const myo = [2, 3].reduce((best, l) => (withCavity(l) > withCavity(best) ? l : best), 2);
-  if (myo !== LABEL.myocardium) throw new Error(`labels: the region sharing the longest border with the cavity is ${myo}, expected ${LABEL.myocardium} for the myocardium`);
+  if (myo !== LABEL.myocardium)
+    throw new Error(
+      `labels: the region sharing the longest border with the cavity is ${myo}, expected ${LABEL.myocardium} for the myocardium`,
+    );
 }
 
 /**
@@ -135,7 +149,13 @@ export function orientApical(img: RegionImage): RegionImage {
     let sx = 0,
       sy = 0,
       n = 0;
-    for (let y = 0; y < img.height; y++) for (let x = 0; x < img.width; x++) if (img.labels[x + y * img.width] === label) { sx += x; sy += y; n++; }
+    for (let y = 0; y < img.height; y++)
+      for (let x = 0; x < img.width; x++)
+        if (img.labels[x + y * img.width] === label) {
+          sx += x;
+          sy += y;
+          n++;
+        }
     return [sx / Math.max(1, n), sy / Math.max(1, n)];
   };
   let out = img;
@@ -149,15 +169,33 @@ export function orientApical(img: RegionImage): RegionImage {
         grey[y + x * img.height] = img.grey[x + y * img.width]!;
         labels[y + x * img.height] = img.labels[x + y * img.width]!;
       }
-    out = { width: img.height, height: img.width, grey, labels, mmPerPx: [img.mmPerPx[1], img.mmPerPx[0]] };
+    out = {
+      width: img.height,
+      height: img.width,
+      grey,
+      labels,
+      mmPerPx: [img.mmPerPx[1], img.mmPerPx[0]],
+    };
   }
   const [, cy2] = ((): [number, number] => {
-    let sy = 0, n = 0;
-    for (let y = 0; y < out.height; y++) for (let x = 0; x < out.width; x++) if (out.labels[x + y * out.width] === LABEL.cavity) { sy += y; n++; }
+    let sy = 0,
+      n = 0;
+    for (let y = 0; y < out.height; y++)
+      for (let x = 0; x < out.width; x++)
+        if (out.labels[x + y * out.width] === LABEL.cavity) {
+          sy += y;
+          n++;
+        }
     return [0, sy / Math.max(1, n)];
   })();
-  let say = 0, an = 0;
-  for (let y = 0; y < out.height; y++) for (let x = 0; x < out.width; x++) if (out.labels[x + y * out.width] === LABEL.atrium) { say += y; an++; }
+  let say = 0,
+    an = 0;
+  for (let y = 0; y < out.height; y++)
+    for (let x = 0; x < out.width; x++)
+      if (out.labels[x + y * out.width] === LABEL.atrium) {
+        say += y;
+        an++;
+      }
   if (say / Math.max(1, an) < cy2) {
     const grey = new Float32Array(out.grey.length),
       labels = new Uint8Array(out.labels.length);
@@ -195,7 +233,8 @@ function detrendedResiduals(img: RegionImage, mask: Uint8Array): Float32Array {
       sumC[x + 1 + (y + 1) * W1] = sumC[x + 1 + y * W1]! + rowC;
     }
   }
-  const box = (t: Float64Array, x0: number, y0: number, x1: number, y1: number): number => t[x1 + y1 * W1]! - t[x0 + y1 * W1]! - t[x1 + y0 * W1]! + t[x0 + y0 * W1]!;
+  const box = (t: Float64Array, x0: number, y0: number, x1: number, y1: number): number =>
+    t[x1 + y1 * W1]! - t[x0 + y1 * W1]! - t[x1 + y0 * W1]! + t[x0 + y0 * W1]!;
   const res = new Float32Array(w * h);
   for (let y = 0; y < h; y++)
     for (let x = 0; x < w; x++) {
@@ -313,7 +352,12 @@ function detrendedStd(res: Float32Array, mask: Uint8Array): number {
  * cell read the wall thickness as much as the texture — on synthetic speckle a 3 mm PSF measured 1.62 mm in a 9 mm
  * wall and 2.05 mm in a 20 mm one (2.16 and 2.23 mm now), and 4 mm read 2.00 and 2.44 (2.92 and 2.87) (decision 74).
  */
-function cellMm(img: RegionImage, mask: Uint8Array, res: Float32Array, horizontal: boolean): number {
+function cellMm(
+  img: RegionImage,
+  mask: Uint8Array,
+  res: Float32Array,
+  horizontal: boolean,
+): number {
   const { width: w, height: h } = img;
   const maxLag = 16;
   const acf: number[] = [];
@@ -336,20 +380,31 @@ function cellMm(img: RegionImage, mask: Uint8Array, res: Float32Array, horizonta
   for (let k = 1; k <= maxLag; k++) {
     const a = acf[k]! / acf[0]!,
       b = acf[k - 1]! / acf[0]!;
-    if (a <= 0.5) return 2 * (k - 1 + (b - 0.5) / Math.max(1e-9, b - a)) * (horizontal ? img.mmPerPx[0] : img.mmPerPx[1]);
+    if (a <= 0.5)
+      return (
+        2 *
+        (k - 1 + (b - 0.5) / Math.max(1e-9, b - a)) *
+        (horizontal ? img.mmPerPx[0] : img.mmPerPx[1])
+      );
   }
   return NaN;
 }
 
 export function imageStats(img: RegionImage, erodePx = 2): ImageStats {
   const { width: w, height: h } = img;
-  const masks = [LABEL.cavity, LABEL.myocardium, LABEL.atrium].map((l) => erode(img.labels, w, h, l, erodePx));
+  const masks = [LABEL.cavity, LABEL.myocardium, LABEL.atrium].map((l) =>
+    erode(img.labels, w, h, l, erodePx),
+  );
   const pick = (mask: Uint8Array): number[] => {
     const v: number[] = [];
     for (let i = 0; i < mask.length; i++) if (mask[i]) v.push(img.grey[i]!);
     return v;
   };
-  const [cavity, myocardium, atrium] = masks.map((m) => summarise(pick(m))) as [RegionSummary, RegionSummary, RegionSummary];
+  const [cavity, myocardium, atrium] = masks.map((m) => summarise(pick(m))) as [
+    RegionSummary,
+    RegionSummary,
+    RegionSummary,
+  ];
   const myoMask = masks[1]!;
   const stds: number[] = [];
   for (let y = 2; y < h - 2; y += 3)
@@ -372,7 +427,8 @@ export function imageStats(img: RegionImage, erodePx = 2): ImageStats {
   stds.sort((a, b) => a - b);
   const residuals = detrendedResiduals(img, myoMask);
   const regions = new Uint8Array(w * h);
-  for (let i = 0; i < regions.length; i++) regions[i] = masks[0]![i]! | masks[1]![i]! | masks[2]![i]!;
+  for (let i = 0; i < regions.length; i++)
+    regions[i] = masks[0]![i]! | masks[1]![i]! | masks[2]![i]!;
   return {
     cavity,
     myocardium,
@@ -381,7 +437,10 @@ export function imageStats(img: RegionImage, erodePx = 2): ImageStats {
     myocardialLocalStd: stds.length ? stds[Math.floor(stds.length / 2)]! : NaN,
     myocardialDetrendedStd: detrendedStd(residuals, myoMask),
     cavityDetrendedStd: detrendedStd(detrendedResiduals(img, masks[0]!), masks[0]!),
-    speckleCellMm: { horizontal: cellMm(img, myoMask, residuals, true), vertical: cellMm(img, myoMask, residuals, false) },
+    speckleCellMm: {
+      horizontal: cellMm(img, myoMask, residuals, true),
+      vertical: cellMm(img, myoMask, residuals, false),
+    },
     myocardialResidualSkew: residualSkew(residuals, myoMask),
     levelStdSlope: levelStdSlope(img, regions),
     brightGreyP99: brightGreyP99(img.grey),

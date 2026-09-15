@@ -3,7 +3,9 @@
  * No patient data exists in the app; the watermark makes the provenance explicit anyway.
  */
 export function exportDisplayPng(caseId: string): void {
-  const img = document.querySelector<HTMLCanvasElement>('canvas[aria-label="Imagen ecográfica simulada"]');
+  const img = document.querySelector<HTMLCanvasElement>(
+    'canvas[aria-label="Imagen ecográfica simulada"]',
+  );
   const ov = document.querySelector<HTMLCanvasElement>('canvas.overlay');
   if (!img) return;
   const out = document.createElement('canvas');

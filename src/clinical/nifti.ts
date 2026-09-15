@@ -16,17 +16,28 @@ export interface NiftiVolume {
   voxels: Float32Array;
 }
 
-const DATATYPE_BYTES: Record<number, number> = { 2: 1, 4: 2, 8: 4, 16: 4, 64: 8, 256: 1, 512: 2, 768: 4 };
+const DATATYPE_BYTES: Record<number, number> = {
+  2: 1,
+  4: 2,
+  8: 4,
+  16: 4,
+  64: 8,
+  256: 1,
+  512: 2,
+  768: 4,
+};
 
 export function parseNifti(bytes: Uint8Array): NiftiVolume {
-  if (bytes.length < 348) throw new Error(`NIfTI: ${bytes.length} bytes is shorter than the 348-byte header`);
+  if (bytes.length < 348)
+    throw new Error(`NIfTI: ${bytes.length} bytes is shorter than the 348-byte header`);
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   let le: boolean;
   if (view.getInt32(0, true) === 348) le = true;
   else if (view.getInt32(0, false) === 348) le = false;
   else throw new Error('NIfTI: sizeof_hdr is not 348 in either byte order — not a NIfTI-1 file');
   const magic = String.fromCharCode(bytes[344]!, bytes[345]!, bytes[346]!);
-  if (magic !== 'n+1') throw new Error(`NIfTI: magic "${magic}" — only single-file NIfTI-1 ("n+1") is supported`);
+  if (magic !== 'n+1')
+    throw new Error(`NIfTI: magic "${magic}" — only single-file NIfTI-1 ("n+1") is supported`);
   const ndim = view.getInt16(40, le);
   const dim = (i: number): number => (i <= ndim ? Math.max(1, view.getInt16(40 + 2 * i, le)) : 1);
   const dims: [number, number, number] = [dim(1), dim(2), dim(3)];
@@ -40,7 +51,8 @@ export function parseNifti(bytes: Uint8Array): NiftiVolume {
   if (size === undefined) throw new Error(`NIfTI: unsupported datatype ${datatype}`);
   const offset = Math.round(view.getFloat32(108, le));
   const count = dims[0] * dims[1] * dims[2];
-  if (offset + count * size > bytes.length) throw new Error(`NIfTI: header announces ${count} voxels past the end of the data`);
+  if (offset + count * size > bytes.length)
+    throw new Error(`NIfTI: header announces ${count} voxels past the end of the data`);
   let slope = view.getFloat32(112, le);
   const inter = view.getFloat32(116, le);
   if (!Number.isFinite(slope) || slope === 0) slope = 1; // 0 means "no scaling" in the standard
@@ -49,14 +61,29 @@ export function parseNifti(bytes: Uint8Array): NiftiVolume {
     const at = offset + i * size;
     let v: number;
     switch (datatype) {
-      case 2: v = view.getUint8(at); break;
-      case 4: v = view.getInt16(at, le); break;
-      case 8: v = view.getInt32(at, le); break;
-      case 16: v = view.getFloat32(at, le); break;
-      case 64: v = view.getFloat64(at, le); break;
-      case 256: v = view.getInt8(at); break;
-      case 512: v = view.getUint16(at, le); break;
-      default: v = view.getUint32(at, le);
+      case 2:
+        v = view.getUint8(at);
+        break;
+      case 4:
+        v = view.getInt16(at, le);
+        break;
+      case 8:
+        v = view.getInt32(at, le);
+        break;
+      case 16:
+        v = view.getFloat32(at, le);
+        break;
+      case 64:
+        v = view.getFloat64(at, le);
+        break;
+      case 256:
+        v = view.getInt8(at);
+        break;
+      case 512:
+        v = view.getUint16(at, le);
+        break;
+      default:
+        v = view.getUint32(at, le);
     }
     voxels[i] = v * slope + (Number.isFinite(inter) ? inter : 0);
   }
