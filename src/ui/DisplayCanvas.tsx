@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useHudStore, useSimStore, type SimStore } from '@/app/store';
 import type { SimOutput } from '@/simulator/core/protocol';
 import { ecgTracePoints, type EcgLayout } from './ecgTrace';
-import { pixelToPolar, polarToPixel } from '@/simulator/renderer/scanConvert';
+import { pixelToPolar, polarToPixel, type SectorMapping } from '@/simulator/renderer/scanConvert';
+import { reprojectGeometry } from '@/simulator/measurements/geometry';
 import { tgcAtDepth } from '@/simulator/renderer/postprocess/consolePipeline';
 import type { Measurement } from '@/simulator/measurements/types';
 import { frameBus } from '@/app/frameBus';
@@ -21,6 +22,8 @@ export interface DisplayHandle {
 
 interface Pending {
   points: { x: number; y: number }[];
+  captureSector?: SectorMapping;
+  context?: string;
 }
 
 export function DisplayCanvas(props: { onSize: (s: { width: number; height: number }) => void }) {
@@ -78,7 +81,25 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
       const out = lastOutRef.current;
       const canvas = ovRef.current;
       if (!out || !canvas) return;
-      drawOverlay(canvas, out, useSimStore.getState(), pendingRef.current.points);
+      const state = useSimStore.getState();
+      const pending = pendingRef.current;
+      const context = [
+        state.caseId,
+        state.modality,
+        state.activeTool,
+        state.activeMeasurementId ?? '',
+      ].join('|');
+      if (pending.context !== context) {
+        pending.points = [];
+        pending.captureSector = undefined;
+        pending.context = context;
+      }
+      drawOverlay(
+        canvas,
+        out,
+        state,
+        reprojectGeometry(pending.points, pending.captureSector, out.sector),
+      );
     };
     const unsubFrame = frameBus.subscribe((out) => {
       const t0 = performance.now();
@@ -208,6 +229,11 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
     const m = hud.sector;
     const strip = hud.strip;
     const pend = pendingRef.current;
+    const sectorTool = st.activeTool === 'caliper' || st.activeTool === 'simpson';
+    if (sectorTool) {
+      pend.points = reprojectGeometry(pend.points, pend.captureSector, m);
+      pend.captureSector = { ...m };
+    } else pend.captureSector = undefined;
     const spec = specFor(st.activeMeasurementId);
     const modality = st.modality === 'color' ? '2d' : st.modality;
     const redraw = () => useHudStore.getState().setHud({ ...hud });
@@ -231,6 +257,7 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
     ) => {
       st.addMeasurement({
         ...ms,
+        captureSector: sectorTool ? { ...m } : undefined,
         label: spec ? spec.label : ms.label,
         measurementId: spec ? spec.id : null,
         technique: evaluateCapture(spec, hud, modality, st.phaseMarks, extras),
@@ -719,8 +746,9 @@ function drawOverlay(
       (ms.modality === '2d' && modality === 'color') ||
       (ms.modality === 'color' && modality === '2d');
     if (!sameFamily) continue;
-    drawGeometry(ctx, ms.geometry, ms.kind, '#ffc857');
-    const p = ms.geometry[ms.geometry.length - 1];
+    const geometry = reprojectGeometry(ms.geometry, ms.captureSector, m);
+    drawGeometry(ctx, geometry, ms.kind, '#ffc857');
+    const p = geometry[geometry.length - 1];
     if (p) {
       ctx.fillStyle = '#ffc857';
       ctx.fillText(
