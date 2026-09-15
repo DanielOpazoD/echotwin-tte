@@ -75,8 +75,10 @@ export function buildProfile(R: number, angles: number[], segLen: number): Float
   return out;
 }
 
-/** Result of the last skirt query: distance, along-fraction (0 hinge → 1 free edge), zone index and zone weight. */
-export const skirtHit = { d: 0, frac: 0, zone: 0, w: 0 };
+/** Result of the last skirt query: distance, along-fraction (0 hinge → 1 free edge), zone index, zone weight and
+ *  the surface normal (heart frame) of the closest leaflet segment — computed from the profile edge like the mitral
+ *  valve, so the specular echo follows the leaflet orientation instead of a fixed radial direction. */
+export const skirtHit = { d: 0, frac: 0, zone: 0, w: 0, nx: 0, ny: 0, nz: 1 };
 
 /**
  * Distance from a heart-frame point to an AV-valve skirt (minimum over its leaflet zones). Radial zones
@@ -99,13 +101,16 @@ export function skirtDistance(x: number, y: number, z: number, k: SkirtDesc): nu
   let best = Infinity,
     bestFrac = 0,
     bestW = 0,
-    bestZone = 0;
+    bestZone = 0,
+    bestNx = 0,
+    bestNy = 0,
+    bestNz = 1;
   for (let zi = 0; zi < k.zones.length; zi++) {
     const zn = k.zones[zi]!;
+    const ca = Math.cos(zn.phi),
+      sa = Math.sin(zn.phi);
     let w: number, rhoS: number, s: number;
     if (zn.kind === 1) {
-      const ca = Math.cos(zn.phi),
-        sa = Math.sin(zn.phi);
       const v = dx * ca + dy * sa;
       const u = -dx * sa + dy * ca;
       const t = Math.abs(u) / k.R;
@@ -146,6 +151,21 @@ export function skirtDistance(x: number, y: number, z: number, k: SkirtDesc): nu
         bestFrac = (i + u) / 3;
         bestW = w;
         bestZone = zi;
+        // surface normal from the profile edge (like the mitral valve): the edge direction in the
+        // (rho, z) plane is (ex, ez), so the outward normal is (-ez, ex) rotated into 3D by the
+        // radial direction at this point. For radial zones the radial direction is (dx, dy)/rho;
+        // for parallel zones it is the zone's perpendicular (−sa, ca).
+        let rx: number, ry: number;
+        if (zn.kind === 1) {
+          rx = -sa;
+          ry = ca;
+        } else {
+          rx = rho > 1e-6 ? dx / rho : Math.cos(zn.phi);
+          ry = rho > 1e-6 ? dy / rho : Math.sin(zn.phi);
+        }
+        bestNx = -ez * rx;
+        bestNy = -ez * ry;
+        bestNz = ex;
       }
     }
   }
@@ -153,6 +173,9 @@ export function skirtDistance(x: number, y: number, z: number, k: SkirtDesc): nu
   skirtHit.frac = bestFrac;
   skirtHit.zone = bestZone;
   skirtHit.w = bestW;
+  skirtHit.nx = bestNx;
+  skirtHit.ny = bestNy;
+  skirtHit.nz = bestNz;
   // leaflets are thickest at the free edge (rough zone) and thin out toward the commissures
   return (
     (k.thickness * (SKIRT_THICK_BASE + SKIRT_THICK_EDGE * bestFrac) * 0.5 + SKIRT_THICK_FLOOR_CM) *

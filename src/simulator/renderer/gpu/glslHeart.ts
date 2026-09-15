@@ -86,24 +86,26 @@ void setSample(out Sample s, int tissue, float sdf, vec3 n, vec3 m, float extra,
 // ---- profile helpers (skirts) ----
 float profAt(int base, int i) { return P(base + i); }
 
-// AV-valve skirt: minimum over leaflet zones (radial revolution or parallel-fibre sheets); writes distance, frac, zone
-float skirtDistance(vec3 p, vec3 c, float R, int zonesBase, int profBase, int nz, float closed, float blend, float thickness, float saddle, out float dOut, out float fracOut, out int zoneOut) {
+// AV-valve skirt: minimum over leaflet zones (radial revolution or parallel-fibre sheets); writes distance, frac, zone, normal
+float skirtDistance(vec3 p, vec3 c, float R, int zonesBase, int profBase, int nz, float closed, float blend, float thickness, float saddle, out float dOut, out float fracOut, out int zoneOut, out vec3 nOut) {
   vec2 d = p.xy - c.xy;
   float zr0 = p.z - c.z;
   float rho = length(d);
   zoneOut = 0;
+  nOut = vec3(0.0, 0.0, 1.0);
   if (zr0 > SKIRT_ABOVE_CM || zr0 < -SKIRT_BELOW_CM || rho > R + SKIRT_RADIAL_MARGIN_CM) { dOut = 1e3; fracOut = 0.0; return 0.0; }
   float phi = atan(d.y, d.x);
   float zr = zr0 - saddleOffset(phi, P(zonesBase), saddle);
   float best = 1e9, bestFrac = 0.0, bestW = 0.0;
   int bestZone = 0;
+  float bestEx = 0.0, bestEz = 1.0, bestCa = 1.0, bestSa = 0.0, bestKind = 0.0;
   for (int zi = 0; zi < 3; zi++) {
     if (zi >= nz) break;
     int zb = zonesBase + zi * 6;
     float zphi = P(zb), zhalf = P(zb + 1), zkind = P(zb + 2), zlobes = P(zb + 3), zc = P(zb + 4);
     float w, rhoS, s;
+    float ca = cos(zphi), sa = sin(zphi);
     if (zkind > 0.5) {
-      float ca = cos(zphi), sa = sin(zphi);
       float v = d.x * ca + d.y * sa;
       float u = -d.x * sa + d.y * ca;
       float t = abs(u) / R;
@@ -136,12 +138,25 @@ float skirtDistance(vec3 p, vec3 c, float R, int zonesBase, int profBase, int nz
       float qx = ax + ex * uu - rhoS;
       float qz = az + ez * uu - zr;
       float dd = sqrt(qx * qx + qz * qz);
-      if (dd < best) { best = dd; bestFrac = (float(i) + uu) / 3.0; bestW = w; bestZone = zi; }
+      if (dd < best) { best = dd; bestFrac = (float(i) + uu) / 3.0; bestW = w; bestZone = zi; bestEx = ex; bestEz = ez; bestCa = ca; bestSa = sa; bestKind = zkind; }
     }
   }
   dOut = best;
   fracOut = bestFrac;
   zoneOut = bestZone;
+  // surface normal from the profile edge (like the mitral valve and the CPU skirt): the edge
+  // direction in the (rho, z) plane is (ex, ez), so the outward normal is (-ez, ex) rotated into
+  // 3D by the radial direction at this point. For radial zones the radial direction is (dx, dy)/rho;
+  // for parallel zones it is the zone's perpendicular (-sa, ca).
+  float rx, ry;
+  if (bestKind > 0.5) {
+    rx = -bestSa;
+    ry = bestCa;
+  } else {
+    rx = rho > 1e-6 ? d.x / rho : 1.0;
+    ry = rho > 1e-6 ? d.y / rho : 0.0;
+  }
+  nOut = vec3(-bestEz * rx, -bestEz * ry, bestEx);
   return (thickness * (SKIRT_THICK_BASE + SKIRT_THICK_EDGE * bestFrac) * 0.5 + SKIRT_THICK_FLOOR_CM) * (SKIRT_THICK_COMMISSURE + SKIRT_THICK_BODY * bestW);
 }
 
@@ -623,12 +638,11 @@ bool classifyHeart(vec3 p0, out Sample s) {
   {
     float dS, fr;
     int zn;
+    vec3 nS;
     vec3 c = vec3(TVS_CX, TVS_CY, TVS_CZ);
-    float t = skirtDistance(p, c, TVS_R, TVS_ZONES_BASE, TVS_PROF_BASE, int(TVS_NZ + 0.5), TVS_CLOSED, TVS_BLEND, TVS_T, TVS_SADDLE, dS, fr, zn);
+    float t = skirtDistance(p, c, TVS_R, TVS_ZONES_BASE, TVS_PROF_BASE, int(TVS_NZ + 0.5), TVS_CLOSED, TVS_BLEND, TVS_T, TVS_SADDLE, dS, fr, zn, nS);
     if (dS < t) {
-      vec2 dm = p.xy - c.xy;
-      float rr = length(dm); if (rr == 0.0) rr = 1.0;
-      setSample(s, T_VALVE, dS - t, vec3(dm / rr, 0.8), p, 0.0, int(P(TVS_ZONES_BASE + zn * 6 + 5) + 0.5));
+      setSample(s, T_VALVE, dS - t, nS, p, 0.0, int(P(TVS_ZONES_BASE + zn * 6 + 5) + 0.5));
       return true;
     }
   }

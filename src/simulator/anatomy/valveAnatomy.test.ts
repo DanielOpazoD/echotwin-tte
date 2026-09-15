@@ -14,7 +14,7 @@ import {
 import { mitralFreeEdge, mitralLeafletPoint, MV_BINS } from './mitralValve';
 import { rootRadiusAt } from './aorticValve';
 import { rvCrescent } from './rv';
-import { tvInflowSdf } from './valveSkirt';
+import { tvInflowSdf, skirtDistance, skirtHit } from './valveSkirt';
 import { smin } from './sdf';
 import { SimulatorCore } from '@/simulator/core/simulatorCore';
 import { baseInput } from '@/simulator/core/baseInput';
@@ -1044,5 +1044,38 @@ describe('pulmonary root beside the aortic root (decision 112)', () => {
       }
     }
     expect(problems).toEqual([]);
+  });
+
+  it('the tricuspid leaflet normal follows the profile edge, not a fixed radial direction (decision 116)', () => {
+    // until 2026-09-15 the tricuspid classifier used a fixed radial normal (dx/rho, dy/rho, 0.8),
+    // so the specular echo (proportional to |n.beam|^4) was near zero for the closed valve in A4C
+    // (nd ~ 0.52) and the valve was barely brighter than the RV cavity. The mitral valve already
+    // used a profile-edge normal; the tricuspid should too. The old normal had a fixed z-component
+    // of 0.8/sqrt(1+0.64) = 0.625; the profile-edge normal varies with the leaflet orientation and
+    // is nearly vertical (z > 0.8) for the flat closed leaflet.
+    for (const input of CASE_INPUTS) {
+      const { heart, tables } = setup(input.id);
+      const A = heartAnchors(heart);
+      const pose = computeHeartPose(heart, cycleStateAt(tables, 0));
+      const tv = pose.valves.tv;
+      const zn = tv.zones[0]!;
+      const phi = zn.phi;
+      let found = 0;
+      for (const r of [A.tvR * 0.5, A.tvR * 0.8, A.tvR * 0.95]) {
+        const x = tv.cx + r * Math.cos(phi);
+        const y = tv.cy + r * Math.sin(phi);
+        const z = tv.cz + 0.01;
+        const t = skirtDistance(x, y, z, tv);
+        if (skirtHit.d >= t) continue;
+        const nLen = Math.hypot(skirtHit.nx, skirtHit.ny, skirtHit.nz);
+        if (nLen < 1e-6) continue;
+        const nz = Math.abs(skirtHit.nz) / nLen;
+        // the old fixed normal had nz = 0.625; the profile-edge normal for the closed leaflet
+        // (nearly horizontal) should have nz > 0.8
+        expect(nz).toBeGreaterThan(0.7);
+        found++;
+      }
+      expect(found).toBeGreaterThan(0);
+    }
   });
 });

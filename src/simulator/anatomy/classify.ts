@@ -260,16 +260,13 @@ export function classifyHeart(
   {
     const t = skirtDistance(x, y, z, V.tv);
     if (skirtHit.d < t) {
-      const dxt = x - V.tv.cx,
-        dyt = y - V.tv.cy;
-      const rr = Math.hypot(dxt, dyt) || 1;
       setSample(
         out,
         Tissue.Valve,
         skirtHit.d - t,
-        dxt / rr,
-        dyt / rr,
-        0.8,
+        skirtHit.nx,
+        skirtHit.ny,
+        skirtHit.nz,
         x,
         y,
         z,
