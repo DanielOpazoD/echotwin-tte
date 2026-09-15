@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { loadCaseById } from '@/cases';
+import { SimulatorCore } from '@/simulator/core/simulatorCore';
+import { baseInput } from '@/simulator/core/baseInput';
 import { createHeartModel, computeHeartPose } from '@/simulator/anatomy/heartModel';
 import { createThoraxModel } from '@/simulator/anatomy/thoraxModel';
 import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
@@ -16,6 +18,7 @@ import { applyConsole, createConsoleState } from '../postprocess/consolePipeline
 import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
 import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
 import { Structure, Tissue } from '@/simulator/anatomy/tissue';
+import { pleuralReverberation } from './acoustics';
 
 /**
  * Acceptance numbers of the acoustic image formation (decision 52, docs/AUDITORIA_FIDELIDAD.md E-2) measured on
@@ -273,5 +276,89 @@ describe('acoustic image formation', () => {
     expect(g0.blood).toBeGreaterThan(8);
     expect(g0.myo - g0.blood).toBeGreaterThan(20);
     expect(grey(12).sat).toBeGreaterThan(0.03);
+  });
+});
+
+describe('pleural reverberation continuity', () => {
+  function capture(view: string, depthCm: number) {
+    const inp = baseInput({ quality: 'high', display: { width: 320, height: 280 } });
+    inp.settings.depthCm = depthCm;
+    inp.settings.persistence = 0;
+    inp.settings.edgeEnhance = 0;
+    const core = new SimulatorCore(loadCaseById('normal-excellent-window'), inp);
+    inp.probe = canonicalControl(getViewTarget(view), core.models.heart, core.models.thorax);
+    core.setInput(inp);
+    const output = core.step(0);
+    expect(output).not.toBeNull();
+    const f = core.lastFrame!;
+    return {
+      amplitude: new Float32Array(f.amplitude),
+      tissue: new Uint8Array(f.tissue),
+      structure: new Uint8Array(f.structure),
+      rgba: new Uint8ClampedArray(output!.rgba),
+    };
+  }
+
+  it.each(['a2c', 'psax-mv', 'plax'])('vanishing depth changes preserve the %s image', (view) => {
+    const a = capture(view, 16);
+    const b = capture(view, 16 + 1e-8);
+    expect(a.tissue).toEqual(b.tissue);
+    expect(a.structure).toEqual(b.structure);
+    let maxEnv = 0;
+    for (let i = 0; i < a.amplitude.length; i++)
+      maxEnv = Math.max(maxEnv, Math.abs(a.amplitude[i]! - b.amplitude[i]!));
+    expect(maxEnv).toBeLessThan(1e-5);
+    let maxByte = 0;
+    for (let i = 0; i < a.rgba.length; i++)
+      maxByte = Math.max(maxByte, Math.abs(a.rgba[i]! - b.rgba[i]!));
+    expect(maxByte).toBeLessThanOrEqual(1);
+  });
+
+  it('matches the full echo-train sum within 1e-12', () => {
+    for (const entry of [0.1, 0.4, 2.3, 4.025]) {
+      const period = Math.max(entry, 0.4);
+      for (let j = 1; j <= 4; j++)
+        for (const off of [-0.12, -0.04, 0, 0.04, 0.12]) {
+          const r = entry + j * period + off;
+          const d = r - entry;
+          let sum = 0;
+          for (let n = 0; n <= Math.ceil(d / period) + 10; n++)
+            sum += 0.55 ** (n + 1) * Math.exp(-(((d - n * period) / 0.12) ** 2));
+          const expected = 0.7 * (0.9 * sum + 0.02 * 0.55 ** (d / period + 1) * 0.6);
+          expect(Math.abs(pleuralReverberation(r, entry, 0.7, 0.6) - expected)).toBeLessThan(1e-12);
+        }
+    }
+  });
+
+  it('places decaying pulses at whole periods and is flat at each crest', () => {
+    const entry = 2.3;
+    const expected = [0.9 * 0.55 ** 2, 0.9 * 0.55 ** 3, 0.9 * 0.55 ** 4];
+    [2, 3, 4].forEach((n, i) => {
+      const r = n * entry;
+      expect(Math.abs(pleuralReverberation(r, entry, 1, 0) - expected[i]!)).toBeLessThan(1e-12);
+      for (const eps of [-1e-8, 1e-8])
+        expect(
+          Math.abs(
+            pleuralReverberation(r + eps, entry, 1, 0) - pleuralReverberation(r, entry, 1, 0),
+          ),
+        ).toBeLessThan(1e-10);
+    });
+    expect(
+      Math.abs(
+        pleuralReverberation(2 * entry - 0.04, entry, 1, 0) -
+          pleuralReverberation(2 * entry + 0.04, entry, 1, 0),
+      ),
+    ).toBeLessThan(1e-12);
+  });
+
+  it('is zero before the pleura and bounded by the entry transmission behind it', () => {
+    expect(pleuralReverberation(5, 2.3, 0, 0.6)).toBe(0);
+    expect(pleuralReverberation(2.3, 2.3, 0.4, 0.6)).toBe(0);
+    expect(pleuralReverberation(1, 2.3, 0.4, 0.6)).toBe(0);
+    for (let r = 2.31; r <= 16; r += 0.05) {
+      const v = pleuralReverberation(r, 2.3, 0.4, 0.6);
+      expect(v).toBeGreaterThanOrEqual(0);
+      expect(v).toBeLessThanOrEqual(0.4);
+    }
   });
 });

@@ -29,6 +29,7 @@ import {
   heteroDb,
   MYO_ANISO_FLOOR,
   PHASOR_NORM,
+  pleuralReverberation,
   SCATTER_FREQ,
   SCATTER_FREQ_RATIO,
   SPECULAR_GAIN,
@@ -423,14 +424,8 @@ export class ProceduralSliceRenderer implements RendererBackend {
       const r = (si + 0.5) * dr;
       const idx = base + si;
       if (dead) {
-        const d = r - lungEntryR;
-        const period = Math.max(lungEntryR, 0.4);
-        const k = d / period;
-        const frac = k - Math.floor(k);
-        const band = Math.exp(-Math.pow((Math.min(frac, 1 - frac) * period) / 0.12, 2));
-        const decay = Math.pow(0.55, Math.floor(k) + 1);
         const nn = 0.4 + 0.6 * latticeNoise3(li * 0.7, r * 4, 3.1, latC);
-        const a = lungEntryT * (band * decay * 0.9 + 0.02 * decay * nn);
+        const a = pleuralReverberation(r, lungEntryR, lungEntryT, nn);
         // reverberation energy is incoherent: a phasor tied to the line and the depth
         const px2 = li * 0.9,
           pr = r * SCATTER_FREQ;
