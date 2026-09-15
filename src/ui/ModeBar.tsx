@@ -1,8 +1,10 @@
+import { useEffect, useRef, useState } from 'react';
 import { useHudStore, useSimStore } from '@/app/store';
 import { modePolicy } from '@/app/modePolicy';
 import type { ImagingModality } from '@/simulator/renderer/types';
 import { exportDisplayPng } from '@/app/exportImage';
 import { useRestartTutorial } from './Tutorial';
+import { IconCheck, IconSliders } from './icons';
 
 const MODES: { id: ImagingModality; label: string; key: string }[] = [
   { id: '2d', label: '2D', key: '2' },
@@ -14,11 +16,13 @@ const MODES: { id: ImagingModality; label: string; key: string }[] = [
   { id: 'tdi', label: 'TDI', key: 'T' },
 ];
 
+/**
+ * Bottom toolbar: only the acquisition controls live in the first row — modality keys, freeze/cine
+ * and the torso toggle. Interface toggles and secondary actions live in the ⋯ overflow menu.
+ */
 export function ModeBar() {
   const s = useSimStore();
   const hud = useHudStore((h) => h.hud);
-  const policy = modePolicy(s.mode);
-  const restartTutorial = useRestartTutorial();
   return (
     <div className="modebar" role="toolbar" aria-label="Modalidades y cine">
       <div className="group">
@@ -59,58 +63,123 @@ export function ModeBar() {
           </span>
         </div>
       )}
-      <div className="sep" />
+      <span className="spacer" style={{ flex: 1 }} />
       <button
         onClick={() => s.setUi({ showTorso: !s.ui.showTorso })}
         className={s.ui.showTorso ? 'active' : ''}
-        title="H"
+        title="Mostrar/ocultar el torso 3D (H)"
+        aria-pressed={s.ui.showTorso}
       >
         Torso 3D
       </button>
-      <button
-        onClick={() => s.setUi({ showHints: !s.ui.showHints })}
-        className={s.ui.showHints ? 'active' : ''}
-        disabled={!policy.hintsEnabled}
-      >
-        Ayudas
-      </button>
-      <button
-        onClick={() => s.setUi({ showPhysics: !s.ui.showPhysics })}
-        className={s.ui.showPhysics ? 'active' : ''}
-        disabled={!policy.devToolsAllowed}
-        title="Superpone líneas de barrido y zona focal"
-      >
-        Física
-      </button>
-      <button
-        onClick={() => s.setUi({ showEcg: !s.ui.showEcg })}
-        className={s.ui.showEcg ? 'active' : ''}
-      >
-        ECG
-      </button>
-      <button
-        onClick={() => s.setUi({ devPanel: !s.ui.devPanel })}
-        className={s.ui.devPanel ? 'active' : ''}
-        disabled={!policy.devToolsAllowed}
-        title="Panel de desarrollador"
-      >
-        Dev
-      </button>
-      <div className="sep" />
-      <button
-        onClick={() => exportDisplayPng(s.caseId)}
-        title="Guardar la imagen actual como PNG con marca de agua SYNTHETIC TRAINING"
-      >
-        Guardar PNG
-      </button>
-      <button onClick={restartTutorial} title="Reiniciar el tutorial de controles">
-        Tutorial
-      </button>
-      <span className="spacer" style={{ flex: 1 }} />
-      <span className="small">
+      <OverflowMenu />
+      <span className="small modebar-status">
         {s.workerMode === 'worker' ? 'Worker' : s.workerMode === 'inline' ? 'Inline' : 'Iniciando…'}{' '}
         · UI {s.fpsUi} fps
       </span>
+    </div>
+  );
+}
+
+/** ⋯ menu: interface toggles (checkable) plus the secondary actions, per the minimal-console spec. */
+function OverflowMenu() {
+  const s = useSimStore();
+  const policy = modePolicy(s.mode);
+  const restartTutorial = useRestartTutorial();
+  const [open, setOpen] = useState(false);
+  const wrap = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (e: PointerEvent) => {
+      if (wrap.current && !wrap.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('pointerdown', onPointer);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('pointerdown', onPointer);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  const item = (
+    label: string,
+    value: boolean,
+    onToggle: () => void,
+    opts: { disabled?: boolean; hint?: string } = {},
+  ) => (
+    <button
+      role="menuitemcheckbox"
+      aria-checked={value}
+      disabled={opts.disabled}
+      title={opts.disabled ? 'No disponible en modo examen' : opts.hint}
+      onClick={onToggle}
+    >
+      <span className="mi-check" aria-hidden="true">
+        {value ? <IconCheck size={12} /> : null}
+      </span>
+      <span className="mi-label">
+        {label}
+        {opts.hint && !opts.disabled ? (
+          <span className="mi-hint" aria-hidden="true">
+            {opts.hint}
+          </span>
+        ) : null}
+      </span>
+    </button>
+  );
+
+  const action = (label: string, onClick: () => void) => (
+    <button
+      role="menuitem"
+      onClick={() => {
+        onClick();
+        setOpen(false);
+      }}
+    >
+      <span className="mi-check" aria-hidden="true" />
+      <span className="mi-label">{label}</span>
+    </button>
+  );
+
+  return (
+    <div className="menu-wrap" ref={wrap}>
+      <button
+        className={`menu-btn${open ? ' active' : ''}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Más opciones"
+        title="Paneles y acciones"
+        onClick={() => setOpen((o) => !o)}
+      >
+        <IconSliders />
+      </button>
+      {open && (
+        <div className="menu" role="menu" aria-label="Paneles y acciones">
+          <div className="menu-cap">Mostrar</div>
+          {item('Ayudas de vista', s.ui.showHints, () => s.setUi({ showHints: !s.ui.showHints }), {
+            disabled: !policy.hintsEnabled,
+            hint: 'Puntuación y sugerencias de adquisición',
+          })}
+          {item(
+            'Superposición física',
+            s.ui.showPhysics,
+            () => s.setUi({ showPhysics: !s.ui.showPhysics }),
+            { disabled: !policy.devToolsAllowed, hint: 'Líneas de barrido y zona focal' },
+          )}
+          {item('ECG', s.ui.showEcg, () => s.setUi({ showEcg: !s.ui.showEcg }))}
+          {item('Panel Dev', s.ui.devPanel, () => s.setUi({ devPanel: !s.ui.devPanel }), {
+            disabled: !policy.devToolsAllowed,
+          })}
+          <div className="menu-sep" />
+          <div className="menu-cap">Acciones</div>
+          {action('Guardar imagen PNG', () => exportDisplayPng(s.caseId))}
+          {action('Reiniciar tutorial', restartTutorial)}
+        </div>
+      )}
     </div>
   );
 }

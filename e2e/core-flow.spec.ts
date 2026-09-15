@@ -102,8 +102,12 @@ test.describe('EchoTwin TTE core flow', () => {
   test('exam mode hides hints, physics and dev panel', async ({ page }) => {
     await page.getByRole('combobox', { name: 'Modo del producto' }).selectOption('exam');
     await expect(page.getByText('Modo examen: sin ayudas', { exact: false })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Dev' })).toBeDisabled();
-    await expect(page.getByRole('button', { name: 'Física' })).toBeDisabled();
+    await page.getByRole('button', { name: 'Más opciones' }).click();
+    await expect(page.getByRole('menuitemcheckbox', { name: 'Panel Dev' })).toBeDisabled();
+    await expect(
+      page.getByRole('menuitemcheckbox', { name: 'Superposición física' }),
+    ).toBeDisabled();
+    await expect(page.getByRole('menuitemcheckbox', { name: 'Ayudas de vista' })).toBeDisabled();
     await expect(page.getByRole('button', { name: 'Referencias' })).toBeDisabled();
   });
 

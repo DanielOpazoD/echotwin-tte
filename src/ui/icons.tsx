@@ -76,3 +76,26 @@ export function IconLab({ size }: { size?: number }) {
     </I>
   );
 }
+
+/** Horizontal sliders — overflow / display options menu. */
+export function IconSliders({ size }: { size?: number }) {
+  return (
+    <I size={size}>
+      <path d="M4 6h10M18 6h2" />
+      <circle cx="16" cy="6" r="2" />
+      <path d="M4 12h4M12 12h8" />
+      <circle cx="10" cy="12" r="2" />
+      <path d="M4 18h13M21 18h-1" />
+      <circle cx="19" cy="18" r="2" />
+    </I>
+  );
+}
+
+/** Check mark for menu toggles. */
+export function IconCheck({ size }: { size?: number }) {
+  return (
+    <I size={size}>
+      <path d="M4.5 12.5 10 18 19.5 6.5" />
+    </I>
+  );
+}

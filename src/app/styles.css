@@ -255,6 +255,77 @@ select:focus-visible {
   background: var(--border);
   margin: 0 6px;
 }
+.menu-wrap {
+  position: relative;
+}
+.menu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 9px;
+}
+.menu {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  right: 0;
+  min-width: 230px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 5px;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.55);
+  z-index: 30;
+}
+.menu button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  padding: 8px 9px;
+  font-size: 12px;
+  color: var(--text);
+}
+.menu button:hover {
+  background: #1e2836;
+  border: 0;
+}
+.menu button:disabled {
+  opacity: 0.4;
+}
+.menu-cap {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  padding: 5px 9px 3px;
+}
+.menu-sep {
+  height: 1px;
+  background: var(--border);
+  margin: 5px 4px;
+}
+.mi-check {
+  width: 14px;
+  color: var(--accent);
+  display: inline-flex;
+  align-self: flex-start;
+  padding-top: 1px;
+}
+.mi-label {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.mi-hint {
+  color: var(--muted);
+  font-size: 10.5px;
+}
 .display-wrap {
   position: relative;
   flex: 1;
@@ -596,6 +667,21 @@ select:focus-visible {
 }
 .guidance li {
   margin: 3px 0;
+}
+.guidance .scorebar {
+  margin: 6px 0 2px;
+}
+.guidance .target {
+  margin-top: 5px;
+}
+.guidance .hints {
+  margin-top: 8px;
+}
+.guidance .adv {
+  margin-top: 7px;
+}
+.guidance .comp {
+  margin-top: 8px;
 }
 .bar {
   height: 5px;
