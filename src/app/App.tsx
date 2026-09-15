@@ -107,7 +107,7 @@ export function App() {
   }, [spectral.audioOn, spectral.volume, modality]);
 
   return (
-    <div className={`app ${ui.showTorso ? '' : 'no-torso'}`}>
+    <div className={`app ${ui.showTorso ? '' : 'no-torso'} ${ui.railMini ? 'rail-mini' : ''}`}>
       <TopBar />
       {ui.screen === 'references' ? (
         <ReferencesScreen />
@@ -120,8 +120,27 @@ export function App() {
       ) : (
         <>
           <div className="left" style={{ display: ui.showTorso ? 'flex' : 'none' }}>
-            {ui.showTorso && <TorsoView />}
-            <GuidancePanel />
+            <button
+              className="rail-collapse"
+              onClick={() => useSimStore.getState().setUi({ railMini: !ui.railMini })}
+              aria-expanded={!ui.railMini}
+              aria-label={
+                ui.railMini ? 'Expandir panel de navegación' : 'Colapsar panel de navegación'
+              }
+              title={
+                ui.railMini
+                  ? 'Expandir el torso 3D y la guía'
+                  : 'Colapsar a una tira con la puntuación'
+              }
+            >
+              {ui.railMini ? '»' : '«'}
+            </button>
+            {/* the torso stays mounted while mini so its mesh worker is not rebuilt on expand */}
+            <div className="rail-main" style={{ display: ui.railMini ? 'none' : 'flex' }}>
+              {ui.showTorso && <TorsoView />}
+              <GuidancePanel />
+            </div>
+            {ui.railMini && <RailMini />}
           </div>
           <div className="center">
             {error && (
@@ -142,6 +161,29 @@ export function App() {
         </>
       )}
       <ModeBar />
+    </div>
+  );
+}
+
+/** Collapsed left rail: the view score stays glanceable while torso and guidance are tucked away. */
+function RailMini() {
+  const hud = useHudStore((h) => h.hud);
+  const mode = useSimStore((s) => s.mode);
+  const v = hud?.view;
+  if (!modePolicy(mode).hintsEnabled || !v) return <div className="rail-strip" />;
+  const color = v.score >= 75 ? 'var(--ok)' : v.score >= 50 ? 'var(--warn)' : 'var(--bad)';
+  return (
+    <div className="rail-strip">
+      <div
+        className="rail-strip-score"
+        style={{ color }}
+        title={`${v.score}/100 — ${v.bestViewName}`}
+      >
+        {v.score}
+      </div>
+      <div className="rail-strip-bar">
+        <i style={{ height: `${v.score}%`, background: color }} />
+      </div>
     </div>
   );
 }

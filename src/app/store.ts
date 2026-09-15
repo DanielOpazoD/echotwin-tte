@@ -51,6 +51,8 @@ export interface UiPrefs {
   devPanel: boolean;
   showEcg: boolean;
   tutorialDone: boolean;
+  /** Left navigation rail collapsed to the mini strip (score + expander). */
+  railMini: boolean;
   consoleTab: ConsoleTab;
   screen: 'simulator' | 'references' | 'report' | 'curriculum' | 'progress';
 }
@@ -179,6 +181,7 @@ function savePrefs(ui: UiPrefs): void {
       navVessels,
       navAxes,
       navCut,
+      railMini,
       consoleTab,
     } = ui;
     localStorage.setItem(
@@ -196,6 +199,7 @@ function savePrefs(ui: UiPrefs): void {
         navVessels,
         navAxes,
         navCut,
+        railMini,
         consoleTab,
       }),
     );
@@ -245,6 +249,7 @@ export const useSimStore = create<SimStore>((set) => ({
     devPanel: false,
     showEcg: true,
     tutorialDone: false,
+    railMini: false,
     consoleTab: 'adquirir',
     screen: 'simulator',
     ...loadPrefs(),
