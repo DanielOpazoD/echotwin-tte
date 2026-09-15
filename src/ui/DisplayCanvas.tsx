@@ -4,9 +4,9 @@ import type { SimOutput } from '@/simulator/core/protocol';
 import { pixelToPolar, polarToPixel } from '@/simulator/renderer/scanConvert';
 import { tgcAtDepth } from '@/simulator/renderer/postprocess/consolePipeline';
 import type { Measurement } from '@/simulator/measurements/types';
-import { simpsonSinglePlaneVolume, vtiFromEnvelope } from '@/clinical/formulas';
 import { frameBus } from '@/app/frameBus';
-import { discProfileFromContour } from '@/simulator/measurements/simpson';
+import { discProfileFromContour, volumeFromProfileMl } from '@/simulator/measurements/simpson';
+import { summarizeEnvelope } from '@/simulator/measurements/vti';
 import { evaluateCapture, specFor, type CaptureExtras } from '@/app/measurementCapture';
 
 /**
@@ -249,7 +249,7 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
         const pts = [...pend.points];
         const prof = discProfileFromContour(pts, m.pxPerCm);
         if (prof) {
-          const vol = simpsonSinglePlaneVolume(prof.diametersCm, prof.longAxisCm);
+          const vol = volumeFromProfileMl(prof);
           const trueL = st.lvLengthCm !== null ? (spec?.phase === 'es' ? st.lvLengthCm - 1.2 : st.lvLengthCm) : null;
           commit(
             { kind: 'volume', label: 'Volumen VI (Simpson monoplano)', value: vol, units: 'mL', modality, geometry: pts, derived: { longAxisCm: prof.longAxisCm, discs: prof.diametersCm.length } },
@@ -273,12 +273,9 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
           x1 = Math.max(a.x, b.x);
         void frameBus.request({ kind: 'autoTrace', x0: Math.round(x0 - strip.x), x1: Math.round(x1 - strip.x) }).then((res) => {
           if (!res || res.kind !== 'autoTrace' || res.velocitiesMps.length < 2) return;
-          const vel = res.velocitiesMps.map((v) => Math.abs(v));
-          const vti = vtiFromEnvelope(vel, res.secondsPerColumn);
-          const vmax = Math.max(...vel);
-          const mean = vel.reduce((acc, v) => acc + 4 * v * v, 0) / vel.length;
+          const s = summarizeEnvelope(res.velocitiesMps, res.secondsPerColumn);
           const geometry = res.velocitiesMps.map((v, i) => ({ x: strip.x + res.x0 + i, y: strip.y + ((v - strip.topValue) / (strip.bottomValue - strip.topValue)) * strip.height }));
-          commit({ kind: 'vti', label: 'VTI (envolvente automática)', value: vti, units: 'cm', modality, geometry, derived: { vmaxMps: vmax, meanGradientMmHg: mean, peakGradientMmHg: 4 * vmax * vmax } }, { userAssisted: true });
+          commit({ kind: 'vti', label: 'VTI (envolvente automática)', value: s.vtiCm, units: 'cm', modality, geometry, derived: { vmaxMps: s.vmaxMps, meanGradientMmHg: s.meanGradientMmHg, peakGradientMmHg: s.peakGradientMmHg } }, { userAssisted: true });
           redraw();
         });
       }
@@ -302,10 +299,8 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
           const y = a.y + (b.y - a.y) * t;
           vel.push(Math.abs(stripVelocity(y)));
         }
-        const vti = vtiFromEnvelope(vel, strip.secondsPerColumn);
-        const vmax = Math.max(...vel);
-        const mean = vel.reduce((acc, v) => acc + 4 * v * v, 0) / vel.length;
-        commit({ kind: 'vti', label: 'VTI', value: vti, units: 'cm', modality, geometry: pts, derived: { vmaxMps: vmax, meanGradientMmHg: mean, peakGradientMmHg: 4 * vmax * vmax } });
+        const s = summarizeEnvelope(vel, strip.secondsPerColumn);
+        commit({ kind: 'vti', label: 'VTI', value: s.vtiCm, units: 'cm', modality, geometry: pts, derived: { vmaxMps: s.vmaxMps, meanGradientMmHg: s.meanGradientMmHg, peakGradientMmHg: s.peakGradientMmHg } });
         return;
       }
       pend.points.push(p);

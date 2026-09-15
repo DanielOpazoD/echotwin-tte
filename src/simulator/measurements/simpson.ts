@@ -1,3 +1,5 @@
+import { simpsonSinglePlaneVolume } from '@/clinical/formulas';
+
 /**
  * Method of discs from a traced endocardial contour (spec 16.4). The contour runs from one side of
  * the mitral annulus to the other through the apex (display pixels, any orientation). The long axis
@@ -60,4 +62,9 @@ export function discProfileFromContour(points: readonly { x: number; y: number }
     diametersCm.push(Number.isFinite(sMin) && Number.isFinite(sMax) ? (sMax - sMin) / pxPerCm : 0);
   }
   return { diametersCm, longAxisCm: L / pxPerCm, base, apex };
+}
+
+/** Single-plane method-of-discs volume of a traced profile (mL). */
+export function volumeFromProfileMl(profile: DiscProfile): number {
+  return simpsonSinglePlaneVolume(profile.diametersCm, profile.longAxisCm);
 }

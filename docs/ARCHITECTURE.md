@@ -17,7 +17,7 @@
 | Educación | `src/education/scoring` | puntuación de adquisición (mejor score por vista requerida), de mediciones (tolerancia + validez técnica) y resumen de examen | cases, measurements/types, hemodynamics |
 | Aplicación | `src/app`, `src/ui`, `src/workers` | React 19, zustand, `frameBus`, three.js (torso), tutorial de 8 pasos (`Tutorial.tsx`), exportación PNG con marca de agua (`exportImage.ts`) | core del simulador, clinical |
 
-La regla de ESLint `no-restricted-imports` bloquea `**/clinical/formulas/*` en `src/ui/**`. Nótese que el patrón exige un segmento tras `formulas/`, por lo que `DisplayCanvas.tsx` importa `vtiFromEnvelope` desde el índice `@/clinical/formulas` y pasa el lint.
+La regla de ESLint `no-restricted-imports` bloquea `**/clinical/formulas` y `**/clinical/formulas/*` en `src/ui/**`: la UI no importa fórmulas clínicas ni por el índice ni por subruta; el cálculo de las herramientas de medición vive en `src/simulator/measurements` (`simpson.ts`, `vti.ts`).
 
 ## Flujo de datos
 ```
