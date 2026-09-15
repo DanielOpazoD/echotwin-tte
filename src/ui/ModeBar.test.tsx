@@ -64,3 +64,26 @@ describe('ModeBar overflow menu', () => {
     }
   });
 });
+
+describe('ModeBar context chip', () => {
+  it('shows nothing in 2D', () => {
+    render(<ModeBar />);
+    expect(document.querySelector('.ctx-chip')).toBeNull();
+  });
+
+  it('shows the colour Nyquist scale in colour mode', () => {
+    useSimStore.setState({ modality: 'color' });
+    render(<ModeBar />);
+    expect(document.querySelector('.ctx-chip')?.textContent).toContain('m/s');
+  });
+
+  it('shows the gate depth in PW and the sweep in M-mode', () => {
+    useSimStore.setState({ modality: 'pw', gateDepthCm: 9 });
+    render(<ModeBar />);
+    expect(document.querySelector('.ctx-chip')?.textContent).toContain('Gate 9.0 cm');
+    cleanup();
+    useSimStore.setState({ modality: 'm-mode', spectral: { sweepSpeedMmPerS: 50 } as never });
+    render(<ModeBar />);
+    expect(document.querySelector('.ctx-chip')?.textContent).toContain('50 mm/s');
+  });
+});

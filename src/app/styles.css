@@ -308,6 +308,16 @@ select:focus-visible {
   background: var(--border);
   margin: 0 6px;
 }
+.ctx-chip {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  background: #14202d;
+  border: 1px solid #274158;
+  border-radius: 5px;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
 .menu-wrap {
   position: relative;
 }
