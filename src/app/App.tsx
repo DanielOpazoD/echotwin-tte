@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useHudStore, useSimStore } from './store';
+import { modePolicy } from './modePolicy';
 import { useSimulation } from './useSimulation';
 import { useShortcuts } from './shortcuts';
 import { DisplayCanvas } from '@/ui/DisplayCanvas';
@@ -53,7 +54,7 @@ export function App() {
             });
         }
         // curriculum: evaluate the automatic task checks against the learner's current state (≈ 8 Hz)
-        if (st.mode !== 'exam') {
+        if (modePolicy(st.mode).evaluateCurriculum) {
           const impression = st.truth
             ? scoreImpression(st.impressionSelection, expectedFindings(st.truth)).score
             : null;

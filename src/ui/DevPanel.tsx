@@ -1,4 +1,5 @@
 import { useHudStore, useSimStore } from '@/app/store';
+import { modePolicy } from '@/app/modePolicy';
 import { formatClinical } from '@/clinical/reference-values';
 
 /** Developer panel (spec 15.4, 45). Never rendered in exam mode. */
@@ -6,7 +7,7 @@ export function DevPanel() {
   const s = useSimStore();
   const hud = useHudStore((h) => h.hud);
   const t = s.truth;
-  if (s.mode === 'exam' || !s.ui.devPanel) return null;
+  if (!modePolicy(s.mode).devToolsAllowed || !s.ui.devPanel) return null;
   const rows: [string, string][] = [];
   if (hud) {
     rows.push(
