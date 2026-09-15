@@ -19,6 +19,7 @@ import {
 import type { MeshReply, MeshRequest } from '@/workers/heartMesh.worker';
 import { beamFrameFromPose, poseFromControl, type BeamFrame } from '@/simulator/probe/pose';
 import { RotationDial } from './RotationDial';
+import { CheckItem, MenuCap, usePopover } from './menu';
 
 /**
  * 3D torso + probe trainer (spec 4.3, 58, 76). Clean clinical torso: wrap-around superellipse chest
@@ -31,9 +32,6 @@ export function TorsoView() {
   const ref = useRef<HTMLDivElement>(null);
   const caseId = useSimStore((s) => s.caseId);
   const patient = useSimStore((s) => s.patient);
-  const showSkeleton = useSimStore((s) => s.ui.showSkeleton);
-  const nav = useSimStore((s) => s.ui);
-  const setUi = useSimStore((s) => s.setUi);
   const zoomRef = useRef<{ zoomBy: (f: number) => void; center: () => void } | null>(null);
 
   useEffect(() => {
@@ -410,68 +408,56 @@ export function TorsoView() {
           <button onClick={() => zoomRef.current?.center()} title="Centrar la cámara en la sonda">
             Sonda
           </button>
-          <button
-            className={showSkeleton ? 'active' : ''}
-            onClick={() => setUi({ showSkeleton: !showSkeleton })}
-            title="Mostrar/ocultar costillas y esternón bajo la piel"
-          >
-            Hueso
-          </button>
-          <button
-            className={nav.navSkin ? 'active' : ''}
-            onClick={() => setUi({ navSkin: !nav.navSkin })}
-            title="Mostrar/ocultar la piel del tórax"
-          >
-            Piel
-          </button>
-          <button
-            className={nav.navHeart ? 'active' : ''}
-            onClick={() => setUi({ navHeart: !nav.navHeart })}
-            title="Miocardio del modelo 3D"
-          >
-            Miocardio
-          </button>
-          <button
-            className={nav.navChambers ? 'active' : ''}
-            onClick={() => setUi({ navChambers: !nav.navChambers })}
-            title="Cavidades y aurículas"
-          >
-            Cavidades
-          </button>
-          <button
-            className={nav.navValves ? 'active' : ''}
-            onClick={() => setUi({ navValves: !nav.navValves })}
-            title="Válvulas y cuerdas"
-          >
-            Válvulas
-          </button>
-          <button
-            className={nav.navVessels ? 'active' : ''}
-            onClick={() => setUi({ navVessels: !nav.navVessels })}
-            title="Raíz aórtica, pulmonar, cavas y venas pulmonares"
-          >
-            Vasos
-          </button>
-          <button
-            className={nav.navAxes ? 'active' : ''}
-            onClick={() => setUi({ navAxes: !nav.navAxes })}
-            title="Ejes de examinación: haz, elevación y lateral"
-          >
-            Ejes
-          </button>
-          <button
-            className={nav.navCut ? 'active' : ''}
-            onClick={() => setUi({ navCut: !nav.navCut })}
-            title="Cortar el corazón 3D por el plano de imagen"
-          >
-            Corte
-          </button>
+          <LayerMenu />
         </div>
       </div>
       <div className="torso-help">
         Arrastrar piel: deslizar · Arrastrar marcador azul o rueda: rotar · Shift+arrastrar: rock ·
         Alt+arrastrar: tilt · Botón derecho: orbitar
       </div>
+    </div>
+  );
+}
+
+/** 3D navigator layers as a checkable popover: keeps the torso overlay to camera controls only. */
+function LayerMenu() {
+  const ui = useSimStore((s) => s.ui);
+  const setUi = useSimStore((s) => s.setUi);
+  const { open, setOpen, wrap } = usePopover();
+  const layer = (label: string, key: keyof typeof ui, hint: string) => (
+    <CheckItem
+      label={label}
+      checked={Boolean(ui[key])}
+      onToggle={() => setUi({ [key]: !ui[key] })}
+      hint={hint}
+    />
+  );
+  return (
+    <div className="menu-wrap" ref={wrap}>
+      <button
+        className={open ? 'active' : ''}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title="Capas del navegador 3D"
+        onClick={() => setOpen(!open)}
+      >
+        Capas
+      </button>
+      {open && (
+        <div className="menu down" role="menu" aria-label="Capas del navegador 3D">
+          <MenuCap>Cuerpo</MenuCap>
+          {layer('Piel', 'navSkin', 'Superficie del tórax')}
+          {layer('Hueso', 'showSkeleton', 'Costillas y esternón')}
+          <MenuCap>Corazón</MenuCap>
+          {layer('Miocardio', 'navHeart', 'Paredes del modelo 3D')}
+          {layer('Cavidades', 'navChambers', 'Ventrículos y aurículas')}
+          {layer('Válvulas', 'navValves', 'Válvulas y cuerdas')}
+          {layer('Vasos', 'navVessels', 'Raíz aórtica, pulmonar y cavas')}
+          <MenuCap>Examen</MenuCap>
+          {layer('Ejes', 'navAxes', 'Haz, elevación y lateral')}
+          {layer('Corte', 'navCut', 'Cortar el corazón por el plano de imagen')}
+        </div>
+      )}
     </div>
   );
 }

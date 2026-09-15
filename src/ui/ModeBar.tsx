@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
 import { useHudStore, useSimStore } from '@/app/store';
 import { modePolicy } from '@/app/modePolicy';
 import type { ImagingModality } from '@/simulator/renderer/types';
 import { exportDisplayPng } from '@/app/exportImage';
 import { useRestartTutorial } from './Tutorial';
-import { IconCheck, IconSliders } from './icons';
+import { IconSliders } from './icons';
+import { ActionItem, CheckItem, MenuCap, usePopover } from './menu';
 
 const MODES: { id: ImagingModality; label: string; key: string }[] = [
   { id: '2d', label: '2D', key: '2' },
@@ -86,64 +86,7 @@ function OverflowMenu() {
   const s = useSimStore();
   const policy = modePolicy(s.mode);
   const restartTutorial = useRestartTutorial();
-  const [open, setOpen] = useState(false);
-  const wrap = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onPointer = (e: PointerEvent) => {
-      if (wrap.current && !wrap.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: globalThis.KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    window.addEventListener('pointerdown', onPointer);
-    window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('pointerdown', onPointer);
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
-
-  const item = (
-    label: string,
-    value: boolean,
-    onToggle: () => void,
-    opts: { disabled?: boolean; hint?: string } = {},
-  ) => (
-    <button
-      role="menuitemcheckbox"
-      aria-checked={value}
-      disabled={opts.disabled}
-      title={opts.disabled ? 'No disponible en modo examen' : opts.hint}
-      onClick={onToggle}
-    >
-      <span className="mi-check" aria-hidden="true">
-        {value ? <IconCheck size={12} /> : null}
-      </span>
-      <span className="mi-label">
-        {label}
-        {opts.hint && !opts.disabled ? (
-          <span className="mi-hint" aria-hidden="true">
-            {opts.hint}
-          </span>
-        ) : null}
-      </span>
-    </button>
-  );
-
-  const action = (label: string, onClick: () => void) => (
-    <button
-      role="menuitem"
-      onClick={() => {
-        onClick();
-        setOpen(false);
-      }}
-    >
-      <span className="mi-check" aria-hidden="true" />
-      <span className="mi-label">{label}</span>
-    </button>
-  );
+  const { open, setOpen, wrap } = usePopover();
 
   return (
     <div className="menu-wrap" ref={wrap}>
@@ -153,31 +96,54 @@ function OverflowMenu() {
         aria-expanded={open}
         aria-label="Más opciones"
         title="Paneles y acciones"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => setOpen(!open)}
       >
         <IconSliders />
       </button>
       {open && (
         <div className="menu" role="menu" aria-label="Paneles y acciones">
-          <div className="menu-cap">Mostrar</div>
-          {item('Ayudas de vista', s.ui.showHints, () => s.setUi({ showHints: !s.ui.showHints }), {
-            disabled: !policy.hintsEnabled,
-            hint: 'Puntuación y sugerencias de adquisición',
-          })}
-          {item(
-            'Superposición física',
-            s.ui.showPhysics,
-            () => s.setUi({ showPhysics: !s.ui.showPhysics }),
-            { disabled: !policy.devToolsAllowed, hint: 'Líneas de barrido y zona focal' },
-          )}
-          {item('ECG', s.ui.showEcg, () => s.setUi({ showEcg: !s.ui.showEcg }))}
-          {item('Panel Dev', s.ui.devPanel, () => s.setUi({ devPanel: !s.ui.devPanel }), {
-            disabled: !policy.devToolsAllowed,
-          })}
+          <MenuCap>Mostrar</MenuCap>
+          <CheckItem
+            label="Ayudas de vista"
+            checked={s.ui.showHints}
+            onToggle={() => s.setUi({ showHints: !s.ui.showHints })}
+            disabled={!policy.hintsEnabled}
+            hint="Puntuación y sugerencias de adquisición"
+          />
+          <CheckItem
+            label="Superposición física"
+            checked={s.ui.showPhysics}
+            onToggle={() => s.setUi({ showPhysics: !s.ui.showPhysics })}
+            disabled={!policy.devToolsAllowed}
+            hint="Líneas de barrido y zona focal"
+          />
+          <CheckItem
+            label="ECG"
+            checked={s.ui.showEcg}
+            onToggle={() => s.setUi({ showEcg: !s.ui.showEcg })}
+          />
+          <CheckItem
+            label="Panel Dev"
+            checked={s.ui.devPanel}
+            onToggle={() => s.setUi({ devPanel: !s.ui.devPanel })}
+            disabled={!policy.devToolsAllowed}
+          />
           <div className="menu-sep" />
-          <div className="menu-cap">Acciones</div>
-          {action('Guardar imagen PNG', () => exportDisplayPng(s.caseId))}
-          {action('Reiniciar tutorial', restartTutorial)}
+          <MenuCap>Acciones</MenuCap>
+          <ActionItem
+            label="Guardar imagen PNG"
+            onClick={() => {
+              exportDisplayPng(s.caseId);
+              setOpen(false);
+            }}
+          />
+          <ActionItem
+            label="Reiniciar tutorial"
+            onClick={() => {
+              restartTutorial();
+              setOpen(false);
+            }}
+          />
         </div>
       )}
     </div>

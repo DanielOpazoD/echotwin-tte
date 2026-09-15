@@ -66,6 +66,9 @@ select:focus-visible {
   grid-template-columns: 300px 1fr 280px;
   height: 100%;
 }
+.app.rail-mini {
+  grid-template-columns: 56px 1fr 280px;
+}
 .app.no-torso {
   grid-template-columns: 0 1fr 280px;
 }
@@ -108,12 +111,62 @@ select:focus-visible {
   font-weight: 700;
 }
 .left {
+  position: relative;
   background: var(--panel);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   min-width: 0;
   overflow: hidden;
+}
+.rail-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.rail-collapse {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 4;
+  padding: 3px 8px;
+  font-size: 12px;
+  line-height: 1;
+  opacity: 0.8;
+}
+.rail-collapse:hover {
+  opacity: 1;
+}
+.rail-strip {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 40px 4px 10px;
+}
+.rail-strip-score {
+  font-family: var(--mono);
+  font-size: 19px;
+  font-weight: 700;
+}
+.rail-strip-bar {
+  width: 5px;
+  flex: 1;
+  max-height: 120px;
+  min-height: 30px;
+  background: #222a35;
+  border-radius: 3px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
+}
+.rail-strip-bar i {
+  display: block;
+  width: 100%;
+  border-radius: 3px;
 }
 .center {
   position: relative;
@@ -275,6 +328,10 @@ select:focus-visible {
   padding: 5px;
   box-shadow: 0 10px 32px rgba(0, 0, 0, 0.55);
   z-index: 30;
+}
+.menu.down {
+  bottom: auto;
+  top: calc(100% + 6px);
 }
 .menu button {
   display: flex;
