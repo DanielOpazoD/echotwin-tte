@@ -12,7 +12,7 @@ import {
 import { lvCavityRadius, lvCavitySdf, lvProfileG, lvSdfNormal } from './lvShape';
 import { fastAtan2, latticeNoise3 } from '@/core/noise';
 import {
-  aorticCoaptationBand,
+  aorticContactBand,
   aorticCuspDistance,
   aorticHit,
   rootRadiusAt,
@@ -178,13 +178,14 @@ export function classifyHeart(
   // and rises with the margin toward the commissures. Until 2026-09-13 these fins sat 28.6° away from the commissures
   // of the cusps — 3.7° from the parasternal long-axis plane — reached 0.65 cm down into the ventricular side of the
   // valve and were 0.8 mm thick: a long bright line through the middle of the closed valve in PLAX.
-  if (hp.state.avOpen < 0.2 && rootT > 0 && rootT < V.aortic.hComm && rootRr < rootR * 0.97) {
-    const [bottom, top] = aorticCoaptationBand(V.aortic, rootRr / rootR);
-    if (rootT > bottom && rootT < top) {
+  if (V.aortic.open < 1 && rootT > 0 && rootT < V.aortic.hComm && rootRr < rootR * 0.97) {
+    const band = aorticContactBand(V.aortic, V.root, rootT, rootRr, rootPhi);
+    const axialDistance = band ? Math.max(band[0] - rootT, rootT - band[1], 0) : Infinity;
+    if (axialDistance < AV_COAPT_HALF) {
       const n = V.cuspCount;
       let dphi = (((rootPhi - 0.5 - Math.PI / n) % (TWO_PI / n)) + TWO_PI / n) % (TWO_PI / n);
       if (dphi > Math.PI / n) dphi = TWO_PI / n - dphi;
-      const dist = rootRr * Math.sin(dphi);
+      const dist = Math.hypot(rootRr * Math.sin(dphi), axialDistance);
       if (dist < AV_COAPT_HALF) {
         // the surface normal is tangential (the band contains the axis and the radial direction)
         const ux = rootQx / (rootRr || 1),
@@ -886,6 +887,7 @@ export function classifyHeart(
     const s = hp.state.contraction;
     rvCrescent(m, hp, A, x, y, z, az, rvTmp);
     const dRv = rvTmp[0]!;
+    const dRvU = smin(dRv, tvInflowSdf(x, y, z, V.tv, hp.tvZ), 0.3);
     const fw = m.anatomy.rv.freeWallThicknessCm * (1 + 0.35 * s);
     const k = 0.85 + 0.15 * (1 - s);
     // outflow: infundibulum → subpulmonary region as two tapering segments bowed anteriorly over the aortic root
@@ -981,7 +983,7 @@ export function classifyHeart(
       setSample(out, Tissue.Blood, dTrunk, vx, vy, vz, x, y, z, 0, Structure.PulmonaryArtery);
       return true;
     }
-    if (dTrunk < 0.18 && dRvot > 0) {
+    if (dTrunk < 0.18 && dRvot > 0 && dRvU > 0) {
       setSample(
         out,
         Tissue.VesselWall,
@@ -1000,7 +1002,6 @@ export function classifyHeart(
     // tricuspid inflow: the RV cavity and its wall reach the whole annulus. The crescent is closed at the tricuspid
     // plane, so its wall ran as a floor 0.5-1.5 cm thick across the orifice, and in systole its free wall pulled in
     // while the annulus stayed put: the lateral hinge sat outside the heart in 6-10 of 10 frames of eleven cases.
-    const dRvU = smin(dRv, tvInflowSdf(x, y, z, V.tv, hp.tvZ), 0.3);
     rvTmp[0] = dRvU;
     const dCavRv = Math.min(dRvU, dRvot);
     if (dCavRv < 0) {

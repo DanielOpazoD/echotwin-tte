@@ -403,8 +403,10 @@ export class SimulatorCore {
       contactQuality(inp.probe.pressure),
     );
     const pre = this.clock.current;
+    const previousTablesVersion = this.tablesVersion;
     this.clock.advance(dt);
     this.syncBeatTables();
+    if (this.tablesVersion !== previousTablesVersion) this.atlas.invalidate();
     this.timeS += dt;
     this.accumulateEcg(pre.timeInBeatS, pre.rrS, dt);
     // the trace budget of the M-mode lines follows the frame interval, not the step: a late step must not buy a longer one

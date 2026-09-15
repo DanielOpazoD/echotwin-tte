@@ -10,7 +10,11 @@ import {
   ROOT_SINUS_T,
   ROOT_STJ_T,
 } from '@/simulator/anatomy/heartModel';
-import { AV_PHI0 } from '@/simulator/anatomy/aorticValve';
+import {
+  AV_PHI0,
+  AV_LATERAL_COAPTATION_HEIGHT,
+  AV_LATERAL_PROFILE_RADIUS,
+} from '@/simulator/anatomy/aorticValve';
 import {
   AML_ARC_EXTENSION,
   CLOSED_DEPTH,
@@ -42,6 +46,8 @@ const float ROOT_ASC_T = ${f(ROOT_ASC_T)};
 const float AV_COAPT_HALF = ${f(AV_COAPT_HALF)};
 const float ROOT_EXCURSION = ${f(ROOT_EXCURSION)};
 const float AV_PHI0 = ${f(AV_PHI0)};
+const float AV_LATERAL_COAPTATION_HEIGHT = ${f(AV_LATERAL_COAPTATION_HEIGHT)};
+const float AV_LATERAL_PROFILE_RADIUS = ${f(AV_LATERAL_PROFILE_RADIUS)};
 const int MV_BINS = ${MV_BINS};
 const float AML_ARC_EXTENSION = ${f(AML_ARC_EXTENSION)};
 const float MV_CLOSED_REACH[3] = float[3](${CLOSED_REACH.map(f).join(', ')});
@@ -268,8 +274,28 @@ float rootRadiusAt(float t, float phi) {
 }
 // coaptation band on the line to a commissure: [bottom, top]
 vec2 aorticBand(float rn) {
-  float top = AVC_EH + (AVC_HCOMM - AVC_EH) * pow(clamp(rn, 0.0, 1.0), 1.5);
-  return vec2(top - (AVC_CH * (1.0 - rn) + 0.1 * rn), top);
+  float r = clamp(rn, 0.0, 1.0);
+  float margin = CUSP_COUNT == 3.0 ? r * r * r : pow(r, 1.5);
+  float top = AVC_EH + (AVC_HCOMM - AVC_EH) * margin;
+  if (CUSP_COUNT != 3.0) return vec2(top - (AVC_CH * (1.0 - r) + 0.1 * r), top);
+  bool inner = r <= AV_LATERAL_PROFILE_RADIUS;
+  float u = inner ? r / AV_LATERAL_PROFILE_RADIUS : (r - AV_LATERAL_PROFILE_RADIUS) / (1.0 - AV_LATERAL_PROFILE_RADIUS);
+  float blend = u * u * (3.0 - 2.0 * u);
+  float height = inner ? AVC_CH + (AV_LATERAL_COAPTATION_HEIGHT - AVC_CH) * blend : AV_LATERAL_COAPTATION_HEIGHT + (0.1 - AV_LATERAL_COAPTATION_HEIGHT) * blend;
+  return vec2(top - height, top);
+}
+bool aorticContactBand(float t, float r, float phi, out vec2 band) {
+  float closed = 1.0 - AVC_OPEN;
+  if (closed <= 0.0) return false;
+  float hingeT = AVC_HCOMM - 0.1;
+  float hingeR = rootRadiusAt(hingeT, phi) - 0.05;
+  float restT = (t - AVC_OPEN * hingeT) / closed;
+  float restR = (r - AVC_OPEN * hingeR) / closed;
+  if (restT < 0.0 || restR < 0.0) return false;
+  float wallR = rootRadiusAt(restT, phi);
+  if (restR >= wallR * 0.97) return false;
+  band = closed * aorticBand(restR / wallR) + AVC_OPEN * hingeT;
+  return true;
 }
 float aorticCuspDistance(float t, float rr, float phi, out float dOut, out float fracOut, out vec2 nOut) {
   dOut = 1e3;
@@ -289,7 +315,7 @@ float aorticCuspDistance(float t, float rr, float phi, out float dOut, out float
   vec2 bestN = vec2(0.0, 1.0);
   vec2 a = vec2(0.0);
   for (int i = 0; i < 4; i++) {
-    float rn = i == 0 ? 1.0 : (i == 1 ? 0.64 : (i == 2 ? 0.29 : 0.0));
+    float rn = i == 0 ? 1.0 : (i == 1 ? AV_LATERAL_PROFILE_RADIUS : (i == 2 ? 0.29 : 0.0));
     float tMid = (AVC_EH - AVC_CH) * (1.0 - rn) - AVC_SAG * sin(PI * rn) * (1.0 - aq);
     float edge = aorticBand(rn).x;
     float rc = rw * rn, tc = tMid + (edge - tMid) * k;
@@ -562,14 +588,16 @@ bool classifyHeart(vec3 p0, out Sample s) {
       return true;
     }
   }
-  if (AV_OPEN < 0.2 && rootT > 0.0 && rootT < AVC_HCOMM && rootRr < rootR * 0.97) {
-    vec2 band = aorticBand(rootRr / rootR);
-    if (rootT > band.x && rootT < band.y) {
+  if (AVC_OPEN < 1.0 && rootT > 0.0 && rootT < AVC_HCOMM && rootRr < rootR * 0.97) {
+    vec2 band;
+    float axialDistance = 1e3;
+    if (aorticContactBand(rootT, rootRr, rootPhi, band)) axialDistance = max(max(band.x - rootT, rootT - band.y), 0.0);
+    if (axialDistance < AV_COAPT_HALF) {
       float n = CUSP_COUNT;
       float per = TWO_PI / n;
       float dphi = mod(mod(rootPhi - 0.5 - PI / n, per) + per, per);
       if (dphi > PI / n) dphi = per - dphi;
-      float dist = rootRr * sin(dphi);
+      float dist = length(vec2(rootRr * sin(dphi), axialDistance));
       if (dist < AV_COAPT_HALF) {
         vec3 u = rootQ / max(rootRr, 1e-6);
         setSample(s, T_VALVE, dist - AV_COAPT_HALF, cross(ax, u), p, AV_CALC, S_AV);
@@ -834,7 +862,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
       setSample(s, T_BLOOD, dTrunk, v, p, 0.0, S_PA);
       return true;
     }
-    if (dTrunk < 0.18 && dRvot > 0.0) {
+    if (dTrunk < 0.18 && dRvot > 0.0 && dRvU > 0.0) {
       setSample(s, T_VESSEL, -min(dTrunk, 0.18 - dTrunk), v, p, 0.0, S_PA);
       return true;
     }
