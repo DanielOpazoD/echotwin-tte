@@ -14,3 +14,4 @@ public/atlas/*.bin
 *.nii
 *.nii.gz
 database_nifti/
+tsconfig.tsbuildinfo
