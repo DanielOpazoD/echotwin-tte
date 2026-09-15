@@ -38,6 +38,8 @@ jobs:
         with:
           name: blob-${{ matrix.shard }}
           path: .vitest-reports/
+          # upload-artifact@v4 skips dot-directories unless told otherwise
+          include-hidden-files: true
           if-no-files-found: error
   coverage:
     needs: unit
