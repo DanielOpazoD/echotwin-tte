@@ -1,12 +1,18 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import { ModeBar } from './ModeBar';
 import { useHudStore, useSimStore } from '@/app/store';
 import type { ProductMode } from '@/app/modePolicy';
 
 const initialSim = useSimStore.getState();
 const initialHud = useHudStore.getState();
+
+function openMenu() {
+  act(() => {
+    screen.getByRole('button', { name: 'Más opciones' }).click();
+  });
+}
 
 beforeEach(() => {
   cleanup();
@@ -22,14 +28,39 @@ describe.each<[ProductMode, boolean]>([
   it(`hints toggle is ${disabled ? 'disabled' : 'enabled'}`, () => {
     useSimStore.setState({ mode });
     render(<ModeBar />);
-    expect(screen.getByRole('button', { name: 'Ayudas' })).toHaveProperty('disabled', disabled);
+    openMenu();
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Ayudas de vista' })).toHaveProperty(
+      'disabled',
+      disabled,
+    );
   });
 
   it(`physics and dev toggles are ${disabled ? 'disabled' : 'enabled'}`, () => {
     useSimStore.setState({ mode });
     render(<ModeBar />);
-    for (const name of ['Física', 'Dev']) {
-      expect(screen.getByRole('button', { name })).toHaveProperty('disabled', disabled);
+    openMenu();
+    for (const name of ['Superposición física', 'Panel Dev']) {
+      expect(screen.getByRole('menuitemcheckbox', { name })).toHaveProperty('disabled', disabled);
+    }
+  });
+});
+
+describe('ModeBar overflow menu', () => {
+  it('hides secondary controls behind the ⋯ menu and lists actions', () => {
+    render(<ModeBar />);
+    expect(screen.queryByRole('menuitemcheckbox', { name: 'ECG' })).toBeNull();
+    openMenu();
+    for (const name of ['Ayudas de vista', 'Superposición física', 'ECG', 'Panel Dev']) {
+      expect(screen.getByRole('menuitemcheckbox', { name })).toBeTruthy();
+    }
+    expect(screen.getByRole('menuitem', { name: 'Guardar imagen PNG' })).toBeTruthy();
+    expect(screen.getByRole('menuitem', { name: 'Reiniciar tutorial' })).toBeTruthy();
+  });
+
+  it('keeps modality keys, freeze and torso in the first row', () => {
+    render(<ModeBar />);
+    for (const name of ['2D', 'Color', 'M', 'CMM', 'PW', 'CW', 'TDI', 'Freeze', 'Torso 3D']) {
+      expect(screen.getByRole('button', { name })).toBeTruthy();
     }
   });
 });

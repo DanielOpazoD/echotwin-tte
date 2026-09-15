@@ -3,7 +3,11 @@ import { modePolicy } from '@/app/modePolicy';
 import { getViewTarget } from '@/simulator/windows/viewTargets';
 import { explainAnalysis } from '@/education/causes';
 
-/** Left-bottom guidance: recognised view, score components and deterministic hints (spec 27.2, 52). */
+/**
+ * Left-bottom guidance (spec 27.2, 52), layered by how actionable each part is: the score, the
+ * recognised view and the hints stay visible; the component breakdown and landmark lists collapse
+ * under «Detalles», the causal explanations under «Por qué».
+ */
 export function GuidancePanel() {
   const hud = useHudStore((h) => h.hud);
   const ui = useSimStore((s) => s.ui);
@@ -35,6 +39,7 @@ export function GuidancePanel() {
   ];
   const color = v.score >= 75 ? 'var(--ok)' : v.score >= 50 ? 'var(--warn)' : 'var(--bad)';
   const causes = ui.showHints ? explainAnalysis(v, settings) : [];
+  const targetHints = targetId ? getViewTarget(targetId).hints : [];
   return (
     <div className="guidance" aria-live="polite">
       <div className="score">
@@ -44,57 +49,59 @@ export function GuidancePanel() {
           <br />
           <span className="small">
             ventana: {v.window}
-            {v.foreshorteningDeg > 0.5 ? ` · acortamiento ${v.foreshorteningDeg.toFixed(0)}°` : ''}
+            {v.foreshorteningDeg > 0.5 ? ` · acort. ${v.foreshorteningDeg.toFixed(0)}°` : ''}
           </span>
         </span>
       </div>
+      <div className="bar scorebar">
+        <i style={{ width: `${v.score}%`, background: color }} />
+      </div>
       {targetId && (
-        <div className="small" style={{ marginTop: 4 }}>
-          Objetivo: {getViewTarget(targetId).name} — {targetScore ?? '—'} / 100
+        <div className="small target">
+          Objetivo: {getViewTarget(targetId).name} · {targetScore ?? '—'}/100
         </div>
       )}
       {ui.showHints && (
         <>
-          <div className="comp" style={{ marginTop: 6 }}>
-            {bars.map(([label, val]) => (
-              <div key={label} style={{ gridColumn: '1 / -1' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>{label}</span>
-                  <span>{Math.round(val * 100)}</span>
+          {v.hints.length + targetHints.length > 0 && (
+            <ul className="hints">
+              {v.hints.map((h, i) => (
+                <li key={i}>{h}</li>
+              ))}
+              {targetHints.map((h, i) => (
+                <li key={'t' + i}>{h}</li>
+              ))}
+            </ul>
+          )}
+          <details className="adv">
+            <summary>Detalles</summary>
+            <div className="comp">
+              {bars.map(([label, val]) => (
+                <div key={label} style={{ gridColumn: '1 / -1' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>{label}</span>
+                    <span>{Math.round(val * 100)}</span>
+                  </div>
+                  <div className="bar">
+                    <i style={{ width: `${Math.round(val * 100)}%` }} />
+                  </div>
                 </div>
-                <div className="bar">
-                  <i style={{ width: `${Math.round(val * 100)}%` }} />
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="small">
-            Visibles: {v.visibleLandmarks.length ? v.visibleLandmarks.join(', ') : '—'}
-            {v.missingLandmarks.length ? ` · faltan: ${v.missingLandmarks.join(', ')}` : ''}
-          </div>
-          <ul>
-            {v.hints.map((h, i) => (
-              <li key={i}>{h}</li>
-            ))}
-          </ul>
+              ))}
+            </div>
+            <div className="small">
+              Visibles: {v.visibleLandmarks.length ? v.visibleLandmarks.join(', ') : '—'}
+              {v.missingLandmarks.length ? ` · faltan: ${v.missingLandmarks.join(', ')}` : ''}
+            </div>
+          </details>
           {causes.length > 0 && (
-            <details className="causes" open={false}>
-              <summary className="small">Por qué ({causes.length})</summary>
+            <details className="adv causes">
+              <summary>Por qué ({causes.length})</summary>
               {causes.map((c) => (
                 <div key={c.code} className="small cause" data-cause={c.code}>
                   <b>Causa:</b> {c.cause} <b>Efecto:</b> {c.effect} <b>Remedio:</b> {c.remedy}
                 </div>
               ))}
             </details>
-          )}
-          {targetId && (
-            <ul>
-              {getViewTarget(targetId).hints.map((h, i) => (
-                <li key={'t' + i} className="small">
-                  {h}
-                </li>
-              ))}
-            </ul>
           )}
         </>
       )}
