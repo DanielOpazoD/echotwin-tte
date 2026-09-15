@@ -1,0 +1,2 @@
+# Format-only commits; use: git config blame.ignoreRevsFile .git-blame-ignore-revs
+5b0c04682d9ce269ec2db7ad0c95679e65f73b73 Format the whole codebase with Prettier (printWidth 100)

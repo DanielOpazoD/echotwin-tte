@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
-    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"e2e/**/*.ts\" \"tools/**/*.ts\"",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"e2e/**/*.ts\" \"tools/**/*.ts\" \"*.{ts,js}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"e2e/**/*.ts\" \"tools/**/*.ts\" \"*.{ts,js}\"",
     "test": "vitest run",
     "test:slow": "VITEST_TIER=slow vitest run --testTimeout=180000",
     "test:all": "VITEST_TIER=all vitest run --testTimeout=180000",
@@ -21,7 +22,7 @@
     "atlas:build": "tsx tools/offline/atlas-generation/build-atlas.ts",
     "measure": "tsx tools/offline/render/measure-model.ts",
     "review:export": "tsx tools/offline/validation/export-review-set.ts",
-    "golden:update": "UPDATE_GOLDENS=1 vitest run src/tests/goldens.test.ts"
+    "golden:update": "UPDATE_GOLDENS=1 VITEST_TIER=slow vitest run src/tests/goldens.test.ts"
   },
   "dependencies": {
     "react": "19.3.0",

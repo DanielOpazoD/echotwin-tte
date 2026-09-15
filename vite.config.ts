@@ -39,6 +39,10 @@ const SLOW_TEST_FILES = [
   'src/tests/goldens.test.ts',
 ];
 const testTier = process.env['VITEST_TIER'] ?? 'fast';
+// CI runs the suite in shards that emit blob reports; a merge job applies the thresholds once.
+// A shard's coverage map is partial and would always fail the per-area floors, so collection-only
+// runs skip them (see .github/workflows/ci.yml).
+const coverageShard = process.env['VITEST_COVERAGE_SHARD'] === '1';
 
 export default defineConfig({
   plugins: [react()],
@@ -73,25 +77,27 @@ export default defineConfig({
       // The per-area floors sit ~5 points below their measured values; the gpu/, ui/, workers/
       // and app/ directories stay under the global floor only — WebGL and DOM paths are exercised
       // by the E2E suite, not by unit tests.
-      thresholds: {
-        lines: 60,
-        statements: 60,
-        branches: 55,
-        functions: 50,
-        'src/cases/**': { lines: 85 },
-        'src/clinical/**': { lines: 70 },
-        'src/core/**': { lines: 75 },
-        'src/education/**': { lines: 80 },
-        'src/simulator/anatomy/**': { lines: 90 },
-        'src/simulator/cardiac-cycle/**': { lines: 90 },
-        'src/simulator/core/**': { lines: 80 },
-        'src/simulator/doppler/**': { lines: 85 },
-        'src/simulator/hemodynamics/**': { lines: 95 },
-        'src/simulator/probe/**': { lines: 90 },
-        'src/simulator/renderer/**': { lines: 45 },
-        'src/simulator/view-recognition/**': { lines: 90 },
-        'src/simulator/windows/**': { lines: 90 },
-      },
+      thresholds: coverageShard
+        ? undefined
+        : {
+            lines: 60,
+            statements: 60,
+            branches: 55,
+            functions: 50,
+            'src/cases/**': { lines: 85 },
+            'src/clinical/**': { lines: 70 },
+            'src/core/**': { lines: 75 },
+            'src/education/**': { lines: 80 },
+            'src/simulator/anatomy/**': { lines: 90 },
+            'src/simulator/cardiac-cycle/**': { lines: 90 },
+            'src/simulator/core/**': { lines: 80 },
+            'src/simulator/doppler/**': { lines: 85 },
+            'src/simulator/hemodynamics/**': { lines: 95 },
+            'src/simulator/probe/**': { lines: 90 },
+            'src/simulator/renderer/**': { lines: 45 },
+            'src/simulator/view-recognition/**': { lines: 90 },
+            'src/simulator/windows/**': { lines: 90 },
+          },
     },
   },
 });

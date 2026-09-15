@@ -2,6 +2,7 @@ node_modules
 dist
 dist-ssr
 coverage
+.vitest-reports
 playwright-report
 test-results
 e2e/.auth
