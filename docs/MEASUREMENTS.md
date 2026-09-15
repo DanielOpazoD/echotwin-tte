@@ -1,6 +1,6 @@
 # Mediciones
 
-## Herramientas disponibles (`src/ui/DisplayCanvas.tsx`, `ConsolePanel` › «Mediciones»)
+## Herramientas disponibles (`src/ui/DisplayCanvas.tsx`, `ConsolePanel` › pestaña «Medir»)
 | Herramienta | Dónde se usa | Interacción | Valor | Derivados |
 |---|---|---|---|---|
 | Caliper (`linear`) | Sector 2D/Color | Dos clics | distancia en cm | — |

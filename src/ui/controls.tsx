@@ -67,11 +67,12 @@ export function Toggle(props: {
     <div className="row" title={props.title}>
       <label>{props.label}</label>
       <button
-        className={props.value ? 'active' : ''}
+        className={`switch${props.value ? ' on' : ''}`}
+        aria-label={props.label}
         aria-pressed={props.value}
         onClick={() => props.onChange(!props.value)}
       >
-        {props.value ? 'ON' : 'OFF'}
+        <span className="knob" />
       </button>
     </div>
   );

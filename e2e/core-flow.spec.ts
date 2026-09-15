@@ -72,6 +72,7 @@ test.describe('EchoTwin TTE core flow', () => {
     await page.keyboard.press('Space');
     await expect(page.getByText('FREEZE')).toBeVisible();
     await expect(page.getByRole('slider', { name: 'Cine' })).toBeVisible();
+    await page.getByRole('tab', { name: 'Medir' }).click();
     await page.getByRole('button', { name: 'Caliper' }).click();
     const overlay = page.getByLabel('Superposiciones y herramientas de medición');
     const box = await overlay.boundingBox();

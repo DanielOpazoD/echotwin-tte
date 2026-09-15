@@ -43,6 +43,7 @@ test('LVOT diameter from the protocol panel is captured with a technique grade a
     { timeout: 15000 },
   );
   await waitForFrames(page, 3);
+  await page.getByRole('tab', { name: 'Medir' }).click();
   await page.getByRole('button', { name: 'Medir Diámetro del TSVI' }).click();
   const st = await store(page);
   expect(st.activeTool).toBe('caliper');
@@ -80,6 +81,7 @@ test('LVOT diameter from the protocol panel is captured with a technique grade a
 test('free tools stay available and record measurements without a protocol id', async ({
   page,
 }) => {
+  await page.getByRole('tab', { name: 'Medir' }).click();
   await page.getByRole('button', { name: 'Caliper', exact: true }).click();
   await page.keyboard.press('Space');
   await waitForFrames(page, 1);
@@ -141,6 +143,7 @@ async function clickSectorPoint(page: Page, xCm: number, yCm: number) {
 }
 
 async function zoomTwice(page: Page, scale: number) {
+  await page.getByRole('tab', { name: 'Imagen' }).click();
   const zoom = page.locator('input[aria-label="Zoom"]');
   await zoom.press('Home');
   for (let i = 0; i < 10; i++) await zoom.press('ArrowRight');
@@ -189,6 +192,7 @@ test('sector calipers follow zoom, inversion and resize without changing the mea
   await page.waitForFunction(
     () => (window as unknown as CaliperWindow).__echotwin.useHudStore.getState().hud.frozen,
   );
+  await page.getByRole('tab', { name: 'Medir' }).click();
   await page.getByRole('button', { name: 'Caliper', exact: true }).click();
   await clickSectorPoint(page, -1.5, 3.5);
   await clickSectorPoint(page, 0.5, 5);
@@ -226,6 +230,7 @@ test('zoom between the first and second caliper clicks preserves physical calibr
   await page.waitForFunction(
     () => (window as unknown as CaliperWindow).__echotwin.useHudStore.getState().hud.frozen,
   );
+  await page.getByRole('tab', { name: 'Medir' }).click();
   await page.getByRole('button', { name: 'Caliper', exact: true }).click();
   const original = await spatialState(page);
   await clickSectorPoint(page, -1.5, 3.5);

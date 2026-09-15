@@ -32,6 +32,9 @@ import { modePolicy, type ProductMode } from './modePolicy';
 
 export type { ProductMode };
 
+/** Right-console tabs (PR: tabbed console). Persisted so a reload restores the working context. */
+export type ConsoleTab = 'adquirir' | 'imagen' | 'doppler' | 'medir' | 'lab';
+
 export interface UiPrefs {
   showTorso: boolean;
   showSkeleton: boolean;
@@ -48,6 +51,7 @@ export interface UiPrefs {
   devPanel: boolean;
   showEcg: boolean;
   tutorialDone: boolean;
+  consoleTab: ConsoleTab;
   screen: 'simulator' | 'references' | 'report' | 'curriculum' | 'progress';
 }
 
@@ -175,6 +179,7 @@ function savePrefs(ui: UiPrefs): void {
       navVessels,
       navAxes,
       navCut,
+      consoleTab,
     } = ui;
     localStorage.setItem(
       PREF_KEY,
@@ -191,6 +196,7 @@ function savePrefs(ui: UiPrefs): void {
         navVessels,
         navAxes,
         navCut,
+        consoleTab,
       }),
     );
   } catch {
@@ -239,6 +245,7 @@ export const useSimStore = create<SimStore>((set) => ({
     devPanel: false,
     showEcg: true,
     tutorialDone: false,
+    consoleTab: 'adquirir',
     screen: 'simulator',
     ...loadPrefs(),
   },
