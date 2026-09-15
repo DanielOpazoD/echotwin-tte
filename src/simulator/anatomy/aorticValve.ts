@@ -25,6 +25,8 @@ export const AV_COAPT_HALF = 0.02;
 /** Normal cusp geometry (cm): effective height, coaptation height at the centre, commissure height, belly sag. */
 export const AV_EFFECTIVE_HEIGHT = 0.9;
 export const AV_COAPTATION_HEIGHT = 0.45;
+export const AV_LATERAL_COAPTATION_HEIGHT = 0.59;
+export const AV_LATERAL_PROFILE_RADIUS = 0.64;
 export const AV_COMMISSURE_HEIGHT = 1.75;
 export const AV_BELLY_SAG = 0.15;
 /** Azimuth (rad, e1/e2 basis) of the centre of cusp 0; the sinus bulges share it. */
@@ -96,11 +98,42 @@ export function buildAorticValve(count: number, open: number, thickness: number)
 
 /** Coaptation band on the line to a commissure at normalized radius rn = r / wall radius: [bottom, top] heights. */
 export function aorticCoaptationBand(av: AorticValve, rn: number): [number, number] {
-  const top = av.eH + (av.hComm - av.eH) * Math.pow(Math.max(0, Math.min(1, rn)), 1.5);
-  return [top - (av.cH * (1 - rn) + 0.1 * rn), top];
+  const r = Math.max(0, Math.min(1, rn));
+  const margin = av.count === 3 ? r * r * r : Math.pow(r, 1.5);
+  const top = av.eH + (av.hComm - av.eH) * margin;
+  if (av.count !== 3) return [top - (av.cH * (1 - r) + 0.1 * r), top];
+  const inner = r <= AV_LATERAL_PROFILE_RADIUS;
+  const u = inner
+    ? r / AV_LATERAL_PROFILE_RADIUS
+    : (r - AV_LATERAL_PROFILE_RADIUS) / (1 - AV_LATERAL_PROFILE_RADIUS);
+  const blend = u * u * (3 - 2 * u);
+  const height = inner
+    ? av.cH + (AV_LATERAL_COAPTATION_HEIGHT - av.cH) * blend
+    : AV_LATERAL_COAPTATION_HEIGHT + (0.1 - AV_LATERAL_COAPTATION_HEIGHT) * blend;
+  return [top - height, top];
 }
 
-const RN = [1, 0.64, 0.29, 0];
+export function aorticContactBand(
+  av: AorticValve,
+  root: RootProfile,
+  t: number,
+  r: number,
+  phi: number,
+): [number, number] | null {
+  const closed = 1 - av.open;
+  if (closed <= 0) return null;
+  const hingeT = av.hComm - 0.1;
+  const hingeR = rootRadiusAt(root, hingeT, phi) - 0.05;
+  const restT = (t - av.open * hingeT) / closed;
+  const restR = (r - av.open * hingeR) / closed;
+  if (restT < 0 || restR < 0) return null;
+  const wallR = rootRadiusAt(root, restT, phi);
+  if (restR >= wallR * 0.97) return null;
+  const [bottom, top] = aorticCoaptationBand(av, restR / wallR);
+  return [closed * bottom + av.open * hingeT, closed * top + av.open * hingeT];
+}
+
+const RN = [1, AV_LATERAL_PROFILE_RADIUS, 0.29, 0];
 const prof = new Float64Array(8);
 
 /** Current profile of a cusp at fraction q ∈ [−1, 1] of its sector (0 = centre, ±1 = commissures), as (r, t) × 4 in `prof`. */

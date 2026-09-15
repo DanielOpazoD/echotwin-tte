@@ -6,6 +6,21 @@ Primera tarea del plan de alta fidelidad: auditar el simulador antes de cambiarl
 
 Esta sección prevalece como plan de trabajo sobre la hoja de ruta histórica de abajo. Alcance: imagen, anatomía, mecánica y operación; sin ampliar docencia, scores, examen ni patologías. PRF/Nyquist y dúplex están excluidos, también como criterio de cierre. No se otorga una nueva nota de fidelidad ni se declara validación clínica.
 
+### Prioridad anatómica de las ventanas normales — seguimiento de capturas (decisiones 121–122)
+
+La inspección de `d944b31` separa geometría, tejido e imagen en nueve fases de las ventanas señaladas. Las capturas con interfaz CVX/X5-1 no corresponden a la UI de esta copia; los defectos se reproducen sobre este repositorio antes de atribuirles una causa.
+
+| Ventana / estructura | Estado de este incremento | Pendiente antes de aceptar fidelidad de la ventana |
+|---|---|---|
+| PSAX aórtico | Coaptación lateral fundamentada, tres brazos centrales, borde de espesor finito y retracción con la apertura en vez de una Y fija que desaparece al 20%. | Forma completa y contenido durante el ciclo; detalles periféricos; no forzar la Y fuera del nivel de coaptación. |
+| Unión VD–TSVD–tronco | Eliminada pared arterial emitida dentro del lumen del VD; se conserva la pared externa. | Otras relaciones y resaltes entre primitivas durante el ciclo; no se declara perfecta la unión completa. |
+| Pulmonar | Geometría y cortes inspeccionados. | Persiste el modelo de dos segmentos por cúspide y una apertura poco convincente; no corregido en esta PR. |
+| Tricúspide / A4C | La geometría sí abre; se inspeccionó el ciclo, no una captura aislada. | Apertura útil, forma del aparato y visibilidad ecográfica; un parámetro `tvOpen` correcto no cierra este defecto. |
+| PSAX mitral | Reproducido el corte oblicuo y la mezcla de aurícula en el polo profundo. | Corregir el plano adquirido y comprobar anillo, velos y pared sin deformar la anatomía para lograr un preset. |
+| Subcostal / VCI | Corregida reutilización de VCI de otro latido en respiración libre. | Relación con hígado, forma capsular, continuidad y visibilidad de la VCI; navegador no idéntico a toda la mecánica respiratoria. |
+
+Se conservan tamaños de cámaras/raíces, controles de sonda y procesamiento acústico. La secuencia de trabajo continúa con anatomía normal, no con docencia ni nuevas patologías. No se declara validación clínica ni se cierran todas las ventanas por pasar pruebas técnicas.
+
 ### Incremento de imagen: continuidad de reverberación (decisión 119)
 
 La ablación por componentes del caso normal, con la escena obtenida del núcleo y comprobación de la reconstrucción contra la consola, confirma que el ruido receptor domina gran parte de la sangre interior A2C a 6–10 cm (91–93% de potencia esperada en las dos fases estudiadas). Eso no identifica un suelo de ruido clínico correcto; retirar ruido o especular no fue aceptado como calibración.

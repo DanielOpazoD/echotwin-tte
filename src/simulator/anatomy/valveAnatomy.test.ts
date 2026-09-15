@@ -13,6 +13,11 @@ import {
 } from './heartModel';
 import { mitralFreeEdge, mitralLeafletPoint, MV_BINS } from './mitralValve';
 import { rootRadiusAt } from './aorticValve';
+import { rvCrescent } from './rv';
+import { tvInflowSdf } from './valveSkirt';
+import { smin } from './sdf';
+import { SimulatorCore } from '@/simulator/core/simulatorCore';
+import { baseInput } from '@/simulator/core/baseInput';
 import { createThoraxModel, type ThoraxModel } from './thoraxModel';
 import { makeSample, Structure, Tissue } from './tissue';
 import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
@@ -902,6 +907,88 @@ describe('outflow tract and pulmonary root motion (decision 111)', () => {
     expect(move.x, report).toBeGreaterThan(0);
     expect(move.y, report).toBeLessThan(0);
     expect(move.z, report).toBeGreaterThan(0);
+  });
+});
+
+describe('right ventricular outflow junction', () => {
+  function inRv(heart: HeartModel, pose: HeartPose, p: Vec3): number {
+    const a = heartAnchors(heart),
+      temp = new Float64Array(3);
+    rvCrescent(heart, pose, a, p.x, p.y, p.z, Math.atan2(p.y, p.x), temp);
+    return smin(temp[0]!, tvInflowSdf(p.x, p.y, p.z, pose.valves.tv, pose.tvZ), 0.3);
+  }
+
+  it.each(['normal-excellent-window', 'aortic-stenosis-severe', 'pulmonary-hypertension-rv'])(
+    'does not put arterial wall inside the RV lumen across the cycle: %s',
+    (id) => {
+      const { heart, tables } = setup(id),
+        a = heartAnchors(heart),
+        sample = makeSample();
+      let inside = 0,
+        external = 0;
+      for (let phase = 0; phase < 12; phase++) {
+        const pose = computeHeartPose(heart, cycleStateAt(tables, phase / 12));
+        const centre = add(a.rvotB, v3(0, 0, pose.pvZ));
+        for (let t = -1.5; t <= 2; t += 0.15)
+          for (const ratio of [0.85, 1, 1.15, 1.3, 1.45])
+            for (let j = 0; j < 24; j++) {
+              const angle = (j * 2 * Math.PI) / 24,
+                r = ratio * a.paRootR;
+              const p = add(
+                add(centre, scale(a.paDir, t)),
+                add(scale(a.pvE1, r * Math.cos(angle)), scale(a.pvE2, r * Math.sin(angle))),
+              );
+              if (
+                !classifyHeart(heart, pose, p.x, p.y, p.z, sample) ||
+                sample.structure !== Structure.PulmonaryArtery ||
+                sample.tissue !== Tissue.VesselWall
+              )
+                continue;
+              const d = inRv(heart, pose, p);
+              if (d < -0.01) inside++;
+              if (d > 0.05) external++;
+            }
+      }
+      expect(external, 'preserve the external arterial wall').toBeGreaterThan(20);
+      expect(inside, 'arterial wall intruding into the existing RV blood cavity').toBe(0);
+    },
+  );
+
+  it('keeps the real PSAX-AV frame free of the intraluminal arterial shelf', () => {
+    const c = loadCaseById('normal-excellent-window'),
+      input = baseInput({ quality: 'high' }),
+      core = new SimulatorCore(c, input);
+    input.probe = canonicalControl(getViewTarget('psax-av'), core.models.heart, core.models.thorax);
+    core.setInput(input);
+    const out = core.step(0)!;
+    const frame = core.lastFrame!,
+      beam = core.lastBeam!,
+      pose = core.heartPoseNow(),
+      heart = core.models.heart;
+    let inside = 0,
+      external = 0;
+    for (let i = 0; i < frame.structure.length; i++) {
+      if (frame.structure[i] !== Structure.PulmonaryArtery || frame.tissue[i] !== Tissue.VesselWall)
+        continue;
+      const li = Math.floor(i / frame.spec.samples),
+        si = i % frame.spec.samples;
+      const theta =
+        -frame.spec.sectorRad / 2 + (frame.spec.sectorRad * (li + 0.5)) / frame.spec.lines;
+      const r = ((si + 0.5) * frame.spec.depthCm) / frame.spec.samples;
+      const p = torsoToHeart(
+        heart.frame,
+        add(
+          beam.origin,
+          add(scale(beam.forward, r * Math.cos(theta)), scale(beam.lateral, r * Math.sin(theta))),
+        ),
+      );
+      const d = inRv(heart, pose, p);
+      if (d < -0.01) inside++;
+      if (d > 0.05) external++;
+    }
+    core.recycle(out.rgba);
+    expect(external).toBeGreaterThan(5);
+    expect(inside).toBe(0);
   });
 });
 
