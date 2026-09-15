@@ -199,6 +199,103 @@ describe('atlas render cache: the image is always the image of the current pose'
   );
 });
 
+describe('atlas acquisition identity', () => {
+  const phase = 0.25;
+  const hints = { stationary: true, budgetMs: 0, sceneAtPhase: scene };
+  const changes: [string, Partial<Scene['physics']>][] = [
+    ['frequency', { frequencyMHz: 4 }],
+    ['harmonics', { harmonics: false }],
+    ['clutter', { clutterLevel: 0.8 }],
+    ['attenuation', { windowAttenuation: 0.6 }],
+    ['scatterer seed', { seed: 2 }],
+    ['beam width', { beamWidth: 1 }],
+  ];
+
+  it.each(changes)('reacquires after changing %s, then reuses the new slot', (_label, patch) => {
+    const src = new CountingSource();
+    const atlas = new AtlasRenderer(src, 1);
+    const beam = beamOf(plax);
+    const out = allocPolarFrame(spec);
+    for (let i = 0; i < 3; i++) atlas.render(scene(phase), beam, spec, phase, out, hints);
+    expect(atlas.stats()['served']).toBe('cache');
+    const before = src.calls;
+    const changed = (ph: number): Scene => {
+      const sc = scene(ph);
+      return { ...sc, physics: { ...sc.physics, ...patch } };
+    };
+    atlas.render(changed(phase), beam, spec, phase, out, { ...hints, sceneAtPhase: changed });
+    expect(src.calls).toBe(before + 1);
+    expect(atlas.stats()['served']).toBe('direct');
+    const direct = allocPolarFrame(spec);
+    reference.render(changed(phase), beam, spec, phase, direct);
+    expect(meanAbsDiff(out.amplitude, direct.amplitude)).toBeLessThan(1e-9);
+    expect(out.structure).toEqual(direct.structure);
+    expect(out.tissue).toEqual(direct.tissue);
+    expect(out.transmission).toEqual(direct.transmission);
+    atlas.render(changed(phase), beam, spec, phase, out, { ...hints, sceneAtPhase: changed });
+    expect(atlas.stats()['served']).toBe('cache');
+    expect(src.calls).toBe(before + 1);
+    expect(meanAbsDiff(out.amplitude, direct.amplitude)).toBeLessThanOrEqual(1 / 2048);
+  });
+
+  it('does not serve a complete cine acquired at another frequency', { timeout: 60_000 }, () => {
+    const src = new CountingSource();
+    const atlas = new AtlasRenderer(src, 1);
+    const beam = beamOf(plax);
+    const out = allocPolarFrame(spec);
+    fillCine(atlas, beam, out);
+    expect(atlas.stats()['cineFill']).toBe(FULL);
+    const before = src.calls;
+    const changed = (ph: number): Scene => {
+      const sc = scene(ph);
+      return { ...sc, physics: { ...sc.physics, frequencyMHz: 4 } };
+    };
+    atlas.render(changed(phase), beam, spec, phase, out, { ...hints, sceneAtPhase: changed });
+    expect(src.calls).toBe(before + 1);
+    expect(atlas.stats()['served']).toBe('direct');
+    const direct = allocPolarFrame(spec);
+    reference.render(changed(phase), beam, spec, phase, direct);
+    expect(out.amplitude).toEqual(direct.amplitude);
+  });
+
+  it('includes coupling even when the geometric pose is unchanged', () => {
+    const src = new CountingSource();
+    const atlas = new AtlasRenderer(src, 1);
+    const beam = beamOf(plax);
+    const out = allocPolarFrame(spec);
+    for (let i = 0; i < 3; i++) atlas.render(scene(phase), beam, spec, phase, out, hints);
+    expect(atlas.stats()['served']).toBe('cache');
+    const before = src.calls;
+    const changedBeam = { ...beam, contact: 0.2 };
+    atlas.render(scene(phase), changedBeam, spec, phase, out, hints);
+    expect(src.calls).toBe(before + 1);
+    const direct = allocPolarFrame(spec);
+    reference.render(scene(phase), changedBeam, spec, phase, direct);
+    expect(out.amplitude).toEqual(direct.amplitude);
+    atlas.render(scene(phase), changedBeam, spec, phase, out, hints);
+    expect(atlas.stats()['served']).toBe('cache');
+    expect(src.calls).toBe(before + 1);
+  });
+
+  it('keeps a snapshot when the caller mutates the physics object', () => {
+    const src = new CountingSource();
+    const atlas = new AtlasRenderer(src, 1);
+    const beam = beamOf(plax);
+    const out = allocPolarFrame(spec);
+    const sc = scene(phase);
+    const sameScene = { ...hints, sceneAtPhase: () => sc };
+    for (let i = 0; i < 3; i++) atlas.render(sc, beam, spec, phase, out, sameScene);
+    expect(atlas.stats()['served']).toBe('cache');
+    const before = src.calls;
+    sc.physics.frequencyMHz = 4;
+    atlas.render(sc, beam, spec, phase, out, sameScene);
+    expect(src.calls).toBe(before + 1);
+    const direct = allocPolarFrame(spec);
+    reference.render(sc, beam, spec, phase, direct);
+    expect(out.amplitude).toEqual(direct.amplitude);
+  });
+});
+
 describe('atlas frame compaction', () => {
   it('transmission log encoding round-trips within 4 % over 1e-4..1', () => {
     for (const t of [1, 0.5, 0.1, 0.01, 0.001, 1e-4]) {

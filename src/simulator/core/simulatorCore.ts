@@ -509,6 +509,7 @@ export class SimulatorCore {
       this.colorPrev = null;
       this.lastFrameTimeS = this.lastColorTimeS = NaN;
     }
+    this.frame.spec = spec;
     // persistence decays with simulated time, not per frame the renderer managed to produce (decision 94)
     const elapsed = Number.isFinite(this.lastFrameTimeS)
       ? this.timeS - this.lastFrameTimeS

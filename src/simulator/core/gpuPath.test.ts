@@ -116,6 +116,18 @@ function stepFrames(core: InstanceType<typeof SimulatorCore>, steps: number): Si
 }
 
 describe('GPU image chain routing in the core (stand-in renderer)', () => {
+  it('updates the polar focus metadata on the GPU display path', () => {
+    const inp = input();
+    const core = new SimulatorCore(loadCaseById('normal-excellent-window'), inp);
+    const first = core.step(0)!;
+    expect(first.bitmap).toBeTruthy();
+    const oldSpec = core.lastFrame!.spec;
+    core.setInput({ ...inp, settings: { ...inp.settings, focusCm: 4 } });
+    const changed = core.step(0.1)!;
+    expect(changed.bitmap).toBeTruthy();
+    expect(core.lastFrame!.spec.focusCm).toBe(4);
+    expect(oldSpec.focusCm).toBe(9);
+  });
   beforeEach(() =>
     Object.assign(gpu, {
       lost: false,
