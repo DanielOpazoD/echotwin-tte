@@ -1,4 +1,5 @@
 import { useHudStore, useSimStore } from '@/app/store';
+import { modePolicy } from '@/app/modePolicy';
 import type { ImagingModality } from '@/simulator/renderer/types';
 import { exportDisplayPng } from '@/app/exportImage';
 import { useRestartTutorial } from './Tutorial';
@@ -16,6 +17,7 @@ const MODES: { id: ImagingModality; label: string; key: string }[] = [
 export function ModeBar() {
   const s = useSimStore();
   const hud = useHudStore((h) => h.hud);
+  const policy = modePolicy(s.mode);
   const restartTutorial = useRestartTutorial();
   return (
     <div className="modebar" role="toolbar" aria-label="Modalidades y cine">
@@ -68,14 +70,14 @@ export function ModeBar() {
       <button
         onClick={() => s.setUi({ showHints: !s.ui.showHints })}
         className={s.ui.showHints ? 'active' : ''}
-        disabled={s.mode === 'exam'}
+        disabled={!policy.hintsEnabled}
       >
         Ayudas
       </button>
       <button
         onClick={() => s.setUi({ showPhysics: !s.ui.showPhysics })}
         className={s.ui.showPhysics ? 'active' : ''}
-        disabled={s.mode === 'exam'}
+        disabled={!policy.devToolsAllowed}
         title="Superpone líneas de barrido y zona focal"
       >
         Física
@@ -89,7 +91,7 @@ export function ModeBar() {
       <button
         onClick={() => s.setUi({ devPanel: !s.ui.devPanel })}
         className={s.ui.devPanel ? 'active' : ''}
-        disabled={s.mode === 'exam'}
+        disabled={!policy.devToolsAllowed}
         title="Panel de desarrollador"
       >
         Dev

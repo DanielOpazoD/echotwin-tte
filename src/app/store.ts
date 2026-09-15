@@ -28,8 +28,9 @@ import type { PhaseMarks } from '@/simulator/core/protocol';
 import { getCaseModels } from './caseModels';
 import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
 import { easeInOut, lerpControl, presetDurationMs } from '@/simulator/probe/interpolate';
+import { modePolicy, type ProductMode } from './modePolicy';
 
-export type ProductMode = 'sandbox' | 'guided' | 'exam';
+export type { ProductMode };
 
 export interface UiPrefs {
   showTorso: boolean;
@@ -284,18 +285,21 @@ export const useSimStore = create<SimStore>((set) => ({
   setQuality: (q) => set({ quality: q }),
   setBackend: (b) => set({ rendererBackend: b }),
   setMode: (m) =>
-    set((s) => ({
-      mode: m,
-      examFinished: false,
-      viewProgress: m === 'exam' ? {} : s.viewProgress,
-      measurements: m === 'exam' ? [] : s.measurements,
-      ui: {
-        ...s.ui,
-        showHints: m !== 'exam',
-        showPhysics: m === 'exam' ? false : s.ui.showPhysics,
-        devPanel: m === 'exam' ? false : s.ui.devPanel,
-      },
-    })),
+    set((s) => {
+      const policy = modePolicy(m);
+      return {
+        mode: m,
+        examFinished: false,
+        viewProgress: m === 'exam' ? {} : s.viewProgress,
+        measurements: m === 'exam' ? [] : s.measurements,
+        ui: {
+          ...s.ui,
+          showHints: policy.hintsEnabled,
+          showPhysics: policy.devToolsAllowed ? s.ui.showPhysics : false,
+          devPanel: policy.devToolsAllowed ? s.ui.devPanel : false,
+        },
+      };
+    }),
   setTargetView: (id) => set({ targetViewId: id }),
   setUi: (u) =>
     set((s) => {

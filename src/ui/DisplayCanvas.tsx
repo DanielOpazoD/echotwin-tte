@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useHudStore, useSimStore, type SimStore } from '@/app/store';
 import type { SimOutput } from '@/simulator/core/protocol';
+import { ecgTracePoints, type EcgLayout } from './ecgTrace';
 import { pixelToPolar, polarToPixel } from '@/simulator/renderer/scanConvert';
 import { tgcAtDepth } from '@/simulator/renderer/postprocess/consolePipeline';
 import type { Measurement } from '@/simulator/measurements/types';
@@ -688,19 +689,23 @@ function drawOverlay(
     const eh = 34;
     const ey = (modality === '2d' || modality === 'color' ? sectorH : H) - eh - 4;
     const span = 3;
-    const t0 = hud.ecgHead - span;
+    const layout: EcgLayout = {
+      x0: 8,
+      width: W - 16,
+      y: ey,
+      height: eh,
+      spanS: span,
+      headS: hud.ecgHead,
+    };
     ctx.strokeStyle = '#57d38c';
     ctx.lineWidth = 1.2;
     ctx.beginPath();
     let first = true;
-    for (const p of hud.ecg) {
-      if (p.t < t0) continue;
-      const x = 8 + ((p.t - t0) / span) * (W - 16);
-      const y = ey + eh - 6 - p.v * (eh - 10);
+    for (const p of ecgTracePoints(hud.ecg, layout)) {
       if (first) {
-        ctx.moveTo(x, y);
+        ctx.moveTo(p.x, p.y);
         first = false;
-      } else ctx.lineTo(x, y);
+      } else ctx.lineTo(p.x, p.y);
     }
     ctx.stroke();
     ctx.lineWidth = 1;

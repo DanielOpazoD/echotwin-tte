@@ -1,9 +1,11 @@
 import { useHudStore, useSimStore } from '@/app/store';
+import { modePolicy } from '@/app/modePolicy';
 import { listCases } from '@/cases';
 
 export function TopBar() {
   const s = useSimStore();
   const hud = useHudStore((h) => h.hud);
+  const policy = modePolicy(s.mode);
   const title = listCases().find((c) => c.id === s.caseId)?.title ?? s.caseId;
   const rhythmLabel: Record<string, string> = {
     sinus: 'Sinusal',
@@ -31,12 +33,14 @@ export function TopBar() {
         FR <b>{hud ? Math.round(hud.simulatedFps) : '—'} Hz</b>
         {hud && hud.colorFps > 0 ? <span> · color {Math.round(hud.colorFps)} Hz</span> : null}
       </span>
-      <span className="stat">
-        Vista{' '}
-        <b>
-          {hud?.view?.bestViewId ? `${hud.view.bestViewId.toUpperCase()} ${hud.view.score}` : '—'}
-        </b>
-      </span>
+      {policy.showViewFeedback ? (
+        <span className="stat">
+          Vista{' '}
+          <b>
+            {hud?.view?.bestViewId ? `${hud.view.bestViewId.toUpperCase()} ${hud.view.score}` : '—'}
+          </b>
+        </span>
+      ) : null}
       <span className="spacer" />
       <span className={s.frozen ? 'frozen' : 'live'}>{s.frozen ? 'FREEZE' : 'LIVE'}</span>
       <select
@@ -73,21 +77,21 @@ export function TopBar() {
       <button
         className={s.ui.screen === 'curriculum' ? 'active' : ''}
         onClick={() => s.setUi({ screen: 'curriculum' })}
-        disabled={s.mode === 'exam'}
+        disabled={!policy.learningScreensEnabled}
       >
         Currículo
       </button>
       <button
         className={s.ui.screen === 'progress' ? 'active' : ''}
         onClick={() => s.setUi({ screen: 'progress' })}
-        disabled={s.mode === 'exam'}
+        disabled={!policy.learningScreensEnabled}
       >
         Progreso
       </button>
       <button
         className={s.ui.screen === 'references' ? 'active' : ''}
         onClick={() => s.setUi({ screen: 'references' })}
-        disabled={s.mode === 'exam'}
+        disabled={!policy.learningScreensEnabled}
       >
         Referencias
       </button>
