@@ -1,4 +1,5 @@
 import { aliasVelocity } from '@/clinical/formulas';
+import { hash3 } from '@/core/random';
 import { Tissue } from '@/simulator/anatomy/tissue';
 import type { PolarFrame } from '@/simulator/renderer/types';
 import type { ScanLut } from '@/simulator/renderer/scanConvert';
@@ -67,6 +68,88 @@ export interface ColorField {
   invert: boolean;
 }
 
+/**
+ * The colour field as a scanner estimates it (decision 116). Each update the velocity comes from the autocorrelation of a short
+ * packet of echoes and the power from the same echoes of moving blood, so both scatter: the power of the blood's speckle
+ * (exponential, averaged over the packet and the sample volume) decides whether a sample passes the display threshold,
+ * and the velocity estimate scatters around the velocity, more with a broad spectrum and with a weak echo. Both are
+ * correlated over about two samples and two lines (the resolution cell) and new at every update, as the blood moves on.
+ * Without an estimate the field is the expected one. Declared values: no measured colour Doppler texture was found to
+ * calibrate against.
+ */
+export interface ColorEstimate {
+  /** Index of the colour update: every update draws a new realization. */
+  realization: number;
+  seed: number;
+}
+/**
+ * Velocity scatter of the estimate: a floor for a strong laminar echo and the scatter at the display threshold (fractions of
+ * Nyquist), and the spectral width over the square root of the independent samples of a packet: the turbulent spread of the
+ * spectrum is 0.9 × dispersion × speed (spectrum.ts), over √4. In a turbulent jet well above Nyquist the estimate becomes a
+ * mosaic of every colour, as it does on a scanner.
+ */
+const ESTIMATE_SD_FLOOR = 0.035;
+const ESTIMATE_SD_WIDTH = 0.45;
+const ESTIMATE_SD_THRESHOLD = 0.06;
+const COLOR_THRESHOLD = 0.25;
+
+/** Unit Gaussian from two hashes (Box–Muller). */
+function hashGaussian(li: number, si: number, stream: number, seed: number): number {
+  const u1 = hash3(li, si, stream, seed);
+  const u2 = hash3(li, si, stream + 1, seed);
+  return Math.sqrt(-2 * Math.log(Math.max(1e-12, u1))) * Math.cos(2 * Math.PI * u2);
+}
+
+/** Binomial [1 2 1]/4 smoothing of a lines × samples grid, along lines and along samples, in place. */
+function smoothGrid(g: Float32Array, nL: number, nS: number, tmp: Float32Array): void {
+  for (let l = 0; l < nL; l++)
+    for (let k = 0; k < nS; k++) {
+      const i = l * nS + k;
+      tmp[i] = 0.25 * (g[k > 0 ? i - 1 : i]! + 2 * g[i]! + g[k < nS - 1 ? i + 1 : i]!);
+    }
+  for (let l = 0; l < nL; l++)
+    for (let k = 0; k < nS; k++) {
+      const i = l * nS + k;
+      g[i] = 0.25 * (tmp[l > 0 ? i - nS : i]! + 2 * tmp[i]! + tmp[l < nL - 1 ? i + nS : i]!);
+    }
+}
+
+/**
+ * The estimate of one update over the colour box: a unit Gaussian velocity scatter and the blood's speckle power (mean 1), both
+ * correlated over the resolution cell (about two samples and two lines). The power is the squared magnitude of a smoothed
+ * complex Gaussian field, smoothed again as the packet and the sample volume average it. Computed per sample with its own
+ * 3×3 kernels it cost 10 µs a sample (60 ms for a colour box of 6000 samples).
+ */
+function estimateGrids(liMin: number, siMin: number, nL: number, nS: number, estimate: ColorEstimate): { velocity: Float32Array; power: Float32Array } {
+  const n = nL * nS;
+  const velocity = new Float32Array(n);
+  const re = new Float32Array(n);
+  const im = new Float32Array(n);
+  const tmp = new Float32Array(n);
+  const stream = estimate.realization * 8;
+  for (let l = 0; l < nL; l++)
+    for (let k = 0; k < nS; k++) {
+      const i = l * nS + k;
+      velocity[i] = hashGaussian(liMin + l, siMin + k, stream, estimate.seed);
+      re[i] = hashGaussian(liMin + l, siMin + k, stream + 2, estimate.seed);
+      im[i] = hashGaussian(liMin + l, siMin + k, stream + 4, estimate.seed);
+    }
+  smoothGrid(velocity, nL, nS, tmp);
+  smoothGrid(re, nL, nS, tmp);
+  smoothGrid(im, nL, nS, tmp);
+  // [1 2 1]/4 in two directions keeps (6/16)² of the variance
+  const unit = 1 / 0.375;
+  const power = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    velocity[i]! *= unit;
+    const a = re[i]! * unit,
+      b = im[i]! * unit;
+    power[i] = (a * a + b * b) / 2;
+  }
+  smoothGrid(power, nL, nS, tmp);
+  return { velocity, power };
+}
+
 export function allocColorField(n: number): ColorField {
   return { vel: new Float32Array(n).fill(NaN), variance: new Float32Array(n), power: new Float32Array(n), scaleMps: 0, baselineShiftMps: 0, invert: false };
 }
@@ -91,6 +174,7 @@ export function computeColorField(
   axialVelocity: (idx: number, li: number, si: number, out: { v: number; disp: number; present: number }) => void,
   out: ColorField,
   acquisition: ColorAcquisition,
+  estimate?: ColorEstimate,
 ): { colorLines: number } {
   const { lines, samples, sectorRad, depthCm } = frame.spec;
   const tmp = { v: 0, disp: 0, present: 0 };
@@ -109,6 +193,8 @@ export function computeColorField(
   const history = prev && prev.scaleMps === s.scaleMps && prev.baselineShiftMps === s.baselineShiftMps && prev.invert === s.invert ? prev : null;
   const gainLin = Math.pow(10, s.gainDb / 20);
   const bloomSamples = Math.max(0, Math.round((s.gainDb - 2) * 0.6)); // dilation radius grows with gain
+  const nS = siMax - siMin + 1;
+  const grids = estimate && liMax >= liMin && nS > 0 ? estimateGrids(liMin, siMin, liMax - liMin + 1, nS, estimate) : null;
   for (let li = liMin; li <= liMax; li++) {
     for (let si = siMin; si <= siMax; si++) {
       const idx = li * samples + si;
@@ -131,11 +217,23 @@ export function computeColorField(
       if (!tmp.present) continue;
       const vTrue = s.invert ? -tmp.v : tmp.v;
       if (Math.abs(vTrue) < s.wallFilterMps) continue;
-      const v = aliasVelocity(vTrue, s.scaleMps, s.baselineShiftMps);
-      const power = Math.min(1, gainLin * Math.min(1, relTrans) * wallFilterResponse(Math.abs(vTrue), s.wallFilterMps));
-      if (power < 0.25) continue; // below the display threshold: weak signal not shown
-      let vel = v;
+      const expectedPower = Math.min(1, gainLin * Math.min(1, relTrans) * wallFilterResponse(Math.abs(vTrue), s.wallFilterMps));
+      let power = expectedPower;
+      let vEstimate = vTrue;
       let variance = Math.min(1, tmp.disp * 1.6);
+      if (estimate) {
+        // the estimate of this update (decision 116): speckled power, scattered velocity
+        const g = (li - liMin) * nS + (si - siMin);
+        const speckle = grids!.power[g]!;
+        power = Math.min(1, expectedPower * speckle);
+        const sd = Math.hypot(s.scaleMps * ESTIMATE_SD_FLOOR, ESTIMATE_SD_WIDTH * tmp.disp * Math.abs(vTrue), (s.scaleMps * ESTIMATE_SD_THRESHOLD * COLOR_THRESHOLD) / Math.max(1e-3, gainLin * Math.min(1, relTrans) * speckle));
+        vEstimate = vTrue + sd * grids!.velocity[g]!;
+        // a weak or scattered estimate reads as spectral spread too
+        variance = Math.min(1, variance + (sd / s.scaleMps) ** 2 * 4);
+      }
+      if (power < COLOR_THRESHOLD) continue; // below the display threshold: weak signal not shown
+      const v = aliasVelocity(vEstimate, s.scaleMps, s.baselineShiftMps);
+      let vel = v;
       let pow = power;
       const pv = history ? (history.vel[idx] ?? NaN) : NaN;
       if (history && !Number.isNaN(pv)) {

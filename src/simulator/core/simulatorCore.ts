@@ -490,6 +490,8 @@ export class SimulatorCore {
       },
       out,
       { frequencyMHz: this.input.settings.frequencyMHz, harmonics: this.input.settings.harmonics },
+      // every update is a new estimate from new echoes (decision 116)
+      { realization: this.colorVersion, seed: this.caseDef.seed },
     );
     this.colorPrev = out;
     this.colorVersion++;

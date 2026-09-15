@@ -51,6 +51,69 @@ function circularBlend(p: number, v: number, pw: number, vPrev: number, pwPrev: 
 
 const colored = (f: ColorField): number[] => Array.from(f.vel.keys()).filter((i) => !Number.isNaN(f.vel[i]!));
 
+describe('the colour field is an estimate (decision 116)', () => {
+  /** One estimated colour update (realization `r`) of a uniform flow whose expected colour power is `power` everywhere. */
+  const estimated = (r: number, v: number, disp: number, power = 1): ColorField => {
+    const f = allocPolarFrame(spec);
+    f.tissue.fill(Tissue.Blood);
+    // transmission relative to what soft tissue leaves at each depth for this acquisition (relativeTransmission)
+    for (let li = 0; li < spec.lines; li++) for (let si = 0; si < spec.samples; si++) f.transmission[li * spec.samples + si] = power * Math.exp(-0.23 * 0.5 * ACQ.frequencyMHz * 1.2 * ((si + 0.5) / spec.samples) * spec.depthCm);
+    const out = allocColorField(spec.lines * spec.samples);
+    computeColorField(
+      f,
+      { ...DEFAULT_COLOR, persistence: 0, boxRMinCm: 1, boxRMaxCm: 6, boxThetaMinRad: -0.6, boxThetaMaxRad: 0.6 },
+      null,
+      (_idx, _li, _si, o) => {
+        o.v = v;
+        o.disp = disp;
+        o.present = 1;
+      },
+      out,
+      ACQ,
+      { realization: r, seed: 5 },
+    );
+    return out;
+  };
+  const inBox = (f: ColorField) => {
+    const idx: number[] = [];
+    for (let li = 0; li < spec.lines; li++)
+      for (let si = 0; si < spec.samples; si++) {
+        const rCm = ((si + 0.5) / spec.samples) * spec.depthCm;
+        const th = -spec.sectorRad / 2 + (spec.sectorRad * (li + 0.5)) / spec.lines;
+        if (rCm > 1.2 && rCm < 5.8 && Math.abs(th) < 0.55) idx.push(li * spec.samples + si);
+      }
+    return idx.map((i) => f.vel[i]!);
+  };
+
+  it('a steady laminar flow shows a velocity texture around its speed, and strong flow is not lost', () => {
+    // The field was the expected velocity at every sample: a uniform 0.30 m/s flow drew one flat colour (standard deviation
+    // 0) and a sample was coloured or not by an exact power threshold. The autocorrelation estimate of a short packet
+    // scatters around the velocity, and the echo power of blood fluctuates with its speckle.
+    const values = [0, 1, 2].flatMap((r) => inBox(estimated(r, 0.3, 0.04)));
+    const shown = values.filter((x) => !Number.isNaN(x));
+    const mean = shown.reduce((a, b) => a + b, 0) / shown.length;
+    const sd = Math.sqrt(shown.reduce((a, b) => a + (b - mean) ** 2, 0) / shown.length);
+    const report = `mean ${mean.toFixed(3)} sd ${sd.toFixed(3)} m/s, coloured ${((shown.length / values.length) * 100).toFixed(1)}%`;
+    expect(Math.abs(mean - 0.3), report).toBeLessThan(0.01 * DEFAULT_COLOR.scaleMps);
+    expect(sd / DEFAULT_COLOR.scaleMps, report).toBeGreaterThan(0.02);
+    expect(sd / DEFAULT_COLOR.scaleMps, report).toBeLessThan(0.1);
+    expect(shown.length / values.length, report).toBeGreaterThan(0.95);
+  });
+
+  it('a flow near the display threshold is partly coloured, and which samples changes from one update to the next', () => {
+    // expected power 0.3 against a threshold of 0.25: every sample was coloured, in every update
+    const a = inBox(estimated(0, 0.3, 0.04, 0.3));
+    const b = inBox(estimated(1, 0.3, 0.04, 0.3));
+    const fracA = a.filter((x) => !Number.isNaN(x)).length / a.length;
+    let changed = 0;
+    for (let i = 0; i < a.length; i++) if (Number.isNaN(a[i]!) !== Number.isNaN(b[i]!)) changed++;
+    const report = `coloured ${(fracA * 100).toFixed(1)}%, changed between updates ${((changed / a.length) * 100).toFixed(1)}%`;
+    expect(fracA, report).toBeGreaterThan(0.3);
+    expect(fracA, report).toBeLessThan(0.85);
+    expect(changed / a.length, report).toBeGreaterThan(0.1);
+  });
+});
+
 describe('colour Doppler persistence (decisions 56 and 87)', () => {
   it('persistence 0.5: the second field blends its raw velocity and variance with the first field', () => {
     const first = update(0.5, null, 0.2, 0.1); // variance 1.6 · 0.1 = 0.16
