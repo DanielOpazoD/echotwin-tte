@@ -38,6 +38,7 @@ export function ModeBar() {
           </button>
         ))}
       </div>
+      <ContextChip />
       <div className="sep" />
       <button
         className={s.frozen ? 'active' : ''}
@@ -78,6 +79,35 @@ export function ModeBar() {
         · UI {s.fpsUi} fps
       </span>
     </div>
+  );
+}
+
+/**
+ * One glanceable chip that states what the active modality is doing — colour Nyquist, the PW/TDI
+ * gate depth, the CW cursor or the M-mode sweep. Read-only: the control lives in the Doppler tab.
+ */
+function ContextChip() {
+  const modality = useSimStore((s) => s.modality);
+  const scaleMps = useSimStore((s) => s.color.scaleMps);
+  const gateDepthCm = useSimStore((s) => s.gateDepthCm);
+  const sweepSpeed = useSimStore((s) => s.spectral.sweepSpeedMmPerS);
+  const spec: Record<string, { text: string; title: string } | undefined> = {
+    color: {
+      text: `±${scaleMps.toFixed(2)} m/s`,
+      title: 'Escala de Nyquist de la caja de color (pestaña Doppler)',
+    },
+    pw: { text: `Gate ${gateDepthCm.toFixed(1)} cm`, title: 'Profundidad de la compuerta PW' },
+    cw: { text: 'Cursor', title: 'Cursor CW activo — sin compuerta' },
+    tdi: { text: `Gate ${gateDepthCm.toFixed(1)} cm`, title: 'Profundidad de la compuerta TDI' },
+    'm-mode': { text: `${sweepSpeed} mm/s`, title: 'Velocidad de barrido del modo M' },
+    cmm: { text: `${sweepSpeed} mm/s`, title: 'Velocidad de barrido del modo M' },
+  };
+  const chip = spec[modality];
+  if (!chip) return null;
+  return (
+    <span className="ctx-chip" title={chip.title}>
+      {chip.text}
+    </span>
   );
 }
 
