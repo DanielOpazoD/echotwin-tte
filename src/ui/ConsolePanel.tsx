@@ -1,8 +1,9 @@
 import { useEffect, useRef, type KeyboardEvent, type ReactNode } from 'react';
-import { useSimStore, type ConsoleTab } from '@/app/store';
+import { useSimStore, type ConsoleTab, type SimStore } from '@/app/store';
 import { modePolicy } from '@/app/modePolicy';
 import { Section, Slider, Segmented, Toggle } from './controls';
 import { VIEW_TARGETS } from '@/simulator/windows/viewTargets';
+import { MEASUREMENT_SPECS } from '@/simulator/measurements/protocol';
 import { listCases } from '@/cases';
 import { PresetViews } from './PresetViews';
 import { MeasurementPanel } from './MeasurementPanel';
@@ -645,6 +646,17 @@ function DopplerTab() {
   );
 }
 
+const FREE_TOOL_HINT: Partial<Record<SimStore['activeTool'], string>> = {
+  caliper: 'Marca los dos extremos de la distancia sobre la imagen 2D.',
+  velocity: 'Haz clic en el pico del espectro Doppler.',
+  vti: 'Traza la envolvente punto a punto; doble clic cierra el trazado.',
+  'auto-vti': 'Marca el inicio y el fin del latido sobre el espectro.',
+  time: 'Marca los dos instantes del intervalo sobre el strip.',
+  slope: 'Marca el pico y luego un punto sobre la pendiente de caída.',
+  simpson: 'Traza el endocardio con al menos 5 puntos; doble clic cierra.',
+  tapse: 'Marca la excursión del anillo tricuspídeo en el modo M.',
+};
+
 /** Protocol measurements, free tools and the captured list. */
 function MeasureTab() {
   const s = useSimStore();
@@ -664,6 +676,38 @@ function MeasureTab() {
     { id: 'tapse', label: 'TAPSE', title: 'Excursión vertical en modo M' },
   ];
   const armed = s.activeMeasurementId ? 'none' : s.activeTool;
+  const capturing = Boolean(s.activeMeasurementId) || s.activeTool !== 'none';
+  if (capturing) {
+    const spec = s.activeMeasurementId
+      ? MEASUREMENT_SPECS.find((m) => m.id === s.activeMeasurementId)
+      : undefined;
+    const tool = tools.find((t) => t.id === s.activeTool);
+    const cancel = () =>
+      s.activeMeasurementId ? s.setActiveMeasurement(null) : s.setActiveTool('none');
+    return (
+      <>
+        <Section title="Midiendo">
+          <div className="capture-head">
+            <span className="capture-dot" aria-hidden="true" />
+            <b>{spec ? spec.label : (tool?.title ?? tool?.label ?? s.activeTool)}</b>
+          </div>
+          {spec && (
+            <div className="small">
+              {spec.modalities.map((m) => m.toUpperCase()).join('/')} ·{' '}
+              {spec.views.map((v) => v.toUpperCase()).join('/')}
+            </div>
+          )}
+          <p className="capture-hint">{spec ? spec.instruction : FREE_TOOL_HINT[s.activeTool]}</p>
+          <button className="capture-cancel" onClick={cancel}>
+            Cancelar <span className="small">(Esc)</span>
+          </button>
+        </Section>
+        <Section title={`Mediciones (${s.measurements.length})`}>
+          <MeasureList s={s} />
+        </Section>
+      </>
+    );
+  }
   return (
     <>
       <Section title="Protocolo de medición">
@@ -685,33 +729,39 @@ function MeasureTab() {
             </button>
           ))}
         </div>
-        <div className="measure-list">
-          {s.measurements.length === 0 && (
-            <div className="small">Sin mediciones. Congela (Espacio) y usa una herramienta.</div>
-          )}
-          {s.measurements.map((m) => (
-            <div key={m.id}>
-              <span>
-                {m.label} ({m.modality}
-                {m.sourceViewId ? `, ${m.sourceViewId}` : ''})
-              </span>
-              <span>
-                {m.value.toFixed(m.kind === 'time' || m.kind === 'volume' ? 0 : 2)} {m.units}
-                {m.derived?.gradientMmHg !== undefined
-                  ? ` · ${m.derived.gradientMmHg.toFixed(0)} mmHg`
-                  : ''}
-                {m.derived?.meanGradientMmHg !== undefined
-                  ? ` · media ${m.derived.meanGradientMmHg.toFixed(0)} mmHg`
-                  : ''}
-              </span>
-              <button aria-label="Eliminar medición" onClick={() => s.removeMeasurement(m.id)}>
-                ×
-              </button>
-            </div>
-          ))}
-        </div>
+        <MeasureList s={s} />
       </Section>
     </>
+  );
+}
+
+function MeasureList({ s }: { s: SimStore }) {
+  return (
+    <div className="measure-list">
+      {s.measurements.length === 0 && (
+        <div className="small">Sin mediciones. Congela (Espacio) y usa una herramienta.</div>
+      )}
+      {s.measurements.map((m) => (
+        <div key={m.id}>
+          <span>
+            {m.label} ({m.modality}
+            {m.sourceViewId ? `, ${m.sourceViewId}` : ''})
+          </span>
+          <span>
+            {m.value.toFixed(m.kind === 'time' || m.kind === 'volume' ? 0 : 2)} {m.units}
+            {m.derived?.gradientMmHg !== undefined
+              ? ` · ${m.derived.gradientMmHg.toFixed(0)} mmHg`
+              : ''}
+            {m.derived?.meanGradientMmHg !== undefined
+              ? ` · media ${m.derived.meanGradientMmHg.toFixed(0)} mmHg`
+              : ''}
+          </span>
+          <button aria-label="Eliminar medición" onClick={() => s.removeMeasurement(m.id)}>
+            ×
+          </button>
+        </div>
+      ))}
+    </div>
   );
 }
 

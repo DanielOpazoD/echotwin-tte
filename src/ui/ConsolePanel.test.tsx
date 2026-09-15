@@ -96,4 +96,24 @@ describe('ConsolePanel tabs', () => {
     expect(tab.textContent).toContain('1');
     expect(tab.querySelector('.tab-badge')?.textContent).toBe('1');
   });
+
+  it('focuses the Medir tab on the capture card while a free tool is armed', () => {
+    render(<ConsolePanel />);
+    act(() => screen.getByRole('tab', { name: 'Medir' }).click());
+    act(() => screen.getByRole('button', { name: 'Caliper' }).click());
+    // capture mode: catalogue and tool grid are tucked away
+    expect(screen.getByRole('heading', { name: 'Midiendo' })).toBeTruthy();
+    expect(screen.queryByRole('group', { name: 'Herramienta de medición' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Caliper' })).toBeNull();
+    expect(screen.getByRole('button', { name: /Cancelar/ })).toBeTruthy();
+  });
+
+  it('Cancelar disarms the free tool and restores the catalogue', () => {
+    act(() => useSimStore.setState({ activeTool: 'caliper' }));
+    render(<ConsolePanel />);
+    act(() => screen.getByRole('tab', { name: 'Medir' }).click());
+    act(() => screen.getByRole('button', { name: /Cancelar/ }).click());
+    expect(useSimStore.getState().activeTool).toBe('none');
+    expect(screen.getByRole('group', { name: 'Herramienta de medición' })).toBeTruthy();
+  });
 });

@@ -776,7 +776,7 @@ function drawOverlay(
     ctx.fillStyle = '#5cc8ff';
     const spec = st.activeMeasurementId ? specFor(st.activeMeasurementId) : undefined;
     const prefix = spec ? `${spec.shortLabel} · ` : '';
-    ctx.fillText(prefix + TOOL_HINT[activeTool], 8, 14);
+    ctx.fillText(prefix + TOOL_HINT[activeTool], 8, 30);
   }
 }
 

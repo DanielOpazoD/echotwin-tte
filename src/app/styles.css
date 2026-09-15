@@ -1144,6 +1144,41 @@ details.adv > summary:hover::before {
   color: #fff;
 }
 
+/* focused capture card shown while a measurement tool is armed */
+.capture-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.capture-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+.capture-hint {
+  margin: 8px 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text);
+}
+.capture-cancel {
+  width: 100%;
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.4;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .capture-dot {
+    animation: none;
+  }
+}
+
 /* empty state for tabs without an active modality */
 .empty {
   display: flex;
