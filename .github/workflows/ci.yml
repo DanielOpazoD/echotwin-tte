@@ -65,7 +65,7 @@ jobs:
             const fs = require("fs");
             if (!fs.existsSync("coverage/coverage-summary.json")) {
               fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, "Coverage summary not generated.\n");
-              return;
+              process.exit(0);
             }
             const total = require("./coverage/coverage-summary.json").total;
             const rows = ["lines", "statements", "functions", "branches"]
