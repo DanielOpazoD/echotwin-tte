@@ -42,7 +42,10 @@ npm run dev
 | Comando | Qué hace |
 |---|---|
 | `npm run dev` | servidor de desarrollo |
-| `npm run check` | lint + tipos + pruebas unitarias + build |
+| `npm test` | pruebas unitarias rápidas (~1 min; excluye las lentas de `SLOW_TEST_FILES`) |
+| `npm run test:slow` | sólo las pruebas lentas (minutos; núcleo a lo largo de varios latidos) |
+| `npm run test:all` | la suite unitaria completa |
+| `npm run check` | lint + tipos + suite completa + build |
 | `npm run test:e2e` | pruebas de extremo a extremo (Playwright) |
 | `npm run measure -- <caseId>` | 44 medidas del modelo contra rangos de referencia |
 
