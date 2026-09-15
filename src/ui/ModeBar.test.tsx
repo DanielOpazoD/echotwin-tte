@@ -87,3 +87,23 @@ describe('ModeBar context chip', () => {
     expect(document.querySelector('.ctx-chip')?.textContent).toContain('50 mm/s');
   });
 });
+
+describe('ModeBar clean interface', () => {
+  it('offers an Interfaz limpia toggle that disables the torso button while on', () => {
+    render(<ModeBar />);
+    openMenu();
+    act(() => screen.getByRole('menuitemcheckbox', { name: 'Interfaz limpia' }).click());
+    expect(useSimStore.getState().ui.minimal).toBe(true);
+    expect(screen.getByRole('button', { name: 'Torso 3D' })).toHaveProperty('disabled', true);
+  });
+
+  it('forces clean interface on in exam mode (toggle locked on)', () => {
+    useSimStore.setState({ mode: 'exam' });
+    render(<ModeBar />);
+    openMenu();
+    const item = screen.getByRole('menuitemcheckbox', { name: 'Interfaz limpia' });
+    expect(item).toHaveProperty('disabled', true);
+    expect(item.getAttribute('aria-checked')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Torso 3D' })).toHaveProperty('disabled', true);
+  });
+});

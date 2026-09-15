@@ -55,6 +55,8 @@ export interface UiPrefs {
   showHud: boolean;
   /** Left navigation rail collapsed to the mini strip (score + expander). */
   railMini: boolean;
+  /** Clean-interface mode: the whole left rail hides so only the image and console remain. */
+  minimal: boolean;
   consoleTab: ConsoleTab;
   screen: 'simulator' | 'references' | 'report' | 'curriculum' | 'progress';
 }
@@ -185,6 +187,7 @@ function savePrefs(ui: UiPrefs): void {
       navAxes,
       navCut,
       railMini,
+      minimal,
       consoleTab,
     } = ui;
     localStorage.setItem(
@@ -204,6 +207,7 @@ function savePrefs(ui: UiPrefs): void {
         navAxes,
         navCut,
         railMini,
+        minimal,
         consoleTab,
       }),
     );
@@ -255,6 +259,7 @@ export const useSimStore = create<SimStore>((set) => ({
     tutorialDone: false,
     showHud: true,
     railMini: false,
+    minimal: false,
     consoleTab: 'adquirir',
     screen: 'simulator',
     ...loadPrefs(),

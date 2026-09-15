@@ -68,8 +68,13 @@ export function ModeBar() {
       <button
         onClick={() => s.setUi({ showTorso: !s.ui.showTorso })}
         className={s.ui.showTorso ? 'active' : ''}
-        title="Mostrar/ocultar el torso 3D (H)"
+        title={
+          s.ui.minimal || s.mode === 'exam'
+            ? 'Interfaz limpia activa — desactívala en el menú ⋯'
+            : 'Mostrar/ocultar el torso 3D (H)'
+        }
         aria-pressed={s.ui.showTorso}
+        disabled={s.ui.minimal || s.mode === 'exam'}
       >
         Torso 3D
       </button>
@@ -152,6 +157,13 @@ function OverflowMenu() {
             checked={s.ui.showHud}
             onToggle={() => s.setUi({ showHud: !s.ui.showHud })}
             hint="Caso, FC y parámetros en las esquinas"
+          />
+          <CheckItem
+            label="Interfaz limpia"
+            checked={s.ui.minimal || s.mode === 'exam'}
+            onToggle={() => s.setUi({ minimal: !s.ui.minimal })}
+            disabled={s.mode === 'exam'}
+            hint="Solo imagen y consola — oculta el rail izquierdo"
           />
           <CheckItem
             label="ECG"

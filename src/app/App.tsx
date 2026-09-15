@@ -27,6 +27,7 @@ export function App() {
   const setHud = useHudStore((s) => s.setHud);
   const lastHudRef = useRef(0);
   const ui = useSimStore((s) => s.ui);
+  const mode = useSimStore((s) => s.mode);
   const error = useSimStore((s) => s.error);
   const spectral = useSimStore((s) => s.spectral);
   const modality = useSimStore((s) => s.modality);
@@ -106,8 +107,13 @@ export function App() {
     }
   }, [spectral.audioOn, spectral.volume, modality]);
 
+  // Clean interface: the whole left rail hides (exam mode forces it on).
+  const minimal = ui.minimal || mode === 'exam';
+  const railVisible = ui.showTorso && !minimal;
   return (
-    <div className={`app ${ui.showTorso ? '' : 'no-torso'} ${ui.railMini ? 'rail-mini' : ''}`}>
+    <div
+      className={`app ${railVisible ? '' : 'no-torso'} ${railVisible && ui.railMini ? 'rail-mini' : ''}`}
+    >
       <TopBar />
       {ui.screen === 'references' ? (
         <ReferencesScreen />
@@ -119,7 +125,7 @@ export function App() {
         <ProgressScreen />
       ) : (
         <>
-          <div className="left" style={{ display: ui.showTorso ? 'flex' : 'none' }}>
+          <div className="left" style={{ display: railVisible ? 'flex' : 'none' }}>
             <button
               className="rail-collapse"
               onClick={() => useSimStore.getState().setUi({ railMini: !ui.railMini })}
@@ -137,7 +143,7 @@ export function App() {
             </button>
             {/* the torso stays mounted while mini so its mesh worker is not rebuilt on expand */}
             <div className="rail-main" style={{ display: ui.railMini ? 'none' : 'flex' }}>
-              {ui.showTorso && <TorsoView />}
+              {railVisible && <TorsoView />}
               <GuidancePanel />
             </div>
             {ui.railMini && <RailMini />}
