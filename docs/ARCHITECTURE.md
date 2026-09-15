@@ -59,6 +59,9 @@ Los dos trazadores (CPU de referencia y WebGL2) producen el mismo cuadro polar p
 
 La consola trabaja sobre esa envolvente (ganancia, TGC, ruido electrónico Rayleigh, compresión, realce, persistencia y mapa de grises) y ya no aplica resolución. En la GPU las etapas 1–2 son la pasada A (tres destinos: σ/atenuación, identificadores, especular/fasor), la 3–4 la pasada B, y la 5 las pasadas C (axial) y D (lateral y envolvente), que leen la misma tabla de núcleos Float32 que la CPU desde una textura. `acoustic/acoustics.ts` define las constantes compartidas y las exporta a GLSL como `#define`.
 
+### Espejo GLSL del clasificador
+`gpu/glslHeart.ts` es un port a mano de `anatomy/classify.ts` y sus módulos (`valveSkirt`, `lvWall`, `rv`, `mitralValve`, `aorticValve`), función por función. Los parámetros de pose llegan por la textura de parámetros (`paramLayout.ts`, `P(i)` con `#define` de desplazamientos) y los enumerados de tejido y estructura por `glslCommon.ts`; ambos son de fuente única. **Convención**: toda constante numérica que compartan el clasificador CPU y su port debe ser un `export const` en el módulo TS de anatomía e interpolarse en la cabecera de `GLSL_HEART` (`const float NOMBRE = ${f(NOMBRE)};`), nunca un literal repetido a ambos lados. `glslHeart.test.ts` comprueba en Node que cada identificador en mayúsculas que usa el shader está declarado, que cada constante interpolada se usa y que su valor es un literal GLSL bien formado; la equivalencia numérica CPU↔GPU sigue siendo cosa de `e2e/gpu-equivalence.spec.ts` en el navegador.
+
 ## Cadena de imagen en GPU (decisiones 54 y 55)
 Con WebGL2 por hardware el cuadro no vuelve a la CPU hasta estar formado:
 1. **Pasadas A–D** (formación acústica, arriba) dejan la envolvente y la transmisión en una textura y los identificadores en otra.

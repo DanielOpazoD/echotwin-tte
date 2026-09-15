@@ -17,6 +17,20 @@ import {
   CLOSED_REACH,
   MV_BINS,
 } from '@/simulator/anatomy/mitralValve';
+import {
+  SKIRT_ABOVE_CM,
+  SKIRT_BELOW_CM,
+  SKIRT_FIBRE_CLIP,
+  SKIRT_LOBE_PERIOD,
+  SKIRT_RADIAL_MARGIN_CM,
+  SKIRT_TAPER_START,
+  SKIRT_TAPER_WIDTH,
+  SKIRT_THICK_BASE,
+  SKIRT_THICK_BODY,
+  SKIRT_THICK_COMMISSURE,
+  SKIRT_THICK_EDGE,
+  SKIRT_THICK_FLOOR_CM,
+} from '@/simulator/anatomy/valveSkirt';
 
 const f = (v: number): string => (Number.isInteger(v) ? `${v}.0` : `${v}`);
 
@@ -32,6 +46,18 @@ const int MV_BINS = ${MV_BINS};
 const float AML_ARC_EXTENSION = ${f(AML_ARC_EXTENSION)};
 const float MV_CLOSED_REACH[3] = float[3](${CLOSED_REACH.map(f).join(', ')});
 const float MV_CLOSED_DEPTH[3] = float[3](${CLOSED_DEPTH.map(f).join(', ')});
+const float SKIRT_ABOVE_CM = ${f(SKIRT_ABOVE_CM)};
+const float SKIRT_BELOW_CM = ${f(SKIRT_BELOW_CM)};
+const float SKIRT_RADIAL_MARGIN_CM = ${f(SKIRT_RADIAL_MARGIN_CM)};
+const float SKIRT_FIBRE_CLIP = ${f(SKIRT_FIBRE_CLIP)};
+const float SKIRT_TAPER_START = ${f(SKIRT_TAPER_START)};
+const float SKIRT_TAPER_WIDTH = ${f(SKIRT_TAPER_WIDTH)};
+const float SKIRT_LOBE_PERIOD = ${f(SKIRT_LOBE_PERIOD)};
+const float SKIRT_THICK_BASE = ${f(SKIRT_THICK_BASE)};
+const float SKIRT_THICK_EDGE = ${f(SKIRT_THICK_EDGE)};
+const float SKIRT_THICK_FLOOR_CM = ${f(SKIRT_THICK_FLOOR_CM)};
+const float SKIRT_THICK_COMMISSURE = ${f(SKIRT_THICK_COMMISSURE)};
+const float SKIRT_THICK_BODY = ${f(SKIRT_THICK_BODY)};
 struct Sample {
   int tissue;
   int structure;
@@ -60,7 +86,7 @@ float skirtDistance(vec3 p, vec3 c, float R, int zonesBase, int profBase, int nz
   float zr0 = p.z - c.z;
   float rho = length(d);
   zoneOut = 0;
-  if (zr0 > 3.5 || zr0 < -2.5 || rho > R + 1.5) { dOut = 1e3; fracOut = 0.0; return 0.0; }
+  if (zr0 > SKIRT_ABOVE_CM || zr0 < -SKIRT_BELOW_CM || rho > R + SKIRT_RADIAL_MARGIN_CM) { dOut = 1e3; fracOut = 0.0; return 0.0; }
   float phi = atan(d.y, d.x);
   float zr = zr0 - saddleOffset(phi, P(zonesBase), saddle);
   float best = 1e9, bestFrac = 0.0, bestW = 0.0;
@@ -75,13 +101,13 @@ float skirtDistance(vec3 p, vec3 c, float R, int zonesBase, int profBase, int nz
       float v = d.x * ca + d.y * sa;
       float u = -d.x * sa + d.y * ca;
       float t = abs(u) / R;
-      if (t >= 0.98) continue;
+      if (t >= SKIRT_FIBRE_CLIP) continue;
       float vAtt = sqrt(R * R - u * u);
       rhoS = R - (vAtt - v);
-      float tw = (t - 0.8) / 0.18;
+      float tw = (t - SKIRT_TAPER_START) / SKIRT_TAPER_WIDTH;
       w = tw <= 0.0 ? 1.0 : 1.0 - tw * tw * (3.0 - 2.0 * tw);
       float sc = sqrt(1.0 - t * t) * (1.0 + zc * t * t);
-      if (zlobes > 0.0) sc *= 1.0 + zlobes * cos(TWO_PI * t / 0.8);
+      if (zlobes > 0.0) sc *= 1.0 + zlobes * cos(TWO_PI * t / SKIRT_LOBE_PERIOD);
       s = 1.0 + (sc - 1.0) * closed;
     } else {
       float dphi = abs(phi - zphi);
@@ -110,7 +136,7 @@ float skirtDistance(vec3 p, vec3 c, float R, int zonesBase, int profBase, int nz
   dOut = best;
   fracOut = bestFrac;
   zoneOut = bestZone;
-  return (thickness * (0.6 + 0.4 * bestFrac) * 0.5 + 0.035) * (0.4 + 0.6 * bestW);
+  return (thickness * (SKIRT_THICK_BASE + SKIRT_THICK_EDGE * bestFrac) * 0.5 + SKIRT_THICK_FLOOR_CM) * (SKIRT_THICK_COMMISSURE + SKIRT_THICK_BODY * bestW);
 }
 
 // ---- mitral apparatus (mitralValve.ts) ----
