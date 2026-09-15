@@ -8,11 +8,20 @@
 import { loadCaseById } from '@/cases';
 import { createHeartModel, heartLandmarks, heartToTorso } from '@/simulator/anatomy/heartModel';
 import { createThoraxModel } from '@/simulator/anatomy/thoraxModel';
-import { VIEW_TARGETS, canonicalBeam, canonicalControl, canonicalPlane } from '@/simulator/windows/viewTargets';
+import {
+  VIEW_TARGETS,
+  canonicalBeam,
+  canonicalControl,
+  canonicalPlane,
+} from '@/simulator/windows/viewTargets';
 import { cross, dot, normalize, scale, sub } from '@/core/vec3';
 
 const c = loadCaseById(process.argv[2] ?? 'normal-excellent-window');
-const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, { position: 'left-lateral', respiration: 'expiration', headElevationDeg: 0 });
+const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, {
+  position: 'left-lateral',
+  respiration: 'expiration',
+  headElevationDeg: 0,
+});
 const heart = createHeartModel(c.anatomy, c.physiology, thorax.heartOffset, c.seed);
 const landmarks = heartLandmarks(heart);
 const deg = (r: number) => (r * 180) / Math.PI;
@@ -28,7 +37,9 @@ for (const view of VIEW_TARGETS) {
   const off = Math.hypot(dot(rel, beam.lateral), dot(rel, beam.normal));
   const lat = dot(rel, beam.lateral);
   const elev = dot(rel, beam.normal);
-  process.stdout.write(`\n${view.id.padEnd(11)} plane ${planeAngle.toFixed(1).padStart(5)}°  in-plane ${inPlane.toFixed(1).padStart(5)}°  target off ${off.toFixed(2)} cm (lat ${lat.toFixed(2)}, elev ${elev.toFixed(2)}) at depth ${along.toFixed(1)}  ctrl u=${ctrl.u.toFixed(1)} v=${ctrl.v.toFixed(1)} rot=${ctrl.rotationDeg.toFixed(0)} tilt=${ctrl.tiltDeg.toFixed(0)} rock=${ctrl.rockDeg.toFixed(0)}\n`);
+  process.stdout.write(
+    `\n${view.id.padEnd(11)} plane ${planeAngle.toFixed(1).padStart(5)}°  in-plane ${inPlane.toFixed(1).padStart(5)}°  target off ${off.toFixed(2)} cm (lat ${lat.toFixed(2)}, elev ${elev.toFixed(2)}) at depth ${along.toFixed(1)}  ctrl u=${ctrl.u.toFixed(1)} v=${ctrl.v.toFixed(1)} rot=${ctrl.rotationDeg.toFixed(0)} tilt=${ctrl.tiltDeg.toFixed(0)} rock=${ctrl.rockDeg.toFixed(0)}\n`,
+  );
   const req = view.requiredLandmarks.map((r) => r.landmarkId);
   const rows: string[] = [];
   for (const id of req) {
@@ -40,8 +51,10 @@ for (const view of VIEW_TARGETS) {
     const l = dot(d, beam.lateral);
     const f = dot(d, beam.forward);
     const ang = deg(Math.atan2(l, f));
-    rows.push(`${id}: elev ${e.toFixed(2)} (r ${lm.radius}) lat ${ang.toFixed(0)}° depth ${f.toFixed(1)}`);
+    rows.push(
+      `${id}: elev ${e.toFixed(2)} (r ${lm.radius}) lat ${ang.toFixed(0)}° depth ${f.toFixed(1)}`,
+    );
   }
-  process.stdout.write("  " + rows.join(" | ") + "\n");
+  process.stdout.write('  ' + rows.join(' | ') + '\n');
   void cross;
 }

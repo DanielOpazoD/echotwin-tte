@@ -49,7 +49,12 @@ export function createRng(seed: number): Rng {
 
 /** Integer hash (Wang / xxhash-like mixing) → [0,1). Deterministic per (x,y,z,seed). */
 export function hash3(x: number, y: number, z: number, seed: number): number {
-  let h = (Math.imul(x | 0, 0x8da6b343) ^ Math.imul(y | 0, 0xd8163841) ^ Math.imul(z | 0, 0xcb1ab31f) ^ seed) >>> 0;
+  let h =
+    (Math.imul(x | 0, 0x8da6b343) ^
+      Math.imul(y | 0, 0xd8163841) ^
+      Math.imul(z | 0, 0xcb1ab31f) ^
+      seed) >>>
+    0;
   h = Math.imul(h ^ (h >>> 16), 0x7feb352d) >>> 0;
   h = Math.imul(h ^ (h >>> 15), 0x846ca68b) >>> 0;
   h = (h ^ (h >>> 16)) >>> 0;

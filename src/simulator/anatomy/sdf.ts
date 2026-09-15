@@ -1,7 +1,15 @@
 /**
  * Signed-distance primitives (cm). All return negative inside. Kept allocation-free.
  */
-export function sdSphere(px: number, py: number, pz: number, cx: number, cy: number, cz: number, r: number): number {
+export function sdSphere(
+  px: number,
+  py: number,
+  pz: number,
+  cx: number,
+  cy: number,
+  cz: number,
+  r: number,
+): number {
   const dx = px - cx,
     dy = py - cy,
     dz = pz - cz;
@@ -123,7 +131,16 @@ export const smin = (a: number, b: number, k: number): number => {
 export const smax = (a: number, b: number, k: number): number => -smin(-a, -b, k);
 
 /** Torus with axis z through (cx,cy,cz): major radius R, tube radius r. */
-export function sdTorusZ(px: number, py: number, pz: number, cx: number, cy: number, cz: number, R: number, r: number): number {
+export function sdTorusZ(
+  px: number,
+  py: number,
+  pz: number,
+  cx: number,
+  cy: number,
+  cz: number,
+  R: number,
+  r: number,
+): number {
   const dx = px - cx,
     dy = py - cy;
   const q = Math.sqrt(dx * dx + dy * dy) - R;
@@ -191,7 +208,19 @@ export function sdSegmentChain(
 }
 
 /** Round cone (capsule with different end radii ra at a and rb at b): exact SDF. */
-export function sdRoundCone(px: number, py: number, pz: number, ax: number, ay: number, az: number, bx: number, by: number, bz: number, ra: number, rb: number): number {
+export function sdRoundCone(
+  px: number,
+  py: number,
+  pz: number,
+  ax: number,
+  ay: number,
+  az: number,
+  bx: number,
+  by: number,
+  bz: number,
+  ra: number,
+  rb: number,
+): number {
   const bax = bx - ax,
     bay = by - ay,
     baz = bz - az;

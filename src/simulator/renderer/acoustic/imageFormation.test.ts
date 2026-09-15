@@ -4,7 +4,14 @@ import { createHeartModel, computeHeartPose } from '@/simulator/anatomy/heartMod
 import { createThoraxModel } from '@/simulator/anatomy/thoraxModel';
 import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { ProceduralSliceRenderer } from '../procedural/sliceRenderer';
-import { allocPolarFrame, DEFAULT_ACQUISITION, polarSpecFor, type PolarFrame, type PolarFrameSpec, type Scene } from '../types';
+import {
+  allocPolarFrame,
+  DEFAULT_ACQUISITION,
+  polarSpecFor,
+  type PolarFrame,
+  type PolarFrameSpec,
+  type Scene,
+} from '../types';
 import { applyConsole, createConsoleState } from '../postprocess/consolePipeline';
 import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
 import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
@@ -17,8 +24,19 @@ import { Structure, Tissue } from '@/simulator/anatomy/tissue';
  * prints the same quantities for more views and tiers.
  */
 const c = loadCaseById('normal-excellent-window');
-const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, { position: 'left-lateral', respiration: 'expiration', headElevationDeg: 0 }, c.anatomy.ivc.collapsePct);
-const heart = createHeartModel(c.anatomy, c.physiology, thorax.heartOffset, c.seed, thorax.ivcCollapse);
+const thorax = createThoraxModel(
+  c.bodyHabitus,
+  c.acousticWindow,
+  { position: 'left-lateral', respiration: 'expiration', headElevationDeg: 0 },
+  c.anatomy.ivc.collapsePct,
+);
+const heart = createHeartModel(
+  c.anatomy,
+  c.physiology,
+  thorax.heartOffset,
+  c.seed,
+  thorax.ivcCollapse,
+);
 const tables = buildBeatTables(60 / c.rhythm.heartRateBpm, c.physiology, c.rhythm, c.hemodynamics);
 const settings = { ...DEFAULT_ACQUISITION };
 const PHASE = 0.35;
@@ -30,9 +48,18 @@ function render(viewId: string): PolarFrame {
     heart,
     heartPose: computeHeartPose(heart, cycleStateAt(tables, PHASE)),
     thorax,
-    physics: { frequencyMHz: settings.frequencyMHz, harmonics: settings.harmonics, clutterLevel: c.acousticWindow.clutterLevel, windowAttenuation: c.acousticWindow.chestWallAttenuation, seed: c.seed },
+    physics: {
+      frequencyMHz: settings.frequencyMHz,
+      harmonics: settings.harmonics,
+      clutterLevel: c.acousticWindow.clutterLevel,
+      windowAttenuation: c.acousticWindow.chestWallAttenuation,
+      seed: c.seed,
+    },
   };
-  const beam = beamFrameFromPose(poseFromControl(thorax, canonicalControl(getViewTarget(viewId), heart, thorax)), 1);
+  const beam = beamFrameFromPose(
+    poseFromControl(thorax, canonicalControl(getViewTarget(viewId), heart, thorax)),
+    1,
+  );
   const f = allocPolarFrame(spec);
   renderer.render(scene, beam, spec, PHASE, f);
   return f;
@@ -44,10 +71,12 @@ const std = (v: number[]): number => {
   const m = mean(v);
   return Math.sqrt(v.reduce((a, b) => a + (b - m) ** 2, 0) / Math.max(1, v.length));
 };
-const median = (v: number[]): number => [...v].sort((a, b) => a - b)[Math.floor(v.length / 2)] ?? NaN;
+const median = (v: number[]): number =>
+  [...v].sort((a, b) => a - b)[Math.floor(v.length / 2)] ?? NaN;
 
 /** Amplitude normalised by the local two-way transmission (removes attenuation from the statistics). */
-const norm = (f: PolarFrame, i: number): number => (f.amplitude[i] ?? 0) / Math.max(1e-4, f.transmission[i] ?? 1);
+const norm = (f: PolarFrame, i: number): number =>
+  (f.amplitude[i] ?? 0) / Math.max(1e-4, f.transmission[i] ?? 1);
 
 /** Median mean/std of 7 × 9 patches fully inside LV myocardium between 3 and 12 cm. */
 function localSpeckleSnr(f: PolarFrame, s: PolarFrameSpec): number {
@@ -73,7 +102,13 @@ function localSpeckleSnr(f: PolarFrame, s: PolarFrameSpec): number {
 }
 
 /** Speckle cell (mm): twice the lag at which the autocorrelation of myocardial runs falls to 0.5. */
-function cellMm(f: PolarFrame, s: PolarFrameSpec, d0: number, d1: number, lateral: boolean): number {
+function cellMm(
+  f: PolarFrame,
+  s: PolarFrameSpec,
+  d0: number,
+  d1: number,
+  lateral: boolean,
+): number {
   const { lines: L, samples: N } = s;
   const dr = s.depthCm / N;
   const s0 = Math.floor(d0 / dr),
@@ -137,7 +172,10 @@ function cellMm(f: PolarFrame, s: PolarFrameSpec, d0: number, d1: number, latera
  * That coupling blocked a measured correction of the heart's position inside the chest wall: even a 0.48 cm
  * push-back failed this test (decision 65). What the test checks and how strictly is unchanged.
  */
-function myocardialBands(f: PolarFrame, s: PolarFrameSpec): [[number, number], [number, number], [number, number]] {
+function myocardialBands(
+  f: PolarFrame,
+  s: PolarFrameSpec,
+): [[number, number], [number, number], [number, number]] {
   const { lines: L, samples: N } = s;
   const dr = s.depthCm / N;
   let lead = s.depthCm;
@@ -184,14 +222,19 @@ describe('acoustic image formation', () => {
     for (let li = 3; li < L - 3; li++)
       for (let si = Math.floor(3 / dr); si < Math.floor(12 / dr); si++) {
         const i = li * N + si;
-        if (plax.tissue[i] === Tissue.Myocardium && isLvWall(plax.structure[i] ?? 0)) myo.push(norm(plax, i));
-        if (plax.tissue[i] === Tissue.Myocardium && plax.structure[i] === Structure.LvWallSeptal) septPlax.push(norm(plax, i));
-        if (a4c.tissue[i] === Tissue.Myocardium && a4c.structure[i] === Structure.LvWallSeptal) septA4c.push(norm(a4c, i));
+        if (plax.tissue[i] === Tissue.Myocardium && isLvWall(plax.structure[i] ?? 0))
+          myo.push(norm(plax, i));
+        if (plax.tissue[i] === Tissue.Myocardium && plax.structure[i] === Structure.LvWallSeptal)
+          septPlax.push(norm(plax, i));
+        if (a4c.tissue[i] === Tissue.Myocardium && a4c.structure[i] === Structure.LvWallSeptal)
+          septA4c.push(norm(a4c, i));
         let far = true;
-        for (let dl = -3; dl <= 3 && far; dl++) for (let ds = -4; ds <= 4; ds++) if (plax.tissue[(li + dl) * N + si + ds] !== Tissue.Blood) {
-          far = false;
-          break;
-        }
+        for (let dl = -3; dl <= 3 && far; dl++)
+          for (let ds = -4; ds <= 4; ds++)
+            if (plax.tissue[(li + dl) * N + si + ds] !== Tissue.Blood) {
+              far = false;
+              break;
+            }
         if (far) farBlood.push(norm(plax, i));
       }
     const contrastDb = 20 * Math.log10(mean(myo) / mean(farBlood));

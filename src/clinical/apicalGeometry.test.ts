@@ -21,7 +21,12 @@ function phantom(apexX: number, apexY: number, leftDeg: number, rightDeg: number
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const i = x + y * W;
-      if (y <= VY || Math.abs(Math.atan2(x - VX, y - VY)) > (40 * Math.PI) / 180 || Math.hypot(x - VX, y - VY) > 300) continue;
+      if (
+        y <= VY ||
+        Math.abs(Math.atan2(x - VX, y - VY)) > (40 * Math.PI) / 180 ||
+        Math.hypot(x - VX, y - VY) > 300
+      )
+        continue;
       grey[i] = 60;
       const d = y - apexY;
       if (d < 0 || d > 180) continue;
@@ -71,10 +76,18 @@ describe('apical geometry against the sector', () => {
   });
 
   it('measures the angle between each wall and the scan line through it', () => {
-    for (const [apexX, left, right] of [[VX, -12, 12], [VX + 40, -4, 26], [VX - 30, -20, 6]] as const) {
+    for (const [apexX, left, right] of [
+      [VX, -12, 12],
+      [VX + 40, -4, 26],
+      [VX - 30, -20, 6],
+    ] as const) {
       const g = apicalGeometry(phantom(apexX, VY + 50, left, right), '4CH');
-      expect(Math.abs(g.septalRayAngleDeg - expectedRayAngle(apexX, VY + 50, left, -1))).toBeLessThan(1);
-      expect(Math.abs(g.lateralRayAngleDeg - expectedRayAngle(apexX, VY + 50, right, 1))).toBeLessThan(1);
+      expect(
+        Math.abs(g.septalRayAngleDeg - expectedRayAngle(apexX, VY + 50, left, -1)),
+      ).toBeLessThan(1);
+      expect(
+        Math.abs(g.lateralRayAngleDeg - expectedRayAngle(apexX, VY + 50, right, 1)),
+      ).toBeLessThan(1);
     }
   });
 });

@@ -6,7 +6,12 @@ import { createHeartModel, computeHeartPose } from '@/simulator/anatomy/heartMod
 import { createThoraxModel } from '@/simulator/anatomy/thoraxModel';
 import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { ProceduralSliceRenderer } from '@/simulator/renderer/procedural/sliceRenderer';
-import { allocPolarFrame, DEFAULT_ACQUISITION, polarSpecFor, type Scene } from '@/simulator/renderer/types';
+import {
+  allocPolarFrame,
+  DEFAULT_ACQUISITION,
+  polarSpecFor,
+  type Scene,
+} from '@/simulator/renderer/types';
 import { applyConsole, createConsoleState } from '@/simulator/renderer/postprocess/consolePipeline';
 import { beamFrameFromPose, poseFromControl, type ProbeControl } from '@/simulator/probe/pose';
 import { canonicalControl, getViewTarget, VIEW_TARGETS } from '@/simulator/windows/viewTargets';
@@ -15,7 +20,11 @@ import { SimulatorCore } from '@/simulator/core/simulatorCore';
 import { baseInput } from '@/simulator/core/baseInput';
 
 const c = validateCase(normalExcellentCase).case!;
-const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, { position: 'left-lateral', respiration: 'expiration', headElevationDeg: 0 });
+const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, {
+  position: 'left-lateral',
+  respiration: 'expiration',
+  headElevationDeg: 0,
+});
 const heart = createHeartModel(c.anatomy, c.physiology, thorax.heartOffset);
 const tables = buildBeatTables(60 / c.rhythm.heartRateBpm, c.physiology, c.rhythm, c.hemodynamics);
 const renderer = new ProceduralSliceRenderer();
@@ -28,7 +37,13 @@ function analyze(control: ProbeControl) {
     heart,
     heartPose: computeHeartPose(heart, cycleStateAt(tables, 0.05)),
     thorax,
-    physics: { frequencyMHz: 2.5, harmonics: true, clutterLevel: 0.1, windowAttenuation: 0.1, seed: 1 },
+    physics: {
+      frequencyMHz: 2.5,
+      harmonics: true,
+      clutterLevel: 0.1,
+      windowAttenuation: 0.1,
+      seed: 1,
+    },
   };
   const frame = allocPolarFrame(spec);
   renderer.render(scene, beam, spec, 0.05, frame);
@@ -69,7 +84,8 @@ describe('view quality engine', () => {
       };
       scores.push(analyze(ctrl).score);
     }
-    for (let i = 1; i < scores.length; i++) expect(Math.abs((scores[i] ?? 0) - (scores[i - 1] ?? 0))).toBeLessThan(45);
+    for (let i = 1; i < scores.length; i++)
+      expect(Math.abs((scores[i] ?? 0) - (scores[i - 1] ?? 0))).toBeLessThan(45);
     expect(scores[0]).toBeGreaterThan(70);
     expect(scores[scores.length - 1]).toBeGreaterThan(60);
   });
@@ -103,20 +119,33 @@ describe('view quality engine', () => {
   // white is overgain — came from textbook anechoic blood and put the gain hint on the clinically calibrated default
   // console. Measured through the simulator core, as the app shows it: the static analysis above, with other seeds,
   // phase and no frame history, did not reproduce the regression (the old check passed there).
-  it('gain hints follow clinical optimal-window images: none at the default console, overgain at +12 dB, undergain at −18 dB in apical views', { timeout: 240_000 }, () => {
-    const c0 = loadCaseById('normal-excellent-window');
-    const models = new SimulatorCore(c0, baseInput()).models;
-    const gainHint = (id: string, gainDb: number): string => {
-      const probe = canonicalControl(getViewTarget(id), models.heart, models.thorax);
-      const core = new SimulatorCore(c0, baseInput({ probe, quality: 'medium', settings: { ...DEFAULT_ACQUISITION, tgcDb: [...DEFAULT_ACQUISITION.tgcDb], gainDb } }));
-      for (let i = 0; i < 8; i++) core.step(1 / 30);
-      const h = core.lastView?.hints.find((t) => /ganancia/i.test(t)) ?? '';
-      return h.startsWith('Exceso') ? 'over' : h ? 'under' : 'none';
-    };
-    const ids = VIEW_TARGETS.map((v) => v.id);
-    expect(ids.map((id) => `${id}:${gainHint(id, 0)}`)).toEqual(ids.map((id) => `${id}:none`));
-    expect(ids.map((id) => `${id}:${gainHint(id, 12)}`)).toEqual(ids.map((id) => `${id}:over`));
-    const apical = ['a4c', 'a5c', 'a2c', 'a3c'];
-    expect(apical.map((id) => `${id}:${gainHint(id, -18)}`)).toEqual(apical.map((id) => `${id}:under`));
-  });
+  it(
+    'gain hints follow clinical optimal-window images: none at the default console, overgain at +12 dB, undergain at −18 dB in apical views',
+    { timeout: 240_000 },
+    () => {
+      const c0 = loadCaseById('normal-excellent-window');
+      const models = new SimulatorCore(c0, baseInput()).models;
+      const gainHint = (id: string, gainDb: number): string => {
+        const probe = canonicalControl(getViewTarget(id), models.heart, models.thorax);
+        const core = new SimulatorCore(
+          c0,
+          baseInput({
+            probe,
+            quality: 'medium',
+            settings: { ...DEFAULT_ACQUISITION, tgcDb: [...DEFAULT_ACQUISITION.tgcDb], gainDb },
+          }),
+        );
+        for (let i = 0; i < 8; i++) core.step(1 / 30);
+        const h = core.lastView?.hints.find((t) => /ganancia/i.test(t)) ?? '';
+        return h.startsWith('Exceso') ? 'over' : h ? 'under' : 'none';
+      };
+      const ids = VIEW_TARGETS.map((v) => v.id);
+      expect(ids.map((id) => `${id}:${gainHint(id, 0)}`)).toEqual(ids.map((id) => `${id}:none`));
+      expect(ids.map((id) => `${id}:${gainHint(id, 12)}`)).toEqual(ids.map((id) => `${id}:over`));
+      const apical = ['a4c', 'a5c', 'a2c', 'a3c'];
+      expect(apical.map((id) => `${id}:${gainHint(id, -18)}`)).toEqual(
+        apical.map((id) => `${id}:under`),
+      );
+    },
+  );
 });

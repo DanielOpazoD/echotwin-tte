@@ -8,7 +8,9 @@ const c = validateCase(normalExcellentCase).case!;
 describe('ground truth coherence (spec 36: golden checks)', () => {
   const gt = computeGroundTruth(c);
   it('LVOT Doppler SV equals volumetric SV (no regurgitation)', () => {
-    expect(Math.abs(gt.lvot.strokeVolumeMl - gt.lv.strokeVolumeMl) / gt.lv.strokeVolumeMl).toBeLessThan(0.02);
+    expect(
+      Math.abs(gt.lvot.strokeVolumeMl - gt.lv.strokeVolumeMl) / gt.lv.strokeVolumeMl,
+    ).toBeLessThan(0.02);
   });
   it('continuity AVA equals the configured effective area', () => {
     expect(gt.aorticValve.continuityAvaCm2).toBeCloseTo(c.hemodynamics.avEffectiveAreaCm2, 2);

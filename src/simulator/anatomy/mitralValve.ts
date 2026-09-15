@@ -126,13 +126,33 @@ function openProfile(angles: number[], segLen: number): Float64Array {
 }
 
 /** Hinge height above the hinge plane at angle theta from the anteroposterior axis: saddle plus the curtain lift. */
-function hingeHeight(R: number, D: number, saddle: number, lift: number, u: number, v: number): number {
+function hingeHeight(
+  R: number,
+  D: number,
+  saddle: number,
+  lift: number,
+  u: number,
+  v: number,
+): number {
   const theta = Math.atan2(Math.abs(u), v);
-  const onCurtain = Math.max(0, Math.min(1, (segAngle(R, D) + AML_ARC_EXTENSION - theta) / AML_ARC_EXTENSION));
+  const onCurtain = Math.max(
+    0,
+    Math.min(1, (segAngle(R, D) + AML_ARC_EXTENSION - theta) / AML_ARC_EXTENSION),
+  );
   return saddle * ((u * u) / (u * u + v * v || 1)) + lift * onCurtain;
 }
 
-function buildLeaflet(anterior: boolean, R: number, D: number, saddle: number, lift: number, tentBase: number, tetherAL: number, tetherPM: number, openProf: Float64Array): MitralLeaflet {
+function buildLeaflet(
+  anterior: boolean,
+  R: number,
+  D: number,
+  saddle: number,
+  lift: number,
+  tentBase: number,
+  tetherAL: number,
+  tetherPM: number,
+  openProf: Float64Array,
+): MitralLeaflet {
   const axisSign = anterior ? 1 : -1;
   // foci on the far side of the coaptation line
   const focusV = anterior ? -0.85 * R : 0.85 * D;
@@ -199,7 +219,17 @@ function buildLeaflet(anterior: boolean, R: number, D: number, saddle: number, l
     const tether = (tetherAL * (1 - side) + tetherPM * (1 + side)) / 2;
     tent[k] = zLine + (tentBase + tether) * (1 - 0.7 * t * t) - hz;
   }
-  return { focusV, axisSign, halfSpan, hinge, reach, tent, hingeZ, openProf, openRot: new Float64Array(MV_BINS) };
+  return {
+    focusV,
+    axisSign,
+    halfSpan,
+    hinge,
+    reach,
+    tent,
+    hingeZ,
+    openProf,
+    openRot: new Float64Array(MV_BINS),
+  };
 }
 
 /**
@@ -207,7 +237,20 @@ function buildLeaflet(anterior: boolean, R: number, D: number, saddle: number, l
  * much as the ventricular base, and the curtain with it.
  * @param tetherAL,tetherPM apical pull (cm) of each papillary muscle on the closed coaptation (papillaryTether).
  */
-export function buildMitralValve(cx0: number, cy0: number, cz: number, R0: number, toAortaX: number, toAortaY: number, p: MitralParams, open: number, contraction: number, lift: number, tetherAL = 0, tetherPM = 0): MitralValve {
+export function buildMitralValve(
+  cx0: number,
+  cy0: number,
+  cz: number,
+  R0: number,
+  toAortaX: number,
+  toAortaY: number,
+  p: MitralParams,
+  open: number,
+  contraction: number,
+  lift: number,
+  tetherAL = 0,
+  tetherPM = 0,
+): MitralValve {
   const l = Math.hypot(toAortaX, toAortaY) || 1;
   // systolic annular contraction (area about a fifth smaller at end systole): the fibrous curtain keeps its place and
   // the muscular posterior annulus moves toward it
@@ -238,8 +281,34 @@ export function buildMitralValve(cx0: number, cy0: number, cz: number, R0: numbe
     inflowDepth: 2,
     // normal coaptation 3.5 mm apical of the line between the hinges; prolapse carries the posterior body (and a little
     // of the anterior) into the LA
-    anterior: buildLeaflet(true, R, D, saddle, lift, 0.35 - 0.5 * p.prolapse, tetherAL, tetherPM, openProfile([-0.61 * openScale, -0.7 * openScale, -0.79 * openScale], p.anteriorLeafletLengthCm / 3)),
-    posterior: buildLeaflet(false, R, D, saddle, lift, 0.35 - 1.4 * p.prolapse, tetherAL, tetherPM, openProfile([-0.61 * openScale, -0.79 * openScale, -0.96 * openScale], p.posteriorLeafletLengthCm / 3)),
+    anterior: buildLeaflet(
+      true,
+      R,
+      D,
+      saddle,
+      lift,
+      0.35 - 0.5 * p.prolapse,
+      tetherAL,
+      tetherPM,
+      openProfile(
+        [-0.61 * openScale, -0.7 * openScale, -0.79 * openScale],
+        p.anteriorLeafletLengthCm / 3,
+      ),
+    ),
+    posterior: buildLeaflet(
+      false,
+      R,
+      D,
+      saddle,
+      lift,
+      0.35 - 1.4 * p.prolapse,
+      tetherAL,
+      tetherPM,
+      openProfile(
+        [-0.61 * openScale, -0.79 * openScale, -0.96 * openScale],
+        p.posteriorLeafletLengthCm / 3,
+      ),
+    ),
   };
 }
 
@@ -256,12 +325,21 @@ export const CHORDAL_REACH_PER_CM = 0.97;
  * while the chordae keep their length, so the coaptation is dragged into the ventricle (functional MR). Normal tenting
  * height is 5–6 mm and 8–12 mm with functional MR.
  */
-export function papillaryTether(tipX: number, tipY: number, tipZ: number, cx: number, cy: number, cz: number, p: MitralParams): number {
+export function papillaryTether(
+  tipX: number,
+  tipY: number,
+  tipZ: number,
+  cx: number,
+  cy: number,
+  cz: number,
+  p: MitralParams,
+): number {
   const dx = tipX - cx,
     dy = tipY - cy,
     dz = tipZ - cz;
   const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-  const beyond = dist - CHORDAL_REACH_PER_CM * (p.anteriorLeafletLengthCm + p.posteriorLeafletLengthCm);
+  const beyond =
+    dist - CHORDAL_REACH_PER_CM * (p.anteriorLeafletLengthCm + p.posteriorLeafletLengthCm);
   return beyond > 0 ? (beyond * dz) / dist : 0;
 }
 
@@ -277,7 +355,16 @@ function sampleBins(tab: Float64Array, f: number): number {
   return tab[i]! * (1 - w) + tab[i + 1]! * w;
 }
 
-function leafletDistance(v: number, u: number, zr0: number, mv: MitralValve, L: MitralLeaflet, leaflet: number, openness: number, best: number): number {
+function leafletDistance(
+  v: number,
+  u: number,
+  zr0: number,
+  mv: MitralValve,
+  L: MitralLeaflet,
+  leaflet: number,
+  openness: number,
+  best: number,
+): number {
   const dv = v - L.focusV;
   const rho = Math.hypot(dv, u);
   if (rho < 1e-6) return best;
@@ -290,7 +377,8 @@ function leafletDistance(v: number, u: number, zr0: number, mv: MitralValve, L: 
   const tent = sampleBins(L.tent, f);
   const zr = zr0 - sampleBins(L.hingeZ, f);
   const aq = Math.abs(q);
-  const w = aq < 0.9 ? 1 : 1 - ((aq - 0.9) / 0.1) * ((aq - 0.9) / 0.1) * (3 - 2 * ((aq - 0.9) / 0.1));
+  const w =
+    aq < 0.9 ? 1 : 1 - ((aq - 0.9) / 0.1) * ((aq - 0.9) / 0.1) * (3 - 2 * ((aq - 0.9) / 0.1));
   const openScale = 0.55 + 0.45 * Math.sqrt(Math.max(0, 1 - q * q));
   const c = 1 - openness;
   const rot = openness > 0 ? sampleBins(L.openRot, f) : 0;
@@ -304,8 +392,8 @@ function leafletDistance(v: number, u: number, zr0: number, mv: MitralValve, L: 
   }
   const inw = hingeS - rho;
   // inward direction (toward the focus) in the heart frame
-  const ix = (-(dv * mv.ux - u * mv.uy)) / rho,
-    iy = (-(dv * mv.uy + u * mv.ux)) / rho;
+  const ix = -(dv * mv.ux - u * mv.uy) / rho,
+    iy = -(dv * mv.uy + u * mv.ux) / rho;
   let b = best;
   let ax = 0,
     az = 0;
@@ -348,7 +436,16 @@ export function mitralDistance(x: number, y: number, z: number, mv: MitralValve)
   if (zr0 > 3.5 || zr0 < -2.5 || dx * dx + dy * dy > (mv.R + 2.2) * (mv.R + 2.2)) return 0;
   const v = dx * mv.ux + dy * mv.uy;
   const u = -dx * mv.uy + dy * mv.ux;
-  let best = leafletDistance(v, u, zr0, mv, mv.anterior, 0, Math.max(mv.open, mv.samBlend), Infinity);
+  let best = leafletDistance(
+    v,
+    u,
+    zr0,
+    mv,
+    mv.anterior,
+    0,
+    Math.max(mv.open, mv.samBlend),
+    Infinity,
+  );
   best = leafletDistance(v, u, zr0, mv, mv.posterior, 1, mv.open, best);
   if (!(best < Infinity)) return 0;
   // leaflets are thickest at the free edge (rough zone) and thin out toward the commissures
@@ -359,7 +456,13 @@ export function mitralDistance(x: number, y: number, z: number, mv: MitralValve)
  * Point of a leaflet's current profile at fraction q ∈ (−1, 1) of its fan (negative = the anterolateral side) and
  * fraction `along` ∈ [0, 1] of its polyline from the hinge (1 = the free edge), in the heart frame.
  */
-export function mitralLeafletPoint(mv: MitralValve, leaflet: 0 | 1, q: number, along: number, out: number[]): void {
+export function mitralLeafletPoint(
+  mv: MitralValve,
+  leaflet: 0 | 1,
+  q: number,
+  along: number,
+  out: number[],
+): void {
   const L = leaflet === 0 ? mv.anterior : mv.posterior;
   const openness = leaflet === 0 ? Math.max(mv.open, mv.samBlend) : mv.open;
   const psi = q * L.halfSpan;
@@ -409,7 +512,10 @@ export function mitralFreeEdge(mv: MitralValve, leaflet: 0 | 1, q: number, out: 
 export function mitralHingeZ(x: number, y: number, mv: MitralValve): number {
   const dx = x - mv.cx,
     dy = y - mv.cy;
-  return mv.cz + hingeHeight(mv.R, mv.D, mv.saddle, mv.lift, -dx * mv.uy + dy * mv.ux, dx * mv.ux + dy * mv.uy);
+  return (
+    mv.cz +
+    hingeHeight(mv.R, mv.D, mv.saddle, mv.lift, -dx * mv.uy + dy * mv.ux, dx * mv.ux + dy * mv.uy)
+  );
 }
 
 /** Signed distance (cm, negative inside) to the D-shaped annulus outline projected on the hinge plane. */
@@ -423,11 +529,19 @@ export function mitralOutlineSdf(x: number, y: number, mv: MitralValve): number 
 export function insideMitralOutline(x: number, y: number, mv: MitralValve, margin = 0.98): boolean {
   const dx = x - mv.cx,
     dy = y - mv.cy;
-  return dx * dx + dy * dy < mv.R * margin * (mv.R * margin) && dx * mv.ux + dy * mv.uy < mv.D * margin;
+  return (
+    dx * dx + dy * dy < mv.R * margin * (mv.R * margin) && dx * mv.ux + dy * mv.uy < mv.D * margin
+  );
 }
 
 /** Signed distance to the fibrous annulus: a tube of radius `tube` around the D curve (saddle and curtain lift included). */
-export function mitralAnnulusDistance(x: number, y: number, z: number, mv: MitralValve, tube: number): number {
+export function mitralAnnulusDistance(
+  x: number,
+  y: number,
+  z: number,
+  mv: MitralValve,
+  tube: number,
+): number {
   const dx = x - mv.cx,
     dy = y - mv.cy;
   const v = dx * mv.ux + dy * mv.uy;
@@ -439,7 +553,10 @@ export function mitralAnnulusDistance(x: number, y: number, z: number, mv: Mitra
   let qu = (u / rho) * R,
     qv = (v / rho) * R;
   const su = Math.max(-uc, Math.min(uc, u));
-  if (qv > D || (u - su) * (u - su) + (v - D) * (v - D) < (u - qu) * (u - qu) + (v - qv) * (v - qv)) {
+  if (
+    qv > D ||
+    (u - su) * (u - su) + (v - D) * (v - D) < (u - qu) * (u - qu) + (v - qv) * (v - qv)
+  ) {
     qu = su;
     qv = D;
   }
@@ -476,7 +593,10 @@ const OPEN_ROT_MAX = 1.5;
  * almost parallel to the long axis below the posterior annulus) while its lateral fibres, facing a wall that flares
  * outward, have room to swing. `cavity` is the ventricular cavity's signed distance (negative inside).
  */
-export function fitOpenLeaflets(mv: MitralValve, cavity: (x: number, y: number, z: number) => number): void {
+export function fitOpenLeaflets(
+  mv: MitralValve,
+  cavity: (x: number, y: number, z: number) => number,
+): void {
   const pts = new Float64Array(12);
   for (const [L, openness] of [
     [mv.anterior, Math.max(mv.open, mv.samBlend)],
@@ -546,6 +666,10 @@ export function fitOpenLeaflets(mv: MitralValve, cavity: (x: number, y: number, 
     }
     // neighbouring fibres of one sheet cannot turn independently: smooth across the fan
     const tmp = Float64Array.from(L.openRot);
-    for (let k = 0; k < MV_BINS; k++) L.openRot[k] = Math.max(tmp[k]!, 0.5 * ((tmp[Math.max(0, k - 1)]! + tmp[Math.min(MV_BINS - 1, k + 1)]!) / 2) + 0.5 * tmp[k]!);
+    for (let k = 0; k < MV_BINS; k++)
+      L.openRot[k] = Math.max(
+        tmp[k]!,
+        0.5 * ((tmp[Math.max(0, k - 1)]! + tmp[Math.min(MV_BINS - 1, k + 1)]!) / 2) + 0.5 * tmp[k]!,
+      );
   }
 }

@@ -8,7 +8,11 @@ import { useSimStore } from '@/app/store';
  */
 const PRIMARY: { id: string; label: string; title: string }[] = [
   { id: 'plax', label: 'PLAX', title: 'Paraesternal eje largo' },
-  { id: 'psax-av', label: 'PSAX GV', title: 'Paraesternal eje corto, grandes vasos / válvula aórtica' },
+  {
+    id: 'psax-av',
+    label: 'PSAX GV',
+    title: 'Paraesternal eje corto, grandes vasos / válvula aórtica',
+  },
   { id: 'psax-mv', label: 'PSAX MV', title: 'Paraesternal eje corto, nivel mitral' },
   { id: 'psax-apex', label: 'PSAX ápex', title: 'Paraesternal eje corto, nivel apical' },
   { id: 'a4c', label: 'A4C', title: 'Apical cuatro cámaras' },
@@ -32,7 +36,11 @@ function PresetButton({ id, label, title }: { id: string; label: string; title: 
     <button
       className={active ? 'active' : ''}
       disabled={disabled}
-      title={disabled ? 'No disponible en modo examen' : `${title}: mueve la sonda de forma continua hasta la pose canónica`}
+      title={
+        disabled
+          ? 'No disponible en modo examen'
+          : `${title}: mueve la sonda de forma continua hasta la pose canónica`
+      }
       onClick={() => start(id)}
       aria-pressed={active}
     >

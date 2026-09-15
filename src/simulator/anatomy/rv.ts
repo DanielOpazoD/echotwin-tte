@@ -33,7 +33,21 @@ export function rvAxialTaper(tvPlane: number, zApex: number, z: number): number 
  * (LV epicardium + gap, minus septal flattening), the groove fraction u, the outer free-wall endocardium
  * and the cavity thickness t (0 outside the crescent span).
  */
-export function rvRadii(m: HeartModel, A: AnchorsCached, prof: LvProfileTable, thickK: number, zAnn: number, lengthNow: number, tvZ: number, contraction: number, septalShiftCm: number, rvCollapse: number, az: number, z: number, res: Float64Array): void {
+export function rvRadii(
+  m: HeartModel,
+  A: AnchorsCached,
+  prof: LvProfileTable,
+  thickK: number,
+  zAnn: number,
+  lengthNow: number,
+  tvZ: number,
+  contraction: number,
+  septalShiftCm: number,
+  rvCollapse: number,
+  az: number,
+  z: number,
+  res: Float64Array,
+): void {
   const L = m.lv.lengthCm;
   const sh = m.lv.shape;
   const azN = az < 0 ? az + TWO_PI : az;
@@ -41,7 +55,8 @@ export function rvRadii(m: HeartModel, A: AnchorsCached, prof: LvProfileTable, t
   const rCav = lvCavityRadius(sh, prof, az, z);
   const levelFrac = Math.min(1, Math.max(0, (z - zAnn) / Math.max(lengthNow, 1)));
   const amp = m.segAmp[ahaSegment(az, levelFrac)] ?? 1;
-  const rEpi = rCav + wallThicknessAt(m, thickK, az, levelFrac, amp) * lvRadialOffsetFactor(sh, prof, az, z);
+  const rEpi =
+    rCav + wallThicknessAt(m, thickK, az, levelFrac, amp) * lvRadialOffsetFactor(sh, prof, az, z);
   const rIn = rEpi - septalShiftAt(septalShiftCm, az, levelFrac) + 0.05;
   res[0] = rIn;
   res[1] = u;
@@ -51,7 +66,11 @@ export function rvRadii(m: HeartModel, A: AnchorsCached, prof: LvProfileTable, t
     return;
   }
   const tvPlane = A.tvCenter.z + tvZ;
-  let t = A.rvT * rvAzProfile(A, u) * rvAxialTaper(tvPlane, A.rvApexFrac * L, z) * (1 - 0.35 * contraction);
+  let t =
+    A.rvT *
+    rvAzProfile(A, u) *
+    rvAxialTaper(tvPlane, A.rvApexFrac * L, z) *
+    (1 - 0.35 * contraction);
   // tamponade: early-diastolic inward collapse of the anterior/outflow free wall
   if (rvCollapse > 0 && u < 0.55) t *= 1 - 0.65 * rvCollapse * (1 - u / 0.55);
   res[2] = rIn + t;
@@ -65,8 +84,31 @@ export function rvRadii(m: HeartModel, A: AnchorsCached, prof: LvProfileTable, t
  * infundibulum rising above the tricuspid plane in the anterior third, and a coarse trabecular mesh
  * (material coordinates) that fills in the apical third. Writes [signedDistance, rIn, rOut] into `res`.
  */
-export function rvCrescent(m: HeartModel, hp: HeartPose, A: AnchorsCached, x: number, y: number, z: number, az: number, res: Float64Array): void {
-  rvRadii(m, A, hp.prof, hp.thickK, hp.zAnn, hp.lengthNow, hp.tvZ, hp.state.contraction, hp.septalShiftCm, hp.rvCollapse, az, z, rvRad);
+export function rvCrescent(
+  m: HeartModel,
+  hp: HeartPose,
+  A: AnchorsCached,
+  x: number,
+  y: number,
+  z: number,
+  az: number,
+  res: Float64Array,
+): void {
+  rvRadii(
+    m,
+    A,
+    hp.prof,
+    hp.thickK,
+    hp.zAnn,
+    hp.lengthNow,
+    hp.tvZ,
+    hp.state.contraction,
+    hp.septalShiftCm,
+    hp.rvCollapse,
+    az,
+    z,
+    rvRad,
+  );
   const rIn = rvRad[0]!,
     u = rvRad[1]!;
   if (u <= 0 || u >= 1) {
@@ -86,7 +128,8 @@ export function rvCrescent(m: HeartModel, hp: HeartPose, A: AnchorsCached, x: nu
   if (z > 0.25 * L) {
     const w = Math.min(1, (z - 0.25 * L) / (0.35 * L));
     const rs = 1 - 0.3 * hp.state.contraction;
-    const n = latticeNoise3((x / rs) * 1.4 + 3.1, (y / rs) * 1.4 + 9.7, z * 0.9 + 5.3, m.wallNoise) - 0.5;
+    const n =
+      latticeNoise3((x / rs) * 1.4 + 3.1, (y / rs) * 1.4 + 9.7, z * 0.9 + 5.3, m.wallNoise) - 0.5;
     t += (0.25 + 0.25 * w) * n - 0.12 * w * w;
   }
   const rOut = rIn + Math.max(0, t);

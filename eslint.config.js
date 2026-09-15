@@ -13,7 +13,10 @@ export default tseslint.config(
     plugins: { 'react-hooks': reactHooks },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
       '@typescript-eslint/consistent-type-imports': 'error',
       'no-console': ['warn', { allow: ['warn', 'error', 'info'] }],
     },
@@ -23,7 +26,10 @@ export default tseslint.config(
     // but must not import formulas directly; it goes through simulator/measurements.
     files: ['src/ui/**/*.{ts,tsx}'],
     rules: {
-      'no-restricted-imports': ['error', { patterns: ['**/clinical/formulas', '**/clinical/formulas/*'] }],
+      'no-restricted-imports': [
+        'error',
+        { patterns: ['**/clinical/formulas', '**/clinical/formulas/*'] },
+      ],
     },
   },
 );

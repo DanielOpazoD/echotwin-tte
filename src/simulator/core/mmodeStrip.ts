@@ -92,7 +92,11 @@ export interface ColumnSource {
  * The traced lines a column at `phase` is formed from: the nearest bin at or before its instant and the nearest after it,
  * weighted by phase — the pulses of a column fall between them. With only one side within `reach`, that line alone.
  */
-export function columnSource(cache: MmodeLineCache, phase: number, reach: number): ColumnSource | null {
+export function columnSource(
+  cache: MmodeLineCache,
+  phase: number,
+  reach: number,
+): ColumnSource | null {
   const B = cache.bins;
   const pos = (((phase % 1) + 1) % 1) * B;
   const b0 = Math.floor(pos);
@@ -118,7 +122,11 @@ export function columnSource(cache: MmodeLineCache, phase: number, reach: number
  * Bins to trace this step so that every due column has its two neighbouring bins: all of them when the budget allows,
  * otherwise `maxTraces` spread evenly over the missing ones, so the columns in between interpolate across short gaps.
  */
-export function binsToTrace(cache: MmodeLineCache, phases: ArrayLike<number>, maxTraces: number): number[] {
+export function binsToTrace(
+  cache: MmodeLineCache,
+  phases: ArrayLike<number>,
+  maxTraces: number,
+): number[] {
   const B = cache.bins;
   const missing: number[] = [];
   const seen = new Set<number>();
@@ -132,7 +140,8 @@ export function binsToTrace(cache: MmodeLineCache, phases: ArrayLike<number>, ma
   }
   if (missing.length <= maxTraces) return missing;
   const out: number[] = [];
-  for (let i = 0; i < maxTraces; i++) out.push(missing[Math.floor(((i + 0.5) * missing.length) / maxTraces)]!);
+  for (let i = 0; i < maxTraces; i++)
+    out.push(missing[Math.floor(((i + 0.5) * missing.length) / maxTraces)]!);
   return out;
 }
 

@@ -75,10 +75,19 @@ export function contactQuality(pressure: number): number {
  * in-plane direction (the direction that should appear as screen-right). Used to compute canonical
  * view poses from anatomy (spec 5, 50) — never to teleport the user.
  */
-export function controlAimingAt(t: ThoraxModel, u: number, v: number, target: Vec3, screenRightDir: Vec3, pressure = 0.6): ProbeControl {
+export function controlAimingAt(
+  t: ThoraxModel,
+  u: number,
+  v: number,
+  target: Vec3,
+  screenRightDir: Vec3,
+  pressure = 0.6,
+): ProbeControl {
   // Iteratively fit rotation/tilt/rock: cheap coordinate descent on angle error (deterministic).
   const desiredForward = normalize(sub(target, v3(u, v, skinZ(t, u, v))));
-  const desiredLateral = normalize(sub(screenRightDir, scale(desiredForward, dot(screenRightDir, desiredForward))));
+  const desiredLateral = normalize(
+    sub(screenRightDir, scale(desiredForward, dot(screenRightDir, desiredForward))),
+  );
   let best: ProbeControl = { u, v, rotationDeg: 0, tiltDeg: 0, rockDeg: 0, pressure };
   let bestErr = Infinity;
   const evalErr = (c: ProbeControl): number => {

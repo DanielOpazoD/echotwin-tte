@@ -28,7 +28,12 @@ export interface SimInput {
   display: { width: number; height: number };
   rendererBackend: 'atlas' | 'procedural' | 'webgl2';
   /** Artifact laboratory: live overrides of the case artifacts (0..1 each); null = as defined by the case. */
-  artifactOverrides: { sideLobe: number; mirror: number; beamWidth: number; clutter: number } | null;
+  artifactOverrides: {
+    sideLobe: number;
+    mirror: number;
+    beamWidth: number;
+    clutter: number;
+  } | null;
 }
 
 export interface EcgPoint {
@@ -94,7 +99,12 @@ export interface SimOutput {
   cineFramePhase: number;
   stats: Record<string, number | string>;
   colorFps: number;
-  probeBeam: { origin: [number, number, number]; forward: [number, number, number]; lateral: [number, number, number]; normal: [number, number, number] };
+  probeBeam: {
+    origin: [number, number, number];
+    forward: [number, number, number];
+    lateral: [number, number, number];
+    normal: [number, number, number];
+  };
 }
 
 /** Cardiac phase landmarks (fractions of RR) sent with the ready message. */
@@ -110,7 +120,12 @@ export interface PhaseMarks {
 
 /** On-demand requests answered by the simulator (rare events, not per frame). */
 export type SimRequest = { kind: 'autoTrace'; x0: number; x1: number };
-export type SimResponse = { kind: 'autoTrace'; velocitiesMps: number[]; secondsPerColumn: number; x0: number };
+export type SimResponse = {
+  kind: 'autoTrace';
+  velocitiesMps: number[];
+  secondsPerColumn: number;
+  x0: number;
+};
 
 export type MainToWorker =
   | { type: 'init'; caseDef: CaseDefinition; input: SimInput }
@@ -120,7 +135,13 @@ export type MainToWorker =
   | { type: 'request'; id: number; req: SimRequest };
 
 export type WorkerToMain =
-  | { type: 'ready'; truth: StructuredEchoTruth; caseId: string; phaseMarks: PhaseMarks; lvLengthCm: number }
+  | {
+      type: 'ready';
+      truth: StructuredEchoTruth;
+      caseId: string;
+      phaseMarks: PhaseMarks;
+      lvLengthCm: number;
+    }
   | { type: 'frame'; output: SimOutput }
   | { type: 'response'; id: number; res: SimResponse | null }
   | { type: 'error'; message: string };

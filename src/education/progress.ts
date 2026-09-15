@@ -4,10 +4,25 @@
  */
 export type ProgressEvent =
   | { t: number; kind: 'view'; caseId: string; viewId: string; score: number }
-  | { t: number; kind: 'measurement'; caseId: string; measurementId: string; techniqueScore: number | null; value: number }
+  | {
+      t: number;
+      kind: 'measurement';
+      caseId: string;
+      measurementId: string;
+      techniqueScore: number | null;
+      value: number;
+    }
   | { t: number; kind: 'task'; taskId: string }
   | { t: number; kind: 'case'; caseId: string }
-  | { t: number; kind: 'exam'; caseId: string; total: number; acquisition: number; measurements: number; impression: number }
+  | {
+      t: number;
+      kind: 'exam';
+      caseId: string;
+      total: number;
+      acquisition: number;
+      measurements: number;
+      impression: number;
+    }
   | { t: number; kind: 'impression'; caseId: string; score: number };
 
 export interface ProgressState {
@@ -35,7 +50,11 @@ export function loadProgress(storage: ProgressStorage | null): ProgressState {
     if (!raw) return emptyProgress();
     const parsed = JSON.parse(raw) as Partial<ProgressState>;
     if (parsed.version !== 1 || !Array.isArray(parsed.events)) return emptyProgress();
-    return { version: 1, completedTasks: parsed.completedTasks ?? {}, events: parsed.events.slice(-MAX_EVENTS) };
+    return {
+      version: 1,
+      completedTasks: parsed.completedTasks ?? {},
+      events: parsed.events.slice(-MAX_EVENTS),
+    };
   } catch {
     return emptyProgress();
   }
@@ -57,7 +76,10 @@ export function addEvent(p: ProgressState, e: ProgressEvent): ProgressState {
 
 export function completeTask(p: ProgressState, taskId: string, t: number): ProgressState {
   if (p.completedTasks[taskId]) return p;
-  return addEvent({ ...p, completedTasks: { ...p.completedTasks, [taskId]: t } }, { t, kind: 'task', taskId });
+  return addEvent(
+    { ...p, completedTasks: { ...p.completedTasks, [taskId]: t } },
+    { t, kind: 'task', taskId },
+  );
 }
 
 export interface ProgressSummary {
@@ -94,7 +116,16 @@ export function summarizeProgress(p: ProgressState): ProgressSummary {
     } else if (e.kind === 'case') cases.add(e.caseId);
     else if (e.kind === 'exam') exams.push({ t: e.t, caseId: e.caseId, total: e.total });
   }
-  return { bestViewScores, viewAttempts, measurementsCount: mN, meanTechniqueScore: tN ? tSum / tN : null, techniqueTrend: trend, casesOpened: [...cases], exams, completedTasks: Object.keys(p.completedTasks).length };
+  return {
+    bestViewScores,
+    viewAttempts,
+    measurementsCount: mN,
+    meanTechniqueScore: tN ? tSum / tN : null,
+    techniqueTrend: trend,
+    casesOpened: [...cases],
+    exams,
+    completedTasks: Object.keys(p.completedTasks).length,
+  };
 }
 
 /** Anonymous export for the validation protocol (docs/VALIDATION_PROTOCOL.md): no identifiers, only events. */

@@ -25,7 +25,9 @@ interface GpuWindow {
         setModality: (m: string) => void;
         toggleFreeze: () => void;
         setCineOffset: (o: number) => void;
-        setArtifactLab: (v: { sideLobe: number; mirror: number; beamWidth: number; clutter: number } | null) => void;
+        setArtifactLab: (
+          v: { sideLobe: number; mirror: number; beamWidth: number; clutter: number } | null,
+        ) => void;
         setUi: (u: { screen: string }) => void;
       };
     };
@@ -34,15 +36,22 @@ interface GpuWindow {
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('echotwin.prefs.v1', JSON.stringify({ tutorialDone: true })));
+  await page.addInitScript(() =>
+    localStorage.setItem('echotwin.prefs.v1', JSON.stringify({ tutorialDone: true })),
+  );
   await page.goto('/');
   const renderer = await page.evaluate(() => {
     const gl = new OffscreenCanvas(4, 4).getContext('webgl2');
     if (!gl) return '';
     const dbg = gl.getExtension('WEBGL_debug_renderer_info');
-    return String(dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
+    return String(
+      dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER),
+    );
   });
-  test.skip(!renderer || /swiftshader|llvmpipe|softpipe|software|basic render/i.test(renderer), `no hardware WebGL2 (${renderer || 'none'})`);
+  test.skip(
+    !renderer || /swiftshader|llvmpipe|softpipe|software|basic render/i.test(renderer),
+    `no hardware WebGL2 (${renderer || 'none'})`,
+  );
   await waitForFrames(page, 5, 60_000);
 });
 
@@ -61,7 +70,9 @@ async function liveVersusCine(page: Page, modality: '2d' | 'color'): Promise<Liv
     const eb = (window as unknown as GpuWindow).__echotwin;
     const store = eb.useSimStore;
     const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-    const canvas = document.querySelector<HTMLCanvasElement>('canvas[aria-label="Imagen ecográfica simulada"]')!;
+    const canvas = document.querySelector<HTMLCanvasElement>(
+      'canvas[aria-label="Imagen ecográfica simulada"]',
+    )!;
     const ctx = canvas.getContext('2d')!;
     if (store.getState().frozen) store.getState().toggleFreeze();
     store.getState().setModality(mod);
@@ -70,7 +81,11 @@ async function liveVersusCine(page: Page, modality: '2d' | 'color'): Promise<Liv
     await new Promise<void>((resolve) => {
       const un = eb.frameBus.subscribe((o) => {
         if (o.frozen) return;
-        live.push({ phase: o.phase, gpu: Boolean(o.bitmap) && o.stats['present'] === 'gpu', px: ctx.getImageData(0, 0, canvas.width, canvas.height).data });
+        live.push({
+          phase: o.phase,
+          gpu: Boolean(o.bitmap) && o.stats['present'] === 'gpu',
+          px: ctx.getImageData(0, 0, canvas.width, canvas.height).data,
+        });
         if (live.length >= 8) {
           un();
           resolve();
@@ -87,7 +102,10 @@ async function liveVersusCine(page: Page, modality: '2d' | 'color'): Promise<Liv
           const un = eb.frameBus.subscribe((o) => {
             if (!o.frozen || o.cineOffset !== k) return;
             un();
-            resolve({ phase: o.cineFramePhase, px: ctx.getImageData(0, 0, canvas.width, canvas.height).data });
+            resolve({
+              phase: o.cineFramePhase,
+              px: ctx.getImageData(0, 0, canvas.width, canvas.height).data,
+            });
           });
         }),
       );
@@ -109,12 +127,21 @@ async function liveVersusCine(page: Page, modality: '2d' | 'color'): Promise<Liv
         if (l.px[i] !== l.px[i + 1] || l.px[i + 1] !== l.px[i + 2]) colourPixels++;
       }
     }
-    return { live: live.length, liveOnGpu: live.filter((l) => l.gpu).length, matched, maxDiff, pixelsOver1, colourPixels };
+    return {
+      live: live.length,
+      liveOnGpu: live.filter((l) => l.gpu).length,
+      matched,
+      maxDiff,
+      pixelsOver1,
+      colourPixels,
+    };
   }, modality);
 }
 
 for (const modality of ['2d', 'color'] as const) {
-  test(`live ${modality} frames arrive as GPU bitmaps and equal the CPU composite of the same frame`, async ({ page }) => {
+  test(`live ${modality} frames arrive as GPU bitmaps and equal the CPU composite of the same frame`, async ({
+    page,
+  }) => {
     const r = await liveVersusCine(page, modality);
     test.info().annotations.push({ type: 'comparison', description: JSON.stringify(r) });
     expect(r.liveOnGpu).toBe(r.live);
@@ -124,17 +151,30 @@ for (const modality of ['2d', 'color'] as const) {
   });
 }
 
-test('strips, cine review and console artifacts use the CPU composite, and live frames return to the GPU', async ({ page }) => {
+test('strips, cine review and console artifacts use the CPU composite, and live frames return to the GPU', async ({
+  page,
+}) => {
   const r = await page.evaluate(async () => {
     const eb = (window as unknown as GpuWindow).__echotwin;
     const store = eb.useSimStore;
     const wait = (ms: number) => new Promise((res) => setTimeout(res, ms));
     const sample = async () => {
       const frames: { bitmap: boolean; console: string; present: string }[] = [];
-      const un = eb.frameBus.subscribe((o) => frames.push({ bitmap: Boolean(o.bitmap), console: String(o.stats['console']), present: String(o.stats['present']) }));
+      const un = eb.frameBus.subscribe((o) =>
+        frames.push({
+          bitmap: Boolean(o.bitmap),
+          console: String(o.stats['console']),
+          present: String(o.stats['present']),
+        }),
+      );
       await wait(1200);
       un();
-      return { n: frames.length, bitmaps: frames.filter((f) => f.bitmap).length, console: [...new Set(frames.map((f) => f.console))], present: [...new Set(frames.map((f) => f.present))] };
+      return {
+        n: frames.length,
+        bitmaps: frames.filter((f) => f.bitmap).length,
+        console: [...new Set(frames.map((f) => f.console))],
+        present: [...new Set(frames.map((f) => f.present))],
+      };
     };
     const s = store.getState();
     s.setModality('2d');

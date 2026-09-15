@@ -20,7 +20,10 @@ export function respiratoryDepth(timeS: number): number {
  * guidelines). The variation grows linearly with the case's tamponade severity to 40% and 80% at full tamponade; the
  * normal tricuspid 20% and those end points are declared values.
  */
-export function inflowRespiratoryVariation(tamponade: number): { mitral: number; tricuspid: number } {
+export function inflowRespiratoryVariation(tamponade: number): {
+  mitral: number;
+  tricuspid: number;
+} {
   const t = Math.min(1, Math.max(0, tamponade));
   return { mitral: 0.16 + t * (0.4 - 0.16), tricuspid: 0.2 + t * (0.8 - 0.2) };
 }

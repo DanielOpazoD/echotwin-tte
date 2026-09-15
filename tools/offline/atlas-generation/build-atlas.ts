@@ -12,7 +12,12 @@ import { createHeartModel, computeHeartPose } from '@/simulator/anatomy/heartMod
 import { createThoraxModel } from '@/simulator/anatomy/thoraxModel';
 import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { ProceduralSliceRenderer } from '@/simulator/renderer/procedural/sliceRenderer';
-import { allocPolarFrame, DEFAULT_ACQUISITION, polarSpecFor, type Scene } from '@/simulator/renderer/types';
+import {
+  allocPolarFrame,
+  DEFAULT_ACQUISITION,
+  polarSpecFor,
+  type Scene,
+} from '@/simulator/renderer/types';
 import { applyConsole, createConsoleState } from '@/simulator/renderer/postprocess/consolePipeline';
 import { computeSectorMapping, scanConvert } from '@/simulator/renderer/scanConvert';
 import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
@@ -22,7 +27,11 @@ const outDir = process.argv[2] ?? 'tools/offline/atlas-generation/out';
 const caseId = process.argv[3] ?? 'normal-excellent-window';
 mkdirSync(outDir, { recursive: true });
 const c = loadCaseById(caseId);
-const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, { position: 'left-lateral', respiration: 'expiration', headElevationDeg: 0 });
+const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, {
+  position: 'left-lateral',
+  respiration: 'expiration',
+  headElevationDeg: 0,
+});
 const heart = createHeartModel(c.anatomy, c.physiology, thorax.heartOffset, c.seed);
 const tables = buildBeatTables(60 / c.rhythm.heartRateBpm, c.physiology, c.rhythm, c.hemodynamics);
 const renderer = new ProceduralSliceRenderer();
@@ -40,7 +49,18 @@ for (const view of VIEW_TARGETS) {
   const cs = createConsoleState(c.seed);
   for (let p = 0; p < PHASES; p++) {
     const phase = p / PHASES;
-    const scene: Scene = { heart, heartPose: computeHeartPose(heart, cycleStateAt(tables, phase)), thorax, physics: { frequencyMHz: settings.frequencyMHz, harmonics: settings.harmonics, clutterLevel: c.acousticWindow.clutterLevel, windowAttenuation: c.acousticWindow.chestWallAttenuation, seed: c.seed } };
+    const scene: Scene = {
+      heart,
+      heartPose: computeHeartPose(heart, cycleStateAt(tables, phase)),
+      thorax,
+      physics: {
+        frequencyMHz: settings.frequencyMHz,
+        harmonics: settings.harmonics,
+        clutterLevel: c.acousticWindow.clutterLevel,
+        windowAttenuation: c.acousticWindow.chestWallAttenuation,
+        seed: c.seed,
+      },
+    };
     const frame = allocPolarFrame(spec);
     renderer.render(scene, beam, spec, phase, frame);
     const disp = new Uint8ClampedArray(spec.lines * spec.samples);
@@ -48,7 +68,8 @@ for (const view of VIEW_TARGETS) {
     scanConvert(disp, spec, mapping, tile);
     const gx = (p % 4) * TW,
       gy = Math.floor(p / 4) * TH;
-    for (let y = 0; y < TH; y++) sheet.set(tile.subarray(y * TW * 4, (y + 1) * TW * 4), ((gy + y) * TW * 4 + gx) * 4);
+    for (let y = 0; y < TH; y++)
+      sheet.set(tile.subarray(y * TW * 4, (y + 1) * TW * 4), ((gy + y) * TW * 4 + gx) * 4);
   }
   const file = join(outDir, `${c.id}-${view.id}-cine.png`);
   writeFileSync(file, encodePng(TW * 4, TH * 4, sheet));

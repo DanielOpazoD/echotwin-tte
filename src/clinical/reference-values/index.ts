@@ -150,7 +150,8 @@ export const RIGHT_HEART_RULES = {
     population: 'adults',
     referenceId: 'ase-right-heart-2025',
     confidence: 'recalled',
-    notes: 'TAPSE < 17 mm suggests RV systolic dysfunction (2010/2015 cutoff; re-verify in 2025 update).',
+    notes:
+      'TAPSE < 17 mm suggests RV systolic dysfunction (2010/2015 cutoff; re-verify in 2025 update).',
   } satisfies ClinicalRule<number>,
   facAbnormal: {
     id: 'fac-abnormal',
@@ -225,7 +226,10 @@ export const DIASTOLIC_RULES = {
 } as const;
 
 /** Presentation precision per measurement family (spec 55). */
-export const REPORT_PRECISION: Record<string, { decimals: number; units: string; referenceId: string }> = {
+export const REPORT_PRECISION: Record<
+  string,
+  { decimals: number; units: string; referenceId: string }
+> = {
   linearCm: { decimals: 1, units: 'cm', referenceId: 'ase-reporting-2025' },
   linearMm: { decimals: 0, units: 'mm', referenceId: 'ase-reporting-2025' },
   velocityMps: { decimals: 2, units: 'm/s', referenceId: 'ase-reporting-2025' },
@@ -239,7 +243,10 @@ export const REPORT_PRECISION: Record<string, { decimals: number; units: string;
   ratio: { decimals: 2, units: '', referenceId: 'ase-reporting-2025' },
 };
 
-export function formatClinical(value: number | null | undefined, family: keyof typeof REPORT_PRECISION): string {
+export function formatClinical(
+  value: number | null | undefined,
+  family: keyof typeof REPORT_PRECISION,
+): string {
   const p = REPORT_PRECISION[family];
   if (!p) throw new Error(`Unknown precision family ${family}`);
   if (value === null || value === undefined || !Number.isFinite(value)) return '—';

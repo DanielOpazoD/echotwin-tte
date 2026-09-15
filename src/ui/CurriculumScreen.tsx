@@ -13,7 +13,8 @@ export function CurriculumScreen() {
     <div className="screen curriculum">
       <h2>Currículo por etapas</h2>
       <p className="small">
-        {completed}/{total} tareas completadas. Las tareas se verifican automáticamente mientras trabajas en el simulador (modo sandbox o guiado); ninguna mueve la sonda por ti.
+        {completed}/{total} tareas completadas. Las tareas se verifican automáticamente mientras
+        trabajas en el simulador (modo sandbox o guiado); ninguna mueve la sonda por ti.
       </p>
       {CURRICULUM.map((m) => (
         <section key={m.id} className="module">
@@ -27,8 +28,14 @@ export function CurriculumScreen() {
                   const ok = Boolean(done[t.id]);
                   const caseTitle = t.caseId ? cases.find((c) => c.id === t.caseId)?.title : null;
                   return (
-                    <li key={t.id} className={ok ? 'done' : ''} data-task={t.id} data-done={ok ? '1' : '0'}>
-                      <span className={`pill ${ok ? 'ok' : ''}`}>{ok ? 'hecha' : 'pendiente'}</span> <b>{t.title}</b>
+                    <li
+                      key={t.id}
+                      className={ok ? 'done' : ''}
+                      data-task={t.id}
+                      data-done={ok ? '1' : '0'}
+                    >
+                      <span className={`pill ${ok ? 'ok' : ''}`}>{ok ? 'hecha' : 'pendiente'}</span>{' '}
+                      <b>{t.title}</b>
                       <div className="small why">{t.why}</div>
                       {t.caseId && t.caseId !== s.caseId && (
                         <button

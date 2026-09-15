@@ -36,21 +36,51 @@ export interface TissueProps {
 export const TISSUE_PROPS: Record<number, TissueProps> = {
   [Tissue.None]: { reflect: 0.0, specular: 0, attenuation: 0.5, grain: 2, name: 'none' },
   [Tissue.Blood]: { reflect: 0.012, specular: 0, attenuation: 0.18, grain: 7, name: 'blood' },
-  [Tissue.Myocardium]: { reflect: 0.48, specular: 0.15, attenuation: 0.9, grain: 4.2, name: 'myocardium' },
+  [Tissue.Myocardium]: {
+    reflect: 0.48,
+    specular: 0.15,
+    attenuation: 0.9,
+    grain: 4.2,
+    name: 'myocardium',
+  },
   [Tissue.Valve]: { reflect: 0.5, specular: 0.7, attenuation: 0.8, grain: 5, name: 'valve' },
-  [Tissue.Pericardium]: { reflect: 0.85, specular: 1.0, attenuation: 0.9, grain: 3, name: 'pericardium' },
+  [Tissue.Pericardium]: {
+    reflect: 0.85,
+    specular: 1.0,
+    attenuation: 0.9,
+    grain: 3,
+    name: 'pericardium',
+  },
   [Tissue.Fat]: { reflect: 0.12, specular: 0.1, attenuation: 0.6, grain: 2.5, name: 'fat' },
   [Tissue.Muscle]: { reflect: 0.38, specular: 0.2, attenuation: 1.0, grain: 3, name: 'muscle' },
   [Tissue.Bone]: { reflect: 1.0, specular: 1.0, attenuation: 20, grain: 3, name: 'bone' },
-  [Tissue.Cartilage]: { reflect: 0.45, specular: 0.5, attenuation: 3.5, grain: 3, name: 'cartilage' },
+  [Tissue.Cartilage]: {
+    reflect: 0.45,
+    specular: 0.5,
+    attenuation: 3.5,
+    grain: 3,
+    name: 'cartilage',
+  },
   [Tissue.Lung]: { reflect: 1.0, specular: 1.0, attenuation: 40, grain: 3, name: 'lung' },
   [Tissue.Fluid]: { reflect: 0.005, specular: 0, attenuation: 0.05, grain: 4, name: 'fluid' },
-  [Tissue.VesselWall]: { reflect: 0.55, specular: 0.6, attenuation: 0.9, grain: 3, name: 'vessel wall' },
+  [Tissue.VesselWall]: {
+    reflect: 0.55,
+    specular: 0.6,
+    attenuation: 0.9,
+    grain: 3,
+    name: 'vessel wall',
+  },
   [Tissue.Calcium]: { reflect: 1.0, specular: 1.0, attenuation: 25, grain: 3, name: 'calcium' },
   [Tissue.Skin]: { reflect: 0.5, specular: 0.4, attenuation: 1.2, grain: 4, name: 'skin' },
   [Tissue.Liver]: { reflect: 0.35, specular: 0.1, attenuation: 0.7, grain: 3, name: 'liver' },
   [Tissue.Spine]: { reflect: 1.0, specular: 1.0, attenuation: 20, grain: 3, name: 'spine' },
-  [Tissue.Fibrous]: { reflect: 0.65, specular: 0.8, attenuation: 1.0, grain: 4, name: 'fibrous annulus' },
+  [Tissue.Fibrous]: {
+    reflect: 0.65,
+    specular: 0.8,
+    attenuation: 1.0,
+    grain: 4,
+    name: 'fibrous annulus',
+  },
   [Tissue.Chordae]: { reflect: 0.3, specular: 0.4, attenuation: 0.8, grain: 5, name: 'chordae' },
 };
 
@@ -123,5 +153,16 @@ export const enum Structure {
 }
 
 export function makeSample(): TissueSample {
-  return { tissue: Tissue.None, sdf: 1e9, nx: 0, ny: 0, nz: 1, mx: 0, my: 0, mz: 0, extraReflect: 0, structure: Structure.None };
+  return {
+    tissue: Tissue.None,
+    sdf: 1e9,
+    nx: 0,
+    ny: 0,
+    nz: 1,
+    mx: 0,
+    my: 0,
+    mz: 0,
+    extraReflect: 0,
+    structure: Structure.None,
+  };
 }

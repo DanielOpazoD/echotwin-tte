@@ -154,7 +154,8 @@ export function skirtTip(k: SkirtDesc, zn: SkirtZone, param: number, out: number
       sa = Math.sin(zn.phi);
     out[0] = k.cx + ca * vTip - sa * u;
     out[1] = k.cy + sa * vTip + ca * u;
-    out[2] = k.cz + P[7]! * s + saddleOffset(Math.atan2(out[1] - k.cy, out[0] - k.cx), phiA, k.saddle);
+    out[2] =
+      k.cz + P[7]! * s + saddleOffset(Math.atan2(out[1] - k.cy, out[0] - k.cx), phiA, k.saddle);
   } else {
     const dphi = param;
     const q = dphi / zn.halfSpan;
@@ -190,7 +191,20 @@ export function tvInflowSdf(x: number, y: number, z: number, tv: SkirtDesc, tvZ:
  * meeting near the axis, open = lying along the wall; the two segment angles are solved (bisection) so the
  * free edge reaches the orifice radius for the given openness. Fills `segs` (count × 12) and `widths` (count × 3).
  */
-export function buildCuspChains(cx: number, cy: number, cz: number, ax: Vec3, e1: Vec3, e2: Vec3, R: number, openness: number, count: number, segs: Float64Array, widths: Float64Array, phi0: number): number {
+export function buildCuspChains(
+  cx: number,
+  cy: number,
+  cz: number,
+  ax: Vec3,
+  e1: Vec3,
+  e2: Vec3,
+  R: number,
+  openness: number,
+  count: number,
+  segs: Float64Array,
+  widths: Float64Array,
+  phi0: number,
+): number {
   const segLen = (R * 1.5) / 2;
   const targetReach = R - R * (0.05 + 0.85 * Math.max(0, Math.min(1, openness)));
   let lo = 0,

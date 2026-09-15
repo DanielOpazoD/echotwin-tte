@@ -1,4 +1,8 @@
-import { meanGradientFromEnvelope, simplifiedBernoulli, vtiFromEnvelope } from '@/clinical/formulas';
+import {
+  meanGradientFromEnvelope,
+  simplifiedBernoulli,
+  vtiFromEnvelope,
+} from '@/clinical/formulas';
 
 /**
  * VTI, peak velocity and Bernoulli gradients of a traced or auto-traced spectral envelope (spec 16.4).

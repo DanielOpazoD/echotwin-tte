@@ -9,9 +9,18 @@
  */
 import type { Quartiles } from './camusImageStats';
 
-export type ApicalGeometryMetric = 'apexOffsetMm' | 'apexDepthMm' | 'axisTiltDeg' | 'septalRayAngleDeg' | 'lateralRayAngleDeg' | 'septalMinusLateralGrey';
+export type ApicalGeometryMetric =
+  | 'apexOffsetMm'
+  | 'apexDepthMm'
+  | 'axisTiltDeg'
+  | 'septalRayAngleDeg'
+  | 'lateralRayAngleDeg'
+  | 'septalMinusLateralGrey';
 
-export const CAMUS_GOOD_GEOMETRY: Record<'4CH-ED' | '4CH-ES' | '2CH-ED' | '2CH-ES', Partial<Record<ApicalGeometryMetric, Quartiles>>> = {
+export const CAMUS_GOOD_GEOMETRY: Record<
+  '4CH-ED' | '4CH-ES' | '2CH-ED' | '2CH-ES',
+  Partial<Record<ApicalGeometryMetric, Quartiles>>
+> = {
   '4CH-ED': {
     apexOffsetMm: { median: 0, p10: -6.62, p25: -3.85, p75: 3.24, p90: 6.63, n: 288 },
     apexDepthMm: { median: 27.41, p10: 20.33, p25: 23.41, p75: 31.73, p90: 35.73, n: 288 },

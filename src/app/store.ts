@@ -1,14 +1,26 @@
 import { create } from 'zustand';
 import type { ProbeControl } from '@/simulator/probe/pose';
 import type { PatientState } from '@/simulator/anatomy/thoraxModel';
-import { DEFAULT_ACQUISITION, type AcquisitionSettings, type ImagingModality } from '@/simulator/renderer/types';
+import {
+  DEFAULT_ACQUISITION,
+  type AcquisitionSettings,
+  type ImagingModality,
+} from '@/simulator/renderer/types';
 import { DEFAULT_COLOR, type ColorSettings } from '@/simulator/doppler/color/colorDoppler';
 import { DEFAULT_SPECTRAL, type SpectralSettings } from '@/simulator/doppler/spectral/spectrum';
 import type { SimOutput, QualityTier } from '@/simulator/core/protocol';
 import type { StructuredEchoTruth } from '@/simulator/hemodynamics/groundTruth';
 import type { Measurement } from '@/simulator/measurements/types';
 import { getMeasurementSpec } from '@/simulator/measurements/protocol';
-import { addEvent, completeTask, emptyProgress, loadProgress, saveProgress, type ProgressEvent, type ProgressState } from '@/education/progress';
+import {
+  addEvent,
+  completeTask,
+  emptyProgress,
+  loadProgress,
+  saveProgress,
+  type ProgressEvent,
+  type ProgressState,
+} from '@/education/progress';
 import { expectedFindings, getFinding, scoreImpression } from '@/education/impression';
 import { buildExamSummary } from '@/education/scoring/scoring';
 import { loadCaseById } from '@/cases';
@@ -57,7 +69,8 @@ export interface SimStore {
   ui: UiPrefs;
   truth: StructuredEchoTruth | null;
   measurements: Measurement[];
-  activeTool: 'none' | 'caliper' | 'velocity' | 'vti' | 'auto-vti' | 'time' | 'slope' | 'simpson' | 'tapse';
+  activeTool:
+    'none' | 'caliper' | 'velocity' | 'vti' | 'auto-vti' | 'time' | 'slope' | 'simpson' | 'tapse';
   /** Local learning progress (events + completed curriculum tasks), persisted in localStorage. */
   progress: ProgressState;
   recordEvent: (e: ProgressEvent) => void;
@@ -68,7 +81,9 @@ export interface SimStore {
   toggleFinding: (id: string) => void;
   /** Artifact laboratory overrides (null = case defaults). */
   artifactLab: { sideLobe: number; mirror: number; beamWidth: number; clutter: number } | null;
-  setArtifactLab: (v: { sideLobe: number; mirror: number; beamWidth: number; clutter: number } | null) => void;
+  setArtifactLab: (
+    v: { sideLobe: number; mirror: number; beamWidth: number; clutter: number } | null,
+  ) => void;
   /** Semantic measurement being captured (protocol id) or null for a free measurement. */
   activeMeasurementId: string | null;
   /** Cardiac phase landmarks and LV length of the loaded case (from the simulator). */
@@ -77,7 +92,13 @@ export interface SimStore {
   /** Best view-quality score reached per view id during this case (drives acquisition scoring). */
   viewProgress: Record<string, number>;
   /** Preset view in progress: the probe is moved continuously to the canonical pose (never teleported). */
-  presetAnim: { from: ProbeControl; to: ProbeControl; startMs: number; durationMs: number; viewId: string } | null;
+  presetAnim: {
+    from: ProbeControl;
+    to: ProbeControl;
+    startMs: number;
+    durationMs: number;
+    viewId: string;
+  } | null;
   examFinished: boolean;
   error: string | null;
   workerMode: 'worker' | 'inline' | 'starting';
@@ -122,10 +143,12 @@ export interface SimStore {
 }
 
 /** HUD (per-frame light state) lives in its own store so the console does not re-render per frame. */
-export const useHudStore = create<{ hud: SimOutput | null; setHud: (h: SimOutput | null) => void }>((set) => ({
-  hud: null,
-  setHud: (h) => set({ hud: h }),
-}));
+export const useHudStore = create<{ hud: SimOutput | null; setHud: (h: SimOutput | null) => void }>(
+  (set) => ({
+    hud: null,
+    setHud: (h) => set({ hud: h }),
+  }),
+);
 
 const PREF_KEY = 'echotwin.prefs.v1';
 function loadPrefs(): Partial<UiPrefs> {
@@ -138,15 +161,51 @@ function loadPrefs(): Partial<UiPrefs> {
 }
 function savePrefs(ui: UiPrefs): void {
   try {
-    const { showTorso, showSkeleton, showHints, showEcg, tutorialDone, navSkin, navHeart, navChambers, navValves, navVessels, navAxes, navCut } = ui;
-    localStorage.setItem(PREF_KEY, JSON.stringify({ showTorso, showSkeleton, showHints, showEcg, tutorialDone, navSkin, navHeart, navChambers, navValves, navVessels, navAxes, navCut }));
+    const {
+      showTorso,
+      showSkeleton,
+      showHints,
+      showEcg,
+      tutorialDone,
+      navSkin,
+      navHeart,
+      navChambers,
+      navValves,
+      navVessels,
+      navAxes,
+      navCut,
+    } = ui;
+    localStorage.setItem(
+      PREF_KEY,
+      JSON.stringify({
+        showTorso,
+        showSkeleton,
+        showHints,
+        showEcg,
+        tutorialDone,
+        navSkin,
+        navHeart,
+        navChambers,
+        navValves,
+        navVessels,
+        navAxes,
+        navCut,
+      }),
+    );
   } catch {
     /* storage unavailable */
   }
 }
 
 /** A deliberately imperfect starting pose near the parasternal window (never a canonical view). */
-export const START_PROBE: ProbeControl = { u: 3.4, v: 0.4, rotationDeg: 25, tiltDeg: 6, rockDeg: -4, pressure: 0.55 };
+export const START_PROBE: ProbeControl = {
+  u: 3.4,
+  v: 0.4,
+  rotationDeg: 25,
+  tiltDeg: 6,
+  rockDeg: -4,
+  pressure: 0.55,
+};
 
 export const useSimStore = create<SimStore>((set) => ({
   caseId: 'normal-excellent-window',
@@ -164,7 +223,24 @@ export const useSimStore = create<SimStore>((set) => ({
   rendererBackend: 'atlas',
   mode: 'sandbox',
   targetViewId: null,
-  ui: { showTorso: true, showSkeleton: true, navSkin: true, navHeart: true, navChambers: true, navValves: true, navVessels: true, navAxes: true, navCut: false, showHints: true, showPhysics: false, devPanel: false, showEcg: true, tutorialDone: false, screen: 'simulator', ...loadPrefs() },
+  ui: {
+    showTorso: true,
+    showSkeleton: true,
+    navSkin: true,
+    navHeart: true,
+    navChambers: true,
+    navValves: true,
+    navVessels: true,
+    navAxes: true,
+    navCut: false,
+    showHints: true,
+    showPhysics: false,
+    devPanel: false,
+    showEcg: true,
+    tutorialDone: false,
+    screen: 'simulator',
+    ...loadPrefs(),
+  },
   truth: null,
   measurements: [],
   activeTool: 'none',
@@ -197,10 +273,14 @@ export const useSimStore = create<SimStore>((set) => ({
     }),
   setModality: (m) => set({ modality: m, frozen: false, cineOffset: 0 }),
   toggleFreeze: () => set((s) => ({ frozen: !s.frozen, cineOffset: 0 })),
-  setCineOffset: (o) => set(() => ({ cineOffset: Math.min(0, Math.max(-((useHudStore.getState().hud?.cineLength ?? 1) - 1), o)) })),
+  setCineOffset: (o) =>
+    set(() => ({
+      cineOffset: Math.min(0, Math.max(-((useHudStore.getState().hud?.cineLength ?? 1) - 1), o)),
+    })),
   setColor: (c) => set((s) => ({ color: { ...s.color, ...c } })),
   setSpectral: (sp) => set((s) => ({ spectral: { ...s.spectral, ...sp } })),
-  setCursor: (theta, depth) => set((s) => ({ cursorThetaRad: theta, gateDepthCm: depth ?? s.gateDepthCm })),
+  setCursor: (theta, depth) =>
+    set((s) => ({ cursorThetaRad: theta, gateDepthCm: depth ?? s.gateDepthCm })),
   setQuality: (q) => set({ quality: q }),
   setBackend: (b) => set({ rendererBackend: b }),
   setMode: (m) =>
@@ -209,7 +289,12 @@ export const useSimStore = create<SimStore>((set) => ({
       examFinished: false,
       viewProgress: m === 'exam' ? {} : s.viewProgress,
       measurements: m === 'exam' ? [] : s.measurements,
-      ui: { ...s.ui, showHints: m !== 'exam', showPhysics: m === 'exam' ? false : s.ui.showPhysics, devPanel: m === 'exam' ? false : s.ui.devPanel },
+      ui: {
+        ...s.ui,
+        showHints: m !== 'exam',
+        showPhysics: m === 'exam' ? false : s.ui.showPhysics,
+        devPanel: m === 'exam' ? false : s.ui.devPanel,
+      },
     })),
   setTargetView: (id) => set({ targetViewId: id }),
   setUi: (u) =>
@@ -221,11 +306,19 @@ export const useSimStore = create<SimStore>((set) => ({
   setTruth: (t, caseId) => set({ truth: t, caseId }),
   addMeasurement: (m) =>
     set((s) => {
-      const progress = addEvent(s.progress, { t: Date.now(), kind: 'measurement', caseId: s.caseId, measurementId: m.measurementId ?? m.label, techniqueScore: m.technique?.score ?? null, value: m.value });
+      const progress = addEvent(s.progress, {
+        t: Date.now(),
+        kind: 'measurement',
+        caseId: s.caseId,
+        measurementId: m.measurementId ?? m.label,
+        techniqueScore: m.technique?.score ?? null,
+        value: m.value,
+      });
       saveProgress(typeof localStorage !== 'undefined' ? localStorage : null, progress);
       return { measurements: [...s.measurements, m], progress };
     }),
-  removeMeasurement: (id) => set((s) => ({ measurements: s.measurements.filter((m) => m.id !== id) })),
+  removeMeasurement: (id) =>
+    set((s) => ({ measurements: s.measurements.filter((m) => m.id !== id) })),
   clearMeasurements: () => set({ measurements: [] }),
   setActiveTool: (t) => set({ activeTool: t, activeMeasurementId: null }),
   setActiveMeasurement: (id) => {
@@ -273,7 +366,17 @@ export const useSimStore = create<SimStore>((set) => ({
       const { heart, thorax } = getCaseModels(s.caseId, s.patient);
       const to = clampProbe(canonicalControl(getViewTarget(viewId), heart, thorax));
       const from = { ...s.probe };
-      return { presetAnim: { from, to, startMs: performance.now(), durationMs: presetDurationMs(from, to), viewId }, targetViewId: viewId, frozen: false };
+      return {
+        presetAnim: {
+          from,
+          to,
+          startMs: performance.now(),
+          durationMs: presetDurationMs(from, to),
+          viewId,
+        },
+        targetViewId: viewId,
+        frozen: false,
+      };
     }),
   cancelPreset: () => set({ presetAnim: null }),
   tickPresetAnimation: (nowMs) =>
@@ -285,15 +388,33 @@ export const useSimStore = create<SimStore>((set) => ({
       return t >= 1 ? { probe: a.to, presetAnim: null } : { probe };
     }),
   recordViewScore: (viewId, score) =>
-    set((s) => ((s.viewProgress[viewId] ?? 0) >= score ? {} : { viewProgress: { ...s.viewProgress, [viewId]: score } })),
+    set((s) =>
+      (s.viewProgress[viewId] ?? 0) >= score
+        ? {}
+        : { viewProgress: { ...s.viewProgress, [viewId]: score } },
+    ),
   finishExam: () =>
     set((s) => {
       let progress = s.progress;
       if (s.truth) {
         const caseDef = loadCaseById(s.caseId);
         const impression = scoreImpression(s.impressionSelection, expectedFindings(s.truth)).score;
-        const summary = buildExamSummary(caseDef, s.truth, s.viewProgress, s.measurements, impression);
-        progress = addEvent(progress, { t: Date.now(), kind: 'exam', caseId: s.caseId, total: summary.total, acquisition: summary.acquisition.total, measurements: summary.measurements.total, impression });
+        const summary = buildExamSummary(
+          caseDef,
+          s.truth,
+          s.viewProgress,
+          s.measurements,
+          impression,
+        );
+        progress = addEvent(progress, {
+          t: Date.now(),
+          kind: 'exam',
+          caseId: s.caseId,
+          total: summary.total,
+          acquisition: summary.acquisition.total,
+          measurements: summary.measurements.total,
+          impression,
+        });
         saveProgress(typeof localStorage !== 'undefined' ? localStorage : null, progress);
       }
       return { examFinished: true, frozen: true, progress, ui: { ...s.ui, screen: 'report' } };
@@ -307,7 +428,19 @@ export const useSimStore = create<SimStore>((set) => ({
     set((s) => {
       const progress = addEvent(s.progress, { t: Date.now(), kind: 'case', caseId: id });
       saveProgress(typeof localStorage !== 'undefined' ? localStorage : null, progress);
-      return { caseId: id, measurements: [], frozen: false, cineOffset: 0, probe: { ...START_PROBE }, viewProgress: {}, examFinished: false, presetAnim: null, impressionSelection: [], artifactLab: null, progress };
+      return {
+        caseId: id,
+        measurements: [],
+        frozen: false,
+        cineOffset: 0,
+        probe: { ...START_PROBE },
+        viewProgress: {},
+        examFinished: false,
+        presetAnim: null,
+        impressionSelection: [],
+        artifactLab: null,
+        progress,
+      };
     }),
 }));
 

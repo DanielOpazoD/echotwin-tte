@@ -12,7 +12,10 @@ export function Slider(props: {
   title?: string;
   disabled?: boolean;
 }) {
-  const fmt = props.format ?? ((v: number) => `${Number.isInteger(props.step ?? 1) ? Math.round(v) : v.toFixed(2)}${props.unit ?? ''}`);
+  const fmt =
+    props.format ??
+    ((v: number) =>
+      `${Number.isInteger(props.step ?? 1) ? Math.round(v) : v.toFixed(2)}${props.unit ?? ''}`);
   return (
     <div className="row" title={props.title}>
       <label>{props.label}</label>
@@ -31,11 +34,22 @@ export function Slider(props: {
   );
 }
 
-export function Segmented<T extends string>(props: { options: { id: T; label: string; title?: string }[]; value: T; onChange: (v: T) => void; ariaLabel: string }) {
+export function Segmented<T extends string>(props: {
+  options: { id: T; label: string; title?: string }[];
+  value: T;
+  onChange: (v: T) => void;
+  ariaLabel: string;
+}) {
   return (
     <div className="seg" role="group" aria-label={props.ariaLabel}>
       {props.options.map((o) => (
-        <button key={o.id} className={o.id === props.value ? 'active' : ''} onClick={() => props.onChange(o.id)} title={o.title} aria-pressed={o.id === props.value}>
+        <button
+          key={o.id}
+          className={o.id === props.value ? 'active' : ''}
+          onClick={() => props.onChange(o.id)}
+          title={o.title}
+          aria-pressed={o.id === props.value}
+        >
           {o.label}
         </button>
       ))}
@@ -43,11 +57,20 @@ export function Segmented<T extends string>(props: { options: { id: T; label: st
   );
 }
 
-export function Toggle(props: { label: string; value: boolean; onChange: (v: boolean) => void; title?: string }) {
+export function Toggle(props: {
+  label: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+  title?: string;
+}) {
   return (
     <div className="row" title={props.title}>
       <label>{props.label}</label>
-      <button className={props.value ? 'active' : ''} aria-pressed={props.value} onClick={() => props.onChange(!props.value)}>
+      <button
+        className={props.value ? 'active' : ''}
+        aria-pressed={props.value}
+        onClick={() => props.onChange(!props.value)}
+      >
         {props.value ? 'ON' : 'OFF'}
       </button>
     </div>

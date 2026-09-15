@@ -1,4 +1,3 @@
-
 /**
  * Left-ventricular cavity shape: a bullet-shaped profile of revolution (elliptical cross-section)
  * instead of the former clipped ellipsoid. The dimensionless profile g(ζ) gives the cavity radius
@@ -49,7 +48,17 @@ export function lvShapeFor(sphericity: number): LvShape {
   const g0 = 0.72 + 0.06 * s;
   const zetaMax = 0.3 + 0.2 * s;
   const n = 3.0 - 1.0 * s;
-  const sh: LvShape = { g0, zetaMax, n, ratio: 0.94, zetaC: 0.42, I: 0, zetaTop: -0.17, gTab: new Float64Array(G_TAB + 1), dgTab: new Float64Array(G_TAB + 1) };
+  const sh: LvShape = {
+    g0,
+    zetaMax,
+    n,
+    ratio: 0.94,
+    zetaC: 0.42,
+    I: 0,
+    zetaTop: -0.17,
+    gTab: new Float64Array(G_TAB + 1),
+    dgTab: new Float64Array(G_TAB + 1),
+  };
   // Simpson over [0, 1]
   const N = 400;
   let sum = 0;
@@ -114,7 +123,8 @@ export function lvProfileDGExact(sh: LvShape, zeta: number): number {
   if (zeta >= 1) return -6;
   const s = (zeta - sh.zetaMax) / (1 - sh.zetaMax);
   const sn = Math.pow(s, sh.n);
-  const d = -((sh.n / 2) * Math.pow(s, sh.n - 1)) / Math.sqrt(Math.max(1e-9, 1 - sn)) / (1 - sh.zetaMax);
+  const d =
+    -((sh.n / 2) * Math.pow(s, sh.n - 1)) / Math.sqrt(Math.max(1e-9, 1 - sn)) / (1 - sh.zetaMax);
   return Math.max(-6, d);
 }
 
@@ -136,14 +146,27 @@ export interface LvProfileTable {
 }
 
 export function allocLvProfileTable(): LvProfileTable {
-  return { R: new Float64Array(LV_PROF_BINS), S: new Float64Array(LV_PROF_BINS), zc: 0, rMax: 1, length: 1, zAnn: 0 };
+  return {
+    R: new Float64Array(LV_PROF_BINS),
+    S: new Float64Array(LV_PROF_BINS),
+    zc: 0,
+    rMax: 1,
+    length: 1,
+    zAnn: 0,
+  };
 }
 
 const densePhi = new Float64Array(DENSE + 1);
 const denseRad = new Float64Array(DENSE + 1);
 
 /** Tabulate the profile (rMax, length, annulus position) into `out`. */
-export function buildLvProfile(sh: LvShape, rMax: number, length: number, zAnn: number, out: LvProfileTable): LvProfileTable {
+export function buildLvProfile(
+  sh: LvShape,
+  rMax: number,
+  length: number,
+  zAnn: number,
+  out: LvProfileTable,
+): LvProfileTable {
   const zc = zAnn + sh.zetaC * length;
   out.zc = zc;
   out.rMax = rMax;
@@ -186,7 +209,13 @@ export const lvSdfNormal = new Float64Array(3);
  * coordinate after any septal shift; the anteroposterior axis is scaled by the cross-section ratio.
  * Writes the surface normal into `lvSdfNormal`.
  */
-export function lvCavitySdf(tab: LvProfileTable, ratio: number, xs: number, y: number, z: number): number {
+export function lvCavitySdf(
+  tab: LvProfileTable,
+  ratio: number,
+  xs: number,
+  y: number,
+  z: number,
+): number {
   const ys = y / ratio;
   const rho2 = xs * xs + ys * ys;
   const rho = Math.sqrt(rho2);
@@ -224,9 +253,15 @@ export function lvCavityRadius(sh: LvShape, tab: LvProfileTable, az: number, z: 
 }
 
 /** Radial (cylindrical) offset that a normal offset `t` of the surface produces at height z. */
-export function lvRadialOffsetFactor(sh: LvShape, tab: LvProfileTable, az: number, z: number): number {
+export function lvRadialOffsetFactor(
+  sh: LvShape,
+  tab: LvProfileTable,
+  az: number,
+  z: number,
+): number {
   const zeta = (z - tab.zAnn) / Math.max(tab.length, 1e-3);
-  const drdz = (tab.rMax * lvProfileDG(sh, zeta) * ellipseFactor(sh.ratio, az)) / Math.max(tab.length, 1e-3);
+  const drdz =
+    (tab.rMax * lvProfileDG(sh, zeta) * ellipseFactor(sh.ratio, az)) / Math.max(tab.length, 1e-3);
   return Math.sqrt(1 + Math.min(9, drdz * drdz));
 }
 
@@ -234,7 +269,12 @@ export function lvRadialOffsetFactor(sh: LvShape, tab: LvProfileTable, az: numbe
  * Volume (mL) of the myocardial shell of normal thickness k·tMean(ζ) around the tabulated cavity,
  * counted apical of the annulus plane: Σ [(R + k·T/cos α)³ − R³]·sin φ over the polar body.
  */
-export function lvShellVolume(tab: LvProfileTable, ratio: number, tMean: (zeta: number) => number, k: number): number {
+export function lvShellVolume(
+  tab: LvProfileTable,
+  ratio: number,
+  tMean: (zeta: number) => number,
+  k: number,
+): number {
   const N = LV_PROF_BINS;
   const dphi = Math.PI / (N - 1);
   let sum = 0;
@@ -253,7 +293,12 @@ export function lvShellVolume(tab: LvProfileTable, ratio: number, tMean: (zeta: 
 }
 
 /** Thickening factor k such that the shell volume equals `wallVolumeMl` (bisection on [0.5, 3.5]). */
-export function solveThickening(tab: LvProfileTable, ratio: number, tMean: (zeta: number) => number, wallVolumeMl: number): number {
+export function solveThickening(
+  tab: LvProfileTable,
+  ratio: number,
+  tMean: (zeta: number) => number,
+  wallVolumeMl: number,
+): number {
   let lo = 0.5,
     hi = 3.5;
   for (let it = 0; it < 14; it++) {

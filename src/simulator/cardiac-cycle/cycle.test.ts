@@ -11,7 +11,12 @@ if (!res.ok) throw new Error(res.errors.join('\n'));
 const c = res.case!;
 
 describe('beat tables (normal case)', () => {
-  const tables = buildBeatTables(60 / c.rhythm.heartRateBpm, c.physiology, c.rhythm, c.hemodynamics);
+  const tables = buildBeatTables(
+    60 / c.rhythm.heartRateBpm,
+    c.physiology,
+    c.rhythm,
+    c.hemodynamics,
+  );
   it('volume curve spans EDV→ESV with SV conserved and periodic', () => {
     expect(tables.edvMl).toBeCloseTo(120, 0);
     expect(tables.esvMl).toBeCloseTo(45, 0);
@@ -67,7 +72,12 @@ describe('beat tables (normal case)', () => {
 });
 
 describe('AF has no organized A wave and RR irregularity', () => {
-  const af = { ...c.rhythm, type: 'atrial-fibrillation' as const, heartRateBpm: 90, rrVariabilityPct: 20 };
+  const af = {
+    ...c.rhythm,
+    type: 'atrial-fibrillation' as const,
+    heartRateBpm: 90,
+    rrVariabilityPct: 20,
+  };
   const phys = { ...c.physiology, aPeakMps: 0 };
   const tables = buildBeatTables(60 / 90, phys, af, c.hemodynamics);
   it('no A wave', () => {
@@ -116,21 +126,29 @@ describe('annular recoil (decision 80)', () => {
     const problems: string[] = [];
     for (const input of CASE_INPUTS) {
       const k = loadCaseById(input.id);
-      const tb = buildBeatTables(60 / k.rhythm.heartRateBpm, k.physiology, k.rhythm, k.hemodynamics);
+      const tb = buildBeatTables(
+        60 / k.rhythm.heartRateBpm,
+        k.physiology,
+        k.rhythm,
+        k.hemodynamics,
+      );
       const t = tb.timings;
       const dt = tb.rrS / tb.n;
       const earlyEnd = t.hasAWave ? t.aStartS : tb.rrS;
       let peak = 0;
       for (let i = 0; i < tb.n; i++) {
         const ti = (i + 0.5) * dt;
-        if (ti > t.mitralOpenS && ti < earlyEnd) peak = Math.max(peak, -(tb.longitudinalVelocity[i] ?? 0) * k.physiology.mapseCm);
+        if (ti > t.mitralOpenS && ti < earlyEnd)
+          peak = Math.max(peak, -(tb.longitudinalVelocity[i] ?? 0) * k.physiology.mapseCm);
       }
-      if (Math.abs(peak - k.physiology.ePrimeSeptalCmps) > 0.1 * k.physiology.ePrimeSeptalCmps) problems.push(`${input.id}: ${peak.toFixed(1)} cm/s against e′ ${k.physiology.ePrimeSeptalCmps}`);
+      if (Math.abs(peak - k.physiology.ePrimeSeptalCmps) > 0.1 * k.physiology.ePrimeSeptalCmps)
+        problems.push(
+          `${input.id}: ${peak.toFixed(1)} cm/s against e′ ${k.physiology.ePrimeSeptalCmps}`,
+        );
     }
     expect(problems).toEqual([]);
   });
 });
-
 
 describe('the beat closes on its own flows (decision 95)', () => {
   /** Inflow minus outflow over the beat and the mitral inflow volume, integrated on the table. */
@@ -139,7 +157,12 @@ describe('the beat closes on its own flows (decision 95)', () => {
     let net = 0,
       mitral = 0;
     for (let i = 0; i < tb.n; i++) {
-      net += ((tb.mitralFlowMlps[i] ?? 0) + (tb.arFlowMlps[i] ?? 0) - (tb.aorticFlowMlps[i] ?? 0) - (tb.mrFlowMlps[i] ?? 0)) * dt;
+      net +=
+        ((tb.mitralFlowMlps[i] ?? 0) +
+          (tb.arFlowMlps[i] ?? 0) -
+          (tb.aorticFlowMlps[i] ?? 0) -
+          (tb.mrFlowMlps[i] ?? 0)) *
+        dt;
       mitral += (tb.mitralFlowMlps[i] ?? 0) * dt;
     }
     return { net, mitral };
@@ -162,8 +185,14 @@ describe('the beat closes on its own flows (decision 95)', () => {
     for (let i = 0; i < tb.n; i++) {
       const ti = (i + 0.5) * (tb.rrS / tb.n);
       if (ti > t.aStartS && ti < t.aEndS) continue;
-      const v = ti > t.mitralOpenS && ti <= t.aStartS ? 0.8 * eWaveShape(ti - t.mitralOpenS, t.eAccelS, t.eDecelS) : 0;
-      worst = Math.max(worst, Math.abs((tb.mitralFlowMlps[i] ?? 0) / tb.mvEffectiveAreaCm2 / 100 - v));
+      const v =
+        ti > t.mitralOpenS && ti <= t.aStartS
+          ? 0.8 * eWaveShape(ti - t.mitralOpenS, t.eAccelS, t.eDecelS)
+          : 0;
+      worst = Math.max(
+        worst,
+        Math.abs((tb.mitralFlowMlps[i] ?? 0) / tb.mvEffectiveAreaCm2 / 100 - v),
+      );
     }
     expect(worst).toBeLessThan(1e-4);
   });
@@ -173,11 +202,23 @@ describe('the beat closes on its own flows (decision 95)', () => {
     const problems: string[] = [];
     for (const input of CASE_INPUTS) {
       const k = loadCaseById(input.id);
-      const tb = buildBeatTables(60 / k.rhythm.heartRateBpm, k.physiology, k.rhythm, k.hemodynamics);
+      const tb = buildBeatTables(
+        60 / k.rhythm.heartRateBpm,
+        k.physiology,
+        k.rhythm,
+        k.hemodynamics,
+      );
       const sv = k.physiology.edvMl - k.physiology.esvMl;
-      if (Math.abs(tb.volumeCorrectionMl) > 0.001 * sv) problems.push(`${input.id}: closing correction ${tb.volumeCorrectionMl.toFixed(2)} mL of SV ${sv}`);
-      if (Math.abs(tb.strokeVolumeMl - sv) > 0.01 * sv) problems.push(`${input.id}: table SV ${tb.strokeVolumeMl.toFixed(1)} mL against EDV − ESV ${sv}`);
-      if (!(tb.mvEffectiveAreaCm2 >= 0.5 && tb.mvEffectiveAreaCm2 <= 8)) problems.push(`${input.id}: mitral flow area ${tb.mvEffectiveAreaCm2.toFixed(2)} cm²`);
+      if (Math.abs(tb.volumeCorrectionMl) > 0.001 * sv)
+        problems.push(
+          `${input.id}: closing correction ${tb.volumeCorrectionMl.toFixed(2)} mL of SV ${sv}`,
+        );
+      if (Math.abs(tb.strokeVolumeMl - sv) > 0.01 * sv)
+        problems.push(
+          `${input.id}: table SV ${tb.strokeVolumeMl.toFixed(1)} mL against EDV − ESV ${sv}`,
+        );
+      if (!(tb.mvEffectiveAreaCm2 >= 0.5 && tb.mvEffectiveAreaCm2 <= 8))
+        problems.push(`${input.id}: mitral flow area ${tb.mvEffectiveAreaCm2.toFixed(2)} cm²`);
     }
     expect(problems).toEqual([]);
   });
@@ -190,7 +231,12 @@ describe('the Doppler E and A of the case are the peaks the inflow shows (decisi
     let fused = 0;
     for (const input of CASE_INPUTS) {
       const k = loadCaseById(input.id);
-      const tb = buildBeatTables(60 / k.rhythm.heartRateBpm, k.physiology, k.rhythm, k.hemodynamics);
+      const tb = buildBeatTables(
+        60 / k.rhythm.heartRateBpm,
+        k.physiology,
+        k.rhythm,
+        k.hemodynamics,
+      );
       const t = tb.timings;
       if (!t.hasAWave) continue;
       const dt = tb.rrS / tb.n;
@@ -200,7 +246,10 @@ describe('the Doppler E and A of the case are the peaks the inflow shows (decisi
       for (let i = 0; i < tb.n; i++) {
         const ti = (i + 0.5) * dt;
         const v = (tb.mitralFlowMlps[i] ?? 0) / tb.mvEffectiveAreaCm2 / 100;
-        const e = ti > t.mitralOpenS ? k.physiology.ePeakMps * eWaveShape(ti - t.mitralOpenS, t.eAccelS, t.eDecelS) : 0;
+        const e =
+          ti > t.mitralOpenS
+            ? k.physiology.ePeakMps * eWaveShape(ti - t.mitralOpenS, t.eAccelS, t.eDecelS)
+            : 0;
         if (ti > t.aStartS && ti < t.aEndS) {
           aPeak = Math.max(aPeak, v);
           eResidual = Math.max(eResidual, e);
@@ -209,8 +258,14 @@ describe('the Doppler E and A of the case are the peaks the inflow shows (decisi
       const expected = Math.max(k.physiology.aPeakMps, eResidual);
       if (eResidual > k.physiology.aPeakMps) fused++;
       // before: E and A added in full, 0.99 m/s for an A of 0.7 (pulmonary hypertension) and 1.09 in tamponade
-      if (Math.abs(aPeak - expected) > 0.01 * expected) problems.push(`${input.id}: inflow during atrial contraction peaks at ${aPeak.toFixed(3)} m/s against ${expected.toFixed(3)}`);
-      if (ePeak > k.physiology.ePeakMps * 1.001) problems.push(`${input.id}: early inflow ${ePeak.toFixed(3)} m/s above E ${k.physiology.ePeakMps}`);
+      if (Math.abs(aPeak - expected) > 0.01 * expected)
+        problems.push(
+          `${input.id}: inflow during atrial contraction peaks at ${aPeak.toFixed(3)} m/s against ${expected.toFixed(3)}`,
+        );
+      if (ePeak > k.physiology.ePeakMps * 1.001)
+        problems.push(
+          `${input.id}: early inflow ${ePeak.toFixed(3)} m/s above E ${k.physiology.ePeakMps}`,
+        );
     }
     expect(problems).toEqual([]);
     // tamponade at 108 bpm: atrial contraction starts before the E peak and the waves fuse
@@ -225,7 +280,12 @@ describe('the atrioventricular leaflets float half-open between the filling wave
     const problems: string[] = [];
     for (const input of CASE_INPUTS) {
       const k = loadCaseById(input.id);
-      const tb = buildBeatTables(60 / k.rhythm.heartRateBpm, k.physiology, k.rhythm, k.hemodynamics);
+      const tb = buildBeatTables(
+        60 / k.rhythm.heartRateBpm,
+        k.physiology,
+        k.rhythm,
+        k.hemodynamics,
+      );
       const t = tb.timings;
       const at = (ts: number) => cycleStateAt(tb, ts / tb.rrS);
       // the tricuspid valve follows the mitral one 1% of the beat later
@@ -236,20 +296,33 @@ describe('the atrioventricular leaflets float half-open between the filling wave
       for (let ts = floatStart + 0.001; ts < floatEnd; ts += 0.002) {
         const s = at(ts);
         // before: 0 through diastasis, 95 ms at 65 bpm in the normal case
-        if (s.mvOpen < 0.9 * DIASTASIS_OPENING) problems.push(`${input.id} @${(ts * 1000).toFixed(0)} ms: mitral opening ${s.mvOpen.toFixed(2)}`);
-        if (ts > floatStart + lag && at(ts + lag).tvOpen < 0.9 * DIASTASIS_OPENING) problems.push(`${input.id} @${((ts + lag) * 1000).toFixed(0)} ms: tricuspid opening ${at(ts + lag).tvOpen.toFixed(2)}`);
+        if (s.mvOpen < 0.9 * DIASTASIS_OPENING)
+          problems.push(
+            `${input.id} @${(ts * 1000).toFixed(0)} ms: mitral opening ${s.mvOpen.toFixed(2)}`,
+          );
+        if (ts > floatStart + lag && at(ts + lag).tvOpen < 0.9 * DIASTASIS_OPENING)
+          problems.push(
+            `${input.id} @${((ts + lag) * 1000).toFixed(0)} ms: tricuspid opening ${at(ts + lag).tvOpen.toFixed(2)}`,
+          );
       }
       const jumps = (from: number, to: number): void => {
         let prev = at(from).mvOpen;
         for (let ts = from + 0.002; ts <= to; ts += 0.002) {
           const cur = at(ts).mvOpen;
-          if (Math.abs(cur - prev) > 0.05) problems.push(`${input.id} @${(ts * 1000).toFixed(0)} ms: mitral opening ${prev.toFixed(2)} → ${cur.toFixed(2)} in 2 ms`);
+          if (Math.abs(cur - prev) > 0.05)
+            problems.push(
+              `${input.id} @${(ts * 1000).toFixed(0)} ms: mitral opening ${prev.toFixed(2)} → ${cur.toFixed(2)} in 2 ms`,
+            );
           prev = cur;
         }
       };
       jumps(floatStart - 0.01, floatEnd);
       if (!t.hasAWave) jumps(-0.01, 0.04);
-      for (let ts = 0.03; ts < t.mitralOpenS; ts += 0.002) if (at(ts).mvOpen > 0.02) problems.push(`${input.id} @${(ts * 1000).toFixed(0)} ms: mitral valve open ${at(ts).mvOpen.toFixed(2)} in systole`);
+      for (let ts = 0.03; ts < t.mitralOpenS; ts += 0.002)
+        if (at(ts).mvOpen > 0.02)
+          problems.push(
+            `${input.id} @${(ts * 1000).toFixed(0)} ms: mitral valve open ${at(ts).mvOpen.toFixed(2)} in systole`,
+          );
     }
     expect(problems).toEqual([]);
   });
@@ -261,24 +334,46 @@ describe('the end of atrial contraction closes the valve (decision 101)', () => 
     const problems: string[] = [];
     for (const input of CASE_INPUTS) {
       const k = loadCaseById(input.id);
-      const tb = buildBeatTables(60 / k.rhythm.heartRateBpm, k.physiology, k.rhythm, k.hemodynamics);
+      const tb = buildBeatTables(
+        60 / k.rhythm.heartRateBpm,
+        k.physiology,
+        k.rhythm,
+        k.hemodynamics,
+      );
       const t = tb.timings;
       if (!t.hasAWave) continue;
       const dt = tb.rrS / tb.n;
       let peakAfter = 0;
-      for (let i = 0; i < tb.n; i++) if ((i + 0.5) * dt >= t.aEndS) peakAfter = Math.max(peakAfter, (tb.mitralFlowMlps[i] ?? 0) / tb.mvEffectiveAreaCm2 / 100);
+      for (let i = 0; i < tb.n; i++)
+        if ((i + 0.5) * dt >= t.aEndS)
+          peakAfter = Math.max(
+            peakAfter,
+            (tb.mitralFlowMlps[i] ?? 0) / tb.mvEffectiveAreaCm2 / 100,
+          );
       // before: 0.12 m/s in pulmonary hypertension and 0.33 m/s in tamponade, where the next beat cut the E wave
-      if (peakAfter > 1e-6) problems.push(`${input.id}: inflow of ${peakAfter.toFixed(2)} m/s after atrial contraction`);
+      if (peakAfter > 1e-6)
+        problems.push(
+          `${input.id}: inflow of ${peakAfter.toFixed(2)} m/s after atrial contraction`,
+        );
       // the inflow decays into the end of the A wave: within 2 ms of it the velocity is almost zero (a half-sine there is
       // below 6% of its peak)
       let tail = 0;
       for (let i = 0; i < tb.n; i++) {
         const ti = (i + 0.5) * dt;
-        if (ti > t.aEndS - 0.002 && ti < t.aEndS) tail = Math.max(tail, (tb.mitralFlowMlps[i] ?? 0) / tb.mvEffectiveAreaCm2 / 100);
+        if (ti > t.aEndS - 0.002 && ti < t.aEndS)
+          tail = Math.max(tail, (tb.mitralFlowMlps[i] ?? 0) / tb.mvEffectiveAreaCm2 / 100);
       }
-      if (tail > 0.06) problems.push(`${input.id}: ${tail.toFixed(2)} m/s within 2 ms of the end of atrial contraction`);
-      const across = Math.abs(cycleStateAt(tb, 1 - 0.002 / tb.rrS).mvOpen - cycleStateAt(tb, 0.002 / tb.rrS).mvOpen);
-      if (across > 0.02 || cycleStateAt(tb, (t.aEndS + 0.003) / tb.rrS).mvOpen > 0.02) problems.push(`${input.id}: mitral opening ${cycleStateAt(tb, (t.aEndS + 0.003) / tb.rrS).mvOpen.toFixed(2)} after atrial contraction, ${across.toFixed(2)} step across the beat boundary`);
+      if (tail > 0.06)
+        problems.push(
+          `${input.id}: ${tail.toFixed(2)} m/s within 2 ms of the end of atrial contraction`,
+        );
+      const across = Math.abs(
+        cycleStateAt(tb, 1 - 0.002 / tb.rrS).mvOpen - cycleStateAt(tb, 0.002 / tb.rrS).mvOpen,
+      );
+      if (across > 0.02 || cycleStateAt(tb, (t.aEndS + 0.003) / tb.rrS).mvOpen > 0.02)
+        problems.push(
+          `${input.id}: mitral opening ${cycleStateAt(tb, (t.aEndS + 0.003) / tb.rrS).mvOpen.toFixed(2)} after atrial contraction, ${across.toFixed(2)} step across the beat boundary`,
+        );
     }
     expect(problems).toEqual([]);
   });
@@ -290,7 +385,12 @@ describe('the tricuspid annulus moves with its own table (decision 106)', () => 
     const problems: string[] = [];
     for (const input of CASE_INPUTS) {
       const k = loadCaseById(input.id);
-      const tb = buildBeatTables(60 / k.rhythm.heartRateBpm, k.physiology, k.rhythm, k.hemodynamics);
+      const tb = buildBeatTables(
+        60 / k.rhythm.heartRateBpm,
+        k.physiology,
+        k.rhythm,
+        k.hemodynamics,
+      );
       const t = tb.timings;
       let lo = Infinity,
         hi = -Infinity,
@@ -299,10 +399,17 @@ describe('the tricuspid annulus moves with its own table (decision 106)', () => 
         const ti = ((i + 0.5) / tb.n) * tb.rrS;
         lo = Math.min(lo, tb.rvLongitudinal[i]!);
         hi = Math.max(hi, tb.rvLongitudinal[i]!);
-        if (ti >= t.ejectionStartS && ti <= t.ejectionEndS) peak = Math.max(peak, tb.rvLongitudinalVelocity[i]! * k.physiology.tapseCm);
+        if (ti >= t.ejectionStartS && ti <= t.ejectionEndS)
+          peak = Math.max(peak, tb.rvLongitudinalVelocity[i]! * k.physiology.tapseCm);
       }
       // before: the tricuspid annulus followed the left ventricular curve, 7–25% below the case S′ in eleven cases
-      if (Math.abs(peak - k.physiology.sPrimeTricuspidCmps) > 0.02 * k.physiology.sPrimeTricuspidCmps) problems.push(`${input.id}: systolic peak ${peak.toFixed(2)} cm/s against S′ ${k.physiology.sPrimeTricuspidCmps}`);
+      if (
+        Math.abs(peak - k.physiology.sPrimeTricuspidCmps) >
+        0.02 * k.physiology.sPrimeTricuspidCmps
+      )
+        problems.push(
+          `${input.id}: systolic peak ${peak.toFixed(2)} cm/s against S′ ${k.physiology.sPrimeTricuspidCmps}`,
+        );
       if (hi - lo < 0.95) problems.push(`${input.id}: excursion ${(hi - lo).toFixed(3)} of TAPSE`);
     }
     expect(problems).toEqual([]);
@@ -313,7 +420,12 @@ describe('beats of atrial fibrillation fill and eject by their own intervals (de
   it('each beat keeps the case E wave and deceleration, fills through the case orifice for its diastole, and the next beat ejects that filling', async () => {
     const { loadCaseById } = await import('@/cases');
     const k = loadCaseById('af-diastolic');
-    const nominal = buildBeatTables(60 / k.rhythm.heartRateBpm, k.physiology, k.rhythm, k.hemodynamics);
+    const nominal = buildBeatTables(
+      60 / k.rhythm.heartRateBpm,
+      k.physiology,
+      k.rhythm,
+      k.hemodynamics,
+    );
     const sv = k.physiology.edvMl - k.physiology.esvMl;
     const rrs = [0.65, 0.42, 0.55, 0.95, 0.75, 0.38, 0.62, 1.1];
     const problems: string[] = [];
@@ -321,28 +433,45 @@ describe('beats of atrial fibrillation fill and eject by their own intervals (de
     let prevRr = nominal.rrS;
     const fills: [number, number][] = [];
     for (const [i, rr] of rrs.entries()) {
-      const eject = i === 0 ? sv : Math.min(1.2 * sv, Math.max(0.2 * sv, prev.endVolumeMl - k.physiology.esvMl));
+      const eject =
+        i === 0
+          ? sv
+          : Math.min(1.2 * sv, Math.max(0.2 * sv, prev.endVolumeMl - k.physiology.esvMl));
       const tb = buildBeatTables(rr, k.physiology, k.rhythm, k.hemodynamics, {
-        chain: { ejectMl: eject, mvAreaCm2: nominal.mvEffectiveAreaCm2, previousRrS: prevRr, startLongitudinal: i ? prev.endLongitudinal : 0, startRvLongitudinal: i ? prev.endRvLongitudinal : 0 },
+        chain: {
+          ejectMl: eject,
+          mvAreaCm2: nominal.mvEffectiveAreaCm2,
+          previousRrS: prevRr,
+          startLongitudinal: i ? prev.endLongitudinal : 0,
+          startRvLongitudinal: i ? prev.endRvLongitudinal : 0,
+        },
       });
       const t = tb.timings;
       // the E wave keeps the case deceleration and peak velocity at every RR (before: stretched with the RR)
-      if (Math.abs(t.eDecelS * 1000 - k.physiology.decelerationTimeMs) > 1e-6) problems.push(`RR ${rr}: DT ${t.eDecelS * 1000} ms`);
+      if (Math.abs(t.eDecelS * 1000 - k.physiology.decelerationTimeMs) > 1e-6)
+        problems.push(`RR ${rr}: DT ${t.eDecelS * 1000} ms`);
       let peak = 0;
-      for (let j = 0; j < tb.n; j++) peak = Math.max(peak, tb.mitralFlowMlps[j]! / tb.mvEffectiveAreaCm2 / 100);
+      for (let j = 0; j < tb.n; j++)
+        peak = Math.max(peak, tb.mitralFlowMlps[j]! / tb.mvEffectiveAreaCm2 / 100);
       const complete = t.mitralOpenS + t.eAccelS + t.eDecelS < rr;
-      if (t.mitralOpenS + t.eAccelS < rr && Math.abs(peak - k.physiology.ePeakMps) > 0.01) problems.push(`RR ${rr}: E ${peak.toFixed(3)} m/s`);
+      if (t.mitralOpenS + t.eAccelS < rr && Math.abs(peak - k.physiology.ePeakMps) > 0.01)
+        problems.push(`RR ${rr}: E ${peak.toFixed(3)} m/s`);
       // it ejects what the previous beat filled, and its volume continues where that beat ended
-      if (i > 0 && Math.abs(tb.lvVolumeMl[0]! - (k.physiology.esvMl + eject)) > 0.02 * sv) problems.push(`RR ${rr}: starts at ${tb.lvVolumeMl[0]!.toFixed(1)} mL`);
+      if (i > 0 && Math.abs(tb.lvVolumeMl[0]! - (k.physiology.esvMl + eject)) > 0.02 * sv)
+        problems.push(`RR ${rr}: starts at ${tb.lvVolumeMl[0]!.toFixed(1)} mL`);
       fills.push([rr, tb.endVolumeMl - (k.physiology.esvMl + eject) + eject]);
-      if (complete && Math.abs(fills[i]![1] - sv) > 0.03 * sv) problems.push(`RR ${rr}: a complete E wave filled ${fills[i]![1].toFixed(1)} mL for ${sv}`);
+      if (complete && Math.abs(fills[i]![1] - sv) > 0.03 * sv)
+        problems.push(`RR ${rr}: a complete E wave filled ${fills[i]![1].toFixed(1)} mL for ${sv}`);
       prev = tb;
       prevRr = rr;
     }
     expect(problems).toEqual([]);
     // filling grows with the diastole it has and stops growing once the E wave fits (Frank–Starling in AF)
     const sorted = [...fills].sort((a, b) => a[0] - b[0]);
-    for (let j = 1; j < sorted.length; j++) expect(sorted[j]![1], `filling at RR ${sorted[j]![0]}`).toBeGreaterThanOrEqual(sorted[j - 1]![1] - 0.5);
+    for (let j = 1; j < sorted.length; j++)
+      expect(sorted[j]![1], `filling at RR ${sorted[j]![0]}`).toBeGreaterThanOrEqual(
+        sorted[j - 1]![1] - 0.5,
+      );
     expect(sorted[0]![1]).toBeLessThan(0.5 * sv);
   });
 });
@@ -354,23 +483,43 @@ describe('the annular velocity of chained beats has no spike where one beat hand
     // -67 and +134 MAPSE per second in atrial fibrillation, a tissue Doppler spike of -96 and +192 cm/s at every QRS.
     const { loadCaseById } = await import('@/cases');
     const k = loadCaseById('af-diastolic');
-    const nominal = buildBeatTables(60 / k.rhythm.heartRateBpm, k.physiology, k.rhythm, k.hemodynamics);
+    const nominal = buildBeatTables(
+      60 / k.rhythm.heartRateBpm,
+      k.physiology,
+      k.rhythm,
+      k.hemodynamics,
+    );
     const sv = k.physiology.edvMl - k.physiology.esvMl;
     const problems: string[] = [];
     let prev = nominal;
     let prevRr = nominal.rrS;
     for (const [i, rr] of [0.65, 0.42, 0.95, 0.38, 1.1].entries()) {
-      const eject = i === 0 ? sv : Math.min(1.2 * sv, Math.max(0.2 * sv, prev.endVolumeMl - k.physiology.esvMl));
+      const eject =
+        i === 0
+          ? sv
+          : Math.min(1.2 * sv, Math.max(0.2 * sv, prev.endVolumeMl - k.physiology.esvMl));
       const tb = buildBeatTables(rr, k.physiology, k.rhythm, k.hemodynamics, {
-        chain: { ejectMl: eject, mvAreaCm2: nominal.mvEffectiveAreaCm2, previousRrS: prevRr, startLongitudinal: i ? prev.endLongitudinal : 0, startRvLongitudinal: i ? prev.endRvLongitudinal : 0 },
+        chain: {
+          ejectMl: eject,
+          mvAreaCm2: nominal.mvEffectiveAreaCm2,
+          previousRrS: prevRr,
+          startLongitudinal: i ? prev.endLongitudinal : 0,
+          startRvLongitudinal: i ? prev.endRvLongitudinal : 0,
+        },
       });
-      for (const [name, v] of [['mitral', tb.longitudinalVelocity], ['tricuspid', tb.rvLongitudinalVelocity]] as const) {
+      for (const [name, v] of [
+        ['mitral', tb.longitudinalVelocity],
+        ['tricuspid', tb.rvLongitudinalVelocity],
+      ] as const) {
         const n = v.length;
         // neighbouring samples one table step apart differ by what the course gives them, not by a spike
         let inner = 0;
         for (let j = 2; j < n - 1; j++) inner = Math.max(inner, Math.abs(v[j]! - v[j - 1]!));
         const seam = Math.max(Math.abs(v[0]! - v[1]!), Math.abs(v[n - 1]! - v[n - 2]!));
-        if (seam > Math.max(0.5, 2 * inner)) problems.push(`RR ${rr} ${name}: first/last ${v[0]!.toFixed(2)}, ${v[n - 1]!.toFixed(2)} MAPSE/s against a largest step of ${inner.toFixed(2)} inside`);
+        if (seam > Math.max(0.5, 2 * inner))
+          problems.push(
+            `RR ${rr} ${name}: first/last ${v[0]!.toFixed(2)}, ${v[n - 1]!.toFixed(2)} MAPSE/s against a largest step of ${inner.toFixed(2)} inside`,
+          );
       }
       prev = tb;
       prevRr = rr;
@@ -383,11 +532,25 @@ describe('chained beats carry the respiratory factors of their inflows (decision
   it('the mitral and tricuspid E waves take their factors, atrial contraction does not, and the right ventricle ejects its own filling', async () => {
     const { loadCaseById } = await import('@/cases');
     const k = loadCaseById('normal-excellent-window');
-    const nominal = buildBeatTables(60 / k.rhythm.heartRateBpm, k.physiology, k.rhythm, k.hemodynamics);
+    const nominal = buildBeatTables(
+      60 / k.rhythm.heartRateBpm,
+      k.physiology,
+      k.rhythm,
+      k.hemodynamics,
+    );
     // without a chain the tricuspid inflow is the mitral one
     expect(Array.from(nominal.tricuspidFlowMlps)).toEqual(Array.from(nominal.mitralFlowMlps));
     const tb = buildBeatTables(nominal.rrS, k.physiology, k.rhythm, k.hemodynamics, {
-      chain: { ejectMl: 70, rvEjectMl: 82, mvAreaCm2: nominal.mvEffectiveAreaCm2, previousRrS: nominal.rrS, startLongitudinal: 0, startRvLongitudinal: 0, mitralEFactor: 0.8, tricuspidEFactor: 1.3 },
+      chain: {
+        ejectMl: 70,
+        rvEjectMl: 82,
+        mvAreaCm2: nominal.mvEffectiveAreaCm2,
+        previousRrS: nominal.rrS,
+        startLongitudinal: 0,
+        startRvLongitudinal: 0,
+        mitralEFactor: 0.8,
+        tricuspidEFactor: 1.3,
+      },
     });
     const t = tb.timings;
     const peakIn = (table: Float32Array, from: number, to: number) => {
@@ -398,8 +561,14 @@ describe('chained beats carry the respiratory factors of their inflows (decision
       }
       return p;
     };
-    expect(peakIn(tb.mitralFlowMlps, t.mitralOpenS, t.aStartS)).toBeCloseTo(0.8 * k.physiology.ePeakMps, 2);
-    expect(peakIn(tb.tricuspidFlowMlps, t.mitralOpenS, t.aStartS)).toBeCloseTo(1.3 * k.physiology.ePeakMps, 2);
+    expect(peakIn(tb.mitralFlowMlps, t.mitralOpenS, t.aStartS)).toBeCloseTo(
+      0.8 * k.physiology.ePeakMps,
+      2,
+    );
+    expect(peakIn(tb.tricuspidFlowMlps, t.mitralOpenS, t.aStartS)).toBeCloseTo(
+      1.3 * k.physiology.ePeakMps,
+      2,
+    );
     // atrial contraction keeps the case A in both
     expect(peakIn(tb.mitralFlowMlps, t.aStartS, t.aEndS)).toBeCloseTo(k.physiology.aPeakMps, 2);
     expect(peakIn(tb.tricuspidFlowMlps, t.aStartS, t.aEndS)).toBeCloseTo(k.physiology.aPeakMps, 2);

@@ -2,12 +2,39 @@ import type { BeamFrame } from '@/simulator/probe/pose';
 import type { PolarFrame, PolarFrameSpec, RendererBackend, Scene } from '../types';
 import { classifyHeart } from '@/simulator/anatomy/heartModel';
 import { classifyThorax, isAnteriorLung } from '@/simulator/anatomy/thoraxModel';
-import { makeSample, TISSUE_PROPS, Tissue, Structure, type TissueSample } from '@/simulator/anatomy/tissue';
+import {
+  makeSample,
+  TISSUE_PROPS,
+  Tissue,
+  Structure,
+  type TissueSample,
+} from '@/simulator/anatomy/tissue';
 import { latticeNoise3, noiseLattice } from '@/core/noise';
 import { hash3 } from '@/core/random';
 import { contactQuality } from '@/simulator/probe/pose';
-import { buildLineKernels, buildPsfKernels, formEnvelope, formEnvelopeLine, LINE_LATTICE_PATH, lineKernelKey, psfKey, sliceHalfWidthCm, type LineKernels, type PsfKernels } from '../acoustic/psf';
-import { HETERO_FREQ, heteroDb, MYO_ANISO_FLOOR, PHASOR_NORM, SCATTER_FREQ, SCATTER_FREQ_RATIO, SPECULAR_GAIN, SPECULAR_HARMONIC, SPECULAR_WINDOW_MIN } from '../acoustic/acoustics';
+import {
+  buildLineKernels,
+  buildPsfKernels,
+  formEnvelope,
+  formEnvelopeLine,
+  LINE_LATTICE_PATH,
+  lineKernelKey,
+  psfKey,
+  sliceHalfWidthCm,
+  type LineKernels,
+  type PsfKernels,
+} from '../acoustic/psf';
+import {
+  HETERO_FREQ,
+  heteroDb,
+  MYO_ANISO_FLOOR,
+  PHASOR_NORM,
+  SCATTER_FREQ,
+  SCATTER_FREQ_RATIO,
+  SPECULAR_GAIN,
+  SPECULAR_HARMONIC,
+  SPECULAR_WINDOW_MIN,
+} from '../acoustic/acoustics';
 
 /**
  * Procedural slice renderer: marches every scanline through the parametric thorax + heart model and forms
@@ -53,11 +80,18 @@ export class ProceduralSliceRenderer implements RendererBackend {
   kernels(scene: Scene, spec: PolarFrameSpec): PsfKernels {
     const { frequencyMHz, harmonics } = scene.physics;
     const bw = scene.physics.beamWidth ?? 0;
-    if (!this.psf || this.psf.key !== psfKey(spec, frequencyMHz, harmonics, bw)) this.psf = buildPsfKernels(spec, frequencyMHz, harmonics, bw);
+    if (!this.psf || this.psf.key !== psfKey(spec, frequencyMHz, harmonics, bw))
+      this.psf = buildPsfKernels(spec, frequencyMHz, harmonics, bw);
     return this.psf;
   }
 
-  render(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec, _phase: number, out: PolarFrame): void {
+  render(
+    scene: Scene,
+    beam: BeamFrame,
+    spec: PolarFrameSpec,
+    _phase: number,
+    out: PolarFrame,
+  ): void {
     const t0 = performance.now();
     const n = spec.lines * spec.samples;
     if (this.re.length !== n) {
@@ -69,9 +103,28 @@ export class ProceduralSliceRenderer implements RendererBackend {
     const ctx = this.prepare(scene, beam, spec);
     for (let li = 0; li < spec.lines; li++) {
       const theta = -spec.sectorRad / 2 + (spec.sectorRad * (li + 0.5)) / spec.lines;
-      this.renderLine(ctx, theta, li, li * spec.samples, this.re, this.im, out.structure, out.transmission, out.tissue);
+      this.renderLine(
+        ctx,
+        theta,
+        li,
+        li * spec.samples,
+        this.re,
+        this.im,
+        out.structure,
+        out.transmission,
+        out.tissue,
+      );
     }
-    formEnvelope(this.re, this.im, spec.lines, spec.samples, this.kernels(scene, spec), out.amplitude, this.tmpRe, this.tmpIm);
+    formEnvelope(
+      this.re,
+      this.im,
+      spec.lines,
+      spec.samples,
+      this.kernels(scene, spec),
+      out.amplitude,
+      this.tmpRe,
+      this.tmpIm,
+    );
     this.lastMs = performance.now() - t0;
     this.lastSamples = n;
   }
@@ -80,7 +133,11 @@ export class ProceduralSliceRenderer implements RendererBackend {
   lineKernels(scene: Scene, frame: PolarFrameSpec, samples: number): LineKernels {
     const { frequencyMHz, harmonics } = scene.physics;
     const bw = scene.physics.beamWidth ?? 0;
-    if (!this.linePsf || this.linePsf.key !== lineKernelKey(frame, samples, frequencyMHz, harmonics, bw)) this.linePsf = buildLineKernels(frame, samples, frequencyMHz, harmonics, bw);
+    if (
+      !this.linePsf ||
+      this.linePsf.key !== lineKernelKey(frame, samples, frequencyMHz, harmonics, bw)
+    )
+      this.linePsf = buildLineKernels(frame, samples, frequencyMHz, harmonics, bw);
     return this.linePsf;
   }
 
@@ -93,7 +150,18 @@ export class ProceduralSliceRenderer implements RendererBackend {
    * its phasor is drawn anew for every `pulse` instead of streaking the cavity like still tissue. The slice-thickness side
    * planes are not sampled.
    */
-  renderMmodeLine(scene: Scene, beam: BeamFrame, frame: PolarFrameSpec, samples: number, theta: number, pulse: number, amp: Float32Array, st: Uint8Array, tr: Float32Array, ti: Uint8Array): void {
+  renderMmodeLine(
+    scene: Scene,
+    beam: BeamFrame,
+    frame: PolarFrameSpec,
+    samples: number,
+    theta: number,
+    pulse: number,
+    amp: Float32Array,
+    st: Uint8Array,
+    tr: Float32Array,
+    ti: Uint8Array,
+  ): void {
     if (this.lineRe.length !== samples) {
       this.lineRe = new Float32Array(samples);
       this.lineIm = new Float32Array(samples);
@@ -111,14 +179,32 @@ export class ProceduralSliceRenderer implements RendererBackend {
     const ct = Math.cos(theta),
       sn = Math.sin(theta);
     const hf = scene.heart.frame;
-    const lat = { x: beam.lateral.x * ct - beam.forward.x * sn, y: beam.lateral.y * ct - beam.forward.y * sn, z: beam.lateral.z * ct - beam.forward.z * sn };
-    const fwd = { x: beam.forward.x * ct + beam.lateral.x * sn, y: beam.forward.y * ct + beam.lateral.y * sn, z: beam.forward.z * ct + beam.lateral.z * sn };
+    const lat = {
+      x: beam.lateral.x * ct - beam.forward.x * sn,
+      y: beam.lateral.y * ct - beam.forward.y * sn,
+      z: beam.lateral.z * ct - beam.forward.z * sn,
+    };
+    const fwd = {
+      x: beam.forward.x * ct + beam.lateral.x * sn,
+      y: beam.forward.y * ct + beam.lateral.y * sn,
+      z: beam.forward.z * ct + beam.lateral.z * sn,
+    };
     const fH = torsoToHeartDir(hf, fwd),
       lH = torsoToHeartDir(hf, lat),
       nH = torsoToHeartDir(hf, beam.normal);
     ctx.line = {
       kernels: k,
-      torsoAxes: [fwd.x, fwd.y, fwd.z, lat.x, lat.y, lat.z, beam.normal.x, beam.normal.y, beam.normal.z],
+      torsoAxes: [
+        fwd.x,
+        fwd.y,
+        fwd.z,
+        lat.x,
+        lat.y,
+        lat.z,
+        beam.normal.x,
+        beam.normal.y,
+        beam.normal.z,
+      ],
       heartAxes: [fH.x, fH.y, fH.z, lH.x, lH.y, lH.z, nH.x, nH.y, nH.z],
       // 2.7 cells per pulse: value noise is uncorrelated beyond two cells
       bloodCells: (pulse % 4096) * 2.7,
@@ -145,7 +231,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
       elev = this.lineElevation,
       along = this.lineAlong;
     const [, pathY, pathZ] = LINE_LATTICE_PATH;
-    for (let a = 0; a < samples; ) {
+    for (let a = 0; a < samples;) {
       let b = a + 1;
       while (b < samples && st[b] === st[a] && ti[b] === ti[a]) b++;
       const centre = (a + b) / 2;
@@ -153,12 +239,26 @@ export class ProceduralSliceRenderer implements RendererBackend {
       for (let i = a; i < b; i++) {
         const sg = sigma[i]!;
         if (sg === 0) continue;
-        const u = Number.isNaN(along[i]!) ? (i + 0.5 - centre) * dr * SCATTER_FREQ : along[i]! * SCATTER_FREQ;
+        const u = Number.isNaN(along[i]!)
+          ? (i + 0.5 - centre) * dr * SCATTER_FREQ
+          : along[i]! * SCATTER_FREQ;
         const qx = u + offset,
           qy = across[i]! + u * pathY!,
           qz = elev[i]! + u * pathZ!;
-        re[i] = re[i]! + sg * (latticeNoise3(qx, qy, qz, latA) + latticeNoise3(qx * R + 37.3, qy * R + 11.9, qz * R + 23.7, latB) - 1) * PHASOR_NORM;
-        im[i] = im[i]! + sg * (latticeNoise3(qx + 71.1, qy + 53.5, qz + 5.3, latC) + latticeNoise3(qx * R + 17.9, qy * R + 91.1, qz * R + 43.3, latA) - 1) * PHASOR_NORM;
+        re[i] =
+          re[i]! +
+          sg *
+            (latticeNoise3(qx, qy, qz, latA) +
+              latticeNoise3(qx * R + 37.3, qy * R + 11.9, qz * R + 23.7, latB) -
+              1) *
+            PHASOR_NORM;
+        im[i] =
+          im[i]! +
+          sg *
+            (latticeNoise3(qx + 71.1, qy + 53.5, qz + 5.3, latC) +
+              latticeNoise3(qx * R + 17.9, qy * R + 91.1, qz * R + 43.3, latA) -
+              1) *
+            PHASOR_NORM;
       }
       a = b;
     }
@@ -178,7 +278,10 @@ export class ProceduralSliceRenderer implements RendererBackend {
       fAtten: f * (harm ? 1.2 : 1),
       seed: physics.seed,
       harm,
-      clutter: (physics.clutterLevel * 2.5 + physics.windowAttenuation * 0.8) * (harm ? 0.35 : 1) * Math.sqrt(2.5 / f),
+      clutter:
+        (physics.clutterLevel * 2.5 + physics.windowAttenuation * 0.8) *
+        (harm ? 0.35 : 1) *
+        Math.sqrt(2.5 / f),
       contact: contactQuality(beam.contact),
       fwdH: torsoToHeartDir(hf, beam.forward),
       latH: torsoToHeartDir(hf, beam.lateral),
@@ -192,8 +295,35 @@ export class ProceduralSliceRenderer implements RendererBackend {
     };
   }
 
-  private renderLine(ctx: LineContext, theta: number, li: number, base: number, re: Float32Array, im: Float32Array, st: Uint8Array, tr: Float32Array, ti: Uint8Array): void {
-    const { beam, spec, dr, fAtten, seed, harm, clutter, contact, fwdH, latH, nrmH, thorax, latA, latB, latC, line } = ctx;
+  private renderLine(
+    ctx: LineContext,
+    theta: number,
+    li: number,
+    base: number,
+    re: Float32Array,
+    im: Float32Array,
+    st: Uint8Array,
+    tr: Float32Array,
+    ti: Uint8Array,
+  ): void {
+    const {
+      beam,
+      spec,
+      dr,
+      fAtten,
+      seed,
+      harm,
+      clutter,
+      contact,
+      fwdH,
+      latH,
+      nrmH,
+      thorax,
+      latA,
+      latB,
+      latC,
+      line,
+    } = ctx;
     // M-mode line scales (decision 84); a frame line uses 1, which leaves its arithmetic unchanged
     const lk = line ? line.kernels : null;
     const inc = lk ? lk.incoherent : 1;
@@ -242,26 +372,50 @@ export class ProceduralSliceRenderer implements RendererBackend {
         q.extraReflect = 0;
         return 1;
       }
-      const hx = (px - hf.origin.x) * hf.ex.x + (py - hf.origin.y) * hf.ex.y + (pz - hf.origin.z) * hf.ex.z;
-      const hy = (px - hf.origin.x) * hf.ey.x + (py - hf.origin.y) * hf.ey.y + (pz - hf.origin.z) * hf.ey.z;
-      const hz = (px - hf.origin.x) * hf.ez.x + (py - hf.origin.y) * hf.ez.y + (pz - hf.origin.z) * hf.ez.z;
+      const hx =
+        (px - hf.origin.x) * hf.ex.x + (py - hf.origin.y) * hf.ex.y + (pz - hf.origin.z) * hf.ex.z;
+      const hy =
+        (px - hf.origin.x) * hf.ey.x + (py - hf.origin.y) * hf.ey.y + (pz - hf.origin.z) * hf.ey.z;
+      const hz =
+        (px - hf.origin.x) * hf.ez.x + (py - hf.origin.y) * hf.ez.y + (pz - hf.origin.z) * hf.ez.z;
       if (classifyHeart(heart, heartPose, hx, hy, hz, q)) return 2;
       return classifyThorax(thorax, px, py, pz, q) ? 1 : 0;
     };
     /** Incoherent backscatter σ and coherent specular echo of a classified sample, before attenuation. */
     const acoustic = (q: TissueSample, inH: boolean, a: { sigma: number; spec: number }): void => {
       const props = TISSUE_PROPS[q.tissue]!;
-      const nd = Math.abs(inH ? q.nx * dhx + q.ny * dhy + q.nz * dhz : q.nx * dx + q.ny * dy + q.nz * dz);
+      const nd = Math.abs(
+        inH ? q.nx * dhx + q.ny * dhy + q.nz * dhz : q.nx * dx + q.ny * dy + q.nz * dz,
+      );
       let sigma = props.reflect;
       if (q.tissue === Tissue.Blood && harm) sigma *= 0.6;
       // myocardial backscatter is strongest with the beam across the fibres (perpendicular to the wall)
-      if (q.tissue === Tissue.Myocardium) sigma *= MYO_ANISO_FLOOR + (1 - MYO_ANISO_FLOOR) * nd * nd;
+      if (q.tissue === Tissue.Myocardium)
+        sigma *= MYO_ANISO_FLOOR + (1 - MYO_ANISO_FLOOR) * nd * nd;
       const het = heteroDb(q.tissue);
-      if (het > 0) sigma *= Math.pow(10, ((latticeNoise3(q.mx * HETERO_FREQ + 5.3, q.my * HETERO_FREQ + 1.7, q.mz * HETERO_FREQ + 9.1, latC) - 0.5) * het) / 20);
-      if (q.extraReflect > 0) sigma += q.extraReflect * 1.5 * (0.6 + 0.8 * latticeNoise3(q.mx * 6 + 3.3, q.my * 6 + 1.1, q.mz * 6 + 9.2, latB));
+      if (het > 0)
+        sigma *= Math.pow(
+          10,
+          ((latticeNoise3(
+            q.mx * HETERO_FREQ + 5.3,
+            q.my * HETERO_FREQ + 1.7,
+            q.mz * HETERO_FREQ + 9.1,
+            latC,
+          ) -
+            0.5) *
+            het) /
+            20,
+        );
+      if (q.extraReflect > 0)
+        sigma +=
+          q.extraReflect *
+          1.5 *
+          (0.6 + 0.8 * latticeNoise3(q.mx * 6 + 3.3, q.my * 6 + 1.1, q.mz * 6 + 9.2, latB));
       let specular = 0;
       // the interface echo belongs to the sample the interface crosses (distance along the line < one sample)
-      if (props.specular > 0 && Math.abs(q.sdf) < Math.max(nd, SPECULAR_WINDOW_MIN) * dr) specular = props.specular * SPECULAR_GAIN * nd * nd * nd * nd * (harm ? SPECULAR_HARMONIC : 1);
+      if (props.specular > 0 && Math.abs(q.sdf) < Math.max(nd, SPECULAR_WINDOW_MIN) * dr)
+        specular =
+          props.specular * SPECULAR_GAIN * nd * nd * nd * nd * (harm ? SPECULAR_HARMONIC : 1);
       a.sigma = sigma;
       a.spec = specular;
     };
@@ -280,8 +434,20 @@ export class ProceduralSliceRenderer implements RendererBackend {
         // reverberation energy is incoherent: a phasor tied to the line and the depth
         const px2 = li * 0.9,
           pr = r * SCATTER_FREQ;
-        re[idx] = a * (latticeNoise3(px2, pr, 17.3, latA) + latticeNoise3(px2 + 5.1, pr * R + 2.3, 29.9, latB) - 1) * PHASOR_NORM * incAxial;
-        im[idx] = a * (latticeNoise3(px2 + 9.7, pr + 13.1, 41.3, latC) + latticeNoise3(px2 + 3.3, pr * R + 7.7, 53.9, latA) - 1) * PHASOR_NORM * incAxial;
+        re[idx] =
+          a *
+          (latticeNoise3(px2, pr, 17.3, latA) +
+            latticeNoise3(px2 + 5.1, pr * R + 2.3, 29.9, latB) -
+            1) *
+          PHASOR_NORM *
+          incAxial;
+        im[idx] =
+          a *
+          (latticeNoise3(px2 + 9.7, pr + 13.1, 41.3, latC) +
+            latticeNoise3(px2 + 3.3, pr * R + 7.7, 53.9, latA) -
+            1) *
+          PHASOR_NORM *
+          incAxial;
         st[idx] = Structure.Lung;
         tr[idx] = 0;
         ti[idx] = Tissue.Lung;
@@ -344,7 +510,9 @@ export class ProceduralSliceRenderer implements RendererBackend {
       const nhx = inHeart ? nrmH.x : nX,
         nhy = inHeart ? nrmH.y : nY,
         nhz = inHeart ? nrmH.z : nZ;
-      const across = (SCATTER_FREQ - 1 / (2 * sliceHalfWidthCm(r, focus))) * (s.mx * nhx + s.my * nhy + s.mz * nhz);
+      const across =
+        (SCATTER_FREQ - 1 / (2 * sliceHalfWidthCm(r, focus))) *
+        (s.mx * nhx + s.my * nhy + s.mz * nhz);
       const qx = s.mx * SCATTER_FREQ - across * nhx,
         qy = s.my * SCATTER_FREQ - across * nhy,
         qz = s.mz * SCATTER_FREQ - across * nhz;
@@ -355,24 +523,49 @@ export class ProceduralSliceRenderer implements RendererBackend {
         const a = inHeart ? line.heartAxes : line.torsoAxes;
         line.along[si] = inHeart ? NaN : s.mx * a[0]! + s.my * a[1]! + s.mz * a[2]!;
         line.across[si] = (s.mx * a[3]! + s.my * a[4]! + s.mz * a[5]!) * lk.lateralCells[si]!;
-        line.elevation[si] = (s.mx * a[6]! + s.my * a[7]! + s.mz * a[8]!) * lk.elevationCells[si]! + (tissue === Tissue.Blood ? line.bloodCells : 0);
+        line.elevation[si] =
+          (s.mx * a[6]! + s.my * a[7]! + s.mz * a[8]!) * lk.elevationCells[si]! +
+          (tissue === Tissue.Blood ? line.bloodCells : 0);
         line.sigma[si] = sigma * inc * transmission;
         sRe = specular * lk.specular;
         sIm = 0;
       } else {
-        const zr = (latticeNoise3(qx, qy, qz, latA) + latticeNoise3(qx * R + 37.3, qy * R + 11.9, qz * R + 23.7, latB) - 1) * PHASOR_NORM;
-        const zi = (latticeNoise3(qx + 71.1, qy + 53.5, qz + 5.3, latC) + latticeNoise3(qx * R + 17.9, qy * R + 91.1, qz * R + 43.3, latA) - 1) * PHASOR_NORM;
+        const zr =
+          (latticeNoise3(qx, qy, qz, latA) +
+            latticeNoise3(qx * R + 37.3, qy * R + 11.9, qz * R + 23.7, latB) -
+            1) *
+          PHASOR_NORM;
+        const zi =
+          (latticeNoise3(qx + 71.1, qy + 53.5, qz + 5.3, latC) +
+            latticeNoise3(qx * R + 17.9, qy * R + 91.1, qz * R + 43.3, latA) -
+            1) *
+          PHASOR_NORM;
         sRe = sigma * zr + specular;
         sIm = sigma * zi;
       }
       if (r < 4.5 && clutter > 0) {
         // near-field clutter: reverberation in the chest wall under the footprint, incoherent, fixed to the probe position
-        const cm = clutter * Math.exp(-r / 1.8) * (0.15 + 0.5 * latticeNoise3(ox * 6 + li * 0.7, oy * 6 + oz * 6, r * 5, latC));
+        const cm =
+          clutter *
+          Math.exp(-r / 1.8) *
+          (0.15 + 0.5 * latticeNoise3(ox * 6 + li * 0.7, oy * 6 + oz * 6, r * 5, latC));
         const cx = ox * 25 + li * 0.9,
           cy = oy * 25 + oz * 25,
           cz = r * SCATTER_FREQ;
-        sRe += cm * (latticeNoise3(cx + 3.1, cy, cz, latA) + latticeNoise3(cx * R + 8.3, cy + 1.9, cz * R, latB) - 1) * PHASOR_NORM * incAxial;
-        sIm += cm * (latticeNoise3(cx + 61.7, cy + 5.5, cz + 3.3, latC) + latticeNoise3(cx * R + 21.1, cy + 44.4, cz * R + 9.9, latA) - 1) * PHASOR_NORM * incAxial;
+        sRe +=
+          cm *
+          (latticeNoise3(cx + 3.1, cy, cz, latA) +
+            latticeNoise3(cx * R + 8.3, cy + 1.9, cz * R, latB) -
+            1) *
+          PHASOR_NORM *
+          incAxial;
+        sIm +=
+          cm *
+          (latticeNoise3(cx + 61.7, cy + 5.5, cz + 3.3, latC) +
+            latticeNoise3(cx * R + 21.1, cy + 44.4, cz * R + 9.9, latA) -
+            1) *
+          PHASOR_NORM *
+          incAxial;
       }
       if (r < 0.35) sRe += lk ? 0.6 * (1 - r / 0.35) * lk.smooth : 0.6 * (1 - r / 0.35); // transducer ring-down
       re[idx] = sRe * transmission;
@@ -382,7 +575,8 @@ export class ProceduralSliceRenderer implements RendererBackend {
       // sample, which made a rib's shadow depend on the quality tier (17 dB between low and high behind 4 mm of rib).
       let attenNp = 0.23 * props.attenuation * fAtten * dr;
       if (s.extraReflect > 0.4) attenNp += 0.09 * s.extraReflect * (dr / 0.07); // calcified tissue ≈ 10 dB/cm at 2.5 MHz
-      if (!inHeart && (tissue === Tissue.Fat || tissue === Tissue.Muscle || tissue === Tissue.Skin)) attenNp *= 1 + 1.5 * ctx.windowAttenuation;
+      if (!inHeart && (tissue === Tissue.Fat || tissue === Tissue.Muscle || tissue === Tissue.Skin))
+        attenNp *= 1 + 1.5 * ctx.windowAttenuation;
       transmission *= Math.exp(-attenNp);
       if (transmission < 1e-4) transmission = 1e-4;
     }
@@ -426,7 +620,14 @@ interface LineContext {
   } | null;
 }
 
-function torsoToHeartDir(f: { ex: { x: number; y: number; z: number }; ey: { x: number; y: number; z: number }; ez: { x: number; y: number; z: number } }, d: { x: number; y: number; z: number }) {
+function torsoToHeartDir(
+  f: {
+    ex: { x: number; y: number; z: number };
+    ey: { x: number; y: number; z: number };
+    ez: { x: number; y: number; z: number };
+  },
+  d: { x: number; y: number; z: number },
+) {
   return {
     x: d.x * f.ex.x + d.y * f.ex.y + d.z * f.ex.z,
     y: d.x * f.ey.x + d.y * f.ey.y + d.z * f.ey.z,

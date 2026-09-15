@@ -39,21 +39,34 @@ const measureCase = (id: string): Set<string> => {
 
 describe('model proportions against reference ranges', () => {
   for (const input of CASE_INPUTS) {
-    it(`${input.id}: only declared deviations leave the reference ranges`, { timeout: 120_000 }, () => {
-      const c = loadCaseById(input.id);
-      const m = measureModel(c, undefined, 90000);
-      outOfRange.set(input.id, new Set(m.rows.filter((r) => r.verdict !== 'ok').map((r) => r.id)));
-      const declared = new Set(c.expectedDeviations ?? []);
-      const undeclared = m.rows
-        .filter((r) => r.verdict !== 'ok' && !declared.has(r.id) && !KNOWN_MODEL_LIMITATIONS.has(r.id))
-        .map((r) => `${r.id}=${r.value.toFixed(2)} (${r.verdict}, ${r.lo}–${r.hi})`);
-      expect(undeclared, 'undeclared out-of-range measures').toEqual([]);
-      const stale = [...declared].filter((id) => m.rows.find((r) => r.id === id)?.verdict === 'ok');
-      expect(stale, 'declared deviations that are inside the range').toEqual([]);
-    });
+    it(
+      `${input.id}: only declared deviations leave the reference ranges`,
+      { timeout: 120_000 },
+      () => {
+        const c = loadCaseById(input.id);
+        const m = measureModel(c, undefined, 90000);
+        outOfRange.set(
+          input.id,
+          new Set(m.rows.filter((r) => r.verdict !== 'ok').map((r) => r.id)),
+        );
+        const declared = new Set(c.expectedDeviations ?? []);
+        const undeclared = m.rows
+          .filter(
+            (r) => r.verdict !== 'ok' && !declared.has(r.id) && !KNOWN_MODEL_LIMITATIONS.has(r.id),
+          )
+          .map((r) => `${r.id}=${r.value.toFixed(2)} (${r.verdict}, ${r.lo}–${r.hi})`);
+        expect(undeclared, 'undeclared out-of-range measures').toEqual([]);
+        const stale = [...declared].filter(
+          (id) => m.rows.find((r) => r.id === id)?.verdict === 'ok',
+        );
+        expect(stale, 'declared deviations that are inside the range').toEqual([]);
+      },
+    );
   }
   it('every model limitation still leaves its range in some case', { timeout: 600_000 }, () => {
-    const stale = [...KNOWN_MODEL_LIMITATIONS].filter((id) => CASE_INPUTS.every((input) => !measureCase(input.id).has(id)));
+    const stale = [...KNOWN_MODEL_LIMITATIONS].filter((id) =>
+      CASE_INPUTS.every((input) => !measureCase(input.id).has(id)),
+    );
     expect(stale, 'model limitations that no case needs any more').toEqual([]);
   });
 });

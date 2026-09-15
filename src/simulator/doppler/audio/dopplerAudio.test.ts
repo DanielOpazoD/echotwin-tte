@@ -86,7 +86,10 @@ describe('Doppler audio (spec 14)', () => {
     a.update(new Float32Array(SPECTRAL_BINS).fill(1), -0.5, 1, 2.5e6);
     // band 23, toward-flow (oscillator index 46): vBand = (23.5/24)·max(1, 0.5)
     const vBand = (23.5 / 24) * 1;
-    expect(ctx.oscillators[46]!.frequency.target).toBeCloseTo(Math.max(80, Math.abs(dopplerShiftHz(2.5e6, vBand, 1))), 6);
+    expect(ctx.oscillators[46]!.frequency.target).toBeCloseTo(
+      Math.max(80, Math.abs(dopplerShiftHz(2.5e6, vBand, 1))),
+      6,
+    );
     expect(ctx.gains[47]!.gain.target).toBeGreaterThan(0);
     // an empty column silences every band again
     a.update(new Float32Array(SPECTRAL_BINS), -0.5, 1, 2.5e6);

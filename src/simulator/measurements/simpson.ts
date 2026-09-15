@@ -15,7 +15,11 @@ export interface DiscProfile {
   apex: { x: number; y: number };
 }
 
-export function discProfileFromContour(points: readonly { x: number; y: number }[], pxPerCm: number, discs = 20): DiscProfile | null {
+export function discProfileFromContour(
+  points: readonly { x: number; y: number }[],
+  pxPerCm: number,
+  discs = 20,
+): DiscProfile | null {
   if (points.length < 5) return null;
   const first = points[0]!,
     last = points[points.length - 1]!;

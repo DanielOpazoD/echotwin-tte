@@ -11,7 +11,13 @@ function gauss(t: number, mu: number, sigma: number, amp: number): number {
   return amp * Math.exp(-0.5 * d * d);
 }
 
-export function ecgSample(timeInBeatS: number, rrS: number, rhythm: RhythmConfig, beatIndex = 0, seed = 1): number {
+export function ecgSample(
+  timeInBeatS: number,
+  rrS: number,
+  rhythm: RhythmConfig,
+  beatIndex = 0,
+  seed = 1,
+): number {
   const t = timeInBeatS;
   const qt = 0.39 * Math.sqrt(Math.min(rrS, 1.3)); // Bazett-like QT scaling
   let v = 0;

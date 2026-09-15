@@ -21,7 +21,14 @@ function stepResponse(k: number): { fractions: number[]; reported: number; inter
   const c = loadCaseById('normal-excellent-window');
   const setup = new SimulatorCore(c, baseInput());
   const probe = canonicalControl(getViewTarget('a4c'), setup.models.heart, setup.models.thorax);
-  const settings = (gainDb: number) => ({ ...DEFAULT_ACQUISITION, tgcDb: [...DEFAULT_ACQUISITION.tgcDb], grayMap: 'linear' as const, edgeEnhance: 0, persistence: P, gainDb });
+  const settings = (gainDb: number) => ({
+    ...DEFAULT_ACQUISITION,
+    tgcDb: [...DEFAULT_ACQUISITION.tgcDb],
+    grayMap: 'linear' as const,
+    edgeEnhance: 0,
+    persistence: P,
+    gainDb,
+  });
   const interval = 1 / setup.step(1 / 30)!.simulatedFps;
   const dt = k * interval;
   const withStep = new SimulatorCore(c, baseInput({ probe, settings: settings(-6) }));
@@ -45,7 +52,11 @@ function stepResponse(k: number): { fractions: number[]; reported: number; inter
     reported = Number(a.stats.persistence);
   }
   const settled = d.slice(-3).reduce((x, y) => x + y, 0) / 3;
-  return { fractions: d.slice(0, 3).map((v) => v / settled), reported, intervals: [1, 2, 3].map((n) => n * k) };
+  return {
+    fractions: d.slice(0, 3).map((v) => v / settled),
+    reported,
+    intervals: [1, 2, 3].map((n) => n * k),
+  };
 }
 
 describe('persistence over time (decision 94)', () => {
@@ -59,14 +70,18 @@ describe('persistence over time (decision 94)', () => {
   });
 
   for (const k of [1, 2, 3]) {
-    it(`the displayed image follows a gain step with the same time response when the loop renders every ${k} frame interval(s)`, { timeout: 120_000 }, () => {
-      const { fractions, reported, intervals } = stepResponse(k);
-      const expected = intervals.map((t) => 1 - P ** t);
-      expect(
-        fractions.map((f, i) => Math.abs(f - expected[i]!) < 0.02),
-        `fraction of the step after ${intervals.join(', ')} intervals: ${fractions.map((f) => f.toFixed(3)).join(', ')} against ${expected.map((f) => f.toFixed(3)).join(', ')}`,
-      ).toEqual([true, true, true]);
-      expect(reported).toBeCloseTo(P ** k, 2);
-    });
+    it(
+      `the displayed image follows a gain step with the same time response when the loop renders every ${k} frame interval(s)`,
+      { timeout: 120_000 },
+      () => {
+        const { fractions, reported, intervals } = stepResponse(k);
+        const expected = intervals.map((t) => 1 - P ** t);
+        expect(
+          fractions.map((f, i) => Math.abs(f - expected[i]!) < 0.02),
+          `fraction of the step after ${intervals.join(', ')} intervals: ${fractions.map((f) => f.toFixed(3)).join(', ')} against ${expected.map((f) => f.toFixed(3)).join(', ')}`,
+        ).toEqual([true, true, true]);
+        expect(reported).toBeCloseTo(P ** k, 2);
+      },
+    );
   }
 });

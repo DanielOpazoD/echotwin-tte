@@ -101,7 +101,10 @@ export function eOverEPrime(eCmps: number, ePrimeCmps: number): number {
  * Method of discs (single plane) volume: sum of 20 elliptical discs (circular in single plane)
  * along the long axis L. `diametersCm` are the disc diameters from base to apex.
  */
-export function simpsonSinglePlaneVolume(diametersCm: readonly number[], longAxisCm: number): number {
+export function simpsonSinglePlaneVolume(
+  diametersCm: readonly number[],
+  longAxisCm: number,
+): number {
   const n = diametersCm.length;
   if (n === 0) return 0;
   const h = longAxisCm / n;
@@ -171,5 +174,6 @@ export function aliasVelocity(vMps: number, nyquistMps: number, baselineShiftMps
 }
 
 function assertPositive(x: number, name: string): void {
-  if (!(x > 0) || !Number.isFinite(x)) throw new RangeError(`${name} must be a positive finite number, got ${x}`);
+  if (!(x > 0) || !Number.isFinite(x))
+    throw new RangeError(`${name} must be a positive finite number, got ${x}`);
 }

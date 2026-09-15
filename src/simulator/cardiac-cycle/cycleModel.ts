@@ -1,5 +1,11 @@
 import type { PhysiologyConfig, RhythmConfig, HemodynamicConfig } from '@/cases/schema';
-import { computeCycleTimings, ejectionShape, eWaveShape, aWaveShape, type CycleTimings } from './timing';
+import {
+  computeCycleTimings,
+  ejectionShape,
+  eWaveShape,
+  aWaveShape,
+  type CycleTimings,
+} from './timing';
 
 /**
  * Per-beat tabulated model of LV volume and transvalvular flows. Built from the case physiology so
@@ -28,7 +34,15 @@ export interface BeatTables {
   /** Regurgitant flows (mL/s) through the mitral (systole) and aortic (diastole) valves; zero when absent. */
   mrFlowMlps: Float32Array;
   arFlowMlps: Float32Array;
-  regurgitation: { mrVolumeMl: number; mrVmaxMps: number; mrVtiCm: number; arVolumeMl: number; arVmaxMps: number; arVtiCm: number; arPhtMs: number };
+  regurgitation: {
+    mrVolumeMl: number;
+    mrVmaxMps: number;
+    mrVtiCm: number;
+    arVolumeMl: number;
+    arVmaxMps: number;
+    arVtiCm: number;
+    arPhtMs: number;
+  };
   /**
    * Volume (mL) the closing correction removed so that V(RR) = V(0): inflow minus outflow over the beat. With every flow
    * normalised on this table it is discretisation only (decision 95); `validateCase` rejects a case that needs more.
@@ -105,7 +119,12 @@ export function buildBeatTables(
   const n = opts.n ?? 512;
   const preload = opts.preloadFactor ?? 1;
   const af = opts.chain;
-  const timings = computeCycleTimings(rrS, physiology, { ...rhythm, type: opts.aWave === false ? 'atrial-fibrillation' : rhythm.type }, af?.previousRrS ?? rrS);
+  const timings = computeCycleTimings(
+    rrS,
+    physiology,
+    { ...rhythm, type: opts.aWave === false ? 'atrial-fibrillation' : rhythm.type },
+    af?.previousRrS ?? rrS,
+  );
   const svNominal = physiology.edvMl - physiology.esvMl;
   // in atrial fibrillation a beat ejects what the diastole before it filled, from the case's end-systolic volume
   const edv = af ? physiology.esvMl + af.ejectMl : physiology.edvMl * (0.85 + 0.15 * preload);
@@ -126,15 +145,18 @@ export function buildBeatTables(
   for (let i = 0; i < n; i++) {
     const t = (i + 0.5) * dt;
     if (mrVmax > 0) {
-      const u = (t - timings.ejectionStartS + 0.02) / (timings.ejectionEndS - timings.ejectionStartS + 0.04);
+      const u =
+        (t - timings.ejectionStartS + 0.02) /
+        (timings.ejectionEndS - timings.ejectionStartS + 0.04);
       const v = u > 0 && u < 1 ? mrVmax * Math.pow(Math.sin(Math.PI * u), 0.8) : 0;
       mrFlow[i] = v * 100 * mr!.eroaCm2;
       mrVti += v * 100 * dt;
     }
     if (arVmax > 0) {
-      const tDia = t >= timings.ejectionEndS ? t - timings.ejectionEndS : t + rrS - timings.ejectionEndS; // time since AV closure
+      const tDia =
+        t >= timings.ejectionEndS ? t - timings.ejectionEndS : t + rrS - timings.ejectionEndS; // time since AV closure
       const inDiastole = t >= timings.ejectionEndS || t < timings.ejectionStartS;
-      const v = inDiastole ? arVmax * Math.pow(2, -tDia / (2 * arPht / 1000)) : 0;
+      const v = inDiastole ? arVmax * Math.pow(2, -tDia / ((2 * arPht) / 1000)) : 0;
       arFlow[i] = v * 100 * ar!.eroaCm2;
       arVti += v * 100 * dt;
     }
@@ -157,7 +179,10 @@ export function buildBeatTables(
   const eCm = physiology.ePeakMps * 100 * Math.sqrt(preload);
   const aCm = timings.hasAWave ? physiology.aPeakMps * 100 : 0;
   const aDur = timings.hasAWave ? timings.aEndS - timings.aStartS : 0;
-  const aShapeAt = (t: number): number => (timings.hasAWave && t > timings.aStartS && t < timings.aEndS ? aWaveShape((t - timings.aStartS) / aDur) : 0);
+  const aShapeAt = (t: number): number =>
+    timings.hasAWave && t > timings.aStartS && t < timings.aEndS
+      ? aWaveShape((t - timings.aStartS) / aDur)
+      : 0;
   // The end of atrial contraction closes the valve: an E wave still running then decays with the second half of the A
   // wave and nothing enters after it (decision 101). Cut only by the next beat, it kept entering through the last 10 ms of
   // the beat (0.33 m/s in tamponade) and the flow and the leaflets stopped at once with the R wave.
@@ -208,16 +233,23 @@ export function buildBeatTables(
     velIntegralCm += v * dt;
   }
   // a beat of atrial fibrillation fills through the case's orifice for as long as its diastole lasts (decision 107)
-  const mvArea = af ? af.mvAreaCm2 : (hemo.mvEffectiveAreaCm2 ?? svMitral / Math.max(velIntegralCm, 1e-6));
-  const scaleMv = !af && hemo.mvEffectiveAreaCm2 ? svMitral / Math.max(mvArea * velIntegralCm, 1e-6) : 1; // enforce ∫=SV if area forced
+  const mvArea = af
+    ? af.mvAreaCm2
+    : (hemo.mvEffectiveAreaCm2 ?? svMitral / Math.max(velIntegralCm, 1e-6));
+  const scaleMv =
+    !af && hemo.mvEffectiveAreaCm2 ? svMitral / Math.max(mvArea * velIntegralCm, 1e-6) : 1; // enforce ∫=SV if area forced
 
   // Right ventricular ejection (decision 105): the ejection period of the left ventricle one hundredth of the beat earlier,
   // as the pulmonary valve has always led the aortic one here, the forward stroke volume, and the same skewed shape with its
   // peak at the acceleration time of the case's mean pulmonary pressure. It used to copy the aortic flow, whose peak at 0.4
   // of ejection gave 121 ms in the normal heart and 108 ms at a systolic pulmonary pressure of 72 mmHg.
-  const pulmonaryAccelerationS = Math.min(0.6 * et, Math.max(0.12 * et, pulmonaryAccelerationTimeS(meanPulmonaryPressureMmHg(hemo.paspMmHg))));
+  const pulmonaryAccelerationS = Math.min(
+    0.6 * et,
+    Math.max(0.12 * et, pulmonaryAccelerationTimeS(meanPulmonaryPressureMmHg(hemo.paspMmHg))),
+  );
   const peakU = pulmonaryAccelerationS / et;
-  const pvShape = (u: number): number => (u <= 0 || u >= 1 ? 0 : Math.pow(u, 2.25 * peakU) * Math.pow(1 - u, 2.25 * (1 - peakU)));
+  const pvShape = (u: number): number =>
+    u <= 0 || u >= 1 ? 0 : Math.pow(u, 2.25 * peakU) * Math.pow(1 - u, 2.25 * (1 - peakU));
   let pvInt = 0;
   for (let i = 0; i < 400; i++) pvInt += pvShape((i + 0.5) / 400) * (et / 400);
   const kPv = Math.max(5, af?.rvEjectMl ?? sv - rvolAr) / pvInt;
@@ -234,7 +266,8 @@ export function buildBeatTables(
       aorticFlow[i] = kAo * ejectionShape((t - timings.ejectionStartS) / et);
     }
     const tp = (((t + pvLead) % rrS) + rrS) % rrS;
-    if (tp > timings.ejectionStartS && tp < timings.ejectionEndS) pulmonaryFlow[i] = kPv * pvShape((tp - timings.ejectionStartS) / et);
+    if (tp > timings.ejectionStartS && tp < timings.ejectionEndS)
+      pulmonaryFlow[i] = kPv * pvShape((tp - timings.ejectionStartS) / et);
     mitralFlow[i] = (mvVelocity[i] ?? 0) * mvArea * scaleMv;
     tricuspidFlow[i] = (tvVelocity[i] ?? 0) * mvArea * scaleMv;
     tricuspidFillMl += tricuspidFlow[i]! * dt;
@@ -266,7 +299,8 @@ export function buildBeatTables(
   // It used to be 0.09·(10/e′) s, which in the normal heart (e′ 11 cm/s) recoiled at 4.6 cm/s and kept 86% of the
   // systolic descent at mid-E: every diastolic frame showed the base too apical and tissue Doppler measured e′ 4.7.
   const contraction = new Float32Array(n);
-  for (let i = 0; i < n; i++) contraction[i] = (edvRef - (vol[i] ?? edvRef)) / Math.max(edvRef - esvRef, 1e-6);
+  for (let i = 0; i < n; i++)
+    contraction[i] = (edvRef - (vol[i] ?? edvRef)) / Math.max(edvRef - esvRef, 1e-6);
   const longitudinal = new Float32Array(n);
   const longVel = new Float32Array(n);
   const eWaveEnd = timings.mitralOpenS + timings.eAccelS + timings.eDecelS;
@@ -282,7 +316,12 @@ export function buildBeatTables(
   // (e′ precedes E), so it can move faster than the volume curve alone allows
   // sysSpeed compresses the ejection course the same way (decision 106): the tricuspid annulus reaches its excursion
   // earlier in systole than the volume curve when its case S′ asks for it
-  const simulate = (tauE: number, speed: number, sysSpeed = 1, into: Float32Array = longitudinal): void => {
+  const simulate = (
+    tauE: number,
+    speed: number,
+    sysSpeed = 1,
+    into: Float32Array = longitudinal,
+  ): void => {
     const start = af ? (into === longitudinal ? af.startLongitudinal : af.startRvLongitudinal) : 0;
     let l = start;
     // two passes for periodic steady state; a beat of atrial fibrillation runs once from where the previous one ended
@@ -293,9 +332,16 @@ export function buildBeatTables(
         const ejecting = t >= timings.ejectionStartS && t < timings.ejectionEndS;
         // compressed over the E wave, holding the diastasis value once it is reached (never running into atrial filling)
         const target = early
-          ? contractionAt(Math.min(eWaveEnd, timings.mitralOpenS + (t - timings.mitralOpenS) * speed))
+          ? contractionAt(
+              Math.min(eWaveEnd, timings.mitralOpenS + (t - timings.mitralOpenS) * speed),
+            )
           : ejecting
-            ? contractionAt(Math.min(timings.ejectionEndS, timings.ejectionStartS + (t - timings.ejectionStartS) * sysSpeed))
+            ? contractionAt(
+                Math.min(
+                  timings.ejectionEndS,
+                  timings.ejectionStartS + (t - timings.ejectionStartS) * sysSpeed,
+                ),
+              )
             : (contraction[i] ?? 0);
         const tau = t < timings.ejectionEndS ? 0.03 : t > earlyEnd ? 0.035 : tauE;
         l += ((target - l) * dt) / tau;
@@ -308,7 +354,11 @@ export function buildBeatTables(
     for (let i = 1; i < n - 1; i++) {
       const t = (i + 0.5) * dt;
       if (t < timings.mitralOpenS || t > earlyEnd) continue;
-      peak = Math.max(peak, (-((longitudinal[i + 1] ?? 0) - (longitudinal[i - 1] ?? 0)) / (2 * dt)) * physiology.mapseCm);
+      peak = Math.max(
+        peak,
+        (-((longitudinal[i + 1] ?? 0) - (longitudinal[i - 1] ?? 0)) / (2 * dt)) *
+          physiology.mapseCm,
+      );
     }
     return peak;
   };
@@ -345,7 +395,8 @@ export function buildBeatTables(
   const derivative = (from: Float32Array, to: Float32Array, start: number | undefined): void => {
     for (let i = 0; i < n; i++) {
       if (start !== undefined && i === 0) to[i] = ((from[1] ?? 0) - start) / (2 * dt);
-      else if (start !== undefined && i === n - 1) to[i] = ((from[n - 1] ?? 0) - (from[n - 2] ?? 0)) / dt;
+      else if (start !== undefined && i === n - 1)
+        to[i] = ((from[n - 1] ?? 0) - (from[n - 2] ?? 0)) / dt;
       else to[i] = ((from[(i + 1) % n] ?? 0) - (from[(i - 1 + n) % n] ?? 0)) / (2 * dt);
     }
   };
@@ -362,7 +413,8 @@ export function buildBeatTables(
     let peak = 0;
     for (let i = 0; i < n; i++) {
       const t = (i + 0.5) * dt;
-      if (t >= timings.ejectionStartS && t <= timings.ejectionEndS) peak = Math.max(peak, (rvLongVel[i] ?? 0) * physiology.tapseCm);
+      if (t >= timings.ejectionStartS && t <= timings.ejectionEndS)
+        peak = Math.max(peak, (rvLongVel[i] ?? 0) * physiology.tapseCm);
     }
     return peak;
   };
@@ -400,7 +452,15 @@ export function buildBeatTables(
     mvEffectiveAreaCm2: mvArea * scaleMv,
     mrFlowMlps: mrFlow,
     arFlowMlps: arFlow,
-    regurgitation: { mrVolumeMl: rvolMr, mrVmaxMps: mrVmax, mrVtiCm: mrVti, arVolumeMl: rvolAr, arVmaxMps: arVmax, arVtiCm: arVti, arPhtMs: arPht },
+    regurgitation: {
+      mrVolumeMl: rvolMr,
+      mrVmaxMps: mrVmax,
+      mrVtiCm: mrVti,
+      arVolumeMl: rvolAr,
+      arVmaxMps: arVmax,
+      arVtiCm: arVti,
+      arPhtMs: arPht,
+    },
     longitudinal,
     longitudinalVelocity: longVel,
     rvLongitudinal,
@@ -468,7 +528,12 @@ const SYSTOLIC_CLOSURE_S = 0.03;
  * DIASTASIS_OPENING, floats at DIASTASIS_OPENING from peak early inflow until atrial contraction peaks, then closes with
  * the end of the A wave — or, without one, in the first SYSTOLIC_CLOSURE_S of systole.
  */
-function inflowOpening(tables: BeatTables, p: number, qmvMax: number, table: Float32Array = tables.mitralFlowMlps): number {
+function inflowOpening(
+  tables: BeatTables,
+  p: number,
+  qmvMax: number,
+  table: Float32Array = tables.mitralFlowMlps,
+): number {
   const x = ((p % 1) + 1) % 1;
   const flow = Math.min(1, Math.pow(Math.max(0, sampleTable(table, x)) / qmvMax, 0.6));
   const tm = tables.timings;
@@ -490,7 +555,12 @@ function inflowOpening(tables: BeatTables, p: number, qmvMax: number, table: Flo
  * contraction (or once closed early in systole without one), the tricuspid 1% of the beat after the mitral and the
  * pulmonary 1% before the aortic, as their openings follow them.
  */
-export function valveEventTimes(tables: BeatTables): { mitral: [number, number]; aortic: [number, number]; tricuspid: [number, number]; pulmonary: [number, number] } {
+export function valveEventTimes(tables: BeatTables): {
+  mitral: [number, number];
+  aortic: [number, number];
+  tricuspid: [number, number];
+  pulmonary: [number, number];
+} {
   const tm = tables.timings;
   const lag = 0.01 * tables.rrS;
   const mitral: [number, number] = [tm.mitralOpenS, tm.hasAWave ? tm.aEndS : SYSTOLIC_CLOSURE_S];
@@ -518,7 +588,8 @@ export function cycleStateAt(tables: BeatTables, phase: number): CycleState {
   const t = p * tables.rrS;
   const tm = tables.timings;
   let atrial = 0;
-  if (tm.hasAWave && t > tm.aStartS && t < tm.aEndS) atrial = Math.sin((Math.PI * (t - tm.aStartS)) / (tm.aEndS - tm.aStartS));
+  if (tm.hasAWave && t > tm.aStartS && t < tm.aEndS)
+    atrial = Math.sin((Math.PI * (t - tm.aStartS)) / (tm.aEndS - tm.aStartS));
   const atrialHold = tm.hasAWave && (t >= tm.aEndS || t < tm.ejectionStartS) ? 1 : 0;
   const mvOpen = inflowOpening(tables, p, qmvMax);
   const avOpen = Math.min(1, Math.pow(qao / qaoMax, 0.5));
@@ -535,7 +606,9 @@ export function cycleStateAt(tables: BeatTables, phase: number): CycleState {
     longitudinal: sampleTable(tables.longitudinal, p),
     rvLongitudinal: sampleTable(tables.rvLongitudinal, p),
     // linear across the beat, from where the breath had it when the beat started to where it has it when the beat ends
-    ivcCollapse: tables.ivcCollapse ? tables.ivcCollapse[0] + (tables.ivcCollapse[1] - tables.ivcCollapse[0]) * p : undefined,
+    ivcCollapse: tables.ivcCollapse
+      ? tables.ivcCollapse[0] + (tables.ivcCollapse[1] - tables.ivcCollapse[0]) * p
+      : undefined,
     atrialContraction: atrial,
     atrialHold,
     mitralFlowMlps: qmv,

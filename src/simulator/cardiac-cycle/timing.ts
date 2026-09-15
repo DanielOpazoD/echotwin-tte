@@ -33,7 +33,12 @@ export function ejectionTimeS(heartRateBpm: number, contractility = 1): number {
  * Cycle timings of a beat of length `rrS`. The ejection time follows the heart rate of `ejectionRrS`: the beat's own RR in a
  * regular rhythm, and in atrial fibrillation the RR before it, whose filling the ventricle ejects (decision 107).
  */
-export function computeCycleTimings(rrS: number, physiology: PhysiologyConfig, rhythm: RhythmConfig, ejectionRrS = rrS): CycleTimings {
+export function computeCycleTimings(
+  rrS: number,
+  physiology: PhysiologyConfig,
+  rhythm: RhythmConfig,
+  ejectionRrS = rrS,
+): CycleTimings {
   const et = Math.min(ejectionTimeS(60 / ejectionRrS, physiology.contractility), rrS * 0.55);
   const ejectionStartS = ELECTROMECHANICAL_DELAY_S;
   const ejectionEndS = ejectionStartS + et;
@@ -46,7 +51,19 @@ export function computeCycleTimings(rrS: number, physiology: PhysiologyConfig, r
   const pOnsetS = hasAWave ? rrS - PR_INTERVAL_S : Number.NaN;
   const aStartS = hasAWave ? Math.max(mitralOpenS + 0.02, pOnsetS + 0.04) : Number.NaN;
   const aEndS = hasAWave ? Math.min(rrS - 0.01, aStartS + A_WAVE_DURATION_S) : Number.NaN;
-  return { rrS, ejectionStartS, ejectionEndS, mitralOpenS, eAccelS, eDecelS, eEndS, aStartS, aEndS, pOnsetS, hasAWave };
+  return {
+    rrS,
+    ejectionStartS,
+    ejectionEndS,
+    mitralOpenS,
+    eAccelS,
+    eDecelS,
+    eEndS,
+    aStartS,
+    aEndS,
+    pOnsetS,
+    hasAWave,
+  };
 }
 
 /** Normalized ejection flow shape on u∈[0,1]: skewed with early peak (≈ 0.4 of ET). */

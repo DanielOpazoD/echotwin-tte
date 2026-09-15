@@ -63,10 +63,16 @@ const TURBULENT_SPREAD = 0.9;
  * mitral tips its outer edge read 0.97 m/s for a 0.75 m/s flow, tissue Doppler 0.15 m/s at a septal base moving at 0.096 m/s, and a
  * 3.8 m/s stenotic jet reached the top of a 6 m/s scale.
  */
-export function spectralSpread(smp: VelocitySample, s: SpectralSettings): { up: number; down: number } {
+export function spectralSpread(
+  smp: VelocitySample,
+  s: SpectralSettings,
+): { up: number; down: number } {
   const { vMin, vMax } = spectralRange(s);
   const resolution = (RESOLUTION_BINS * (vMax - vMin)) / SPECTRAL_BINS;
-  const geometric = smp.vPerp && smp.depthCm ? (Math.abs(smp.vPerp) * (APERTURE_MM / 10)) / (smp.depthCm * Math.sqrt(12)) : 0;
+  const geometric =
+    smp.vPerp && smp.depthCm
+      ? (Math.abs(smp.vPerp) * (APERTURE_MM / 10)) / (smp.depthCm * Math.sqrt(12))
+      : 0;
   const up = Math.hypot(resolution, geometric);
   return { up, down: Math.hypot(up, TURBULENT_SPREAD * smp.dispersion * Math.abs(smp.v)) };
 }
@@ -80,7 +86,12 @@ export function spectralSpread(smp: VelocitySample, s: SpectralSettings): { up: 
  * - CW: centred on the true velocity, and only the part inside the displayed range is drawn. The velocity used to be
  *   clamped to the range first, so an out-of-range jet stacked at the edge and a wider scale did not move it back.
  */
-export function accumulateSpectrum(samples: readonly VelocitySample[], s: SpectralSettings, aliasing: boolean, out: Float32Array): void {
+export function accumulateSpectrum(
+  samples: readonly VelocitySample[],
+  s: SpectralSettings,
+  aliasing: boolean,
+  out: Float32Array,
+): void {
   const { vMin, vMax } = spectralRange(s);
   const span = vMax - vMin;
   out.fill(0);
@@ -135,7 +146,10 @@ const SPECTRAL_NOISE = 0.05;
  * noise ceiling (0.123 at 0 dB), and an auto-trace starting from the brightest bin read noise as velocities up to 1.1 m/s.
  */
 export function envelopeThreshold(columnMax: number, s: SpectralSettings): number {
-  return Math.max(1.5 * Math.pow(SPECTRAL_NOISE * Math.pow(10, s.gainDb / 20), 0.7), 0.35 * columnMax);
+  return Math.max(
+    1.5 * Math.pow(SPECTRAL_NOISE * Math.pow(10, s.gainDb / 20), 0.7),
+    0.35 * columnMax,
+  );
 }
 
 /**
@@ -151,7 +165,10 @@ export function envelopeThreshold(columnMax: number, s: SpectralSettings): numbe
  * repetition frequency the scale needs at a nominal 2.5 MHz, T = BINS·c/(4·f0·scale): 16 ms at ±1.2 m/s, within 6-30 ms.
  */
 function estimateDurationS(s: SpectralSettings): number {
-  return Math.min(0.03, Math.max(0.006, (SPECTRAL_BINS * 1540) / (4 * 2.5e6 * Math.max(0.05, s.scaleMps))));
+  return Math.min(
+    0.03,
+    Math.max(0.006, (SPECTRAL_BINS * 1540) / (4 * 2.5e6 * Math.max(0.05, s.scaleMps))),
+  );
 }
 /** Frequency extent (display bins) of one speckle cell: the resolution of the estimate, whose line has σ = RESOLUTION_BINS. */
 const SPECKLE_BINS = 2.5 * RESOLUTION_BINS;
@@ -163,7 +180,8 @@ const NOISE_DB = -36;
 
 /** Bin-direction lattice of the speckle: for every display bin, its five nearest lattice nodes and their Gaussian weights. */
 const SPECKLE_NODE_OFFSET = 2;
-const SPECKLE_NODES = Math.round((SPECTRAL_BINS - 0.5) / SPECKLE_BINS) + 2 * SPECKLE_NODE_OFFSET + 1;
+const SPECKLE_NODES =
+  Math.round((SPECTRAL_BINS - 0.5) / SPECKLE_BINS) + 2 * SPECKLE_NODE_OFFSET + 1;
 const speckleBinNode = new Int16Array(SPECTRAL_BINS * 5);
 const speckleBinWeight = new Float64Array(SPECTRAL_BINS * 5);
 for (let b = 0; b < SPECTRAL_BINS; b++) {
@@ -203,7 +221,12 @@ function speckleRow(t: number, seed: number, stream: number): Float64Array {
  * to unit mean (exponential). Bilinear weights between four lattice values drew the cells as blocks. The kernel is separable:
  * the five lattice rows of the column are shared with the columns next to it (computed bin by bin, 1.3 ms per column).
  */
-function estimateSpeckleColumn(tCells: number, seed: number, stream: number, out: Float64Array): void {
+function estimateSpeckleColumn(
+  tCells: number,
+  seed: number,
+  stream: number,
+  out: Float64Array,
+): void {
   const t0 = Math.round(tCells);
   const wt = [0, 0, 0, 0, 0];
   let wt2 = 0;
@@ -243,7 +266,14 @@ function estimateSpeckleColumn(tCells: number, seed: number, stream: number, out
 const speckleFlow = new Float64Array(SPECTRAL_BINS);
 const speckleNoise = new Float64Array(SPECTRAL_BINS);
 
-export function displaySpectrum(expected: ArrayLike<number>, s: SpectralSettings, seed: number, click: number, timeS: number, out: Float32Array): void {
+export function displaySpectrum(
+  expected: ArrayLike<number>,
+  s: SpectralSettings,
+  seed: number,
+  click: number,
+  timeS: number,
+  out: Float32Array,
+): void {
   const { vMin, vMax } = spectralRange(s);
   let max = 0;
   for (let b = 0; b < SPECTRAL_BINS; b++) max = Math.max(max, expected[b] ?? 0);
@@ -254,7 +284,10 @@ export function displaySpectrum(expected: ArrayLike<number>, s: SpectralSettings
   estimateSpeckleColumn(tCells, seed, 29, speckleNoise);
   for (let b = 0; b < SPECTRAL_BINS; b++) {
     const v = vMax - ((b + 0.5) / SPECTRAL_BINS) * (vMax - vMin);
-    const clickLevel = click > 0 && Math.abs(v) >= s.wallFilterMps ? click * CLICK_LEVEL * Math.exp(-0.5 * (v / (CLICK_SPREAD * s.scaleMps)) ** 2) : 0;
+    const clickLevel =
+      click > 0 && Math.abs(v) >= s.wallFilterMps
+        ? click * CLICK_LEVEL * Math.exp(-0.5 * (v / (CLICK_SPREAD * s.scaleMps)) ** 2)
+        : 0;
     const flow = (expected[b] ?? 0) * norm;
     const power = flow * speckleFlow[b]! + noise * speckleNoise[b]! + clickLevel;
     const db = 10 * Math.log10(Math.max(1e-12, power)) + s.gainDb;
@@ -268,7 +301,17 @@ export function displaySpectrum(expected: ArrayLike<number>, s: SpectralSettings
  * the display leave it). With `display`, it also draws the column the screen shows: the estimate with its grain on a
  * logarithmic scale (`displaySpectrum`), at `timeS`.
  */
-export function buildSpectralColumn(samples: readonly VelocitySample[], s: SpectralSettings, columnIndex: number, seed: number, aliasing: boolean, out: Float32Array, click = 0, display?: Float32Array, timeS = columnIndex * 0.004): void {
+export function buildSpectralColumn(
+  samples: readonly VelocitySample[],
+  s: SpectralSettings,
+  columnIndex: number,
+  seed: number,
+  aliasing: boolean,
+  out: Float32Array,
+  click = 0,
+  display?: Float32Array,
+  timeS = columnIndex * 0.004,
+): void {
   accumulateSpectrum(samples, s, aliasing, out);
   if (display) displaySpectrum(out, s, seed, click, timeS, display);
   const gainLin = Math.pow(10, s.gainDb / 20);
@@ -281,7 +324,10 @@ export function buildSpectralColumn(samples: readonly VelocitySample[], s: Spect
     const noise = SPECTRAL_NOISE * hash3(b, columnIndex, 3, seed);
     const v = vMax - ((b + 0.5) / SPECTRAL_BINS) * (vMax - vMin);
     // a valve click: broadband across the displayed range outside the wall filter, fading toward its ends
-    const clickLevel = click > 0 && Math.abs(v) >= s.wallFilterMps ? click * CLICK_LEVEL * Math.exp(-0.5 * (v / (CLICK_SPREAD * s.scaleMps)) ** 2) : 0;
+    const clickLevel =
+      click > 0 && Math.abs(v) >= s.wallFilterMps
+        ? click * CLICK_LEVEL * Math.exp(-0.5 * (v / (CLICK_SPREAD * s.scaleMps)) ** 2)
+        : 0;
     const y = ((out[b] ?? 0) * norm + clickLevel + noise) * gainLin;
     out[b] = Math.min(1, Math.pow(Math.max(0, y), 0.7));
   }
@@ -307,7 +353,11 @@ export function isClickColumn(col: ArrayLike<number>, s: SpectralSettings): bool
 }
 
 /** Column time step (s) and columns per second for the strip width given the sweep speed. */
-export function columnsPerSecond(sweepMmPerS: number, stripWidthPx: number, stripWidthMm: number): number {
+export function columnsPerSecond(
+  sweepMmPerS: number,
+  stripWidthPx: number,
+  stripWidthMm: number,
+): number {
   // strip physical width in mm at the given sweep speed → seconds shown = stripWidthMm / sweep
   const seconds = stripWidthMm / sweepMmPerS;
   return stripWidthPx / seconds;

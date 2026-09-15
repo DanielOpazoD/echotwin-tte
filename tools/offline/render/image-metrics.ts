@@ -10,7 +10,15 @@ import { createHeartModel, computeHeartPose } from '@/simulator/anatomy/heartMod
 import { createThoraxModel } from '@/simulator/anatomy/thoraxModel';
 import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { ProceduralSliceRenderer } from '@/simulator/renderer/procedural/sliceRenderer';
-import { allocPolarFrame, DEFAULT_ACQUISITION, polarSpecFor, type AcquisitionSettings, type PolarFrame, type PolarFrameSpec, type Scene } from '@/simulator/renderer/types';
+import {
+  allocPolarFrame,
+  DEFAULT_ACQUISITION,
+  polarSpecFor,
+  type AcquisitionSettings,
+  type PolarFrame,
+  type PolarFrameSpec,
+  type Scene,
+} from '@/simulator/renderer/types';
 import { applyConsole, createConsoleState } from '@/simulator/renderer/postprocess/consolePipeline';
 import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
 import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
@@ -19,8 +27,19 @@ import { Structure, Tissue } from '@/simulator/anatomy/tissue';
 const caseId = process.argv[2] ?? 'normal-excellent-window';
 const PHASE = Number(process.argv[3] ?? 0.35);
 const c = loadCaseById(caseId);
-const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, { position: 'left-lateral', respiration: 'expiration', headElevationDeg: 0 }, c.anatomy.ivc.collapsePct);
-const heart = createHeartModel(c.anatomy, c.physiology, thorax.heartOffset, c.seed, thorax.ivcCollapse);
+const thorax = createThoraxModel(
+  c.bodyHabitus,
+  c.acousticWindow,
+  { position: 'left-lateral', respiration: 'expiration', headElevationDeg: 0 },
+  c.anatomy.ivc.collapsePct,
+);
+const heart = createHeartModel(
+  c.anatomy,
+  c.physiology,
+  thorax.heartOffset,
+  c.seed,
+  thorax.ivcCollapse,
+);
 const tables = buildBeatTables(60 / c.rhythm.heartRateBpm, c.physiology, c.rhythm, c.hemodynamics);
 const renderer = new ProceduralSliceRenderer();
 
@@ -29,13 +48,26 @@ function scene(settings: AcquisitionSettings): Scene {
     heart,
     heartPose: computeHeartPose(heart, cycleStateAt(tables, PHASE)),
     thorax,
-    physics: { frequencyMHz: settings.frequencyMHz, harmonics: settings.harmonics, clutterLevel: c.acousticWindow.clutterLevel + c.acousticWindow.emphysemaScatter * 0.5, windowAttenuation: c.acousticWindow.chestWallAttenuation, seed: c.seed },
+    physics: {
+      frequencyMHz: settings.frequencyMHz,
+      harmonics: settings.harmonics,
+      clutterLevel: c.acousticWindow.clutterLevel + c.acousticWindow.emphysemaScatter * 0.5,
+      windowAttenuation: c.acousticWindow.chestWallAttenuation,
+      seed: c.seed,
+    },
   };
 }
 
-function render(viewId: string, settings: AcquisitionSettings, tier: 'low' | 'medium' | 'high'): { frame: PolarFrame; spec: PolarFrameSpec } {
+function render(
+  viewId: string,
+  settings: AcquisitionSettings,
+  tier: 'low' | 'medium' | 'high',
+): { frame: PolarFrame; spec: PolarFrameSpec } {
   const spec = polarSpecFor(settings, tier);
-  const beam = beamFrameFromPose(poseFromControl(thorax, canonicalControl(getViewTarget(viewId), heart, thorax)), 1);
+  const beam = beamFrameFromPose(
+    poseFromControl(thorax, canonicalControl(getViewTarget(viewId), heart, thorax)),
+    1,
+  );
   const frame = allocPolarFrame(spec);
   renderer.render(scene(settings), beam, spec, PHASE, frame);
   return { frame, spec };
@@ -59,7 +91,14 @@ function stats(vals: number[]): { n: number; mean: number; std: number; skew: nu
 }
 
 /** Normalised autocorrelation along runs of consecutive masked samples; returns the lag where it falls to 0.5. */
-function halfWidth(get: (a: number, b: number) => number, mask: (a: number, b: number) => boolean, outer: [number, number], inner: [number, number], maxLag = 12, minRun = 10): { lag: number; runs: number } {
+function halfWidth(
+  get: (a: number, b: number) => number,
+  mask: (a: number, b: number) => boolean,
+  outer: [number, number],
+  inner: [number, number],
+  maxLag = 12,
+  minRun = 10,
+): { lag: number; runs: number } {
   const acc = new Float64Array(maxLag + 1);
   const cnt = new Float64Array(maxLag + 1);
   let runs = 0;
@@ -104,7 +143,9 @@ const log = (s: string): void => {
   process.stdout.write(s + '\n');
 };
 log(`# Image metrics — ${caseId}, phase ${PHASE}`);
-log('view | tier | SNR amp region (Rayleigh 1.91) | local SNR median | skew | lat cell mm 3–5 / 7–9 / 11–13 | ax cell mm 3–5 / 7–9 / 11–13 | myo/blood dB | myo/far-blood dB | septum dB rel. PLAX | grey myo / blood / peri p95 | sat % at +12 dB');
+log(
+  'view | tier | SNR amp region (Rayleigh 1.91) | local SNR median | skew | lat cell mm 3–5 / 7–9 / 11–13 | ax cell mm 3–5 / 7–9 / 11–13 | myo/blood dB | myo/far-blood dB | septum dB rel. PLAX | grey myo / blood / peri p95 | sat % at +12 dB',
+);
 const septumRef: Record<string, number> = {};
 for (const tier of ['medium', 'high'] as const) {
   for (const viewId of ['plax', 'a4c', 'psax-pm']) {
@@ -112,8 +153,10 @@ for (const tier of ['medium', 'high'] as const) {
     const { frame, spec } = render(viewId, settings, tier);
     const { lines: L, samples: N } = spec;
     const dr = spec.depthCm / N;
-    const norm = (i: number): number => (frame.amplitude[i] ?? 0) / Math.max(1e-4, frame.transmission[i] ?? 1);
-    const band = (i: number, a: number, b: number): boolean => (i % N) * dr >= a && (i % N) * dr < b;
+    const norm = (i: number): number =>
+      (frame.amplitude[i] ?? 0) / Math.max(1e-4, frame.transmission[i] ?? 1);
+    const band = (i: number, a: number, b: number): boolean =>
+      (i % N) * dr >= a && (i % N) * dr < b;
     const myo: number[] = [];
     const blood: number[] = [];
     const sept: number[] = [];
@@ -122,7 +165,8 @@ for (const tier of ['medium', 'high'] as const) {
       const st = frame.structure[i] ?? 0,
         ti = frame.tissue[i] ?? 0;
       if (ti === Tissue.Myocardium && isLvWall(st)) myo.push(norm(i));
-      if (ti === Tissue.Blood && (st === Structure.LvCavity || st === Structure.LaCavity)) blood.push(norm(i));
+      if (ti === Tissue.Blood && (st === Structure.LvCavity || st === Structure.LaCavity))
+        blood.push(norm(i));
       if (ti === Tissue.Myocardium && st === Structure.LvWallSeptal) sept.push(norm(i));
     }
     const sm = stats(myo),
@@ -163,11 +207,17 @@ for (const tier of ['medium', 'high'] as const) {
         if (ok) farBlood.push(norm(li * N + si));
       }
     const sfb = stats(farBlood);
-    const myoMask = (li: number, si: number): boolean => frame.tissue[li * N + si] === Tissue.Myocardium;
+    const myoMask = (li: number, si: number): boolean =>
+      frame.tissue[li * N + si] === Tissue.Myocardium;
     const cell = (d0: number, d1: number): [string, string] => {
       const s0 = Math.floor(d0 / dr),
         s1 = Math.floor(d1 / dr);
-      const lat = halfWidth((si, li) => norm(li * N + si), (si, li) => myoMask(li, si), [s0, s1], [0, L]);
+      const lat = halfWidth(
+        (si, li) => norm(li * N + si),
+        (si, li) => myoMask(li, si),
+        [s0, s1],
+        [0, L],
+      );
       const ax = halfWidth((li, si) => norm(li * N + si), myoMask, [0, L], [s0, s1]);
       const pitchMm = (((d0 + d1) / 2) * spec.sectorRad * 10) / L;
       return [fmt(2 * lat.lag * pitchMm, 1), fmt(2 * ax.lag * dr * 10, 1)];
@@ -199,12 +249,30 @@ for (const tier of ['medium', 'high'] as const) {
         }
       }
       gp.sort((a, b) => a - b);
-      return { myo: stats(gm).mean, blood: stats(gb).mean, peri95: gp[Math.floor(gp.length * 0.95)] ?? NaN, sat: (100 * sat) / Math.max(1, tissue) };
+      return {
+        myo: stats(gm).mean,
+        blood: stats(gb).mean,
+        peri95: gp[Math.floor(gp.length * 0.95)] ?? NaN,
+        sat: (100 * sat) / Math.max(1, tissue),
+      };
     };
     const g0 = grey(0),
       g12 = grey(12);
     log(
-      [viewId, tier, fmt(sm.mean / sm.std), `${fmt(localSnr[Math.floor(localSnr.length / 2)] ?? NaN)} (n ${localSnr.length})`, fmt(sm.skew), `${c1[0]} / ${c2[0]} / ${c3[0]}`, `${c1[1]} / ${c2[1]} / ${c3[1]}`, fmt(20 * Math.log10(sm.mean / sb.mean), 1), fmt(20 * Math.log10(sm.mean / sfb.mean), 1), fmt(septRel, 1), `${fmt(g0.myo, 0)} / ${fmt(g0.blood, 0)} / ${fmt(g0.peri95, 0)}`, fmt(g12.sat, 1)].join(' | '),
+      [
+        viewId,
+        tier,
+        fmt(sm.mean / sm.std),
+        `${fmt(localSnr[Math.floor(localSnr.length / 2)] ?? NaN)} (n ${localSnr.length})`,
+        fmt(sm.skew),
+        `${c1[0]} / ${c2[0]} / ${c3[0]}`,
+        `${c1[1]} / ${c2[1]} / ${c3[1]}`,
+        fmt(20 * Math.log10(sm.mean / sb.mean), 1),
+        fmt(20 * Math.log10(sm.mean / sfb.mean), 1),
+        fmt(septRel, 1),
+        `${fmt(g0.myo, 0)} / ${fmt(g0.blood, 0)} / ${fmt(g0.peri95, 0)}`,
+        fmt(g12.sat, 1),
+      ].join(' | '),
     );
   }
 }

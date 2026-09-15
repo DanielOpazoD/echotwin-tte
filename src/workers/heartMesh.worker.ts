@@ -33,16 +33,39 @@ export interface MeshReply {
 self.onmessage = (ev: MessageEvent<MeshRequest>) => {
   const { caseId, patient, stepCm, phases } = ev.data;
   const caseDef = loadCaseById(caseId);
-  const thorax = createThoraxModel(caseDef.bodyHabitus, caseDef.acousticWindow, patient, caseDef.anatomy.ivc.collapsePct);
-  const heart = createHeartModel(caseDef.anatomy, caseDef.physiology, thorax.heartOffset, caseDef.seed, thorax.ivcCollapse);
+  const thorax = createThoraxModel(
+    caseDef.bodyHabitus,
+    caseDef.acousticWindow,
+    patient,
+    caseDef.anatomy.ivc.collapsePct,
+  );
+  const heart = createHeartModel(
+    caseDef.anatomy,
+    caseDef.physiology,
+    thorax.heartOffset,
+    caseDef.seed,
+    thorax.ivcCollapse,
+  );
   heartLandmarks(heart);
-  const tables = buildBeatTables(60 / caseDef.rhythm.heartRateBpm, caseDef.physiology, caseDef.rhythm, caseDef.hemodynamics);
+  const tables = buildBeatTables(
+    60 / caseDef.rhythm.heartRateBpm,
+    caseDef.physiology,
+    caseDef.rhythm,
+    caseDef.hemodynamics,
+  );
   for (let i = 0; i < phases.length; i++) {
     const phase = phases[i]!;
     const t0 = performance.now();
     const pose = computeHeartPose(heart, cycleStateAt(tables, phase));
     const groups = buildHeartMeshes(heart, pose, { stepCm });
-    const reply: MeshReply = { caseId, index: i, total: phases.length, phase, groups, ms: performance.now() - t0 };
+    const reply: MeshReply = {
+      caseId,
+      index: i,
+      total: phases.length,
+      phase,
+      groups,
+      ms: performance.now() - t0,
+    };
     const transfer: Transferable[] = [];
     for (const g of groups) transfer.push(g.positions.buffer, g.normals.buffer, g.indices.buffer);
     (self as unknown as Worker).postMessage(reply, transfer);

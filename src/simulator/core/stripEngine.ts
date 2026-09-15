@@ -3,17 +3,49 @@ import { classifyHeart, computeHeartPose, type HeartModel } from '@/simulator/an
 import { cycleStateAt, type BeatTables } from '@/simulator/cardiac-cycle/cycleModel';
 import type { ProceduralSliceRenderer } from '@/simulator/renderer/procedural/sliceRenderer';
 import type { PolarFrame, PolarFrameSpec, Scene, ScenePhysics } from '@/simulator/renderer/types';
-import { applyConsole, createConsoleState, NO_ARTIFACTS } from '@/simulator/renderer/postprocess/consolePipeline';
+import {
+  applyConsole,
+  createConsoleState,
+  NO_ARTIFACTS,
+} from '@/simulator/renderer/postprocess/consolePipeline';
 import type { BeamFrame } from '@/simulator/probe/pose';
-import { sampleFlow, sampleTissueVelocity, type FlowFieldParams, type FlowSample } from '@/simulator/doppler/flow-primitives/flowField';
-import { colorMap, DOPPLER_SHADOW_TRANSMISSION, relativeTransmission } from '@/simulator/doppler/color/colorDoppler';
+import {
+  sampleFlow,
+  sampleTissueVelocity,
+  type FlowFieldParams,
+  type FlowSample,
+} from '@/simulator/doppler/flow-primitives/flowField';
+import {
+  colorMap,
+  DOPPLER_SHADOW_TRANSMISSION,
+  relativeTransmission,
+} from '@/simulator/doppler/color/colorDoppler';
 import { aliasVelocity } from '@/clinical/formulas';
-import { buildSpectralColumn, CLICK_SIGMA_S, envelopeThreshold, isClickColumn, SPECTRAL_BINS, spectralRange, type VelocitySample } from '@/simulator/doppler/spectral/spectrum';
+import {
+  buildSpectralColumn,
+  CLICK_SIGMA_S,
+  envelopeThreshold,
+  isClickColumn,
+  SPECTRAL_BINS,
+  spectralRange,
+  type VelocitySample,
+} from '@/simulator/doppler/spectral/spectrum';
 import { valveClickWeight } from '@/simulator/doppler/spectral/valveClicks';
 import { makeSample, Tissue } from '@/simulator/anatomy/tissue';
 import { createRng } from '@/core/random';
 import type { GateInfo, SimInput, SimRequest, SimResponse, StripInfo } from './protocol';
-import { binsToTrace, buildRowMap, columnSource, MmodeLineCache, mmodeLineSamples, mmodePhaseBins, mmodePulsesPerColumn, type ColumnSource, type MmodeLine, type RowMap } from './mmodeStrip';
+import {
+  binsToTrace,
+  buildRowMap,
+  columnSource,
+  MmodeLineCache,
+  mmodeLineSamples,
+  mmodePhaseBins,
+  mmodePulsesPerColumn,
+  type ColumnSource,
+  type MmodeLine,
+  type RowMap,
+} from './mmodeStrip';
 
 const STRIP_MM_WIDTH = 100; // physical width represented by the strip (mm)
 
@@ -93,31 +125,73 @@ export class StripEngine {
    * the cycle phase of each column, the phase bins between the two traced lines it was formed from (1 at full time
    * resolution) and the head (next column to write). Null outside M-mode.
    */
-  get mmodeStrip(): { samples: number; cols: number; head: number; grey: Uint8ClampedArray; phase: Float32Array; span: Uint16Array; bins: number; traced: number } | null {
+  get mmodeStrip(): {
+    samples: number;
+    cols: number;
+    head: number;
+    grey: Uint8ClampedArray;
+    phase: Float32Array;
+    span: Uint16Array;
+    bins: number;
+    traced: number;
+  } | null {
     if (this.stripKind !== 'm-mode' || !this.stripMmode) return null;
-    return { samples: this.mmodeSamples, cols: this.stripCols, head: this.stripHead, grey: this.stripMmode, phase: this.stripPhase, span: this.stripSpan, bins: this.mmode.bins, traced: this.mmode.filled };
+    return {
+      samples: this.mmodeSamples,
+      cols: this.stripCols,
+      head: this.stripHead,
+      grey: this.stripMmode,
+      phase: this.stripPhase,
+      span: this.stripSpan,
+      bins: this.mmode.bins,
+      traced: this.mmode.filled,
+    };
   }
 
   /** The spectral strip (SPECTRAL_BINS values per column), the cycle phase each column was sampled at, and the head. */
-  get spectralStrip(): { data: Float32Array | null; display: Float32Array | null; cols: number; head: number; phase: Float32Array } {
-    return { data: this.stripSpectral, display: this.stripDisplay, cols: this.stripCols, head: this.stripHead, phase: this.stripPhase };
+  get spectralStrip(): {
+    data: Float32Array | null;
+    display: Float32Array | null;
+    cols: number;
+    head: number;
+    phase: Float32Array;
+  } {
+    return {
+      data: this.stripSpectral,
+      display: this.stripDisplay,
+      cols: this.stripCols,
+      head: this.stripHead,
+      phase: this.stripPhase,
+    };
   }
 
-  advance(dt: number, beam: BeamFrame, spec: PolarFrameSpec, traceBudgetMs: number, ctx: StripCtx): void {
+  advance(
+    dt: number,
+    beam: BeamFrame,
+    spec: PolarFrameSpec,
+    traceBudgetMs: number,
+    ctx: StripCtx,
+  ): void {
     const inp = ctx.input;
-    const kind: 'spectral' | 'm-mode' = inp.modality === 'm-mode' || inp.modality === 'cmm' ? 'm-mode' : 'spectral';
+    const kind: 'spectral' | 'm-mode' =
+      inp.modality === 'm-mode' || inp.modality === 'cmm' ? 'm-mode' : 'spectral';
     const stripWidth = Math.max(64, inp.display.width);
     const secondsShown = STRIP_MM_WIDTH / inp.spectral.sweepSpeedMmPerS;
     const cps = stripWidth / secondsShown;
     const lineSamples = mmodeLineSamples(spec.depthCm);
     const cmm = inp.modality === 'cmm';
     const needMmodeRealloc =
-      kind === 'm-mode' && (!this.stripMmode || this.stripMmode.length !== lineSamples * stripWidth || (this.stripCmm !== null) !== cmm || (this.stripCmm !== null && this.stripCmm.length !== spec.samples * stripWidth));
+      kind === 'm-mode' &&
+      (!this.stripMmode ||
+        this.stripMmode.length !== lineSamples * stripWidth ||
+        (this.stripCmm !== null) !== cmm ||
+        (this.stripCmm !== null && this.stripCmm.length !== spec.samples * stripWidth));
     if (this.stripKind !== kind || this.stripCols !== stripWidth || needMmodeRealloc) {
       this.stripKind = kind;
       this.stripCols = stripWidth;
       this.stripHead = 0;
-      this.stripSpectral = kind === 'spectral' ? new Float32Array(SPECTRAL_BINS * stripWidth) : null;
+      this.stripSpectral =
+        kind === 'spectral' ? new Float32Array(SPECTRAL_BINS * stripWidth) : null;
       this.stripDisplay = kind === 'spectral' ? new Float32Array(SPECTRAL_BINS * stripWidth) : null;
       this.stripMmode = kind === 'm-mode' ? new Uint8ClampedArray(lineSamples * stripWidth) : null;
       this.stripCmm = cmm ? new Float32Array(spec.samples * stripWidth).fill(NaN) : null;
@@ -154,14 +228,24 @@ export class StripEngine {
    * phase bin for this probe pose, cursor and imaging settings, as many as the step's budget allows; a column is formed
    * from the traced lines on each side of its instant.
    */
-  private advanceMmode(n: number, cps: number, rr: number, phaseNow: number, traceBudgetMs: number, beam: BeamFrame, spec: PolarFrameSpec, ctx: StripCtx): void {
+  private advanceMmode(
+    n: number,
+    cps: number,
+    rr: number,
+    phaseNow: number,
+    traceBudgetMs: number,
+    beam: BeamFrame,
+    spec: PolarFrameSpec,
+    ctx: StripCtx,
+  ): void {
     if (n <= 0) return;
     const inp = ctx.input;
     const theta = Math.max(-spec.sectorRad / 2, Math.min(spec.sectorRad / 2, inp.cursorThetaRad));
     const cmm = inp.modality === 'cmm';
     const bins = mmodePhaseBins(cps, ctx.tables.rrS);
     const ph = ctx.physics();
-    const v3 = (v: { x: number; y: number; z: number }): string => `${v.x.toFixed(6)},${v.y.toFixed(6)},${v.z.toFixed(6)}`;
+    const v3 = (v: { x: number; y: number; z: number }): string =>
+      `${v.x.toFixed(6)},${v.y.toFixed(6)},${v.z.toFixed(6)}`;
     const key = [
       v3(beam.origin),
       v3(beam.forward),
@@ -190,7 +274,8 @@ export class StripEngine {
       const tBack = (n - 1 - i + 0.5) / cps;
       phases[i] = (((phaseNow - tBack / rr) % 1) + 1) % 1;
     }
-    const maxTraces = this.mmode.traceMs > 0 ? Math.max(1, Math.floor(traceBudgetMs / this.mmode.traceMs)) : 1;
+    const maxTraces =
+      this.mmode.traceMs > 0 ? Math.max(1, Math.floor(traceBudgetMs / this.mmode.traceMs)) : 1;
     for (const b of binsToTrace(this.mmode, phases, maxTraces)) {
       const t0 = performance.now();
       this.mmode.set(b, this.traceMmodeLine(beam, spec, b, theta, cmm, ctx));
@@ -198,14 +283,24 @@ export class StripEngine {
     }
     const pulses = mmodePulsesPerColumn(cps);
     for (let i = 0; i < n; i++) {
-      const src = columnSource(this.mmode, phases[i]!, bins >> 2) ?? columnSource(this.mmode, phases[i]!, bins >> 1);
-      if (src) this.writeMmodeColumn(this.stripHead % this.stripCols, src, phases[i]!, pulses, spec, ctx);
+      const src =
+        columnSource(this.mmode, phases[i]!, bins >> 2) ??
+        columnSource(this.mmode, phases[i]!, bins >> 1);
+      if (src)
+        this.writeMmodeColumn(this.stripHead % this.stripCols, src, phases[i]!, pulses, spec, ctx);
       this.stripHead++;
     }
   }
 
   /** Trace the M-mode line at `phase`: the fine line envelope and, in colour M-mode, the axial flow velocity on the frame samples. */
-  private traceMmodeLine(beam: BeamFrame, spec: PolarFrameSpec, bin: number, theta: number, cmm: boolean, ctx: StripCtx): MmodeLine {
+  private traceMmodeLine(
+    beam: BeamFrame,
+    spec: PolarFrameSpec,
+    bin: number,
+    theta: number,
+    cmm: boolean,
+    ctx: StripCtx,
+  ): MmodeLine {
     const phase = bin / this.mmode.bins;
     const S = this.mmodeSamples;
     if (this.lineAmp.length !== S) {
@@ -215,12 +310,33 @@ export class StripEngine {
       this.lineTi = new Uint8Array(S);
     }
     const scene = ctx.scene(phase);
-    ctx.procedural.renderMmodeLine(scene, beam, spec, S, theta, bin, this.lineAmp, this.lineSt, this.lineTr, this.lineTi);
-    return { amp: this.lineAmp.slice(), velocity: cmm ? this.cmmVelocity(beam, spec, phase, theta, scene, ctx) : null };
+    ctx.procedural.renderMmodeLine(
+      scene,
+      beam,
+      spec,
+      S,
+      theta,
+      bin,
+      this.lineAmp,
+      this.lineSt,
+      this.lineTr,
+      this.lineTi,
+    );
+    return {
+      amp: this.lineAmp.slice(),
+      velocity: cmm ? this.cmmVelocity(beam, spec, phase, theta, scene, ctx) : null,
+    };
   }
 
   /** Colour M-mode: axial flow velocity (m/s, + toward the transducer) on the frame samples of the traced line, NaN where no flow. */
-  private cmmVelocity(beam: BeamFrame, spec: PolarFrameSpec, phase: number, theta: number, scene: Scene, ctx: StripCtx): Float32Array {
+  private cmmVelocity(
+    beam: BeamFrame,
+    spec: PolarFrameSpec,
+    phase: number,
+    theta: number,
+    scene: Scene,
+    ctx: StripCtx,
+  ): Float32Array {
     const hf = ctx.heart.frame;
     const ct = Math.cos(theta),
       sn = Math.sin(theta);
@@ -246,9 +362,12 @@ export class StripEngine {
       const px = beam.origin.x + dx * r,
         py = beam.origin.y + dy * r,
         pz = beam.origin.z + dz * r;
-      const hx = (px - hf.origin.x) * hf.ex.x + (py - hf.origin.y) * hf.ex.y + (pz - hf.origin.z) * hf.ex.z;
-      const hy = (px - hf.origin.x) * hf.ey.x + (py - hf.origin.y) * hf.ey.y + (pz - hf.origin.z) * hf.ey.z;
-      const hz = (px - hf.origin.x) * hf.ez.x + (py - hf.origin.y) * hf.ez.y + (pz - hf.origin.z) * hf.ez.z;
+      const hx =
+        (px - hf.origin.x) * hf.ex.x + (py - hf.origin.y) * hf.ex.y + (pz - hf.origin.z) * hf.ex.z;
+      const hy =
+        (px - hf.origin.x) * hf.ey.x + (py - hf.origin.y) * hf.ey.y + (pz - hf.origin.z) * hf.ey.z;
+      const hz =
+        (px - hf.origin.x) * hf.ez.x + (py - hf.origin.y) * hf.ez.y + (pz - hf.origin.z) * hf.ez.z;
       sampleFlow(ctx.flow, ctx.tables, scene.heartPose, phase, hx, hy, hz, fs);
       out[si] = fs.present ? -(fs.vx * dhx + fs.vy * dhy + fs.vz * dhz) : NaN;
     }
@@ -256,15 +375,32 @@ export class StripEngine {
   }
 
   /** Form an M-mode column from its traced lines, pass it through the console (its pulses average the receiver noise) and store it. */
-  private writeMmodeColumn(col: number, src: ColumnSource, phase: number, pulses: number, spec: PolarFrameSpec, ctx: StripCtx): void {
+  private writeMmodeColumn(
+    col: number,
+    src: ColumnSource,
+    phase: number,
+    pulses: number,
+    spec: PolarFrameSpec,
+    ctx: StripCtx,
+  ): void {
     const inp = ctx.input;
     const S = this.mmodeSamples;
     if (this.mmodeColumn.length !== S) {
       this.mmodeColumn = new Float32Array(S);
       this.mmodeGrey = new Uint8ClampedArray(S);
     }
-    if (!this.mmodeFrame || this.mmodeFrame.spec.samples !== S || this.mmodeFrame.spec.depthCm !== spec.depthCm) {
-      this.mmodeFrame = { spec: { ...spec, lines: 1, samples: S }, amplitude: this.mmodeColumn, structure: new Uint8Array(S), transmission: new Float32Array(S), tissue: new Uint8Array(S) };
+    if (
+      !this.mmodeFrame ||
+      this.mmodeFrame.spec.samples !== S ||
+      this.mmodeFrame.spec.depthCm !== spec.depthCm
+    ) {
+      this.mmodeFrame = {
+        spec: { ...spec, lines: 1, samples: S },
+        amplitude: this.mmodeColumn,
+        structure: new Uint8Array(S),
+        transmission: new Float32Array(S),
+        tissue: new Uint8Array(S),
+      };
     }
     const a = src.lo.amp,
       b = src.hi.amp,
@@ -275,7 +411,10 @@ export class StripEngine {
     st.seed = (ctx.caseDef.seed + this.stripHead) | 0; // receiver noise is new in every column and every sweep
     st.frameIndex = 0;
     st.prev = null;
-    applyConsole(this.mmodeFrame, inp.settings, st, this.mmodeGrey, NO_ARTIFACTS, { noisePulses: pulses, edgeStep: S / spec.samples });
+    applyConsole(this.mmodeFrame, inp.settings, st, this.mmodeGrey, NO_ARTIFACTS, {
+      noisePulses: pulses,
+      edgeStep: S / spec.samples,
+    });
     const cols = this.stripCols;
     const strip = this.stripMmode!;
     const grey = this.mmodeGrey;
@@ -285,7 +424,10 @@ export class StripEngine {
       const cmm = this.stripCmm;
       for (let si = 0; si < spec.samples; si++) {
         const x = v ? v[si]! : NaN;
-        cmm[si * cols + col] = Number.isNaN(x) || Math.abs(x) < inp.color.wallFilterMps ? NaN : aliasVelocity(x, inp.color.scaleMps, inp.color.baselineShiftMps);
+        cmm[si * cols + col] =
+          Number.isNaN(x) || Math.abs(x) < inp.color.wallFilterMps
+            ? NaN
+            : aliasVelocity(x, inp.color.scaleMps, inp.color.baselineShiftMps);
       }
     }
     this.stripPhase[col] = phase;
@@ -293,7 +435,14 @@ export class StripEngine {
     if (this.stripRgba) this.paintStripColumn(col, ctx);
   }
 
-  private sampleSpectralColumn(beam: BeamFrame, spec: PolarFrameSpec, phase: number, col: number, timeS: number, ctx: StripCtx): void {
+  private sampleSpectralColumn(
+    beam: BeamFrame,
+    spec: PolarFrameSpec,
+    phase: number,
+    col: number,
+    timeS: number,
+    ctx: StripCtx,
+  ): void {
     const inp = ctx.input;
     const hf = ctx.heart.frame;
     const theta = Math.max(-spec.sectorRad / 2, Math.min(spec.sectorRad / 2, inp.cursorThetaRad));
@@ -316,15 +465,20 @@ export class StripEngine {
       const px = beam.origin.x + dx * r + lx * du + beam.normal.x * dv;
       const py = beam.origin.y + dy * r + ly * du + beam.normal.y * dv;
       const pz = beam.origin.z + dz * r + lz * du + beam.normal.z * dv;
-      const hx = (px - hf.origin.x) * hf.ex.x + (py - hf.origin.y) * hf.ex.y + (pz - hf.origin.z) * hf.ex.z;
-      const hy = (px - hf.origin.x) * hf.ey.x + (py - hf.origin.y) * hf.ey.y + (pz - hf.origin.z) * hf.ey.z;
-      const hz = (px - hf.origin.x) * hf.ez.x + (py - hf.origin.y) * hf.ez.y + (pz - hf.origin.z) * hf.ez.z;
+      const hx =
+        (px - hf.origin.x) * hf.ex.x + (py - hf.origin.y) * hf.ex.y + (pz - hf.origin.z) * hf.ex.z;
+      const hy =
+        (px - hf.origin.x) * hf.ey.x + (py - hf.origin.y) * hf.ey.y + (pz - hf.origin.z) * hf.ey.z;
+      const hz =
+        (px - hf.origin.x) * hf.ez.x + (py - hf.origin.y) * hf.ez.y + (pz - hf.origin.z) * hf.ez.z;
       const inHeart = classifyHeart(ctx.heart, hp, hx, hy, hz, ts);
       if (inp.modality === 'tdi') {
         if (inHeart && ts.tissue === Tissue.Myocardium) {
           const tv = sampleTissueVelocity(ctx.heart, ctx.tables, phase, hx, hy, hz, ts.structure);
           const axial = tv.vx * dhx + tv.vy * dhy + tv.vz * dhz;
-          const vPerp = Math.sqrt(Math.max(0, tv.vx * tv.vx + tv.vy * tv.vy + tv.vz * tv.vz - axial * axial));
+          const vPerp = Math.sqrt(
+            Math.max(0, tv.vx * tv.vx + tv.vy * tv.vy + tv.vz * tv.vz - axial * axial),
+          );
           samples.push({ v: -axial, weight: 1, dispersion: 0.05, vPerp, depthCm: r });
         }
         return;
@@ -336,7 +490,9 @@ export class StripEngine {
         return;
       }
       const axial = fs.vx * dhx + fs.vy * dhy + fs.vz * dhz;
-      const vPerp = Math.sqrt(Math.max(0, fs.vx * fs.vx + fs.vy * fs.vy + fs.vz * fs.vz - axial * axial));
+      const vPerp = Math.sqrt(
+        Math.max(0, fs.vx * fs.vx + fs.vy * fs.vy + fs.vz * fs.vz - axial * axial),
+      );
       samples.push({ v: -axial, weight: 1, dispersion: fs.dispersion, vPerp, depthCm: r });
     };
     const aliasing = inp.modality !== 'cw';
@@ -354,21 +510,34 @@ export class StripEngine {
     };
     if (inp.modality === 'cw') {
       const frame = ctx.frame;
-      const li = frame ? Math.min(spec.lines - 1, Math.max(0, Math.round(((theta + spec.sectorRad / 2) / spec.sectorRad) * spec.lines))) : 0;
-      const acquisition = { frequencyMHz: inp.settings.frequencyMHz, harmonics: inp.settings.harmonics };
+      const li = frame
+        ? Math.min(
+            spec.lines - 1,
+            Math.max(0, Math.round(((theta + spec.sectorRad / 2) / spec.sectorRad) * spec.lines)),
+          )
+        : 0;
+      const acquisition = {
+        frequencyMHz: inp.settings.frequencyMHz,
+        harmonics: inp.settings.harmonics,
+      };
       for (let r = 1.0; r < spec.depthCm; r += 0.25) {
         if (frame) {
           // a shadow stops the line, depth does not (decision 96): an absolute 2% cut stopped lines from the apical window
           // at 9–12 cm, before the jet of a stenotic aortic valve
           const si = Math.min(spec.samples - 1, Math.floor((r / spec.depthCm) * spec.samples));
-          if (relativeTransmission(frame.transmission[li * spec.samples + si] ?? 1, r, acquisition) < DOPPLER_SHADOW_TRANSMISSION) break;
+          if (
+            relativeTransmission(frame.transmission[li * spec.samples + si] ?? 1, r, acquisition) <
+            DOPPLER_SHADOW_TRANSMISSION
+          )
+            break;
         }
         classify(r, 0, 0);
         clickPoint(r);
       }
     } else {
       const g = inp.spectral.gateLengthCm;
-      if (inp.modality === 'pw') for (const k of [-0.5, 0, 0.5]) clickPoint(inp.gateDepthCm + k * g);
+      if (inp.modality === 'pw')
+        for (const k of [-0.5, 0, 0.5]) clickPoint(inp.gateDepthCm + k * g);
       const rng = createRng(ctx.caseDef.seed ^ (col * 7919));
       for (let i = 0; i < 20; i++) {
         const r = inp.gateDepthCm + (rng.next() - 0.5) * g;
@@ -377,18 +546,39 @@ export class StripEngine {
     }
     const column = new Float32Array(SPECTRAL_BINS);
     const display = new Float32Array(SPECTRAL_BINS);
-    const click = clickPoints.length ? valveClickWeight(ctx.heart, hp, ctx.tables, phase * ctx.tables.rrS, clickPoints) : 0;
-    buildSpectralColumn(samples, inp.spectral, this.stripHead, ctx.caseDef.seed, aliasing, column, click, display, timeS);
+    const click = clickPoints.length
+      ? valveClickWeight(ctx.heart, hp, ctx.tables, phase * ctx.tables.rrS, clickPoints)
+      : 0;
+    buildSpectralColumn(
+      samples,
+      inp.spectral,
+      this.stripHead,
+      ctx.caseDef.seed,
+      aliasing,
+      column,
+      click,
+      display,
+      timeS,
+    );
     this.stripSpectral!.set(column, col * SPECTRAL_BINS);
     this.stripDisplay!.set(display, col * SPECTRAL_BINS);
     this.lastColumn = column;
   }
 
   /** Structures at the Doppler/M-mode cursor and the beam–flow angle at the PW/TDI gate (technique checks). */
-  gateInfo(beam: BeamFrame, spec: PolarFrameSpec, phase: number, structure: Uint8Array, ctx: StripCtx): GateInfo {
+  gateInfo(
+    beam: BeamFrame,
+    spec: PolarFrameSpec,
+    phase: number,
+    structure: Uint8Array,
+    ctx: StripCtx,
+  ): GateInfo {
     const inp = ctx.input;
     const theta = Math.max(-spec.sectorRad / 2, Math.min(spec.sectorRad / 2, inp.cursorThetaRad));
-    const li = Math.min(spec.lines - 1, Math.max(0, Math.round(((theta + spec.sectorRad / 2) / spec.sectorRad) * spec.lines - 0.5)));
+    const li = Math.min(
+      spec.lines - 1,
+      Math.max(0, Math.round(((theta + spec.sectorRad / 2) / spec.sectorRad) * spec.lines - 0.5)),
+    );
     const lineStructures: number[] = [];
     if (structure.length === spec.lines * spec.samples) {
       for (let si = 0; si < spec.samples; si++) {
@@ -406,9 +596,12 @@ export class StripEngine {
       py = beam.origin.y + dy * r,
       pz = beam.origin.z + dz * r;
     const hf = ctx.heart.frame;
-    const hx = (px - hf.origin.x) * hf.ex.x + (py - hf.origin.y) * hf.ex.y + (pz - hf.origin.z) * hf.ex.z;
-    const hy = (px - hf.origin.x) * hf.ey.x + (py - hf.origin.y) * hf.ey.y + (pz - hf.origin.z) * hf.ey.z;
-    const hz = (px - hf.origin.x) * hf.ez.x + (py - hf.origin.y) * hf.ez.y + (pz - hf.origin.z) * hf.ez.z;
+    const hx =
+      (px - hf.origin.x) * hf.ex.x + (py - hf.origin.y) * hf.ex.y + (pz - hf.origin.z) * hf.ex.z;
+    const hy =
+      (px - hf.origin.x) * hf.ey.x + (py - hf.origin.y) * hf.ey.y + (pz - hf.origin.z) * hf.ey.z;
+    const hz =
+      (px - hf.origin.x) * hf.ez.x + (py - hf.origin.y) * hf.ez.y + (pz - hf.origin.z) * hf.ez.z;
     const hp = computeHeartPose(ctx.heart, cycleStateAt(ctx.tables, phase));
     const ts = this.tissueSample;
     const inHeart = classifyHeart(ctx.heart, hp, hx, hy, hz, ts);
@@ -427,7 +620,16 @@ export class StripEngine {
         const fs = this.flowSample;
         for (let k = 0; k < 16; k++) {
           const ph = k / 16;
-          sampleFlow(ctx.flow, ctx.tables, computeHeartPose(ctx.heart, cycleStateAt(ctx.tables, ph)), ph, hx, hy, hz, fs);
+          sampleFlow(
+            ctx.flow,
+            ctx.tables,
+            computeHeartPose(ctx.heart, cycleStateAt(ctx.tables, ph)),
+            ph,
+            hx,
+            hy,
+            hz,
+            fs,
+          );
           const sp = Math.hypot(fs.vx, fs.vy, fs.vz);
           if (fs.present && sp > best) {
             best = sp;
@@ -453,7 +655,15 @@ export class StripEngine {
       const dhz = dx * hf.ez.x + dy * hf.ez.y + dz * hf.ez.z;
       flowAngleDeg = (Math.acos(Math.min(1, Math.abs(dhz))) * 180) / Math.PI;
     }
-    return { thetaRad: theta, depthCm: r, structure: inHeart ? ts.structure : 0, tissue: inHeart ? ts.tissue : 0, flowPresent, flowAngleDeg, lineStructures };
+    return {
+      thetaRad: theta,
+      depthCm: r,
+      structure: inHeart ? ts.structure : 0,
+      tissue: inHeart ? ts.tissue : 0,
+      flowPresent,
+      flowAngleDeg,
+      lineStructures,
+    };
   }
 
   /** Answer an on-demand request (auto-trace of the spectral envelope between two strip columns). */
@@ -467,11 +677,12 @@ export class StripEngine {
       const spc = cols ? secondsShown / cols : 0;
       const x0 = Math.max(0, Math.min(cols - 1, Math.round(Math.min(req.x0, req.x1))));
       const x1 = Math.max(0, Math.min(cols - 1, Math.round(Math.max(req.x0, req.x1))));
-      const baselineBin = ((vMax / (vMax - vMin)) * SPECTRAL_BINS);
+      const baselineBin = (vMax / (vMax - vMin)) * SPECTRAL_BINS;
       const velocitiesMps: number[] = [];
       for (let x = x0; x <= x1; x++) {
         let max = 0;
-        for (let b = 0; b < SPECTRAL_BINS; b++) max = Math.max(max, strip[x * SPECTRAL_BINS + b] ?? 0);
+        for (let b = 0; b < SPECTRAL_BINS; b++)
+          max = Math.max(max, strip[x * SPECTRAL_BINS + b] ?? 0);
         const thr = envelopeThreshold(max, ctx.input.spectral);
         // dominant side: the side of the baseline with more energy
         let above = 0,
@@ -487,7 +698,9 @@ export class StripEngine {
         let edgeBin = baselineBin;
         if (above >= below) {
           let peak = -1;
-          for (let b = Math.floor(baselineBin) - 1, best = thr; b >= 0; b--) if ((strip[x * SPECTRAL_BINS + b] ?? 0) > best) best = strip[x * SPECTRAL_BINS + (peak = b)]!;
+          for (let b = Math.floor(baselineBin) - 1, best = thr; b >= 0; b--)
+            if ((strip[x * SPECTRAL_BINS + b] ?? 0) > best)
+              best = strip[x * SPECTRAL_BINS + (peak = b)]!;
           let gap = 0;
           for (let b = peak; peak >= 0 && b >= 0; b--) {
             if ((strip[x * SPECTRAL_BINS + b] ?? 0) > thr) {
@@ -497,7 +710,9 @@ export class StripEngine {
           }
         } else {
           let peak = -1;
-          for (let b = Math.ceil(baselineBin), best = thr; b < SPECTRAL_BINS; b++) if ((strip[x * SPECTRAL_BINS + b] ?? 0) > best) best = strip[x * SPECTRAL_BINS + (peak = b)]!;
+          for (let b = Math.ceil(baselineBin), best = thr; b < SPECTRAL_BINS; b++)
+            if ((strip[x * SPECTRAL_BINS + b] ?? 0) > best)
+              best = strip[x * SPECTRAL_BINS + (peak = b)]!;
           let gap = 0;
           for (let b = peak; peak >= 0 && b < SPECTRAL_BINS; b++) {
             if ((strip[x * SPECTRAL_BINS + b] ?? 0) > thr) {
@@ -510,10 +725,17 @@ export class StripEngine {
       }
       // valve clicks have no envelope: across a click the trace joins the columns on either side (decision 103), as a
       // sonographer ignores the line; the VTI would otherwise add a spike to the top of the scale at each one
-      const core = velocitiesMps.map((_, i) => isClickColumn(strip.subarray((x0 + i) * SPECTRAL_BINS, (x0 + i + 1) * SPECTRAL_BINS), ctx.input.spectral));
+      const core = velocitiesMps.map((_, i) =>
+        isClickColumn(
+          strip.subarray((x0 + i) * SPECTRAL_BINS, (x0 + i + 1) * SPECTRAL_BINS),
+          ctx.input.spectral,
+        ),
+      );
       // the click's tails, too faint to fill the scale, still lift the envelope: bridge 2.5 click widths on each side
       const reach = Math.ceil((2.5 * CLICK_SIGMA_S) / Math.max(1e-6, spc));
-      const click = core.map((_, i) => core.slice(Math.max(0, i - reach), i + reach + 1).some(Boolean));
+      const click = core.map((_, i) =>
+        core.slice(Math.max(0, i - reach), i + reach + 1).some(Boolean),
+      );
       for (let i = 0; i < velocitiesMps.length; i++) {
         if (!click[i]) continue;
         let a = i - 1,
@@ -530,7 +752,14 @@ export class StripEngine {
     return null;
   }
 
-  drawStrip(rgba: Uint8ClampedArray, W: number, H: number, sectorH: number, spec: PolarFrameSpec, ctx: StripCtx): StripInfo {
+  drawStrip(
+    rgba: Uint8ClampedArray,
+    W: number,
+    H: number,
+    sectorH: number,
+    spec: PolarFrameSpec,
+    ctx: StripCtx,
+  ): StripInfo {
     const inp = ctx.input;
     const y0 = sectorH + 2;
     const h = H - y0 - 4;
@@ -550,7 +779,16 @@ export class StripEngine {
       }
       rgba.set(this.stripRgba, y0 * W * 4);
       this.drawSweepMarker(rgba, W, y0, h, head);
-      return { x: 0, y: y0, width: W, height: h, secondsPerColumn: spc, topValue: 0, bottomValue: spec.depthCm, kind: 'm-mode' };
+      return {
+        x: 0,
+        y: y0,
+        width: W,
+        height: h,
+        secondsPerColumn: spc,
+        topValue: 0,
+        bottomValue: spec.depthCm,
+        kind: 'm-mode',
+      };
     }
     if (kind === 'spectral' && this.stripDisplay) {
       const { vMin, vMax } = spectralRange(inp.spectral);
@@ -575,9 +813,27 @@ export class StripEngine {
         rgba[o + 2] = 90;
       }
       this.drawSweepMarker(rgba, W, y0, h, head);
-      return { x: 0, y: y0, width: W, height: h, secondsPerColumn: spc, topValue: vMax, bottomValue: vMin, kind: 'spectral' };
+      return {
+        x: 0,
+        y: y0,
+        width: W,
+        height: h,
+        secondsPerColumn: spc,
+        topValue: vMax,
+        bottomValue: vMin,
+        kind: 'spectral',
+      };
     }
-    return { x: 0, y: y0, width: W, height: h, secondsPerColumn: spc, topValue: 0, bottomValue: 0, kind: null };
+    return {
+      x: 0,
+      y: y0,
+      width: W,
+      height: h,
+      secondsPerColumn: spc,
+      topValue: 0,
+      bottomValue: 0,
+      kind: null,
+    };
   }
 
   /** Paint one column of the displayed M-mode strip: grey rows from the line samples they cover, then the colour M-mode velocities. */
@@ -619,7 +875,13 @@ export class StripEngine {
     }
   }
 
-  private drawSweepMarker(rgba: Uint8ClampedArray, W: number, y0: number, h: number, head: number): void {
+  private drawSweepMarker(
+    rgba: Uint8ClampedArray,
+    W: number,
+    y0: number,
+    h: number,
+    head: number,
+  ): void {
     const x = Math.min(W - 1, head);
     for (let y = 0; y < h; y++) {
       const o = ((y0 + y) * W + x) * 4;

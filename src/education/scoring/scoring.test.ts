@@ -35,8 +35,12 @@ describe('scoring (spec 28)', () => {
     expect(half.perView.find((v) => v.viewId === 'a4c')?.ok).toBe(false);
   });
   it('a correct number measured on a bad view is penalised as technically invalid', () => {
-    const good = scoreMeasurements(c, truth, [m({ kind: 'linear', value: truth.lvot.diameterCm * 1.03, viewScore: 80 })]);
-    const bad = scoreMeasurements(c, truth, [m({ kind: 'linear', value: truth.lvot.diameterCm * 1.03, viewScore: 20 })]);
+    const good = scoreMeasurements(c, truth, [
+      m({ kind: 'linear', value: truth.lvot.diameterCm * 1.03, viewScore: 80 }),
+    ]);
+    const bad = scoreMeasurements(c, truth, [
+      m({ kind: 'linear', value: truth.lvot.diameterCm * 1.03, viewScore: 20 }),
+    ]);
     const rowGood = good.rows.find((r) => r.measurementId === 'lvot-diameter')!;
     const rowBad = bad.rows.find((r) => r.measurementId === 'lvot-diameter')!;
     expect(rowGood.points).toBe(100);
@@ -44,7 +48,9 @@ describe('scoring (spec 28)', () => {
     expect(rowBad.points).toBeLessThan(50);
   });
   it('errors beyond tolerance lose points progressively and missing measurements score 0', () => {
-    const r = scoreMeasurements(c, truth, [m({ kind: 'vti', value: truth.lvot.vtiCm * 1.4, units: 'cm', modality: 'pw' })]);
+    const r = scoreMeasurements(c, truth, [
+      m({ kind: 'vti', value: truth.lvot.vtiCm * 1.4, units: 'cm', modality: 'pw' }),
+    ]);
     const vti = r.rows.find((x) => x.measurementId === 'lvot-vti')!;
     expect(vti.points).toBeLessThan(100);
     expect(vti.points).toBeGreaterThan(0);

@@ -4,7 +4,14 @@ import { lvCavityRadius, lvRadialOffsetFactor } from './lvShape';
 import { noiseLattice } from '@/core/noise';
 import type { Vec3 } from '@/core/vec3';
 import { add, scale, v3 } from '@/core/vec3';
-import { lvGeometryFromVolume, regionalMeanFraction, segmentAmplitudes, ahaSegment, type LvGeometry, type SegmentAmplitudes } from './lvGeometry';
+import {
+  lvGeometryFromVolume,
+  regionalMeanFraction,
+  segmentAmplitudes,
+  ahaSegment,
+  type LvGeometry,
+  type SegmentAmplitudes,
+} from './lvGeometry';
 import { buildHeartFrame, type HeartFrame } from './heartFrame';
 import { wallThicknessAt } from './lvWall';
 import { classifyHeart } from './classify';
@@ -53,8 +60,19 @@ export interface HeartModel {
   ivcCollapse: number;
 }
 
-export function createHeartModel(anatomy: AnatomyConfig, physiology: PhysiologyConfig, offset: Vec3 = v3(), seed = 1, ivcCollapse = 0): HeartModel {
-  const lv = lvGeometryFromVolume(physiology.edvMl, anatomy.lv.lengthEdCm, anatomy.lv.sphericity, anatomy.lv);
+export function createHeartModel(
+  anatomy: AnatomyConfig,
+  physiology: PhysiologyConfig,
+  offset: Vec3 = v3(),
+  seed = 1,
+  ivcCollapse = 0,
+): HeartModel {
+  const lv = lvGeometryFromVolume(
+    physiology.edvMl,
+    anatomy.lv.lengthEdCm,
+    anatomy.lv.sphericity,
+    anatomy.lv,
+  );
   return {
     anatomy,
     physiology,
@@ -70,7 +88,19 @@ export function createHeartModel(anatomy: AnatomyConfig, physiology: PhysiologyC
 }
 
 // ---- Public API re-exports (the model was split by responsibility; the import surface is unchanged) ----
-export { AV_AXIS, ROOT_EXCURSION, PV_ROOT_EXCURSION, ROOT_ASC_T, ROOT_SINUS_T, ROOT_STJ_T, AV_COAPT_HALF, buildHeartFrame, torsoToHeart, heartToTorso, heartDirToTorso } from './heartFrame';
+export {
+  AV_AXIS,
+  ROOT_EXCURSION,
+  PV_ROOT_EXCURSION,
+  ROOT_ASC_T,
+  ROOT_SINUS_T,
+  ROOT_STJ_T,
+  AV_COAPT_HALF,
+  buildHeartFrame,
+  torsoToHeart,
+  heartToTorso,
+  heartDirToTorso,
+} from './heartFrame';
 export type { HeartFrame } from './heartFrame';
 export { lvGeometryFromVolume, segmentAmplitudes, ahaSegment } from './lvGeometry';
 export type { LvGeometry, SegmentAmplitudes } from './lvGeometry';
@@ -90,7 +120,18 @@ export function estimateStructureVolume(
   seedRng: () => number,
   box?: { min: Vec3; max: Vec3 },
 ): number {
-  const out: TissueSample = { tissue: Tissue.None, sdf: 0, nx: 0, ny: 0, nz: 0, mx: 0, my: 0, mz: 0, extraReflect: 0, structure: Structure.None };
+  const out: TissueSample = {
+    tissue: Tissue.None,
+    sdf: 0,
+    nx: 0,
+    ny: 0,
+    nz: 0,
+    mx: 0,
+    my: 0,
+    mz: 0,
+    extraReflect: 0,
+    structure: Structure.None,
+  };
   const R = m.boundRadius;
   const c = m.boundCenter;
   const min = box?.min ?? v3(c.x - R, c.y - R, c.z - R);
@@ -122,11 +163,30 @@ export function heartGhostPrimitives(m: HeartModel): GhostPrimitive[] {
   const t = (lv.ivsd + lv.lvpwd) / 2;
   const rootEnd = add(A.avCenter, scale(A.avAxis, 4.5));
   return [
-    { kind: 'ellipsoid', center: v3(0, 0, lv.lengthCm * 0.48), radii: v3(lv.rMax + t, lv.rMax * lv.shape.ratio + t, lv.lengthCm * 0.55), color: 0xc0413f, opacity: 0.35 },
-    { kind: 'ellipsoid', center: A.rvCenter, radii: v3(A.rvR.x * 0.75, A.rvR.y * 0.62, A.rvR.z * 0.9), color: 0x8a3a6a, opacity: 0.28 },
+    {
+      kind: 'ellipsoid',
+      center: v3(0, 0, lv.lengthCm * 0.48),
+      radii: v3(lv.rMax + t, lv.rMax * lv.shape.ratio + t, lv.lengthCm * 0.55),
+      color: 0xc0413f,
+      opacity: 0.35,
+    },
+    {
+      kind: 'ellipsoid',
+      center: A.rvCenter,
+      radii: v3(A.rvR.x * 0.75, A.rvR.y * 0.62, A.rvR.z * 0.9),
+      color: 0x8a3a6a,
+      opacity: 0.28,
+    },
     { kind: 'ellipsoid', center: A.laCenter, radii: A.laR, color: 0xb05050, opacity: 0.25 },
     { kind: 'ellipsoid', center: A.raCenter, radii: A.raR, color: 0x7a4a7a, opacity: 0.25 },
-    { kind: 'tube', center: A.avCenter, end: rootEnd, radii: v3(A.sinusR, A.sinusR, A.sinusR), color: 0xd86a6a, opacity: 0.3 },
+    {
+      kind: 'tube',
+      center: A.avCenter,
+      end: rootEnd,
+      radii: v3(A.sinusR, A.sinusR, A.sinusR),
+      color: 0xd86a6a,
+      opacity: 0.3,
+    },
   ];
 }
 
@@ -139,5 +199,9 @@ export function lvCavityRadiusAt(m: HeartModel, hp: HeartPose, az: number, z: nu
 export function lvEpicardialRadiusAt(m: HeartModel, hp: HeartPose, az: number, z: number): number {
   const levelFrac = Math.min(1, Math.max(0, (z - hp.zAnn) / Math.max(hp.lengthNow, 1)));
   const amp = m.segAmp[ahaSegment(az, levelFrac)] ?? 1;
-  return lvCavityRadius(m.lv.shape, hp.prof, az, z) + wallThicknessAt(m, hp.thickK, az, levelFrac, amp) * lvRadialOffsetFactor(m.lv.shape, hp.prof, az, z);
+  return (
+    lvCavityRadius(m.lv.shape, hp.prof, az, z) +
+    wallThicknessAt(m, hp.thickK, az, levelFrac, amp) *
+      lvRadialOffsetFactor(m.lv.shape, hp.prof, az, z)
+  );
 }

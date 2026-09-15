@@ -44,12 +44,30 @@ export interface RootProfile {
  * with zero slope, and the sinuses bulging ±6 % at the cusp centres between the annulus and the junction (decision 75).
  */
 export function rootRadiusAt(p: RootProfile, t: number, phi: number): number {
-  const sinusMax = p.sinusR * (1 + 0.06 * Math.cos(p.count * (phi - AV_PHI0)) * (t > 0 && t < ROOT_STJ_T ? Math.sin((Math.PI * t) / ROOT_STJ_T) : 0));
+  const sinusMax =
+    p.sinusR *
+    (1 +
+      0.06 *
+        Math.cos(p.count * (phi - AV_PHI0)) *
+        (t > 0 && t < ROOT_STJ_T ? Math.sin((Math.PI * t) / ROOT_STJ_T) : 0));
   const stjR = Math.min(p.ascR, p.sinusR * 0.88);
   if (t < 0) return p.avR * 0.95 + (p.lvotR - p.avR * 0.95) * Math.min(1, -t / 1.2);
-  if (t < ROOT_SINUS_T) return p.avR + (sinusMax - p.avR) * Math.sin((Math.PI / 2) * (t / ROOT_SINUS_T));
-  if (t < ROOT_STJ_T) return stjR + (sinusMax - stjR) * 0.5 * (1 + Math.cos((Math.PI * (t - ROOT_SINUS_T)) / (ROOT_STJ_T - ROOT_SINUS_T)));
-  if (t < ROOT_ASC_T) return stjR + (p.ascR - stjR) * 0.5 * (1 - Math.cos((Math.PI * (t - ROOT_STJ_T)) / (ROOT_ASC_T - ROOT_STJ_T)));
+  if (t < ROOT_SINUS_T)
+    return p.avR + (sinusMax - p.avR) * Math.sin((Math.PI / 2) * (t / ROOT_SINUS_T));
+  if (t < ROOT_STJ_T)
+    return (
+      stjR +
+      (sinusMax - stjR) *
+        0.5 *
+        (1 + Math.cos((Math.PI * (t - ROOT_SINUS_T)) / (ROOT_STJ_T - ROOT_SINUS_T)))
+    );
+  if (t < ROOT_ASC_T)
+    return (
+      stjR +
+      (p.ascR - stjR) *
+        0.5 *
+        (1 - Math.cos((Math.PI * (t - ROOT_STJ_T)) / (ROOT_ASC_T - ROOT_STJ_T)))
+    );
   return p.ascR;
 }
 
@@ -65,7 +83,15 @@ export interface AorticValve {
 }
 
 export function buildAorticValve(count: number, open: number, thickness: number): AorticValve {
-  return { count, eH: AV_EFFECTIVE_HEIGHT, cH: AV_COAPTATION_HEIGHT, hComm: AV_COMMISSURE_HEIGHT, sag: AV_BELLY_SAG, open: Math.max(0, Math.min(1, open)), thickness };
+  return {
+    count,
+    eH: AV_EFFECTIVE_HEIGHT,
+    cH: AV_COAPTATION_HEIGHT,
+    hComm: AV_COMMISSURE_HEIGHT,
+    sag: AV_BELLY_SAG,
+    open: Math.max(0, Math.min(1, open)),
+    thickness,
+  };
 }
 
 /** Coaptation band on the line to a commissure at normalized radius rn = r / wall radius: [bottom, top] heights. */
@@ -109,7 +135,13 @@ export const aorticHit = { d: 1e3, frac: 0, w: 1, nr: 0, nt: 1 };
  * the point is inside a cusp when aorticHit.d is below it. Cusps are thickest at the free edge (nodule) and thin out
  * toward the commissures.
  */
-export function aorticCuspDistance(av: AorticValve, root: RootProfile, t: number, rr: number, phi: number): number {
+export function aorticCuspDistance(
+  av: AorticValve,
+  root: RootProfile,
+  t: number,
+  rr: number,
+  phi: number,
+): number {
   aorticHit.d = 1e3;
   if (t < -0.5 || t > av.hComm + 0.3) return 0;
   const per = (2 * Math.PI) / av.count;
@@ -148,7 +180,11 @@ export function aorticCuspDistance(av: AorticValve, root: RootProfile, t: number
 }
 
 /** Free end of a cusp's profile at fraction q of its sector: radius from the axis and height, for tests and tools. */
-export function aorticCuspTip(av: AorticValve, root: RootProfile, q: number): { r: number; t: number } {
+export function aorticCuspTip(
+  av: AorticValve,
+  root: RootProfile,
+  q: number,
+): { r: number; t: number } {
   cuspProfile(av, root, q, AV_PHI0 + q * (Math.PI / av.count));
   return { r: prof[6]!, t: prof[7]! };
 }

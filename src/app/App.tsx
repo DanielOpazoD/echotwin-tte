@@ -43,16 +43,27 @@ export function App() {
         if (out.view?.bestViewId && !out.frozen) {
           const prev = st.viewProgress[out.view.bestViewId] ?? 0;
           st.recordViewScore(out.view.bestViewId, out.view.score);
-          if (out.view.score >= prev + 5 || (prev === 0 && out.view.score > 0)) st.recordEvent({ t: Date.now(), kind: 'view', caseId: st.caseId, viewId: out.view.bestViewId, score: out.view.score });
+          if (out.view.score >= prev + 5 || (prev === 0 && out.view.score > 0))
+            st.recordEvent({
+              t: Date.now(),
+              kind: 'view',
+              caseId: st.caseId,
+              viewId: out.view.bestViewId,
+              score: out.view.score,
+            });
         }
         // curriculum: evaluate the automatic task checks against the learner's current state (≈ 8 Hz)
         if (st.mode !== 'exam') {
-          const impression = st.truth ? scoreImpression(st.impressionSelection, expectedFindings(st.truth)).score : null;
+          const impression = st.truth
+            ? scoreImpression(st.impressionSelection, expectedFindings(st.truth)).score
+            : null;
           const snapshot: LearnerSnapshot = {
             caseId: st.caseId,
             mode: st.mode,
             viewProgress: st.viewProgress,
-            bestView: out.view?.bestViewId ? { id: out.view.bestViewId, score: out.view.score } : null,
+            bestView: out.view?.bestViewId
+              ? { id: out.view.bestViewId, score: out.view.score }
+              : null,
             modality: st.modality,
             colorScaleMps: st.color.scaleMps,
             colorGainDb: st.color.gainDb,
@@ -60,21 +71,28 @@ export function App() {
             gateFlowAngleDeg: out.gate?.flowAngleDeg ?? null,
             measurements: st.measurements,
             impressionScore: st.impressionSelection.length ? impression : null,
-            settings: { depthCm: st.settings.depthCm, gainDb: st.settings.gainDb, frequencyMHz: st.settings.frequencyMHz, harmonics: st.settings.harmonics },
+            settings: {
+              depthCm: st.settings.depthCm,
+              gainDb: st.settings.gainDb,
+              frequencyMHz: st.settings.frequencyMHz,
+              harmonics: st.settings.harmonics,
+            },
           };
           const done = evaluateTasks(snapshot).filter((id) => !st.progress.completedTasks[id]);
           if (done.length) st.completeTasks(done);
         }
       }
       const audio = audioRef.current;
-      if (audio && (modality === 'pw' || modality === 'cw' || modality === 'tdi')) audio.update(out.spectrumColumn, out.spectralRange.vMin, out.spectralRange.vMax);
+      if (audio && (modality === 'pw' || modality === 'cw' || modality === 'tdi'))
+        audio.update(out.spectrumColumn, out.spectralRange.vMin, out.spectralRange.vMax);
     },
     [setHud, modality],
   );
   useSimulation(size, onFrame);
 
   useEffect(() => {
-    const wantAudio = spectral.audioOn && (modality === 'pw' || modality === 'cw' || modality === 'tdi');
+    const wantAudio =
+      spectral.audioOn && (modality === 'pw' || modality === 'cw' || modality === 'tdi');
     if (wantAudio && !audioRef.current) {
       audioRef.current = new DopplerAudio();
       audioRef.current.start();

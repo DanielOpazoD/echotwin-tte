@@ -22,15 +22,30 @@ export interface LvGeometry {
   edProfile: LvProfileTable;
 }
 
-export function lvGeometryFromVolume(edvMl: number, lengthCm: number, sphericity: number, anatomy: AnatomyConfig['lv']): LvGeometry {
+export function lvGeometryFromVolume(
+  edvMl: number,
+  lengthCm: number,
+  sphericity: number,
+  anatomy: AnatomyConfig['lv'],
+): LvGeometry {
   const shape = lvShapeFor(sphericity);
   // cavity volume between the annulus plane and the apex: π·ratio·R²·L·∫g²
   const rMax = Math.sqrt(edvMl / (Math.PI * shape.ratio * lengthCm * shape.I));
   const edProfile = buildLvProfile(shape, rMax, lengthCm, 0, allocLvProfileTable());
   const tBase = (anatomy.ivsdCm + anatomy.lvpwdCm) / 2;
-  const tMean = (zeta: number): number => tBase * axialWallFactor(zeta, anatomy.apexWallThicknessCm / tBase);
+  const tMean = (zeta: number): number =>
+    tBase * axialWallFactor(zeta, anatomy.apexWallThicknessCm / tBase);
   const wallVolumeMl = Math.max(20, lvShellVolume(edProfile, shape.ratio, tMean, 1));
-  return { lengthCm, rMax, shape, wallVolumeMl, ivsd: anatomy.ivsdCm, lvpwd: anatomy.lvpwdCm, apexT: anatomy.apexWallThicknessCm, edProfile };
+  return {
+    lengthCm,
+    rMax,
+    shape,
+    wallVolumeMl,
+    ivsd: anatomy.ivsdCm,
+    lvpwd: anatomy.lvpwdCm,
+    apexT: anatomy.apexWallThicknessCm,
+    edProfile,
+  };
 }
 
 /** Wall-motion amplitude per AHA segment (1 normal). */
@@ -45,7 +60,7 @@ export function segmentAmplitudes(anatomy: AnatomyConfig): SegmentAmplitudes {
 /** AHA 17-segment id from heart-frame azimuth (rad, 0 = lateral, π/2 = anterior) and level fraction 0 (base) → 1 (apex). */
 export function ahaSegment(azimuthRad: number, levelFrac: number): number {
   // model azimuth 0 = A4C lateral wall (anterolateral segment, centred at 30° in the AHA convention)
-  const deg = (((azimuthRad * 180) / Math.PI + 28) % 360 + 360) % 360;
+  const deg = ((((azimuthRad * 180) / Math.PI + 28) % 360) + 360) % 360;
   if (levelFrac > 0.93) return 17;
   if (levelFrac > 0.66) {
     // apical 4: lateral 0, anterior 90, septal 180, inferior 270 (each ±45)

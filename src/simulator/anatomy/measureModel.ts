@@ -1,5 +1,18 @@
 import type { CaseDefinition } from '@/cases/schema';
-import { AV_AXIS, ROOT_EXCURSION, classifyHeart, computeHeartPose, createHeartModel, estimateStructureVolume, heartAnchors, heartLandmarks, heartToTorso, lvCavityRadiusAt, lvEpicardialRadiusAt, type HeartPose } from './heartModel';
+import {
+  AV_AXIS,
+  ROOT_EXCURSION,
+  classifyHeart,
+  computeHeartPose,
+  createHeartModel,
+  estimateStructureVolume,
+  heartAnchors,
+  heartLandmarks,
+  heartToTorso,
+  lvCavityRadiusAt,
+  lvEpicardialRadiusAt,
+  type HeartPose,
+} from './heartModel';
 import { cross, dot, normalize, sub, type Vec3 } from '@/core/vec3';
 import { createThoraxModel, type PatientState } from './thoraxModel';
 import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
@@ -36,15 +49,31 @@ export interface ModelMeasurements {
   rows: MeasureRow[];
 }
 
-const DEFAULT_PATIENT: PatientState = { position: 'left-lateral', respiration: 'expiration', headElevationDeg: 0 };
+const DEFAULT_PATIENT: PatientState = {
+  position: 'left-lateral',
+  respiration: 'expiration',
+  headElevationDeg: 0,
+};
 
-export function measureModel(c: CaseDefinition, patient: PatientState = DEFAULT_PATIENT, mcSamples = 160000): ModelMeasurements {
+export function measureModel(
+  c: CaseDefinition,
+  patient: PatientState = DEFAULT_PATIENT,
+  mcSamples = 160000,
+): ModelMeasurements {
   const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, patient);
   const heart = createHeartModel(c.anatomy, c.physiology, thorax.heartOffset, c.seed);
   heartLandmarks(heart);
-  const tables = buildBeatTables(60 / c.rhythm.heartRateBpm, c.physiology, c.rhythm, c.hemodynamics);
+  const tables = buildBeatTables(
+    60 / c.rhythm.heartRateBpm,
+    c.physiology,
+    c.rhythm,
+    c.hemodynamics,
+  );
   const edPose = computeHeartPose(heart, cycleStateAt(tables, 0.0));
-  const esPose = computeHeartPose(heart, cycleStateAt(tables, tables.timings.ejectionEndS / tables.rrS));
+  const esPose = computeHeartPose(
+    heart,
+    cycleStateAt(tables, tables.timings.ejectionEndS / tables.rrS),
+  );
   let maxLongPhase = 0;
   for (let i = 0, best = -1; i < 64; i++) {
     const st = cycleStateAt(tables, i / 64);
@@ -61,11 +90,25 @@ export function measureModel(c: CaseDefinition, patient: PatientState = DEFAULT_
   const L = heart.lv.lengthCm;
   const A = heartAnchors(heart);
 
-  const vol = (pose: HeartPose, structs: Structure[], min: [number, number, number], max: [number, number, number]) =>
-    estimateStructureVolume(heart, pose, structs, mcSamples, () => rng.next(), { min: { x: min[0], y: min[1], z: min[2] }, max: { x: max[0], y: max[1], z: max[2] } });
+  const vol = (
+    pose: HeartPose,
+    structs: Structure[],
+    min: [number, number, number],
+    max: [number, number, number],
+  ) =>
+    estimateStructureVolume(heart, pose, structs, mcSamples, () => rng.next(), {
+      min: { x: min[0], y: min[1], z: min[2] },
+      max: { x: max[0], y: max[1], z: max[2] },
+    });
 
   /** contiguous run (cm) of a structure set along an axis through p (searches the nearest inside point first) */
-  const runAt = (pose: HeartPose, structs: Structure[], p0: [number, number, number], axis: 0 | 1 | 2, span = 9): number => {
+  const runAt = (
+    pose: HeartPose,
+    structs: Structure[],
+    p0: [number, number, number],
+    axis: 0 | 1 | 2,
+    span = 9,
+  ): number => {
     const step = 0.02;
     let p: [number, number, number] = [p0[0], p0[1], p0[2]];
     const inside = (t: number) => {
@@ -97,10 +140,18 @@ export function measureModel(c: CaseDefinition, patient: PatientState = DEFAULT_
    * structures count (cusps hinge on the inner surface and do not interrupt the diameter); vessel wall, fibrous
    * tissue and anything else end the run.
    */
-  const runAlong = (pose: HeartPose, structs: Structure[], c0: [number, number, number], d: [number, number, number], span = 3): number => {
+  const runAlong = (
+    pose: HeartPose,
+    structs: Structure[],
+    c0: [number, number, number],
+    d: [number, number, number],
+    span = 3,
+  ): number => {
     const step = 0.02;
     const inside = (u: number) =>
-      classifyHeart(heart, pose, c0[0] + d[0] * u, c0[1] + d[1] * u, c0[2] + d[2] * u, s) && structs.includes(s.structure) && (s.tissue === Tissue.Blood || s.tissue === Tissue.Valve);
+      classifyHeart(heart, pose, c0[0] + d[0] * u, c0[1] + d[1] * u, c0[2] + d[2] * u, s) &&
+      structs.includes(s.structure) &&
+      (s.tissue === Tissue.Blood || s.tissue === Tissue.Valve);
     if (!inside(0)) return 0;
     let a = 0,
       b = 0;
@@ -109,9 +160,17 @@ export function measureModel(c: CaseDefinition, patient: PatientState = DEFAULT_
     return b - a;
   };
   /** contiguous run of a structure set along a unit direction through p (nearest inside point first) */
-  const runDir = (pose: HeartPose, structs: Structure[], p0: [number, number, number], d: [number, number, number], span = 4): number => {
+  const runDir = (
+    pose: HeartPose,
+    structs: Structure[],
+    p0: [number, number, number],
+    d: [number, number, number],
+    span = 4,
+  ): number => {
     const step = 0.02;
-    const inside = (t: number) => classifyHeart(heart, pose, p0[0] + d[0] * t, p0[1] + d[1] * t, p0[2] + d[2] * t, s) && structs.includes(s.structure);
+    const inside = (t: number) =>
+      classifyHeart(heart, pose, p0[0] + d[0] * t, p0[1] + d[1] * t, p0[2] + d[2] * t, s) &&
+      structs.includes(s.structure);
     let t0 = NaN;
     if (inside(0)) t0 = 0;
     else
@@ -128,7 +187,9 @@ export function measureModel(c: CaseDefinition, patient: PatientState = DEFAULT_
   };
   const maxZ = (pose: HeartPose, structs: Structure[], p: [number, number, number]): number => {
     let hi = -Infinity;
-    for (let t = -10; t <= 10; t += 0.02) if (classifyHeart(heart, pose, p[0], p[1], p[2] + t, s) && structs.includes(s.structure)) hi = Math.max(hi, p[2] + t);
+    for (let t = -10; t <= 10; t += 0.02)
+      if (classifyHeart(heart, pose, p[0], p[1], p[2] + t, s) && structs.includes(s.structure))
+        hi = Math.max(hi, p[2] + t);
     return hi;
   };
 
@@ -145,7 +206,13 @@ export function measureModel(c: CaseDefinition, patient: PatientState = DEFAULT_
   const laMax = vol(esPose, [Structure.LaCavity], [-3.5, -7, -7], [4.5, 1.5, 1.5]);
   const laMin = vol(edPose, [Structure.LaCavity], [-3.5, -7, -7], [4.5, 1.5, 1.5]);
   const raMax = vol(esPose, [Structure.RaCavity], [-9, -4.5, -6.5], [-1, 3, 1.5]);
-  const myoStructs = [Structure.LvWallSeptal, Structure.LvWallLateral, Structure.LvWallAnterior, Structure.LvWallInferior, Structure.LvApex];
+  const myoStructs = [
+    Structure.LvWallSeptal,
+    Structure.LvWallLateral,
+    Structure.LvWallAnterior,
+    Structure.LvWallInferior,
+    Structure.LvApex,
+  ];
   const myo = vol(edPose, myoStructs, [-5.5, -5.5, -1.5], [5.5, 5.5, L + 1.4]);
 
   const zEDD = 2.0;
@@ -153,17 +220,40 @@ export function measureModel(c: CaseDefinition, patient: PatientState = DEFAULT_
   const cavRun = [...cav, Structure.Chordae];
   const lvIDd = runAt(edPose, cavRun, [0, 0, zEDD], 0);
   const lvIDs = runAt(esPose, cavRun, [0, 0, 3.2], 0);
-  const ivsD = runAt(edPose, [Structure.LvWallSeptal, Structure.LvWallAnterior], [-(lvCavityRadiusAt(heart, edPose, Math.PI, zEDD) + 0.3), 0.2, zEDD], 0, 3);
-  const pwD = runAt(edPose, [Structure.LvWallLateral, Structure.LvWallInferior], [0, -(lvCavityRadiusAt(heart, edPose, -Math.PI / 2, zEDD) + 0.3), zEDD], 1, 3);
+  const ivsD = runAt(
+    edPose,
+    [Structure.LvWallSeptal, Structure.LvWallAnterior],
+    [-(lvCavityRadiusAt(heart, edPose, Math.PI, zEDD) + 0.3), 0.2, zEDD],
+    0,
+    3,
+  );
+  const pwD = runAt(
+    edPose,
+    [Structure.LvWallLateral, Structure.LvWallInferior],
+    [0, -(lvCavityRadiusAt(heart, edPose, -Math.PI / 2, zEDD) + 0.3), zEDD],
+    1,
+    3,
+  );
   // systolic septal thickness at the same material level (the base descends with the annulus)
   const zEDS = esPose.zAnn + (zEDD / L) * esPose.lengthNow;
-  const ivsS = runAt(esPose, [Structure.LvWallSeptal, Structure.LvWallAnterior], [-(lvCavityRadiusAt(heart, esPose, Math.PI, zEDS) + 0.3), 0.2, zEDS], 0, 3);
+  const ivsS = runAt(
+    esPose,
+    [Structure.LvWallSeptal, Structure.LvWallAnterior],
+    [-(lvCavityRadiusAt(heart, esPose, Math.PI, zEDS) + 0.3), 0.2, zEDS],
+    0,
+    3,
+  );
   const apexT = runAt(edPose, [Structure.LvApex, ...myoStructs], [0, 0, L + 0.2], 2, 3);
   const lvLenED = maxZ(edPose, cav, [0, 0, 4]) - edPose.zAnn;
   const lvLenES = maxZ(longPose, cav, [0, 0, 4]) - longPose.zAnn;
   const yA4C = -0.4;
   // basal third, apical of the open tricuspid leaflet tips (which hang to z ≈ 2.2 in early diastole)
-  const rvBasal = runAt(edPose, [Structure.RvCavity], [-(lvEpicardialRadiusAt(heart, edPose, Math.PI, 2.7) + 1.8), yA4C, 2.7], 0);
+  const rvBasal = runAt(
+    edPose,
+    [Structure.RvCavity],
+    [-(lvEpicardialRadiusAt(heart, edPose, Math.PI, 2.7) + 1.8), yA4C, 2.7],
+    0,
+  );
   const rvMid = runAt(edPose, [Structure.RvCavity], [-5.0, yA4C, L * 0.5], 0);
   // RV length in A4C: from the tricuspid annulus plane to the most apical RV cavity point in the A4C plane
   const rvLen = ((): number => {
@@ -179,15 +269,27 @@ export function measureModel(c: CaseDefinition, patient: PatientState = DEFAULT_
     }
     return zMax - (A.tvCenter.z + 0.3);
   })();
-  const lvBasalA4C = lvCavityRadiusAt(heart, edPose, 0, 2.2) + lvCavityRadiusAt(heart, edPose, Math.PI, 2.2);
+  const lvBasalA4C =
+    lvCavityRadiusAt(heart, edPose, 0, 2.2) + lvCavityRadiusAt(heart, edPose, Math.PI, 2.2);
   // RV free wall measured radially at the inflow (azimuth 180°, mid level) where the wall is perpendicular to x
-  const rvWall = runAt(edPose, [Structure.RvWall], [-(lvEpicardialRadiusAt(heart, edPose, Math.PI, L * 0.4) + A.rvT + 0.2), 0, L * 0.4], 0, 2);
+  const rvWall = runAt(
+    edPose,
+    [Structure.RvWall],
+    [-(lvEpicardialRadiusAt(heart, edPose, Math.PI, L * 0.4) + A.rvT + 0.2), 0, L * 0.4],
+    0,
+    2,
+  );
   // RV anteroposterior dimension in the PLAX plane (anteroseptal direction, azimuth 120°), at the LVOT level
   const rPlax = lvEpicardialRadiusAt(heart, edPose, 2.094, 3.0) + 0.9;
   const rvPlax = runDir(edPose, rvStructs, [-0.5 * rPlax, 0.866 * rPlax, 3.0], [-0.5, 0.866, 0], 4);
   const laAP = runAt(esPose, [Structure.LaCavity], [A.laCenter.x, A.laCenter.y, A.laCenter.z], 1);
   const laTr = runAt(esPose, [Structure.LaCavity], [A.laCenter.x, A.laCenter.y, A.laCenter.z], 0);
-  const laLong = runAt(esPose, [Structure.LaCavity], [A.laCenter.x + 0.7, A.laCenter.y, A.laCenter.z], 2); // lateral of the leaflet coaptation
+  const laLong = runAt(
+    esPose,
+    [Structure.LaCavity],
+    [A.laCenter.x + 0.7, A.laCenter.y, A.laCenter.z],
+    2,
+  ); // lateral of the leaflet coaptation
   const raTr = runAt(esPose, [Structure.RaCavity], [A.raCenter.x, A.raCenter.y, A.raCenter.z], 0);
   const raLong = runAt(esPose, [Structure.RaCavity], [A.raCenter.x, A.raCenter.y, A.raCenter.z], 2);
   // interatrial septum: thinnest run along x found on a small grid behind the annulus (its position depends on the atrial sizes)
@@ -207,7 +309,12 @@ export function measureModel(c: CaseDefinition, patient: PatientState = DEFAULT_
     e1 = A.avE1;
   const rootAt = (t: number, pose: HeartPose) => {
     const cz = A.avCenter.z + pose.zAnn * ROOT_EXCURSION;
-    return runAlong(pose, [Structure.AorticRoot, Structure.Lvot, Structure.AorticValve], [A.avCenter.x + ax.x * t, A.avCenter.y + ax.y * t, cz + ax.z * t], [e1.x, e1.y, e1.z]);
+    return runAlong(
+      pose,
+      [Structure.AorticRoot, Structure.Lvot, Structure.AorticValve],
+      [A.avCenter.x + ax.x * t, A.avCenter.y + ax.y * t, cz + ax.z * t],
+      [e1.x, e1.y, e1.z],
+    );
   };
   const lvotD = rootAt(-0.2, esPose);
   const annulusD = rootAt(0.05, esPose);
@@ -228,18 +335,53 @@ export function measureModel(c: CaseDefinition, patient: PatientState = DEFAULT_
   // HOCM, which is a property of the sampling, not of the anatomy.
   let paD = 0;
   for (let t = 1.0; t <= 2.2; t += 0.2)
-    paD = Math.max(paD, runAlong(edPose, [Structure.PulmonaryArtery], [A.rvotB.x + paDir.x * t, A.rvotB.y + paDir.y * t, A.rvotB.z + paDir.z * t], [paPerp[0] / pl, paPerp[1] / pl, 0]));
+    paD = Math.max(
+      paD,
+      runAlong(
+        edPose,
+        [Structure.PulmonaryArtery],
+        [A.rvotB.x + paDir.x * t, A.rvotB.y + paDir.y * t, A.rvotB.z + paDir.z * t],
+        [paPerp[0] / pl, paPerp[1] / pl, 0],
+      ),
+    );
   const mvAnn = 2 * A.mvR;
   const tvAnn = 2 * A.tvR;
 
   const rows: MeasureRow[] = [];
-  const add = (id: string, label: string, value: number, units: string, lo: number, hi: number, referenceId: string, approx = false) =>
-    rows.push({ id, label, value, units, lo, hi, verdict: value < lo - 1e-3 ? 'LOW' : value > hi + 1e-3 ? 'HIGH' : 'ok', approx, referenceId });
+  const add = (
+    id: string,
+    label: string,
+    value: number,
+    units: string,
+    lo: number,
+    hi: number,
+    referenceId: string,
+    approx = false,
+  ) =>
+    rows.push({
+      id,
+      label,
+      value,
+      units,
+      lo,
+      hi,
+      verdict: value < lo - 1e-3 ? 'LOW' : value > hi + 1e-3 ? 'HIGH' : 'ok',
+      approx,
+      referenceId,
+    });
   const CQ = 'ase-eacvi-chamber-2015';
   const RH = 'ase-right-heart-2025';
   add('lv-edv', 'LV EDV', lvED, 'mL', female ? 46 : 62, female ? 106 : 150, CQ);
   add('lv-esv', 'LV ESV', lvES, 'mL', female ? 14 : 21, female ? 42 : 61, CQ);
-  add('lv-ef', 'LVEF (geometric)', ((lvED - lvES) / lvED) * 100, '%', female ? 54 : 52, female ? 74 : 72, CQ);
+  add(
+    'lv-ef',
+    'LVEF (geometric)',
+    ((lvED - lvES) / lvED) * 100,
+    '%',
+    female ? 54 : 52,
+    female ? 74 : 72,
+    CQ,
+  );
   add('lv-edvi', 'LV EDV index', lvED / bsa, 'mL/m²', female ? 29 : 34, female ? 61 : 74, CQ);
   add('lv-idd', 'LVIDd', lvIDd, 'cm', female ? 3.8 : 4.2, female ? 5.2 : 5.8, CQ);
   add('lv-ids', 'LVIDs', lvIDs, 'cm', female ? 2.2 : 2.5, female ? 3.5 : 4.0, CQ);
@@ -249,14 +391,40 @@ export function measureModel(c: CaseDefinition, patient: PatientState = DEFAULT_
   add('lvpwd', 'PW diastolic thickness', pwD, 'cm', 0.6, female ? 0.9 : 1.0, CQ);
   add('ivs-thickening', 'IVS systolic thickening', (ivsS / ivsD - 1) * 100, '%', 30, 75, CQ, true);
   add('apex-thickness', 'Apex wall thickness', apexT, 'cm', 0.5, 0.9, CQ, true);
-  add('lv-mass', 'LV mass (myocardial volume × 1.05)', myo * 1.05, 'g', female ? 67 : 88, female ? 162 : 224, CQ);
+  add(
+    'lv-mass',
+    'LV mass (myocardial volume × 1.05)',
+    myo * 1.05,
+    'g',
+    female ? 67 : 88,
+    female ? 162 : 224,
+    CQ,
+  );
   add('rv-edv', 'RV EDV', rvED, 'mL', female ? 60 : 80, female ? 150 : 190, RH, true);
   add('rv-edvi', 'RV EDV index (3D)', rvED / bsa, 'mL/m²', female ? 32 : 35, female ? 74 : 87, CQ);
-  add('rv-ef', 'RV EF (geometric)', ((rvED - rvES) / Math.max(1, rvED)) * 100, '%', 45, 65, RH, true);
+  add(
+    'rv-ef',
+    'RV EF (geometric)',
+    ((rvED - rvES) / Math.max(1, rvED)) * 100,
+    '%',
+    45,
+    65,
+    RH,
+    true,
+  );
   add('rv-basal', 'RV basal diameter (A4C)', rvBasal, 'cm', 2.5, 4.1, RH);
   add('rv-mid', 'RV mid diameter (A4C)', rvMid, 'cm', 1.9, 3.7, RH, true);
   add('rv-length', 'RV length (A4C)', rvLen, 'cm', 5.6, 8.3, RH, true);
-  add('rv-lv-basal-ratio', 'RV/LV basal ratio (A4C)', rvBasal / lvBasalA4C, '', 0.45, 0.8, RH, true);
+  add(
+    'rv-lv-basal-ratio',
+    'RV/LV basal ratio (A4C)',
+    rvBasal / lvBasalA4C,
+    '',
+    0.45,
+    0.8,
+    RH,
+    true,
+  );
   add('rv-wall', 'RV free wall thickness', rvWall, 'cm', 0.2, 0.5, RH);
   add('rv-plax', 'RV AP dimension (PLAX)', rvPlax, 'cm', 1.7, 3.2, RH, true);
   add('la-ap', 'LA AP diameter (PLAX)', laAP, 'cm', female ? 2.7 : 3.0, female ? 3.8 : 4.0, CQ);
@@ -297,39 +465,109 @@ export function measureModel(c: CaseDefinition, patient: PatientState = DEFAULT_
   // or thickened one, 1.8-2.2 cm cranial, 1.9-2.4 cm anterior and 1.4-1.8 cm to the left. The lower bound of the distance
   // is now what two roots of adult size need; the upper bounds are plausibility bounds widened to what the placement
   // gives, which still catch the valve twice as far away or on the wrong side of the aorta.
-  add('av-pv-distance', 'Aortic–pulmonary valve centres', dist(A.avCenter, A.rvotB), 'cm', 2.6, 3.8, FS, true);
+  add(
+    'av-pv-distance',
+    'Aortic–pulmonary valve centres',
+    dist(A.avCenter, A.rvotB),
+    'cm',
+    2.6,
+    3.8,
+    FS,
+    true,
+  );
   // «Higher» is craniocaudal in the BODY, so this is measured in the torso frame (+y superior). Written
   // first as a difference along the heart's base-apex axis, it accused correct anatomy of being wrong: that
   // axis is tilted with respect to the body, and a measure in the wrong frame is worse than no measure.
   const avTorso = heartToTorso(heart.frame, A.avCenter);
   const pvTorso = heartToTorso(heart.frame, A.rvotB);
-  add('pv-above-av', 'Pulmonary annulus above aortic', pvTorso.y - avTorso.y, 'cm', 1.0, 2.5, FS, true);
-  add('pv-anterior-av', 'Pulmonary annulus anterior to aortic', pvTorso.z - avTorso.z, 'cm', 0.8, 2.6, FS, true);
-  add('pv-left-av', "Pulmonary annulus left of aortic", pvTorso.x - avTorso.x, 'cm', 0.4, 2.0, FS, true);
-  add('av-tv-distance', 'Aortic–tricuspid valve centres', dist(A.avCenter, A.tvCenter), 'cm', 3.0, 4.5, FS, true);
-  add('av-mv-distance', 'Aortic–mitral valve centres', dist(A.avCenter, A.mvCenter), 'cm', 1.5, 2.8, FS, true);
+  add(
+    'pv-above-av',
+    'Pulmonary annulus above aortic',
+    pvTorso.y - avTorso.y,
+    'cm',
+    1.0,
+    2.5,
+    FS,
+    true,
+  );
+  add(
+    'pv-anterior-av',
+    'Pulmonary annulus anterior to aortic',
+    pvTorso.z - avTorso.z,
+    'cm',
+    0.8,
+    2.6,
+    FS,
+    true,
+  );
+  add(
+    'pv-left-av',
+    'Pulmonary annulus left of aortic',
+    pvTorso.x - avTorso.x,
+    'cm',
+    0.4,
+    2.0,
+    FS,
+    true,
+  );
+  add(
+    'av-tv-distance',
+    'Aortic–tricuspid valve centres',
+    dist(A.avCenter, A.tvCenter),
+    'cm',
+    3.0,
+    4.5,
+    FS,
+    true,
+  );
+  add(
+    'av-mv-distance',
+    'Aortic–mitral valve centres',
+    dist(A.avCenter, A.mvCenter),
+    'cm',
+    1.5,
+    2.8,
+    FS,
+    true,
+  );
   // The parasternal short axis of the great vessels shows a ROUND aorta surrounded by the other two valves,
   // which is only possible if the plane through the three valve centres is close to perpendicular to the
   // aortic root axis. Measured at 62° when this check was written: that single number explains why the view
   // could not show the aorta and the pulmonary valve at the same time, whatever the probe did.
   const valvePlane = normalize(cross(sub(A.rvotB, A.tvCenter), sub(A.avCenter, A.tvCenter)));
-  const tilt = (Math.acos(Math.min(1, Math.abs(dot(valvePlane, normalize(AV_AXIS))))) * 180) / Math.PI;
+  const tilt =
+    (Math.acos(Math.min(1, Math.abs(dot(valvePlane, normalize(AV_AXIS))))) * 180) / Math.PI;
   add('valve-plane-tilt', 'Three-valve plane vs aortic axis', tilt, '°', 0, 30, FS, true);
   // The great arteries cross, which lets the great-vessel short axis show a round aorta with the trunk running away from
   // the pulmonary valve along the plane. The range is fetal (78 ± 10°, 59–97° between ascending aorta and main pulmonary
   // artery by spatiotemporal image correlation; the angle falls with gestational age) because no adult measurement was
   // found: a plausibility bound, marked approximate. It measured 46° until decision 86.
-  const crossing = (Math.acos(Math.min(1, Math.abs(dot(normalize(A.paDir), normalize(AV_AXIS))))) * 180) / Math.PI;
-  add('great-artery-crossing', 'Pulmonary trunk vs aortic root axis', crossing, '°', 59, 97, FS, true);
+  const crossing =
+    (Math.acos(Math.min(1, Math.abs(dot(normalize(A.paDir), normalize(AV_AXIS))))) * 180) / Math.PI;
+  add(
+    'great-artery-crossing',
+    'Pulmonary trunk vs aortic root axis',
+    crossing,
+    '°',
+    59,
+    97,
+    FS,
+    true,
+  );
   return { caseId: c.id, bsaM2: bsa, rows };
 }
 
 /** Format a measurement report as a text table (used by the CLI tool). */
 export function formatMeasurements(m: ModelMeasurements): string {
-  const lines = [`Case ${m.caseId} · BSA ${m.bsaM2.toFixed(2)} m²`, `${'Measure'.padEnd(40)} ${'model'.padStart(9)}   ${'range'.padEnd(18)} verdict`];
+  const lines = [
+    `Case ${m.caseId} · BSA ${m.bsaM2.toFixed(2)} m²`,
+    `${'Measure'.padEnd(40)} ${'model'.padStart(9)}   ${'range'.padEnd(18)} verdict`,
+  ];
   for (const r of m.rows) {
     const val = Math.abs(r.value) >= 10 ? r.value.toFixed(0) : r.value.toFixed(2);
-    lines.push(`${r.label.padEnd(40)} ${(val + (r.units ? ' ' + r.units : '')).padStart(9)}   ${`${r.lo}–${r.hi}${r.approx ? ' ≈' : ''}`.padEnd(18)} ${r.verdict}`);
+    lines.push(
+      `${r.label.padEnd(40)} ${(val + (r.units ? ' ' + r.units : '')).padStart(9)}   ${`${r.lo}–${r.hi}${r.approx ? ' ≈' : ''}`.padEnd(18)} ${r.verdict}`,
+    );
   }
   return lines.join('\n');
 }

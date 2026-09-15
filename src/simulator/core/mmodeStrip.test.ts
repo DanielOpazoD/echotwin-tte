@@ -1,5 +1,15 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { binsToTrace, buildRowMap, columnSource, MMODE_PRF_HZ, MmodeLineCache, mmodeLineSamples, mmodePhaseBins, mmodePulsesPerColumn, type MmodeLine } from './mmodeStrip';
+import {
+  binsToTrace,
+  buildRowMap,
+  columnSource,
+  MMODE_PRF_HZ,
+  MmodeLineCache,
+  mmodeLineSamples,
+  mmodePhaseBins,
+  mmodePulsesPerColumn,
+  type MmodeLine,
+} from './mmodeStrip';
 import { SimulatorCore } from './simulatorCore';
 import { baseInput } from './baseInput';
 import { loadCaseById } from '@/cases';
@@ -66,7 +76,8 @@ describe('M-mode acquisition helpers (decision 84)', () => {
     expect(few.length).toBe(5);
     // evenly spread: no two picks closer than a fifth of the missing range less a bin
     const sorted = [...few].sort((a, b) => a - b);
-    for (let i = 1; i < sorted.length; i++) expect(sorted[i]! - sorted[i - 1]!).toBeGreaterThanOrEqual(8);
+    for (let i = 1; i < sorted.length; i++)
+      expect(sorted[i]! - sorted[i - 1]!).toBeGreaterThanOrEqual(8);
     for (const b of all) cache.set(b, line(1));
     expect(binsToTrace(cache, phases, 5)).toEqual([]);
   });
@@ -88,10 +99,14 @@ describe('M-mode acquisition helpers (decision 84)', () => {
         }
         expect(sum).toBeCloseTo(1, 5);
       }
-      if (samples >= rows) for (let i = 0; i < samples; i++) expect(cover[i]).toBeCloseTo(rows / samples, 4);
+      if (samples >= rows)
+        for (let i = 0; i < samples; i++) expect(cover[i]).toBeCloseTo(rows / samples, 4);
       else {
         // upsampled: consecutive rows interpolate at distinct positions
-        const pos = Array.from({ length: rows }, (_, y) => map.first[y]! + map.weights[y * map.taps + 1]!);
+        const pos = Array.from(
+          { length: rows },
+          (_, y) => map.first[y]! + map.weights[y * map.taps + 1]!,
+        );
         for (let y = 1; y < rows; y++) expect(pos[y]!).toBeGreaterThan(pos[y - 1]!);
       }
     }
@@ -118,9 +133,12 @@ describe('M-mode strip through the simulator (decision 84)', () => {
     const px = beam.origin.x + (beam.forward.x * ct + beam.lateral.x * sn) * r,
       py = beam.origin.y + (beam.forward.y * ct + beam.lateral.y * sn) * r,
       pz = beam.origin.z + (beam.forward.z * ct + beam.lateral.z * sn) * r;
-    const hx = (px - hf.origin.x) * hf.ex.x + (py - hf.origin.y) * hf.ex.y + (pz - hf.origin.z) * hf.ex.z;
-    const hy = (px - hf.origin.x) * hf.ey.x + (py - hf.origin.y) * hf.ey.y + (pz - hf.origin.z) * hf.ey.z;
-    const hz = (px - hf.origin.x) * hf.ez.x + (py - hf.origin.y) * hf.ez.y + (pz - hf.origin.z) * hf.ez.z;
+    const hx =
+      (px - hf.origin.x) * hf.ex.x + (py - hf.origin.y) * hf.ex.y + (pz - hf.origin.z) * hf.ex.z;
+    const hy =
+      (px - hf.origin.x) * hf.ey.x + (py - hf.origin.y) * hf.ey.y + (pz - hf.origin.z) * hf.ey.z;
+    const hz =
+      (px - hf.origin.x) * hf.ez.x + (py - hf.origin.y) * hf.ez.y + (pz - hf.origin.z) * hf.ez.z;
     return classifyHeart(heart, hp, hx, hy, hz, smp) ? smp.structure : Structure.None;
   };
   /** Extent (cm) of each structure along the cursor at 0.1 mm, and the start of the posterior pericardium refined to 1 µm. */
@@ -149,8 +167,15 @@ describe('M-mode strip through the simulator (decision 84)', () => {
   // cycle, crosses septum, cavity, inferolateral wall and pericardium without leaflets, left atrium or coronary sinus (the
   // classic line just past the leaflet tips).
   const theta = (() => {
-    const poses = [0, 0.2, 0.35, 0.5, 0.65, 0.8].map((ph) => computeHeartPose(heart, cycleStateAt(tables, ph)));
-    const excluded = [Structure.MitralAnterior, Structure.MitralPosterior, Structure.LaCavity, Structure.CoronarySinus];
+    const poses = [0, 0.2, 0.35, 0.5, 0.65, 0.8].map((ph) =>
+      computeHeartPose(heart, cycleStateAt(tables, ph)),
+    );
+    const excluded = [
+      Structure.MitralAnterior,
+      Structure.MitralPosterior,
+      Structure.LaCavity,
+      Structure.CoronarySinus,
+    ];
     let mitral = 0,
       mitralLen = 0;
     const clean: number[] = [];
@@ -162,7 +187,13 @@ describe('M-mode strip through the simulator (decision 84)', () => {
         const { ext, peri } = lineAnatomy(hp, th);
         const len = (id: number) => (ext.has(id) ? ext.get(id)![1] - ext.get(id)![0] : 0);
         aml += len(Structure.MitralAnterior);
-        if (excluded.some((id) => ext.has(id)) || peri < 0 || len(Structure.LvWallSeptal) < 0.5 || len(Structure.LvWallInferior) < 0.5) ok = false;
+        if (
+          excluded.some((id) => ext.has(id)) ||
+          peri < 0 ||
+          len(Structure.LvWallSeptal) < 0.5 ||
+          len(Structure.LvWallInferior) < 0.5
+        )
+          ok = false;
       }
       if (aml > mitralLen) {
         mitralLen = aml;
@@ -183,11 +214,22 @@ describe('M-mode strip through the simulator (decision 84)', () => {
   let converged = -1;
 
   beforeAll(() => {
-    core = new SimulatorCore(c, baseInput({ probe, modality: 'm-mode', quality: 'low', display: { width: W, height: 480 }, cursorThetaRad: theta, spectral: { ...baseInput().spectral, sweepSpeedMmPerS: SWEEP } }));
+    core = new SimulatorCore(
+      c,
+      baseInput({
+        probe,
+        modality: 'm-mode',
+        quality: 'low',
+        display: { width: W, height: 480 },
+        cursorThetaRad: theta,
+        spectral: { ...baseInput().spectral, sweepSpeedMmPerS: SWEEP },
+      }),
+    );
     for (; steps < 4000; steps++) {
       core.step(DT);
       const s = core.mmodeStrip!;
-      if (converged < 0 && s.head >= 2 * cols && Array.from(s.span).every((x) => x === 1)) converged = steps;
+      if (converged < 0 && s.head >= 2 * cols && Array.from(s.span).every((x) => x === 1))
+        converged = steps;
       // one more sweep after every column of a sweep came from neighbouring bins
       if (converged >= 0 && steps > converged + Math.ceil(secondsShown / DT) + 2) break;
     }
@@ -295,7 +337,10 @@ describe('M-mode strip through the simulator (decision 84)', () => {
     for (let i = 1; i < cols; i += 2) {
       const col = order[i]!,
         prev = order[i - 1]!;
-      const { ext } = lineAnatomy(computeHeartPose(heart, cycleStateAt(tables, s.phase[col]!)), theta);
+      const { ext } = lineAnatomy(
+        computeHeartPose(heart, cycleStateAt(tables, s.phase[col]!)),
+        theta,
+      );
       const sep = ext.get(Structure.LvWallSeptal),
         inf = ext.get(Structure.LvWallInferior);
       if (sep && sep[1] - sep[0] > 0.4) septum.push(corr(col, prev, sep[0] + 0.08, sep[1] - 0.08));
@@ -319,14 +364,42 @@ describe('M-mode strip through the simulator (decision 84)', () => {
     const spec = polarSpecFor(baseInput().settings, 'medium');
     const S = mmodeLineSamples(spec.depthCm);
     const dr = spec.depthCm / S;
-    const physics = { frequencyMHz: 2.5, harmonics: true, clutterLevel: c.acousticWindow.clutterLevel, windowAttenuation: c.acousticWindow.chestWallAttenuation, seed: c.seed };
+    const physics = {
+      frequencyMHz: 2.5,
+      harmonics: true,
+      clutterLevel: c.acousticWindow.clutterLevel,
+      windowAttenuation: c.acousticWindow.chestWallAttenuation,
+      seed: c.seed,
+    };
     const render = (phase: number, th: number, pulse = 7) => {
-      const o = { amp: new Float32Array(S), st: new Uint8Array(S), tr: new Float32Array(S), ti: new Uint8Array(S) };
-      renderer.renderMmodeLine({ heart, heartPose: computeHeartPose(heart, cycleStateAt(tables, phase)), thorax, physics }, beam, spec, S, th, pulse, o.amp, o.st, o.tr, o.ti);
+      const o = {
+        amp: new Float32Array(S),
+        st: new Uint8Array(S),
+        tr: new Float32Array(S),
+        ti: new Uint8Array(S),
+      };
+      renderer.renderMmodeLine(
+        { heart, heartPose: computeHeartPose(heart, cycleStateAt(tables, phase)), thorax, physics },
+        beam,
+        spec,
+        S,
+        th,
+        pulse,
+        o.amp,
+        o.st,
+        o.tr,
+        o.ti,
+      );
       return o;
     };
     /** Best correlation of log amplitude of A's samples [i0, i1) with B's within ±shift samples; the shift too. */
-    const bestShift = (A: ReturnType<typeof render>, B: ReturnType<typeof render>, i0: number, i1: number, maxShift: number): [number, number] => {
+    const bestShift = (
+      A: ReturnType<typeof render>,
+      B: ReturnType<typeof render>,
+      i0: number,
+      i1: number,
+      maxShift: number,
+    ): [number, number] => {
       let best = -2,
         shift = 0;
       for (let sh = -maxShift; sh <= maxShift; sh++) {
@@ -367,7 +440,8 @@ describe('M-mode strip through the simulator (decision 84)', () => {
       for (let k = 0; k <= 12; k++) {
         const o = render(0.3, k * 0.03);
         let n = 0;
-        for (let i = 0; i < S; i++) if (o.st[i] === Structure.AorticRoot || o.st[i] === Structure.LaWall) n++;
+        for (let i = 0; i < S; i++)
+          if (o.st[i] === Structure.AorticRoot || o.st[i] === Structure.LaWall) n++;
         if (n > most) {
           most = n;
           best = k * 0.03;
@@ -384,7 +458,7 @@ describe('M-mode strip through the simulator (decision 84)', () => {
           next = render(p / 40 + 0.004, th, 8);
         const runs = (o: typeof A): [number, number][] => {
           const out: [number, number][] = [];
-          for (let i = 0; i < S; ) {
+          for (let i = 0; i < S;) {
             let j = i + 1;
             while (j < S && o.st[j] === o.st[i] && o.ti[j] === o.ti[i]) j++;
             out.push([i, j]);
@@ -396,11 +470,29 @@ describe('M-mode strip through the simulator (decision 84)', () => {
         for (const [i, j] of runs(A)) {
           const id = A.st[i]!;
           // blood of the left chambers, 5 mm or more, against the next pulse 4 ms later
-          if ((id === Structure.LvCavity || id === Structure.LaCavity) && A.ti[i] === 1 && j - i >= 25) bloodPersistence.push(bestShift(A, next, i + 5, j - 5, 5)[0]);
+          if (
+            (id === Structure.LvCavity || id === Structure.LaCavity) &&
+            A.ti[i] === 1 &&
+            j - i >= 25
+          )
+            bloodPersistence.push(bestShift(A, next, i + 5, j - 5, 5)[0]);
           // heart tissue runs of at least 2 mm, not blood (its speckle is new in every pulse)
-          if (id === Structure.None || A.ti[i] === 1 || j - i < 10 || id === Structure.ChestWall || id === Structure.Lung) continue;
+          if (
+            id === Structure.None ||
+            A.ti[i] === 1 ||
+            j - i < 10 ||
+            id === Structure.ChestWall ||
+            id === Structure.Lung
+          )
+            continue;
           let match: [number, number] | null = null;
-          for (const [k, m] of runsB) if (B.st[k] === id && B.ti[k] === A.ti[i] && (!match || Math.abs(k + m - i - j) < Math.abs(match[0] + match[1] - i - j))) match = [k, m];
+          for (const [k, m] of runsB)
+            if (
+              B.st[k] === id &&
+              B.ti[k] === A.ti[i] &&
+              (!match || Math.abs(k + m - i - j) < Math.abs(match[0] + match[1] - i - j))
+            )
+              match = [k, m];
           if (!match || Math.abs(match[1] - match[0] - (j - i)) > 3) continue;
           const moved = ((match[0] + match[1] - i - j) / 2) * dr;
           if (Math.abs(moved) < 0.03) continue;
@@ -417,11 +509,20 @@ describe('M-mode strip through the simulator (decision 84)', () => {
       const median = [...e].sort((a, b) => a - b)[e.length >> 1]!;
       if (median <= 0.25) followed.add(id);
     }
-    for (const id of [Structure.LvWallSeptal, Structure.LvWallInferior, Structure.LaWall, Structure.AorticRoot]) expect(followed.has(id), `structure ${id} texture follows it`).toBe(true);
-    for (const id of KNOWN_TEXTURE_LIMITATIONS) expect(followed.has(id), `known limitation ${id} is stale`).toBe(false);
+    for (const id of [
+      Structure.LvWallSeptal,
+      Structure.LvWallInferior,
+      Structure.LaWall,
+      Structure.AorticRoot,
+    ])
+      expect(followed.has(id), `structure ${id} texture follows it`).toBe(true);
+    for (const id of KNOWN_TEXTURE_LIMITATIONS)
+      expect(followed.has(id), `known limitation ${id} is stale`).toBe(false);
     // left-chamber blood: its speckle 4 ms later, at the best shift, correlates 0.15–0.32 (0.92–1.00 if it stood still)
     expect(bloodPersistence.length).toBeGreaterThan(40);
-    expect([...bloodPersistence].sort((a, b) => a - b)[bloodPersistence.length >> 1]!).toBeLessThan(0.5);
+    expect([...bloodPersistence].sort((a, b) => a - b)[bloodPersistence.length >> 1]!).toBeLessThan(
+      0.5,
+    );
   });
 
   it('a line four times finer than the frame keeps, tissue by tissue, the levels of the same line sampled like a frame', () => {
@@ -431,20 +532,49 @@ describe('M-mode strip through the simulator (decision 84)', () => {
     const renderer = new ProceduralSliceRenderer();
     const spec = polarSpecFor(baseInput().settings, 'medium');
     const fine = 4 * spec.samples;
-    const physics = { frequencyMHz: 2.5, harmonics: true, clutterLevel: c.acousticWindow.clutterLevel, windowAttenuation: c.acousticWindow.chestWallAttenuation, seed: c.seed };
-    const bufs = (n: number) => ({ amp: new Float32Array(n), st: new Uint8Array(n), tr: new Float32Array(n), ti: new Uint8Array(n) });
+    const physics = {
+      frequencyMHz: 2.5,
+      harmonics: true,
+      clutterLevel: c.acousticWindow.clutterLevel,
+      windowAttenuation: c.acousticWindow.chestWallAttenuation,
+      seed: c.seed,
+    };
+    const bufs = (n: number) => ({
+      amp: new Float32Array(n),
+      st: new Uint8Array(n),
+      tr: new Float32Array(n),
+      ti: new Uint8Array(n),
+    });
     const a = bufs(spec.samples),
       b = bufs(fine);
     const inside = (x: ReturnType<typeof bufs>, n: number, i: number, half: number): boolean => {
-      for (let d = -half; d <= half; d++) if (i + d < 0 || i + d >= n || x.ti[i + d] !== x.ti[i] || x.st[i + d] !== x.st[i]) return false;
+      for (let d = -half; d <= half; d++)
+        if (i + d < 0 || i + d >= n || x.ti[i + d] !== x.ti[i] || x.st[i + d] !== x.st[i])
+          return false;
       return x.st[i] !== 0;
     };
     const power = new Map<number, [number, number, number, number]>();
     for (let p = 0; p < 4; p++) {
-      const scene = { heart, heartPose: computeHeartPose(heart, cycleStateAt(tables, p / 4)), thorax, physics };
+      const scene = {
+        heart,
+        heartPose: computeHeartPose(heart, cycleStateAt(tables, p / 4)),
+        thorax,
+        physics,
+      };
       for (let k = -11; k <= 11; k++) {
         const th = k * 0.05;
-        renderer.renderMmodeLine(scene, beam, spec, spec.samples, th, p * 31 + k, a.amp, a.st, a.tr, a.ti);
+        renderer.renderMmodeLine(
+          scene,
+          beam,
+          spec,
+          spec.samples,
+          th,
+          p * 31 + k,
+          a.amp,
+          a.st,
+          a.tr,
+          a.ti,
+        );
         renderer.renderMmodeLine(scene, beam, spec, fine, th, p * 31 + k, b.amp, b.st, b.tr, b.ti);
         for (let i = 0; i < spec.samples; i++)
           if (inside(a, spec.samples, i, 2)) {

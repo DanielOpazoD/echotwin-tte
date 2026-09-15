@@ -1,7 +1,11 @@
 import { loadCaseById } from '@/cases';
 import type { CaseDefinition } from '@/cases/schema';
 import { createHeartModel, heartLandmarks, type HeartModel } from '@/simulator/anatomy/heartModel';
-import { createThoraxModel, type PatientState, type ThoraxModel } from '@/simulator/anatomy/thoraxModel';
+import {
+  createThoraxModel,
+  type PatientState,
+  type ThoraxModel,
+} from '@/simulator/anatomy/thoraxModel';
 import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { computeHeartPose } from '@/simulator/anatomy/heartModel';
 
@@ -23,9 +27,19 @@ export function getCaseModels(caseId: string, patient: PatientState): CaseModels
   if (m) return m;
   const caseDef = loadCaseById(caseId);
   const thorax = createThoraxModel(caseDef.bodyHabitus, caseDef.acousticWindow, patient);
-  const heart = createHeartModel(caseDef.anatomy, caseDef.physiology, thorax.heartOffset, caseDef.seed);
+  const heart = createHeartModel(
+    caseDef.anatomy,
+    caseDef.physiology,
+    thorax.heartOffset,
+    caseDef.seed,
+  );
   heartLandmarks(heart);
-  const tables = buildBeatTables(60 / caseDef.rhythm.heartRateBpm, caseDef.physiology, caseDef.rhythm, caseDef.hemodynamics);
+  const tables = buildBeatTables(
+    60 / caseDef.rhythm.heartRateBpm,
+    caseDef.physiology,
+    caseDef.rhythm,
+    caseDef.hemodynamics,
+  );
   computeHeartPose(heart, cycleStateAt(tables, 0)); // initialises anchors
   m = { caseDef, thorax, heart };
   cache.set(key, m);

@@ -1,4 +1,9 @@
-import { classifyHeart, torsoToHeart, type HeartModel, type HeartPose } from '@/simulator/anatomy/heartModel';
+import {
+  classifyHeart,
+  torsoToHeart,
+  type HeartModel,
+  type HeartPose,
+} from '@/simulator/anatomy/heartModel';
 import { isAnteriorLung, type ThoraxModel } from '@/simulator/anatomy/thoraxModel';
 import { makeSample, Structure } from '@/simulator/anatomy/tissue';
 import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
@@ -26,7 +31,13 @@ export interface ViewContentOptions {
 }
 
 /** Fraction of the sampled rectangle occupied by each structure (0–1). Absent structures are simply missing. */
-export function viewStructureFractions(view: ViewTarget, heart: HeartModel, thorax: ThoraxModel, pose: HeartPose, opts: ViewContentOptions = {}): Map<Structure, number> {
+export function viewStructureFractions(
+  view: ViewTarget,
+  heart: HeartModel,
+  thorax: ThoraxModel,
+  pose: HeartPose,
+  opts: ViewContentOptions = {},
+): Map<Structure, number> {
   const depth = opts.depthCm ?? 16;
   const half = opts.halfWidthCm ?? 8;
   const step = opts.stepCm ?? 0.1;
@@ -77,12 +88,25 @@ export function viewStructureFractions(view: ViewTarget, heart: HeartModel, thor
 }
 
 /** Combined fraction of a group of structures, so a test can ask for "LV myocardium" without naming walls. */
-export function fractionOfAny(fractions: Map<Structure, number>, group: readonly Structure[]): number {
+export function fractionOfAny(
+  fractions: Map<Structure, number>,
+  group: readonly Structure[],
+): number {
   let sum = 0;
   for (const st of group) sum += fractions.get(st) ?? 0;
   return sum;
 }
 
-export const LV_MYOCARDIUM = [Structure.LvWallSeptal, Structure.LvWallLateral, Structure.LvWallAnterior, Structure.LvWallInferior, Structure.LvApex] as const;
+export const LV_MYOCARDIUM = [
+  Structure.LvWallSeptal,
+  Structure.LvWallLateral,
+  Structure.LvWallAnterior,
+  Structure.LvWallInferior,
+  Structure.LvApex,
+] as const;
 export const MITRAL_LEAFLETS = [Structure.MitralAnterior, Structure.MitralPosterior] as const;
-export const RIGHT_OUTFLOW = [Structure.Rvot, Structure.PulmonaryValve, Structure.PulmonaryArtery] as const;
+export const RIGHT_OUTFLOW = [
+  Structure.Rvot,
+  Structure.PulmonaryValve,
+  Structure.PulmonaryArtery,
+] as const;

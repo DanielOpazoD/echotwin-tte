@@ -4,10 +4,24 @@ import { createThoraxModel } from '@/simulator/anatomy/thoraxModel';
 import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { ProceduralSliceRenderer } from '@/simulator/renderer/procedural/sliceRenderer';
 import { createWebgl2Renderer } from '@/simulator/renderer/gpu/webgl2Renderer';
-import { allocPolarFrame, DEFAULT_ACQUISITION, polarSpecFor, type AcquisitionSettings, type Scene } from '@/simulator/renderer/types';
+import {
+  allocPolarFrame,
+  DEFAULT_ACQUISITION,
+  polarSpecFor,
+  type AcquisitionSettings,
+  type Scene,
+} from '@/simulator/renderer/types';
 import { applyConsole, createConsoleState } from '@/simulator/renderer/postprocess/consolePipeline';
-import { buildScanLut, computeSectorMapping, scanConvertLut } from '@/simulator/renderer/scanConvert';
-import { DEFAULT_COLOR, overlayColorField, type ColorSettings } from '@/simulator/doppler/color/colorDoppler';
+import {
+  buildScanLut,
+  computeSectorMapping,
+  scanConvertLut,
+} from '@/simulator/renderer/scanConvert';
+import {
+  DEFAULT_COLOR,
+  overlayColorField,
+  type ColorSettings,
+} from '@/simulator/doppler/color/colorDoppler';
 import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
 import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
 
@@ -26,18 +40,42 @@ export interface BackendComparison {
   /** Most frequent structure disagreements as "cpu>gpu": count (diagnostic). */
   mismatches?: Record<string, number>;
   /** A few mismatched samples with their heart-frame coordinates (diagnostic). */
-  examples?: { line: number; sample: number; cpu: number; gpu: number; hx: number; hy: number; hz: number }[];
+  examples?: {
+    line: number;
+    sample: number;
+    cpu: number;
+    gpu: number;
+    hx: number;
+    hy: number;
+    hz: number;
+  }[];
 }
 
 type Tier = 'low' | 'medium' | 'high';
 
 /** Canonical view of a case at a phase, with the scene the renderers take. */
-function canonicalSetup(viewId: string, phase: number, caseId: string, tier: Tier, settings: AcquisitionSettings, probeOffsetV = 0) {
+function canonicalSetup(
+  viewId: string,
+  phase: number,
+  caseId: string,
+  tier: Tier,
+  settings: AcquisitionSettings,
+  probeOffsetV = 0,
+) {
   const c = loadCaseById(caseId);
-  const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, { position: 'left-lateral', respiration: 'expiration', headElevationDeg: 0 });
+  const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, {
+    position: 'left-lateral',
+    respiration: 'expiration',
+    headElevationDeg: 0,
+  });
   const heart = createHeartModel(c.anatomy, c.physiology, thorax.heartOffset, c.seed);
   heartLandmarks(heart);
-  const tables = buildBeatTables(60 / c.rhythm.heartRateBpm, c.physiology, c.rhythm, c.hemodynamics);
+  const tables = buildBeatTables(
+    60 / c.rhythm.heartRateBpm,
+    c.physiology,
+    c.rhythm,
+    c.hemodynamics,
+  );
   const canonical = canonicalControl(getViewTarget(viewId), heart, thorax);
   // an offset along the ribs' spacing puts a rib under the probe, which the presets avoid
   const ctrl = { ...canonical, v: canonical.v + probeOffsetV };
@@ -47,7 +85,13 @@ function canonicalSetup(viewId: string, phase: number, caseId: string, tier: Tie
     heart,
     heartPose: computeHeartPose(heart, cycleStateAt(tables, ph)),
     thorax,
-    physics: { frequencyMHz: settings.frequencyMHz, harmonics: settings.harmonics, clutterLevel: c.acousticWindow.clutterLevel, windowAttenuation: c.acousticWindow.chestWallAttenuation, seed: c.seed },
+    physics: {
+      frequencyMHz: settings.frequencyMHz,
+      harmonics: settings.harmonics,
+      clutterLevel: c.acousticWindow.clutterLevel,
+      windowAttenuation: c.acousticWindow.chestWallAttenuation,
+      seed: c.seed,
+    },
   });
   return { c, heart, beam, spec, scene: sceneAt(phase), sceneAt };
 }
@@ -57,9 +101,31 @@ function canonicalSetup(viewId: string, phase: number, caseId: string, tier: Tie
  * reference renderer and the WebGL2 port on the main thread and reports agreement metrics. Used by
  * e2e/gpu-equivalence.spec.ts.
  */
-export function compareBackends(viewId: string, phase: number, caseId = 'normal-excellent-window', tier: Tier = 'medium', probeOffsetV = 0): BackendComparison {
-  const { heart, beam, spec, scene } = canonicalSetup(viewId, phase, caseId, tier, DEFAULT_ACQUISITION, probeOffsetV);
-  const empty: BackendComparison = { lines: spec.lines, samples: spec.samples, structureAgreement: 0, tissueAgreement: 0, ampRelDiff: 1, transDiff: 1, cpuMs: 0, gpuMs: 0 };
+export function compareBackends(
+  viewId: string,
+  phase: number,
+  caseId = 'normal-excellent-window',
+  tier: Tier = 'medium',
+  probeOffsetV = 0,
+): BackendComparison {
+  const { heart, beam, spec, scene } = canonicalSetup(
+    viewId,
+    phase,
+    caseId,
+    tier,
+    DEFAULT_ACQUISITION,
+    probeOffsetV,
+  );
+  const empty: BackendComparison = {
+    lines: spec.lines,
+    samples: spec.samples,
+    structureAgreement: 0,
+    tissueAgreement: 0,
+    ampRelDiff: 1,
+    transDiff: 1,
+    cpuMs: 0,
+    gpuMs: 0,
+  };
   const cpu = new ProceduralSliceRenderer();
   const fa = allocPolarFrame(spec);
   const t0 = performance.now();
@@ -87,16 +153,28 @@ export function compareBackends(viewId: string, phase: number, caseId = 'normal-
       const k = `${fa.structure[i]}>${fb.structure[i]}`;
       mm.set(k, (mm.get(k) ?? 0) + 1);
       if (examples.length < 40 && i % 3 === 0) {
-        const li = Math.floor(i / spec.samples), si = i % spec.samples;
+        const li = Math.floor(i / spec.samples),
+          si = i % spec.samples;
         const theta = -spec.sectorRad / 2 + (spec.sectorRad * (li + 0.5)) / spec.lines;
         const r = (si + 0.5) * (spec.depthCm / spec.samples);
-        const ct = Math.cos(theta), sn = Math.sin(theta);
+        const ct = Math.cos(theta),
+          sn = Math.sin(theta);
         const px = beam.origin.x + (beam.forward.x * ct + beam.lateral.x * sn) * r;
         const py = beam.origin.y + (beam.forward.y * ct + beam.lateral.y * sn) * r;
         const pz = beam.origin.z + (beam.forward.z * ct + beam.lateral.z * sn) * r;
         const hf = heart.frame;
-        const dx = px - hf.origin.x, dy = py - hf.origin.y, dz = pz - hf.origin.z;
-        examples.push({ line: li, sample: si, cpu: fa.structure[i]!, gpu: fb.structure[i]!, hx: +(dx * hf.ex.x + dy * hf.ex.y + dz * hf.ex.z).toFixed(2), hy: +(dx * hf.ey.x + dy * hf.ey.y + dz * hf.ey.z).toFixed(2), hz: +(dx * hf.ez.x + dy * hf.ez.y + dz * hf.ez.z).toFixed(2) });
+        const dx = px - hf.origin.x,
+          dy = py - hf.origin.y,
+          dz = pz - hf.origin.z;
+        examples.push({
+          line: li,
+          sample: si,
+          cpu: fa.structure[i]!,
+          gpu: fb.structure[i]!,
+          hx: +(dx * hf.ex.x + dy * hf.ex.y + dz * hf.ex.z).toFixed(2),
+          hy: +(dx * hf.ey.x + dy * hf.ey.y + dz * hf.ey.z).toFixed(2),
+          hz: +(dx * hf.ez.x + dy * hf.ez.y + dz * hf.ez.z).toFixed(2),
+        });
       }
     }
     if (fa.tissue[i] === fb.tissue[i]) tAgree++;
@@ -105,7 +183,18 @@ export function compareBackends(viewId: string, phase: number, caseId = 'normal-
     trDiff += Math.abs(fa.transmission[i]! - fb.transmission[i]!);
   }
   const mismatches = Object.fromEntries([...mm.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8));
-  return { lines: spec.lines, samples: spec.samples, structureAgreement: sAgree / n, tissueAgreement: tAgree / n, ampRelDiff: ampDiff / Math.max(ampSum, 1e-6), transDiff: trDiff / n, cpuMs, gpuMs, mismatches, examples };
+  return {
+    lines: spec.lines,
+    samples: spec.samples,
+    structureAgreement: sAgree / n,
+    tissueAgreement: tAgree / n,
+    ampRelDiff: ampDiff / Math.max(ampSum, 1e-6),
+    transDiff: trDiff / n,
+    cpuMs,
+    gpuMs,
+    mismatches,
+    examples,
+  };
 }
 
 export interface ImageChainComparison {
@@ -140,11 +229,32 @@ export interface ImageChainComparison {
  * switches. The present pass is compared on a mirrored sector with a synthetic colour field that has sign jumps
  * like aliasing, saturated values, variance and holes.
  */
-export function compareImageChain(viewId: string, phase: number, caseId = 'normal-excellent-window', tier: Tier = 'medium', overrides: Partial<AcquisitionSettings> = {}): ImageChainComparison {
+export function compareImageChain(
+  viewId: string,
+  phase: number,
+  caseId = 'normal-excellent-window',
+  tier: Tier = 'medium',
+  overrides: Partial<AcquisitionSettings> = {},
+): ImageChainComparison {
   const settings: AcquisitionSettings = { ...DEFAULT_ACQUISITION, ...overrides };
   const { c, beam, spec, sceneAt } = canonicalSetup(viewId, phase, caseId, tier, settings);
   const n = spec.lines * spec.samples;
-  const result: ImageChainComparison = { lines: spec.lines, samples: spec.samples, framePaths: [], displayMeanAbsDiff: [], displayMaxDiff: [], displayFracOver1: [], idsAgreement: 0, transMaxRelErr: 1, presentMaxDiff: 255, presentFracOver1: 1, presentColorPixels: 0, presentColourFlips: 0, gpuDisplayMs: 0, cpuConsoleMs: 0 };
+  const result: ImageChainComparison = {
+    lines: spec.lines,
+    samples: spec.samples,
+    framePaths: [],
+    displayMeanAbsDiff: [],
+    displayMaxDiff: [],
+    displayFracOver1: [],
+    idsAgreement: 0,
+    transMaxRelErr: 1,
+    presentMaxDiff: 255,
+    presentFracOver1: 1,
+    presentColorPixels: 0,
+    presentColourFlips: 0,
+    gpuDisplayMs: 0,
+    cpuConsoleMs: 0,
+  };
   const g = createWebgl2Renderer(undefined, { allowSoftware: true });
   if (!g.renderer) return { ...result, error: g.reason };
   const gpu = g.renderer;
@@ -164,7 +274,16 @@ export function compareImageChain(viewId: string, phase: number, caseId = 'norma
     result.cpuConsoleMs = performance.now() - tc;
     if (path === 'gpu') {
       const tg = performance.now();
-      gpu.renderDisplay(scene, beam, spec, ph, fGpu, undefined, { settings, state: mixState }, dispMix);
+      gpu.renderDisplay(
+        scene,
+        beam,
+        spec,
+        ph,
+        fGpu,
+        undefined,
+        { settings, state: mixState },
+        dispMix,
+      );
       result.gpuDisplayMs = performance.now() - tg;
       dispGpu.set(dispMix);
     } else {
@@ -208,12 +327,25 @@ export function compareImageChain(viewId: string, phase: number, caseId = 'norma
       vel[i] = ((((li * 7 + si * 3) % 41) - 20) / 20) * 0.8; // ±0.8 m/s against a 0.62 m/s scale
       variance[i] = (si % 11) / 10;
     }
-  const colorSettings: ColorSettings = { ...DEFAULT_COLOR, boxRMinCm: 4, boxRMaxCm: 12.5, boxThetaMinRad: -0.35, boxThetaMaxRad: 0.28, showVariance: true };
+  const colorSettings: ColorSettings = {
+    ...DEFAULT_COLOR,
+    boxRMinCm: 4,
+    boxRMaxCm: 12.5,
+    boxThetaMinRad: -0.35,
+    boxThetaMaxRad: 0.28,
+    showVariance: true,
+  };
   const cpuRgba = new Uint8ClampedArray(W * H * 4);
   scanConvertLut(dispGpu, lut, cpuRgba);
   overlayColorField(cpuRgba, lut, vel, variance, colorSettings);
   const gpuRgba = new Uint8Array(W * H * 4);
-  gpu.present({ lut, width: W, height: H, color: { vel, variance, version: 1, settings: colorSettings }, readback: gpuRgba });
+  gpu.present({
+    lut,
+    width: W,
+    height: H,
+    color: { vel, variance, version: 1, settings: colorSettings },
+    readback: gpuRgba,
+  });
   gpu.dispose();
   let pMax = 0,
     pOver = 0,

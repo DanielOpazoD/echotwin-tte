@@ -3,7 +3,12 @@ import { loadCaseById } from '@/cases';
 import { validateCase } from '@/cases/schema';
 import type { CaseDefinition } from '@/cases/schema';
 import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
-import { computeHeartPose, createHeartModel, heartLandmarks, ROOT_EXCURSION } from '@/simulator/anatomy/heartModel';
+import {
+  computeHeartPose,
+  createHeartModel,
+  heartLandmarks,
+  ROOT_EXCURSION,
+} from '@/simulator/anatomy/heartModel';
 import { createThoraxModel } from '@/simulator/anatomy/thoraxModel';
 import { buildFlowParams, sampleFlow } from './flow-primitives/flowField';
 import { computeGroundTruth } from '@/simulator/hemodynamics/groundTruth';
@@ -16,17 +21,32 @@ function variant(over: (c: CaseDefinition) => CaseDefinition): CaseDefinition {
   return v.case!;
 }
 function setup(c: CaseDefinition) {
-  const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, { position: 'left-lateral', respiration: 'expiration', headElevationDeg: 0 });
+  const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, {
+    position: 'left-lateral',
+    respiration: 'expiration',
+    headElevationDeg: 0,
+  });
   const heart = createHeartModel(c.anatomy, c.physiology, thorax.heartOffset, c.seed);
   heartLandmarks(heart);
-  const tables = buildBeatTables(60 / c.rhythm.heartRateBpm, c.physiology, c.rhythm, c.hemodynamics);
+  const tables = buildBeatTables(
+    60 / c.rhythm.heartRateBpm,
+    c.physiology,
+    c.rhythm,
+    c.hemodynamics,
+  );
   computeHeartPose(heart, cycleStateAt(tables, 0));
   return { heart, tables, flow: buildFlowParams(c, heart, tables) };
 }
 
 describe('regurgitant jets and obstruction', () => {
   it('MR: forward stroke volume = total − regurgitant volume; jet ≈ 5 m/s into the LA in systole with PISA on the LV side', () => {
-    const c = variant((x) => ({ ...x, hemodynamics: { ...x.hemodynamics, regurgitation: { mr: { eroaCm2: 0.3, jetDirectionDeg: 0 } } } }));
+    const c = variant((x) => ({
+      ...x,
+      hemodynamics: {
+        ...x.hemodynamics,
+        regurgitation: { mr: { eroaCm2: 0.3, jetDirectionDeg: 0 } },
+      },
+    }));
     const { heart, tables, flow } = setup(c);
     const gt = computeGroundTruth(c, tables);
     expect(gt.regurgitation.mr).not.toBeNull();
@@ -58,7 +78,10 @@ describe('regurgitant jets and obstruction', () => {
     expect(out.vz).toBeGreaterThan(-0.5);
   });
   it('AR: diastolic jet into the LVOT decaying with the pressure half-time; mitral inflow reduced by the AR volume', () => {
-    const c = variant((x) => ({ ...x, hemodynamics: { ...x.hemodynamics, regurgitation: { ar: { eroaCm2: 0.25, phtMs: 300 } } } }));
+    const c = variant((x) => ({
+      ...x,
+      hemodynamics: { ...x.hemodynamics, regurgitation: { ar: { eroaCm2: 0.25, phtMs: 300 } } },
+    }));
     const { heart, tables, flow } = setup(c);
     const gt = computeGroundTruth(c, tables);
     const ar = gt.regurgitation.ar!;
@@ -67,14 +90,19 @@ describe('regurgitant jets and obstruction', () => {
     expect(ar.regurgitantVolumeMl).toBeGreaterThan(20);
     expect(ar.phtMs).toBe(300);
     let mitralIn = 0;
-    for (let i = 0; i < tables.n; i++) mitralIn += (tables.mitralFlowMlps[i] ?? 0) * (tables.rrS / tables.n);
+    for (let i = 0; i < tables.n; i++)
+      mitralIn += (tables.mitralFlowMlps[i] ?? 0) * (tables.rrS / tables.n);
     expect(mitralIn).toBeCloseTo(gt.lv.strokeVolumeMl - ar.regurgitantVolumeMl, 0);
     const t = tables.timings;
     const early = (t.ejectionEndS + 0.06) / tables.rrS;
     const late = (t.ejectionEndS + 0.45) / tables.rrS;
     const out = { vx: 0, vy: 0, vz: 0, dispersion: 0, present: 0 };
     const ax = flow.avAxis;
-    const pt = (hp: ReturnType<typeof computeHeartPose>) => ({ x: flow.avCenter.x - ax.x * 0.8, y: flow.avCenter.y - ax.y * 0.8, z: flow.avCenter.z + hp.zAnn * ROOT_EXCURSION - ax.z * 0.8 });
+    const pt = (hp: ReturnType<typeof computeHeartPose>) => ({
+      x: flow.avCenter.x - ax.x * 0.8,
+      y: flow.avCenter.y - ax.y * 0.8,
+      z: flow.avCenter.z + hp.zAnn * ROOT_EXCURSION - ax.z * 0.8,
+    });
     const hpE = computeHeartPose(heart, cycleStateAt(tables, early));
     const pE = pt(hpE);
     sampleFlow(flow, tables, hpE, early, pE.x, pE.y, pE.z, out);
@@ -88,7 +116,11 @@ describe('regurgitant jets and obstruction', () => {
     expect(Math.hypot(out.vx, out.vy, out.vz)).toBeLessThan(vEarly * 0.8);
   });
   it('HOCM: dynamic LVOT obstruction peaks late in ejection and reaches the case gradient', () => {
-    const c = variant((x) => ({ ...x, anatomy: { ...x.anatomy, mitral: { ...x.anatomy.mitral, samSeverity: 0.7 } }, hemodynamics: { ...x.hemodynamics, lvotPeakGradientMmHg: 64 } }));
+    const c = variant((x) => ({
+      ...x,
+      anatomy: { ...x.anatomy, mitral: { ...x.anatomy.mitral, samSeverity: 0.7 } },
+      hemodynamics: { ...x.hemodynamics, lvotPeakGradientMmHg: 64 },
+    }));
     const { heart, tables, flow } = setup(c);
     const gt = computeGroundTruth(c, tables);
     expect(gt.lvot.dynamicObstruction).toBe(true);
@@ -106,7 +138,16 @@ describe('regurgitant jets and obstruction', () => {
       const phase = (t.ejectionStartS + u * (t.ejectionEndS - t.ejectionStartS)) / tables.rrS;
       const hp = computeHeartPose(heart, cycleStateAt(tables, phase));
       const cz = flow.avCenter.z + hp.zAnn * ROOT_EXCURSION;
-      sampleFlow(flow, tables, hp, phase, flow.avCenter.x - ax.x * 0.6, flow.avCenter.y - ax.y * 0.6, cz - ax.z * 0.6, out);
+      sampleFlow(
+        flow,
+        tables,
+        hp,
+        phase,
+        flow.avCenter.x - ax.x * 0.6,
+        flow.avCenter.y - ax.y * 0.6,
+        cz - ax.z * 0.6,
+        out,
+      );
       const v = Math.hypot(out.vx, out.vy, out.vz);
       if (v > best) {
         best = v;
@@ -124,7 +165,16 @@ describe('regurgitant jets and obstruction', () => {
       const phase = (t.ejectionStartS + u * (t.ejectionEndS - t.ejectionStartS)) / n.tables.rrS;
       const hp = computeHeartPose(n.heart, cycleStateAt(n.tables, phase));
       const cz = n.flow.avCenter.z + hp.zAnn * ROOT_EXCURSION;
-      sampleFlow(n.flow, n.tables, hp, phase, n.flow.avCenter.x - ax.x * 0.6, n.flow.avCenter.y - ax.y * 0.6, cz - ax.z * 0.6, out);
+      sampleFlow(
+        n.flow,
+        n.tables,
+        hp,
+        phase,
+        n.flow.avCenter.x - ax.x * 0.6,
+        n.flow.avCenter.y - ax.y * 0.6,
+        cz - ax.z * 0.6,
+        out,
+      );
       const v = Math.hypot(out.vx, out.vy, out.vz);
       if (v > bestN) {
         bestN = v;

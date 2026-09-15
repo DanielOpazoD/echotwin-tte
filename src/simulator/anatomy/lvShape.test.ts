@@ -1,5 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { buildLvProfile, allocLvProfileTable, lvCavitySdf, lvProfileG, lvProfileGExact, lvProfileDG, lvProfileDGExact, lvShapeFor, lvShellVolume, lvCavityRadius, solveThickening, LV_PROF_BINS } from './lvShape';
+import {
+  buildLvProfile,
+  allocLvProfileTable,
+  lvCavitySdf,
+  lvProfileG,
+  lvProfileGExact,
+  lvProfileDG,
+  lvProfileDGExact,
+  lvShapeFor,
+  lvShellVolume,
+  lvCavityRadius,
+  solveThickening,
+  LV_PROF_BINS,
+} from './lvShape';
 
 describe('LV bullet profile', () => {
   const sh = lvShapeFor(0.5);
@@ -14,7 +27,8 @@ describe('LV bullet profile', () => {
     for (const zeta of [-0.1, 0, 0.2, 0.4, 0.6, 0.8, 0.95]) {
       expect(Math.abs(lvProfileG(sh, zeta) - lvProfileGExact(sh, zeta))).toBeLessThan(2e-3);
       // the slope has a crease at the annular plane (dome ↔ neck), so the table is compared away from ζ = 0
-      if (zeta !== 0) expect(Math.abs(lvProfileDG(sh, zeta) - lvProfileDGExact(sh, zeta))).toBeLessThan(0.05);
+      if (zeta !== 0)
+        expect(Math.abs(lvProfileDG(sh, zeta) - lvProfileDGExact(sh, zeta))).toBeLessThan(0.05);
     }
     expect(sh.I).toBeGreaterThan(0.6);
     expect(sh.I).toBeLessThan(0.85);

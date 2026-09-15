@@ -52,7 +52,9 @@ export async function getStore(page: Page): Promise<Record<string, unknown>> {
 /** Mean intensity of the ultrasound image canvas (0..255). */
 export async function imageMean(page: Page): Promise<number> {
   return page.evaluate(() => {
-    const c = document.querySelector<HTMLCanvasElement>('canvas[aria-label="Imagen ecográfica simulada"]');
+    const c = document.querySelector<HTMLCanvasElement>(
+      'canvas[aria-label="Imagen ecográfica simulada"]',
+    );
     if (!c) return -1;
     const ctx = c.getContext('2d')!;
     const d = ctx.getImageData(0, 0, c.width, c.height).data;

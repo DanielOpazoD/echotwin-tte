@@ -36,8 +36,13 @@ describe('case library', () => {
       expect(c.learningObjectives.length).toBeGreaterThanOrEqual(2);
       expect(c.impressionTruth.length).toBeGreaterThanOrEqual(2);
       expect(c.requiredViews.length).toBeGreaterThanOrEqual(2);
-      for (const rv of c.requiredViews) expect(VIEW_TARGETS.some((t) => t.id === rv.viewId), rv.viewId).toBe(true);
-      for (const rm of c.requiredMeasurements) expect(getMeasurementSpec(rm.measurementId), rm.measurementId).toBeDefined();
+      for (const rv of c.requiredViews)
+        expect(
+          VIEW_TARGETS.some((t) => t.id === rv.viewId),
+          rv.viewId,
+        ).toBe(true);
+      for (const rm of c.requiredMeasurements)
+        expect(getMeasurementSpec(rm.measurementId), rm.measurementId).toBeDefined();
       expect(c.history).toContain('sintétic');
     });
   }
@@ -81,6 +86,15 @@ describe('case library', () => {
     expect(ar.aorticValve.vmaxMps).toBeGreaterThan(2);
     expect(ar.aorticValve.vmaxMps).toBeLessThan(3);
     // every pathological case yields at least one impression line beyond the aortic valve statement
-    for (const id of ['hfref-severe-mr', 'inferior-rwma', 'hocm-sam', 'mvp-primary-mr', 'pulmonary-hypertension-rv', 'pericardial-effusion-tamponade', 'af-diastolic']) expect(pathologyImpressions(gt(id)).length, id).toBeGreaterThan(0);
+    for (const id of [
+      'hfref-severe-mr',
+      'inferior-rwma',
+      'hocm-sam',
+      'mvp-primary-mr',
+      'pulmonary-hypertension-rv',
+      'pericardial-effusion-tamponade',
+      'af-diastolic',
+    ])
+      expect(pathologyImpressions(gt(id)).length, id).toBeGreaterThan(0);
   });
 });

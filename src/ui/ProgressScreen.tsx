@@ -18,13 +18,17 @@ export function ProgressScreen() {
   return (
     <div className="screen progress">
       <h2>Progreso (local)</h2>
-      <p className="small">Los datos viven sólo en este navegador (localStorage); no se envían a ningún servidor. Puedes exportarlos como JSON anónimo para el protocolo de validación o borrarlos.</p>
+      <p className="small">
+        Los datos viven sólo en este navegador (localStorage); no se envían a ningún servidor.
+        Puedes exportarlos como JSON anónimo para el protocolo de validación o borrarlos.
+      </p>
       <div className="row">
         <span className="pill">{sum.completedTasks} tareas</span>
         <span className="pill">{sum.measurementsCount} mediciones</span>
         <span className="pill">{sum.casesOpened.length} casos abiertos</span>
         <span className="pill" data-mean-technique={sum.meanTechniqueScore ?? ''}>
-          técnica media {sum.meanTechniqueScore !== null ? Math.round(sum.meanTechniqueScore * 100) : '—'}/100
+          técnica media{' '}
+          {sum.meanTechniqueScore !== null ? Math.round(sum.meanTechniqueScore * 100) : '—'}/100
         </span>
       </div>
       <h3>Mejor puntuación por vista</h3>
@@ -65,7 +69,13 @@ export function ProgressScreen() {
         <svg width="360" height="80" role="img" aria-label="Tendencia de la puntuación de técnica">
           <rect x="0" y="0" width="360" height="80" fill="#0f151d" />
           {sum.techniqueTrend.map((p, i) => (
-            <circle key={i} cx={10 + (i * 340) / Math.max(1, sum.techniqueTrend.length - 1)} cy={70 - p.score * 60} r="3" fill={p.score >= 0.75 ? '#57d38c' : p.score >= 0.5 ? '#ffc857' : '#ff7b7b'} />
+            <circle
+              key={i}
+              cx={10 + (i * 340) / Math.max(1, sum.techniqueTrend.length - 1)}
+              cy={70 - p.score * 60}
+              r="3"
+              fill={p.score >= 0.75 ? '#57d38c' : p.score >= 0.5 ? '#ffc857' : '#ff7b7b'}
+            />
           ))}
         </svg>
       )}
