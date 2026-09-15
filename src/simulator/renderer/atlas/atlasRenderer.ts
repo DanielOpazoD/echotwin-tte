@@ -6,6 +6,7 @@ import type {
   RenderHints,
   RendererBackend,
   Scene,
+  ScenePhysics,
 } from '../types';
 import { qAngleBetween, qFromBasis } from '@/core/quat';
 import { distance } from '@/core/vec3';
@@ -38,6 +39,8 @@ import { decodeTransmission, encodeTransmission, TRANS_DECODE } from '../transmi
 interface Anchor {
   beam: BeamFrame;
   spec: PolarFrameSpec;
+  physics: ScenePhysics;
+  contact: number;
   amp: (Uint16Array | undefined)[];
   trans: (Uint8Array | undefined)[];
   structure: (Uint8Array | undefined)[];
@@ -113,6 +116,17 @@ export class AtlasRenderer implements RendererBackend {
     );
   }
 
+  private static samePhysics(a: ScenePhysics, b: ScenePhysics): boolean {
+    return (
+      a.frequencyMHz === b.frequencyMHz &&
+      a.harmonics === b.harmonics &&
+      a.clutterLevel === b.clutterLevel &&
+      a.windowAttenuation === b.windowAttenuation &&
+      a.seed === b.seed &&
+      (a.beamWidth ?? 0) === (b.beamWidth ?? 0)
+    );
+  }
+
   /** Mode of the next frame under the cost hysteresis, without changing any state. */
   private nextMode(budget: number): AtlasMode {
     if (this.sourceMs < 0) return this.mode;
@@ -168,7 +182,12 @@ export class AtlasRenderer implements RendererBackend {
     let best: Anchor | null = null;
     let nearest = Infinity;
     for (const a of this.anchors) {
-      if (!AtlasRenderer.sameSpec(a.spec, spec)) continue;
+      if (
+        !AtlasRenderer.sameSpec(a.spec, spec) ||
+        !AtlasRenderer.samePhysics(a.physics, scene.physics) ||
+        a.contact !== beam.contact
+      )
+        continue;
       const d = AtlasRenderer.poseDistance(a.beam, beam);
       if (d < nearest) {
         nearest = d;
@@ -186,7 +205,7 @@ export class AtlasRenderer implements RendererBackend {
       served = 'cache';
     } else if (this.mode === 'cache' && hints?.stationary && hints.sceneAtPhase) {
       // slow source at rest: the frame of this phase slot — served when kept, otherwise rendered once and kept
-      cine ??= this.addAnchor(beam, spec);
+      cine ??= this.addAnchor(beam, spec, scene.physics);
       if (cine.amp[slot]) {
         this.serve(cine, slot, out, n);
         served = 'cache';
@@ -209,7 +228,7 @@ export class AtlasRenderer implements RendererBackend {
         hints?.stationary &&
         Math.abs(slotF - Math.round(slotF)) <= SLOT_TOLERANCE
       ) {
-        cine ??= this.addAnchor(beam, spec);
+        cine ??= this.addAnchor(beam, spec, scene.physics);
         if (!cine.amp[slot]) {
           this.store(cine, slot, out, n);
           cine.filled++;
@@ -252,10 +271,12 @@ export class AtlasRenderer implements RendererBackend {
     };
   }
 
-  private addAnchor(beam: BeamFrame, spec: PolarFrameSpec): Anchor {
+  private addAnchor(beam: BeamFrame, spec: PolarFrameSpec, physics: ScenePhysics): Anchor {
     const a: Anchor = {
       beam,
-      spec,
+      spec: { ...spec },
+      physics: { ...physics },
+      contact: beam.contact,
       amp: new Array<Uint16Array | undefined>(ATLAS_PHASES),
       trans: new Array<Uint8Array | undefined>(ATLAS_PHASES),
       structure: new Array<Uint8Array | undefined>(ATLAS_PHASES),

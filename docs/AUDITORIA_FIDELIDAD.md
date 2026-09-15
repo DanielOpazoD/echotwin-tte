@@ -2,6 +2,80 @@
 
 Primera tarea del plan de alta fidelidad: auditar el simulador antes de cambiarlo. Se apoya en la evaluación del panel (`docs/EVALUACION_PANEL.md`, commit `8919703`) y añade inventario de arquitectura, medidas de rendimiento en CPU y GPU, comparación conceptual con HeartWorks, Vimedix, U/S Mentor y SonoSim, hoja de ruta y propuesta de arquitectura.
 
+## Reauditoría posterior al trabajo estructural — 2026-09-15
+
+Esta sección prevalece como plan de trabajo sobre la hoja de ruta histórica de abajo. Alcance: imagen, anatomía, mecánica y operación; sin ampliar docencia, scores, examen ni patologías. PRF/Nyquist y dúplex están excluidos, también como criterio de cierre. No se otorga una nueva nota de fidelidad ni se declara validación clínica.
+
+### Referencia reproducible
+
+Base limpia: `ba995bd4bc9bc66fc752410386a95fec76395979`, después de #7, #10 y #11. Caso `normal-excellent-window`, semilla 101. La captura recorre `SimulatorCore` y `baseInput`, no un reconocedor de vistas ni una plantilla. Cada pose se calcula con `canonicalControl` y el plano medido es el `probeBeam` de la salida. Posición lateral izquierda en las vistas torácicas y `subcostal-supine` en las subcostales; espiración, elevación 0. Tier alto, backend procedimental CPU de referencia, 640×560, ajustes por defecto (16 cm, 2,5 MHz, THI, foco 9 cm, 70 dB, ganancia 0, TGC plano, persistencia 0,35, mapa clínico, zoom 1).
+
+Se guardó el segundo latido tras pasos de RR nominal/32: 26 cuadros producidos por vista, 312 PNG en las 12 vistas, con timestamps y fases reales (el ritmo sinusal varía ligeramente el RR). El cuadro llamado ED es el más próximo a fase 0, no una fase exacta inferida de una captura. `manifest.json` conserva entradas completas, semilla, fase, haz, calibración espacial y tiempos; `sequences.html` reproduce las secuencias sintéticas. Artefactos y scripts de medición locales: `/tmp/echotwin-fidelity-ba995bd/`, fuera de git. Las capturas del núcleo no incluyen overlays de la UI. Los tiempos de esta captura, con la máquina cargada, no son un presupuesto de rendimiento.
+
+### Qué se confirmó y qué no
+
+- La sustitución de poses vecinas, la PSF aplicada después de la compresión y el ruido receptor puramente aditivo de envolvente del informe inicial ya no describen el código. Hay caché de pose exacta, PSF de señal compleja antes de la envolvente y ruido complejo filtrado. No se repiten aquellos diagnósticos.
+- Hay un defecto distinto en esa caché: su identidad no incluía el estado acústico. En PLAX, ranura 8/32, fuente CPU real y presupuesto de caché 0 declarado para hacer reproducible la ruta lenta, cambiar frecuencia, THI, clutter o anchura del haz no provoca una nueva adquisición. La presentación puede cambiar por la consola, pero sigue procesando ecos antiguos. Corrección del primer incremento, abajo.
+- El foco nuevo llega al render pero `PolarFrame.spec` conserva el anterior si no cambian líneas/muestras/profundidad/sector: 9 cm retenidos después de pedir 4 cm. Eso deja desalineados el render y la respuesta de ruido de la consola. Corrección del primer incremento.
+- Persisten visualmente cavidades granulosas, paredes de brillo muy desigual y tramos de interfaces demasiado regulares. Esto es observación de imagen, no confirmación de que baste con bajar ruido, subir ganancia o engrosar paredes.
+- El navegador usa el mismo clasificador, pero sólo diez mallas por ciclo y fase del HUD; no es una representación continua de toda la mecánica. Su plano sigue los controles actuales, no el haz histórico de cine. La referencia común de anatomía existe; la equivalencia temporal completa no.
+- La cinemática es prescrita por tablas y funciones geométricas, con conservación aproximada del volumen parietal; no es un solver biomecánico. THI, anisotropía, PSF gaussiana y artefactos contienen aproximaciones declaradas. No se cambia esa naturaleza en este incremento.
+
+Medidas nuevas sobre el plano renderizado, caso normal. Los ángulos de esta tabla son normal del plano objetivo frente a normal del haz: **no** son el ángulo del haz central frente al eje ventricular ni un umbral de aceptación clínica. Las distancias se refieren a los landmarks del modelo; no se exige que todas las estructuras de una vista estén en un único plano infinitamente fino.
+
+| Vista | Diferencia de normales | Distancia perpendicular de referencias seleccionadas |
+|---|---:|---|
+| PLAX | 3,59° | Mitral 4,5 mm; AI 9,5 mm; raíz aórtica 4,1 mm |
+| PSAX basal / mitral / papilar / apical | 47,26° / 25,56° / 2,50° / 3,34° | En mitral: inferoseptal 17,3 mm, inferolateral 34,7 mm |
+| A4C | 10,55° | Ápex 4,9 mm; mitral 0,2 mm; tricúspide 5,6 mm |
+| A5C | 2,15° | TSVI 5,6 mm; aórtica 8,6 mm; ápex 8,1 mm |
+| A2C / A3C | 14,58° / 6,71° | Ápex 14,0 / 8,2 mm |
+| Subcostal 4C | 1,79° | AD y AI 12,1 mm; tricúspide 20,5 mm |
+| Subcostal VCI | 0,12° | VCI 2,6 mm; vena hepática 6,6 mm |
+| VD focalizada | 8,95° | VD 7,5 mm; tricúspide 2,8 mm |
+
+### Inventario operativo inicial
+
+`Conectado` significa que el parámetro tiene consumidor en el motor; no certifica por sí solo un comportamiento completo de equipo. Las filas parciales son trabajo pendiente, no botones eliminados.
+
+| Herramienta | Parámetro, unidades y límites de UI | Etapa y efecto previsto | Estado y congelación/cine |
+|---|---|---|---|
+| Ganancia 2D / TGC | `gainDb` −30…30 dB; 8 bandas −15…15 dB | Amplificación global / por profundidad antes de compresión | Conectados en vivo. En congelado el cambio de ganancia y mapa produjo 0 píxeles distintos: se guarda el gris ya procesado, no la señal para reprocesar. Parcial |
+| Profundidad / sector / densidad | 6…30 cm; 30…100°; baja/media/alta | Geometría y muestreo de adquisición | Conectados en vivo. En cine se usa la geometría guardada; los controles actuales pueden discrepar del cuadro histórico. Falta una política explícita de bloqueo/diferimiento |
+| Frecuencia / THI | 1,5…5 MHz; encendido/apagado | PSF, especular y atenuación; resolución frente a penetración | Conectados, pero la caché reutilizaba ecos con ajustes anteriores. Corregido en este incremento. No hay nueva adquisición estando congelado |
+| Foco | 2 cm…profundidad, paso 0,5 cm | PSF lateral/elevacional | Conectado; metadatos retenidos incorrectos corregidos. No se inventa reenfoque retrospectivo de cine |
+| Rango dinámico / mapas | 30…90 dB; clínico/lineal/S/alto contraste | Compresión y presentación | Conectados en vivo; no reprocesan el gris guardado en congelado. Parcial |
+| Persistencia / realce | 0…0,9; 0…1 | Promedio temporal / realce posterior a compresión | Conectados. Persistencia compensada por tiempo transcurrido; no se acumula en freeze. Revisar transitorios al cambiar adquisición |
+| Zoom / inversión lateral | 1…2,5×; booleano | Conversión de barrido, no adquisición | Es **display zoom**, no zoom acústico ni HR-ROI. Opera en vivo/cine; nuevas distancias usan `pxPerCm`, pero geometrías guardadas de calipers siguen en píxeles y no se reproyectan. Parcial |
+| Freeze / cine | Congelado; índice 0…−(n−1), máximo 96 cuadros | Revisión de gris, estructuras, haz y fase guardados | Funcional en 2D básico. Tiempo/ECG siguen al último instante y las tiras no son snapshots del cine; falta coherencia multimodal y metadatos históricos |
+| M-mode / CMM y línea | Ángulo dentro del sector; 25/50/100 mm/s | Muestreo de una línea y escritura de columnas | Adquieren señal; CMM existe, pero no tiene todos los controles de M-mode expuestos. Barrido histórico y ECG no comparten aún timestamps públicos por columna |
+| Cursor PW/TDI / volumen | Ángulo del sector; profundidad 1…profundidad; longitud 1…15 mm | Selección del volumen de flujo | Conectados al campo y a la geometría; CW integra la línea y no tiene gate localizado. Revisar sombras y cambios con cine |
+| Baseline / inversión espectral | −2…2 m/s; booleano | Rango y representación del espectro | Conectados. Reinterpretación de columnas antiguas al cambiar ajustes requiere auditoría temporal; no se modifica PRF/escala física en esta fase |
+| Ganancia espectral / filtro | −20…20 dB; 0…0,4 m/s | Nivel del estimado / rechazo de velocidades bajas | Conectados; historia y modificación en congelado parciales |
+| Velocidad de barrido | 25/50/100 mm/s | Segundos por columna | Es funcional al escribir; al cambiarla no se guarda la calibración original de todas las columnas anteriores. No es válido asumir intervalos históricos uniformes |
+| Color: caja, ganancia, filtro, persistencia, varianza e inversión | Caja en rad/cm; −20…20 dB; 0…0,3 m/s; 0…0,9 | Región de adquisición, potencia y mapa color | Consumidores reales. La revisión usa parámetros de presentación actuales y potencia/velocidad guardadas; falta contrato integral de cine. Escala/PRF excluidas del cambio |
+| Distancias, velocidades, tiempos, VTI manual, Simpson monoplano, TAPSE | cm, m/s o cm/s, ms, cm, mL | Geometría/píxeles de imagen o tira calibrados | No devuelven sin más la verdad del caso. Falta anclaje de calipers a la adquisición, conservación tras zoom, manejo de costura de barrido y precisión ligada al muestreo |
+| VTI automático | Intervalo de columnas | Detección de envolvente del espectro esperado | No es lectura del valor del caso, pero usa el espectro esperado y no el estimado granular mostrado. Parcial |
+| Audio Doppler | activación; volumen 0…1 | Osciladores derivados del espectro | Implementado; no valida la cadena acústica ni el espectro mostrado |
+| Artefactos | intensidades 0…1 | Sombra/reverberación en propagación; ancho de haz en PSF; espejo/lóbulos en consola | No meros rótulos, pero espejo/lóbulos son aproximaciones por umbral. Su plausibilidad/localización siguen abiertas |
+| Área libre, zoom HR de adquisición, Vp y PHT | — | — | Ausentes como herramientas completas. No se añaden por cantidad antes de consolidar las existentes |
+
+Referencia operativa adoptada para distinguir adquisición/presentación/cine: **GE Vivid E80/E90/E95, User Manual GC092307 rev. 06**, secciones 4-25/4-26 y 5-5/5-6. Frecuencia alta mejora resolución y baja mejora penetración; Octave alterna fundamental/armónico; display zoom y HR zoom son distintos. Se consultó el [manual técnico del fabricante alojado por un distribuidor](https://umetex.ru/wa-data/public/shop/manuals/GE_Vivid_E90-95-en.pdf), no un resumen comercial. No se afirma emular todas las funciones de esa familia ni copiar sus valores propietarios.
+
+### Comparación real y validación pendiente
+
+CAMUS local está fuera de git, con cita obligatoria: Leclerc et al., *IEEE TMI* 2019;38(9):2198–2210, DOI 10.1109/TMI.2019.2900516. Se prepararon hojas A4C/A2C con tres estudios Good por vista, elegidos por orden de identificador y calidad, no por parecido. Se comprobaron unidades NIfTI en mm y espaciado; las hojas de conjunto usan 0,5 mm/píxel y barras de 20 mm, con PNG nativos separados. Esos remuestreos sirven para comparar campo/escala, no para estimar microtextura. No se han retocado parámetros contra estas hojas.
+
+La calibración histórica ya utilizó los 500 sujetos, por lo que no existe un holdout local intacto. Una nueva separación no borraría esa exposición: cualquier evaluación independiente requiere datos no utilizados antes o una revisión externa explícitamente identificada. Los archivos disponibles inspeccionados contienen ED/ES anotados, no se atribuye a esas parejas una validación del movimiento. EchoNet de 112×112 no se usa para microtextura. Las imágenes clínicas permanecen en los artefactos locales y no se incorporan a git ni a las PR.
+
+### Orden de incrementos
+
+1. Coherencia de adquisición: caché acústica + foco (bajo coste, prerrequisito de calibración).
+2. Imagen normal y transiciones: localizar por tejido y profundidad la textura de sangre/miocardio y el brillo especular, validar las métricas con fantomas antes de calibrar y revisar secuencias (coste medio/alto).
+3. Vistas y relaciones anatómicas: tolerancias por landmark y fase para A5C, PSAX mitral/basal y subcostal; después continuidad/coaptación durante el ciclo (alto coste, referencias anatómicas antes de cambiar valores).
+4. Cine, ECG, barrido y calipers: historial temporal/espacial común y precisión de medida acorde al muestreo (coste medio).
+5. Artefactos con controles negativos y material para revisión por especialistas, sin declarar validación externa hasta ejecutarla.
+
 ## Evidencia nueva de esta auditoría
 
 **Inventario** (líneas de código fuente sin pruebas):
