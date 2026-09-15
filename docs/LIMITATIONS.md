@@ -119,8 +119,8 @@ La referencia son 505 secuencias apicales de calidad Good de CAMUS (Leclerc et a
 - La tecla C alterna Color/2D; las demás teclas de modalidad fijan el modo. Cambiar de modalidad descongela y reinicia el strip.
 - Las herramientas de medición funcionan también en vivo; el cuadro que se registra es el último recibido, no necesariamente el mostrado si la UI va por detrás.
 - Al cambiar el tamaño del lienzo (`ResizeObserver`, 320–1024 × 240–820 px) o la geometría del sector se reconstruye la LUT y se pierde la persistencia; las mediciones guardadas mantienen sus píxeles originales y ya no coinciden con la imagen.
-- El score «Vista» de la barra superior es el de la mejor vista de la ventana actual, no el de la vista objetivo; en modo guiado el panel de guía muestra ambos.
+- El score «Vista» del HUD sobre la imagen es el de la mejor vista de la ventana actual, no el de la vista objetivo; en modo guiado el panel de guía muestra ambos.
 - «Calidad» sólo cambia líneas y muestras; los cines del atlas se descartan al cambiar posición o respiración del paciente y no se usan con otra especificación de cuadro.
-- El tutorial de 8 pasos aparece en perfiles sin `tutorialDone`; «Tutorial» en la barra inferior lo reinicia recargando la página. «Guardar PNG» descarga imagen + overlays con marca de agua.
+- El tutorial de 8 pasos aparece en perfiles sin `tutorialDone`; «Reiniciar tutorial» en el menú ⋯ de la barra inferior lo reinicia recargando la página. «Guardar imagen PNG», en el mismo menú, descarga imagen + overlays con marca de agua.
 - El backend por defecto es `atlas` (render directo con caché de pose idéntica para fuentes lentas); en el panel Dev se puede elegir `procedural` o `webgl2` para comparar.
 - La verdad de terreno del panel Dev y del informe es la del modelo, no lo que «vería» un observador: por ejemplo el DTS se deriva de VTS/VTD con un factor fijo 0,93.

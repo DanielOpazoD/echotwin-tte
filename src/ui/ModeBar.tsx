@@ -118,6 +118,12 @@ function OverflowMenu() {
             hint="Líneas de barrido y zona focal"
           />
           <CheckItem
+            label="Datos sobre imagen"
+            checked={s.ui.showHud}
+            onToggle={() => s.setUi({ showHud: !s.ui.showHud })}
+            hint="Caso, FC y parámetros en las esquinas"
+          />
+          <CheckItem
             label="ECG"
             checked={s.ui.showEcg}
             onToggle={() => s.setUi({ showEcg: !s.ui.showEcg })}

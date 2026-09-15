@@ -1,48 +1,18 @@
-import { useHudStore, useSimStore } from '@/app/store';
+import { useSimStore } from '@/app/store';
 import { modePolicy } from '@/app/modePolicy';
-import { listCases } from '@/cases';
 
+/**
+ * Slim top bar: brand, run state, product mode, quality and screen navigation. Case, vitals and
+ * acquisition telemetry live in the on-image HUD (ImageHud) so this row never truncates.
+ */
 export function TopBar() {
   const s = useSimStore();
-  const hud = useHudStore((h) => h.hud);
   const policy = modePolicy(s.mode);
-  const title = listCases().find((c) => c.id === s.caseId)?.title ?? s.caseId;
-  const rhythmLabel: Record<string, string> = {
-    sinus: 'Sinusal',
-    'sinus-tachycardia': 'Taquicardia sinusal',
-    'sinus-bradycardia': 'Bradicardia sinusal',
-    'atrial-fibrillation': 'FA',
-  };
   return (
     <div className="topbar" role="banner">
       <span className="brand">EchoTwin TTE</span>
-      <span className="stat" title={title}>
-        <b>{title.length > 44 ? title.slice(0, 44) + '…' : title}</b>
-      </span>
-      <span className="stat">
-        FC <b>{hud ? Math.round(hud.heartRateBpm) : '—'}</b> lpm ·{' '}
-        <b>{s.truth ? (rhythmLabel[s.truth.rhythm] ?? s.truth.rhythm) : '—'}</b>
-      </span>
-      <span className="stat">
-        Prof <b>{s.settings.depthCm} cm</b> ·{' '}
-        <b>
-          {s.settings.frequencyMHz.toFixed(1)} MHz{s.settings.harmonics ? ' THI' : ''}
-        </b>
-      </span>
-      <span className="stat">
-        FR <b>{hud ? Math.round(hud.simulatedFps) : '—'} Hz</b>
-        {hud && hud.colorFps > 0 ? <span> · color {Math.round(hud.colorFps)} Hz</span> : null}
-      </span>
-      {policy.showViewFeedback ? (
-        <span className="stat">
-          Vista{' '}
-          <b>
-            {hud?.view?.bestViewId ? `${hud.view.bestViewId.toUpperCase()} ${hud.view.score}` : '—'}
-          </b>
-        </span>
-      ) : null}
-      <span className="spacer" />
       <span className={s.frozen ? 'frozen' : 'live'}>{s.frozen ? 'FREEZE' : 'LIVE'}</span>
+      <span className="spacer" />
       <select
         aria-label="Modo del producto"
         value={s.mode}
