@@ -1,4 +1,5 @@
 import { useSimStore } from '@/app/store';
+import { modePolicy } from '@/app/modePolicy';
 
 /**
  * Predefined views (user request): each button moves the probe *continuously* from its current pose
@@ -29,7 +30,7 @@ const SECONDARY: { id: string; label: string; title: string }[] = [
 
 /** Module-level component: a stable element type so re-renders never remount the buttons. */
 function PresetButton({ id, label, title }: { id: string; label: string; title: string }) {
-  const disabled = useSimStore((s) => s.mode === 'exam');
+  const disabled = useSimStore((s) => !modePolicy(s.mode).presetsEnabled);
   const active = useSimStore((s) => s.targetViewId === id);
   const start = useSimStore((s) => s.startPresetView);
   return (
@@ -53,7 +54,7 @@ export function PresetViews() {
   const mode = useSimStore((s) => s.mode);
   const anim = useSimStore((s) => s.presetAnim);
   const cancel = useSimStore((s) => s.cancelPreset);
-  const disabled = mode === 'exam';
+  const disabled = !modePolicy(mode).presetsEnabled;
   return (
     <div className="section">
       <h4>Vistas predeterminadas</h4>

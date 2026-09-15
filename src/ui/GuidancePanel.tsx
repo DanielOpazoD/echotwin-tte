@@ -1,4 +1,5 @@
 import { useHudStore, useSimStore } from '@/app/store';
+import { modePolicy } from '@/app/modePolicy';
 import { getViewTarget } from '@/simulator/windows/viewTargets';
 import { explainAnalysis } from '@/education/causes';
 
@@ -10,7 +11,7 @@ export function GuidancePanel() {
   const targetId = useSimStore((s) => s.targetViewId);
   const settings = useSimStore((s) => s.settings);
   const v = hud?.view;
-  if (mode === 'exam') {
+  if (!modePolicy(mode).hintsEnabled) {
     return (
       <div className="guidance">
         <div className="small">
