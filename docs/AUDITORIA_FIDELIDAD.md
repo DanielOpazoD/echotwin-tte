@@ -6,6 +6,12 @@ Primera tarea del plan de alta fidelidad: auditar el simulador antes de cambiarl
 
 Esta sección prevalece como plan de trabajo sobre la hoja de ruta histórica de abajo. Alcance: imagen, anatomía, mecánica y operación; sin ampliar docencia, scores, examen ni patologías. PRF/Nyquist y dúplex están excluidos, también como criterio de cierre. No se otorga una nueva nota de fidelidad ni se declara validación clínica.
 
+### Incremento de imagen: continuidad de reverberación (decisión 119)
+
+La ablación por componentes del caso normal, con la escena obtenida del núcleo y comprobación de la reconstrucción contra la consola, confirma que el ruido receptor domina gran parte de la sangre interior A2C a 6–10 cm (91–93% de potencia esperada en las dos fases estudiadas). Eso no identifica un suelo de ruido clínico correcto; retirar ruido o especular no fue aceptado como calibración.
+
+Sí se reprodujo y corrigió un defecto de imagen independiente de esos ajustes: un cambio de profundidad de 10⁻⁸ cm, sin cambio de tejido, movía hasta 61 niveles de gris en A2C y 35 en PSAX-MV por el redondeo de la atenuación en el pico de cada reverberación. El tren continuo de ecos deja 0 niveles distintos en esas pruebas y conserva PLAX como control negativo. Fantoma de suma completa, prueba por la cadena real y mutación protegen la clase de defecto. Las referencias visuales actualizadas se revisaron por región: sólo cambian pulmón y su soporte de PSF; no hay modificación anatómica ni relajación de tolerancias. La textura global y la entrada pleural discretizada siguen abiertas.
+
 ### Referencia reproducible
 
 Base limpia: `ba995bd4bc9bc66fc752410386a95fec76395979`, después de #7, #10 y #11. Caso `normal-excellent-window`, semilla 101. La captura recorre `SimulatorCore` y `baseInput`, no un reconocedor de vistas ni una plantilla. Cada pose se calcula con `canonicalControl` y el plano medido es el `probeBeam` de la salida. Posición lateral izquierda en las vistas torácicas y `subcostal-supine` en las subcostales; espiración, elevación 0. Tier alto, backend procedimental CPU de referencia, 640×560, ajustes por defecto (16 cm, 2,5 MHz, THI, foco 9 cm, 70 dB, ganancia 0, TGC plano, persistencia 0,35, mapa clínico, zoom 1).

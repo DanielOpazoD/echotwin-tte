@@ -105,6 +105,23 @@ uniform sampler2D uSideCB;  // pass A attachment C (specular, …) on +e
 layout(location = 0) out vec4 outSig;   // complex signal re, transmission, im, 1
 layout(location = 1) out vec4 outIds;   // structure/255, tissue/255, 0, 1
 
+float pleuralReverberation(float rCm, float entryCm, float transmission, float modulation) {
+  if (rCm <= entryCm) return 0.0;
+  float d = rCm - entryCm;
+  float period = max(entryCm, REVERB_PERIOD_MIN_CM);
+  float k = d / period;
+  float first = max(0.0, floor(k) - 1.0);
+  float decay = pow(REVERB_DECAY, first + 1.0);
+  float band = 0.0;
+  for (int j = 0; j < 4; j++) {
+    float offset = (d - (first + float(j)) * period) / REVERB_WIDTH_CM;
+    band += decay * exp(-offset * offset);
+    decay *= REVERB_DECAY;
+  }
+  float diffuse = REVERB_DIFFUSE * pow(REVERB_DECAY, k + 1.0) * modulation;
+  return transmission * (REVERB_GAIN * band + diffuse);
+}
+
 void main() {
   int si = int(gl_FragCoord.x);
   int li = int(gl_FragCoord.y);
@@ -130,14 +147,8 @@ void main() {
   vec4 b = texelFetch(uPassB, ivec2(si, li), 0);
   float r = (float(si) + 0.5) * dr;
   if (dead) {
-    float d = r - lungEntryR;
-    float period = max(lungEntryR, 0.4);
-    float k = d / period;
-    float frac = k - floor(k);
-    float band = exp(-pow((min(frac, 1.0 - frac) * period) / 0.12, 2.0));
-    float decay = pow(0.55, floor(k) + 1.0);
     float n = 0.4 + 0.6 * lat(vec3(float(li) * 0.7, r * 4.0, 3.1), 2);
-    float amp = lungEntryT * (band * decay * 0.9 + 0.02 * decay * n);
+    float amp = pleuralReverberation(r, lungEntryR, lungEntryT, n);
     // reverberation energy is incoherent: a phasor tied to the line and the depth
     float px2 = float(li) * 0.9, pr = r * SCATTER_FREQ;
     float zr2 = (lat(vec3(px2, pr, 17.3), 0) + lat(vec3(px2 + 5.1, pr * SCATTER_FREQ_RATIO + 2.3, 29.9), 1) - 1.0) * PHASOR_NORM;

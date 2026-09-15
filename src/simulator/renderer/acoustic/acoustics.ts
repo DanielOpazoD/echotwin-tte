@@ -29,6 +29,34 @@ export const SPECULAR_HARMONIC = 1.1;
 /** Lower bound of |n·d| in the interface window, so grazing interfaces still occupy one sample. */
 export const SPECULAR_WINDOW_MIN = 0.15;
 
+export const REVERB_PERIOD_MIN_CM = 0.4;
+export const REVERB_WIDTH_CM = 0.12;
+export const REVERB_DECAY = 0.55;
+export const REVERB_GAIN = 0.9;
+export const REVERB_DIFFUSE = 0.02;
+
+export function pleuralReverberation(
+  rCm: number,
+  entryCm: number,
+  transmission: number,
+  modulation: number,
+): number {
+  if (rCm <= entryCm) return 0;
+  const d = rCm - entryCm;
+  const period = Math.max(entryCm, REVERB_PERIOD_MIN_CM);
+  const k = d / period;
+  const first = Math.max(0, Math.floor(k) - 1);
+  let decay = Math.pow(REVERB_DECAY, first + 1);
+  let band = 0;
+  for (let j = 0; j < 4; j++) {
+    const offset = (d - (first + j) * period) / REVERB_WIDTH_CM;
+    band += decay * Math.exp(-offset * offset);
+    decay *= REVERB_DECAY;
+  }
+  const diffuse = REVERB_DIFFUSE * Math.pow(REVERB_DECAY, k + 1) * modulation;
+  return transmission * (REVERB_GAIN * band + diffuse);
+}
+
 export function heteroDb(tissue: number): number {
   return tissue === Tissue.Myocardium
     ? HETERO_DB_MYO
@@ -53,6 +81,11 @@ export function acousticDefinesGlsl(envelopeNorm: number): string {
     `#define SPECULAR_GAIN ${f(SPECULAR_GAIN)}`,
     `#define SPECULAR_HARMONIC ${f(SPECULAR_HARMONIC)}`,
     `#define SPECULAR_WINDOW_MIN ${f(SPECULAR_WINDOW_MIN)}`,
+    `#define REVERB_PERIOD_MIN_CM ${f(REVERB_PERIOD_MIN_CM)}`,
+    `#define REVERB_WIDTH_CM ${f(REVERB_WIDTH_CM)}`,
+    `#define REVERB_DECAY ${f(REVERB_DECAY)}`,
+    `#define REVERB_GAIN ${f(REVERB_GAIN)}`,
+    `#define REVERB_DIFFUSE ${f(REVERB_DIFFUSE)}`,
     `#define ENVELOPE_NORM ${f(envelopeNorm)}`,
   ].join('\n');
 }
