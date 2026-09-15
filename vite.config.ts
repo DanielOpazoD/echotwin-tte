@@ -62,6 +62,36 @@ export default defineConfig({
     // (the LVOT auto-trace failed CI at 2c6cc27 in 5.9 s). A minute keeps them from failing on time alone while a hang
     // still fails; the heaviest tests declare longer limits of their own (external audit F11, decision 88).
     testTimeout: 60_000,
-    coverage: { provider: 'v8', reporter: ['text', 'html'], include: ['src/**'] },
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html', 'json-summary'],
+      include: ['src/**'],
+      exclude: ['src/**/*.test.ts', 'src/**/*.test.tsx', 'src/tests/goldens/**'],
+      // keep the report when a test fails so a red run still shows what it covered
+      reportOnFailure: true,
+      // Floors measured on the full suite (2026-09-14): global 67 % lines / 60 % branches.
+      // The per-area floors sit ~5 points below their measured values; the gpu/, ui/, workers/
+      // and app/ directories stay under the global floor only — WebGL and DOM paths are exercised
+      // by the E2E suite, not by unit tests.
+      thresholds: {
+        lines: 60,
+        statements: 60,
+        branches: 55,
+        functions: 50,
+        'src/cases/**': { lines: 85 },
+        'src/clinical/**': { lines: 70 },
+        'src/core/**': { lines: 75 },
+        'src/education/**': { lines: 80 },
+        'src/simulator/anatomy/**': { lines: 90 },
+        'src/simulator/cardiac-cycle/**': { lines: 90 },
+        'src/simulator/core/**': { lines: 80 },
+        'src/simulator/doppler/**': { lines: 85 },
+        'src/simulator/hemodynamics/**': { lines: 95 },
+        'src/simulator/probe/**': { lines: 90 },
+        'src/simulator/renderer/**': { lines: 45 },
+        'src/simulator/view-recognition/**': { lines: 90 },
+        'src/simulator/windows/**': { lines: 90 },
+      },
+    },
   },
 });
