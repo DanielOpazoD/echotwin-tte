@@ -4,6 +4,25 @@ import type { Vec3 } from '@/core/vec3';
 
 export const TWO_PI = Math.PI * 2;
 
+// Constants shared with the GLSL port (glslHeart.ts interpolates them): change them here only.
+/** Skirt bounding box above / below the annulus plane and beyond the annulus radius (cm). */
+export const SKIRT_ABOVE_CM = 3.5;
+export const SKIRT_BELOW_CM = 2.5;
+export const SKIRT_RADIAL_MARGIN_CM = 1.5;
+/** Parallel-fibre zones end at this lateral fraction of the annulus radius. */
+export const SKIRT_FIBRE_CLIP = 0.98;
+/** Lateral fraction where the parallel zone starts to taper, and the taper width. */
+export const SKIRT_TAPER_START = 0.8;
+export const SKIRT_TAPER_WIDTH = 0.18;
+/** Lateral period of the scallop lobes (fraction of the annulus radius). */
+export const SKIRT_LOBE_PERIOD = 0.8;
+/** Leaflet thickness profile: base and free-edge share of the nominal thickness, floor (cm), and the share kept at the commissures vs the body. */
+export const SKIRT_THICK_BASE = 0.6;
+export const SKIRT_THICK_EDGE = 0.4;
+export const SKIRT_THICK_FLOOR_CM = 0.035;
+export const SKIRT_THICK_COMMISSURE = 0.4;
+export const SKIRT_THICK_BODY = 0.6;
+
 export interface SkirtZone {
   /** Zone centre azimuth (rad; for parallel zones the direction of the attachment arc) and half span (radial zones). */
   phi: number;
@@ -71,7 +90,7 @@ export function skirtDistance(x: number, y: number, z: number, k: SkirtDesc): nu
     dy = y - k.cy;
   const zr0 = z - k.cz;
   const rho = Math.sqrt(dx * dx + dy * dy);
-  if (zr0 > 3.5 || zr0 < -2.5 || rho > k.R + 1.5) {
+  if (zr0 > SKIRT_ABOVE_CM || zr0 < -SKIRT_BELOW_CM || rho > k.R + SKIRT_RADIAL_MARGIN_CM) {
     skirtHit.d = 1e3;
     return 0;
   }
@@ -90,13 +109,13 @@ export function skirtDistance(x: number, y: number, z: number, k: SkirtDesc): nu
       const v = dx * ca + dy * sa;
       const u = -dx * sa + dy * ca;
       const t = Math.abs(u) / k.R;
-      if (t >= 0.98) continue;
+      if (t >= SKIRT_FIBRE_CLIP) continue;
       const vAtt = Math.sqrt(k.R * k.R - u * u);
       rhoS = k.R - (vAtt - v);
-      const tw = (t - 0.8) / 0.18;
+      const tw = (t - SKIRT_TAPER_START) / SKIRT_TAPER_WIDTH;
       w = tw <= 0 ? 1 : 1 - tw * tw * (3 - 2 * tw);
       let sc = Math.sqrt(1 - t * t) * (1 + zn.c * t * t);
-      if (zn.lobes > 0) sc *= 1 + zn.lobes * Math.cos((TWO_PI * t) / 0.8);
+      if (zn.lobes > 0) sc *= 1 + zn.lobes * Math.cos((TWO_PI * t) / SKIRT_LOBE_PERIOD);
       s = 1 + (sc - 1) * k.closed;
     } else {
       let dphi = Math.abs(phi - zn.phi);
@@ -135,7 +154,10 @@ export function skirtDistance(x: number, y: number, z: number, k: SkirtDesc): nu
   skirtHit.zone = bestZone;
   skirtHit.w = bestW;
   // leaflets are thickest at the free edge (rough zone) and thin out toward the commissures
-  return (k.thickness * (0.6 + 0.4 * bestFrac) * 0.5 + 0.035) * (0.4 + 0.6 * bestW);
+  return (
+    (k.thickness * (SKIRT_THICK_BASE + SKIRT_THICK_EDGE * bestFrac) * 0.5 + SKIRT_THICK_FLOOR_CM) *
+    (SKIRT_THICK_COMMISSURE + SKIRT_THICK_BODY * bestW)
+  );
 }
 
 /** Free-edge point of a skirt zone at lateral fraction t (parallel zones) or azimuth offset Δφ (radial zones). */
