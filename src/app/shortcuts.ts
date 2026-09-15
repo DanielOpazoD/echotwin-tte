@@ -109,7 +109,7 @@ export function useShortcuts(): void {
           break;
         case 'h':
         case 'H':
-          s.setUi({ showTorso: !s.ui.showTorso });
+          if (!s.ui.minimal && s.mode !== 'exam') s.setUi({ showTorso: !s.ui.showTorso });
           break;
         case '.':
           if (s.frozen) s.setCineOffset(s.cineOffset + 1);
