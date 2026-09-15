@@ -17,6 +17,7 @@ export const SHORTCUTS: { keys: string; action: string }[] = [
   { keys: '- / +', action: 'Ganancia −/+ 2 dB' },
   { keys: 'H', action: 'Mostrar/ocultar torso 3D' },
   { keys: '. / ,', action: 'Cine: cuadro siguiente/anterior (en freeze)' },
+  { keys: 'Esc', action: 'Cancelar la medición en curso' },
 ];
 
 export function useShortcuts(): void {
@@ -115,6 +116,10 @@ export function useShortcuts(): void {
           break;
         case ',':
           if (s.frozen) s.setCineOffset(s.cineOffset - 1);
+          break;
+        case 'Escape':
+          if (s.activeMeasurementId) s.setActiveMeasurement(null);
+          else if (s.activeTool !== 'none') s.setActiveTool('none');
           break;
         default:
           return;
