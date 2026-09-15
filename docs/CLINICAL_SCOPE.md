@@ -2,57 +2,81 @@
 
 Todo lo que sigue se refiere a **pacientes sintéticos**. Los valores «normales» y los cortes de severidad se toman de `src/clinical/reference-values` y llevan el id de la guía de origen; ver `docs/REFERENCES.md` para su estado de verificación.
 
-## Casos incluidos (`src/cases`)
-| Id | Qué enseña | Parámetros clave (verdad de terreno calculada por el modelo) |
+> Este documento está sincronizado con el código al 2026-09-14. `src/tests/docsConsistency.test.ts` falla si un caso o una vista dejan de aparecer aquí.
+
+## Casos incluidos (`src/cases`, 12 casos)
+
+Todos los casos patológicos derivan del normal cambiando sólo parámetros anatómicos/fisiológicos del mismo motor (no hay geometría ad hoc por caso). Las verdades citadas las calcula `computeGroundTruth` a partir de las tablas de latido.
+
+| Id | Qué enseña | Parámetros clave |
 |---|---|---|
-| `normal-excellent-window` | Adquisición estándar: PLAX, PSAX (3 niveles), A4C; PW en TSVI | 32 a, sinusal 65 lpm, VTD/VTS 120/45 mL → FE 62,5 %, VS 75 mL, VTI TSVI 21,7 cm, VAo Vmax 1,30 m/s, E/A 1,45, E/e′ 6,4, VIT 2,35 m/s (RVSP 25 mmHg), IVAI 28 mL/m² |
-| `normal-difficult-window` | Optimizar una ventana difícil: espacio intercostal, espiración, decúbito, frecuencia baja y armónicos; reconocer sombra costal e interposición pulmonar | Mismo corazón; 61 a, IMC 34; pared torácica 3,4 cm; atenuación 0,6, solapamiento pulmonar 1,2 cm, clutter 0,55, obesidad 0,5, enfisema 0,4 |
-| `aortic-stenosis-severe` | Válvula engrosada/calcificada con apertura restringida; TSVI en PLAX; VTI TSVI con PW; Vmax/VTI con CW; AVA por continuidad | AVA efectiva 0,95 cm², VS 78 mL → **Vmax 4,35 m/s, VTI 82 cm, gradiente pico 76 / medio 38 mmHg, índice VTI 0,27, AVA por continuidad 0,95 cm²**; HVI 1,3/1,25 cm; AI 78 mL (IVAI 41); E/A 0,76, DT 240 ms, e′ 5,5/7 cm/s (E/e′ 10,4); PASP 38. *Nota: el modelo cumple «severa» por Vmax ≥ 4 y AVA < 1,0, pero su gradiente medio (38 mmHg) queda por debajo de los 40 que enuncia la propia `impressionTruth` del caso; el comentario del archivo anuncia «≈ 45 mmHg».* |
+| `normal-excellent-window` | Adquisición estándar: PLAX, PSAX (3 niveles), A4C; PW en TSVI | 32 a, sinusal 65 lpm, VTD/VTS 120/45 mL → FE 62,5 %, VS 75 mL, E/A 1,45, e′ 11/14 cm/s (E/e′ ≈ 6,4), PASP 25 mmHg |
+| `normal-difficult-window` | Optimizar una ventana difícil: espacio intercostal, frecuencia baja, armónicos; sombra costal e interposición pulmonar | Mismo corazón de tamaño femenino; 61 a, IMC 34, pared torácica gruesa, atenuación y solapamiento pulmonar del caso |
+| `hfref-severe-mr` | VI dilatado con FE reducida e IM funcional por tracción | VTD/VTS 250/190 mL → FE 24 %, sinusal 88 lpm, ORE IM 0,25 cm² (jet central), e′ septal 4 cm/s, PASP 48 mmHg |
+| `inferior-rwma` | Alteración segmentaria inferior/inferolateral con compensación de los segmentos sanos | VTD/VTS 145/78 mL, `wallMotion` inferior+inferolateral, E/A invertido (0,7/0,75), e′ 6/8 cm/s |
+| `aortic-stenosis-moderate` | Estenosis aórtica moderada: Vmax 3–4 m/s, AVA 1,0–1,5 cm² | AVA efectiva 1,1 cm², cúspides calcificadas, HVI con patrón diastólico |
+| `aortic-stenosis-severe` | EA severa: Vmax/VTI con CW, AVA por continuidad, TSVI con zoom | AVA efectiva 0,88 cm² → Vmax 4,69 m/s, gradiente medio 44 mmHg, VTI 89 cm, índice 0,25 (los tres criterios de severa) |
+| `hocm-sam` | MCH obstructiva: SAM septal, chorro en daga del TSVI, IM excéntrica | Septo hipertrófico, `samSeverity` 0,7, obstrucción dinámica resuelta al gradiente del caso, ORE IM 0,15 cm² a 35° |
+| `mvp-primary-mr` | Prolapso del velo posterior con IM primaria excéntrica, PISA | `prolapse` 0,7, ORE 0,45 cm² dirigido −35°, VI volumen-cargado hiperdinámico (165/58 mL), E 1,2 m/s |
+| `pulmonary-hypertension-rv` | VD dilatado con disfunción, aplanamiento septal en «D», IT para RVSP | VD basal 4,9 cm, `septalFlattening` 0,8, PASP 72 mmHg, TAPSE 1,3 cm, S′ 7 cm/s, ORE IT 0,3 cm² |
+| `pericardial-effusion-tamponade` | Derrame con colapsos de AD y VD, oscilación, variación respiratoria de E mitral/tricuspídea | Derrame 2,2 cm, `tamponade` 0,8, taquicardia 108 lpm, PAS 92 mmHg, PAD 16 mmHg |
+| `af-diastolic` | FA: RR irregular sin onda A, llenado y eyección latido a latido, límites de la evaluación diastólica | FA 92 lpm (variabilidad 22 %), E 0,95 m/s sin A, e′ 5,5/7,5, IM leve (ORE 0,12) |
+| `artifact-challenge` | Laboratorio de artefactos: calcificación con sombra, reverberación, lóbulos laterales, espejo, blooming de color | `caseDef.artifacts` con intensidades propias; EA leve-moderada de fondo (AVA 1,4 cm²) |
 
-## Vistas modeladas (`src/simulator/windows/viewTargets.ts`)
-La pose canónica de cada vista se **deriva de la anatomía del caso** (plano en marco cardíaco + punto de piel), no de una tabla fija, y solo se usa para puntuar e insinuar, nunca para colocar la sonda.
+## Vistas modeladas (`src/simulator/windows/viewTargets.ts`, 12 vistas)
 
-| Vista | Ventana | Referencias requeridas (peso) | Penaliza si aparece | Profundidad recomendada |
-|---|---|---|---|---|
-| PLAX | paraesternal | VM 1,2 · VAo 1,2 · AI · TSVI · septum anteroseptal · pared inferolateral · (VD anterior 0,7, raíz 0,6, Ao descendente 0,3) | ápex, AD, VT, papilar AL | 13–18 cm |
-| PSAX aórtica | paraesternal | VAo 1,5 · AI · AD 0,8 · TSVD 0,9 · (VT, SIA) | VI medio, papilar | 12–16 |
-| PSAX mitral | paraesternal | VM 1,5 · VD 0,8 · (septum inferoseptal, pared inferolateral) | VAo, papilar, AI | 12–16 |
-| PSAX papilar | paraesternal | papilar AL 1,2 · papilar PM 1,2 · VI medio · (VD) | VM, VAo, AI | 12–16 |
-| A4C | apical | ápex 1,4 · VM 1,2 · VT 1,1 · AI · AD · VD · septum inferoseptal 0,9 · pared anterolateral 0,9 · (SIA) | VAo, raíz | 14–18 |
-| A5C | apical | TSVI 1,3 · VAo 1,2 · ápex · (VM, VD) | — | 14–18 |
-| A2C | apical | ápex 1,4 · VM 1,2 · AI · pared anterior · pared inferior | VD, VT, AD, VAo | 14–18 |
-| A3C | apical | ápex 1,3 · VM 1,1 · TSVI 1,2 · VAo 1,2 · AI 0,9 · (raíz) | VD, AD | 14–18 |
-| VD enfocada | apical | VD 1,5 · VT 1,2 · AD · septum inferoseptal 0,8 · (ápex) | VAo | 14–18 |
+La pose canónica de cada vista se **deriva de la anatomía del caso** (plano en marco cardíaco + punto de piel ajustado al espacio intercostal), y sólo se usa para puntuar e insinuar, nunca para colocar la sonda. La oblicuidad residual de los planos paraesternales está medida y documentada en `docs/LIMITATIONS.md`.
 
-Las ventanas subcostal y supraesternal se **detectan** por la posición de la sonda (`windowFromSkin`: v < −7,5 cm o v > 8 cm) pero no tienen vistas definidas: el motor responde «Ventana sin vistas definidas en esta versión».
+| Vista | Ventana | Referencias requeridas (peso) |
+|---|---|---|
+| `plax` | paraesternal | VM, VAo, AI, TSVI, septo, pared inferolateral |
+| `psax-av` | paraesternal | VAo, AI, AD, TSVD |
+| `psax-mv` | paraesternal | VM, VD |
+| `psax-pm` | paraesternal | papilar AL, papilar PM, VI |
+| `psax-apex` | paraesternal | ápex del VI |
+| `a4c` | apical | ápex, VM, VT, AI, AD, VD, septo, pared lateral |
+| `a5c` | apical | TSVI, VAo, ápex |
+| `a2c` | apical | ápex, VM, AI, pared anterior, pared inferior |
+| `a3c` | apical | ápex, VM, TSVI, VAo, AI |
+| `rv-focused` | apical | VD, VT, AD, septo |
+| `subcostal-4c` | subcostal | cuatro cámaras a través del hígado |
+| `subcostal-ivc` | subcostal | VCI, vena hepática, AD |
+
+La ventana supraesternal no existe: la aorta termina a 6,5 cm sin arco. Las ventanas se detectan por posición de la sonda (`windowFromSkin`).
 
 ## Anatomía y fisiología representadas
-- VI elipsoidal recortado en el anillo mitral con espesor septal/posterior independiente, ápex fijo y base que desciende MAPSE·long(φ); miocardio incompresible (el engrosamiento emerge); dos músculos papilares; 17 segmentos AHA con amplitud regional configurable.
-- Válvulas como parches finos: mitral bivalva (longitudes de velo, apertura máxima, engrosamiento, calcificación, SAM), aórtica de 3 velos (o 2 si `bicuspid`) con fracción de apertura, espesor y calcificación; tricúspide simplificada de dos velos que sigue el TAPSE.
-- TSVI → anillo → senos → unión sinotubular → aorta ascendente como tubo con perfil de radio; AI y AD elipsoidales que se alargan en sístole; septum interauricular; VD en semiluna (elipsoide tallado por el epicardio del VI) más TSVD; pericardio y derrame opcional; aorta descendente, columna, hígado, pulmones, costillas (cartílago medial, hueso lateral), esternón, grasa/músculo de pared; pulmón anterior interpuesto entre pared y corazón lateral a la escotadura cardíaca (`isAnteriorLung`, ocluye el corazón) y corazón desplazado hacia atrás cuando la pared efectiva supera 2 cm.
-- Ritmo sinusal con variabilidad RR gaussiana y fibrilación auricular (RR log-normal, sin onda A, línea de base fibrilatoria en el ECG). Los tipos `sinus-tachycardia` y `sinus-bradycardia` se aceptan pero se comportan como `sinus` (solo cambia la FC configurada).
-- Diástole: onda E (sen² de aceleración, deceleración casi lineal con DT), onda A (semiseno), IVRT; e′ septal/lateral y S′ tricuspídeo son parámetros del caso; el TDI sintetiza la velocidad anular a partir de la tabla longitudinal.
+
+- VI en perfil «bala» tabulado con espesor por acimut y nivel, miocardio incompresible (el engrosamiento emerge), dos papilares enraizados, 17 segmentos AHA con motilidad regional; VD en semiluna con infundíbulo, banda moderadora y trabéculas; aurículas elipsoidales con fosa oval; venas pulmonares, cavas y vena hepática; TSVI→raíz→aorta ascendente de 6,5 cm; TSVD y tronco pulmonar con bifurcación; válvula pulmonar de tres cúspides.
+- Válvulas: mitral en anillo de silla con velos en abanico y línea de coaptación, tricúspide de tres valvas con anillo que se acorta en sístole, aórtica con tres cúspides y coaptación en Y; todas abren siguiendo el flujo y producen clics en el espectro (decisión 103).
+- Ritmo: sinusal con variabilidad RR, y FA con tablas por latido (cada latido llena y eyecta según su propio RR, decisión 107). Respiración libre: variación de las ondas E mitral y tricuspídea y colapso inspiratorio de la VCI (decisiones 108, 113).
+- Regurgitaciones por ORE con PISA hemiesférica (IM, IAo, IT), obstrucción dinámica del TSVI con SAM, flujo de venas pulmonares S/D/Ar (decisión 31).
+
+## Modalidades
+
+2D (B-mode), Doppler color, modo M, modo M color, PW, CW y TDI, con consola completa (ganancia, TGC, rango dinámico, frecuencia, armónicos, foco, sector, densidad, zoom de lectura, persistencia, inversión), audio Doppler y cine de 96 cuadros.
 
 ## Lo que NO está en V1
+
 | Ausente | Estado en el código |
 |---|---|
-| Ventanas subcostal y supraesternal (VCI, venas hepáticas, arco aórtico) | Detección de ventana sí; sin `ViewTarget`; el hígado y la posición `subcostal-supine` existen pero esa posición no modifica el tórax (`createThoraxModel` solo trata `supine` y `left-lateral`). La VCI solo existe como número en la verdad de terreno (`Structure.Ivc` nunca se asigna). |
-| Regurgitaciones (IM, IAo, IT por ERO) | `hemodynamics.regurgitation` y los sitios `mr-jet`/`ar-jet` se validan pero el campo de flujo no los implementa. Solo hay chorro de IT derivado de PASP−PAD. |
-| Flujo de venas pulmonares | Sitio `pulmonary-vein` en el enum; no implementado. |
-| Strain, 3D, modo M anatómico, contraste | No existen. |
-| Prótesis valvulares, endocarditis, masas | No existen. |
-| Alteraciones segmentarias, derrame pericárdico, SAM, FA, bicúspide | **Soportados por el modelo** (parámetros del esquema) pero **ningún caso los usa**. |
-| Extrasístoles | `pvcProbability` se valida y se ignora. |
-| Graduación diastólica y del corazón derecho | Cortes presentes en `reference-values` con `confidence: 'recalled'`; no hay algoritmo de graduación. El informe sólo gradúa estenosis aórtica, leyendo los cortes de `AORTIC_STENOSIS_RULES` (severa si Vmax ≥ 4, gradiente medio ≥ 40 o AVA ≤ 1,0; moderada si Vmax ≥ 3) y citando su `referenceId`. |
-| Simpson, TAPSE, FAC, áreas, volúmenes | Fórmulas en `clinical/formulas`; sin herramienta de medición (`MeasurementKind` reserva `area` y `volume`). |
-| Examen puntuado | **Parcial**: `src/education/scoring` puntúa `requiredViews` (mejor score alcanzado frente a `minScore`) y `requiredMeasurements` (mejor medición del tipo adecuado frente a la verdad, con `tolerancePct` y ×0,4 si la vista tuvo score < 50); `impressionTruth` y `learningObjectives` siguen sin consumidor; no hay tiempo límite ni comparación de la impresión. |
+| Ventana supraesternal (arco aórtico, troncos supraaórticos) | No existe: la aorta termina a 6,5 cm |
+| Estenosis mitral, prótesis valvulares, congénitas, endocarditis/masas | No modeladas |
+| Strain, 3D/4D, modo M anatómico, contraste ecocardiográfico | No existen |
+| Extrasístoles | `pvcProbability` se valida en el esquema y se ignora |
+| Bicúspide | El esquema admite `aorticValve.bicuspid`; ningún caso lo usa |
+| Simpson biplano, FAC, áreas, PHT, IVRT como herramientas | Simpson monoplano y TD por pendiente existen; el resto no |
+| Graduación diastólica y del VD en el informe | Cortes presentes en `reference-values`; el informe sólo gradúa EA automáticamente |
+| PRF ligada a profundidad/frecuencia, PRF alta, comportamiento dúplex | Fórmulas presentes en `clinical/formulas`, no conectadas |
+| Flujo Doppler de cavas y venas hepáticas | Geometría existe; sin flujo propio |
 
 ## Modos de producto (`src/app/store.ts`)
+
 | Modo | Efecto real en el código |
 |---|---|
-| `sandbox` | Todo visible: ayudas, componentes del score, panel Dev, pantalla de referencias, verdad de terreno en el informe. |
-| `guided` | Igual que sandbox más un selector de «vista objetivo»; el panel de guía muestra el score de esa vista y sus hints canónicos. |
-| `exam` | Al entrar vacía progreso y mediciones; oculta ayudas, física, panel Dev y referencias; bloquea el cambio de caso; el informe oculta verdad y desviación hasta pulsar «Finalizar examen y ver puntuación», que congela la imagen y muestra el resumen de `src/education/scoring` (50 % adquisición + 50 % mediciones). Sin límite de tiempo. |
+| `sandbox` | Todo visible: ayudas, componentes del score, panel Dev, referencias, verdad de terreno en el informe. |
+| `guided` | Igual que sandbox más selector de «vista objetivo» con score e hints canónicos. |
+| `exam` | Vacía progreso y mediciones; oculta hints, física, panel Dev y referencias; bloquea el cambio de caso y las pantallas Currículo/Progreso/Referencias; el informe oculta verdad y desviación hasta «Finalizar examen y ver puntuación», que congela y muestra el resumen de `src/education/scoring`. **Limitación conocida**: el score de la vista sigue visible en la barra superior (`TopBar.tsx`) y el torso 3D sigue mostrando el corazón; están listados en `docs/LIMITATIONS.md`. Sin límite de tiempo. |
 
-## Sitios de medición que los casos declaran (`requiredMeasurements`)
-`lvot-diameter`, `lv-edd`, `lvot-vti`, `mitral-e` (normal) y `lvot-diameter`, `lvot-vti`, `av-vmax`, `av-vti` (estenosis aórtica), con tolerancias del 10–15 %. Las herramientas no etiquetan la medición con un `measurementId`: el puntuador toma, para cada id requerido, la medición del tipo adecuado (lineal / velocidad / VTI) más cercana a la verdad, y la tabla de mediciones del informe sigue emparejando por heurística (ver `docs/MEASUREMENTS.md` y `docs/SCORING.md`).
+## Mediciones y puntuación
+
+Catálogo de 18 mediciones semánticas (`src/simulator/measurements/protocol.ts`) con herramienta, modalidad, vista, fase, colocación y alineación exigidas; la captura es evaluada por `education/technique.ts` y el examen las puntúa contra la verdad con `tolerancePct`. Los casos declaran como requeridas, según el caso: `lvot-diameter`, `lv-edd`, `ivsd`, `lvpwd`, `lv-edv-simpson`, `lv-esv-simpson`, `la-ap`, `tapse`, `lvot-vti`, `lvot-peak-velocity`, `mitral-e`, `av-vmax`, `av-vti`, `tr-vmax`, `e-prime-septal`, `e-prime-lateral`. El puntuador empareja por id semántico (ver `docs/MEASUREMENTS.md` y `docs/SCORING.md`).
