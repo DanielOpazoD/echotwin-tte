@@ -60,7 +60,7 @@ describe('free breathing through the core (decision 108)', () => {
   const fall = (p: number[]) => (Math.max(...p) - Math.min(...p)) / Math.max(...p);
   const rise = (p: number[]) => (Math.max(...p) - Math.min(...p)) / Math.min(...p);
 
-  it('in tamponade the mitral E falls more than 30% with inspiration and the tricuspid E rises more than 60%', { timeout: 300_000 }, () => {
+  it('in tamponade the mitral E falls more than 30% with inspiration and the tricuspid E rises more than 60%', { timeout: 600_000 }, () => {
     const mitral = peaks('pericardial-effusion-tamponade', 'free-breathing', false);
     const tricuspid = peaks('pericardial-effusion-tamponade', 'free-breathing', true);
     expect(mitral.length).toBeGreaterThan(15);
@@ -70,7 +70,7 @@ describe('free breathing through the core (decision 108)', () => {
     expect(rise(tricuspid), tricuspid.map((v) => v.toFixed(2)).join(' ')).toBeGreaterThan(0.6);
   });
 
-  it('a normal heart varies within the normal limits, and holding the breath does not vary', { timeout: 300_000 }, () => {
+  it('a normal heart varies within the normal limits, and holding the breath does not vary', { timeout: 600_000 }, () => {
     const mitral = peaks('normal-excellent-window', 'free-breathing', false);
     // normal respiratory variation of the mitral E: 95% limits 6–26%
     expect(fall(mitral), mitral.map((v) => v.toFixed(2)).join(' ')).toBeGreaterThan(0.06);

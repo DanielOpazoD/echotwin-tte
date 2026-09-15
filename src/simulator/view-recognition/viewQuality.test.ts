@@ -103,7 +103,7 @@ describe('view quality engine', () => {
   // white is overgain — came from textbook anechoic blood and put the gain hint on the clinically calibrated default
   // console. Measured through the simulator core, as the app shows it: the static analysis above, with other seeds,
   // phase and no frame history, did not reproduce the regression (the old check passed there).
-  it('gain hints follow clinical optimal-window images: none at the default console, overgain at +12 dB, undergain at −18 dB in apical views', { timeout: 120_000 }, () => {
+  it('gain hints follow clinical optimal-window images: none at the default console, overgain at +12 dB, undergain at −18 dB in apical views', { timeout: 240_000 }, () => {
     const c0 = loadCaseById('normal-excellent-window');
     const models = new SimulatorCore(c0, baseInput()).models;
     const gainHint = (id: string, gainDb: number): string => {

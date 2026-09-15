@@ -54,7 +54,7 @@ describe('atrial fibrillation beat by beat (decision 107)', () => {
     return out;
   };
 
-  it('through the core: every beat whose E wave fits reads the case deceleration time, whatever its interval', { timeout: 240_000 }, () => {
+  it('through the core: every beat whose E wave fits reads the case deceleration time, whatever its interval', { timeout: 480_000 }, () => {
     const mitral = beats('a4c', v3(0.2, -0.9, 1.7), 16);
     const dts: string[] = [];
     let within = 0,
@@ -96,7 +96,7 @@ describe('atrial fibrillation beat by beat (decision 107)', () => {
     expect(within / counted, `RR:DT ${dts.join(' ')} ms`).toBeGreaterThanOrEqual(0.8);
   });
 
-  it('through the core: the outflow VTI follows the filling of the interval before, not the beat’s own interval', { timeout: 240_000 }, () => {
+  it('through the core: the outflow VTI follows the filling of the interval before, not the beat’s own interval', { timeout: 480_000 }, () => {
     const lvot = beats('a5c', v3(A.avCenter.x - 0.6 * A.avAxis.x, A.avCenter.y - 0.6 * A.avAxis.y, A.avCenter.z - 0.6 * A.avAxis.z), 16);
     const full: number[] = [];
     const own: number[] = [];

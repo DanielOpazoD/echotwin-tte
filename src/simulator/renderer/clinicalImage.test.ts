@@ -165,7 +165,7 @@ describe('the default console against clinical optimal-window images (CAMUS Good
     expect([...KNOWN_DEVIATIONS.entries()].filter(([, b]) => Math.abs(b) < QUARTILE_EDGE)).toEqual([]);
   });
 
-  it('apical grey levels, contrast and texture fall inside the clinical interquartile range', { timeout: 180_000 }, () => {
+  it('apical grey levels, contrast and texture fall inside the clinical interquartile range', { timeout: 360_000 }, () => {
     const out = { outside: [] as string[], stale: [] as string[], moved: [] as string[] };
     for (const [key, view, ed] of CONDITIONS) {
       const stats = renderOnce(view, ed).flatMap((r) => apicalStats(r));

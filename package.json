@@ -14,6 +14,7 @@
     "test": "vitest run",
     "test:slow": "VITEST_TIER=slow vitest run --testTimeout=180000",
     "test:all": "VITEST_TIER=all vitest run --testTimeout=180000",
+    "coverage": "VITEST_TIER=all vitest run --coverage",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "check": "npm run lint && npm run typecheck && npm run test:all && npm run build",
