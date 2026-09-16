@@ -127,3 +127,44 @@ test('markers move by dragging, delete with a key, come back with undo, and can 
   expect(Number.isFinite(model.point!.offPlaneCm)).toBe(true);
   await expect(page.locator('.review-item').last().locator('.review-place')).toContainText('3D ·');
 });
+
+test('Alt+click adds a secondary point to the selected marker, joined to it in the report', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await waitForFrames(page, 3);
+  await page.evaluate(() => {
+    const w = window as unknown as EchoWindow;
+    (w.__echotwin.useSimStore.getState()['setUi'] as (u: unknown) => void)({
+      reviewMode: true,
+      consoleTab: 'revisar',
+      tutorialDone: true,
+    });
+  });
+  const canvas = page.locator('canvas.overlay');
+  const box = (await canvas.boundingBox())!;
+  await canvas.click({ position: { x: box.width * 0.5, y: box.height * 0.35 } });
+  await canvas.click({
+    position: { x: box.width * 0.42, y: box.height * 0.28 },
+    modifiers: ['Alt'],
+  });
+  await expect(page.locator('.review-item')).toHaveCount(1);
+  await expect(page.locator('.review-child')).toHaveCount(1);
+  await expect(page.locator('.review-child .review-n')).toHaveText('1a');
+  // the armed button links the next click too
+  await page.getByRole('button', { name: 'Añadir puntos secundarios al marcador 1' }).click();
+  await canvas.click({ position: { x: box.width * 0.58, y: box.height * 0.3 } });
+  await expect(page.locator('.review-child')).toHaveCount(2);
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Copiar informe' }).click();
+  const text = await page.getByLabel('Informe de revisión en texto').inputValue();
+  expect(text).toMatch(/\n {2}1a\. .* cm de 1 \(/);
+  expect(text).toContain('\n  1b. ');
+  // deleting the primary takes both secondaries; undo brings the three back (the badge selects the card
+  // without focusing its note, where Delete would only edit text)
+  await page.locator('.review-item > .review-head > .review-n').first().click();
+  await page.keyboard.press('Delete');
+  await expect(page.locator('.review-item')).toHaveCount(0);
+  await page.keyboard.press('Control+z');
+  await expect(page.locator('.review-child')).toHaveCount(2);
+});

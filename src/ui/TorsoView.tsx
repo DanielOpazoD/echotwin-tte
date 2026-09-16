@@ -12,7 +12,7 @@ import {
 } from '@/simulator/anatomy/thoraxModel';
 import { heartToTorso, torsoToHeart, type HeartFrame } from '@/simulator/anatomy/heartFrame';
 import { frameBus } from '@/app/frameBus';
-import { groupLabel, type ReviewMarker } from '@/app/review';
+import { groupLabel, markerLabel, type ReviewMarker } from '@/app/review';
 import type {
   MeshError,
   MeshReply,
@@ -216,25 +216,58 @@ export function TorsoView() {
         mat.dispose();
       }
       reviewGroup.clear();
+      // every marker with a torso position shows on the model: those put on it as spheres, those put on the
+      // image (once the worker has placed them) as small diamonds, and each secondary joined to its primary
+      const pos = (mk: ReviewMarker) =>
+        mk.space === 'model' ? mk.torso : (mk.point?.torso ?? null);
       for (const mk of markers) {
-        if (mk.space !== 'model' || !mk.torso) continue;
+        const at = pos(mk);
+        if (!at) continue;
         const on = mk.id === selected;
+        const color = on ? 0xffffff : 0xff6ad5;
+        const size = mk.parentId ? 0.7 : 1;
         const ball = new THREE.Mesh(
-          new THREE.SphereGeometry(on ? 0.5 : 0.35, 16, 12),
+          mk.space === 'model'
+            ? new THREE.SphereGeometry((on ? 0.5 : 0.35) * size, 16, 12)
+            : new THREE.OctahedronGeometry((on ? 0.42 : 0.3) * size),
           new THREE.MeshBasicMaterial({
-            color: on ? 0xffffff : 0xff6ad5,
+            color,
             transparent: true,
             opacity: 0.95,
             depthTest: false,
           }),
         );
-        ball.position.set(mk.torso.x, mk.torso.y, mk.torso.z);
+        ball.position.set(at.x, at.y, at.z);
         ball.renderOrder = 30;
         reviewGroup.add(ball);
-        const tag = textSprite(`${mk.n} · ${groupLabel(mk.group)}`, on ? 0xffffff : 0xff6ad5);
-        tag.position.set(mk.torso.x, mk.torso.y + 1.1, mk.torso.z + 0.6);
+        const label = markerLabel(mk, markers);
+        const tag = textSprite(
+          mk.space === 'model' ? `${label} · ${groupLabel(mk.group)}` : label,
+          color,
+        );
+        tag.position.set(at.x, at.y + 1.1, at.z + 0.6);
         tag.renderOrder = 31;
         reviewGroup.add(tag);
+        if (mk.parentId) {
+          const parent = markers.find((x) => x.id === mk.parentId);
+          const from = parent ? pos(parent) : null;
+          if (from) {
+            const line = new THREE.Line(
+              new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(from.x, from.y, from.z),
+                new THREE.Vector3(at.x, at.y, at.z),
+              ]),
+              new THREE.LineBasicMaterial({
+                color: 0xff6ad5,
+                transparent: true,
+                opacity: 0.8,
+                depthTest: false,
+              }),
+            );
+            line.renderOrder = 29;
+            reviewGroup.add(line);
+          }
+        }
       }
     };
 
@@ -345,9 +378,14 @@ export function TorsoView() {
       const torso = { x: hit.point.x, y: hit.point.y, z: hit.point.z };
       const hud = useHudStore.getState().hud;
       const id = `r${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
+      // Alt+click with a marker selected, or the armed «+ secundario», links the point to that primary
+      const sel = st.reviewMarkers.find((x) => x.id === st.reviewSelectedId);
+      const parentId = st.reviewLinkParentId ?? (e.altKey && sel ? (sel.parentId ?? sel.id) : null);
+      const parent = parentId ? st.reviewMarkers.find((x) => x.id === parentId) : undefined;
       st.addReviewMarker({
         id,
-        n: st.reviewMarkers.length + 1,
+        n: 0,
+        parentId: parent ? parent.id : null,
         space: 'model',
         x: 0,
         y: 0,
@@ -363,7 +401,7 @@ export function TorsoView() {
         structure: 0,
         point: null,
         note: '',
-        category: 'anatomia',
+        category: parent ? parent.category : 'anatomia',
       });
       void frameBus
         .request({ kind: 'probePoint', torso })
@@ -436,11 +474,11 @@ export function TorsoView() {
         down.button === 0 &&
         useSimStore.getState().ui.reviewMode &&
         !e.shiftKey &&
-        !e.altKey &&
         performance.now() - down.t < 500 &&
         Math.hypot(e.clientX - down.x, e.clientY - down.y) < 4
       )
         placeModelMarker(e);
+      // Alt is the modifier for a secondary point, so a plain Alt-press without drag must not tilt the probe
       down = { x: 0, y: 0, t: 0, button: -1 };
       drag = { mode: null, x: 0, y: 0, cx: 0, cy: 0 };
     };

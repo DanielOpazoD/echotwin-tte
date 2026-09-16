@@ -8,7 +8,14 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { encodePng } from '../render/png';
-import { markerPlace, parseReviewReport, structureLabel, tissueLabel } from '@/app/review';
+import {
+  markerDistanceCm,
+  markerLabel,
+  markerPlace,
+  parseReviewReport,
+  structureLabel,
+  tissueLabel,
+} from '@/app/review';
 import { loadCaseById } from '@/cases';
 import { buildCaseModels } from '@/simulator/anatomy/caseModels';
 import { computeHeartPose } from '@/simulator/anatomy/heartModel';
@@ -32,6 +39,12 @@ const FONT: Record<string, string[]> = {
   '7': ['###', '..#', '..#', '..#', '..#'],
   '8': ['###', '#.#', '###', '#.#', '###'],
   '9': ['###', '#.#', '###', '..#', '###'],
+  a: ['...', '.##', '#.#', '#.#', '.##'],
+  b: ['#..', '#..', '###', '#.#', '###'],
+  c: ['...', '###', '#..', '#..', '###'],
+  d: ['..#', '..#', '###', '#.#', '###'],
+  e: ['.#.', '#.#', '###', '#..', '.##'],
+  f: ['.##', '#..', '###', '#..', '#..'],
 };
 
 const [, , file, outArg] = process.argv;
@@ -89,23 +102,29 @@ lines.push(
   '|---|---|---|---|---|',
 );
 for (const m of report.markers) {
-  const note = m.note.replace(/\|/g, '/').replace(/\n/g, ' ');
+  const parentOf = m.parentId ? report.markers.find((x) => x.id === m.parentId) : undefined;
+  const dist = parentOf ? markerDistanceCm(parentOf, m) : null;
+  const note =
+    (dist ? `a ${dist.cm.toFixed(1)} cm de ${parentOf!.n} (${dist.where}) · ` : '') +
+    m.note.replace(/\|/g, '/').replace(/\n/g, ' ');
   const ph = m.point?.phase ?? m.phase;
   const pose = computeHeartPose(heart, cycleStateAt(tables, ph));
   if (m.space === 'model' && m.torso) {
     const q = probeTorsoPointAt(heart, thorax, pose, beam, m.torso, ph);
     lines.push(
-      `| ${m.n} | ${ph.toFixed(2)} | ${markerPlace(m)} | 3D · ${structureLabel(q.structure)} · ${tissueLabel(q.tissue)} · corazón (${q.heart.x.toFixed(1)}, ${q.heart.y.toFixed(1)}, ${q.heart.z.toFixed(1)}) · ${Math.abs(q.offPlaneCm) < 0.3 ? 'en el plano' : `a ${Math.abs(q.offPlaneCm).toFixed(1)} cm del plano`} | ${note} |`,
+      `| ${markerLabel(m, report.markers)} | ${ph.toFixed(2)} | ${markerPlace(m)} | 3D · ${structureLabel(q.structure)} · ${tissueLabel(q.tissue)} · corazón (${q.heart.x.toFixed(1)}, ${q.heart.y.toFixed(1)}, ${q.heart.z.toFixed(1)}) · ${Math.abs(q.offPlaneCm) < 0.3 ? 'en el plano' : `a ${Math.abs(q.offPlaneCm).toFixed(1)} cm del plano`} | ${note} |`,
     );
     continue;
   }
   if (m.rCm === null || m.thetaRad === null) {
-    lines.push(`| ${m.n} | ${ph.toFixed(2)} | ${markerPlace(m)} | (tira) | ${note} |`);
+    lines.push(
+      `| ${markerLabel(m, report.markers)} | ${ph.toFixed(2)} | ${markerPlace(m)} | (tira) | ${note} |`,
+    );
     continue;
   }
   const q = probePointAt(heart, thorax, pose, beam, m.rCm, m.thetaRad, ph);
   lines.push(
-    `| ${m.n} | ${ph.toFixed(2)} | ${markerPlace(m)} | ${structureLabel(q.structure)} · ${tissueLabel(q.tissue)} · corazón (${q.heart.x.toFixed(1)}, ${q.heart.y.toFixed(1)}, ${q.heart.z.toFixed(1)})${q.rootT !== null && q.rootR !== null ? ` · raíz t ${q.rootT.toFixed(2)} r ${q.rootR.toFixed(2)}` : ''} | ${note} |`,
+    `| ${markerLabel(m, report.markers)} | ${ph.toFixed(2)} | ${markerPlace(m)} | ${structureLabel(q.structure)} · ${tissueLabel(q.tissue)} · corazón (${q.heart.x.toFixed(1)}, ${q.heart.y.toFixed(1)}, ${q.heart.z.toFixed(1)})${q.rootT !== null && q.rootR !== null ? ` · raíz t ${q.rootT.toFixed(2)} r ${q.rootR.toFixed(2)}` : ''} | ${note} |`,
   );
 }
 
@@ -141,7 +160,13 @@ for (const { phase, suffix } of renders) {
     const thetaRad = pm ? pm.thetaRad : m.thetaRad;
     if (rCm === null || thetaRad === null) continue;
     const q = polarToPixel(mapping, rCm, thetaRad);
-    drawMarker(rgba, W, H, Math.round(q.x), Math.round(q.y), m.n);
+    // a secondary point is joined to its primary when both lie in the image
+    const parentOf = m.parentId ? report.markers.find((x) => x.id === m.parentId) : undefined;
+    if (parentOf && parentOf.rCm !== null && parentOf.thetaRad !== null) {
+      const a = polarToPixel(mapping, parentOf.rCm, parentOf.thetaRad);
+      drawLine(rgba, W, H, Math.round(a.x), Math.round(a.y), Math.round(q.x), Math.round(q.y));
+    }
+    drawMarker(rgba, W, H, Math.round(q.x), Math.round(q.y), markerLabel(m, report.markers));
   }
   const f = join(outDir, `${stem}-fase${phase.toFixed(2)}${suffix}.png`);
   writeFileSync(f, encodePng(W, H, rgba));
@@ -153,13 +178,35 @@ console.info(lines.join('\n'));
 console.info(`\nescrito en ${outDir}`);
 
 /** Magenta ring with the marker number in a 3×5 pixel font, scaled ×2. */
+function drawLine(
+  rgba: Uint8ClampedArray,
+  W: number,
+  H: number,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+): void {
+  const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+  for (let i = 0; i <= n; i += 2) {
+    const x = Math.round(x0 + ((x1 - x0) * i) / Math.max(1, n));
+    const y = Math.round(y0 + ((y1 - y0) * i) / Math.max(1, n));
+    if (x < 0 || y < 0 || x >= W || y >= H) continue;
+    const k = (y * W + x) * 4;
+    rgba[k] = 255;
+    rgba[k + 1] = 106;
+    rgba[k + 2] = 213;
+    rgba[k + 3] = 255;
+  }
+}
+
 function drawMarker(
   rgba: Uint8ClampedArray,
   W: number,
   H: number,
   cx: number,
   cy: number,
-  n: number,
+  label: string,
 ): void {
   const put = (x: number, y: number) => {
     if (x < 0 || y < 0 || x >= W || y >= H) return;
@@ -174,7 +221,7 @@ function drawMarker(
     for (const rad of [9, 10])
       put(Math.round(cx + rad * Math.cos(r)), Math.round(cy + rad * Math.sin(r)));
   }
-  const digits = String(n);
+  const digits = label;
   const x0 = cx + 14;
   for (let d = 0; d < digits.length; d++) {
     const glyph = FONT[digits[d]!] ?? FONT['0']!;

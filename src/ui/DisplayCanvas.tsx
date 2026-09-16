@@ -17,7 +17,7 @@ import {
   structureAtPixel,
   type CaptureExtras,
 } from '@/app/measurementCapture';
-import { structureLabel, type ReviewMarker } from '@/app/review';
+import { markerLabel, structureLabel, type ReviewMarker } from '@/app/review';
 
 /**
  * Ultrasound display: draws the composite frame from the simulator and the overlays (depth scale,
@@ -160,7 +160,12 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
           markerId: hit.id,
           moved: false,
         };
-      } else placeReviewMarker(p, hud);
+      } else {
+        // Alt+click with a marker selected, or the armed «+ secundario», links the new point to that primary
+        const sel = st.reviewMarkers.find((x) => x.id === st.reviewSelectedId);
+        const parent = st.reviewLinkParentId ?? (e.altKey && sel ? (sel.parentId ?? sel.id) : null);
+        placeReviewMarker(p, hud, parent);
+      }
       return;
     }
     if (st.activeTool !== 'none') {
@@ -301,14 +306,20 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
       });
   };
   /** A numbered marker where the click fell, with the structure the frame's own map holds there. */
-  const placeReviewMarker = (p: { x: number; y: number }, hud: SimOutput) => {
+  const placeReviewMarker = (
+    p: { x: number; y: number },
+    hud: SimOutput,
+    parentId: string | null = null,
+  ) => {
     const st = useSimStore.getState();
     const f = fieldsAt(p, hud);
     if (!f) return;
     const id = `r${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
+    const parent = parentId ? st.reviewMarkers.find((x) => x.id === parentId) : undefined;
     st.addReviewMarker({
       id,
-      n: st.reviewMarkers.length + 1,
+      n: 0,
+      parentId: parent ? parent.id : null,
       space: 'image',
       torso: null,
       group: null,
@@ -318,7 +329,7 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
       modality: st.modality,
       point: null,
       note: '',
-      category: 'anatomia',
+      category: parent ? parent.category : 'anatomia',
     });
     askWorker(id, f.rCm, f.thetaRad);
   };
@@ -899,10 +910,36 @@ function drawOverlay(
       activeTool !== 'none' ? 44 : 30,
     );
   }
+  if (st.reviewLinkParentId) {
+    const parent = reviewMarkers.find((x) => x.id === st.reviewLinkParentId);
+    ctx.fillStyle = '#ffc857';
+    ctx.fillText(
+      `Punto secundario de ${parent ? parent.n : '?'}: clic para añadirlo · Esc termina`,
+      8,
+      activeTool !== 'none' ? 58 : 44,
+    );
+  }
+  // links from each secondary point to its primary (decision 136), under the rings
+  for (const mk of reviewMarkers) {
+    if (mk.space !== 'image' || !mk.parentId) continue;
+    const parent = reviewMarkers.find((x) => x.id === mk.parentId);
+    if (!parent || parent.space !== 'image') continue;
+    const a = markerScreenPosition(parent, m);
+    const b = markerScreenPosition(mk, m);
+    ctx.strokeStyle = 'rgba(255,106,213,0.8)';
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
   for (const mk of reviewMarkers) {
     if (mk.space !== 'image') continue;
     const q = markerScreenPosition(mk, m);
     const selected = mk.id === st.reviewSelectedId;
+    const radius = mk.parentId ? 7 : 9;
     if (selected) {
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 1.5;
@@ -916,13 +953,13 @@ function drawOverlay(
     ctx.strokeStyle = '#ff6ad5';
     ctx.fillStyle = 'rgba(20,20,28,0.75)';
     ctx.beginPath();
-    ctx.arc(q.x, q.y, 9, 0, Math.PI * 2);
+    ctx.arc(q.x, q.y, radius, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
     ctx.fillStyle = '#ff6ad5';
-    ctx.font = 'bold 11px system-ui, sans-serif';
+    ctx.font = `bold ${mk.parentId ? 9 : 11}px system-ui, sans-serif`;
     ctx.textAlign = 'center';
-    ctx.fillText(String(mk.n), q.x, q.y + 0.5);
+    ctx.fillText(markerLabel(mk, reviewMarkers), q.x, q.y + 0.5);
     ctx.textAlign = 'left';
     ctx.font = '11px system-ui, sans-serif';
     if (!mk.strip) {

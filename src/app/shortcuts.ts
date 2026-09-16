@@ -134,6 +134,7 @@ export function useShortcuts(): void {
         case 'Escape':
           if (s.activeMeasurementId) s.setActiveMeasurement(null);
           else if (s.activeTool !== 'none') s.setActiveTool('none');
+          else if (s.reviewLinkParentId) s.armReviewLink(null);
           else if (s.reviewSelectedId) s.selectReviewMarker(null);
           break;
         case 'Delete':

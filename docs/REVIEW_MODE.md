@@ -35,6 +35,16 @@ informa a Claude y Claude informa al usuario con el mismo formato.
   así los marcadores conservan el cuadro en que se pusieron; con Espacio vuelves a vivo. Cada marcador guarda de
   todos modos la fase de su propio cuadro.
 
+## Puntos secundarios
+
+Un marcador principal puede tener uno o más **puntos secundarios**: sitios que muestran el mismo tipo de problema
+o cuya relación con el principal se quiere poner en evidencia. Se crean con **Alt+clic** (imagen o torso) teniendo
+seleccionado el principal, o con el botón «+ Punto secundario» de su tarjeta, que deja el modo armado hasta Esc.
+Se numeran con la letra del principal (1a, 1b…), se unen a él con una línea en la imagen y en el 3D, heredan su
+categoría, admiten una nota propia y el informe añade la distancia de cada uno al principal (en el tórax cuando
+el modelo los ha situado, si no en el plano de imagen). Borrar el principal borra sus secundarios (Ctrl+Z recupera
+el grupo); borrar un secundario deja el principal.
+
 ## Marcar el modelo 3D
 
 En modo revisión, un **clic sin arrastre** sobre el torso 3D deja un marcador en la superficie tocada: miocardio

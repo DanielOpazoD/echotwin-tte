@@ -12,7 +12,7 @@ import type { SimOutput, QualityTier, RendererBackendChoice } from '@/simulator/
 import type { StructuredEchoTruth } from '@/simulator/hemodynamics/groundTruth';
 import type { Measurement } from '@/simulator/measurements/types';
 import { getMeasurementSpec } from '@/simulator/measurements/protocol';
-import type { ReviewMarker, ReviewReport } from './review';
+import { renumberMarkers, type ReviewMarker, type ReviewReport } from './review';
 import {
   addEvent,
   completeTask,
@@ -108,8 +108,11 @@ export interface SimStore {
   reviewNote: string;
   /** Marker highlighted on the image, the model and the panel; Delete removes it (decision 135). */
   reviewSelectedId: string | null;
-  /** Removed markers, newest last, restored by undo. */
-  reviewUndo: ReviewMarker[];
+  /** Removed markers as batches (a primary goes with its secondaries), newest last, restored by undo. */
+  reviewUndo: ReviewMarker[][];
+  /** Primary marker the next clicks add secondary points to, until Esc (decision 136). */
+  reviewLinkParentId: string | null;
+  armReviewLink: (id: string | null) => void;
   /** Who wrote the report the current markers came from, when they were loaded from one. */
   reviewSource: { author: ReviewReport['author']; createdAt: string } | null;
   selectReviewMarker: (id: string | null) => void;
@@ -303,6 +306,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
   reviewSelectedId: null,
   reviewUndo: [],
   reviewSource: null,
+  reviewLinkParentId: null,
   activeMeasurementId: null,
   progress: loadProgress(typeof localStorage !== 'undefined' ? localStorage : null),
   impressionSelection: [],
@@ -386,7 +390,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
   setActiveTool: (t) => set({ activeTool: t, activeMeasurementId: null }),
   addReviewMarker: (m) =>
     set((s) => ({
-      reviewMarkers: [...s.reviewMarkers, m],
+      reviewMarkers: renumberMarkers([...s.reviewMarkers, m]),
       reviewSelectedId: m.id,
       // the first marker on a live image freezes it, so the markers keep the frame they were put on
       ...(m.space === 'image' && !s.frozen && s.ui.reviewFreezeOnMark
@@ -399,13 +403,17 @@ export const useSimStore = create<SimStore>((set, get) => ({
     })),
   removeReviewMarker: (id) =>
     set((s) => {
-      const gone = s.reviewMarkers.find((m) => m.id === id);
+      // a primary takes its secondary points with it; the batch comes back together with undo
+      const goneIds = new Set([
+        id,
+        ...s.reviewMarkers.filter((m) => m.parentId === id).map((m) => m.id),
+      ]);
+      const gone = s.reviewMarkers.filter((m) => goneIds.has(m.id));
       return {
-        reviewMarkers: s.reviewMarkers
-          .filter((m) => m.id !== id)
-          .map((m, i) => ({ ...m, n: i + 1 })),
-        reviewUndo: gone ? [...s.reviewUndo.slice(-19), gone] : s.reviewUndo,
-        reviewSelectedId: s.reviewSelectedId === id ? null : s.reviewSelectedId,
+        reviewMarkers: renumberMarkers(s.reviewMarkers.filter((m) => !goneIds.has(m.id))),
+        reviewUndo: gone.length ? [...s.reviewUndo.slice(-19), gone] : s.reviewUndo,
+        reviewSelectedId: goneIds.has(s.reviewSelectedId ?? '') ? null : s.reviewSelectedId,
+        reviewLinkParentId: goneIds.has(s.reviewLinkParentId ?? '') ? null : s.reviewLinkParentId,
       };
     }),
   clearReview: () =>
@@ -414,18 +422,26 @@ export const useSimStore = create<SimStore>((set, get) => ({
       reviewNote: '',
       reviewSelectedId: null,
       reviewSource: null,
-      reviewUndo: [...s.reviewUndo, ...s.reviewMarkers].slice(-20),
+      reviewLinkParentId: null,
+      reviewUndo: s.reviewMarkers.length
+        ? [...s.reviewUndo.slice(-19), s.reviewMarkers]
+        : s.reviewUndo,
     })),
   selectReviewMarker: (id) => set({ reviewSelectedId: id }),
+  armReviewLink: (id) => set({ reviewLinkParentId: id }),
   undoReviewRemove: () =>
     set((s) => {
-      const back = s.reviewUndo[s.reviewUndo.length - 1];
-      if (!back) return {};
-      const restored = { ...back, n: s.reviewMarkers.length + 1 };
+      const batch = s.reviewUndo[s.reviewUndo.length - 1];
+      if (!batch) return {};
+      const present = new Set([...s.reviewMarkers, ...batch].map((m) => m.id));
+      // a secondary whose primary is gone for good comes back as a primary
+      const restored = batch.map((m) =>
+        m.parentId && !present.has(m.parentId) ? { ...m, parentId: null } : m,
+      );
       return {
-        reviewMarkers: [...s.reviewMarkers, restored],
+        reviewMarkers: renumberMarkers([...s.reviewMarkers, ...restored]),
         reviewUndo: s.reviewUndo.slice(0, -1),
-        reviewSelectedId: restored.id,
+        reviewSelectedId: restored[0]?.id ?? null,
       };
     }),
   setReviewNote: (note) => set({ reviewNote: note }),
@@ -450,9 +466,10 @@ export const useSimStore = create<SimStore>((set, get) => ({
       cineOffset: 0,
       artifactLab: i.artifactOverrides,
       presetAnim: null,
-      reviewMarkers: r.markers.map((m, k) => ({ ...m, n: k + 1 })),
+      reviewMarkers: renumberMarkers(r.markers),
       reviewNote: r.note,
       reviewSelectedId: null,
+      reviewLinkParentId: null,
       reviewSource: { author: r.author, createdAt: r.createdAt },
     });
     get().setUi({ reviewMode: true, consoleTab: 'revisar' });

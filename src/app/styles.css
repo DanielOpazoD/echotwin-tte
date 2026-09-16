@@ -1422,4 +1422,29 @@ details.adv > summary:hover::before {
 canvas.overlay.review {
   cursor: crosshair;
 }
-
+.review-children {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-left: 14px;
+  border-left: 2px solid #ff6ad5;
+  padding-left: 8px;
+}
+.review-child {
+  display: grid;
+  gap: 4px;
+  padding: 4px 0;
+  cursor: pointer;
+}
+.review-child.on .review-n {
+  background: #ffffff;
+}
+.review-n.small {
+  width: 26px;
+  border-radius: 8px;
+  font-size: 11px;
+}
+.review-actions button.on {
+  border-color: #ffc857;
+  color: #ffc857;
+}

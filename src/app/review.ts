@@ -49,6 +49,8 @@ export interface ReviewMarker {
   point: ProbePointInfo | null;
   note: string;
   category: ReviewCategory;
+  /** Primary marker this one is linked to as a secondary point of the same problem (decision 136); null for a primary. */
+  parentId: string | null;
 }
 
 export interface ReviewReport {
@@ -175,6 +177,46 @@ export const MESH_GROUP_LABELS: Record<string, string> = {
 
 export function groupLabel(id: string | null): string {
   return id === null ? 'superficie' : (MESH_GROUP_LABELS[id] ?? id);
+}
+
+/** Numbers primaries 1, 2, 3… in order and each primary's secondaries 1, 2, 3… (shown as a, b, c). */
+export function renumberMarkers(ms: ReviewMarker[]): ReviewMarker[] {
+  let p = 0;
+  const kids = new Map<string, number>();
+  return ms.map((m) => {
+    if (!m.parentId) return { ...m, n: ++p };
+    const c = (kids.get(m.parentId) ?? 0) + 1;
+    kids.set(m.parentId, c);
+    return { ...m, n: c };
+  });
+}
+
+/** "3" for a primary, "3b" for the second secondary of marker 3. */
+export function markerLabel(m: ReviewMarker, all: ReviewMarker[]): string {
+  if (!m.parentId) return String(m.n);
+  const parent = all.find((x) => x.id === m.parentId);
+  return `${parent ? parent.n : '?'}${String.fromCharCode(96 + Math.min(26, Math.max(1, m.n)))}`;
+}
+
+/** Distance between two markers (cm): in the torso when both are placed there, else in the image plane. */
+export function markerDistanceCm(
+  a: ReviewMarker,
+  b: ReviewMarker,
+): { cm: number; where: 'torso' | 'imagen' } | null {
+  const pa = a.point?.torso ?? a.torso;
+  const pb = b.point?.torso ?? b.torso;
+  if (pa && pb) return { cm: Math.hypot(pa.x - pb.x, pa.y - pb.y, pa.z - pb.z), where: 'torso' };
+  if (a.rCm !== null && a.thetaRad !== null && b.rCm !== null && b.thetaRad !== null)
+    return {
+      cm: Math.sqrt(
+        Math.max(
+          0,
+          a.rCm * a.rCm + b.rCm * b.rCm - 2 * a.rCm * b.rCm * Math.cos(a.thetaRad - b.thetaRad),
+        ),
+      ),
+      where: 'imagen',
+    };
+  return null;
 }
 
 export function structureLabel(id: number): string {
@@ -318,10 +360,19 @@ export function reportToMarkdown(r: ReviewReport): string {
   if (r.markers.length) {
     lines.push('Marcadores:');
     for (const m of r.markers) {
+      if (m.parentId) continue;
       const cat = REVIEW_CATEGORIES.find((c) => c.id === m.category)?.label ?? m.category;
       lines.push(
         `${m.n}. [${cat}] ${markerPlace(m)} · fase ${f2(m.phase)}${m.note.trim() ? ` — «${m.note.trim()}»` : ''}`,
       );
+      // secondary points of the same problem, with their distance to the primary (decision 136)
+      for (const c of r.markers) {
+        if (c.parentId !== m.id) continue;
+        const d = markerDistanceCm(m, c);
+        lines.push(
+          `  ${markerLabel(c, r.markers)}. ${markerPlace(c)} · fase ${f2(c.phase)}${d ? ` · a ${f1(d.cm)} cm de ${m.n} (${d.where})` : ''}${c.note.trim() ? ` — «${c.note.trim()}»` : ''}`,
+        );
+      }
     }
     lines.push('');
   }
@@ -353,6 +404,7 @@ export function parseReviewReport(text: string): ReviewReport | null {
           space: mk.space ?? 'image',
           torso: mk.torso ?? null,
           group: mk.group ?? null,
+          parentId: mk.parentId ?? null,
         }));
         return { ...obj, markers, note: obj.note ?? '', version: 1 } as ReviewReport;
       }

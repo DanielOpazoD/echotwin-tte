@@ -5,6 +5,8 @@ import { buildInput } from '@/app/useSimulation';
 import { displayPngBlob, exportDisplayPng } from '@/app/exportImage';
 import {
   buildReviewReport,
+  markerDistanceCm,
+  markerLabel,
   markerPlace,
   parseReviewReport,
   reportToMarkdown,
@@ -33,6 +35,8 @@ export function ReviewPanel() {
       freezeOnMark: st.ui.reviewFreezeOnMark,
       selectReviewMarker: st.selectReviewMarker,
       undoReviewRemove: st.undoReviewRemove,
+      linkParentId: st.reviewLinkParentId,
+      armReviewLink: st.armReviewLink,
       setUi: st.setUi,
       updateReviewMarker: st.updateReviewMarker,
       removeReviewMarker: st.removeReviewMarker,
@@ -111,7 +115,8 @@ export function ReviewPanel() {
         </p>
         <div className="review-help">
           Arrastra un marcador para moverlo · clic lo selecciona · Supr o Retroceso lo borra ·
-          Ctrl+Z deshace · Esc deselecciona · Shift+clic usa la herramienta normal.
+          Ctrl+Z deshace · Esc deselecciona · Shift+clic usa la herramienta normal · Alt+clic añade
+          un punto secundario al marcador seleccionado.
         </div>
         {s.source && (
           <div className="review-source">
@@ -172,56 +177,129 @@ export function ReviewPanel() {
           <div className="small">Sin marcadores. Haz clic sobre la imagen para señalar algo.</div>
         )}
         <div className="review-list">
-          {s.markers.map((m) => (
-            <div
-              key={m.id}
-              className={`review-item${m.id === s.selectedId ? ' on' : ''}`}
-              data-marker={m.n}
-              ref={(el) => {
-                if (el) itemRefs.current.set(m.id, el);
-                else itemRefs.current.delete(m.id);
-              }}
-              onClick={() => s.selectReviewMarker(m.id)}
-            >
-              <div className="review-head">
-                <span className="review-n" aria-hidden="true">
-                  {m.n}
-                </span>
-                {m.space === 'model' && (
-                  <span className="review-chip" title="Marcador sobre el modelo 3D">
-                    3D
-                  </span>
-                )}
-                <select
-                  aria-label={`Categoría del marcador ${m.n}`}
-                  value={m.category}
-                  onChange={(e) =>
-                    s.updateReviewMarker(m.id, { category: e.target.value as ReviewCategory })
-                  }
+          {s.markers
+            .filter((m) => !m.parentId)
+            .map((m) => {
+              const children = s.markers.filter((c) => c.parentId === m.id);
+              const arming = s.linkParentId === m.id;
+              return (
+                <div
+                  key={m.id}
+                  className={`review-item${m.id === s.selectedId ? ' on' : ''}`}
+                  data-marker={m.n}
+                  ref={(el) => {
+                    if (el) itemRefs.current.set(m.id, el);
+                    else itemRefs.current.delete(m.id);
+                  }}
+                  onClick={() => s.selectReviewMarker(m.id)}
                 >
-                  {REVIEW_CATEGORIES.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.label}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  aria-label={`Eliminar marcador ${m.n}`}
-                  title="Eliminar"
-                  onClick={() => s.removeReviewMarker(m.id)}
-                >
-                  ×
-                </button>
-              </div>
-              <div className="review-place">{markerPlace(m)}</div>
-              <textarea
-                aria-label={`Nota del marcador ${m.n}`}
-                placeholder="¿Qué está mal aquí?"
-                value={m.note}
-                onChange={(e) => s.updateReviewMarker(m.id, { note: e.target.value })}
-              />
-            </div>
-          ))}
+                  <div className="review-head">
+                    <span className="review-n" aria-hidden="true">
+                      {m.n}
+                    </span>
+                    {m.space === 'model' && (
+                      <span className="review-chip" title="Marcador sobre el modelo 3D">
+                        3D
+                      </span>
+                    )}
+                    <select
+                      aria-label={`Categoría del marcador ${m.n}`}
+                      value={m.category}
+                      onChange={(e) =>
+                        s.updateReviewMarker(m.id, { category: e.target.value as ReviewCategory })
+                      }
+                    >
+                      {REVIEW_CATEGORIES.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      aria-label={`Eliminar marcador ${m.n}`}
+                      title="Eliminar (con sus puntos secundarios)"
+                      onClick={() => s.removeReviewMarker(m.id)}
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <div className="review-place">{markerPlace(m)}</div>
+                  <textarea
+                    aria-label={`Nota del marcador ${m.n}`}
+                    placeholder="¿Qué está mal aquí?"
+                    value={m.note}
+                    onChange={(e) => s.updateReviewMarker(m.id, { note: e.target.value })}
+                  />
+                  {children.length > 0 && (
+                    <div className="review-children">
+                      {children.map((c) => {
+                        const label = markerLabel(c, s.markers);
+                        const d = markerDistanceCm(m, c);
+                        return (
+                          <div
+                            key={c.id}
+                            className={`review-child${c.id === s.selectedId ? ' on' : ''}`}
+                            ref={(el) => {
+                              if (el) itemRefs.current.set(c.id, el);
+                              else itemRefs.current.delete(c.id);
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              s.selectReviewMarker(c.id);
+                            }}
+                          >
+                            <div className="review-head">
+                              <span className="review-n small" aria-hidden="true">
+                                {label}
+                              </span>
+                              {c.space === 'model' && (
+                                <span className="review-chip" title="Sobre el modelo 3D">
+                                  3D
+                                </span>
+                              )}
+                              <span className="review-place">
+                                {d ? `a ${d.cm.toFixed(1)} cm de ${m.n} (${d.where})` : ''}
+                              </span>
+                              <button
+                                aria-label={`Eliminar punto ${label}`}
+                                title="Eliminar"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  s.removeReviewMarker(c.id);
+                                }}
+                              >
+                                ×
+                              </button>
+                            </div>
+                            <div className="review-place">{markerPlace(c)}</div>
+                            <textarea
+                              aria-label={`Nota del punto ${label}`}
+                              placeholder="Relación con el principal o detalle (opcional)"
+                              value={c.note}
+                              onChange={(e) => s.updateReviewMarker(c.id, { note: e.target.value })}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <div className="review-actions">
+                    <button
+                      className={arming ? 'on' : ''}
+                      aria-pressed={arming}
+                      aria-label={`Añadir puntos secundarios al marcador ${m.n}`}
+                      title="Los siguientes clics sobre la imagen o el torso se enlazan a este marcador; Esc termina"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        s.armReviewLink(arming ? null : m.id);
+                      }}
+                    >
+                      {arming ? 'Añadiendo secundarios… (Esc termina)' : '+ Punto secundario'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
         </div>
       </Section>
       {preview && (
