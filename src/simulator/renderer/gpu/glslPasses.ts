@@ -30,11 +30,21 @@ float heteroDb(int t) {
 }
 
 // incoherent backscatter σ and coherent interface echo of a classified sample, before attenuation
-void acoustic(int tissue, float sdf, float extra, float nd, vec3 m, out float sigma, out float specular) {
+void acoustic(int tissue, int structure, float sdf, float extra, float nd, vec3 m, vec3 dirH, out float sigma, out float specular) {
   vec4 props = uTissue[tissue];
   sigma = props.x;
   if (tissue == T_BLOOD && HARM > 0.5) sigma *= 0.6;
-  if (tissue == T_MYO) sigma *= MYO_ANISO_FLOOR + (1.0 - MYO_ANISO_FLOOR) * nd * nd;
+  // myocardial backscatter is strongest with the beam across the fibres, which run ~circumferentially
+  // around the LV long axis (heart-frame z): circumferential direction = (−m.y, m.x, 0)/r
+  if (tissue == T_MYO) {
+    if (structure >= S_LV_SEPT && structure <= S_LV_APEX) {
+      float rr = length(m.xy);
+      float dphi = rr > 1e-3 ? abs(dot(dirH.xy, vec2(-m.y, m.x)) / rr) : 0.0;
+      sigma *= MYO_ANISO_FLOOR + (1.0 - MYO_ANISO_FLOOR) * (1.0 - MYO_HELIX_COS2 * dphi * dphi - (1.0 - MYO_HELIX_COS2) * dirH.z * dirH.z);
+    } else {
+      sigma *= MYO_ANISO_FLOOR + (1.0 - MYO_ANISO_FLOOR) * nd * nd;
+    }
+  }
   float het = heteroDb(tissue);
   if (het > 0.0) sigma *= pow(10.0, ((lat(vec3(m.x * HETERO_FREQ + 5.3, m.y * HETERO_FREQ + 1.7, m.z * HETERO_FREQ + 9.1), 2) - 0.5) * het) / 20.0);
   if (extra > 0.0) sigma += extra * 1.5 * (0.6 + 0.8 * lat(vec3(m.x * 6.0 + 3.3, m.y * 6.0 + 1.1, m.z * 6.0 + 9.2), 1));
@@ -76,7 +86,7 @@ void main() {
   vec4 props = uTissue[s.tissue];
   float nd = abs(inHeart ? dot(s.n, dirH) : dot(s.n, dirT));
   float sigma, specular;
-  acoustic(s.tissue, s.sdf, s.extra, nd, s.m, sigma, specular);
+  acoustic(s.tissue, s.structure, s.sdf, s.extra, nd, s.m, dirH, sigma, specular);
   // complex scatterer phasor anchored in tissue coordinates (moves with the tissue); across the plane its lattice cell is
   // the slice thickness (decision 99), as in the CPU renderer
   vec3 nrm = inHeart ? vec3(dot(bN, ex), dot(bN, ey), dot(bN, ez)) : bN;

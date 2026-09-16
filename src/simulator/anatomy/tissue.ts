@@ -37,8 +37,8 @@ export const TISSUE_PROPS: Record<number, TissueProps> = {
   [Tissue.None]: { reflect: 0.0, specular: 0, attenuation: 0.5, grain: 2, name: 'none' },
   [Tissue.Blood]: { reflect: 0.012, specular: 0, attenuation: 0.18, grain: 7, name: 'blood' },
   [Tissue.Myocardium]: {
-    reflect: 0.48,
-    specular: 0.15,
+    reflect: 0.28,
+    specular: 0.12,
     attenuation: 0.9,
     grain: 4.2,
     name: 'myocardium',

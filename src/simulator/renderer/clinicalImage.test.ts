@@ -56,38 +56,42 @@ const renderOnce = (view: 'a4c' | 'a2c', ed: boolean): ApicalRender[] => {
 
 /**
  * Deviations of the model, not of the console, each named in docs/LIMITATIONS.md. Tissue/blood contrast is nearly
- * constant across CAMUS Good (medians 40-44 in all four conditions) but spans 27 grey levels in the model, from 48
+ * constant across CAMUS Good (medians 40-44 in all four conditions) but spans 30 grey levels in the model, from 51
  * in A4C end-diastole to 21 in A2C end-systole, and no console moves both inside: gains from −4 to +2 dB and a 65 dB
- * range leave 4 to 7 conditions out and never fix either contrast (decision 70). The A2C walls run along the beam and
- * are the dimmest myocardium; the clinical grey map, which compresses the dim end, took A2C end-diastole contrast out
- * (36 → 31 against a quartile of 36) and deepened A2C end-systole (myocardium 88 → 79 and contrast 26 → 21) while it
- * brought A4C end-diastole myocardium and contrast inside (decision 91). A declaration that holds no longer fails the test, so the
+ * range leave 4 to 7 conditions out and never fix either contrast (decision 70). The fibre-orientation anisotropy of
+ * decision 123 keeps the beam-parallel apical walls bright, which brought A2C end-diastole contrast inside (38
+ * against quartiles 36-53) and A2C end-systole myocardium and contrast closer, while the A4C end-diastole contrast
+ * stayed above the upper quartile (51 against 47, within the p90 of 53): without spatial compounding the
+ * perpendicular walls hold their full backscatter. A declaration that holds no longer fails the test, so the
  * list cannot outlive the defect.
  */
 const KNOWN_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // Each entry holds its baseline: the signed distance outside the clinical quartiles, in quartile widths (negative
   // below the 25th percentile, positive above the 75th). A declared deviation used to be checked only for being
   // declared and not stale, so it could grow without limit (external audit F11, decision 88). Baselines measured with
-  // the complex receiver noise and the clinical grey map, averaged over the noise realizations (decision 91).
-  ['2CH-ED:contrast', -0.29],
-  ['2CH-ES:myocardiumGrey', -0.42],
-  ['2CH-ES:contrast', -1.31],
+  // the complex receiver noise and the clinical grey map, averaged over the noise realizations (decision 91);
+  // re-baselined under the fibre-orientation model of decision 123.
+  ['4CH-ED:contrast', 0.3],
+  ['2CH-ES:myocardiumGrey', -0.19],
+  ['2CH-ES:contrast', -0.83],
   // Texture (decisions 74 and 91, docs/LIMITATIONS.md): the speckle cell is 1.4-1.5 × 1.0 mm against 2.1 × 1.7 mm, so a
-  // 5×5 window holds more of the texture variance than in a clinical image: local std 11.1-11.9 against upper quartiles of 10.1-11.3 while
-  // the std against the ±4 mm mean is 16.1-17.2 against ~21 (ratio 0.69-0.70 against 0.45-0.51). The residuals keep a
+  // 5×5 window holds more of the texture variance than in a clinical image: local std 11.7-12.4 against upper quartiles of 10.1-11.3 while
+  // the std against the ±4 mm mean is 16.1-17.2 against ~21 (ratio 0.69-0.70 against 0.45-0.51). The fibre-orientation
+  // anisotropy of decision 123 added ~0.4-0.5 quartile widths to the local std: a single beam holds the gain gradient
+  // along a curving wall that spatial compounding averages out in a clinical image. The residuals keep a
   // log-Rayleigh tail of dark nulls (skewness −0.27 to −0.38 against +0.08 to +0.28). Receiver noise added as an
   // envelope hid part of this until decision 91: it filled the nulls (local std 9.3-9.7, texture contrast ~13) and its
   // per-sample grain shrank the cell to 1.2-1.35 × 0.9-1.0 mm. Widening the PSF matched these numbers and looked false
   // (dark worm-like nulls, granular blood); smoothing after detection lost the texture contrast (decision 74).
-  ['4CH-ED:myocardialLocalStd', 0.86],
-  ['4CH-ES:myocardialLocalStd', 0.22],
-  ['2CH-ED:myocardialLocalStd', 1.15],
-  ['2CH-ES:myocardialLocalStd', 0.23],
+  ['4CH-ED:myocardialLocalStd', 1.02],
+  ['4CH-ES:myocardialLocalStd', 0.54],
+  ['2CH-ED:myocardialLocalStd', 1.49],
+  ['2CH-ES:myocardialLocalStd', 0.59],
   ['4CH-ED:myocardialDetrendedStd', -0.49],
   ['4CH-ES:myocardialDetrendedStd', -0.55],
   ['2CH-ED:myocardialDetrendedStd', -0.46],
   ['2CH-ES:myocardialDetrendedStd', -0.48],
-  ['4CH-ED:speckleCellHorizontalMm', -1.79],
+  ['4CH-ED:speckleCellHorizontalMm', -1.61],
   ['4CH-ES:speckleCellHorizontalMm', -2.23],
   ['2CH-ED:speckleCellHorizontalMm', -1.59],
   ['2CH-ES:speckleCellHorizontalMm', -2.46],
@@ -124,7 +128,9 @@ const QUARTILE_EDGE = 0.1;
  * quartile widths like KNOWN_DEVIATIONS. The A4C probe sits 2.6 cm septal of the LV long axis, so the apex lies 47° off
  * the centre line (19 mm lateral in the image against 0 in CAMUS Good): the septum runs along its scan lines (3.5° against
  * 21°), whose path crosses 3.6 cm of myocardium before the mid-septum, the lateral wall is seen obliquely (32° against
- * 17°), and the septum comes out darker than the lateral wall (−58 grey levels against +35). The A2C apex lies on the
+ * 17°), and the septum comes out darker than the lateral wall (−46 grey levels at end-diastole, −28 at end-systole,
+ * against +35 and +24 in CAMUS Good; the fibre-orientation anisotropy of decision 123 brightened both walls relative
+ * to the wall-normal model). The A2C apex lies on the
  * other side of the centre line from the clinical one, with the axis tilted the other way and 6-9 mm deeper.
  */
 const KNOWN_GEOMETRY_DEVIATIONS: ReadonlyMap<string, number> = new Map([
@@ -133,13 +139,13 @@ const KNOWN_GEOMETRY_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['4CH-ED:axisTiltDeg', -0.63],
   ['4CH-ED:septalRayAngleDeg', -0.97],
   ['4CH-ED:lateralRayAngleDeg', 1.42],
-  ['4CH-ED:septalMinusLateralGrey', -1.77],
+  ['4CH-ED:septalMinusLateralGrey', -1.47],
   ['4CH-ES:apexOffsetMm', 1.72],
   ['4CH-ES:apexDepthMm', -0.46],
   ['4CH-ES:axisTiltDeg', -0.43],
   ['4CH-ES:septalRayAngleDeg', -0.52],
   ['4CH-ES:lateralRayAngleDeg', 1.21],
-  ['4CH-ES:septalMinusLateralGrey', -1.29],
+  ['4CH-ES:septalMinusLateralGrey', -0.93],
   ['2CH-ED:apexOffsetMm', 1.23],
   ['2CH-ED:apexDepthMm', 0.2],
   ['2CH-ED:axisTiltDeg', -0.9],

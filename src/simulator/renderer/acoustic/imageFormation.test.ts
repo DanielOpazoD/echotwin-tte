@@ -195,6 +195,7 @@ function myocardialBands(
 describe('acoustic image formation', () => {
   const plax = render('plax');
   const a4c = render('a4c');
+  const psax = render('psax-pm');
 
   it('myocardial speckle is fully developed (Rayleigh-like local statistics)', () => {
     for (const f of [plax, a4c]) {
@@ -215,7 +216,7 @@ describe('acoustic image formation', () => {
     expect(latMid).toBeGreaterThan(2 * axMid);
   });
 
-  it('tissue is 25–40 dB above blood away from the walls, and the myocardium is darker with the beam along the wall', () => {
+  it('tissue is 25–40 dB above blood away from the walls, and the septum stays lit with the beam across its fibres', () => {
     const { lines: L, samples: N } = spec;
     const dr = spec.depthCm / N;
     const myo: number[] = [];
@@ -243,8 +244,30 @@ describe('acoustic image formation', () => {
     const contrastDb = 20 * Math.log10(mean(myo) / mean(farBlood));
     expect(contrastDb).toBeGreaterThan(25);
     expect(contrastDb).toBeLessThan(40);
-    // PLAX cuts the septum across its fibres, A4C along them: 6–10 dB of anisotropy in the model
-    expect(20 * Math.log10(mean(septA4c) / mean(septPlax))).toBeLessThan(-5);
+    // The beam runs along the septal wall in A4C but across its circumferential fibres, which leave the
+    // image plane — so the fibre-orientation model keeps it lit (≈ −1 dB vs PLAX) instead of dropping it
+    // like the wall-normal response did. Beam-along-fibre dropout is asserted in the PSAX test below.
+    expect(20 * Math.log10(mean(septA4c) / mean(septPlax))).toBeGreaterThan(-5);
+  });
+
+  // In PSAX the LV ring is perpendicular to the beam where the central lines cross it and parallel at the
+  // sector edges: the lateral walls must drop out, not stay a uniform bright ring — the fibre-orientation
+  // model puts the beam along the circumferential fibres there. Measured 0.57 → 0.50.
+  it('the PSAX ring drops out where the beam runs along the wall', () => {
+    const { lines: L, samples: N } = spec;
+    const dr = spec.depthCm / N;
+    const buckets: number[][] = [[], [], [], [], [], []];
+    for (let li = 0; li < L; li++)
+      for (let si = Math.floor(3 / dr); si < Math.floor(12 / dr); si++) {
+        const i = li * N + si;
+        if (psax.tissue[i] === Tissue.Myocardium && isLvWall(psax.structure[i] ?? 0))
+          buckets[Math.floor((6 * li) / L)]!.push(norm(psax, i));
+      }
+    const oblique = [...buckets[1]!, ...buckets[4]!];
+    const perpendicular = [...buckets[2]!, ...buckets[3]!];
+    const ratio = mean(oblique) / mean(perpendicular);
+    expect(ratio).toBeLessThan(0.55);
+    expect(ratio).toBeGreaterThan(0.2);
   });
 
   // The absolute grey levels are calibrated against clinical optimal-window images in clinicalImage.test.ts
