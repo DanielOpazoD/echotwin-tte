@@ -22,9 +22,10 @@ La regla de ESLint `no-restricted-imports` bloquea `**/clinical/formulas` y `**/
 ## Flujo de datos
 ```
 CaseDefinition (validada con Zod)
-  → createThoraxModel(bodyHabitus, acousticWindow, patient)   → heartOffset (posición/respiración)
-  → createHeartModel(anatomy, physiology, heartOffset)         → marco corazón↔torso
-  → buildBeatTables(RR, physiology, rhythm, hemodynamics)      → V(φ), Q_ao(φ), Q_mv(φ), long(φ) (n = 512)
+  → buildCaseModels(caseDef, patient)  [anatomy/caseModels.ts: el único sitio que encadena los tres constructores]
+      createThoraxModel(bodyHabitus, acousticWindow, patient, ivc.collapsePct) → heartOffset, ivcCollapse
+      createHeartModel(anatomy, physiology, heartOffset, seed, ivcCollapse)    → marco corazón↔torso
+      buildBeatTables(RR, physiology, rhythm, hemodynamics)                    → V(φ), Q_ao(φ), Q_mv(φ), long(φ) (n = 512)
   → computeGroundTruth(case, tables)                           → StructuredEchoTruth (se envía a la UI en 'ready')
   → buildFlowParams(case, heart, tables)                       → primitivas de flujo (mismas tablas)
 

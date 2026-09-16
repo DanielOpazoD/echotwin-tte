@@ -1,6 +1,13 @@
 import { useHudStore, useSimStore } from '@/app/store';
 import { modePolicy } from '@/app/modePolicy';
 import { formatClinical } from '@/clinical/reference-values';
+import { RENDERER_BACKEND_CHOICES, type RendererBackendChoice } from '@/simulator/core/protocol';
+
+const BACKEND_TITLES: Record<RendererBackendChoice, string> = {
+  atlas: 'Caché de pose idéntica sobre la GPU (o la CPU si no hay WebGL2)',
+  procedural: 'Trazador de referencia en CPU',
+  webgl2: 'Trazador en GPU (WebGL2); vuelve al procedimental si no está disponible',
+};
 
 /** Developer panel (spec 15.4, 45). Never rendered in exam mode. */
 export function DevPanel() {
@@ -98,25 +105,16 @@ export function DevPanel() {
       </table>
       <h4>Backend</h4>
       <div className="row">
-        <button
-          className={s.rendererBackend === 'atlas' ? 'active' : ''}
-          onClick={() => s.setBackend('atlas')}
-        >
-          atlas
-        </button>
-        <button
-          className={s.rendererBackend === 'procedural' ? 'active' : ''}
-          onClick={() => s.setBackend('procedural')}
-        >
-          procedural
-        </button>
-        <button
-          className={s.rendererBackend === 'webgl2' ? 'active' : ''}
-          onClick={() => s.setBackend('webgl2')}
-          title="Trazador en GPU (WebGL2); vuelve al procedimental si no está disponible"
-        >
-          webgl2
-        </button>
+        {RENDERER_BACKEND_CHOICES.map((b) => (
+          <button
+            key={b}
+            className={s.rendererBackend === b ? 'active' : ''}
+            onClick={() => s.setBackend(b)}
+            title={BACKEND_TITLES[b]}
+          >
+            {b}
+          </button>
+        ))}
       </div>
       <h4>Verdad de terreno (modelo)</h4>
       <table>

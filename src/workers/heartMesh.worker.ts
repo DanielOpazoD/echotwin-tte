@@ -1,7 +1,7 @@
 import { loadCaseById } from '@/cases';
-import { computeHeartPose, createHeartModel, heartLandmarks } from '@/simulator/anatomy/heartModel';
-import { createThoraxModel } from '@/simulator/anatomy/thoraxModel';
-import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
+import { computeHeartPose } from '@/simulator/anatomy/heartModel';
+import { cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
+import { buildCaseModels } from '@/simulator/anatomy/caseModels';
 import { buildHeartMeshes, type MeshGroup } from '@/simulator/anatomy/heartMesh';
 import type { PatientState } from '@/simulator/anatomy/thoraxModel';
 
@@ -55,27 +55,7 @@ function buildAllPhases(
   stepCm: number,
   phases: number[],
 ): void {
-  const caseDef = loadCaseById(caseId);
-  const thorax = createThoraxModel(
-    caseDef.bodyHabitus,
-    caseDef.acousticWindow,
-    patient,
-    caseDef.anatomy.ivc.collapsePct,
-  );
-  const heart = createHeartModel(
-    caseDef.anatomy,
-    caseDef.physiology,
-    thorax.heartOffset,
-    caseDef.seed,
-    thorax.ivcCollapse,
-  );
-  heartLandmarks(heart);
-  const tables = buildBeatTables(
-    60 / caseDef.rhythm.heartRateBpm,
-    caseDef.physiology,
-    caseDef.rhythm,
-    caseDef.hemodynamics,
-  );
+  const { heart, tables } = buildCaseModels(loadCaseById(caseId), patient);
   for (let i = 0; i < phases.length; i++) {
     const phase = phases[i]!;
     const t0 = performance.now();
