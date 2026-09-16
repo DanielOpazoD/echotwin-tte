@@ -1,0 +1,84 @@
+# Pipeline de GitLab. Espejo de .github/workflows/ci.yml (el repositorio nació en GitHub y se
+# movió a GitLab sin traer el CI: docs/AUDITORIA_INGENIERIA.md, hallazgo A1). Los cinco trabajos
+# son los mismos que `npm run check` más lo que `check` no cubre: umbrales de cobertura y E2E.
+#
+# Tiempos orientativos con la máquina libre (docs/VALIDATION.md): unitarias completas ~7 min sin
+# shards, E2E ~28 min. Los E2E corren sobre `dist/` con SwiftShader; `gpu-live.spec.ts` se salta
+# sin GPU por hardware (esperado en un runner compartido).
+
+stages: [verify, test, build, e2e]
+
+default:
+  image: node:22
+  cache:
+    key:
+      files: [package-lock.json]
+    paths: [.npm/]
+  before_script:
+    - npm ci --cache .npm --prefer-offline
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG
+
+lint:
+  stage: verify
+  script:
+    - npm run lint
+    - npm run typecheck
+    - npm run format:check
+
+unit:
+  stage: test
+  parallel: 3
+  script:
+    # Cada shard emite un informe blob; `coverage` los funde y aplica los umbrales una sola vez
+    # (VITEST_COVERAGE_SHARD desactiva los pisos por área en el shard: vite.config.ts).
+    - VITEST_TIER=all VITEST_COVERAGE_SHARD=1 npx vitest run --coverage --coverage.reporter=none --reporter=blob --reporter=default --shard=$CI_NODE_INDEX/$CI_NODE_TOTAL
+  artifacts:
+    when: always
+    paths: [.vitest-reports/]
+    expire_in: 1 week
+
+coverage:
+  stage: build
+  needs: [unit]
+  script:
+    - npx vitest run --merge-reports --coverage
+    - |
+      node -e '
+        const t = require("./coverage/coverage-summary.json").total;
+        for (const k of ["lines", "statements", "functions", "branches"])
+          console.log(k + ": " + t[k].pct + "% (" + t[k].covered + "/" + t[k].total + ")");
+      '
+  coverage: '/^lines: (\d+\.?\d*)%/'
+  artifacts:
+    when: always
+    paths: [coverage/]
+    expire_in: 1 week
+
+build:
+  stage: build
+  needs: []
+  script:
+    - npx vite build
+  artifacts:
+    paths: [dist/]
+    expire_in: 1 week
+
+e2e:
+  stage: e2e
+  needs: [build]
+  # La imagen trae Chromium y sus dependencias del sistema; la versión debe coincidir con
+  # @playwright/test en package.json.
+  image: mcr.microsoft.com/playwright:v1.63.0-noble
+  variables:
+    CI: 'true'
+  script:
+    - npm run test:e2e
+  artifacts:
+    when: on_failure
+    paths: [playwright-report/, test-results/]
+    expire_in: 1 week

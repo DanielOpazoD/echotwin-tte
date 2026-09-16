@@ -30,10 +30,10 @@ Si el archivo no existe, la prueba lo crea en lugar de fallar. Revisa el diff de
 npm test            # vitest run
 npm run check       # lint + typecheck + test + build
 ```
-`npm run test:e2e` arranca `vite preview` en 4173 y ejecuta las 8 pruebas de `e2e/core-flow.spec.ts` (carga, teclado, color, freeze + caliper, PW/M-mode, modo examen, preferencias, tutorial); necesita `npx playwright install chromium`. `test-results/.last-run.json` guarda el resultado de la última ejecución local (hoy: `passed`).
+`npm run test:e2e` arranca `vite preview` en 4173 sobre el último `dist/` (construye antes con `npx vite build`, regla 15 del método de fidelidad) y ejecuta las 46 pruebas de `e2e/` (`core-flow` 10, `gpu-equivalence` 26, `gpu-live` 4 sólo con GPU por hardware, `measurements` 4, `learning` 2; ~28 min); necesita `npx playwright install chromium`. `test-results/.last-run.json` guarda el resultado de la última ejecución local (hoy: `passed`).
 
 ## Herramientas previstas y ausentes
-`npm run atlas:build` (`tools/offline/atlas-generation/build-atlas.ts [dirSalida] [casoId]`) renderiza el cine de 16 fases de cada vista canónica con el trazador procedimental (tier low) y escribe una hoja de contacto 4×4 por vista (`<casoId>-<vista>-cine.png`) para inspeccionar las anclas del atlas; **no** exporta un paquete de anclas cargable en la app. `optical-flow`, `optional-cuda-reference` y `pymust-validation` son carpetas vacías. Ver `docs/THIRD_PARTY_REVIEW.md` para lo que se pensaba validar con PyMUST/OpenBCSim.
+`npm run atlas:build` (`tools/offline/atlas-generation/build-atlas.ts [dirSalida] [casoId]`) renderiza el cine de 16 fases de cada vista canónica con el trazador procedimental (tier low) y escribe una hoja de contacto 4×4 por vista (`<casoId>-<vista>-cine.png`) para inspeccionar las anclas del atlas; **no** exporta un paquete de anclas cargable en la app. La validación contra PyMUST/OpenBCSim o una referencia CUDA no tiene herramientas en el repositorio (`tools/offline/` sólo contiene `atlas-generation`, `render` y `validation`). Ver `docs/THIRD_PARTY_REVIEW.md` para lo que se pensaba validar con PyMUST/OpenBCSim.
 
 ## Salida esperada
 `render-views.ts` imprime una línea por PNG, por ejemplo (ejecución del 2026-09-10 a las 20:10 en Apple Silicon; el `ctrl` es la pose canónica ya ajustada al espacio intercostal):
@@ -44,7 +44,7 @@ npm run check       # lint + typecheck + test + build
 El `ctrl` lo resuelve `controlAimingAt` (descenso por coordenadas sobre rotación/tilt/rock desde el punto de piel sobre el plano, ajustado por `snapToIntercostal`); cambia si cambian la anatomía del caso, el tórax o las definiciones de `viewTargets.ts`.
 
 ## Lista de comprobación para un cambio visual
-1. `npm test` en verde antes del cambio (anota si el fallo conocido de `doppler.test.ts` sigue presente).
+1. `npm test` en verde antes del cambio (y `npm run test:slow` si el cambio toca anatomía, acústica o consola).
 2. Renders «antes» con el paso 1 en una carpeta externa.
 3. Aplica el cambio; renders «después»; compara a ojo PLAX y A4C en fases 0,00 (telediástole) y 0,30 (sístole).
 4. `npm test`: si `goldens.test.ts` falla por más de 6 niveles en alguna celda, decide si el cambio es intencionado; sólo entonces `npm run golden:update` y revisa el diff de `frames.json`.
