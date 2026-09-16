@@ -41,9 +41,18 @@ button {
   border-radius: 6px;
   padding: 5px 9px;
   cursor: pointer;
+  transition:
+    background 0.14s ease,
+    border-color 0.14s ease,
+    color 0.14s ease,
+    transform 0.06s ease;
 }
 button:hover {
   border-color: var(--accent);
+  background: #1e2835;
+}
+button:active {
+  transform: scale(0.98);
 }
 button.active {
   background: #1f3a4d;
@@ -65,6 +74,19 @@ select:focus-visible {
   grid-template-rows: 40px 1fr 46px;
   grid-template-columns: 300px 1fr 280px;
   height: 100%;
+  animation: app-in 0.4s ease-out;
+  transition: grid-template-columns 0.25s ease;
+}
+@keyframes app-in {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app {
+    animation: none;
+    transition: none;
+  }
 }
 .app.rail-mini {
   grid-template-columns: 56px 1fr 280px;
@@ -111,6 +133,7 @@ select:focus-visible {
   font-weight: 700;
 }
 .left {
+  grid-column: 1;
   position: relative;
   background: var(--panel);
   border-right: 1px solid var(--border);
@@ -169,6 +192,7 @@ select:focus-visible {
   border-radius: 3px;
 }
 .center {
+  grid-column: 2;
   position: relative;
   background: #000;
   display: flex;
@@ -176,6 +200,7 @@ select:focus-visible {
   min-width: 0;
 }
 .right {
+  grid-column: 3;
   background: var(--panel);
   border-left: 1px solid var(--border);
   display: flex;
@@ -309,6 +334,7 @@ select:focus-visible {
   margin: 0 6px;
 }
 .ctx-chip {
+  font-family: var(--mono);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   color: var(--accent);
@@ -423,7 +449,9 @@ select:focus-visible {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  font-size: 11px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
   color: #aab6c4;
   font-variant-numeric: tabular-nums;
 }
@@ -850,31 +878,79 @@ select:focus-visible {
 .screen {
   grid-column: 1 / -1;
   overflow: auto;
-  padding: 20px 28px;
+  padding: 26px 32px 56px;
+  max-width: 1060px;
+  margin: 0 auto;
+  width: 100%;
 }
 .screen h2 {
-  margin-top: 0;
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.screen h2:not(:first-child) {
+  margin-top: 30px;
+}
+.screen h3 {
+  margin: 26px 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 .screen table {
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   width: 100%;
   font-size: 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.screen th {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--panel-2);
 }
 .screen th,
 .screen td {
   text-align: left;
-  padding: 6px 8px;
+  padding: 8px 10px;
   border-bottom: 1px solid var(--border);
   vertical-align: top;
+}
+.screen tbody tr:last-child td {
+  border-bottom: 0;
+}
+.screen tbody tr:hover td {
+  background: #161c26;
+}
+.screen code {
+  font-family: var(--mono);
+  font-size: 11px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 6px;
 }
 .screen a {
   color: var(--accent);
 }
 .pill {
   display: inline-block;
-  padding: 1px 7px;
+  padding: 2px 8px;
   border-radius: 10px;
   font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
   background: #1f2a36;
   color: var(--muted);
 }
@@ -890,6 +966,10 @@ select:focus-visible {
 .small {
   font-size: 11px;
   color: var(--muted);
+}
+.modebar-status {
+  font-family: var(--mono);
+  font-size: 10.5px;
 }
 .cine {
   display: flex;
@@ -1057,8 +1137,18 @@ select {
   margin: 4px 0;
 }
 .curriculum .tasks li {
-  padding: 4px 0;
-  border-bottom: 1px solid #1c2330;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.curriculum .tasks li:last-child {
+  margin-bottom: 0;
+}
+.curriculum .tasks li.done {
+  border-color: #234a35;
+  background: #12211a;
 }
 .curriculum .tasks li.done b {
   color: var(--ok);
@@ -1073,9 +1163,19 @@ select {
   gap: 8px;
 }
 .impression-form fieldset {
-  border: 1px solid #2a3a4c;
-  border-radius: 6px;
-  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: var(--panel);
+  margin: 0;
+}
+.impression-form legend {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 0 4px;
 }
 .impression-form .finding {
   display: block;
