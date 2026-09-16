@@ -1,15 +1,21 @@
 # Pipeline de GitLab. Espejo de .github/workflows/ci.yml (el repositorio nació en GitHub y se
-# movió a GitLab sin traer el CI: docs/AUDITORIA_INGENIERIA.md, hallazgo A1). Los cinco trabajos
-# son los mismos que `npm run check` más lo que `check` no cubre: umbrales de cobertura y E2E.
+# movió a GitLab sin traer el CI: docs/AUDITORIA_INGENIERIA.md, hallazgo A1). YAML validado con la
+# API ci/lint del proyecto.
 #
-# Tiempos orientativos con la máquina libre (docs/VALIDATION.md): unitarias completas ~7 min sin
-# shards, E2E ~28 min. Los E2E corren sobre `dist/` con SwiftShader; `gpu-live.spec.ts` se salta
-# sin GPU por hardware (esperado en un runner compartido).
+# Coste, medido el 2026-09-16 en runners compartidos: lint ~1 min, unitarias completas en 3 shards
+# ~4 + 11 + 12 min, build 1 min, cobertura 1 min, E2E ~15 min: unos 43 minutos de runner por
+# pipeline. Con un pipeline por MR y otro por merge a main se agotaron los 400 minutos mensuales del
+# plan gratuito en una tarde. Por eso hay dos perfiles:
+#   - MR: lint + tipos + formato, suite rápida, build y presupuesto de bundle (~5 min).
+#   - main (y tags): lo anterior más la suite completa con cobertura en shards y los E2E sobre dist/.
+# Con un runner propio (gitlab-runner en una máquina del equipo) los dos perfiles pueden igualarse.
+# Los E2E corren sobre `dist/` con SwiftShader; `gpu-live.spec.ts` se salta sin GPU por hardware.
 
 stages: [verify, test, build, e2e]
 
 default:
   image: node:22
+  interruptible: true
   cache:
     key:
       files: [package-lock.json]
@@ -23,6 +29,11 @@ workflow:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
     - if: $CI_COMMIT_TAG
 
+.full-only:
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG
+
 lint:
   stage: verify
   script:
@@ -30,7 +41,15 @@ lint:
     - npm run typecheck
     - npm run format:check
 
+unit-fast:
+  stage: test
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  script:
+    - npm test
+
 unit:
+  extends: .full-only
   stage: test
   parallel: 3
   script:
@@ -43,6 +62,7 @@ unit:
     expire_in: 1 week
 
 coverage:
+  extends: .full-only
   stage: build
   needs: [unit]
   script:
@@ -70,6 +90,7 @@ build:
     expire_in: 1 week
 
 e2e:
+  extends: .full-only
   stage: e2e
   needs: [build]
   # La imagen trae Chromium y sus dependencias del sistema; la versión debe coincidir con

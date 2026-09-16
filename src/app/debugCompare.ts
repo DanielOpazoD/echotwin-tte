@@ -4,6 +4,7 @@ import { cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { buildCaseModels } from '@/simulator/anatomy/caseModels';
 import { ProceduralSliceRenderer } from '@/simulator/renderer/procedural/sliceRenderer';
 import { createWebgl2Renderer } from '@/simulator/renderer/gpu/webgl2Renderer';
+import { enumDefinesGlsl } from '@/simulator/renderer/gpu/glslCommon';
 import {
   allocPolarFrame,
   DEFAULT_ACQUISITION,
@@ -39,6 +40,12 @@ export interface BackendComparison {
   gpuMs: number;
   /** Most frequent structure disagreements as "cpu>gpu": count (diagnostic). */
   mismatches?: Record<string, number>;
+  /**
+   * Per CPU structure (by GLSL name, e.g. S_MV_ANT): how many samples it has and how many the GPU labels
+   * differently. The frame-wide agreement hides a whole leaflet or annulus (< 0.5 % of the samples), so the
+   * equivalence test bounds the disagreement of each structure separately.
+   */
+  perStructure?: Record<string, { samples: number; mismatched: number }>;
   /** A few mismatched samples with their heart-frame coordinates (diagnostic). */
   examples?: {
     line: number;
@@ -138,10 +145,16 @@ export function compareBackends(
     ampSum = 0,
     trDiff = 0;
   const mm = new Map<string, number>();
+  const per = new Map<number, { samples: number; mismatched: number }>();
   const examples: NonNullable<BackendComparison['examples']> = [];
   for (let i = 0; i < n; i++) {
-    if (fa.structure[i] === fb.structure[i]) sAgree++;
+    const sa = fa.structure[i]!;
+    let ps = per.get(sa);
+    if (!ps) per.set(sa, (ps = { samples: 0, mismatched: 0 }));
+    ps.samples++;
+    if (sa === fb.structure[i]) sAgree++;
     else {
+      ps.mismatched++;
       const k = `${fa.structure[i]}>${fb.structure[i]}`;
       mm.set(k, (mm.get(k) ?? 0) + 1);
       if (examples.length < 40 && i % 3 === 0) {
@@ -175,6 +188,10 @@ export function compareBackends(
     trDiff += Math.abs(fa.transmission[i]! - fb.transmission[i]!);
   }
   const mismatches = Object.fromEntries([...mm.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8));
+  const names = structureNames();
+  const perStructure = Object.fromEntries(
+    [...per.entries()].map(([id, v]) => [names.get(id) ?? `S_${id}`, v]),
+  );
   return {
     lines: spec.lines,
     samples: spec.samples,
@@ -186,7 +203,16 @@ export function compareBackends(
     gpuMs,
     mismatches,
     examples,
+    perStructure,
   };
+}
+
+/** Structure id → GLSL name, from the same define list the shaders use (`S_LV_CAV 1` …). */
+function structureNames(): Map<number, string> {
+  const out = new Map<number, string>();
+  for (const m of enumDefinesGlsl().matchAll(/#define (S_[A-Z0-9_]+) (\d+)/g))
+    out.set(Number(m[2]), m[1]!);
+  return out;
 }
 
 export interface ImageChainComparison {
