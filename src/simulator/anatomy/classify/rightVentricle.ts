@@ -4,6 +4,16 @@ import { tvInflowSdf } from '../valveSkirt';
 import { rvCrescent, rvTmp } from '../rv';
 import { setSample, type ClassifyCtx } from './context';
 
+/** RV free-wall thickness now: thickens with the contraction. */
+export function rvFreeWallNow(freeWallCm: number, contraction: number): number {
+  return freeWallCm * (1 + 0.35 * contraction);
+}
+
+/** Radial scale of the outflow tract and pulmonary root with the contraction. */
+export function rvOutflowScale(contraction: number): number {
+  return 0.85 + 0.15 * (1 - contraction);
+}
+
 /**
  * RV: crescent around the septum, infundibulum, outflow, pulmonary trunk and branches. Leaves rvTmp[0] as the
  * distance to the RV cavity united with the tricuspid inflow, which the pericardium reads. True when the point is
@@ -16,8 +26,8 @@ export function classifyRightVentricle(c: ClassifyCtx): boolean {
   rvCrescent(m, hp, A, x, y, z, az, rvTmp);
   const dRv = rvTmp[0]!;
   const dRvU = smin(dRv, tvInflowSdf(x, y, z, V.tv, hp.tvZ), 0.3);
-  const fw = m.anatomy.rv.freeWallThicknessCm * (1 + 0.35 * s);
-  const k = 0.85 + 0.15 * (1 - s);
+  const fw = rvFreeWallNow(m.anatomy.rv.freeWallThicknessCm, s);
+  const k = rvOutflowScale(s);
   // outflow: infundibulum → subpulmonary region as two tapering segments bowed anteriorly over the aortic root
   // the outflow tract and the pulmonary root move with the base (pvZ, decision 111): evaluated at the point shifted back
   const pvZ = hp.pvZ;

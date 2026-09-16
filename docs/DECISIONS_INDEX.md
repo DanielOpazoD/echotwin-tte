@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 129 (última: 129).
+Decisiones: 130 (última: 130).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -137,3 +137,4 @@ Decisiones: 129 (última: 129).
 | [127](DECISIONS.md#L411) | 2026-09-16 | Cada modalidad de imagen se describe una sola vez | vigente |
 | [128](DECISIONS.md#L413) | 2026-09-16 | La pose de una vista predeterminada la calcula el worker | vigente |
 | [129](DECISIONS.md#L415) | 2026-09-16 | El hilo principal no construye modelos: el navegador 3D recibe los suyos del worker de mallas y el núcleo en línea se carga bajo demanda | vigente |
+| [130](DECISIONS.md#L417) | 2026-09-16 | Los bloques del clasificador exponen sus fórmulas escalares y el sombreador las recibe generadas | vigente |

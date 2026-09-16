@@ -5,6 +5,21 @@ import { latticeNoise3 } from '@/core/noise';
 import { inflowTaper } from '../mitralValve';
 import { setSample, type ClassifyCtx } from './context';
 
+/** Radial scale of the atria: reservoir/conduit/booster with the LV contraction, shrunk by the atrial kick and its hold. */
+export function atrialScale(booster: number, reservoir: number, contraction: number): number {
+  return booster * (reservoir + (1 - reservoir) * contraction);
+}
+
+/** Interatrial septum thickness (cm) at normalised distance `fo` from the fossa ovalis centre: membrane, limbus, muscle. */
+export function iasThickness(fo: number): number {
+  return fo < 1 ? 0.12 : fo < 1.3 ? 0.7 : 0.55;
+}
+
+/** Right atrial radial scale under tamponade: late-diastolic collapse of `raCollapse` (0..1). */
+export function raCollapseScale(raCollapse: number): number {
+  return 1 - 0.35 * raCollapse;
+}
+
 /**
  * Atria (lengthen in systole as the annulus descends), interatrial septum, left atrial appendage, pulmonary veins,
  * venae cavae with the hepatic vein, and the coronary sinus. True when the point is one of them.
@@ -23,11 +38,11 @@ export function classifyAtria(c: ClassifyCtx): boolean {
     rzL = (zBottom - zTop) / 2;
   // reservoir / conduit / booster: radial size follows LV contraction (maximal at end-systole); the atrial
   // kick and its hold until ejection shrink it further (laBooster)
-  const bo = hp.laBooster * (A.laReservoir + (1 - A.laReservoir) * hp.state.contraction);
+  const bo = atrialScale(hp.laBooster, A.laReservoir, hp.state.contraction);
   const xIas = A.iasX;
   // interatrial septum: muscular septum ~0.55 cm with a thicker limbus around the thin fossa ovalis membrane
   const fo = Math.hypot((y - A.fossaY) / 0.6, (z - A.fossaZ) / 0.7);
-  const tIas = fo < 1 ? 0.12 : fo < 1.3 ? 0.7 : 0.55;
+  const tIas = iasThickness(fo);
   // LA: ellipsoid flattened against the septum (medial clip), against the oesophagus / descending aorta
   // (posterior clip) and under the pulmonary bifurcation (roof clip)
   const dEllLa = sdEllipsoid(x, y, z, la.x, la.y, czL, lr.x * bo, lr.y * bo, rzL);
@@ -76,7 +91,7 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   const zBotR = A.tvCenter.z + hp.tvZ * 0.7 + 0.03; // the caval junction moves a little with TAPSE
   const czR = (zTopR + zBotR) / 2,
     rzR = (zBotR - zTopR) / 2;
-  const raC = 1 - 0.35 * hp.raCollapse; // tamponade: late-diastolic RA collapse
+  const raC = raCollapseScale(hp.raCollapse);
   const dEllRa = sdEllipsoid(x, y, z, ra.x, ra.y, czR, rr.x * bo * raC, rr.y * bo * raC, rzR);
   const dFreeRa = smax(dEllRa, ra.y - 0.8 * rr.y * bo - y, 0.6);
   const dR = smax(dFreeRa, x - (xIas - tIas / 2), 0.3);

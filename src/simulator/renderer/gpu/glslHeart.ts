@@ -473,12 +473,6 @@ float wallThicknessAt(float az, float levelFrac, float amp) {
 }
 
 
-float rvAzProfile(float u) {
-  float sn = sin(PI * u);
-  float uIn = (PI + 0.04 - RV_AZA) / (RV_AZP - RV_AZA);
-  float inflow = exp(-((u - uIn) * (u - uIn)) / (2.0 * 0.18 * 0.18));
-  return pow(min(1.0, max(0.0, sn) / 0.75), 0.7) * (0.85 + 0.15 * inflow);
-}
 // [rIn, u, rOut, t] without trabecular noise
 vec4 rvRadii(float az, float z) {
   float L = LV_LEN;
@@ -491,7 +485,7 @@ vec4 rvRadii(float az, float z) {
   float rIn = rEpi - septalShiftAt(SEPTAL_SHIFT, az, levelFrac) + 0.05;
   if (u <= 0.0 || u >= 1.0) return vec4(rIn, u, rIn, 0.0);
   float tvPlane = TV_CZ + TVZ;
-  float t = RV_T * rvAzProfile(u) * rvAxialTaper(tvPlane, RV_APEX_FRAC * L, z) * (1.0 - 0.35 * CONTRACTION);
+  float t = RV_T * rvAzProfile(RV_AZA, RV_AZP, u) * rvAxialTaper(tvPlane, RV_APEX_FRAC * L, z) * (1.0 - 0.35 * CONTRACTION);
   if (RV_COLLAPSE > 0.0 && u < 0.55) t *= 1.0 - 0.65 * RV_COLLAPSE * (1.0 - u / 0.55);
   return vec4(rIn, u, rIn + t, t);
 }
@@ -548,7 +542,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     vec3 d = vec3(x - avC.x, y - avC.y, z - czz);
     float t = dot(d, ax);
     if (t > -1.6 && t < 6.5) {
-      float bend = t > 3.0 ? 0.16 * (t - 3.0) * (t - 3.0) : 0.0;
+      float bend = rootBend(t);
       rootQ = d - ax * t - vec3(AV_BX, AV_BY, AV_BZ) * bend;
       rootRr = length(rootQ);
       rootT = t;
@@ -722,7 +716,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
   vec3 lr = vec3(LA_RX, LA_RY, LA_RZ);
   vec3 ra = vec3(RA_CX, RA_CY, RA_CZ);
   vec3 rar = vec3(RA_RX, RA_RY, RA_RZ);
-  float bo = LA_BOOSTER * (LA_RESERVOIR + (1.0 - LA_RESERVOIR) * CONTRACTION);
+  float bo = atrialScale(LA_BOOSTER, LA_RESERVOIR, CONTRACTION);
   float czL, rzL, czR, rzR;
   {
     float zTop = la.z - lr.z;
@@ -731,7 +725,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     rzL = (zBottom - zTop) / 2.0;
     float xIas = IAS_X;
     float fo = length(vec2((y - FOSSA_Y) / 0.6, (z - FOSSA_Z) / 0.7));
-    float tIas = fo < 1.0 ? 0.12 : (fo < 1.3 ? 0.7 : 0.55);
+    float tIas = iasThickness(fo);
     float dEllLa = sdEllipsoid(p, vec3(la.x, la.y, czL), vec3(lr.x * bo, lr.y * bo, rzL));
     float dFreeLa = smax(smax(dEllLa, la.y - 0.72 * lr.y * bo - y, 0.6), zTop + 0.15 * rzL - z, 0.5);
     float d = smax(dFreeLa, xIas + tIas / 2.0 - x, 0.3);
@@ -748,7 +742,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float zBotR = TV_CZ + TVZ * 0.7 + 0.03;
     czR = (zTopR + zBotR) / 2.0;
     rzR = (zBotR - zTopR) / 2.0;
-    float raC = 1.0 - 0.35 * RA_COLLAPSE;
+    float raC = raCollapseScale(RA_COLLAPSE);
     float dEllRa = sdEllipsoid(p, vec3(ra.x, ra.y, czR), vec3(rar.x * bo * raC, rar.y * bo * raC, rzR));
     float dFreeRa = smax(dEllRa, ra.y - 0.8 * rar.y * bo - y, 0.6);
     float dR = smax(dFreeRa, x - (xIas - tIas / 2.0), 0.3);
@@ -836,8 +830,8 @@ bool classifyHeart(vec3 p0, out Sample s) {
   float dRvU = smin(dRv, tvInflowSdf(p), 0.3);
   {
     float sc = CONTRACTION;
-    float fw = RV_FW * (1.0 + 0.35 * sc);
-    float k = 0.85 + 0.15 * (1.0 - sc);
+    float fw = rvFreeWallNow(RV_FW, sc);
+    float k = rvOutflowScale(sc);
     // the outflow tract and the pulmonary root move with the base; the bifurcation stays (decision 111)
     vec3 rvotA = vec3(RVOT_AX, RVOT_AY, RVOT_AZ + PV_Z);
     vec3 rvotM = vec3(RVOT_MX, RVOT_MY, RVOT_MZ + PV_Z);

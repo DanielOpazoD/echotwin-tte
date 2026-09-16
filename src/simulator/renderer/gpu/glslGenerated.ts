@@ -31,6 +31,13 @@ float rvAxialTaper(float tvPlane, float zApex, float z) {
   float s = max(0.0, (q - 0.25) / 0.75);
   return (1.0 - 0.55 * s) * sqrt(max(0.0, 1.0 - s * s * s * s * s));
 }
+// src/simulator/anatomy/rv.ts: rvAzProfile
+float rvAzProfile(float rvAzA, float rvAzP, float u) {
+  float sn = sin(PI * u);
+  float uIn = (PI + 0.04 - rvAzA) / (rvAzP - rvAzA);
+  float inflow = exp(-((u - uIn) * (u - uIn)) / (2.0 * 0.18 * 0.18));
+  return pow(min(1.0, max(0.0, sn) / 0.75), 0.7) * (0.85 + 0.15 * inflow);
+}
 // src/simulator/anatomy/lvWall.ts: septalShiftAt
 float septalShiftAt(float shiftCm, float az, float levelFrac) {
   if (shiftCm <= 0.0) {
@@ -45,6 +52,30 @@ float septalShiftAt(float shiftCm, float az, float levelFrac) {
     return 0.0;
   }
   return shiftCm * c * c * zw;
+}
+// src/simulator/anatomy/classify/root.ts: rootBend
+float rootBend(float t) {
+  return t > 3.0 ? 0.16 * (t - 3.0) * (t - 3.0) : 0.0;
+}
+// src/simulator/anatomy/classify/atria.ts: atrialScale
+float atrialScale(float booster, float reservoir, float contraction) {
+  return booster * (reservoir + (1.0 - reservoir) * contraction);
+}
+// src/simulator/anatomy/classify/atria.ts: iasThickness
+float iasThickness(float fo) {
+  return fo < 1.0 ? 0.12 : fo < 1.3 ? 0.7 : 0.55;
+}
+// src/simulator/anatomy/classify/atria.ts: raCollapseScale
+float raCollapseScale(float raCollapse) {
+  return 1.0 - 0.35 * raCollapse;
+}
+// src/simulator/anatomy/classify/rightVentricle.ts: rvFreeWallNow
+float rvFreeWallNow(float freeWallCm, float contraction) {
+  return freeWallCm * (1.0 + 0.35 * contraction);
+}
+// src/simulator/anatomy/classify/rightVentricle.ts: rvOutflowScale
+float rvOutflowScale(float contraction) {
+  return 0.85 + 0.15 * (1.0 - contraction);
 }
 // src/simulator/renderer/acoustic/acoustics.ts: myoAnisoGain
 float myoAnisoGain(float dphi, float dz2) {

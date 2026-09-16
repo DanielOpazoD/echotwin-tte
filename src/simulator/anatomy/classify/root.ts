@@ -3,6 +3,14 @@ import { rootRadiusAt } from '../aorticValve';
 import { ROOT_EXCURSION } from '../heartFrame';
 import type { ClassifyCtx } from './context';
 
+/**
+ * Bend of the ascending aorta beyond the sinotubular junction (cm of lateral offset at `t` cm along the root
+ * axis): it leaves the long-axis plane after ~3 cm instead of running straight for 7 cm.
+ */
+export function rootBend(t: number): number {
+  return t > 3 ? 0.16 * (t - 3) * (t - 3) : 0;
+}
+
 /** Aortic root coordinates (tube along avAxis; also carves the LV base). Writes the root fields of the context. */
 export function rootCoordinates(c: ClassifyCtx): void {
   const { hp, A, x, y, z } = c;
@@ -25,7 +33,7 @@ export function rootCoordinates(c: ClassifyCtx): void {
     if (t > -1.6 && t < 6.5) {
       // the ascending aorta curves toward the patient's right/anterior beyond the sinotubular junction
       // (it leaves the long-axis plane after ~3 cm instead of running straight for 7 cm)
-      const bend = t > 3 ? 0.16 * (t - 3) * (t - 3) : 0;
+      const bend = rootBend(t);
       rootQx = dx - ax.x * t - A.avBend.x * bend;
       rootQy = dy - ax.y * t - A.avBend.y * bend;
       rootQz = dz - ax.z * t - A.avBend.z * bend;
