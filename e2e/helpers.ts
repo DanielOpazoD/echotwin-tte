@@ -24,7 +24,7 @@ export async function getHud(page: Page): Promise<Record<string, unknown> | null
   return page.evaluate(() => {
     const hud = (window as unknown as EchoWindow).__echotwin.useHudStore.getState().hud;
     if (!hud) return null;
-    const h = hud as Record<string, unknown>;
+    const h = hud;
     return {
       frameId: h['frameId'],
       timeS: h['timeS'],

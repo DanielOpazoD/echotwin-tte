@@ -6,7 +6,20 @@ import globals from 'globals';
 export default tseslint.config(
   { ignores: ['dist', 'coverage', 'playwright-report', 'test-results', 'node_modules', 'public'] },
   js.configs.recommended,
-  ...tseslint.configs.recommended,
+  // type-aware rules (engineering audit, B8): no-floating-promises, no-misused-promises, unsafe-* and the
+  // unnecessary-assertion family need the type checker; the project service reuses tsconfig.json
+  ...tseslint.configs.recommendedTypeChecked,
+  {
+    files: ['**/*.{ts,tsx}'],
+    languageOptions: {
+      parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
+    },
+  },
+  {
+    // plain JS config files are not part of the TypeScript project
+    files: ['**/*.{js,mjs,cjs}'],
+    ...tseslint.configs.disableTypeChecked,
+  },
   {
     // plain Node scripts (CI helpers) outside the TypeScript sources
     files: ['tools/**/*.mjs'],
@@ -24,6 +37,9 @@ export default tseslint.config(
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
       '@typescript-eslint/consistent-type-imports': 'error',
+      // structure and tissue ids travel packed in Uint8Arrays and shader textures by design (renderer/types.ts), so
+      // they are compared as plain numbers against the Tissue/Structure enums everywhere; the rule only adds noise
+      '@typescript-eslint/no-unsafe-enum-comparison': 'off',
       'no-console': ['warn', { allow: ['warn', 'error', 'info'] }],
     },
   },

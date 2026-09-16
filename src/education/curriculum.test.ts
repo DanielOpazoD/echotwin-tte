@@ -135,7 +135,8 @@ describe('local progress', () => {
     expect(sum.casesOpened).toEqual(['normal-excellent-window']);
     const json = exportProgressJson(back, '0.1.0');
     expect(json).not.toMatch(/email|name|user/i);
-    expect(JSON.parse(json).progress.events.length).toBe(5);
+    const parsed = JSON.parse(json) as { progress: { events: unknown[] } };
+    expect(parsed.progress.events.length).toBe(5);
     expect(loadProgress(null).events).toEqual([]);
     st.setItem('echotwin.progress.v1', '{broken');
     expect(loadProgress(st).events).toEqual([]);
@@ -143,34 +144,33 @@ describe('local progress', () => {
 });
 
 describe('causal explanations', () => {
-  const analysis = (over: Partial<ViewAnalysis>): ViewAnalysis =>
-    ({
-      window: 'parasternal',
-      bestViewId: 'plax',
-      bestViewName: 'PLAX',
-      score: 40,
-      components: {
-        plane: 0.5,
-        landmarks: 0.5,
-        geometry: 0.9,
-        centering: 0.9,
-        depth: 0.9,
-        gain: 0.9,
-        artifacts: 0.9,
-      },
-      visibleLandmarks: [],
-      missingLandmarks: ['la', 'av'],
-      penaltyLandmarksPresent: [],
-      foreshorteningDeg: 0,
-      planeAngleDeg: 25,
-      inPlaneRotationDeg: 5,
-      offsetCm: 0.5,
-      hints: [],
-      perView: [],
-      heartCoverage: 0.5,
-      shadowFraction: 0.3,
-      ...over,
-    }) as ViewAnalysis;
+  const analysis = (over: Partial<ViewAnalysis>): ViewAnalysis => ({
+    window: 'parasternal',
+    bestViewId: 'plax',
+    bestViewName: 'PLAX',
+    score: 40,
+    components: {
+      plane: 0.5,
+      landmarks: 0.5,
+      geometry: 0.9,
+      centering: 0.9,
+      depth: 0.9,
+      gain: 0.9,
+      artifacts: 0.9,
+    },
+    visibleLandmarks: [],
+    missingLandmarks: ['la', 'av'],
+    penaltyLandmarksPresent: [],
+    foreshorteningDeg: 0,
+    planeAngleDeg: 25,
+    inPlaneRotationDeg: 5,
+    offsetCm: 0.5,
+    hints: [],
+    perView: [],
+    heartCoverage: 0.5,
+    shadowFraction: 0.3,
+    ...over,
+  });
   it('names cause, effect and remedy for oblique plane, missing landmarks and shadowing', () => {
     const ex = explainAnalysis(analysis({}), DEFAULT_ACQUISITION);
     const codes = ex.map((e) => e.code);

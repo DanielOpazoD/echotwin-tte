@@ -1,7 +1,7 @@
 // @tier slow
 import { describe, expect, it } from 'vitest';
 import type { ImageStats } from '@/clinical/regionStats';
-import { apicalGeometry, type ApicalGeometry } from '@/clinical/apicalGeometry';
+import { apicalGeometry } from '@/clinical/apicalGeometry';
 import {
   CAMUS_GOOD_GEOMETRY,
   type ApicalGeometryMetric,
@@ -237,7 +237,7 @@ describe('the default console against clinical optimal-window images (CAMUS Good
           key,
           (Object.keys(ref) as ApicalGeometryMetric[]).map((m) => [
             m,
-            g.reduce((a, x) => a + x[m as keyof ApicalGeometry], 0) / g.length,
+            g.reduce((a, x) => a + x[m], 0) / g.length,
             ref[m]!,
           ]),
           KNOWN_GEOMETRY_DEVIATIONS,

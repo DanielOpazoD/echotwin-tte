@@ -132,7 +132,7 @@ describe('receiver noise', () => {
 
   it('an M-mode line takes the axial response at its own finer sampling', () => {
     const frame = polarSpecFor(settings, 'medium');
-    const line = { ...frame, lines: 1, samples: Math.round((frame.depthCm / 0.02) as number) };
+    const line = { ...frame, lines: 1, samples: Math.round(frame.depthCm / 0.02) };
     const k = buildNoiseKernels(line, settings.frequencyMHz, settings.harmonics);
     expect(k.lateral.length).toBe(0);
     const expected = lagOnePower(k.axial, 0, k.axial.length - 1);

@@ -466,7 +466,7 @@ export class Webgl2Renderer implements RendererBackend {
       return t;
     };
     const mkFb = (...targets: WebGLTexture[]): WebGLFramebuffer => {
-      const fb = gl.createFramebuffer()!;
+      const fb = gl.createFramebuffer();
       gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
       const attachments = targets.map((t, i) => {
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0 + i, gl.TEXTURE_2D, t, 0);
@@ -892,7 +892,7 @@ export class Webgl2Renderer implements RendererBackend {
 }
 
 function makeTexture2D(gl: WebGL2RenderingContext): WebGLTexture {
-  const t = gl.createTexture()!;
+  const t = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, t);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
@@ -915,7 +915,7 @@ function buildProgram(gl: WebGL2RenderingContext, vs: string, fs: string): WebGL
   };
   const v = compile(gl.VERTEX_SHADER, vs);
   const f = compile(gl.FRAGMENT_SHADER, fs);
-  const prog = gl.createProgram()!;
+  const prog = gl.createProgram();
   gl.attachShader(prog, v);
   gl.attachShader(prog, f);
   gl.linkProgram(prog);
@@ -968,11 +968,14 @@ export function createWebgl2Renderer(
       stencil: false,
       preserveDrawingBuffer: false,
       premultipliedAlpha: false,
-    }) as WebGL2RenderingContext | null;
+    });
     if (!gl) return { renderer: null, reason: 'WebGL2 unavailable' };
     const name = webglRendererName(gl);
     if (!options.allowSoftware && SOFTWARE_GL.test(name)) {
-      (gl.getExtension('WEBGL_lose_context') as { loseContext: () => void } | null)?.loseContext();
+      // lib.dom types this extension; the linter's program does not resolve the overload, tsc does
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
+      const lose: { loseContext(): void } | null = gl.getExtension('WEBGL_lose_context');
+      lose?.loseContext();
       return { renderer: null, reason: `software WebGL (${name.slice(0, 60)}): CPU tracer` };
     }
     return { renderer: new Webgl2Renderer(gl), reason: 'ok' };

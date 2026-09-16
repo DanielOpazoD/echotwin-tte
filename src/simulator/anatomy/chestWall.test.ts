@@ -4,7 +4,6 @@ import { CASE_INPUTS, loadCaseById } from '@/cases';
 import { classifyHeart, computeHeartPose, createHeartModel, torsoToHeart } from './heartModel';
 import { createThoraxModel, skinZ } from './thoraxModel';
 import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
-import type { TissueSample } from './tissue';
 import { v3 } from '@/core/vec3';
 
 /**
@@ -69,7 +68,7 @@ function deepestIntrusion(caseId: string, systole: boolean): number {
     mz: 0,
     extraReflect: 0,
     structure: 0,
-  } as unknown as TissueSample;
+  };
   let worst = 0;
   for (let x = -2; x <= 11; x += 0.25)
     for (let y = -9; y <= 6; y += 0.25) {

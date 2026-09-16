@@ -24,7 +24,7 @@ export interface Range {
 export const LV_RULES = {
   lvEddNormalMen: {
     id: 'lv-edd-normal-men',
-    value: { lo: 4.2, hi: 5.8 } as Range,
+    value: { lo: 4.2, hi: 5.8 },
     units: 'cm',
     population: 'adult men',
     referenceId: 'ase-eacvi-chamber-2015',
@@ -32,7 +32,7 @@ export const LV_RULES = {
   } satisfies ClinicalRule<Range>,
   lvEddNormalWomen: {
     id: 'lv-edd-normal-women',
-    value: { lo: 3.8, hi: 5.2 } as Range,
+    value: { lo: 3.8, hi: 5.2 },
     units: 'cm',
     population: 'adult women',
     referenceId: 'ase-eacvi-chamber-2015',
@@ -40,7 +40,7 @@ export const LV_RULES = {
   } satisfies ClinicalRule<Range>,
   ivsdNormal: {
     id: 'ivsd-normal',
-    value: { lo: 0.6, hi: 1.0 } as Range,
+    value: { lo: 0.6, hi: 1.0 },
     units: 'cm',
     population: 'adults (men 0.6–1.0; women 0.6–0.9)',
     referenceId: 'ase-eacvi-chamber-2015',
@@ -48,7 +48,7 @@ export const LV_RULES = {
   } satisfies ClinicalRule<Range>,
   lvpwdNormal: {
     id: 'lvpwd-normal',
-    value: { lo: 0.6, hi: 1.0 } as Range,
+    value: { lo: 0.6, hi: 1.0 },
     units: 'cm',
     population: 'adults (men 0.6–1.0; women 0.6–0.9)',
     referenceId: 'ase-eacvi-chamber-2015',
@@ -109,7 +109,7 @@ export const AORTIC_STENOSIS_RULES = {
   } satisfies ClinicalRule<number>,
   moderateVmax: {
     id: 'as-moderate-vmax',
-    value: { lo: 3.0, hi: 3.9 } as Range,
+    value: { lo: 3.0, hi: 3.9 },
     units: 'm/s',
     population: 'adults',
     referenceId: 'ase-eacvi-aortic-stenosis-2017',
@@ -117,7 +117,7 @@ export const AORTIC_STENOSIS_RULES = {
   } satisfies ClinicalRule<Range>,
   moderateMeanGradient: {
     id: 'as-moderate-mean-gradient',
-    value: { lo: 20, hi: 39 } as Range,
+    value: { lo: 20, hi: 39 },
     units: 'mmHg',
     population: 'adults',
     referenceId: 'ase-eacvi-aortic-stenosis-2017',
@@ -125,7 +125,7 @@ export const AORTIC_STENOSIS_RULES = {
   } satisfies ClinicalRule<Range>,
   moderateAva: {
     id: 'as-moderate-ava',
-    value: { lo: 1.0, hi: 1.5 } as Range,
+    value: { lo: 1.0, hi: 1.5 },
     units: 'cm²',
     population: 'adults',
     referenceId: 'ase-eacvi-aortic-stenosis-2017',

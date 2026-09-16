@@ -34,9 +34,9 @@ describe('measurement support in the simulator core', () => {
     const core = new SimulatorCore(c, baseInput({ probe: a5c, quality: 'low' }));
     let out = null;
     for (let i = 0; i < 4 && !out; i++) out = core.step(0.05);
-    expect(out).not.toBeNull();
-    expect(out!.structure.length).toBe(out!.polar.lines * out!.polar.samples);
-    expect(Array.from(out!.structure).some((s) => s === Structure.LvCavity)).toBe(true);
+    if (!out) throw new Error('no frame produced in four steps');
+    expect(out.structure.length).toBe(out.polar.lines * out.polar.samples);
+    expect(Array.from(out.structure).some((s) => s === Structure.LvCavity)).toBe(true);
     const pm = core.phaseMarks();
     expect(pm.ejectionStart).toBeLessThan(pm.ejectionEnd);
     expect(pm.ejectionEnd).toBeLessThan(pm.mitralOpen);
@@ -58,8 +58,8 @@ describe('measurement support in the simulator core', () => {
     );
     let out = null;
     for (let i = 0; i < 6; i++) out = core.step(0.05) ?? out;
-    expect(out?.gate).not.toBeNull();
-    const g = out!.gate!;
+    if (!out?.gate) throw new Error('no gate info in six steps');
+    const g = out.gate;
     expect([Structure.Lvot, Structure.LvCavity, Structure.AorticRoot]).toContain(g.structure);
     expect(g.flowPresent).toBe(true);
     expect(g.flowAngleDeg!).toBeLessThan(40);

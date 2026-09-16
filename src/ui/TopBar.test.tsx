@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { TopBar } from './TopBar';
 import { useHudStore, useSimStore } from '@/app/store';
-import type { SimOutput } from '@/simulator/core/protocol';
 import type { ProductMode } from '@/app/modePolicy';
 
 const initialSim = useSimStore.getState();
@@ -17,7 +16,7 @@ function seed(mode: ProductMode) {
       simulatedFps: 30,
       colorFps: 0,
       view: { bestViewId: 'plax', score: 91 },
-    } as never as SimOutput,
+    } as never,
   });
 }
 

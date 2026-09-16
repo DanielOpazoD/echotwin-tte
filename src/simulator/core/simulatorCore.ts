@@ -546,7 +546,7 @@ export class SimulatorCore {
     }
     const tCine = performance.now();
     const cf: CineFrame = {
-      structure: new Uint8Array(this.frame!.structure),
+      structure: new Uint8Array(this.frame.structure),
       display: new Uint8ClampedArray(this.display!),
       spec,
       phase,

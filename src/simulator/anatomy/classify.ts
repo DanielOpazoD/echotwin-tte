@@ -1069,7 +1069,7 @@ export function classifyHeart(
   {
     const dLvEpi = dEllR - wallT; // the epicardium is the outer face of the wall shell
     const fw = m.anatomy.rv.freeWallThicknessCm;
-    const dRvEpi = rvTmp[0]! - fw; // crescent and tricuspid inflow, computed just above (this point is outside the RV)
+    const dRvEpi = rvTmp[0] - fw; // crescent and tricuspid inflow, computed just above (this point is outside the RV)
     const la = A.laCenter,
       lr = A.laR;
     const dLaEpi = sdEllipsoid(x, y, z, la.x, la.y, la.z, lr.x + 0.25, lr.y + 0.25, lr.z + 0.25);
