@@ -93,9 +93,12 @@ describe('useSimStore', () => {
     const store = await freshStore();
     store.getState().setMode('exam');
     store.getState().startPresetView('plax');
+    await new Promise((r) => setTimeout(r, 0));
     expect(store.getState().presetAnim).toBeNull();
     store.getState().setMode('sandbox');
     store.getState().startPresetView('plax');
+    // the pose is asked of the worker (none here: the main-thread models answer on the next tick)
+    await new Promise((r) => setTimeout(r, 0));
     const anim = store.getState().presetAnim;
     expect(anim).not.toBeNull();
     expect(anim!.viewId).toBe('plax');

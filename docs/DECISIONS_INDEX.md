@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 127 (última: 127).
+Decisiones: 128 (última: 128).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -135,3 +135,4 @@ Decisiones: 127 (última: 127).
 | [125](DECISIONS.md#L407) | 2026-09-16 | Las funciones escalares puras compartidas por CPU y GPU se generan desde su TypeScript | vigente |
 | [126](DECISIONS.md#L409) | 2026-09-16 | El clasificador del corazón se parte en siete bloques con un contexto compartido | vigente |
 | [127](DECISIONS.md#L411) | 2026-09-16 | Cada modalidad de imagen se describe una sola vez | vigente |
+| [128](DECISIONS.md#L413) | 2026-09-16 | La pose de una vista predeterminada la calcula el worker | vigente |

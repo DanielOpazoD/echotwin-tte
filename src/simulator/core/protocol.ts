@@ -127,13 +127,18 @@ export interface PhaseMarks {
 }
 
 /** On-demand requests answered by the simulator (rare events, not per frame). */
-export type SimRequest = { kind: 'autoTrace'; x0: number; x1: number };
-export type SimResponse = {
-  kind: 'autoTrace';
-  velocitiesMps: number[];
-  secondsPerColumn: number;
-  x0: number;
-};
+export type SimRequest =
+  | { kind: 'autoTrace'; x0: number; x1: number }
+  /** The probe control that reaches a canonical view from the window, computed on the worker's own models (B7). */
+  | { kind: 'canonicalControl'; viewId: string };
+export type SimResponse =
+  | {
+      kind: 'autoTrace';
+      velocitiesMps: number[];
+      secondsPerColumn: number;
+      x0: number;
+    }
+  | { kind: 'canonicalControl'; control: ProbeControl };
 
 export type MainToWorker =
   | { type: 'init'; caseDef: CaseDefinition; input: SimInput }
