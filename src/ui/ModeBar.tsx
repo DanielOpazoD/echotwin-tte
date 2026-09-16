@@ -1,4 +1,5 @@
 import { useHudStore, useSimStore } from '@/app/store';
+import { useShallow } from 'zustand/shallow';
 import { modePolicy } from '@/app/modePolicy';
 import { exportDisplayPng } from '@/app/exportImage';
 import { useRestartTutorial } from './Tutorial';
@@ -13,7 +14,21 @@ const MODES = MODALITY_LIST;
  * and the torso toggle. Interface toggles and secondary actions live in the ⋯ overflow menu.
  */
 export function ModeBar() {
-  const s = useSimStore();
+  const s = useSimStore(
+    useShallow((st) => ({
+      cineOffset: st.cineOffset,
+      fpsUi: st.fpsUi,
+      frozen: st.frozen,
+      modality: st.modality,
+      mode: st.mode,
+      setCineOffset: st.setCineOffset,
+      setModality: st.setModality,
+      setUi: st.setUi,
+      toggleFreeze: st.toggleFreeze,
+      ui: st.ui,
+      workerMode: st.workerMode,
+    })),
+  );
   const hud = useHudStore((h) => h.hud);
   return (
     <div className="modebar" role="toolbar" aria-label="Modalidades y cine">
@@ -110,7 +125,9 @@ function ContextChip() {
 
 /** ⋯ menu: interface toggles (checkable) plus the secondary actions, per the minimal-console spec. */
 function OverflowMenu() {
-  const s = useSimStore();
+  const s = useSimStore(
+    useShallow((st) => ({ caseId: st.caseId, mode: st.mode, setUi: st.setUi, ui: st.ui })),
+  );
   const policy = modePolicy(s.mode);
   const restartTutorial = useRestartTutorial();
   const { open, setOpen, wrap } = usePopover();

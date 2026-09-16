@@ -1,10 +1,20 @@
 import { useSimStore } from '@/app/store';
+import { useShallow } from 'zustand/shallow';
 import { CURRICULUM } from '@/education/curriculum';
 import { listCases } from '@/cases';
 
 /** Staged curriculum screen (proposal 7): modules → lessons → tasks with completion state and the reason each task matters. */
 export function CurriculumScreen() {
-  const s = useSimStore();
+  const s = useSimStore(
+    useShallow((st) => ({
+      caseId: st.caseId,
+      loadCase: st.loadCase,
+      mode: st.mode,
+      progress: st.progress,
+      setMode: st.setMode,
+      setUi: st.setUi,
+    })),
+  );
   const done = s.progress.completedTasks;
   const cases = listCases();
   const total = CURRICULUM.flatMap((m) => m.lessons.flatMap((l) => l.tasks)).length;

@@ -1,4 +1,5 @@
 import { useSimStore } from '@/app/store';
+import { useShallow } from 'zustand/shallow';
 import { modePolicy } from '@/app/modePolicy';
 
 /**
@@ -6,7 +7,17 @@ import { modePolicy } from '@/app/modePolicy';
  * acquisition telemetry live in the on-image HUD (ImageHud) so this row never truncates.
  */
 export function TopBar() {
-  const s = useSimStore();
+  const s = useSimStore(
+    useShallow((st) => ({
+      frozen: st.frozen,
+      mode: st.mode,
+      quality: st.quality,
+      setMode: st.setMode,
+      setQuality: st.setQuality,
+      setUi: st.setUi,
+      ui: st.ui,
+    })),
+  );
   const policy = modePolicy(s.mode);
   return (
     <div className="topbar" role="banner">

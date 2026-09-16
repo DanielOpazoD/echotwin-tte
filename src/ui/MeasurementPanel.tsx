@@ -1,4 +1,5 @@
 import { useSimStore } from '@/app/store';
+import { useShallow } from 'zustand/shallow';
 import { loadCaseById } from '@/cases';
 import { MEASUREMENT_SPECS, type MeasurementSpec } from '@/simulator/measurements/protocol';
 
@@ -16,7 +17,14 @@ const GROUP_LABEL: Record<MeasurementSpec['group'], string> = {
  * instruction and, once captured, the technique grade with its findings.
  */
 export function MeasurementPanel() {
-  const s = useSimStore();
+  const s = useSimStore(
+    useShallow((st) => ({
+      activeMeasurementId: st.activeMeasurementId,
+      caseId: st.caseId,
+      measurements: st.measurements,
+      setActiveMeasurement: st.setActiveMeasurement,
+    })),
+  );
   const caseDef = loadCaseById(s.caseId);
   const requiredIds = caseDef.requiredMeasurements.map((r) => r.measurementId);
   const latestOf = (id: string) => {

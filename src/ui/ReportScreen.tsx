@@ -1,4 +1,5 @@
 import { useSimStore } from '@/app/store';
+import { useShallow } from 'zustand/shallow';
 import { formatClinical } from '@/clinical/reference-values';
 import { buildEducationalReport } from '@/education/report';
 import { buildExamSummary, scoreAcquisition } from '@/education/scoring/scoring';
@@ -13,7 +14,19 @@ import {
 
 /** Educational structured report (spec 26) + exam summary (spec 28.4). Learning mode shows ground truth; exam mode hides it until finished. */
 export function ReportScreen() {
-  const s = useSimStore();
+  const s = useSimStore(
+    useShallow((st) => ({
+      caseId: st.caseId,
+      examFinished: st.examFinished,
+      finishExam: st.finishExam,
+      impressionSelection: st.impressionSelection,
+      measurements: st.measurements,
+      mode: st.mode,
+      toggleFinding: st.toggleFinding,
+      truth: st.truth,
+      viewProgress: st.viewProgress,
+    })),
+  );
   const hideTruth = s.mode === 'exam' && !s.examFinished;
   const report = buildEducationalReport(s.measurements, s.truth, hideTruth);
   const caseDef = loadCaseById(s.caseId);
