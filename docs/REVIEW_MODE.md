@@ -25,6 +25,25 @@ informa a Claude y Claude informa al usuario con el mismo formato.
    la modalidad y la consola, y muestra los marcadores con sus notas. Un cine congelado no se restaura: el
    cuadro se reproduce en vivo con la misma sonda y consola.
 
+## Mover, seleccionar, borrar, deshacer
+
+- **Arrastra** un marcador sobre la imagen para moverlo: la lectura del modelo se recalcula al soltarlo.
+- **Clic** en un marcador (o en su tarjeta del panel) lo selecciona: anillo blanco en la imagen, tarjeta resaltada.
+- **Supr** o **Retroceso** borra el marcador seleccionado; **Ctrl+Z** (⌘Z) lo recupera; **Esc** deselecciona.
+  Las teclas no actúan mientras escribes en un campo de texto.
+- **Congelar al poner el primer marcador** (activo por defecto): al marcar sobre una imagen en vivo la app congela,
+  así los marcadores conservan el cuadro en que se pusieron; con Espacio vuelves a vivo. Cada marcador guarda de
+  todos modos la fase de su propio cuadro.
+
+## Marcar el modelo 3D
+
+En modo revisión, un **clic sin arrastre** sobre el torso 3D deja un marcador en la superficie tocada: miocardio
+del VI o del VD, cavidades, aurículas, válvulas, grandes vasos, piel o hueso (con el corte activo, la mitad
+retirada del corazón no cuenta). El marcador muestra el punto en el torso y, con la respuesta del worker, la
+estructura y el tejido del clasificador en ese punto, las coordenadas del corazón y **la distancia al plano de
+imagen**, que dice si lo señalado está en el corte que ves o fuera de él. Arrastrar sigue deslizando la sonda.
+Los marcadores 3D aparecen como esferas magenta con su número sobre el modelo, y en el informe con el prefijo «3D».
+
 Los marcadores viven en la sesión (no se guardan al recargar). El modo revisión se apaga al entrar en examen.
 
 ## Cómo lo reproduce Claude

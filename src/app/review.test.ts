@@ -26,6 +26,9 @@ const sector = {
 const marker = (over: Partial<ReviewMarker> = {}): ReviewMarker => ({
   id: 'r1',
   n: 1,
+  space: 'image',
+  torso: null,
+  group: null,
   x: 330,
   y: 200,
   captureSector: sector,
@@ -39,6 +42,7 @@ const marker = (over: Partial<ReviewMarker> = {}): ReviewMarker => ({
   point: {
     rCm: 7.9,
     thetaRad: 0.05,
+    offPlaneCm: 0,
     phase: 0.35,
     torso: { x: 1, y: 2, z: -6 },
     heart: { x: -0.7, y: 1.4, z: 0.2 },
@@ -109,6 +113,57 @@ describe('review report (decision 134)', () => {
     expect(back!.input).toEqual(input);
     expect(back!.markers.map((m) => m.id)).toEqual(['r1', 'r2']);
     expect(parseReviewReport(JSON.stringify(report))!.caseId).toBe('normal-excellent-window');
+  });
+
+  it('places a marker put on the 3D model with its surface, the torso point and its distance from the image plane', () => {
+    const base = marker();
+    const model = marker({
+      space: 'model',
+      group: 'rv-myocardium',
+      torso: { x: -2.1, y: 1.4, z: -5.2 },
+      rCm: null,
+      thetaRad: null,
+      captureSector: null,
+      point: {
+        ...base.point!,
+        structure: Structure.RvWall,
+        tissue: Tissue.Myocardium,
+        rootT: null,
+        rootR: null,
+        offPlaneCm: -1.24,
+      },
+    });
+    const place = markerPlace(model);
+    expect(place).toContain('3D · miocardio del VD');
+    expect(place).toContain('pared libre del VD · miocardio');
+    expect(place).toContain('torso (-2.1, 1.4, -5.2)');
+    expect(place).toContain('a 1.2 cm del plano de imagen');
+    expect(markerPlace({ ...model, point: { ...model.point!, offPlaneCm: 0.1 } })).toContain(
+      'en el plano de imagen',
+    );
+    // a report written before 3D markers existed loads as image markers
+    const old = JSON.parse(
+      JSON.stringify(
+        buildReviewReport({
+          caseId: 'x',
+          caseTitle: 'x',
+          mode: 'sandbox',
+          workerMode: 'worker',
+          input: baseInput(),
+          hud: null,
+          note: '',
+          markers: [base],
+        }),
+      ),
+    ) as { markers: Record<string, unknown>[] };
+    for (const mk of old.markers) {
+      delete mk['space'];
+      delete mk['torso'];
+      delete mk['group'];
+    }
+    const back = parseReviewReport(JSON.stringify(old));
+    expect(back!.markers[0]!.space).toBe('image');
+    expect(back!.markers[0]!.group).toBeNull();
   });
 
   it('rejects text that carries no report', () => {

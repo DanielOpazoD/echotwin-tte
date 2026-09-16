@@ -42,11 +42,15 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
   const pendingRef = useRef<Pending>({ points: [] });
   const lastOutRef = useRef<SimOutput | null>(null);
   const dragRef = useRef<{
-    kind: 'box-move' | 'box-resize' | 'cursor' | 'none';
+    kind: 'box-move' | 'box-resize' | 'cursor' | 'marker' | 'none';
     startX: number;
     startY: number;
     box?: { t0: number; t1: number; r0: number; r1: number };
+    /** review marker being dragged (decision 135) and whether it has moved */
+    markerId?: string;
+    moved?: boolean;
   }>({ kind: 'none', startX: 0, startY: 0 });
+  const reviewMode = useSimStore((s) => s.ui.reviewMode);
   const onSize = props.onSize;
 
   useEffect(() => {
@@ -143,9 +147,20 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
     const st = useSimStore.getState();
     const m = hud.sector;
     const inSector = p.y < m.height;
-    // review mode (decision 134): a plain click marks the image; Shift keeps the ordinary behaviour
+    // review mode (decision 134): a plain click marks the image, a click on a marker selects it and drags it
+    // (decision 135); Shift keeps the ordinary behaviour
     if (st.ui.reviewMode && st.activeTool === 'none' && !e.shiftKey) {
-      placeReviewMarker(p, hud);
+      const hit = markerAt(p, hud, st.reviewMarkers);
+      if (hit) {
+        st.selectReviewMarker(hit.id);
+        dragRef.current = {
+          kind: 'marker',
+          startX: p.x,
+          startY: p.y,
+          markerId: hit.id,
+          moved: false,
+        };
+      } else placeReviewMarker(p, hud);
       return;
     }
     if (st.activeTool !== 'none') {
@@ -193,6 +208,14 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
     const p = toLocal(e);
     const st = useSimStore.getState();
     const m = hud.sector;
+    if (dragRef.current.kind === 'marker') {
+      const f = fieldsAt(p, hud);
+      if (f && dragRef.current.markerId) {
+        st.updateReviewMarker(dragRef.current.markerId, { ...f, point: null });
+        dragRef.current.moved = true;
+      }
+      return;
+    }
     if (dragRef.current.kind === 'cursor') {
       const { rCm, thetaRad } = pixelToPolar(m, p.x, Math.min(p.y, m.height - 1));
       st.setCursor(
@@ -221,24 +244,31 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
     }
   };
   const onMouseUp = () => {
+    const d = dragRef.current;
+    if (d.kind === 'marker' && d.moved && d.markerId) {
+      // moved: ask the worker again for what lies under the new position
+      const mk = useSimStore.getState().reviewMarkers.find((m) => m.id === d.markerId);
+      if (mk) askWorker(mk.id, mk.rCm, mk.thetaRad);
+    }
     dragRef.current = { kind: 'none', startX: 0, startY: 0 };
   };
 
-  /** A numbered marker where the click fell, with the structure the frame's own map holds there; the worker's
-   *  classification (coordinates the anatomy code reasons in) arrives asynchronously. */
-  const placeReviewMarker = (p: { x: number; y: number }, hud: SimOutput) => {
-    const st = useSimStore.getState();
+  /** The fields of a marker that depend on where a display point lies: sector (polar, structure) or strip. */
+  const fieldsAt = (
+    p: { x: number; y: number },
+    hud: SimOutput,
+  ): Pick<
+    ReviewMarker,
+    'x' | 'y' | 'captureSector' | 'rCm' | 'thetaRad' | 'strip' | 'structure'
+  > | null => {
     const m = hud.sector;
     const strip = hud.strip;
     const inSector = p.y < m.height;
     const onStrip = !inSector && strip.kind !== null && p.y >= strip.y;
-    if (!inSector && !onStrip) return;
+    if (!inSector && !onStrip) return null;
     const polar = inSector ? pixelToPolar(m, p.x, p.y) : null;
-    if (polar && (polar.rCm > m.depthCm || Math.abs(polar.thetaRad) > m.sectorRad / 2)) return;
-    const id = `r${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
-    const marker: ReviewMarker = {
-      id,
-      n: st.reviewMarkers.length + 1,
+    if (polar && (polar.rCm > m.depthCm || Math.abs(polar.thetaRad) > m.sectorRad / 2)) return null;
+    return {
       x: p.x,
       y: p.y,
       captureSector: { ...m },
@@ -254,25 +284,56 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
                 ((p.y - strip.y) / strip.height) * (strip.bottomValue - strip.topValue),
             }
           : null,
+      structure: inSector ? structureAtPixel(hud, p.x, p.y) : 0,
+    };
+  };
+  /** The worker's classification of a marker's point (the coordinates the anatomy code reasons in). */
+  const askWorker = (id: string, rCm: number | null, thetaRad: number | null) => {
+    if (rCm === null || thetaRad === null) return;
+    void frameBus
+      .request({ kind: 'probePoint', rCm, thetaRad })
+      .then((res) => {
+        if (res && res.kind === 'probePoint')
+          useSimStore.getState().updateReviewMarker(id, { point: res.point });
+      })
+      .catch((e: unknown) => {
+        console.warn('probe point request failed', e instanceof Error ? e.message : e);
+      });
+  };
+  /** A numbered marker where the click fell, with the structure the frame's own map holds there. */
+  const placeReviewMarker = (p: { x: number; y: number }, hud: SimOutput) => {
+    const st = useSimStore.getState();
+    const f = fieldsAt(p, hud);
+    if (!f) return;
+    const id = `r${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
+    st.addReviewMarker({
+      id,
+      n: st.reviewMarkers.length + 1,
+      space: 'image',
+      torso: null,
+      group: null,
+      ...f,
       frameId: hud.frameId,
       phase: hud.phase,
       modality: st.modality,
-      structure: inSector ? structureAtPixel(hud, p.x, p.y) : 0,
       point: null,
       note: '',
       category: 'anatomia',
-    };
-    st.addReviewMarker(marker);
-    if (polar)
-      void frameBus
-        .request({ kind: 'probePoint', rCm: polar.rCm, thetaRad: polar.thetaRad })
-        .then((res) => {
-          if (res && res.kind === 'probePoint')
-            useSimStore.getState().updateReviewMarker(id, { point: res.point });
-        })
-        .catch((e: unknown) => {
-          console.warn('probe point request failed', e instanceof Error ? e.message : e);
-        });
+    });
+    askWorker(id, f.rCm, f.thetaRad);
+  };
+  /** The image marker under a display point (within 12 px), if any. */
+  const markerAt = (
+    p: { x: number; y: number },
+    hud: SimOutput,
+    markers: ReviewMarker[],
+  ): ReviewMarker | null => {
+    for (const mk of markers) {
+      if (mk.space !== 'image') continue;
+      const q = markerScreenPosition(mk, hud.sector);
+      if (Math.hypot(q.x - p.x, q.y - p.y) <= 12) return mk;
+    }
+    return null;
   };
 
   const handleToolClick = (p: { x: number; y: number }, detail: number) => {
@@ -563,7 +624,7 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
       />
       <canvas
         ref={ovRef}
-        className="overlay"
+        className={reviewMode ? 'overlay review' : 'overlay'}
         style={{ width: '100%', height: '100%' }}
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
@@ -833,15 +894,24 @@ function drawOverlay(
   if (ui.reviewMode) {
     ctx.fillStyle = '#ff6ad5';
     ctx.fillText(
-      'Revisión: clic = marcar lo que ves mal · Shift+clic = herramienta normal',
+      'Revisión: clic = marcar · arrastra un marcador para moverlo · Supr = borrar · Shift+clic = herramienta normal',
       8,
       activeTool !== 'none' ? 44 : 30,
     );
   }
   for (const mk of reviewMarkers) {
-    const q = mk.strip
-      ? { x: mk.x, y: mk.y }
-      : (reprojectGeometry([{ x: mk.x, y: mk.y }], mk.captureSector, m)[0] ?? { x: mk.x, y: mk.y });
+    if (mk.space !== 'image') continue;
+    const q = markerScreenPosition(mk, m);
+    const selected = mk.id === st.reviewSelectedId;
+    if (selected) {
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.arc(q.x, q.y, 14, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
     ctx.lineWidth = 2;
     ctx.strokeStyle = '#ff6ad5';
     ctx.fillStyle = 'rgba(20,20,28,0.75)';
@@ -856,7 +926,10 @@ function drawOverlay(
     ctx.textAlign = 'left';
     ctx.font = '11px system-ui, sans-serif';
     if (!mk.strip) {
-      const label = structureLabel(mk.point ? mk.point.structure : mk.structure);
+      const note = mk.note.trim();
+      const label =
+        structureLabel(mk.point ? mk.point.structure : mk.structure) +
+        (note ? ` — ${note.length > 28 ? `${note.slice(0, 27)}…` : note}` : '');
       const w = ctx.measureText(label).width + 8;
       ctx.fillStyle = 'rgba(20,20,28,0.75)';
       ctx.fillRect(q.x + 12, q.y - 8, w, 16);
@@ -865,6 +938,12 @@ function drawOverlay(
     }
     ctx.lineWidth = 1;
   }
+}
+
+/** Where an image marker sits on the current display: strip markers keep their pixel, sector markers reproject. */
+function markerScreenPosition(mk: ReviewMarker, m: SectorMapping): { x: number; y: number } {
+  if (mk.strip || !mk.captureSector) return { x: mk.x, y: mk.y };
+  return reprojectGeometry([{ x: mk.x, y: mk.y }], mk.captureSector, m)[0] ?? { x: mk.x, y: mk.y };
 }
 
 function drawArc(

@@ -10,7 +10,9 @@ import {
   skinZ,
   type ThoraxModel,
 } from '@/simulator/anatomy/thoraxModel';
-import { heartToTorso, type HeartFrame } from '@/simulator/anatomy/heartFrame';
+import { heartToTorso, torsoToHeart, type HeartFrame } from '@/simulator/anatomy/heartFrame';
+import { frameBus } from '@/app/frameBus';
+import { groupLabel, type ReviewMarker } from '@/app/review';
 import type {
   MeshError,
   MeshReply,
@@ -200,6 +202,41 @@ export function TorsoView() {
     const latAxis = axisLine(0x5cc8ff);
     axisGroup.add(beamAxis, elevAxis, latAxis);
     scene.add(axisGroup);
+    // review markers placed on the model (decision 135): a sphere and a label per marker, rebuilt when they change
+    const reviewGroup = new THREE.Group();
+    scene.add(reviewGroup);
+    let reviewShown: ReviewMarker[] | null = null;
+    let reviewSelectedShown: string | null = null;
+    const rebuildReviewMarkers = (markers: ReviewMarker[], selected: string | null) => {
+      for (const o of reviewGroup.children) {
+        const mesh = o as THREE.Mesh | THREE.Sprite;
+        mesh.geometry?.dispose();
+        const mat = mesh.material as THREE.Material & { map?: THREE.Texture | null };
+        mat.map?.dispose();
+        mat.dispose();
+      }
+      reviewGroup.clear();
+      for (const mk of markers) {
+        if (mk.space !== 'model' || !mk.torso) continue;
+        const on = mk.id === selected;
+        const ball = new THREE.Mesh(
+          new THREE.SphereGeometry(on ? 0.5 : 0.35, 16, 12),
+          new THREE.MeshBasicMaterial({
+            color: on ? 0xffffff : 0xff6ad5,
+            transparent: true,
+            opacity: 0.95,
+            depthTest: false,
+          }),
+        );
+        ball.position.set(mk.torso.x, mk.torso.y, mk.torso.z);
+        ball.renderOrder = 30;
+        reviewGroup.add(ball);
+        const tag = textSprite(`${mk.n} · ${groupLabel(mk.group)}`, on ? 0xffffff : 0xff6ad5);
+        tag.position.set(mk.torso.x, mk.torso.y + 1.1, mk.torso.z + 0.6);
+        tag.renderOrder = 31;
+        reviewGroup.add(tag);
+      }
+    };
 
     // ---- probe ----
     const { probe, marker } = buildProbe();
@@ -278,8 +315,70 @@ export function TorsoView() {
       const v = new THREE.Vector3(p.x, p.y, p.z).project(camera);
       return { x: r.left + ((v.x + 1) / 2) * r.width, y: r.top + ((1 - v.y) / 2) * r.height };
     };
+    // a press that does not move is a click: in review mode it marks the model (decision 135)
+    let down = { x: 0, y: 0, t: 0, button: -1 };
+    const isUnder = (root: THREE.Object3D, o: THREE.Object3D): boolean => {
+      for (let c: THREE.Object3D | null = o; c; c = c.parent) if (c === root) return true;
+      return false;
+    };
+    const placeModelMarker = (e: MouseEvent) => {
+      if (!heartFrame) return;
+      toNdc(e);
+      raycaster.setFromCamera(mouse, camera);
+      const st = useSimStore.getState();
+      const targets: THREE.Object3D[] = [];
+      for (const mesh of meshByGroup.values()) if (mesh.visible) targets.push(mesh);
+      if (skin?.visible) targets.push(skin);
+      if (skeleton?.visible) targets.push(skeleton);
+      if (ghost?.visible) targets.push(ghost);
+      const hit = raycaster.intersectObjects(targets, true).find((h) => {
+        // with the cut on, the half of the heart the plane removed is not a surface one can point at
+        const heartHit = [...meshByGroup.values()].includes(h.object as THREE.Mesh);
+        return !heartHit || !st.ui.navCut || cutPlane.distanceToPoint(h.point) >= 0;
+      });
+      if (!hit) return;
+      let group: string | null = null;
+      for (const [id, mesh] of meshByGroup) if (mesh === hit.object) group = id;
+      if (!group && skin && hit.object === skin) group = 'skin';
+      if (!group && skeleton && isUnder(skeleton, hit.object)) group = 'skeleton';
+      if (!group && ghost && isUnder(ghost, hit.object)) group = 'ghost';
+      const torso = { x: hit.point.x, y: hit.point.y, z: hit.point.z };
+      const hud = useHudStore.getState().hud;
+      const id = `r${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
+      st.addReviewMarker({
+        id,
+        n: st.reviewMarkers.length + 1,
+        space: 'model',
+        x: 0,
+        y: 0,
+        captureSector: null,
+        rCm: null,
+        thetaRad: null,
+        strip: null,
+        torso,
+        group,
+        frameId: hud?.frameId ?? 0,
+        phase: hud?.phase ?? 0,
+        modality: st.modality,
+        structure: 0,
+        point: null,
+        note: '',
+        category: 'anatomia',
+      });
+      void frameBus
+        .request({ kind: 'probePoint', torso })
+        .then((res) => {
+          if (res && res.kind === 'probePoint')
+            useSimStore.getState().updateReviewMarker(id, { point: res.point });
+        })
+        .catch((err: unknown) => {
+          console.warn('probe point request failed', err instanceof Error ? err.message : err);
+        });
+      void torsoToHeart; // heart-frame coordinates come back from the worker with the classification
+    };
     const onDown = (e: MouseEvent) => {
       e.preventDefault();
+      down = { x: e.clientX, y: e.clientY, t: performance.now(), button: e.button };
       const r = toNdc(e);
       if (e.button === 2) {
         drag = { mode: 'orbit', x: e.clientX, y: e.clientY, cx: 0, cy: 0 };
@@ -296,7 +395,9 @@ export function TorsoView() {
       else {
         drag = { mode: 'slide', x: e.clientX, y: e.clientY, cx: 0, cy: 0 };
         const p = pickSkin(e);
-        if (p) useSimStore.getState().setProbe({ u: p.u, v: p.v });
+        // in review mode a click must not jump the probe: the slide starts with the first move
+        if (p && !useSimStore.getState().ui.reviewMode)
+          useSimStore.getState().setProbe({ u: p.u, v: p.v });
       }
     };
     const onMove = (e: MouseEvent) => {
@@ -330,7 +431,17 @@ export function TorsoView() {
         drag = { ...drag, x: e.clientX, y: e.clientY };
       }
     };
-    const onUp = () => {
+    const onUp = (e: MouseEvent) => {
+      if (
+        down.button === 0 &&
+        useSimStore.getState().ui.reviewMode &&
+        !e.shiftKey &&
+        !e.altKey &&
+        performance.now() - down.t < 500 &&
+        Math.hypot(e.clientX - down.x, e.clientY - down.y) < 4
+      )
+        placeModelMarker(e);
+      down = { x: 0, y: 0, t: 0, button: -1 };
       drag = { mode: null, x: 0, y: 0, cx: 0, cy: 0 };
     };
     const onWheel = (e: WheelEvent) => {
@@ -428,6 +539,12 @@ export function TorsoView() {
         }
       }
       axisGroup.visible = st.ui.navAxes;
+      if (st.reviewMarkers !== reviewShown || st.reviewSelectedId !== reviewSelectedShown) {
+        rebuildReviewMarkers(st.reviewMarkers, st.reviewSelectedId);
+        reviewShown = st.reviewMarkers;
+        reviewSelectedShown = st.reviewSelectedId;
+      }
+      reviewGroup.visible = st.ui.reviewMode;
       if (st.ui.navAxes) {
         const o = new THREE.Vector3(beam.origin.x, beam.origin.y, beam.origin.z);
         const set = (

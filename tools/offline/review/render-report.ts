@@ -18,7 +18,7 @@ import { allocPolarFrame, polarSpecFor, type Scene } from '@/simulator/renderer/
 import { applyConsole, createConsoleState } from '@/simulator/renderer/postprocess/consolePipeline';
 import { computeSectorMapping, polarToPixel, scanConvert } from '@/simulator/renderer/scanConvert';
 import { beamFrameFromPose, contactQuality, poseFromControl } from '@/simulator/probe/pose';
-import { probePointAt } from '@/simulator/core/probePoint';
+import { probePointAt, probeTorsoPointAt } from '@/simulator/core/probePoint';
 
 /** 3×5 pixel digits for the marker numbers drawn into the raw RGBA buffer. */
 const FONT: Record<string, string[]> = {
@@ -91,11 +91,18 @@ lines.push(
 for (const m of report.markers) {
   const note = m.note.replace(/\|/g, '/').replace(/\n/g, ' ');
   const ph = m.point?.phase ?? m.phase;
+  const pose = computeHeartPose(heart, cycleStateAt(tables, ph));
+  if (m.space === 'model' && m.torso) {
+    const q = probeTorsoPointAt(heart, thorax, pose, beam, m.torso, ph);
+    lines.push(
+      `| ${m.n} | ${ph.toFixed(2)} | ${markerPlace(m)} | 3D · ${structureLabel(q.structure)} · ${tissueLabel(q.tissue)} · corazón (${q.heart.x.toFixed(1)}, ${q.heart.y.toFixed(1)}, ${q.heart.z.toFixed(1)}) · ${Math.abs(q.offPlaneCm) < 0.3 ? 'en el plano' : `a ${Math.abs(q.offPlaneCm).toFixed(1)} cm del plano`} | ${note} |`,
+    );
+    continue;
+  }
   if (m.rCm === null || m.thetaRad === null) {
     lines.push(`| ${m.n} | ${ph.toFixed(2)} | ${markerPlace(m)} | (tira) | ${note} |`);
     continue;
   }
-  const pose = computeHeartPose(heart, cycleStateAt(tables, ph));
   const q = probePointAt(heart, thorax, pose, beam, m.rCm, m.thetaRad, ph);
   lines.push(
     `| ${m.n} | ${ph.toFixed(2)} | ${markerPlace(m)} | ${structureLabel(q.structure)} · ${tissueLabel(q.tissue)} · corazón (${q.heart.x.toFixed(1)}, ${q.heart.y.toFixed(1)}, ${q.heart.z.toFixed(1)})${q.rootT !== null && q.rootR !== null ? ` · raíz t ${q.rootT.toFixed(2)} r ${q.rootR.toFixed(2)}` : ''} | ${note} |`,
@@ -124,8 +131,16 @@ for (const { phase, suffix } of renders) {
   const rgba = new Uint8ClampedArray(W * H * 4);
   scanConvert(disp, spec, mapping, rgba);
   for (const m of report.markers) {
-    if (m.rCm === null || m.thetaRad === null) continue;
-    const q = polarToPixel(mapping, m.rCm, m.thetaRad);
+    // a model marker is drawn where it projects onto the image only when it lies close to the plane
+    const pm =
+      m.space === 'model' && m.torso
+        ? probeTorsoPointAt(heart, thorax, pose, beam, m.torso, phase)
+        : null;
+    if (pm && Math.abs(pm.offPlaneCm) > 0.5) continue;
+    const rCm = pm ? pm.rCm : m.rCm;
+    const thetaRad = pm ? pm.thetaRad : m.thetaRad;
+    if (rCm === null || thetaRad === null) continue;
+    const q = polarToPixel(mapping, rCm, thetaRad);
     drawMarker(rgba, W, H, Math.round(q.x), Math.round(q.y), m.n);
   }
   const f = join(outDir, `${stem}-fase${phase.toFixed(2)}${suffix}.png`);

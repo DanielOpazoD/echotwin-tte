@@ -53,6 +53,8 @@ export interface UiPrefs {
   devPanel: boolean;
   /** Review mode (decision 134): clicks on the image place numbered markers for a feedback report. Not persisted. */
   reviewMode: boolean;
+  /** Freeze the image when the first marker is placed on a live frame, so the markers keep their frame (decision 135). */
+  reviewFreezeOnMark: boolean;
   showEcg: boolean;
   tutorialDone: boolean;
   /** Machine-style telemetry overlay on the image corners (case, vitals, acquisition params). */
@@ -104,6 +106,14 @@ export interface SimStore {
   /** Review mode markers and the free note of the report being prepared (decision 134). */
   reviewMarkers: ReviewMarker[];
   reviewNote: string;
+  /** Marker highlighted on the image, the model and the panel; Delete removes it (decision 135). */
+  reviewSelectedId: string | null;
+  /** Removed markers, newest last, restored by undo. */
+  reviewUndo: ReviewMarker[];
+  /** Who wrote the report the current markers came from, when they were loaded from one. */
+  reviewSource: { author: ReviewReport['author']; createdAt: string } | null;
+  selectReviewMarker: (id: string | null) => void;
+  undoReviewRemove: () => void;
   addReviewMarker: (m: ReviewMarker) => void;
   updateReviewMarker: (id: string, patch: Partial<ReviewMarker>) => void;
   removeReviewMarker: (id: string) => void;
@@ -201,6 +211,7 @@ function savePrefs(ui: UiPrefs): void {
       navAxes,
       navCut,
       navWindows,
+      reviewFreezeOnMark,
       railMini,
       minimal,
       consoleTab,
@@ -222,6 +233,7 @@ function savePrefs(ui: UiPrefs): void {
         navAxes,
         navCut,
         navWindows,
+        reviewFreezeOnMark,
         railMini,
         minimal,
         consoleTab,
@@ -273,6 +285,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
     showPhysics: false,
     devPanel: false,
     reviewMode: false,
+    reviewFreezeOnMark: true,
     showEcg: true,
     tutorialDone: false,
     showHud: true,
@@ -287,6 +300,9 @@ export const useSimStore = create<SimStore>((set, get) => ({
   activeTool: 'none',
   reviewMarkers: [],
   reviewNote: '',
+  reviewSelectedId: null,
+  reviewUndo: [],
+  reviewSource: null,
   activeMeasurementId: null,
   progress: loadProgress(typeof localStorage !== 'undefined' ? localStorage : null),
   impressionSelection: [],
@@ -368,16 +384,50 @@ export const useSimStore = create<SimStore>((set, get) => ({
     set((s) => ({ measurements: s.measurements.filter((m) => m.id !== id) })),
   clearMeasurements: () => set({ measurements: [] }),
   setActiveTool: (t) => set({ activeTool: t, activeMeasurementId: null }),
-  addReviewMarker: (m) => set((s) => ({ reviewMarkers: [...s.reviewMarkers, m] })),
+  addReviewMarker: (m) =>
+    set((s) => ({
+      reviewMarkers: [...s.reviewMarkers, m],
+      reviewSelectedId: m.id,
+      // the first marker on a live image freezes it, so the markers keep the frame they were put on
+      ...(m.space === 'image' && !s.frozen && s.ui.reviewFreezeOnMark
+        ? { frozen: true, cineOffset: 0 }
+        : {}),
+    })),
   updateReviewMarker: (id, patch) =>
     set((s) => ({
       reviewMarkers: s.reviewMarkers.map((m) => (m.id === id ? { ...m, ...patch } : m)),
     })),
   removeReviewMarker: (id) =>
+    set((s) => {
+      const gone = s.reviewMarkers.find((m) => m.id === id);
+      return {
+        reviewMarkers: s.reviewMarkers
+          .filter((m) => m.id !== id)
+          .map((m, i) => ({ ...m, n: i + 1 })),
+        reviewUndo: gone ? [...s.reviewUndo.slice(-19), gone] : s.reviewUndo,
+        reviewSelectedId: s.reviewSelectedId === id ? null : s.reviewSelectedId,
+      };
+    }),
+  clearReview: () =>
     set((s) => ({
-      reviewMarkers: s.reviewMarkers.filter((m) => m.id !== id).map((m, i) => ({ ...m, n: i + 1 })),
+      reviewMarkers: [],
+      reviewNote: '',
+      reviewSelectedId: null,
+      reviewSource: null,
+      reviewUndo: [...s.reviewUndo, ...s.reviewMarkers].slice(-20),
     })),
-  clearReview: () => set({ reviewMarkers: [], reviewNote: '' }),
+  selectReviewMarker: (id) => set({ reviewSelectedId: id }),
+  undoReviewRemove: () =>
+    set((s) => {
+      const back = s.reviewUndo[s.reviewUndo.length - 1];
+      if (!back) return {};
+      const restored = { ...back, n: s.reviewMarkers.length + 1 };
+      return {
+        reviewMarkers: [...s.reviewMarkers, restored],
+        reviewUndo: s.reviewUndo.slice(0, -1),
+        reviewSelectedId: restored.id,
+      };
+    }),
   setReviewNote: (note) => set({ reviewNote: note }),
   loadReviewReport: (r) => {
     const s = get();
@@ -402,6 +452,8 @@ export const useSimStore = create<SimStore>((set, get) => ({
       presetAnim: null,
       reviewMarkers: r.markers.map((m, k) => ({ ...m, n: k + 1 })),
       reviewNote: r.note,
+      reviewSelectedId: null,
+      reviewSource: { author: r.author, createdAt: r.createdAt },
     });
     get().setUi({ reviewMode: true, consoleTab: 'revisar' });
   },

@@ -45,6 +45,14 @@ describe('probePoint request', () => {
     expect(p.levelFrac!).toBeGreaterThanOrEqual(0);
     expect(p.levelFrac!).toBeLessThanOrEqual(1);
     expect(p.sdfCm).toBeLessThan(0);
+    // the same point given in torso coordinates reads the same, in the image plane; 1 cm along the elevation
+    // normal it reports that distance (a marker put on the 3D model, decision 135)
+    const same = core.request({ kind: 'probePoint', torso: p.torso });
+    if (!same || same.kind !== 'probePoint') throw new Error('no probePoint response');
+    expect(same.point.structure).toBe(Structure.LvCavity);
+    expect(Math.abs(same.point.offPlaneCm)).toBeLessThan(1e-6);
+    expect(same.point.rCm).toBeCloseTo(rCm, 6);
+    expect(same.point.thetaRad).toBeCloseTo(thetaRad, 6);
     // beyond the sector there is no heart: the thorax answers
     const far = core.request({ kind: 'probePoint', rCm: depthCm + 5, thetaRad: 0 });
     if (!far || far.kind !== 'probePoint') throw new Error('no probePoint response');

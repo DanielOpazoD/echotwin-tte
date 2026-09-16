@@ -131,8 +131,14 @@ export type SimRequest =
   | { kind: 'autoTrace'; x0: number; x1: number }
   /** The probe control that reaches a canonical view from the window, computed on the worker's own models (B7). */
   | { kind: 'canonicalControl'; viewId: string }
-  /** What the model holds at one polar point of the displayed frame (review mode, decision 134). */
-  | { kind: 'probePoint'; rCm: number; thetaRad: number };
+  /** What the model holds at one point of the displayed frame — polar in the image, or a torso point of the 3D
+   *  navigator (review mode, decisions 134 and 135). */
+  | {
+      kind: 'probePoint';
+      rCm?: number;
+      thetaRad?: number;
+      torso?: { x: number; y: number; z: number };
+    };
 export type SimResponse =
   | {
       kind: 'autoTrace';
@@ -145,8 +151,11 @@ export type SimResponse =
 
 /** The model at one point of the image: classification and the coordinates the anatomy code reasons in. */
 export interface ProbePointInfo {
+  /** Polar position relative to the beam (a torso point is projected onto the image plane). */
   rCm: number;
   thetaRad: number;
+  /** Distance from the imaging plane (cm, along the elevation normal); 0 for a point of the image. */
+  offPlaneCm: number;
   /** Cardiac phase of the frame the point was read on. */
   phase: number;
   torso: { x: number; y: number; z: number };

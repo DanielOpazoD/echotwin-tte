@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useHudStore, useSimStore } from '@/app/store';
 import { useShallow } from 'zustand/shallow';
 import { buildInput } from '@/app/useSimulation';
@@ -12,7 +12,7 @@ import {
   type ReviewCategory,
 } from '@/app/review';
 import { listCases } from '@/cases';
-import { Section } from './controls';
+import { Section, Toggle } from './controls';
 
 /**
  * Review mode console (decision 134): the markers placed on the image with what the model holds under each
@@ -27,6 +27,12 @@ export function ReviewPanel() {
       workerMode: st.workerMode,
       markers: st.reviewMarkers,
       note: st.reviewNote,
+      selectedId: st.reviewSelectedId,
+      source: st.reviewSource,
+      undoCount: st.reviewUndo.length,
+      freezeOnMark: st.ui.reviewFreezeOnMark,
+      selectReviewMarker: st.selectReviewMarker,
+      undoReviewRemove: st.undoReviewRemove,
       setUi: st.setUi,
       updateReviewMarker: st.updateReviewMarker,
       removeReviewMarker: st.removeReviewMarker,
@@ -38,6 +44,11 @@ export function ReviewPanel() {
   const [preview, setPreview] = useState('');
   const [status, setStatus] = useState('');
   const [pasted, setPasted] = useState('');
+  const itemRefs = useRef(new Map<string, HTMLDivElement>());
+  // a marker selected on the image or the model scrolls its card into view
+  useEffect(() => {
+    if (s.selectedId) itemRefs.current.get(s.selectedId)?.scrollIntoView({ block: 'nearest' });
+  }, [s.selectedId]);
 
   const report = () => {
     const hud = useHudStore.getState().hud;
@@ -94,16 +105,39 @@ export function ReviewPanel() {
     <>
       <Section title="Modo revisión">
         <p className="small">
-          Clic sobre la imagen deja un marcador numerado con lo que el modelo tiene debajo.
-          Shift+clic usa la herramienta normal. Escribe qué ves mal en cada marcador, copia el
-          informe y pégalo en el chat: incluye el estado exacto para reproducir el cuadro.
+          Clic sobre la imagen o sobre el torso 3D deja un marcador numerado con lo que el modelo
+          tiene debajo. Escribe qué ves mal en cada marcador, copia el informe y pégalo en el chat:
+          incluye el estado exacto para reproducir el cuadro.
         </p>
+        <div className="review-help">
+          Arrastra un marcador para moverlo · clic lo selecciona · Supr o Retroceso lo borra ·
+          Ctrl+Z deshace · Esc deselecciona · Shift+clic usa la herramienta normal.
+        </div>
+        {s.source && (
+          <div className="review-source">
+            Informe cargado de {s.source.author === 'claude' ? 'Claude' : 'usuario'} (
+            {s.source.createdAt.slice(0, 16).replace('T', ' ')}).
+          </div>
+        )}
+        <Toggle
+          label="Congelar al poner el primer marcador"
+          value={s.freezeOnMark}
+          onChange={(v) => s.setUi({ reviewFreezeOnMark: v })}
+          title="Así los marcadores conservan el cuadro en que se pusieron; con Espacio vuelves a vivo"
+        />
         <div className="review-actions">
           <button className="primary" onClick={() => void copyReport()}>
             Copiar informe
           </button>
           <button onClick={() => void copyImage()}>Copiar imagen</button>
           <button onClick={() => exportDisplayPng(s.caseId)}>Descargar PNG</button>
+          <button
+            onClick={() => s.undoReviewRemove()}
+            disabled={!s.undoCount}
+            aria-label="Deshacer el último borrado"
+          >
+            Deshacer
+          </button>
           <button
             onClick={() => s.clearReview()}
             disabled={!s.markers.length && !s.note}
@@ -139,11 +173,25 @@ export function ReviewPanel() {
         )}
         <div className="review-list">
           {s.markers.map((m) => (
-            <div key={m.id} className="review-item" data-marker={m.n}>
+            <div
+              key={m.id}
+              className={`review-item${m.id === s.selectedId ? ' on' : ''}`}
+              data-marker={m.n}
+              ref={(el) => {
+                if (el) itemRefs.current.set(m.id, el);
+                else itemRefs.current.delete(m.id);
+              }}
+              onClick={() => s.selectReviewMarker(m.id)}
+            >
               <div className="review-head">
                 <span className="review-n" aria-hidden="true">
                   {m.n}
                 </span>
+                {m.space === 'model' && (
+                  <span className="review-chip" title="Marcador sobre el modelo 3D">
+                    3D
+                  </span>
+                )}
                 <select
                   aria-label={`Categoría del marcador ${m.n}`}
                   value={m.category}

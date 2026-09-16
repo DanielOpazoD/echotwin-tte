@@ -26,10 +26,15 @@ export interface ReviewMarker {
   id: string;
   /** 1-based number shown on the image. */
   n: number;
-  /** Display pixel where it was placed and the sector mapping of that moment (reprojected on resize/zoom). */
+  /** Where it was placed: on the image (sector or strip) or on the 3D model of the navigator. */
+  space: 'image' | 'model';
+  /** Display pixel where it was placed and the sector mapping of that moment (reprojected on resize/zoom); image only. */
   x: number;
   y: number;
-  captureSector: SectorMapping;
+  captureSector: SectorMapping | null;
+  /** Torso-frame point (cm) and the navigator surface hit (mesh group id, skin, skeleton); model markers only. */
+  torso: { x: number; y: number; z: number } | null;
+  group: string | null;
   /** Polar position in the sector; null when the click fell on a strip. */
   rCm: number | null;
   thetaRad: number | null;
@@ -154,6 +159,24 @@ export const TISSUE_LABELS: Record<number, string> = {
   [Tissue.Chordae]: 'cuerdas',
 };
 
+/** Navigator surfaces a 3D marker can land on (heartMesh group ids plus the body layers). */
+export const MESH_GROUP_LABELS: Record<string, string> = {
+  'lv-myocardium': 'miocardio del VI',
+  'rv-myocardium': 'miocardio del VD',
+  'lv-cavity': 'cavidad del VI',
+  'rv-cavity': 'cavidad del VD',
+  atria: 'aurículas',
+  valves: 'válvulas',
+  'great-vessels': 'grandes vasos',
+  skin: 'piel',
+  skeleton: 'hueso',
+  ghost: 'corazón esquemático',
+};
+
+export function groupLabel(id: string | null): string {
+  return id === null ? 'superficie' : (MESH_GROUP_LABELS[id] ?? id);
+}
+
 export function structureLabel(id: number): string {
   return STRUCTURE_LABELS[id] ?? `estructura ${id}`;
 }
@@ -168,6 +191,23 @@ const f2 = (v: number): string => v.toFixed(2);
 
 /** Where a marker sits, in the words the model uses: structure, tissue, polar position and local coordinates. */
 export function markerPlace(m: ReviewMarker): string {
+  if (m.space === 'model') {
+    const parts = [`3D · ${groupLabel(m.group)}`];
+    const p = m.point;
+    if (p) parts.push(structureLabel(p.structure), tissueLabel(p.tissue));
+    if (m.torso) parts.push(`torso (${f1(m.torso.x)}, ${f1(m.torso.y)}, ${f1(m.torso.z)})`);
+    if (p) {
+      parts.push(`corazón (${f1(p.heart.x)}, ${f1(p.heart.y)}, ${f1(p.heart.z)})`);
+      if (p.levelFrac !== null && p.azRad !== null)
+        parts.push(`nivel ${f2(p.levelFrac)} · acimut ${deg(p.azRad)}`);
+      if (p.rootT !== null && p.rootR !== null)
+        parts.push(`raíz t ${f2(p.rootT)} r ${f2(p.rootR)}`);
+      parts.push(
+        `${Math.abs(p.offPlaneCm) < 0.3 ? 'en el plano de imagen' : `a ${f1(Math.abs(p.offPlaneCm))} cm del plano de imagen`}`,
+      );
+    }
+    return parts.join(' · ');
+  }
   if (m.strip)
     return `tira ${m.strip.kind === 'spectral' ? 'espectral' : 'modo M'} · columna ${m.strip.column.toFixed(0)} · ${m.strip.kind === 'spectral' ? `${f2(m.strip.value)} m/s` : `${f1(m.strip.value)} cm`}`;
   const parts: string[] = [];
@@ -306,8 +346,16 @@ export function parseReviewReport(text: string): ReviewReport | null {
         obj.input &&
         typeof obj.caseId === 'string' &&
         Array.isArray(obj.markers)
-      )
-        return { ...obj, note: obj.note ?? '', version: 1 } as ReviewReport;
+      ) {
+        // reports written before markers could sit on the 3D model carry image markers only
+        const markers = (obj.markers as Partial<ReviewMarker>[]).map((mk) => ({
+          ...mk,
+          space: mk.space ?? 'image',
+          torso: mk.torso ?? null,
+          group: mk.group ?? null,
+        }));
+        return { ...obj, markers, note: obj.note ?? '', version: 1 } as ReviewReport;
+      }
     } catch {
       /* not this candidate */
     }
