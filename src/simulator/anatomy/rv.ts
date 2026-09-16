@@ -12,9 +12,9 @@ export const rvTmp = new Float64Array(3);
 export const rvRad = new Float64Array(4);
 
 /** RV crescent azimuthal profile over u ∈ (0, 1) between the grooves: rounded tips, plateau, fullest at the inflow (A4C direction). */
-export function rvAzProfile(A: AnchorsCached, u: number): number {
+export function rvAzProfile(rvAzA: number, rvAzP: number, u: number): number {
   const sn = Math.sin(Math.PI * u);
-  const uIn = (Math.PI + 0.04 - A.rvAzA) / (A.rvAzP - A.rvAzA);
+  const uIn = (Math.PI + 0.04 - rvAzA) / (rvAzP - rvAzA);
   const inflow = Math.exp(-((u - uIn) * (u - uIn)) / (2 * 0.18 * 0.18));
   return Math.pow(Math.min(1, Math.max(0, sn) / 0.75), 0.7) * (0.85 + 0.15 * inflow);
 }
@@ -68,7 +68,7 @@ export function rvRadii(
   const tvPlane = A.tvCenter.z + tvZ;
   let t =
     A.rvT *
-    rvAzProfile(A, u) *
+    rvAzProfile(A.rvAzA, A.rvAzP, u) *
     rvAxialTaper(tvPlane, A.rvApexFrac * L, z) *
     (1 - 0.35 * contraction);
   // tamponade: early-diastolic inward collapse of the anterior/outflow free wall
