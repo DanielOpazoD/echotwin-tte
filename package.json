@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -p tsconfig.json --noEmit && vite build",
+    "build": "tsc -p tsconfig.json --noEmit && vite build && node tools/ci/bundle-budget.mjs",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
@@ -18,7 +18,7 @@
     "coverage": "VITEST_TIER=all vitest run --coverage",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "check": "npm run lint && npm run format:check && npm run typecheck && npm run test:all && vite build",
+    "check": "npm run lint && npm run format:check && npm run typecheck && npm run test:all && vite build && node tools/ci/bundle-budget.mjs",
     "atlas:build": "tsx tools/offline/atlas-generation/build-atlas.ts",
     "measure": "tsx tools/offline/render/measure-model.ts",
     "review:export": "tsx tools/offline/validation/export-review-set.ts",

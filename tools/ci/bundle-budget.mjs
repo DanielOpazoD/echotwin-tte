@@ -1,0 +1,53 @@
+// Bundle budget: fails the build when a JavaScript asset in dist/ outgrows its limit. Plain Node so it
+// runs after `vite build` without tsx. Budgets are ~15 % above the sizes measured on 2026-09-16 (entry
+// 703 kB, three 528 kB, workers 255/177 kB) after the navigator, the secondary screens and the backend
+// comparison moved to lazy chunks (engineering audit, B4); raise a budget only on purpose, in the same
+// change that explains the growth.
+import { readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+
+const DIST = join(process.cwd(), 'dist', 'assets');
+const KB = 1024;
+/** [pattern, max bytes]; every JS asset must match one pattern. */
+const BUDGETS = [
+  // entry: the imaging app without three.js, the secondary screens and the backend-comparison hook. It
+  // still carries the engine (anatomy, windows, renderer types) because the presets and the navigator
+  // compute on the main thread — moving that into the worker is the structural work of audit finding B7.
+  [/^index-.*\.js$/, 800 * KB],
+  [/^three-.*\.js$/, 600 * KB], // three.js, loaded with the navigator
+  [/^react-.*\.js$/, 40 * KB],
+  [/^TorsoView-.*\.js$/, 60 * KB],
+  [/^sim\.worker-.*\.js$/, 320 * KB],
+  [/^heartMesh\.worker-.*\.js$/, 220 * KB],
+  [/^(ReportScreen|CurriculumScreen|ProgressScreen|ReferencesScreen)-.*\.js$/, 80 * KB],
+  [/\.js$/, 80 * KB], // any other chunk Rollup splits out
+];
+const TOTAL_JS_BUDGET = 2000 * KB;
+
+let files;
+try {
+  files = readdirSync(DIST).filter((f) => f.endsWith('.js'));
+} catch {
+  console.error(`bundle-budget: ${DIST} not found; run vite build first`);
+  process.exit(1);
+}
+let total = 0;
+let failed = false;
+for (const f of files.sort()) {
+  const size = statSync(join(DIST, f)).size;
+  total += size;
+  const budget = BUDGETS.find(([re]) => re.test(f))?.[1] ?? 0;
+  const over = size > budget;
+  failed ||= over;
+  console.log(
+    `${over ? 'OVER ' : 'ok   '} ${f.padEnd(34)} ${(size / KB).toFixed(1).padStart(7)} kB / ${(budget / KB).toFixed(0)} kB`,
+  );
+}
+console.log(
+  `      total JS ${(total / KB).toFixed(1)} kB / ${(TOTAL_JS_BUDGET / KB).toFixed(0)} kB`,
+);
+if (total > TOTAL_JS_BUDGET) failed = true;
+if (failed) {
+  console.error('bundle-budget: over budget (tools/ci/bundle-budget.mjs)');
+  process.exit(1);
+}
