@@ -15,8 +15,32 @@ export const SCATTER_FREQ_RATIO = 1.137;
  * Real and imaginary parts together give E|z|² = 1.
  */
 export const PHASOR_NORM = Math.sqrt(0.5 / (2 * 0.03443));
-/** Myocardial backscatter with the beam along the wall, relative to perpendicular incidence (≈ −10 dB). */
-export const MYO_ANISO_FLOOR = 0.32;
+/**
+ * Myocardial angular response is set by the beam·fibre alignment, not the wall normal: the mid-wall
+ * helix runs ~circumferentially around the LV long axis, so backscatter is strongest with the beam
+ * across the fibres and drops to the floor (≈ −16 dB) when the beam runs along them — the PSAX
+ * lateral-wall dropout — while apical walls in long-axis views stay lit because the circumferential
+ * fibres lie out of the image plane.
+ */
+export const MYO_ANISO_FLOOR = 0.15;
+/**
+ * E[cos²α] over the transmural fibre helix: the fibre pitch rotates through the wall (≈ ±40–60° about
+ * the circumferential direction), so a PSF volume averages a spread of orientations — 0.9 ≈ fibres
+ * dominated by the circumferential component, the rest weighted onto the long axis.
+ */
+export const MYO_HELIX_COS2 = 0.9;
+
+/**
+ * Angular gain of a myocardial sample from the beam direction in heart frame: `dphi` is the beam's
+ * component along the circumferential direction at the sample and `dz2` its squared component along
+ * the long axis. Beam across the fibres → 1; beam along the fibres → the floor.
+ */
+export function myoAnisoGain(dphi: number, dz2: number): number {
+  return (
+    MYO_ANISO_FLOOR +
+    (1 - MYO_ANISO_FLOOR) * (1 - MYO_HELIX_COS2 * dphi * dphi - (1 - MYO_HELIX_COS2) * dz2)
+  );
+}
 /** Backscatter heterogeneity: spatial frequency (cycles/cm) and peak-to-peak depth (dB) per tissue. */
 export const HETERO_FREQ = 1.6;
 export const HETERO_DB_MYO = 6;
@@ -74,6 +98,7 @@ export function acousticDefinesGlsl(envelopeNorm: number): string {
     `#define SCATTER_FREQ_RATIO ${f(SCATTER_FREQ_RATIO)}`,
     `#define PHASOR_NORM ${f(PHASOR_NORM)}`,
     `#define MYO_ANISO_FLOOR ${f(MYO_ANISO_FLOOR)}`,
+    `#define MYO_HELIX_COS2 ${f(MYO_HELIX_COS2)}`,
     `#define HETERO_FREQ ${f(HETERO_FREQ)}`,
     `#define HETERO_DB_MYO ${f(HETERO_DB_MYO)}`,
     `#define HETERO_DB_LIVER ${f(HETERO_DB_LIVER)}`,

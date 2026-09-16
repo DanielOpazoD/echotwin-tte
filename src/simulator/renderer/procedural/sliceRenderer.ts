@@ -28,6 +28,7 @@ import {
   HETERO_FREQ,
   heteroDb,
   MYO_ANISO_FLOOR,
+  myoAnisoGain,
   PHASOR_NORM,
   pleuralReverberation,
   SCATTER_FREQ,
@@ -390,9 +391,19 @@ export class ProceduralSliceRenderer implements RendererBackend {
       );
       let sigma = props.reflect;
       if (q.tissue === Tissue.Blood && harm) sigma *= 0.6;
-      // myocardial backscatter is strongest with the beam across the fibres (perpendicular to the wall)
-      if (q.tissue === Tissue.Myocardium)
-        sigma *= MYO_ANISO_FLOOR + (1 - MYO_ANISO_FLOOR) * nd * nd;
+      // myocardial backscatter is strongest with the beam across the fibres: in the LV walls they run
+      // ~circumferentially around the long axis (heart-frame z), so the circumferential direction at
+      // the sample is ẑ × radial = (−my, mx, 0)/r — beam·fibre alignment darkens the wall, not the
+      // wall normal. Other myocardium keeps the normal-based response.
+      if (q.tissue === Tissue.Myocardium) {
+        if (inH && q.structure >= Structure.LvWallSeptal && q.structure <= Structure.LvApex) {
+          const rr = Math.sqrt(q.mx * q.mx + q.my * q.my);
+          const dphi = rr > 1e-3 ? Math.abs((dhy * q.mx - dhx * q.my) / rr) : 0;
+          sigma *= myoAnisoGain(dphi, dhz * dhz);
+        } else {
+          sigma *= MYO_ANISO_FLOOR + (1 - MYO_ANISO_FLOOR) * nd * nd;
+        }
+      }
       const het = heteroDb(q.tissue);
       if (het > 0)
         sigma *= Math.pow(
