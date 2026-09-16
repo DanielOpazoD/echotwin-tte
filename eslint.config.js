@@ -21,6 +21,11 @@ export default tseslint.config(
     ...tseslint.configs.disableTypeChecked,
   },
   {
+    // see the WEBGL_lose_context call: the linter's type resolution of that overload is not deterministic
+    files: ['src/simulator/renderer/gpu/webgl2Renderer.ts'],
+    linterOptions: { reportUnusedDisableDirectives: 'off' },
+  },
+  {
     // plain Node scripts (CI helpers) outside the TypeScript sources
     files: ['tools/**/*.mjs'],
     languageOptions: { globals: { ...globals.node } },

@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 124 (última: 124).
+Decisiones: 125 (última: 125).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -132,3 +132,4 @@ Decisiones: 124 (última: 124).
 | [122](DECISIONS.md#L391) | 2026-09-13 | La anatomía respiratoria renderizada no puede repetirse desde un latido anterior | vigente |
 | [123](DECISIONS.md#L395) | 2026-09-13 | La anisotropía miocárdica sigue la orientación de las fibras, no la normal de la pared | vigente |
 | [124](DECISIONS.md#L405) | 2026-09-16 | Ningún número de la cadena acústica se escribe dos veces | vigente |
+| [125](DECISIONS.md#L407) | 2026-09-16 | Las funciones escalares puras compartidas por CPU y GPU se generan desde su TypeScript | vigente |

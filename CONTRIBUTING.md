@@ -37,7 +37,10 @@ descárgalos aparte y pásalos con `CAMUS_DIR=<ruta fuera del repo>` (decisión 
   las constantes viven en `src/simulator/renderer/acoustic/acoustics.ts` y llegan al GLSL por
   `acousticDefinesGlsl()`. El clasificador anatómico (`src/simulator/anatomy/classify.ts` y módulos)
   tiene su espejo en `gpu/glslHeart.ts`; toda constante compartida es un `export const` interpolado en
-  la cabecera del shader, nunca un literal repetido. `e2e/gpu-equivalence.spec.ts` es el juez.
+  la cabecera del shader, nunca un literal repetido. Las funciones escalares puras compartidas (lista en
+  `tools/glsl/ts2glsl.ts`) se escriben sólo en TypeScript y `npm run glsl:gen` las transpila a
+  `gpu/glslGenerated.ts`; si cambias una, regenera. `e2e/gpu-equivalence.spec.ts` es el juez, ahora también
+  por estructura.
 - **Determinismo por semilla.** Los goldens (`src/tests/goldens/`) no se regeneran para que pasen: sólo
   cuando el cambio de imagen es intencional y revisado, con `npm run golden:update`.
 - **Desviaciones declaradas.** `expectedDeviations` de un caso es patología deliberada;

@@ -40,7 +40,7 @@ void acoustic(int tissue, int structure, float sdf, float extra, float nd, vec3 
     if (structure >= S_LV_SEPT && structure <= S_LV_APEX) {
       float rr = length(m.xy);
       float dphi = rr > MYO_ANISO_RADIAL_EPS ? abs(dot(dirH.xy, vec2(-m.y, m.x)) / rr) : 0.0;
-      sigma *= MYO_ANISO_FLOOR + (1.0 - MYO_ANISO_FLOOR) * (1.0 - MYO_HELIX_COS2 * dphi * dphi - (1.0 - MYO_HELIX_COS2) * dirH.z * dirH.z);
+      sigma *= myoAnisoGain(dphi, dirH.z * dirH.z);
     } else {
       sigma *= MYO_ANISO_FLOOR + (1.0 - MYO_ANISO_FLOOR) * nd * nd;
     }
@@ -64,7 +64,7 @@ void main() {
   vec3 dirH = vec3(dot(dirT, ex), dot(dirT, ey), dot(dirT, ez));
   float r = (float(si) + 0.5) * dr;
   // slice thickness: the side passes sample the planes at ±sliceHalfWidthCm (elevation beam width, acoustic/psf.ts)
-  float e = SLICE_HALF_BASE_CM + SLICE_HALF_SLOPE * abs(r - FOCUS);
+  float e = sliceHalfWidthCm(r, FOCUS);
   vec3 pT = vec3(B_OX, B_OY, B_OZ) + dirT * r + bN * (ELEV_OFFSET + uElevK * e);
   vec3 hfO = vec3(HF_OX, HF_OY, HF_OZ);
   vec3 pH = vec3(dot(pT - hfO, ex), dot(pT - hfO, ey), dot(pT - hfO, ez));
@@ -115,22 +115,6 @@ uniform sampler2D uSideCB;  // pass A attachment C (specular, …) on +e
 layout(location = 0) out vec4 outSig;   // complex signal re, transmission, im, 1
 layout(location = 1) out vec4 outIds;   // structure/255, tissue/255, 0, 1
 
-float pleuralReverberation(float rCm, float entryCm, float transmission, float modulation) {
-  if (rCm <= entryCm) return 0.0;
-  float d = rCm - entryCm;
-  float period = max(entryCm, REVERB_PERIOD_MIN_CM);
-  float k = d / period;
-  float first = max(0.0, floor(k) - 1.0);
-  float decay = pow(REVERB_DECAY, first + 1.0);
-  float band = 0.0;
-  for (int j = 0; j < 4; j++) {
-    float offset = (d - (first + float(j)) * period) / REVERB_WIDTH_CM;
-    band += decay * exp(-offset * offset);
-    decay *= REVERB_DECAY;
-  }
-  float diffuse = REVERB_DIFFUSE * pow(REVERB_DECAY, k + 1.0) * modulation;
-  return transmission * (REVERB_GAIN * band + diffuse);
-}
 
 void main() {
   int si = int(gl_FragCoord.x);
