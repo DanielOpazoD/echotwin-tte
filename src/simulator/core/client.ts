@@ -35,6 +35,16 @@ export class SimClient {
   private lastInputJson = '';
   private handlers: SimClientHandlers;
   readonly mode: 'worker' | 'inline';
+  /** Requests still waiting for the worker; every one is settled — by reply, error, reload, timeout or dispose. */
+  private pending = new Map<
+    number,
+    {
+      resolve: (r: SimResponse | null) => void;
+      reject: (e: Error) => void;
+      timer: ReturnType<typeof setTimeout>;
+    }
+  >();
+  private nextId = 1;
 
   constructor(handlers: SimClientHandlers, forceInline = false) {
     this.handlers = handlers;
@@ -44,7 +54,11 @@ export class SimClient {
           type: 'module',
         });
         this.worker.onmessage = (ev: MessageEvent<WorkerToMain>) => this.handle(ev.data);
-        this.worker.onerror = (e) => handlers.onError(String(e.message ?? e));
+        this.worker.onerror = (e) => {
+          const message = String(e.message ?? e);
+          this.rejectPending(new Error(`simulation worker failed: ${message}`));
+          handlers.onError(message);
+        };
         this.mode = 'worker';
         return;
       } catch (e) {
@@ -54,28 +68,46 @@ export class SimClient {
     this.mode = 'inline';
   }
 
-  private pending = new Map<number, (r: SimResponse | null) => void>();
-  private nextId = 1;
-
   private handle(msg: WorkerToMain): void {
     if (msg.type === 'frame') this.handlers.onFrame(msg.output);
     else if (msg.type === 'ready')
       this.handlers.onReady(msg.truth, msg.caseId, msg.phaseMarks, msg.lvLengthCm);
     else if (msg.type === 'response') {
-      const cb = this.pending.get(msg.id);
-      if (cb) {
+      const p = this.pending.get(msg.id);
+      if (p) {
         this.pending.delete(msg.id);
-        cb(msg.res);
+        clearTimeout(p.timer);
+        p.resolve(msg.res);
       }
-    } else if (msg.type === 'error') this.handlers.onError(msg.message);
+    } else if (msg.type === 'error') {
+      // the worker caught an exception: any request it was serving will never be answered
+      this.rejectPending(new Error(`simulation worker error: ${msg.message.split('\n')[0]}`));
+      this.handlers.onError(msg.message);
+    }
   }
 
-  /** On-demand request to the simulator (auto-trace etc.). */
-  request(req: SimRequest): Promise<SimResponse | null> {
+  private rejectPending(reason: Error): void {
+    for (const p of this.pending.values()) {
+      clearTimeout(p.timer);
+      p.reject(reason);
+    }
+    this.pending.clear();
+  }
+
+  /**
+   * On-demand request to the simulator (auto-trace etc.). Rejects if the worker reports an error, the case is
+   * reloaded, the client is disposed or no reply arrives within `timeoutMs`; a caller that only awaits the
+   * value would otherwise hang forever on a dead worker (engineering audit, A5).
+   */
+  request(req: SimRequest, timeoutMs = 5000): Promise<SimResponse | null> {
     if (this.worker) {
       const id = this.nextId++;
-      return new Promise((resolve) => {
-        this.pending.set(id, resolve);
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+          if (this.pending.delete(id))
+            reject(new Error(`simulation request ${req.kind} timed out after ${timeoutMs} ms`));
+        }, timeoutMs);
+        this.pending.set(id, { resolve, reject, timer });
         const m: MainToWorker = { type: 'request', id, req };
         this.worker!.postMessage(m);
       });
@@ -85,6 +117,8 @@ export class SimClient {
 
   loadCase(caseDef: CaseDefinition, input: SimInput): void {
     this.lastInputJson = JSON.stringify(input);
+    // a new core answers nothing asked of the old one
+    this.rejectPending(new Error('simulation request cancelled: case reloaded'));
     if (this.worker) {
       const m: MainToWorker = { type: 'loadCase', caseDef, input };
       this.worker.postMessage(m);
@@ -127,6 +161,7 @@ export class SimClient {
   }
 
   dispose(): void {
+    this.rejectPending(new Error('simulation request cancelled: client disposed'));
     this.worker?.terminate();
     this.worker = null;
     if (this.inlineTimer) clearInterval(this.inlineTimer);
