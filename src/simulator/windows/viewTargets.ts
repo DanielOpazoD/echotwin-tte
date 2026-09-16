@@ -2,7 +2,7 @@ import type { Vec3 } from '@/core/vec3';
 import { add, dot, normalize, scale, sub, v3 } from '@/core/vec3';
 import type { HeartModel } from '@/simulator/anatomy/heartModel';
 import { lvProfileG } from '@/simulator/anatomy/lvShape';
-import { heartDirToTorso, heartToTorso } from '@/simulator/anatomy/heartModel';
+import { anchorsCached, heartDirToTorso, heartToTorso } from '@/simulator/anatomy/heartModel';
 import {
   isAnteriorLung,
   ribSpacingAt,
@@ -219,9 +219,24 @@ export function canonicalPlane(
   view: ViewTarget,
   heart: HeartModel,
 ): { target: Vec3; right: Vec3; down: Vec3; normal: Vec3 } {
-  const target = heartToTorso(heart.frame, view.target);
-  const right = heartDirToTorso(heart.frame, view.planeRight);
-  const down = heartDirToTorso(heart.frame, view.planeDown);
+  let targetH = view.target;
+  let rightH = view.planeRight;
+  let downH = view.planeDown;
+  if (view.id === 'subcostal-ivc') {
+    // The long axis of the cava is the anatomy this view is defined by, and where the cava runs depends on the case
+    // (the right atrium's size and position place its floor): a fixed plane sat 0.5 cm beside the cava and the hepatic
+    // vein in the pulmonary hypertension case. The plane contains the cava axis, through a point a third of the way
+    // from the junction, and keeps the declared beam direction otherwise (decision 131).
+    const A = anchorsCached(heart);
+    const along = sub(A.ivcB, A.ivcA);
+    targetH = add(A.ivcA, scale(along, 0.3));
+    const axis = normalize(along);
+    rightH = dot(axis, view.planeRight) < 0 ? scale(axis, -1) : axis;
+    downH = normalize(sub(view.planeDown, scale(rightH, dot(view.planeDown, rightH))));
+  }
+  const target = heartToTorso(heart.frame, targetH);
+  const right = heartDirToTorso(heart.frame, rightH);
+  const down = heartDirToTorso(heart.frame, downH);
   const n = normalize(
     v3(
       right.y * down.z - right.z * down.y,
