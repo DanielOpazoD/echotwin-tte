@@ -8,6 +8,18 @@ import { explainAnalysis } from '@/education/causes';
  * recognised view and the hints stay visible; the component breakdown and landmark lists collapse
  * under «Detalles», the causal explanations under «Por qué».
  */
+/** What replaces the guidance in exam mode. Rendered by the app where the learner can see it, rail or no rail. */
+export function ExamNotice() {
+  return (
+    <div className="guidance exam-notice">
+      <div className="small">
+        Modo examen: sin ayudas de vista ni verdad de terreno. Adquiere, mide e informa; la
+        puntuación se entrega al final.
+      </div>
+    </div>
+  );
+}
+
 export function GuidancePanel() {
   const hud = useHudStore((h) => h.hud);
   const ui = useSimStore((s) => s.ui);
@@ -15,16 +27,7 @@ export function GuidancePanel() {
   const targetId = useSimStore((s) => s.targetViewId);
   const settings = useSimStore((s) => s.settings);
   const v = hud?.view;
-  if (!modePolicy(mode).hintsEnabled) {
-    return (
-      <div className="guidance">
-        <div className="small">
-          Modo examen: sin ayudas de vista ni verdad de terreno. Adquiere, mide e informa; la
-          puntuación se entrega al final.
-        </div>
-      </div>
-    );
-  }
+  if (!modePolicy(mode).hintsEnabled) return <ExamNotice />;
   if (!v) return <div className="guidance small">Analizando vista…</div>;
   const targetScore = targetId ? v.perView.find((p) => p.id === targetId)?.score : undefined;
   const comps = v.components;

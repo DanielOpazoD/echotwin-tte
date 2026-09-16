@@ -19,9 +19,6 @@ export function MeasurementPanel() {
   const s = useSimStore();
   const caseDef = loadCaseById(s.caseId);
   const requiredIds = caseDef.requiredMeasurements.map((r) => r.measurementId);
-  const active = s.activeMeasurementId
-    ? MEASUREMENT_SPECS.find((m) => m.id === s.activeMeasurementId)
-    : undefined;
   const latestOf = (id: string) => {
     for (let i = s.measurements.length - 1; i >= 0; i--)
       if (s.measurements[i]!.measurementId === id) return s.measurements[i]!;
@@ -79,15 +76,6 @@ export function MeasurementPanel() {
   }));
   return (
     <div className="protocol">
-      {active && (
-        <div className="protocol-instruction" role="status">
-          <strong>{active.label}</strong> ·{' '}
-          {active.modalities.map((m) => m.toUpperCase()).join('/')} ·{' '}
-          {active.views.map((v) => v.toUpperCase()).join('/')}
-          <div className="small">{active.instruction}</div>
-          <button onClick={() => s.setActiveMeasurement(null)}>Cancelar</button>
-        </div>
-      )}
       {required.length > 0 && (
         <>
           <div className="small">Requeridas por el caso</div>
