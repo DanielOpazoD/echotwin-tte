@@ -3,6 +3,7 @@ import { hash3 } from '@/core/random';
 import { Tissue } from '@/simulator/anatomy/tissue';
 import type { PolarFrame } from '@/simulator/renderer/types';
 import type { ScanLut } from '@/simulator/renderer/scanConvert';
+import { COLOR_BLEND, colorMap } from '@/simulator/renderer/postprocess/colorMap';
 
 export interface ColorSettings {
   boxThetaMinRad: number;
@@ -299,32 +300,7 @@ export function computeColorField(
   return { colorLines: Math.max(0, liMax - liMin + 1) };
 }
 
-/** Velocity → RGB (red toward, blue away; brighter = faster; green = variance). */
-export function colorMap(
-  v: number,
-  scale: number,
-  variance: number,
-  showVariance: boolean,
-  out: [number, number, number],
-): void {
-  const t = Math.max(-1, Math.min(1, v / scale));
-  const a = Math.abs(t);
-  if (t >= 0) {
-    out[0] = 120 + 135 * Math.min(1, a * 1.2);
-    out[1] = 20 + 220 * Math.max(0, a - 0.55) * 2.2;
-    out[2] = 20;
-  } else {
-    out[0] = 20;
-    out[1] = 40 + 200 * Math.max(0, a - 0.55) * 2.2;
-    out[2] = 120 + 135 * Math.min(1, a * 1.2);
-  }
-  if (showVariance && variance > 0.15) {
-    const g = Math.min(1, (variance - 0.15) * 1.5);
-    out[1] = out[1] * (1 - g) + 230 * g;
-    out[0] = out[0] * (1 - g * 0.4);
-    out[2] = out[2] * (1 - g * 0.4);
-  }
-}
+export { colorMap } from '@/simulator/renderer/postprocess/colorMap';
 
 /**
  * Blend a polar colour field over a scan-converted grey image (85 % colour, 15 % grey) inside the colour
@@ -351,8 +327,8 @@ export function overlayColorField(
     if (v === undefined || Number.isNaN(v)) continue;
     colorMap(v, c.scaleMps, variance[k] ?? 0, c.showVariance, rgb);
     const g = rgba[o] ?? 0;
-    rgba[o] = Math.round(rgb[0] * 0.85 + g * 0.15);
-    rgba[o + 1] = Math.round(rgb[1] * 0.85 + g * 0.15);
-    rgba[o + 2] = Math.round(rgb[2] * 0.85 + g * 0.15);
+    rgba[o] = Math.round(rgb[0] * COLOR_BLEND + g * (1 - COLOR_BLEND));
+    rgba[o + 1] = Math.round(rgb[1] * COLOR_BLEND + g * (1 - COLOR_BLEND));
+    rgba[o + 2] = Math.round(rgb[2] * COLOR_BLEND + g * (1 - COLOR_BLEND));
   }
 }

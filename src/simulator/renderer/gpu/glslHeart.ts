@@ -153,8 +153,8 @@ float skirtDistance(vec3 p, vec3 c, float R, int zonesBase, int profBase, int nz
     rx = -bestSa;
     ry = bestCa;
   } else {
-    rx = rho > 1e-6 ? d.x / rho : 1.0;
-    ry = rho > 1e-6 ? d.y / rho : 0.0;
+    rx = rho > 1e-6 ? d.x / rho : bestCa;
+    ry = rho > 1e-6 ? d.y / rho : bestSa;
   }
   nOut = vec3(-bestEz * rx, -bestEz * ry, bestEx);
   return (thickness * (SKIRT_THICK_BASE + SKIRT_THICK_EDGE * bestFrac) * 0.5 + SKIRT_THICK_FLOOR_CM) * (SKIRT_THICK_COMMISSURE + SKIRT_THICK_BODY * bestW);
@@ -678,7 +678,8 @@ bool classifyHeart(vec3 p0, out Sample s) {
   float dCav = smax(dProf, zAnn - z, 0.6);
   int seg = ahaSegment(az, levelFrac);
   float amp = P(SEG_AMP_BASE + seg);
-  float regional = (1.0 - amp) * (LV_RMAX_ED - LV_RMAX) * lvProfileG(levelFrac);
+  // an akinetic segment keeps its end-diastolic radius; a hyperkinetic one (amp > 1) adds nothing, as on the CPU
+  float regional = amp < 1.0 ? (1.0 - amp) * (LV_RMAX_ED - LV_RMAX) * lvProfileG(levelFrac) : 0.0;
   float rs = RADIAL_SCALE, ls = LONG_SCALE;
   float trab = levelFrac > 0.45 ? 0.2 * min(1.0, (levelFrac - 0.45) / 0.35) * (lat(vec3((x / rs) * 2.6 + 11.3, (y / rs) * 2.6 + 2.9, ((z - LV_LEN) / ls) * 1.1 + 6.1), 3) - 0.5) : 0.0;
   float dCavR = dCav - regional + trab;

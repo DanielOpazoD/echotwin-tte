@@ -33,21 +33,21 @@ float heteroDb(int t) {
 void acoustic(int tissue, int structure, float sdf, float extra, float nd, vec3 m, vec3 dirH, out float sigma, out float specular) {
   vec4 props = uTissue[tissue];
   sigma = props.x;
-  if (tissue == T_BLOOD && HARM > 0.5) sigma *= 0.6;
+  if (tissue == T_BLOOD && HARM > 0.5) sigma *= BLOOD_HARMONIC_SIGMA;
   // myocardial backscatter is strongest with the beam across the fibres, which run ~circumferentially
   // around the LV long axis (heart-frame z): circumferential direction = (−m.y, m.x, 0)/r
   if (tissue == T_MYO) {
     if (structure >= S_LV_SEPT && structure <= S_LV_APEX) {
       float rr = length(m.xy);
-      float dphi = rr > 1e-3 ? abs(dot(dirH.xy, vec2(-m.y, m.x)) / rr) : 0.0;
+      float dphi = rr > MYO_ANISO_RADIAL_EPS ? abs(dot(dirH.xy, vec2(-m.y, m.x)) / rr) : 0.0;
       sigma *= MYO_ANISO_FLOOR + (1.0 - MYO_ANISO_FLOOR) * (1.0 - MYO_HELIX_COS2 * dphi * dphi - (1.0 - MYO_HELIX_COS2) * dirH.z * dirH.z);
     } else {
       sigma *= MYO_ANISO_FLOOR + (1.0 - MYO_ANISO_FLOOR) * nd * nd;
     }
   }
   float het = heteroDb(tissue);
-  if (het > 0.0) sigma *= pow(10.0, ((lat(vec3(m.x * HETERO_FREQ + 5.3, m.y * HETERO_FREQ + 1.7, m.z * HETERO_FREQ + 9.1), 2) - 0.5) * het) / 20.0);
-  if (extra > 0.0) sigma += extra * 1.5 * (0.6 + 0.8 * lat(vec3(m.x * 6.0 + 3.3, m.y * 6.0 + 1.1, m.z * 6.0 + 9.2), 1));
+  if (het > 0.0) sigma *= pow(10.0, ((lat(m * HETERO_FREQ + HETERO_OFFSET, 2) - 0.5) * het) / 20.0);
+  if (extra > 0.0) sigma += extra * CALCIUM_GAIN * (CALCIUM_BASE + CALCIUM_AMP * lat(m * CALCIUM_FREQ + CALCIUM_OFFSET, 1));
   specular = 0.0;
   if (props.y > 0.0 && abs(sdf) < max(nd, SPECULAR_WINDOW_MIN) * (DEPTH / SAMPLES)) specular = props.y * SPECULAR_GAIN * nd * nd * nd * nd * (HARM > 0.5 ? SPECULAR_HARMONIC : 1.0);
 }
@@ -63,8 +63,8 @@ void main() {
   vec3 ex = vec3(HF_EXX, HF_EXY, HF_EXZ), ey = vec3(HF_EYX, HF_EYY, HF_EYZ), ez = vec3(HF_EZX, HF_EZY, HF_EZZ);
   vec3 dirH = vec3(dot(dirT, ex), dot(dirT, ey), dot(dirT, ez));
   float r = (float(si) + 0.5) * dr;
-  // slice thickness: the side passes sample the planes at ±(0.2 + 0.04·|r − focus|) cm (elevation beam width)
-  float e = 0.2 + 0.04 * abs(r - FOCUS);
+  // slice thickness: the side passes sample the planes at ±sliceHalfWidthCm (elevation beam width, acoustic/psf.ts)
+  float e = SLICE_HALF_BASE_CM + SLICE_HALF_SLOPE * abs(r - FOCUS);
   vec3 pT = vec3(B_OX, B_OY, B_OZ) + dirT * r + bN * (ELEV_OFFSET + uElevK * e);
   vec3 hfO = vec3(HF_OX, HF_OY, HF_OZ);
   vec3 pH = vec3(dot(pT - hfO, ex), dot(pT - hfO, ey), dot(pT - hfO, ez));
@@ -90,14 +90,14 @@ void main() {
   // complex scatterer phasor anchored in tissue coordinates (moves with the tissue); across the plane its lattice cell is
   // the slice thickness (decision 99), as in the CPU renderer
   vec3 nrm = inHeart ? vec3(dot(bN, ex), dot(bN, ey), dot(bN, ez)) : bN;
-  vec3 q = s.m * SCATTER_FREQ - (SCATTER_FREQ - 1.0 / (2.0 * (0.2 + 0.04 * abs(r - FOCUS)))) * dot(s.m, nrm) * nrm;
-  float zr = (lat(q, 0) + lat(q * SCATTER_FREQ_RATIO + vec3(37.3, 11.9, 23.7), 1) - 1.0) * PHASOR_NORM;
-  float zi = (lat(q + vec3(71.1, 53.5, 5.3), 2) + lat(q * SCATTER_FREQ_RATIO + vec3(17.9, 91.1, 43.3), 0) - 1.0) * PHASOR_NORM;
+  vec3 q = s.m * SCATTER_FREQ - (SCATTER_FREQ - 1.0 / (2.0 * e)) * dot(s.m, nrm) * nrm;
+  float zr = (lat(q, 0) + lat(q * SCATTER_FREQ_RATIO + PHASOR_RE_B, 1) - 1.0) * PHASOR_NORM;
+  float zi = (lat(q + PHASOR_IM_A, 2) + lat(q * SCATTER_FREQ_RATIO + PHASOR_IM_B, 0) - 1.0) * PHASOR_NORM;
   float lungFlag = s.tissue == T_LUNG ? 1.0 : 0.0;
   // two-way amplitude loss integrated over the sample's length for every tissue, bone included (decision 89)
-  float attenNp = 0.23 * props.z * F_ATTEN * dr;
-  if (s.extra > 0.4) attenNp += 0.09 * s.extra * (dr / 0.07);
-  if (!inHeart && (s.tissue == T_FAT || s.tissue == T_MUSCLE || s.tissue == T_SKIN)) attenNp *= 1.0 + 1.5 * WINDOW_ATTEN;
+  float attenNp = ATTEN_NP_PER_DB * props.z * F_ATTEN * dr;
+  if (s.extra > CALCIUM_ATTEN_THRESHOLD) attenNp += CALCIUM_ATTEN_NP * s.extra * (dr / CALCIUM_ATTEN_REF_CM);
+  if (!inHeart && (s.tissue == T_FAT || s.tissue == T_MUSCLE || s.tissue == T_SKIN)) attenNp *= 1.0 + WINDOW_ATTEN_GAIN * WINDOW_ATTEN;
   outA = vec4(sigma, attenNp, lungFlag, 1.0);
   outB = vec4(float(s.structure) / 255.0, float(s.tissue) / 255.0, s.extra, 1.0);
   outC = vec4(specular, zr, zi, 0.0);
@@ -151,18 +151,18 @@ void main() {
       break;
     }
     transmission *= exp(-a.y);
-    if (transmission < 1e-4) transmission = 1e-4;
+    if (transmission < TRANSMISSION_FLOOR) transmission = TRANSMISSION_FLOOR;
   }
   vec4 a = texelFetch(uPassA, ivec2(si, li), 0);
   vec4 b = texelFetch(uPassB, ivec2(si, li), 0);
   float r = (float(si) + 0.5) * dr;
   if (dead) {
-    float n = 0.4 + 0.6 * lat(vec3(float(li) * 0.7, r * 4.0, 3.1), 2);
+    float n = REVERB_MOD_BASE + REVERB_MOD_AMP * lat(vec3(float(li) * REVERB_MOD_LINE_FREQ, r * REVERB_MOD_DEPTH_FREQ, REVERB_MOD_Z), 2);
     float amp = pleuralReverberation(r, lungEntryR, lungEntryT, n);
     // reverberation energy is incoherent: a phasor tied to the line and the depth
-    float px2 = float(li) * 0.9, pr = r * SCATTER_FREQ;
-    float zr2 = (lat(vec3(px2, pr, 17.3), 0) + lat(vec3(px2 + 5.1, pr * SCATTER_FREQ_RATIO + 2.3, 29.9), 1) - 1.0) * PHASOR_NORM;
-    float zi2 = (lat(vec3(px2 + 9.7, pr + 13.1, 41.3), 2) + lat(vec3(px2 + 3.3, pr * SCATTER_FREQ_RATIO + 7.7, 53.9), 0) - 1.0) * PHASOR_NORM;
+    float px2 = float(li) * REVERB_PHASOR_LINE_FREQ, pr = r * SCATTER_FREQ;
+    float zr2 = (lat(vec3(px2, pr, REVERB_PHASOR_RE_A_Z), 0) + lat(vec3(px2, pr * SCATTER_FREQ_RATIO, 0.0) + REVERB_PHASOR_RE_B, 1) - 1.0) * PHASOR_NORM;
+    float zi2 = (lat(vec3(px2, pr, 0.0) + REVERB_PHASOR_IM_A, 2) + lat(vec3(px2, pr * SCATTER_FREQ_RATIO, 0.0) + REVERB_PHASOR_IM_B, 0) - 1.0) * PHASOR_NORM;
     outSig = vec4(amp * zr2, 0.0, amp * zi2, 1.0);
     outIds = vec4(float(S_LUNG) / 255.0, float(T_LUNG) / 255.0, 0.0, 1.0);
     return;
@@ -174,14 +174,14 @@ void main() {
   }
   if (a.z > 0.5) {
     // the pleural line itself: a strong coherent reflector
-    outSig = vec4(transmission * (1.2 + 0.4 * lat(vec3(float(li) * 0.8, r * 3.0, 1.0), 0)), transmission, 0.0, 1.0);
+    outSig = vec4(transmission * (PLEURA_BASE + PLEURA_AMP * lat(vec3(float(li) * PLEURA_LINE_FREQ, r * PLEURA_DEPTH_FREQ, PLEURA_Z), 0)), transmission, 0.0, 1.0);
     outIds = b;
     return;
   }
   vec4 c = texelFetch(uPassC, ivec2(si, li), 0);
   float sigma = a.x;
   float specular = c.x;
-  if (ELEV_N > 1.5) {
+  if (ELEV_N > 1.0) { // three elevation samples (high tier); one otherwise
     // slice thickness: weighted mean of σ and specular over the three elevation planes (¼ ½ ¼); side samples
     // outside the body or in lung are dropped and the weights renormalised, as in the CPU renderer
     vec4 sa = texelFetch(uSideA, ivec2(si, li), 0);
@@ -194,14 +194,14 @@ void main() {
   }
   float sRe = sigma * c.y + specular;
   float sIm = sigma * c.z;
-  if (r < 4.5 && CLUTTER > 0.0) {
+  if (r < CLUTTER_MAX_CM && CLUTTER > 0.0) {
     // near-field clutter: reverberation in the chest wall under the footprint, incoherent, fixed to the probe position
-    float cm = CLUTTER * exp(-r / 1.8) * (0.15 + 0.5 * lat(vec3(B_OX * 6.0 + float(li) * 0.7, B_OY * 6.0 + B_OZ * 6.0, r * 5.0), 2));
-    float cx = B_OX * 25.0 + float(li) * 0.9, cy = B_OY * 25.0 + B_OZ * 25.0, cz = r * SCATTER_FREQ;
-    sRe += cm * (lat(vec3(cx + 3.1, cy, cz), 0) + lat(vec3(cx * SCATTER_FREQ_RATIO + 8.3, cy + 1.9, cz * SCATTER_FREQ_RATIO), 1) - 1.0) * PHASOR_NORM;
-    sIm += cm * (lat(vec3(cx + 61.7, cy + 5.5, cz + 3.3), 2) + lat(vec3(cx * SCATTER_FREQ_RATIO + 21.1, cy + 44.4, cz * SCATTER_FREQ_RATIO + 9.9), 0) - 1.0) * PHASOR_NORM;
+    float cm = CLUTTER * exp(-r / CLUTTER_DECAY_CM) * (CLUTTER_BASE + CLUTTER_AMP * lat(vec3(B_OX * CLUTTER_MOD_FREQ + float(li) * CLUTTER_MOD_LINE_FREQ, B_OY * CLUTTER_MOD_FREQ + B_OZ * CLUTTER_MOD_FREQ, r * CLUTTER_MOD_DEPTH_FREQ), 2));
+    float cx = B_OX * CLUTTER_FREQ + float(li) * CLUTTER_LINE_FREQ, cy = B_OY * CLUTTER_FREQ + B_OZ * CLUTTER_FREQ, cz = r * SCATTER_FREQ;
+    sRe += cm * (lat(vec3(cx + CLUTTER_RE_A_X, cy, cz), 0) + lat(vec3(cx * SCATTER_FREQ_RATIO, cy, cz * SCATTER_FREQ_RATIO) + vec3(CLUTTER_RE_B, 0.0), 1) - 1.0) * PHASOR_NORM;
+    sIm += cm * (lat(vec3(cx, cy, cz) + CLUTTER_IM_A, 2) + lat(vec3(cx * SCATTER_FREQ_RATIO, cy, cz * SCATTER_FREQ_RATIO) + CLUTTER_IM_B, 0) - 1.0) * PHASOR_NORM;
   }
-  if (r < 0.35) sRe += 0.6 * (1.0 - r / 0.35); // transducer ring-down
+  if (r < RINGDOWN_CM) sRe += RINGDOWN_GAIN * (1.0 - r / RINGDOWN_CM); // transducer ring-down
   outSig = vec4(sRe * transmission, transmission, sIm * transmission, 1.0);
   outIds = b;
 }
@@ -216,13 +216,13 @@ layout(location = 0) out vec4 outSig;
 void main() {
   int si = int(gl_FragCoord.x);
   int li = int(gl_FragCoord.y);
-  int R = int(texelFetch(uPsf, ivec2(8, 0), 0).g + 0.5);
+  int R = int(texelFetch(uPsf, ivec2(PSF_LATERAL_RADIUS, 0), 0).g + 0.5);
   int last = int(SAMPLES) - 1;
   float sr = 0.0, sm = 0.0;
-  for (int j = -4; j <= 4; j++) {
+  for (int j = -PSF_AXIAL_RADIUS; j <= PSF_AXIAL_RADIUS; j++) {
     if (j < -R || j > R) continue;
     vec4 v = texelFetch(uSig, ivec2(clamp(si + j, 0, last), li), 0);
-    float w = texelFetch(uPsf, ivec2(8 + j, 0), 0).r;
+    float w = texelFetch(uPsf, ivec2(PSF_LATERAL_RADIUS + j, 0), 0).r;
     sr += w * v.x;
     sm += w * v.z;
   }
@@ -239,13 +239,13 @@ layout(location = 0) out vec4 outAmp;   // amplitude, transmission, 0, 1
 void main() {
   int si = int(gl_FragCoord.x);
   int li = int(gl_FragCoord.y);
-  int R = int(texelFetch(uPsf, ivec2(8, si + 1), 0).g + 0.5);
+  int R = int(texelFetch(uPsf, ivec2(PSF_LATERAL_RADIUS, si + 1), 0).g + 0.5);
   int last = int(LINES) - 1;
   float sr = 0.0, sm = 0.0;
-  for (int j = -8; j <= 8; j++) {
+  for (int j = -PSF_LATERAL_RADIUS; j <= PSF_LATERAL_RADIUS; j++) {
     if (j < -R || j > R) continue;
     vec4 v = texelFetch(uAx, ivec2(si, clamp(li + j, 0, last)), 0);
-    float w = texelFetch(uPsf, ivec2(8 + j, si + 1), 0).r;
+    float w = texelFetch(uPsf, ivec2(PSF_LATERAL_RADIUS + j, si + 1), 0).r;
     sr += w * v.x;
     sm += w * v.z;
   }

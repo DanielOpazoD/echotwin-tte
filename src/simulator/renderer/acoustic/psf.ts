@@ -1,5 +1,10 @@
 import type { PolarFrameSpec } from '../types';
-import { SCATTER_FREQ, SCATTER_FREQ_RATIO } from './acoustics';
+import {
+  SCATTER_FREQ,
+  SCATTER_FREQ_RATIO,
+  SLICE_HALF_BASE_CM,
+  SLICE_HALF_SLOPE,
+} from './acoustics';
 
 /**
  * Point spread function and envelope detection (acoustic image formation, decision 52).
@@ -19,6 +24,13 @@ import { SCATTER_FREQ, SCATTER_FREQ_RATIO } from './acoustics';
 export const MAX_AXIAL_RADIUS = 4;
 export const MAX_LATERAL_RADIUS = 8;
 export const LATERAL_TAPS = 2 * MAX_LATERAL_RADIUS + 1;
+/** The PSF and noise passes loop over ±radius taps centred on column MAX_LATERAL_RADIUS of the kernel table. */
+export function psfDefinesGlsl(): string {
+  return [
+    `#define PSF_AXIAL_RADIUS ${MAX_AXIAL_RADIUS}`,
+    `#define PSF_LATERAL_RADIUS ${MAX_LATERAL_RADIUS}`,
+  ].join('\n');
+}
 /** Mean envelope of a unit-power circular complex Gaussian is √π/2: scaling by its inverse keeps mean(envelope) ≈ σ. */
 export const ENVELOPE_NORM = 2 / Math.sqrt(Math.PI);
 /** Active aperture of the simulated adult sector probe (mm). */
@@ -191,7 +203,7 @@ export function formEnvelope(
 
 /** Half-width (cm) of the elevational slice at depth r: the offset of the two side planes of the slice-thickness passes. */
 export function sliceHalfWidthCm(rCm: number, focusCm: number): number {
-  return 0.2 + 0.04 * Math.abs(rCm - focusCm);
+  return SLICE_HALF_BASE_CM + SLICE_HALF_SLOPE * Math.abs(rCm - focusCm);
 }
 
 /** Axial radius cap of an M-mode line kernel: the line is sampled several times finer than a frame (decision 84). */

@@ -25,18 +25,78 @@ import {
   type PsfKernels,
 } from '../acoustic/psf';
 import {
+  ATTEN_NP_PER_DB,
+  BLOOD_HARMONIC_SIGMA,
+  CALCIUM_AMP,
+  CALCIUM_ATTEN_NP,
+  CALCIUM_ATTEN_REF_CM,
+  CALCIUM_ATTEN_THRESHOLD,
+  CALCIUM_BASE,
+  CALCIUM_FREQ,
+  CALCIUM_GAIN,
+  CALCIUM_OFFSET,
+  CLUTTER_AMP,
+  CLUTTER_BASE,
+  CLUTTER_DECAY_CM,
+  CLUTTER_FREQ,
+  CLUTTER_IM_A,
+  CLUTTER_IM_B,
+  CLUTTER_LINE_FREQ,
+  CLUTTER_MAX_CM,
+  CLUTTER_MOD_DEPTH_FREQ,
+  CLUTTER_MOD_FREQ,
+  CLUTTER_MOD_LINE_FREQ,
+  CLUTTER_RE_A_X,
+  CLUTTER_RE_B,
   HETERO_FREQ,
+  HETERO_OFFSET,
   heteroDb,
   MYO_ANISO_FLOOR,
+  MYO_ANISO_RADIAL_EPS,
   myoAnisoGain,
+  PHASOR_IM_A,
+  PHASOR_IM_B,
   PHASOR_NORM,
+  PHASOR_RE_B,
+  PLEURA_AMP,
+  PLEURA_BASE,
+  PLEURA_DEPTH_FREQ,
+  PLEURA_LINE_FREQ,
+  PLEURA_Z,
   pleuralReverberation,
+  REVERB_MOD_AMP,
+  REVERB_MOD_BASE,
+  REVERB_MOD_DEPTH_FREQ,
+  REVERB_MOD_LINE_FREQ,
+  REVERB_MOD_Z,
+  REVERB_PHASOR_IM_A,
+  REVERB_PHASOR_IM_B,
+  REVERB_PHASOR_LINE_FREQ,
+  REVERB_PHASOR_RE_A_Z,
+  REVERB_PHASOR_RE_B,
+  RINGDOWN_CM,
+  RINGDOWN_GAIN,
   SCATTER_FREQ,
   SCATTER_FREQ_RATIO,
   SPECULAR_GAIN,
   SPECULAR_HARMONIC,
   SPECULAR_WINDOW_MIN,
+  TRANSMISSION_FLOOR,
+  WINDOW_ATTEN_GAIN,
 } from '../acoustic/acoustics';
+
+// lattice offsets as scalars: the inner loops read them per sample
+const [PRB_X, PRB_Y, PRB_Z] = PHASOR_RE_B;
+const [PIA_X, PIA_Y, PIA_Z] = PHASOR_IM_A;
+const [PIB_X, PIB_Y, PIB_Z] = PHASOR_IM_B;
+const [HET_X, HET_Y, HET_Z] = HETERO_OFFSET;
+const [CAL_X, CAL_Y, CAL_Z] = CALCIUM_OFFSET;
+const [RRB_X, RRB_Y, RRB_Z] = REVERB_PHASOR_RE_B;
+const [RIA_X, RIA_Y, RIA_Z] = REVERB_PHASOR_IM_A;
+const [RIB_X, RIB_Y, RIB_Z] = REVERB_PHASOR_IM_B;
+const [CRB_X, CRB_Y] = CLUTTER_RE_B;
+const [CIA_X, CIA_Y, CIA_Z] = CLUTTER_IM_A;
+const [CIB_X, CIB_Y, CIB_Z] = CLUTTER_IM_B;
 
 /**
  * Procedural slice renderer: marches every scanline through the parametric thorax + heart model and forms
@@ -251,14 +311,14 @@ export class ProceduralSliceRenderer implements RendererBackend {
           re[i]! +
           sg *
             (latticeNoise3(qx, qy, qz, latA) +
-              latticeNoise3(qx * R + 37.3, qy * R + 11.9, qz * R + 23.7, latB) -
+              latticeNoise3(qx * R + PRB_X, qy * R + PRB_Y, qz * R + PRB_Z, latB) -
               1) *
             PHASOR_NORM;
         im[i] =
           im[i]! +
           sg *
-            (latticeNoise3(qx + 71.1, qy + 53.5, qz + 5.3, latC) +
-              latticeNoise3(qx * R + 17.9, qy * R + 91.1, qz * R + 43.3, latA) -
+            (latticeNoise3(qx + PIA_X, qy + PIA_Y, qz + PIA_Z, latC) +
+              latticeNoise3(qx * R + PIB_X, qy * R + PIB_Y, qz * R + PIB_Z, latA) -
               1) *
             PHASOR_NORM;
       }
@@ -390,7 +450,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
         inH ? q.nx * dhx + q.ny * dhy + q.nz * dhz : q.nx * dx + q.ny * dy + q.nz * dz,
       );
       let sigma = props.reflect;
-      if (q.tissue === Tissue.Blood && harm) sigma *= 0.6;
+      if (q.tissue === Tissue.Blood && harm) sigma *= BLOOD_HARMONIC_SIGMA;
       // myocardial backscatter is strongest with the beam across the fibres: in the LV walls they run
       // ~circumferentially around the long axis (heart-frame z), so the circumferential direction at
       // the sample is ẑ × radial = (−my, mx, 0)/r — beam·fibre alignment darkens the wall, not the
@@ -398,7 +458,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
       if (q.tissue === Tissue.Myocardium) {
         if (inH && q.structure >= Structure.LvWallSeptal && q.structure <= Structure.LvApex) {
           const rr = Math.sqrt(q.mx * q.mx + q.my * q.my);
-          const dphi = rr > 1e-3 ? Math.abs((dhy * q.mx - dhx * q.my) / rr) : 0;
+          const dphi = rr > MYO_ANISO_RADIAL_EPS ? Math.abs((dhy * q.mx - dhx * q.my) / rr) : 0;
           sigma *= myoAnisoGain(dphi, dhz * dhz);
         } else {
           sigma *= MYO_ANISO_FLOOR + (1 - MYO_ANISO_FLOOR) * nd * nd;
@@ -409,9 +469,9 @@ export class ProceduralSliceRenderer implements RendererBackend {
         sigma *= Math.pow(
           10,
           ((latticeNoise3(
-            q.mx * HETERO_FREQ + 5.3,
-            q.my * HETERO_FREQ + 1.7,
-            q.mz * HETERO_FREQ + 9.1,
+            q.mx * HETERO_FREQ + HET_X,
+            q.my * HETERO_FREQ + HET_Y,
+            q.mz * HETERO_FREQ + HET_Z,
             latC,
           ) -
             0.5) *
@@ -421,8 +481,15 @@ export class ProceduralSliceRenderer implements RendererBackend {
       if (q.extraReflect > 0)
         sigma +=
           q.extraReflect *
-          1.5 *
-          (0.6 + 0.8 * latticeNoise3(q.mx * 6 + 3.3, q.my * 6 + 1.1, q.mz * 6 + 9.2, latB));
+          CALCIUM_GAIN *
+          (CALCIUM_BASE +
+            CALCIUM_AMP *
+              latticeNoise3(
+                q.mx * CALCIUM_FREQ + CAL_X,
+                q.my * CALCIUM_FREQ + CAL_Y,
+                q.mz * CALCIUM_FREQ + CAL_Z,
+                latB,
+              ));
       let specular = 0;
       // the interface echo belongs to the sample the interface crosses (distance along the line < one sample)
       if (props.specular > 0 && Math.abs(q.sdf) < Math.max(nd, SPECULAR_WINDOW_MIN) * dr)
@@ -435,22 +502,25 @@ export class ProceduralSliceRenderer implements RendererBackend {
       const r = (si + 0.5) * dr;
       const idx = base + si;
       if (dead) {
-        const nn = 0.4 + 0.6 * latticeNoise3(li * 0.7, r * 4, 3.1, latC);
+        const nn =
+          REVERB_MOD_BASE +
+          REVERB_MOD_AMP *
+            latticeNoise3(li * REVERB_MOD_LINE_FREQ, r * REVERB_MOD_DEPTH_FREQ, REVERB_MOD_Z, latC);
         const a = pleuralReverberation(r, lungEntryR, lungEntryT, nn);
         // reverberation energy is incoherent: a phasor tied to the line and the depth
-        const px2 = li * 0.9,
+        const px2 = li * REVERB_PHASOR_LINE_FREQ,
           pr = r * SCATTER_FREQ;
         re[idx] =
           a *
-          (latticeNoise3(px2, pr, 17.3, latA) +
-            latticeNoise3(px2 + 5.1, pr * R + 2.3, 29.9, latB) -
+          (latticeNoise3(px2, pr, REVERB_PHASOR_RE_A_Z, latA) +
+            latticeNoise3(px2 + RRB_X, pr * R + RRB_Y, RRB_Z, latB) -
             1) *
           PHASOR_NORM *
           incAxial;
         im[idx] =
           a *
-          (latticeNoise3(px2 + 9.7, pr + 13.1, 41.3, latC) +
-            latticeNoise3(px2 + 3.3, pr * R + 7.7, 53.9, latA) -
+          (latticeNoise3(px2 + RIA_X, pr + RIA_Y, RIA_Z, latC) +
+            latticeNoise3(px2 + RIB_X, pr * R + RIB_Y, RIB_Z, latA) -
             1) *
           PHASOR_NORM *
           incAxial;
@@ -481,7 +551,11 @@ export class ProceduralSliceRenderer implements RendererBackend {
         // pleural line: a strong coherent reflector; everything behind it is reverberation
         lungEntryR = r;
         lungEntryT = transmission;
-        re[idx] = transmission * (1.2 + 0.4 * latticeNoise3(li * 0.8, r * 3, 1, latA));
+        re[idx] =
+          transmission *
+          (PLEURA_BASE +
+            PLEURA_AMP *
+              latticeNoise3(li * PLEURA_LINE_FREQ, r * PLEURA_DEPTH_FREQ, PLEURA_Z, latA));
         if (lk) re[idx] = re[idx]! * lk.single;
         im[idx] = 0;
         dead = true;
@@ -538,53 +612,62 @@ export class ProceduralSliceRenderer implements RendererBackend {
       } else {
         const zr =
           (latticeNoise3(qx, qy, qz, latA) +
-            latticeNoise3(qx * R + 37.3, qy * R + 11.9, qz * R + 23.7, latB) -
+            latticeNoise3(qx * R + PRB_X, qy * R + PRB_Y, qz * R + PRB_Z, latB) -
             1) *
           PHASOR_NORM;
         const zi =
-          (latticeNoise3(qx + 71.1, qy + 53.5, qz + 5.3, latC) +
-            latticeNoise3(qx * R + 17.9, qy * R + 91.1, qz * R + 43.3, latA) -
+          (latticeNoise3(qx + PIA_X, qy + PIA_Y, qz + PIA_Z, latC) +
+            latticeNoise3(qx * R + PIB_X, qy * R + PIB_Y, qz * R + PIB_Z, latA) -
             1) *
           PHASOR_NORM;
         sRe = sigma * zr + specular;
         sIm = sigma * zi;
       }
-      if (r < 4.5 && clutter > 0) {
+      if (r < CLUTTER_MAX_CM && clutter > 0) {
         // near-field clutter: reverberation in the chest wall under the footprint, incoherent, fixed to the probe position
         const cm =
           clutter *
-          Math.exp(-r / 1.8) *
-          (0.15 + 0.5 * latticeNoise3(ox * 6 + li * 0.7, oy * 6 + oz * 6, r * 5, latC));
-        const cx = ox * 25 + li * 0.9,
-          cy = oy * 25 + oz * 25,
+          Math.exp(-r / CLUTTER_DECAY_CM) *
+          (CLUTTER_BASE +
+            CLUTTER_AMP *
+              latticeNoise3(
+                ox * CLUTTER_MOD_FREQ + li * CLUTTER_MOD_LINE_FREQ,
+                oy * CLUTTER_MOD_FREQ + oz * CLUTTER_MOD_FREQ,
+                r * CLUTTER_MOD_DEPTH_FREQ,
+                latC,
+              ));
+        const cx = ox * CLUTTER_FREQ + li * CLUTTER_LINE_FREQ,
+          cy = oy * CLUTTER_FREQ + oz * CLUTTER_FREQ,
           cz = r * SCATTER_FREQ;
         sRe +=
           cm *
-          (latticeNoise3(cx + 3.1, cy, cz, latA) +
-            latticeNoise3(cx * R + 8.3, cy + 1.9, cz * R, latB) -
+          (latticeNoise3(cx + CLUTTER_RE_A_X, cy, cz, latA) +
+            latticeNoise3(cx * R + CRB_X, cy + CRB_Y, cz * R, latB) -
             1) *
           PHASOR_NORM *
           incAxial;
         sIm +=
           cm *
-          (latticeNoise3(cx + 61.7, cy + 5.5, cz + 3.3, latC) +
-            latticeNoise3(cx * R + 21.1, cy + 44.4, cz * R + 9.9, latA) -
+          (latticeNoise3(cx + CIA_X, cy + CIA_Y, cz + CIA_Z, latC) +
+            latticeNoise3(cx * R + CIB_X, cy + CIB_Y, cz * R + CIB_Z, latA) -
             1) *
           PHASOR_NORM *
           incAxial;
       }
-      if (r < 0.35) sRe += lk ? 0.6 * (1 - r / 0.35) * lk.smooth : 0.6 * (1 - r / 0.35); // transducer ring-down
+      const ringDown = r < RINGDOWN_CM ? RINGDOWN_GAIN * (1 - r / RINGDOWN_CM) : 0; // transducer ring-down
+      if (ringDown > 0) sRe += lk ? ringDown * lk.smooth : ringDown;
       re[idx] = sRe * transmission;
       im[idx] = sIm * transmission;
       // two-way amplitude loss integrated over the sample's length (decision 89): 0.23 Np per dB·cm⁻¹·MHz⁻¹ of one-way
       // attenuation, so a layer loses the same whatever the sampling. Bone, calcium and spine used a fixed 1.2 Np per
       // sample, which made a rib's shadow depend on the quality tier (17 dB between low and high behind 4 mm of rib).
-      let attenNp = 0.23 * props.attenuation * fAtten * dr;
-      if (s.extraReflect > 0.4) attenNp += 0.09 * s.extraReflect * (dr / 0.07); // calcified tissue ≈ 10 dB/cm at 2.5 MHz
+      let attenNp = ATTEN_NP_PER_DB * props.attenuation * fAtten * dr;
+      if (s.extraReflect > CALCIUM_ATTEN_THRESHOLD)
+        attenNp += CALCIUM_ATTEN_NP * s.extraReflect * (dr / CALCIUM_ATTEN_REF_CM); // calcified tissue ≈ 10 dB/cm at 2.5 MHz
       if (!inHeart && (tissue === Tissue.Fat || tissue === Tissue.Muscle || tissue === Tissue.Skin))
-        attenNp *= 1 + 1.5 * ctx.windowAttenuation;
+        attenNp *= 1 + WINDOW_ATTEN_GAIN * ctx.windowAttenuation;
       transmission *= Math.exp(-attenNp);
-      if (transmission < 1e-4) transmission = 1e-4;
+      if (transmission < TRANSMISSION_FLOOR) transmission = TRANSMISSION_FLOOR;
     }
   }
 }
