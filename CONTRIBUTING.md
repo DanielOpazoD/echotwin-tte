@@ -30,6 +30,10 @@ descárgalos aparte y pásalos con `CAMUS_DIR=<ruta fuera del repo>` (decisión 
    valen igual para una persona.
 4. `docs/AUDITORIA_INGENIERIA.md`: estado de la base técnica y deuda conocida.
 
+Para reportar lo que se ve mal en una imagen —o para recibir de Claude un punto señalado sobre ella— usa el
+**modo revisión** (tecla R en la app, `docs/REVIEW_MODE.md`): los marcadores dicen qué estructura del modelo hay
+debajo y el informe lleva el estado exacto para reproducir el cuadro con `npm run review:render`.
+
 ## Reglas que no se negocian
 
 - **Paridad CPU ↔ GPU.** Todo cambio en la cadena acústica se hace en

@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 133 (última: 133).
+Decisiones: 134 (última: 134).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -141,3 +141,4 @@ Decisiones: 133 (última: 133).
 | [131](DECISIONS.md#L419) | 2026-09-16 | La subcostal de la vena cava inferior contiene la cava y la vena hepática en todos los casos | vigente |
 | [132](DECISIONS.md#L420) | 2026-09-16 | El navegador 3D marca sobre la piel las ventanas acústicas de las vistas canónicas | vigente |
 | [133](DECISIONS.md#L421) | 2026-09-16 | La base del ventrículo derecho que deja libre el descenso del anillo es aurícula, el infundíbulo desciende con la raíz pulmonar y el eje corto de grandes vasos es perpendicular a la raíz | vigente |
+| [134](DECISIONS.md#L423) | 2026-09-16 | Modo revisión: marcar sobre la imagen lo que se ve mal y llevarse el estado exacto para reproducirlo | vigente |

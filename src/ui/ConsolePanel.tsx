@@ -10,7 +10,8 @@ import { listCases } from '@/cases';
 import { PresetViews } from './PresetViews';
 import { MeasurementPanel } from './MeasurementPanel';
 import { ArtifactLab } from './ArtifactLab';
-import { IconAcquire, IconDoppler, IconImage, IconLab, IconMeasure } from './icons';
+import { ReviewPanel } from './ReviewPanel';
+import { IconAcquire, IconDoppler, IconImage, IconLab, IconMeasure, IconReview } from './icons';
 
 /** Section tooltips are teaching content — suppressed in exam mode like the other hints. */
 function useTip() {
@@ -29,6 +30,7 @@ export function ConsolePanel() {
       measurements: st.measurements,
       modality: st.modality,
       mode: st.mode,
+      reviewCount: st.reviewMarkers.length,
       setUi: st.setUi,
       ui: st.ui,
     })),
@@ -69,6 +71,13 @@ export function ConsolePanel() {
       badge: s.measurements.length || undefined,
     },
     { id: 'lab', label: 'Lab', icon: <IconLab />, show: policy.devToolsAllowed },
+    {
+      id: 'revisar',
+      label: 'Revisar',
+      icon: <IconReview />,
+      show: policy.devToolsAllowed && s.ui.reviewMode,
+      badge: s.reviewCount || undefined,
+    },
   ];
   const visible = tabs.filter((t) => t.show);
   const active = visible.some((t) => t.id === s.ui.consoleTab) ? s.ui.consoleTab : 'adquirir';
@@ -131,6 +140,7 @@ export function ConsolePanel() {
           {active === 'doppler' && <DopplerTab />}
           {active === 'medir' && <MeasureTab />}
           {active === 'lab' && <LabTab />}
+          {active === 'revisar' && <ReviewPanel />}
         </div>
       </div>
     </div>

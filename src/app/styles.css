@@ -1320,3 +1320,77 @@ details.adv > summary:hover::before {
   flex-wrap: wrap;
   justify-content: center;
 }
+
+/* ---- review mode (decision 134) ---- */
+.review-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.review-item {
+  border: 1px solid #2a3140;
+  border-radius: 8px;
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+}
+.review-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.review-head select {
+  flex: 1;
+  min-width: 0;
+}
+.review-n {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #ff6ad5;
+  color: #14141c;
+  font-weight: 700;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.review-place {
+  font-size: 12px;
+  color: #9aa4b5;
+  line-height: 1.35;
+}
+.review-item textarea,
+.review-note,
+.review-preview {
+  width: 100%;
+  min-height: 44px;
+  resize: vertical;
+  font: inherit;
+  font-size: 12px;
+  background: #0e1218;
+  color: inherit;
+  border: 1px solid #2a3140;
+  border-radius: 6px;
+  padding: 6px;
+  box-sizing: border-box;
+}
+.review-preview {
+  min-height: 140px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+.review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.review-actions button.primary {
+  border-color: #ff6ad5;
+}
+.review-status {
+  font-size: 12px;
+  color: #7ce8a0;
+  margin-top: 6px;
+}

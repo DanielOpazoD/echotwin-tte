@@ -130,7 +130,9 @@ export interface PhaseMarks {
 export type SimRequest =
   | { kind: 'autoTrace'; x0: number; x1: number }
   /** The probe control that reaches a canonical view from the window, computed on the worker's own models (B7). */
-  | { kind: 'canonicalControl'; viewId: string };
+  | { kind: 'canonicalControl'; viewId: string }
+  /** What the model holds at one polar point of the displayed frame (review mode, decision 134). */
+  | { kind: 'probePoint'; rCm: number; thetaRad: number };
 export type SimResponse =
   | {
       kind: 'autoTrace';
@@ -138,7 +140,30 @@ export type SimResponse =
       secondsPerColumn: number;
       x0: number;
     }
-  | { kind: 'canonicalControl'; control: ProbeControl };
+  | { kind: 'canonicalControl'; control: ProbeControl }
+  | { kind: 'probePoint'; point: ProbePointInfo };
+
+/** The model at one point of the image: classification and the coordinates the anatomy code reasons in. */
+export interface ProbePointInfo {
+  rCm: number;
+  thetaRad: number;
+  /** Cardiac phase of the frame the point was read on. */
+  phase: number;
+  torso: { x: number; y: number; z: number };
+  /** Heart-frame point (cm). */
+  heart: { x: number; y: number; z: number };
+  inHeart: boolean;
+  structure: number;
+  tissue: number;
+  /** Signed distance to the structure's interface (cm, negative inside). */
+  sdfCm: number;
+  /** Azimuth around the LV long axis (rad) and level fraction (0 base → 1 apex), inside the heart. */
+  azRad: number | null;
+  levelFrac: number | null;
+  /** Aortic root coordinates (cm along the axis from the annulus, radial distance) when the point is near the root. */
+  rootT: number | null;
+  rootR: number | null;
+}
 
 export type MainToWorker =
   | { type: 'init'; caseDef: CaseDefinition; input: SimInput }

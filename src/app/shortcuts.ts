@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useSimStore } from './store';
+import { modePolicy } from './modePolicy';
 
 /**
  * Keyboard accelerators (spec 4.2). Every shortcut has a visible UI equivalent.
@@ -16,6 +17,7 @@ export const SHORTCUTS: { keys: string; action: string }[] = [
   { keys: '[ / ]', action: 'Profundidad −/+ 1 cm' },
   { keys: '- / +', action: 'Ganancia −/+ 2 dB' },
   { keys: 'H', action: 'Mostrar/ocultar torso 3D' },
+  { keys: 'R', action: 'Modo revisión: marcar la imagen para un informe' },
   { keys: '. / ,', action: 'Cine: cuadro siguiente/anterior (en freeze)' },
   { keys: 'Esc', action: 'Cancelar la medición en curso' },
 ];
@@ -67,6 +69,14 @@ export function useShortcuts(): void {
           if (e.altKey) s.nudgeProbe({ tiltDeg: -3 });
           else s.nudgeProbe({ v: -step });
           break;
+        case 'r':
+        case 'R': {
+          if (modePolicy(s.mode).devToolsAllowed) {
+            const on = !s.ui.reviewMode;
+            s.setUi({ reviewMode: on, consoleTab: on ? 'revisar' : 'adquirir' });
+          }
+          break;
+        }
         case ' ':
           e.preventDefault();
           s.toggleFreeze();
