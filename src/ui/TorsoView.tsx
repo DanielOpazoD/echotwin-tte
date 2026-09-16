@@ -16,7 +16,7 @@ import {
   heartDirToTorso,
   type HeartModel,
 } from '@/simulator/anatomy/heartModel';
-import type { MeshReply, MeshRequest } from '@/workers/heartMesh.worker';
+import type { MeshError, MeshReply, MeshRequest } from '@/workers/heartMesh.worker';
 import { beamFrameFromPose, poseFromControl, type BeamFrame } from '@/simulator/probe/pose';
 import { RotationDial } from './RotationDial';
 import { CheckItem, MenuCap, usePopover } from './menu';
@@ -88,7 +88,15 @@ export function TorsoView() {
     const meshWorker = new Worker(new URL('../workers/heartMesh.worker.ts', import.meta.url), {
       type: 'module',
     });
-    meshWorker.onmessage = (ev: MessageEvent<MeshReply>) => {
+    meshWorker.onerror = (e) => {
+      // the ghost stays; the image is unaffected (it does not use these meshes)
+      console.warn('heart mesh worker failed to load; keeping the schematic heart', e.message);
+    };
+    meshWorker.onmessage = (ev: MessageEvent<MeshReply | MeshError>) => {
+      if ('error' in ev.data) {
+        console.warn('heart mesh extraction failed; keeping the schematic heart', ev.data.error);
+        return;
+      }
       const f = heart.frame;
       const basis = new THREE.Matrix4().makeBasis(
         new THREE.Vector3(f.ex.x, f.ex.y, f.ex.z),

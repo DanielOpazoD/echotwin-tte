@@ -20,6 +20,12 @@ export interface MeshRequest {
   /** Cycle phases to extract, in [0,1). The first one is rendered as soon as it arrives. */
   phases: number[];
 }
+/** The worker could not build the surfaces: the navigator keeps its ghost and says why. */
+export interface MeshError {
+  caseId: string;
+  error: string;
+}
+
 export interface MeshReply {
   caseId: string;
   /** Index into the requested phases, and how many were asked for. */
@@ -32,6 +38,23 @@ export interface MeshReply {
 
 self.onmessage = (ev: MessageEvent<MeshRequest>) => {
   const { caseId, patient, stepCm, phases } = ev.data;
+  try {
+    buildAllPhases(caseId, patient, stepCm, phases);
+  } catch (e) {
+    const reply: MeshError = {
+      caseId,
+      error: e instanceof Error ? (e.stack ?? e.message) : String(e),
+    };
+    (self as unknown as Worker).postMessage(reply);
+  }
+};
+
+function buildAllPhases(
+  caseId: string,
+  patient: PatientState,
+  stepCm: number,
+  phases: number[],
+): void {
   const caseDef = loadCaseById(caseId);
   const thorax = createThoraxModel(
     caseDef.bodyHabitus,
@@ -70,4 +93,4 @@ self.onmessage = (ev: MessageEvent<MeshRequest>) => {
     for (const g of groups) transfer.push(g.positions.buffer, g.normals.buffer, g.indices.buffer);
     (self as unknown as Worker).postMessage(reply, transfer);
   }
-};
+}

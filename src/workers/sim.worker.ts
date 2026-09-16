@@ -17,6 +17,14 @@ let timer: ReturnType<typeof setTimeout> | null = null;
 let nextDue = 0;
 let lateMs = 0;
 let lastFps = 30;
+/**
+ * Consecutive ticks that threw. Each one is reported and retried after a pause; after MAX_TICK_FAILURES the
+ * worker stops instead of retrying forever against a broken core (engineering audit, A5). A successful tick or
+ * a new case resets the count.
+ */
+let tickFailures = 0;
+export const MAX_TICK_FAILURES = 5;
+export const TICK_RETRY_MS = 500;
 
 const post = (m: WorkerToMain, transfer?: Transferable[]): void => {
   (self as unknown as Worker).postMessage(m, transfer ?? []);
@@ -39,6 +47,7 @@ function tick(): void {
     const t0 = performance.now();
     const out = core.step(dt);
     const stepMs = performance.now() - t0;
+    tickFailures = 0;
     if (out && outstanding < 2) {
       out.stats = {
         ...out.stats,
@@ -64,11 +73,17 @@ function tick(): void {
     nextDue = nextDue > 0 && tStart - nextDue < targetMs ? nextDue + targetMs : tStart + targetMs;
     schedule(Math.max(1, nextDue - performance.now()));
   } catch (e) {
-    post({
-      type: 'error',
-      message: e instanceof Error ? e.message + '\n' + (e.stack ?? '') : String(e),
-    });
-    schedule(500);
+    tickFailures++;
+    const detail = e instanceof Error ? e.message + '\n' + (e.stack ?? '') : String(e);
+    if (tickFailures >= MAX_TICK_FAILURES) {
+      post({
+        type: 'error',
+        message: `simulación detenida tras ${tickFailures} errores consecutivos; recarga el caso.\n${detail}`,
+      });
+      return;
+    }
+    post({ type: 'error', message: detail });
+    schedule(TICK_RETRY_MS);
   }
 }
 
@@ -82,6 +97,7 @@ self.onmessage = (ev: MessageEvent<MainToWorker>) => {
       outstanding = 0;
       nextDue = 0;
       lastFps = 30;
+      tickFailures = 0;
       post({
         type: 'ready',
         truth: core.truth,

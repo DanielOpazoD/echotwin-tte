@@ -47,7 +47,7 @@ El `ctrl` lo resuelve `controlAimingAt` (descenso por coordenadas sobre rotació
 1. `npm test` en verde antes del cambio (y `npm run test:slow` si el cambio toca anatomía, acústica o consola).
 2. Renders «antes» con el paso 1 en una carpeta externa.
 3. Aplica el cambio; renders «después»; compara a ojo PLAX y A4C en fases 0,00 (telediástole) y 0,30 (sístole).
-4. `npm test`: si `goldens.test.ts` falla por más de 6 niveles en alguna celda, decide si el cambio es intencionado; sólo entonces `npm run golden:update` y revisa el diff de `frames.json`.
+4. `npm run test:slow`: si `goldens.test.ts` falla por más de 6 niveles en alguna celda, decide si el cambio es intencionado; sólo entonces `npm run golden:update`, que reescribe `frames.json` y un PNG por cuadro en `src/tests/goldens/`: revisa las imágenes en el diff, no los números. Sin `frames.json` la prueba falla (no lo regenera en silencio) y una clave guardada que el test ya no renderiza también falla.
 5. `npx tsx tools/offline/render/bench.ts plax` para comprobar que el coste no se dispara.
 
 ## Añadir una vista o un caso a los goldens

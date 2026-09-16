@@ -454,6 +454,10 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
               { userAssisted: true },
             );
             redraw();
+          })
+          .catch((e: unknown) => {
+            // a dead or reloaded worker rejects (client.ts): the measurement is simply not taken
+            console.warn('auto-trace request failed', e instanceof Error ? e.message : e);
           });
       }
       redraw();

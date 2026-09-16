@@ -78,3 +78,88 @@ describe('SimClient inline path', () => {
     expect(() => client!.recycle(new ArrayBuffer(8))).not.toThrow();
   });
 });
+
+/** A stand-in for the browser Worker: records what the client posts and lets a test answer or fail. */
+class FakeWorker {
+  static instances: FakeWorker[] = [];
+  posted: unknown[] = [];
+  terminated = false;
+  onmessage: ((ev: { data: unknown }) => void) | null = null;
+  onerror: ((ev: { message: string }) => void) | null = null;
+  constructor(_url: unknown, _opts?: unknown) {
+    FakeWorker.instances.push(this);
+  }
+  postMessage(m: unknown): void {
+    this.posted.push(m);
+  }
+  terminate(): void {
+    this.terminated = true;
+  }
+  reply(data: unknown): void {
+    this.onmessage?.({ data });
+  }
+}
+
+describe('SimClient worker path: every request settles', () => {
+  const g = globalThis as { Worker?: unknown };
+  const saved = g.Worker;
+  let client: SimClient | null = null;
+  afterEach(() => {
+    client?.dispose();
+    client = null;
+    g.Worker = saved;
+    FakeWorker.instances = [];
+    vi.useRealTimers();
+  });
+  const make = () => {
+    g.Worker = FakeWorker;
+    const h = handlers();
+    client = new SimClient(h);
+    expect(client.mode).toBe('worker');
+    return { h, w: FakeWorker.instances.at(-1)! };
+  };
+
+  it('resolves with the worker reply', async () => {
+    const { w } = make();
+    const p = client!.request({ kind: 'autoTrace', x0: 0, x1: 10 });
+    const sent = w.posted.at(-1) as { type: string; id: number };
+    expect(sent.type).toBe('request');
+    w.reply({ type: 'response', id: sent.id, res: null });
+    await expect(p).resolves.toBeNull();
+  });
+
+  it('rejects when the worker reports an error, and still forwards the error', async () => {
+    const { h, w } = make();
+    const p = client!.request({ kind: 'autoTrace', x0: 0, x1: 10 });
+    w.reply({ type: 'error', message: 'boom\nstack' });
+    await expect(p).rejects.toThrow(/boom/);
+    expect(h.errors).toEqual(['boom\nstack']);
+  });
+
+  it('rejects when the case is reloaded or the client is disposed', async () => {
+    const { w } = make();
+    const p1 = client!.request({ kind: 'autoTrace', x0: 0, x1: 10 });
+    client!.loadCase(loadCaseById('normal-excellent-window'), baseInput());
+    await expect(p1).rejects.toThrow(/reloaded/);
+    const p2 = client!.request({ kind: 'autoTrace', x0: 0, x1: 10 });
+    client!.dispose();
+    await expect(p2).rejects.toThrow(/disposed/);
+    expect(w.terminated).toBe(true);
+  });
+
+  it('rejects when no reply arrives in time', async () => {
+    vi.useFakeTimers();
+    make();
+    const p = client!.request({ kind: 'autoTrace', x0: 0, x1: 10 }, 1000);
+    vi.advanceTimersByTime(1001);
+    await expect(p).rejects.toThrow(/timed out/);
+  });
+
+  it('rejects when the worker itself fails to load', async () => {
+    const { h, w } = make();
+    const p = client!.request({ kind: 'autoTrace', x0: 0, x1: 10 });
+    w.onerror?.({ message: 'failed to fetch module' });
+    await expect(p).rejects.toThrow(/failed to fetch/);
+    expect(h.errors).toEqual(['failed to fetch module']);
+  });
+});
