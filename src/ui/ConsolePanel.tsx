@@ -1,3 +1,4 @@
+import { hasGate, isSpectralModality, MODALITIES } from '@/simulator/renderer/modality';
 import { useEffect, useRef, type KeyboardEvent, type ReactNode } from 'react';
 import { useSimStore, type ConsoleTab, type SimStore } from '@/app/store';
 import { modePolicy } from '@/app/modePolicy';
@@ -15,8 +16,6 @@ function useTip() {
   const training = useSimStore((s) => s.mode !== 'exam');
   return (t: string) => (training ? t : undefined);
 }
-
-const DOPPLER_MODALITIES = new Set(['color', 'pw', 'cw', 'tdi', 'm-mode', 'cmm']);
 
 /**
  * Right-hand console, organised as tabs so only one control family is visible at a time
@@ -51,7 +50,7 @@ export function ConsolePanel() {
       label: 'Doppler',
       icon: <IconDoppler />,
       show: true,
-      dot: DOPPLER_MODALITIES.has(mod),
+      dot: MODALITIES[mod].doppler,
     },
     {
       id: 'medir',
@@ -491,12 +490,8 @@ function DopplerTab() {
           </div>
         </Section>
       )}
-      {(mod === 'pw' || mod === 'cw' || mod === 'tdi') && (
-        <Section
-          title={
-            mod === 'pw' ? 'Doppler pulsado' : mod === 'cw' ? 'Doppler continuo' : 'Doppler tisular'
-          }
-        >
+      {isSpectralModality(mod) && (
+        <Section title={MODALITIES[mod].name}>
           <Slider
             label="Escala"
             value={s.spectral.scaleMps}
@@ -519,7 +514,7 @@ function DopplerTab() {
             unit=" dB"
             onChange={(v) => s.setSpectral({ gainDb: v })}
           />
-          {(mod === 'pw' || mod === 'tdi') && (
+          {hasGate(mod) && (
             <>
               <Slider
                 label="Tamaño de gate"

@@ -19,6 +19,7 @@ import {
 import { ejectionTimeS, ELECTROMECHANICAL_DELAY_S } from '@/simulator/cardiac-cycle/timing';
 import { CardiacClock } from '@/simulator/cardiac-cycle/clock';
 import { ecgSample } from '@/simulator/cardiac-cycle/ecg';
+import { isStripModality } from '@/simulator/renderer/modality';
 import { ProceduralSliceRenderer } from '@/simulator/renderer/procedural/sliceRenderer';
 import { createWebgl2Renderer, type Webgl2Renderer } from '@/simulator/renderer/gpu/webgl2Renderer';
 import { AtlasRenderer } from '@/simulator/renderer/atlas/atlasRenderer';
@@ -360,12 +361,7 @@ export class SimulatorCore {
     const dt = Math.min(0.1, Math.max(0, dtS));
     if (inp.frozen) return this.frozenOutput();
     const spec = polarSpecFor(inp.settings, inp.quality);
-    const isStrip =
-      inp.modality === 'm-mode' ||
-      inp.modality === 'cmm' ||
-      inp.modality === 'pw' ||
-      inp.modality === 'cw' ||
-      inp.modality === 'tdi';
+    const isStrip = isStripModality(inp.modality);
     const colorLines =
       inp.modality === 'color'
         ? Math.round(
@@ -725,12 +721,7 @@ export class SimulatorCore {
     const inp = this.input;
     const W = Math.max(64, inp.display.width);
     const H = Math.max(64, inp.display.height);
-    const isStrip =
-      inp.modality === 'm-mode' ||
-      inp.modality === 'cmm' ||
-      inp.modality === 'pw' ||
-      inp.modality === 'cw' ||
-      inp.modality === 'tdi';
+    const isStrip = isStripModality(inp.modality);
     const sectorH = isStrip ? Math.round(H * 0.42) : H;
     const display = cf ? cf.display : this.display;
     const fspec = cf ? cf.spec : spec;

@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 126 (última: 126).
+Decisiones: 127 (última: 127).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -134,3 +134,4 @@ Decisiones: 126 (última: 126).
 | [124](DECISIONS.md#L405) | 2026-09-16 | Ningún número de la cadena acústica se escribe dos veces | vigente |
 | [125](DECISIONS.md#L407) | 2026-09-16 | Las funciones escalares puras compartidas por CPU y GPU se generan desde su TypeScript | vigente |
 | [126](DECISIONS.md#L409) | 2026-09-16 | El clasificador del corazón se parte en siete bloques con un contexto compartido | vigente |
+| [127](DECISIONS.md#L411) | 2026-09-16 | Cada modalidad de imagen se describe una sola vez | vigente |

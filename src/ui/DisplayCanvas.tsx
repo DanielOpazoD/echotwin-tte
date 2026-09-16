@@ -1,3 +1,4 @@
+import { hasGate, isStripModality, MODALITIES } from '@/simulator/renderer/modality';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useHudStore, useSimStore, type SimStore } from '@/app/store';
 import type { SimOutput } from '@/simulator/core/protocol';
@@ -166,20 +167,11 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
       }
       return;
     }
-    if (
-      (st.modality === 'pw' ||
-        st.modality === 'cw' ||
-        st.modality === 'tdi' ||
-        st.modality === 'm-mode' ||
-        st.modality === 'cmm') &&
-      inSector
-    ) {
+    if (isStripModality(st.modality) && inSector) {
       const { rCm, thetaRad } = pixelToPolar(m, p.x, p.y);
       st.setCursor(
         Math.max(-m.sectorRad / 2, Math.min(m.sectorRad / 2, thetaRad)),
-        st.modality === 'pw' || st.modality === 'tdi'
-          ? Math.max(1, Math.min(m.depthCm - 0.5, rCm))
-          : undefined,
+        hasGate(st.modality) ? Math.max(1, Math.min(m.depthCm - 0.5, rCm)) : undefined,
       );
       dragRef.current = { kind: 'cursor', startX: p.x, startY: p.y };
     }
@@ -194,9 +186,7 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
       const { rCm, thetaRad } = pixelToPolar(m, p.x, Math.min(p.y, m.height - 1));
       st.setCursor(
         Math.max(-m.sectorRad / 2, Math.min(m.sectorRad / 2, thetaRad)),
-        st.modality === 'pw' || st.modality === 'tdi'
-          ? Math.max(1, Math.min(m.depthCm - 0.5, rCm))
-          : undefined,
+        hasGate(st.modality) ? Math.max(1, Math.min(m.depthCm - 0.5, rCm)) : undefined,
       );
     } else if (dragRef.current.kind === 'box-move' && dragRef.current.box) {
       const a = pixelToPolar(m, dragRef.current.startX, dragRef.current.startY);
@@ -278,8 +268,8 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
     };
     const stripVelocity = (y: number) =>
       strip.topValue + ((y - strip.y) / strip.height) * (strip.bottomValue - strip.topValue);
-    const velocityUnits = modality === 'tdi' ? 'cm/s' : 'm/s';
-    const velocityScale = modality === 'tdi' ? 100 : 1;
+    const velocityUnits = MODALITIES[modality].velocityUnits;
+    const velocityScale = velocityUnits === 'cm/s' ? 100 : 1;
     if (st.activeTool === 'caliper') {
       if (p.y >= m.height) return;
       pend.points.push(p);
@@ -631,23 +621,17 @@ function drawOverlay(
     ctx.fillText('↓ desde', bx - 44, by + bh / 2 + 8);
     ctx.font = '11px system-ui';
   }
-  if (
-    modality === 'pw' ||
-    modality === 'cw' ||
-    modality === 'tdi' ||
-    modality === 'm-mode' ||
-    modality === 'cmm'
-  ) {
+  if (isStripModality(modality)) {
     const p0 = polarToPixel(m, 0.3, cursorTheta);
     const p1 = polarToPixel(m, m.depthCm, cursorTheta);
-    ctx.strokeStyle = modality === 'm-mode' || modality === 'cmm' ? '#5cc8ff' : '#ffc857';
+    ctx.strokeStyle = MODALITIES[modality].strip === 'm-mode' ? '#5cc8ff' : '#ffc857';
     ctx.setLineDash([4, 4]);
     ctx.beginPath();
     ctx.moveTo(p0.x, p0.y);
     ctx.lineTo(p1.x, p1.y);
     ctx.stroke();
     ctx.setLineDash([]);
-    if (modality === 'pw' || modality === 'tdi') {
+    if (hasGate(modality)) {
       const g0 = polarToPixel(m, gateDepth - spectral.gateLengthCm / 2, cursorTheta);
       const g1 = polarToPixel(m, gateDepth + spectral.gateLengthCm / 2, cursorTheta);
       ctx.strokeStyle = '#ffc857';
