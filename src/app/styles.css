@@ -41,9 +41,18 @@ button {
   border-radius: 6px;
   padding: 5px 9px;
   cursor: pointer;
+  transition:
+    background 0.14s ease,
+    border-color 0.14s ease,
+    color 0.14s ease,
+    transform 0.06s ease;
 }
 button:hover {
   border-color: var(--accent);
+  background: #1e2835;
+}
+button:active {
+  transform: scale(0.98);
 }
 button.active {
   background: #1f3a4d;
@@ -65,6 +74,19 @@ select:focus-visible {
   grid-template-rows: 40px 1fr 46px;
   grid-template-columns: 300px 1fr 280px;
   height: 100%;
+  animation: app-in 0.4s ease-out;
+  transition: grid-template-columns 0.25s ease;
+}
+@keyframes app-in {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app {
+    animation: none;
+    transition: none;
+  }
 }
 .app.rail-mini {
   grid-template-columns: 56px 1fr 280px;
@@ -309,6 +331,7 @@ select:focus-visible {
   margin: 0 6px;
 }
 .ctx-chip {
+  font-family: var(--mono);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   color: var(--accent);
@@ -423,7 +446,9 @@ select:focus-visible {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  font-size: 11px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
   color: #aab6c4;
   font-variant-numeric: tabular-nums;
 }
@@ -890,6 +915,10 @@ select:focus-visible {
 .small {
   font-size: 11px;
   color: var(--muted);
+}
+.modebar-status {
+  font-family: var(--mono);
+  font-size: 10.5px;
 }
 .cine {
   display: flex;
