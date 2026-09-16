@@ -13,11 +13,11 @@
 | Doppler | `src/simulator/doppler` | campo de flujo, color, espectral, audio | cardiac-cycle, clinical/formulas |
 | Reconocimiento de vista | `src/simulator/view-recognition` | score 0–100 y hints deterministas | windows, renderer/types |
 | Núcleo del simulador | `src/simulator/core` | `SimulatorCore` (headless), `protocol.ts`, `client.ts` | todo lo anterior |
-| Clínica | `src/clinical` | fórmulas puras, referencias versionadas, valores de referencia, informe | measurements/types |
-| Educación | `src/education/scoring` | puntuación de adquisición (mejor score por vista requerida), de mediciones (tolerancia + validez técnica) y resumen de examen | cases, measurements/types, hemodynamics |
+| Clínica | `src/clinical` | fórmulas puras, referencias versionadas, valores de referencia, lector NIfTI y estadísticas de región (capa hoja: cualquier capa puede leerla, ella no importa nada del motor) | — |
+| Educación | `src/education` | técnica de medición, currículo, causas, impresión, informe educativo (`report.ts`) y `scoring/` (adquisición, mediciones, resumen de examen) | cases, measurements, hemodynamics, renderer/types, view-recognition, clinical |
 | Aplicación | `src/app`, `src/ui`, `src/workers` | React 19, zustand, `frameBus`, three.js (torso), tutorial de 8 pasos (`Tutorial.tsx`), exportación PNG con marca de agua (`exportImage.ts`) | core del simulador, clinical |
 
-La regla de ESLint `no-restricted-imports` bloquea `**/clinical/formulas` y `**/clinical/formulas/*` en `src/ui/**`: la UI no importa fórmulas clínicas ni por el índice ni por subruta; el cálculo de las herramientas de medición vive en `src/simulator/measurements` (`simpson.ts`, `vti.ts`).
+El grafo entre capas es acíclico y una prueba lo exige (`src/tests/layers.test.ts`: componentes fuertemente conexas sobre los imports reales de `src/`, con la única excepción declarada `app` ↔ `ui`). ESLint fija además las fronteras por directorio: el motor, la clínica, los casos, la educación y el núcleo no importan `app`/`ui`/`workers`/React; `src/clinical` no importa el motor ni la educación; el motor no importa `education` (los tipos del resultado de técnica viven en `measurements/types.ts`); `renderer` no importa `doppler` (la pasada de presentación recibe `ColorPresentSettings` de `renderer/types.ts`); la apertura del transductor vive en `probe/transducer.ts` para que ni `renderer` ni `doppler` dependan del otro; `src/core` no importa nada. La regla de ESLint `no-restricted-imports` bloquea `**/clinical/formulas` y `**/clinical/formulas/*` en `src/ui/**`: la UI no importa fórmulas clínicas ni por el índice ni por subruta; el cálculo de las herramientas de medición vive en `src/simulator/measurements` (`simpson.ts`, `vti.ts`).
 
 ## Flujo de datos
 ```

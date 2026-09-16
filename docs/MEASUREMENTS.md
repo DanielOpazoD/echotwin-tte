@@ -45,7 +45,7 @@ interface Measurement {
 | `aliasVelocity`, `dopplerShiftHz` | Motor Doppler y audio |
 | `formatClinical` (`reference-values`) | Presentación con decimales por familia (`ase-reporting-2025`) |
 
-## Informe (`src/clinical/reporting/report.ts`, pantalla «Informe»)
+## Informe (`src/education/report.ts`, pantalla «Informe»)
 - Una fila por medición: valor, modalidad/vista, score de vista y, salvo en modo examen, el valor «verdad» y la desviación porcentual.
 - Emparejamiento heurístico: velocidad PW/CW → la más cercana entre VAo Vmax, TSVI Vmax, E mitral, IT Vmax; VTI → la más cercana entre VTI VAo y VTI TSVI; lineal → la más cercana entre DTD, TSVI, SIV, AI AP y senos. Por eso una medida errónea puede «acertar» contra el valor equivocado.
 - «Calidad del estudio»: cuenta las mediciones con `viewScore < 50`.

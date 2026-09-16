@@ -1,6 +1,6 @@
 import { useSimStore } from '@/app/store';
 import { formatClinical } from '@/clinical/reference-values';
-import { buildEducationalReport } from '@/clinical/reporting/report';
+import { buildEducationalReport } from '@/education/report';
 import { buildExamSummary, scoreAcquisition } from '@/education/scoring/scoring';
 import { loadCaseById } from '@/cases';
 import {

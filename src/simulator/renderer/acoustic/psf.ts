@@ -33,8 +33,8 @@ export function psfDefinesGlsl(): string {
 }
 /** Mean envelope of a unit-power circular complex Gaussian is √π/2: scaling by its inverse keeps mean(envelope) ≈ σ. */
 export const ENVELOPE_NORM = 2 / Math.sqrt(Math.PI);
-/** Active aperture of the simulated adult sector probe (mm). */
-export const APERTURE_MM = 14;
+import { APERTURE_MM } from '@/simulator/probe/transducer';
+export { APERTURE_MM };
 const FWHM_TO_SIGMA = 1 / (2 * Math.sqrt(2 * Math.log(2)));
 
 /** Axial resolution (FWHM of the pulse envelope, mm): about two cycles; harmonic imaging trades a little axial resolution. */

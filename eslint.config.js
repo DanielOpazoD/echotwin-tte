@@ -57,9 +57,8 @@ export default tseslint.config(
   {
     // Layer boundary (docs/ARCHITECTURE.md): the engine, the clinical layer, the cases, education
     // and the math core never depend on the React application, the UI, the workers or the store.
-    // This held on 2026-09-16 (docs/AUDITORIA_INGENIERIA.md, A9); the rule keeps it that way.
-    // The remaining boundaries of the table (e.g. clinical ↛ simulator) are not enforced yet
-    // because the code violates them today (finding B1); tighten this list as each cycle is broken.
+    // This held on 2026-09-16 (docs/AUDITORIA_INGENIERIA.md, A9); the rule keeps it that way. The blocks below
+    // add the finer boundaries, and src/tests/layers.test.ts proves the whole layer graph is acyclic.
     files: [
       'src/simulator/**/*.ts',
       'src/clinical/**/*.ts',
@@ -83,6 +82,69 @@ export default tseslint.config(
               message: 'the engine must not import workers',
             },
             { group: ['zustand', 'react', 'react-dom'], message: 'the engine is framework-free' },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // The clinical layer (formulas, guidelines, reference values) is leaf data any layer may read; it must not
+    // reach back into the engine, the cases or the education layer (the report that did moved to education).
+    files: ['src/clinical/**/*.ts'],
+    ignores: ['**/*.test.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                '@/simulator/*',
+                '@/education/*',
+                '@/cases',
+                '@/cases/*',
+                '@/app/*',
+                '@/ui/*',
+              ],
+              message:
+                'src/clinical is a leaf layer: it must not import the engine, the cases or education',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // The engine below education never depends on education (technique result types live in measurements/types).
+    files: ['src/simulator/**/*.ts', 'src/cases/**/*.ts'],
+    ignores: ['**/*.test.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/education', '@/education/*'],
+              message: 'the engine must not import education',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // The renderer forms images; the Doppler engine consumes its frames, never the other way round.
+    files: ['src/simulator/renderer/**/*.ts'],
+    ignores: ['**/*.test.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/simulator/doppler/*', '**/doppler/*'],
+              message: 'the renderer must not import the Doppler engine',
+            },
           ],
         },
       ],

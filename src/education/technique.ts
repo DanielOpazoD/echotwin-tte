@@ -7,16 +7,18 @@ import { Structure, Tissue } from '@/simulator/anatomy/tissue';
  * level factors (ok 1, warn 0.75, invalid 0.3). Deterministic and explainable: every finding
  * carries the causal message shown in the report.
  */
-export type FindingLevel = 'ok' | 'warn' | 'invalid';
-export interface TechniqueFinding {
-  code: string;
-  level: FindingLevel;
-  message: string;
-}
-export interface TechniqueResult {
-  score: number; // 0..1
-  findings: TechniqueFinding[];
-}
+// the result types live with the measurement record they annotate (measurements/types.ts), so the
+// measurements layer does not depend on education; re-exported here for the existing importers
+export type {
+  FindingLevel,
+  TechniqueFinding,
+  TechniqueResult,
+} from '@/simulator/measurements/types';
+import type {
+  FindingLevel,
+  TechniqueFinding,
+  TechniqueResult,
+} from '@/simulator/measurements/types';
 
 /** Cardiac phase landmarks as fractions of the RR interval (from the beat tables). */
 export interface PhaseMarks {

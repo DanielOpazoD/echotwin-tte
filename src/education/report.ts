@@ -1,6 +1,6 @@
 import type { Measurement } from '@/simulator/measurements/types';
 import type { StructuredEchoTruth } from '@/simulator/hemodynamics/groundTruth';
-import { AORTIC_STENOSIS_RULES, formatClinical } from '../reference-values';
+import { AORTIC_STENOSIS_RULES, formatClinical } from '@/clinical/reference-values';
 import { getMeasurementSpec } from '@/simulator/measurements/protocol';
 
 /**
