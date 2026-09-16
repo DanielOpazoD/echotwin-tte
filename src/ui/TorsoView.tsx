@@ -38,7 +38,7 @@ export function TorsoView() {
     const el = ref.current;
     if (!el) return;
     const { thorax, heart } = getCaseModels(caseId, patient);
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, stencil: true });
     renderer.localClippingEnabled = true; // the heart is cut by the imaging plane (decision 57)
     renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
     renderer.setClearColor(0x0f1319);
@@ -75,6 +75,10 @@ export function TorsoView() {
     scene.add(heartMeshes);
     const meshMaterials: THREE.MeshStandardMaterial[] = [];
     const meshByGroup = new Map<string, THREE.Mesh>();
+    // stencil caps: each clipped mesh gets a mask (interior pixels) and a plane that fills it, so the
+    // heart reads as solid tissue where the beam cuts it instead of a set of hollow shells
+    const capByGroup = new Map<string, { stencil: THREE.Group; cap: THREE.Mesh }>();
+    let capOrder = 0;
     // one geometry per cardiac phase per group: the navigator beats in step with the image instead of
     // standing still next to it (decision 68). Phases arrive one by one from the worker.
     const geomByGroup = new Map<string, THREE.BufferGeometry[]>();
@@ -121,6 +125,25 @@ export function TorsoView() {
           mesh.applyMatrix4(placement);
           meshByGroup.set(g.id, mesh);
           heartMeshes.add(mesh);
+          const stencil = createPlaneStencilGroup(geom, cutPlane, 10 + capOrder * 2);
+          stencil.applyMatrix4(placement);
+          const capMat = new THREE.MeshStandardMaterial({
+            color: new THREE.Color(g.color).multiplyScalar(0.45),
+            roughness: 0.8,
+            metalness: 0,
+            side: THREE.DoubleSide,
+            stencilWrite: true,
+            stencilRef: 0,
+            stencilFunc: THREE.NotEqualStencilFunc,
+            stencilFail: THREE.ReplaceStencilOp,
+            stencilZFail: THREE.ReplaceStencilOp,
+            stencilZPass: THREE.ReplaceStencilOp,
+          });
+          const cap = new THREE.Mesh(new THREE.PlaneGeometry(45, 45), capMat);
+          cap.renderOrder = 11 + capOrder * 2;
+          scene.add(stencil, cap);
+          capByGroup.set(g.id, { stencil, cap });
+          capOrder++;
         }
       }
       phasesReady = Math.max(phasesReady, ev.data.index + 1);
@@ -342,6 +365,19 @@ export function TorsoView() {
         'great-vessels': st.ui.navVessels,
       };
       for (const [id, mesh] of meshByGroup) mesh.visible = vis[id] ?? true;
+      for (const [id, c] of capByGroup) {
+        const v = (vis[id] ?? true) && st.ui.navCut;
+        c.stencil.visible = v;
+        c.cap.visible = v;
+        if (v) {
+          c.cap.position.set(beam.origin.x, beam.origin.y, beam.origin.z);
+          c.cap.lookAt(
+            beam.origin.x + beam.normal.x,
+            beam.origin.y + beam.normal.y,
+            beam.origin.z + beam.normal.z,
+          );
+        }
+      }
       // beat in step with the image: the phase comes from the frame on screen, not from a clock of our own
       // only once the whole beat is in: animating a partial set would loop three phases as if they were the
       // entire cycle, which is a different lie from standing still
@@ -350,7 +386,11 @@ export function TorsoView() {
         const idx = Math.round(hudPhase * MESH_PHASES.length) % MESH_PHASES.length;
         for (const [id, mesh] of meshByGroup) {
           const geom = geomByGroup.get(id)?.[idx];
-          if (geom && mesh.geometry !== geom) mesh.geometry = geom;
+          if (geom && mesh.geometry !== geom) {
+            mesh.geometry = geom;
+            const c = capByGroup.get(id);
+            if (c) for (const sm of c.stencil.children) (sm as THREE.Mesh).geometry = geom;
+          }
         }
       }
       axisGroup.visible = st.ui.navAxes;
@@ -465,6 +505,42 @@ function LayerMenu() {
 // ------------------------------------------------------------------------------------------------
 // geometry builders
 // ------------------------------------------------------------------------------------------------
+
+/**
+ * Stencil mask for one clipped mesh: back faces increment and front faces decrement, so pixels where
+ * the solid interior projects end up non-zero. The cap plane then fills exactly that region (and the
+ * replace ops reset the stencil so the next group's mask starts clean). Standard three.js capping.
+ */
+function createPlaneStencilGroup(
+  geometry: THREE.BufferGeometry,
+  plane: THREE.Plane,
+  renderOrder: number,
+): THREE.Group {
+  const group = new THREE.Group();
+  const baseMat = new THREE.MeshBasicMaterial({
+    depthWrite: false,
+    depthTest: false,
+    colorWrite: false,
+    stencilWrite: true,
+    stencilFunc: THREE.AlwaysStencilFunc,
+    clippingPlanes: [plane],
+  });
+  const backMat = baseMat.clone();
+  backMat.side = THREE.BackSide;
+  backMat.stencilFail = backMat.stencilZFail = backMat.stencilZPass = THREE.IncrementWrapStencilOp;
+  const backMesh = new THREE.Mesh(geometry, backMat);
+  backMesh.renderOrder = renderOrder;
+  const frontMat = baseMat.clone();
+  frontMat.side = THREE.FrontSide;
+  frontMat.stencilFail =
+    frontMat.stencilZFail =
+    frontMat.stencilZPass =
+      THREE.DecrementWrapStencilOp;
+  const frontMesh = new THREE.Mesh(geometry, frontMat);
+  frontMesh.renderOrder = renderOrder;
+  group.add(backMesh, frontMesh);
+  return group;
+}
 
 /** Superellipse cross-section point at angle θ (0 = front centre), scaled inward by `inset` cm. */
 function crossSection(
