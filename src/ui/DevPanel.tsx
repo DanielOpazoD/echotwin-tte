@@ -1,4 +1,5 @@
 import { useHudStore, useSimStore } from '@/app/store';
+import { useShallow } from 'zustand/shallow';
 import { modePolicy } from '@/app/modePolicy';
 import { formatClinical } from '@/clinical/reference-values';
 import { RENDERER_BACKEND_CHOICES, type RendererBackendChoice } from '@/simulator/core/protocol';
@@ -11,7 +12,16 @@ const BACKEND_TITLES: Record<RendererBackendChoice, string> = {
 
 /** Developer panel (spec 15.4, 45). Never rendered in exam mode. */
 export function DevPanel() {
-  const s = useSimStore();
+  const s = useSimStore(
+    useShallow((st) => ({
+      mode: st.mode,
+      probe: st.probe,
+      rendererBackend: st.rendererBackend,
+      setBackend: st.setBackend,
+      truth: st.truth,
+      ui: st.ui,
+    })),
+  );
   const hud = useHudStore((h) => h.hud);
   const t = s.truth;
   if (!modePolicy(s.mode).devToolsAllowed || !s.ui.devPanel) return null;

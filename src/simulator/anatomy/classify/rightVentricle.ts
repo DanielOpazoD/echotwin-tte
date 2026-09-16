@@ -1,7 +1,7 @@
 import { Structure, Tissue } from '../tissue';
 import { sdCapsule, sdRoundCone, smin } from '../sdf';
 import { tvInflowSdf } from '../valveSkirt';
-import { rvCrescent, rvTmp } from '../rv';
+import { rvCrescent } from '../rv';
 import { setSample, type ClassifyCtx } from './context';
 
 /** RV free-wall thickness now: thickens with the contraction. */
@@ -15,7 +15,7 @@ export function rvOutflowScale(contraction: number): number {
 }
 
 /**
- * RV: crescent around the septum, infundibulum, outflow, pulmonary trunk and branches. Leaves rvTmp[0] as the
+ * RV: crescent around the septum, infundibulum, outflow, pulmonary trunk and branches. Leaves c.rvSdf[0] as the
  * distance to the RV cavity united with the tricuspid inflow, which the pericardium reads. True when the point is
  * one of these.
  */
@@ -23,6 +23,7 @@ export function classifyRightVentricle(c: ClassifyCtx): boolean {
   const { m, hp, A, x, y, z, out, az } = c;
   const V = hp.valves;
   const s = hp.state.contraction;
+  const rvTmp = c.rvSdf;
   rvCrescent(m, hp, A, x, y, z, az, rvTmp);
   const dRv = rvTmp[0]!;
   const dRvU = smin(dRv, tvInflowSdf(x, y, z, V.tv, hp.tvZ), 0.3);

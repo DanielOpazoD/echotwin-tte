@@ -1,6 +1,7 @@
 import { hasGate, isSpectralModality, MODALITIES } from '@/simulator/renderer/modality';
 import { useEffect, useRef, type KeyboardEvent, type ReactNode } from 'react';
 import { useSimStore, type ConsoleTab, type SimStore } from '@/app/store';
+import { useShallow } from 'zustand/shallow';
 import { modePolicy } from '@/app/modePolicy';
 import { Section, Slider, Segmented, Toggle } from './controls';
 import { VIEW_TARGETS } from '@/simulator/windows/viewDefinitions';
@@ -23,7 +24,15 @@ function useTip() {
  * Doppler tab; every control still alters the render.
  */
 export function ConsolePanel() {
-  const s = useSimStore();
+  const s = useSimStore(
+    useShallow((st) => ({
+      measurements: st.measurements,
+      modality: st.modality,
+      mode: st.mode,
+      setUi: st.setUi,
+      ui: st.ui,
+    })),
+  );
   const mod = s.modality;
   const policy = modePolicy(s.mode);
 
@@ -130,7 +139,20 @@ export function ConsolePanel() {
 
 /** Acquisition: the window presets, probe manipulation and patient context. */
 function AcquireTab() {
-  const s = useSimStore();
+  const s = useSimStore(
+    useShallow((st) => ({
+      caseId: st.caseId,
+      loadCase: st.loadCase,
+      mode: st.mode,
+      patient: st.patient,
+      probe: st.probe,
+      resetProbe: st.resetProbe,
+      setPatient: st.setPatient,
+      setProbe: st.setProbe,
+      setTargetView: st.setTargetView,
+      targetViewId: st.targetViewId,
+    })),
+  );
   const tip = useTip();
   return (
     <>
@@ -246,7 +268,9 @@ function AcquireTab() {
 
 /** B-mode image controls: the frequent ones up front, the fine-tuning set under "Ajustes finos". */
 function ImageTab() {
-  const s = useSimStore();
+  const s = useSimStore(
+    useShallow((st) => ({ setSettings: st.setSettings, setTgc: st.setTgc, settings: st.settings })),
+  );
   const tip = useTip();
   return (
     <Section title="Imagen 2D">
@@ -400,7 +424,21 @@ function ImageTab() {
 
 /** The contextual Doppler family, or an empty state with quick activators while in 2D. */
 function DopplerTab() {
-  const s = useSimStore();
+  const s = useSimStore(
+    useShallow((st) => ({
+      color: st.color,
+      cursorThetaRad: st.cursorThetaRad,
+      gateDepthCm: st.gateDepthCm,
+      modality: st.modality,
+      setColor: st.setColor,
+      setCursor: st.setCursor,
+      setModality: st.setModality,
+      setSpectral: st.setSpectral,
+      setUi: st.setUi,
+      settings: st.settings,
+      spectral: st.spectral,
+    })),
+  );
   const tip = useTip();
   const mod = s.modality;
 
@@ -654,7 +692,16 @@ const FREE_TOOL_HINT: Partial<Record<SimStore['activeTool'], string>> = {
 
 /** Protocol measurements, free tools and the captured list. */
 function MeasureTab() {
-  const s = useSimStore();
+  const s = useSimStore(
+    useShallow((st) => ({
+      activeMeasurementId: st.activeMeasurementId,
+      activeTool: st.activeTool,
+      measurements: st.measurements,
+      removeMeasurement: st.removeMeasurement,
+      setActiveMeasurement: st.setActiveMeasurement,
+      setActiveTool: st.setActiveTool,
+    })),
+  );
   const tools: { id: typeof s.activeTool; label: string; title?: string }[] = [
     { id: 'none', label: '—', title: 'Ninguna herramienta' },
     { id: 'caliper', label: 'Caliper', title: 'Distancia lineal (2D)' },
@@ -733,7 +780,7 @@ function MeasureTab() {
   );
 }
 
-function MeasureList({ s }: { s: SimStore }) {
+function MeasureList({ s }: { s: Pick<SimStore, 'measurements' | 'removeMeasurement'> }) {
   return (
     <div className="measure-list">
       {s.measurements.length === 0 && (

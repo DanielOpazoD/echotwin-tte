@@ -51,11 +51,22 @@ export default tseslint.config(
   {
     // Clinical logic must not live in UI components: UI may import from clinical/ (read-only data)
     // but must not import formulas directly; it goes through simulator/measurements.
-    files: ['src/ui/**/*.{ts,tsx}'],
+    files: ['src/ui/**/*.{ts,tsx}', 'src/app/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-imports': [
         'error',
         { patterns: ['**/clinical/formulas', '**/clinical/formulas/*'] },
+      ],
+      // A component that subscribes to the whole store re-renders on every change of any field (probe
+      // motion, cine, fps). Select the fields it reads, with `useShallow` when it needs several
+      // (docs/AUDITORIA_INGENIERIA.md, B-selectores; done for the 13 components on 2026-09-16).
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "CallExpression[callee.name='useSimStore'][arguments.length=0]",
+          message:
+            'Suscríbete a los campos que usa el componente: useSimStore((s) => s.x) o useSimStore(useShallow((s) => ({ ... }))).',
+        },
       ],
     },
   },

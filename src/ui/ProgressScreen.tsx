@@ -1,10 +1,16 @@
 import { useSimStore } from '@/app/store';
+import { useShallow } from 'zustand/shallow';
 import { exportProgressJson, summarizeProgress } from '@/education/progress';
 import { VIEW_TARGETS } from '@/simulator/windows/viewDefinitions';
 
 /** Local learning analytics (proposal 7): everything stays in this browser; export is a file the learner downloads. */
 export function ProgressScreen() {
-  const s = useSimStore();
+  const s = useSimStore(
+    useShallow((st) => ({
+      progress: st.progress,
+      resetLearningProgress: st.resetLearningProgress,
+    })),
+  );
   const sum = summarizeProgress(s.progress);
   const exportJson = () => {
     const blob = new Blob([exportProgressJson(s.progress, '0.1.0')], { type: 'application/json' });
