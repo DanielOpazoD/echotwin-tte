@@ -85,3 +85,19 @@ Formato: evidencia · coste de no hacerlo · primer paso.
 5. **Documentación que no miente** (A7, A10, C4): corregir las líneas citadas, `CONTRIBUTING.md`, TOC y estado en `DECISIONS.md`, `docsConsistency.test.ts` cruzando `KNOWN_*` con `LIMITATIONS.md`.
 
 Lo estructural (C2, C3) se planifica después de 1–3: partir `classifyHeart` sin (2) duplica el riesgo de drift, y partir `simulatorCore` sin (3) reproduce el acoplamiento en piezas más pequeñas.
+
+## Estado de implementación (2026-09-16, misma jornada)
+
+Incrementos mergeados en `main` por MR, cada uno con lint, tipos, suite rápida y las pruebas lentas afectadas en verde; el pipeline de GitLab corre desde el primero.
+
+| MR | Hallazgos | Qué cambió |
+|---|---|---|
+| !8 | A1, A7, A8, A9, A10 | `.gitlab-ci.yml` (validado por `ci/lint`), fronteras de capa en ESLint validadas por mutación, `check` alineado con CI, `.nvmrc`/`packageManager`, `CONTRIBUTING.md`, docs corregidos, `docsConsistency` vigila `ARCHITECTURE.md`. |
+| !9 | A3, A4 (decisión 124) | Dos discrepancias del espejo GLSL corregidas; ~60 literales acústicos como constantes con nombre emitidas por tabla; `glslParity.test.ts`; equivalencia GPU 26/26. |
+| !10 | A5, A6, B5 parcial | Peticiones al worker siempre resolubles (rechazo por error, recarga, dispose, timeout), tope de reintentos del worker, errores del worker de mallas visibles, goldens que fallan sin archivo y escriben PNG; pruebas del cliente por la ruta del worker y del worker. |
+| !11 | B2, B3 | `buildCaseModels` único (cinco copias, una divergía en la VCI) con guarda de regresión; un solo vocabulario de backend. |
+| !12 | — | Dos regresiones reales de UI que el primer pipeline destapó (aviso de examen oculto por la interfaz limpia; tarjeta de captura sin `role="status"`). |
+| !13 | B5, B6, C4 | `store.test.ts` (10 casos), tier lento por marcador en el archivo con guarda, `DECISIONS_INDEX.md` generado con estado (7 decisiones marcadas como superadas), `limitationsConsistency.test.ts`. |
+| !14 | B4 | Navegador 3D, pantallas secundarias y gancho de comparación en chunks diferidos; presupuesto de bundle en `build` y en CI. |
+
+Queda abierto, en el orden en que conviene abordarlo: activar «pipelines must succeed» en el proyecto (decisión del propietario; el pipeline ya está verde), B8 (lint con type-checking: medidos 84 hallazgos, 48 aserciones innecesarias y 27 comparaciones de enum; mecánico), B1 (los cinco ciclos entre capas), endurecer `gpu-equivalence` con desacuerdo por estructura, C1-b (generador de GLSL para las funciones escalares puras), B7 (presets y navegador fuera del hilo principal, lo que también reduce el chunk de entrada de 703 kB) y las decisiones estructurales C2–C3. La visibilidad pública del proyecto (A2) sigue sin decidirse.

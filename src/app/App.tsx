@@ -1,25 +1,37 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useHudStore, useSimStore } from './store';
 import { modePolicy } from './modePolicy';
 import { useSimulation } from './useSimulation';
 import { useShortcuts } from './shortcuts';
 import { DisplayCanvas } from '@/ui/DisplayCanvas';
-import { TorsoView } from '@/ui/TorsoView';
 import { ConsolePanel } from '@/ui/ConsolePanel';
 import { TopBar } from '@/ui/TopBar';
 import { ModeBar } from '@/ui/ModeBar';
 import { ExamNotice, GuidancePanel } from '@/ui/GuidancePanel';
-import { CurriculumScreen } from '@/ui/CurriculumScreen';
-import { ProgressScreen } from '@/ui/ProgressScreen';
 import { evaluateTasks, type LearnerSnapshot } from '@/education/curriculum';
 import { expectedFindings, scoreImpression } from '@/education/impression';
 import { DevPanel } from '@/ui/DevPanel';
-import { ReferencesScreen } from '@/ui/ReferencesScreen';
-import { ReportScreen } from '@/ui/ReportScreen';
 import { Tutorial } from '@/ui/Tutorial';
 import type { SimOutput } from '@/simulator/core/protocol';
 import { DopplerAudio } from '@/simulator/doppler/audio/dopplerAudio';
 import { frameBus } from './frameBus';
+
+// Loaded on demand (engineering audit, B4): the 3D navigator carries three.js (540 kB) and the secondary
+// screens are not part of imaging. The entry chunk holds only what the first frame needs.
+const TorsoView = lazy(() => import('@/ui/TorsoView').then((m) => ({ default: m.TorsoView })));
+const ReferencesScreen = lazy(() =>
+  import('@/ui/ReferencesScreen').then((m) => ({ default: m.ReferencesScreen })),
+);
+const ReportScreen = lazy(() =>
+  import('@/ui/ReportScreen').then((m) => ({ default: m.ReportScreen })),
+);
+const CurriculumScreen = lazy(() =>
+  import('@/ui/CurriculumScreen').then((m) => ({ default: m.CurriculumScreen })),
+);
+const ProgressScreen = lazy(() =>
+  import('@/ui/ProgressScreen').then((m) => ({ default: m.ProgressScreen })),
+);
+const screenFallback = <div className="screen small">Cargando…</div>;
 
 export function App() {
   const [size, setSize] = useState({ width: 640, height: 520 });
@@ -116,13 +128,21 @@ export function App() {
     >
       <TopBar />
       {ui.screen === 'references' ? (
-        <ReferencesScreen />
+        <Suspense fallback={screenFallback}>
+          <ReferencesScreen />
+        </Suspense>
       ) : ui.screen === 'report' ? (
-        <ReportScreen />
+        <Suspense fallback={screenFallback}>
+          <ReportScreen />
+        </Suspense>
       ) : ui.screen === 'curriculum' ? (
-        <CurriculumScreen />
+        <Suspense fallback={screenFallback}>
+          <CurriculumScreen />
+        </Suspense>
       ) : ui.screen === 'progress' ? (
-        <ProgressScreen />
+        <Suspense fallback={screenFallback}>
+          <ProgressScreen />
+        </Suspense>
       ) : (
         <>
           <div className="left" style={{ display: railVisible ? 'flex' : 'none' }}>
@@ -143,7 +163,11 @@ export function App() {
             </button>
             {/* the torso stays mounted while mini so its mesh worker is not rebuilt on expand */}
             <div className="rail-main" style={{ display: ui.railMini ? 'none' : 'flex' }}>
-              {railVisible && <TorsoView />}
+              {railVisible && (
+                <Suspense fallback={<div className="torso small">Cargando torso 3D…</div>}>
+                  <TorsoView />
+                </Suspense>
+              )}
               {railVisible && <GuidancePanel />}
             </div>
             {ui.railMini && <RailMini />}

@@ -64,6 +64,7 @@ build:
   needs: []
   script:
     - npx vite build
+    - node tools/ci/bundle-budget.mjs
   artifacts:
     paths: [dist/]
     expire_in: 1 week
