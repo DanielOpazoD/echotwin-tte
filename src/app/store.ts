@@ -26,6 +26,7 @@ import { buildExamSummary } from '@/education/scoring/scoring';
 import { loadCaseById } from '@/cases';
 import type { PhaseMarks } from '@/simulator/core/protocol';
 import { getCaseModels } from './caseModels';
+import { frameBus } from './frameBus';
 import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
 import { easeInOut, lerpControl, presetDurationMs } from '@/simulator/probe/interpolate';
 import { modePolicy, type ProductMode } from './modePolicy';
@@ -226,7 +227,7 @@ export const START_PROBE: ProbeControl = {
   pressure: 0.55,
 };
 
-export const useSimStore = create<SimStore>((set) => ({
+export const useSimStore = create<SimStore>((set, get) => ({
   caseId: 'normal-excellent-window',
   probe: { ...START_PROBE },
   patient: { position: 'left-lateral', respiration: 'expiration', headElevationDeg: 0 },
@@ -386,24 +387,36 @@ export const useSimStore = create<SimStore>((set) => ({
       }
       return { impressionSelection: sel };
     }),
-  startPresetView: (viewId) =>
-    set((s) => {
-      if (s.mode === 'exam') return {};
-      const { heart, thorax } = getCaseModels(s.caseId, s.patient);
-      const to = clampProbe(canonicalControl(getViewTarget(viewId), heart, thorax));
-      const from = { ...s.probe };
-      return {
-        presetAnim: {
-          from,
-          to,
-          startMs: performance.now(),
-          durationMs: presetDurationMs(from, to),
-          viewId,
-        },
-        targetViewId: viewId,
-        frozen: false,
-      };
-    }),
+  startPresetView: (viewId) => {
+    if (get().mode === 'exam') return;
+    const begin = (to: ProbeControl) =>
+      set((s) => {
+        const from = { ...s.probe };
+        return {
+          presetAnim: {
+            from,
+            to,
+            startMs: performance.now(),
+            durationMs: presetDurationMs(from, to),
+            viewId,
+          },
+          targetViewId: viewId,
+          frozen: false,
+        };
+      });
+    // the pose comes from the worker's own models — the ones the image is traced from (audit B7); without a
+    // worker (tests, inline mode) the main-thread copies answer, as they did before
+    void frameBus
+      .request({ kind: 'canonicalControl', viewId })
+      .then((res) => {
+        if (res && res.kind === 'canonicalControl') return begin(clampProbe(res.control));
+        const { heart, thorax } = getCaseModels(get().caseId, get().patient);
+        begin(clampProbe(canonicalControl(getViewTarget(viewId), heart, thorax)));
+      })
+      .catch((e: unknown) => {
+        console.warn('preset view request failed', e instanceof Error ? e.message : e);
+      });
+  },
   cancelPreset: () => set({ presetAnim: null }),
   tickPresetAnimation: (nowMs) =>
     set((s) => {

@@ -78,6 +78,23 @@ describe('sim.worker pacing and failure policy', () => {
     expect(posted().length).toBe(before);
   });
 
+  it('answers a canonical-control request with the pose of its own models', () => {
+    load();
+    fakeSelf.onmessage!({
+      data: { type: 'request', id: 7, req: { kind: 'canonicalControl', viewId: 'a4c' } },
+    });
+    const reply = posted().find((m) => m.type === 'response');
+    if (reply?.type !== 'response' || reply.res?.kind !== 'canonicalControl')
+      throw new Error('no canonical-control response');
+    expect(reply.id).toBe(7);
+    const c = reply.res.control;
+    expect(Number.isFinite(c.u) && Number.isFinite(c.v) && Number.isFinite(c.rotationDeg)).toBe(
+      true,
+    );
+    // the apical window lies caudal and lateral to the parasternal start pose
+    expect(c.v).toBeLessThan(0);
+  });
+
   it('a new case resets the failure count and the clock', () => {
     load();
     const spy = vi.spyOn(core.prototype, 'step').mockImplementation(() => {

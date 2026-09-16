@@ -57,6 +57,7 @@ import {
   poseFromControl,
   type BeamFrame,
 } from '@/simulator/probe/pose';
+import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
 import { analyzeView, type ViewAnalysis } from '@/simulator/view-recognition/viewQuality';
 import {
   buildFlowParams,
@@ -690,6 +691,11 @@ export class SimulatorCore {
 
   /** Answer an on-demand request (auto-trace of the spectral envelope between two strip columns). */
   request(req: SimRequest): SimResponse | null {
+    if (req.kind === 'canonicalControl')
+      return {
+        kind: 'canonicalControl',
+        control: canonicalControl(getViewTarget(req.viewId), this.heart, this.thorax),
+      };
     return this.strips.request(req, this.stripCtx());
   }
 

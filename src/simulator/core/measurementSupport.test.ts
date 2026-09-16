@@ -80,9 +80,8 @@ describe('measurement support in the simulator core', () => {
     );
     for (let i = 0; i < 60; i++) core.step(0.03); // ~1.8 s of strip
     const res = core.request({ kind: 'autoTrace', x0: 0, x1: 300 });
-    expect(res).not.toBeNull();
-    expect(res!.kind).toBe('autoTrace');
-    const v = res!.velocitiesMps.map((x) => Math.abs(x));
+    if (res?.kind !== 'autoTrace') throw new Error('expected an auto-trace response');
+    const v = res.velocitiesMps.map((x) => Math.abs(x));
     expect(v.length).toBeGreaterThan(100);
     const vmax = Math.max(...v);
     expect(vmax).toBeGreaterThan(0.5);
@@ -90,6 +89,6 @@ describe('measurement support in the simulator core', () => {
     // most columns are diastole (no LVOT flow): the envelope must fall back to ~0 there
     const quiet = v.filter((x) => x < 0.2).length / v.length;
     expect(quiet).toBeGreaterThan(0.4);
-    expect(res!.secondsPerColumn).toBeGreaterThan(0);
+    expect(res.secondsPerColumn).toBeGreaterThan(0);
   });
 });
