@@ -30,9 +30,12 @@ import {
   type SkirtDesc,
 } from './valveSkirt';
 import { septalShiftAt } from './lvWall';
-import { rvRadii, rvRad } from './rv';
+import { rvRadii } from './rv';
 import { anchorsCached } from './anchors';
 import type { HeartModel } from './heartModel';
+
+/** Scratch for the RV radii queried by the pose solver (single-threaded). */
+const rvRad = new Float64Array(4);
 
 /**
  * Systolic shortening of the tricuspid annular dimensions. In healthy adults the annulus is largest in late diastole

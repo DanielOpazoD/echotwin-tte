@@ -1,14 +1,13 @@
 import { Structure, Tissue } from '../tissue';
 import { sdCapsule, sdEllipsoid, sdRoundCone, smin } from '../sdf';
-import { rvTmp } from '../rv';
 import { setSample, type ClassifyCtx } from './context';
 
 /** Pericardium & effusion: the outer envelope of all epicardial surfaces. True when the point is in the sac. */
 export function classifyPericardium(c: ClassifyCtx): boolean {
-  const { m, hp, A, x, y, z, out, dEllR, wallT, nx0, ny0, nz0 } = c;
+  const { m, hp, A, x, y, z, out, dEllR, wallT, nx0, ny0, nz0, rvSdf } = c;
   const dLvEpi = dEllR - wallT; // the epicardium is the outer face of the wall shell
   const fw = m.anatomy.rv.freeWallThicknessCm;
-  const dRvEpi = rvTmp[0]! - fw; // crescent and tricuspid inflow, computed just before (this point is outside the RV)
+  const dRvEpi = rvSdf[0]! - fw; // crescent and tricuspid inflow, computed just before (this point is outside the RV)
   const la = A.laCenter,
     lr = A.laR;
   const dLaEpi = sdEllipsoid(x, y, z, la.x, la.y, la.z, lr.x + 0.25, lr.y + 0.25, lr.z + 0.25);

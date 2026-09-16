@@ -1,6 +1,6 @@
 import { Structure, Tissue } from '../tissue';
 import { sdRoundCone, smax, smin } from '../sdf';
-import { lvCavitySdf, lvProfileG, lvSdfNormal } from '../lvShape';
+import { lvCavitySdf, lvProfileG } from '../lvShape';
 import { fastAtan2, latticeNoise3 } from '@/core/noise';
 import { insideMitralOutline, mitralHingeZ, mitralInflowSdf } from '../mitralValve';
 import { septalShiftAt, wallThicknessAt } from '../lvWall';
@@ -26,10 +26,11 @@ export function classifyLeftVentricle(c: ClassifyCtx): boolean {
   const septalShift = septalShiftAt(hp.septalShiftCm, az, levelFrac);
   const xs = x - septalShift;
   const sh = lv.shape;
-  const dProf = lvCavitySdf(hp.prof, sh.ratio, xs, y, z);
-  const nx0 = lvSdfNormal[0]!,
-    ny0 = lvSdfNormal[1]!,
-    nz0 = lvSdfNormal[2]!;
+  const n = c.lvNormal;
+  const dProf = lvCavitySdf(hp.prof, sh.ratio, xs, y, z, n);
+  const nx0 = n[0]!,
+    ny0 = n[1]!,
+    nz0 = n[2]!;
   c.nx0 = nx0;
   c.ny0 = ny0;
   c.nz0 = nz0;

@@ -201,13 +201,10 @@ export function buildLvProfile(
   return out;
 }
 
-/** Scratch for the last SDF query's normal (unnormalised, heart frame). */
-export const lvSdfNormal = new Float64Array(3);
-
 /**
  * Signed distance from (xs, y, z) to the cavity surface (negative inside). `xs` is the lateral
  * coordinate after any septal shift; the anteroposterior axis is scaled by the cross-section ratio.
- * Writes the surface normal into `lvSdfNormal`.
+ * When `outNormal` is given, writes the (unnormalised, heart-frame) surface normal into it.
  */
 export function lvCavitySdf(
   tab: LvProfileTable,
@@ -215,6 +212,7 @@ export function lvCavitySdf(
   xs: number,
   y: number,
   z: number,
+  outNormal?: Float64Array,
 ): number {
   const ys = y / ratio;
   const rho2 = xs * xs + ys * ys;
@@ -237,9 +235,11 @@ export function lvCavitySdf(
   const nr = sinP - S * cosP,
     nz = cosP + S * sinP;
   const ir = rho > 1e-9 ? 1 / rho : 0;
-  lvSdfNormal[0] = nr * xs * ir;
-  lvSdfNormal[1] = (nr * ys * ir) / ratio;
-  lvSdfNormal[2] = nz;
+  if (outNormal) {
+    outNormal[0] = nr * xs * ir;
+    outNormal[1] = (nr * ys * ir) / ratio;
+    outNormal[2] = nz;
+  }
   // distances in the y-scaled space are stretched by 1/ratio along y: correct toward the real distance
   const q = rho2 > 1e-12 ? Math.sqrt((xs * xs + ratio * ratio * ys * ys) / rho2) : 1;
   const corr = 1 - (1 - q) * sinP * sinP;

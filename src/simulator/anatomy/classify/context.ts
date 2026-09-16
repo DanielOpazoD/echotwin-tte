@@ -49,6 +49,15 @@ export interface ClassifyCtx {
   wallT: number;
   /** Inside the profile but basal to the annulus and outside the root lumen. */
   inAnnularRegion: boolean;
+
+  // ---- scratch buffers (owned by the context so no module exports mutable state) ----
+  /** Normal written by `lvCavitySdf` (leftVentricle.ts), copied into nx0/ny0/nz0. */
+  lvNormal: Float64Array;
+  /**
+   * RV crescent query (rightVentricle.ts): [0] signed distance to the RV cavity united with its inflow — the
+   * pericardium reads it as the RV epicardium reference —, [1] inner radius, [2] outer radius.
+   */
+  rvSdf: Float64Array;
 }
 
 /** The one context instance (single-threaded classifier). */
@@ -77,6 +86,8 @@ export const ctx: ClassifyCtx = {
   dEllR: 0,
   wallT: 0,
   inAnnularRegion: false,
+  lvNormal: new Float64Array(3),
+  rvSdf: new Float64Array(3),
 };
 
 export function setSample(

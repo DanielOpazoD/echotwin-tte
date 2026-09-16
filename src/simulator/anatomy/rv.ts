@@ -8,8 +8,8 @@ import type { HeartModel } from './heartModel';
 import type { HeartPose } from './heartPose';
 
 /** Scratch buffers shared by the RV helpers (single-threaded classifier). */
-export const rvTmp = new Float64Array(3);
-export const rvRad = new Float64Array(4);
+/** Scratch of `rvCrescent` for the radii of `rvRadii` (single-threaded, never leaves this module). */
+const rvRad = new Float64Array(4);
 
 /** RV crescent azimuthal profile over u ∈ (0, 1) between the grooves: rounded tips, plateau, fullest at the inflow (A4C direction). */
 export function rvAzProfile(rvAzA: number, rvAzP: number, u: number): number {
