@@ -42,7 +42,7 @@ export function useSimulation(
     frameBus.recycle = (b) => client.recycle(b);
     frameBus.request = (req) => client.request(req);
     const caseDef = loadCaseById(store.caseId);
-    client.loadCase(caseDef, buildInput(sizeRef.current));
+    void client.loadCase(caseDef, buildInput(sizeRef.current));
     // Inputs are pushed on store changes (independent of rAF, which browsers pause in hidden tabs).
     const push = () => client.send(buildInput(sizeRef.current));
     const unsub = useSimStore.subscribe(push);
@@ -74,7 +74,7 @@ export function useSimulation(
     const client = clientRef.current;
     if (!client) return;
     const caseDef = loadCaseById(caseId);
-    client.loadCase(caseDef, buildInput(sizeRef.current));
+    void client.loadCase(caseDef, buildInput(sizeRef.current));
   }, [caseId]);
 }
 

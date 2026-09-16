@@ -3,7 +3,7 @@ import { useEffect, useRef, type KeyboardEvent, type ReactNode } from 'react';
 import { useSimStore, type ConsoleTab, type SimStore } from '@/app/store';
 import { modePolicy } from '@/app/modePolicy';
 import { Section, Slider, Segmented, Toggle } from './controls';
-import { VIEW_TARGETS } from '@/simulator/windows/viewTargets';
+import { VIEW_TARGETS } from '@/simulator/windows/viewDefinitions';
 import { MEASUREMENT_SPECS } from '@/simulator/measurements/protocol';
 import { listCases } from '@/cases';
 import { PresetViews } from './PresetViews';

@@ -8,7 +8,7 @@ import type {
   SimResponse,
   WorkerToMain,
 } from './protocol';
-import { SimulatorCore } from './simulatorCore';
+import type { SimulatorCore } from './simulatorCore';
 import type { StructuredEchoTruth } from '@/simulator/hemodynamics/groundTruth';
 
 /**
@@ -115,22 +115,33 @@ export class SimClient {
     return Promise.resolve(this.inline ? this.inline.request(req) : null);
   }
 
-  loadCase(caseDef: CaseDefinition, input: SimInput): void {
+  /**
+   * Load a case. With a worker the request is posted at once; inline, the core module is loaded on demand
+   * first — it is the whole engine, and keeping it out of the entry chunk is what lets the application start
+   * with the worker alone (audit B7) — so the returned promise settles when `ready` has been announced.
+   */
+  loadCase(caseDef: CaseDefinition, input: SimInput): Promise<void> {
     this.lastInputJson = JSON.stringify(input);
     // a new core answers nothing asked of the old one
     this.rejectPending(new Error('simulation request cancelled: case reloaded'));
     if (this.worker) {
       const m: MainToWorker = { type: 'loadCase', caseDef, input };
       this.worker.postMessage(m);
-      return;
+      return Promise.resolve();
     }
-    this.inline = new SimulatorCore(caseDef, input);
-    this.handlers.onReady(
-      this.inline.truth,
-      caseDef.id,
-      this.inline.phaseMarks(),
-      this.inline.lvLengthCm(),
-    );
+    const generation = ++this.inlineGeneration;
+    return import('./simulatorCore').then(({ SimulatorCore }) => {
+      if (generation !== this.inlineGeneration || this.disposed) return; // superseded or disposed meanwhile
+      this.startInline(new SimulatorCore(caseDef, input), caseDef.id);
+    });
+  }
+
+  private inlineGeneration = 0;
+  private disposed = false;
+
+  private startInline(core: SimulatorCore, caseId: string): void {
+    this.inline = core;
+    this.handlers.onReady(core.truth, caseId, core.phaseMarks(), core.lvLengthCm());
     if (this.inlineTimer) clearInterval(this.inlineTimer);
     this.inlineLast = performance.now();
     this.inlineTimer = setInterval(() => {
@@ -161,6 +172,7 @@ export class SimClient {
   }
 
   dispose(): void {
+    this.disposed = true;
     this.rejectPending(new Error('simulation request cancelled: client disposed'));
     this.worker?.terminate();
     this.worker = null;
