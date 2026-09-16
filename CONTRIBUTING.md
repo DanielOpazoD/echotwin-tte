@@ -78,9 +78,19 @@ y la sección «Herramientas» del método de fidelidad. Los scripts temporales 
 Rama `feat/<nombre>` desde `main`, commit con mensaje en imperativo, MR en GitLab. El pipeline
 (`.gitlab-ci.yml`) tiene dos perfiles: en el MR corre lint, formato, tipos, la suite rápida, el build
 y el presupuesto de bundle (~5 min); en `main` añade la suite completa con cobertura en tres shards
-y los E2E sobre `dist/` (~40 min de runner). Un MR se mergea con su pipeline en verde y se vigila el
-de `main`. El plan gratuito de GitLab da 400 minutos de runner al mes: el 2026-09-16 se agotaron en
-una tarde con el perfil completo en cada MR. Si el equipo crece, un runner propio (`gitlab-runner`
-en cualquier máquina del equipo) elimina el límite; mientras tanto, verifica en local antes de
-abrir el MR (la sección anterior es exactamente lo que el pipeline hace). Los commits de formato masivo van a `.git-blame-ignore-revs`
-(`git config blame.ignoreRevsFile .git-blame-ignore-revs`).
+y los E2E sobre `dist/`. Un MR se mergea con su pipeline en verde y se vigila el de `main`.
+
+Los pipelines corren en un **runner propio** (`gitlab-runner`, executor `shell`, registrado para
+este proyecto el 2026-09-16 en el Mac del proyecto; los runners compartidos de GitLab están
+desactivados porque el plan gratuito agotó sus 400 minutos ese mismo día). Qué implica:
+
+- El job usa el Node y el Chromium de Playwright instalados en esa máquina (`PATH` fijado en
+  `~/.gitlab-runner/config.toml` al Node 22 de nvm, el de `.nvmrc`); las claves `image:` del YAML
+  se ignoran. Si cambia la versión de Playwright, ejecuta `npx playwright install chromium` allí.
+- Un job a la vez (`concurrent = 1`): un pipeline completo de `main` tarda unos 8–10 min.
+- Se administra con `brew services start|stop gitlab-runner`; el estado se ve en Settings → CI/CD →
+  Runners del proyecto. Para otra máquina: `brew install gitlab-runner`, crear el runner en esa
+  página (o `POST /user/runners`) y `gitlab-runner register --executor shell --token <token>`.
+- Un runner `shell` ejecuta lo que se empuje con los permisos del usuario que lo corre. Los MR de
+  forks de usuarios externos no disparan pipelines en runners del proyecto sin aprobación de un
+  mantenedor; aun así, revisa el diff de `.gitlab-ci.yml` antes de aprobar uno.
