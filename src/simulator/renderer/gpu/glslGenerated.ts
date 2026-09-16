@@ -38,6 +38,15 @@ float rvAzProfile(float rvAzA, float rvAzP, float u) {
   float inflow = exp(-((u - uIn) * (u - uIn)) / (2.0 * 0.18 * 0.18));
   return pow(min(1.0, max(0.0, sn) / 0.75), 0.7) * (0.85 + 0.15 * inflow);
 }
+// src/simulator/anatomy/rv.ts: rvFloorZ
+float rvFloorZ(float tvCz, float tvZ, float pvZ, float u) {
+  float uInf = 0.35;
+  if (u >= uInf) {
+    return tvCz + tvZ;
+  }
+  float w = u / uInf;
+  return tvCz + pvZ + (tvZ - pvZ) * w - 2.6 * (1.0 - w);
+}
 // src/simulator/anatomy/lvWall.ts: septalShiftAt
 float septalShiftAt(float shiftCm, float az, float levelFrac) {
   if (shiftCm <= 0.0) {

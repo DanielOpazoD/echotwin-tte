@@ -3,6 +3,7 @@ import { sdCapsule, sdEllipsoid, smax } from '../sdf';
 import { lvCavityRadius } from '../lvShape';
 import { latticeNoise3 } from '@/core/noise';
 import { inflowTaper } from '../mitralValve';
+import { rvFloorZ, rvRadii } from '../rv';
 import { setSample, type ClassifyCtx } from './context';
 
 /** Radial scale of the atria: reservoir/conduit/booster with the LV contraction, shrunk by the atrial kick and its hold. */
@@ -88,12 +89,34 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   // orifice and hiding the excess, so the cavity measured 5.60 cm (the top of the 3.5-5.6 range) while the
   // ellipsoid was really 5.82 cm long. Opening the orifice exposed that, so the ellipsoid is shortened by
   // the same amount instead of letting a wall trim it.
-  const zBotR = A.tvCenter.z + hp.tvZ * 0.7 + 0.03; // the caval junction moves a little with TAPSE
+  const zBotR = A.tvCenter.z + hp.tvZ + 0.03; // the floor is the annulus, wherever TAPSE has taken it (decision 133)
   const czR = (zTopR + zBotR) / 2,
     rzR = (zBotR - zTopR) / 2;
   const raC = raCollapseScale(hp.raCollapse);
   const dEllRa = sdEllipsoid(x, y, z, ra.x, ra.y, czR, rr.x * bo * raC, rr.y * bo * raC, rzR);
-  const dFreeRa = smax(dEllRa, ra.y - 0.8 * rr.y * bo - y, 0.6);
+  let dFreeRa = smax(dEllRa, ra.y - 0.8 * rr.y * bo - y, 0.6);
+  // The base the ventricle vacates as its annulus descends belongs to the atrium: the atrioventricular plane works as a
+  // piston and the atria lengthen by what the ventricles shorten (Carlsson 2004: the total heart volume barely changes).
+  // Here it is the end-diastolic crescent at this height, below the floor of the moment and above the end-diastolic one,
+  // inside the free wall. Without it the basal RV between inflow and infundibulum was 2 cm of fat and wall at end
+  // systole, and the short axis of the great vessels showed the ventricle contracting over that edge (decision 133).
+  let dSleeve = 1e3;
+  if (hp.tvZ > 0.05) {
+    const rad = c.sleeveRad;
+    rvRadii(m, A, hp.prof, hp.thickK, zAnn, hp.lengthNow, 0, 0, hp.septalShiftCm, 0, c.az, z, rad);
+    const u = rad[1]!;
+    if (u > 0 && u < 1) {
+      const r = Math.hypot(x, y);
+      dSleeve = Math.max(
+        rad[0]! + 0.1 - r,
+        r - (rad[2]! - m.anatomy.rv.freeWallThicknessCm),
+        rvFloorZ(A.tvCenter.z, 0, 0, u) - z,
+        z - rvFloorZ(A.tvCenter.z, hp.tvZ, hp.pvZ, u),
+      );
+    }
+  }
+  c.raSleeve = dSleeve;
+  dFreeRa = Math.min(dFreeRa, dSleeve);
   const dR = smax(dFreeRa, x - (xIas - tIas / 2), 0.3);
   if (dR < 0) {
     setSample(
@@ -121,7 +144,7 @@ export function classifyAtria(c: ClassifyCtx): boolean {
     if (Math.hypot(x - V.tv.cx, y - V.tv.cy) < V.tv.R) {
       // past the annulus the blood belongs to the ventricle, as it does on the left where the LV cavity
       // claims the mitral orifice: calling it atrium instead stretched ra-long past its reference range
-      const past = z > A.tvCenter.z + hp.tvZ * 0.7;
+      const past = z > A.tvCenter.z + hp.tvZ;
       setSample(
         out,
         Tissue.Blood,

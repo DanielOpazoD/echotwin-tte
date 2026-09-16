@@ -933,7 +933,12 @@ describe('the right ventricle ejects with the acceleration time of its pulmonary
           A.rvotB.y - ((A.rvotB.y - A.rvotA.y) / L) * 0.5,
           A.rvotB.z - ((A.rvotB.z - A.rvotA.z) / L) * 0.5,
         );
-        const control = canonicalControl(getViewTarget('psax-av'), m.heart, m.thorax);
+        // Sampled from the PLAX space: the great-vessel preset climbs a space for the section perpendicular to the root
+        // (decision 133), from where the beam meets the distal outflow at 80° (0.17 of the velocity) instead of 72°:
+        // too little signal for the envelope. A sonographer angles for the flow, not for the section.
+        const plane = canonicalPlane(getViewTarget('psax-av'), m.heart);
+        const skin = snapToIntercostal(m.thorax, 2.6, 1.6);
+        const control = controlAimingAt(m.thorax, skin.u, skin.v, plane.target, plane.right, 0.6);
         const beam = beamFrameFromPose(poseFromControl(m.thorax, control));
         const d = sub(heartToTorso(m.heart.frame, gate), beam.origin);
         const s = { ...DEFAULT_SPECTRAL, scaleMps: 1.2 };

@@ -4,7 +4,7 @@ import { setSample, type ClassifyCtx } from './context';
 
 /** Pericardium & effusion: the outer envelope of all epicardial surfaces. True when the point is in the sac. */
 export function classifyPericardium(c: ClassifyCtx): boolean {
-  const { m, hp, A, x, y, z, out, dEllR, wallT, nx0, ny0, nz0, rvSdf } = c;
+  const { m, hp, A, x, y, z, out, dEllR, wallT, nx0, ny0, nz0, rvSdf, raSleeve } = c;
   const dLvEpi = dEllR - wallT; // the epicardium is the outer face of the wall shell
   const fw = m.anatomy.rv.freeWallThicknessCm;
   const dRvEpi = rvSdf[0]! - fw; // crescent and tricuspid inflow, computed just before (this point is outside the RV)
@@ -13,7 +13,10 @@ export function classifyPericardium(c: ClassifyCtx): boolean {
   const dLaEpi = sdEllipsoid(x, y, z, la.x, la.y, la.z, lr.x + 0.25, lr.y + 0.25, lr.z + 0.25);
   const ra = A.raCenter,
     rar = A.raR;
-  const dRaEpi = sdEllipsoid(x, y, z, ra.x, ra.y, ra.z, rar.x + 0.22, rar.y + 0.22, rar.z + 0.22);
+  const dRaEpi = Math.min(
+    sdEllipsoid(x, y, z, ra.x, ra.y, ra.z, rar.x + 0.22, rar.y + 0.22, rar.z + 0.22),
+    raSleeve + 0.22, // the lengthened atrium over the vacated base (decision 133)
+  );
   // The sac around the outflow tract and the trunk stays where the pericardium is anchored (sternopericardial ligaments in
   // front, the arterial reflection on the trunk) while they descend in systole (decision 111). One envelope stands for the
   // epicardial fat, the pericardium and the effusion here; moved with the tract, the effusion of the tamponade case, which

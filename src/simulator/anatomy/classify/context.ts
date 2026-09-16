@@ -58,6 +58,10 @@ export interface ClassifyCtx {
    * pericardium reads it as the RV epicardium reference —, [1] inner radius, [2] outer radius.
    */
   rvSdf: Float64Array;
+  /** Distance to the base the ventricle vacated as the annulus descended, atrium now (atria.ts, decision 133); 1e3 when none. */
+  raSleeve: number;
+  /** Scratch of the sleeve's end-diastolic radii. */
+  sleeveRad: Float64Array;
 }
 
 /** The one context instance (single-threaded classifier). */
@@ -88,6 +92,8 @@ export const ctx: ClassifyCtx = {
   inAnnularRegion: false,
   lvNormal: new Float64Array(3),
   rvSdf: new Float64Array(3),
+  raSleeve: 1e3,
+  sleeveRad: new Float64Array(4),
 };
 
 export function setSample(
