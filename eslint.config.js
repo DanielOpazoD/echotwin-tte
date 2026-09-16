@@ -32,4 +32,53 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    // Layer boundary (docs/ARCHITECTURE.md): the engine, the clinical layer, the cases, education
+    // and the math core never depend on the React application, the UI, the workers or the store.
+    // This held on 2026-09-16 (docs/AUDITORIA_INGENIERIA.md, A9); the rule keeps it that way.
+    // The remaining boundaries of the table (e.g. clinical ↛ simulator) are not enforced yet
+    // because the code violates them today (finding B1); tighten this list as each cycle is broken.
+    files: [
+      'src/simulator/**/*.ts',
+      'src/clinical/**/*.ts',
+      'src/education/**/*.ts',
+      'src/cases/**/*.ts',
+      'src/core/**/*.ts',
+    ],
+    ignores: ['**/*.test.ts', '**/*.test.tsx'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/app', '@/app/*', '**/app/*'],
+              message: 'the engine must not import the application layer',
+            },
+            { group: ['@/ui', '@/ui/*', '**/ui/*'], message: 'the engine must not import the UI' },
+            {
+              group: ['@/workers/*', '**/workers/*'],
+              message: 'the engine must not import workers',
+            },
+            { group: ['zustand', 'react', 'react-dom'], message: 'the engine is framework-free' },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // The math core depends on nothing inside src/ (ARCHITECTURE.md: «Importa de: —»).
+    files: ['src/core/**/*.ts'],
+    ignores: ['**/*.test.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            { group: ['@/*', '../*'], message: 'src/core must not import from other layers' },
+          ],
+        },
+      ],
+    },
+  },
 );

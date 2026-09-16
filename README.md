@@ -59,6 +59,12 @@ funcionando en CPU, más despacio.
   motivaron, incluidos los callejones sin salida y los errores corregidos.
 - [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) — qué no simula y qué está mal, con números.
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — capas, flujo de datos y tiempos medidos.
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — cómo preparar la máquina, verificar y entregar; enlaza el
+  runbook de pruebas ([`docs/validation/README.md`](docs/validation/README.md)) y el método de
+  fidelidad.
+- [`docs/AUDITORIA_INGENIERIA.md`](docs/AUDITORIA_INGENIERIA.md) — estado de la base técnica
+  (arquitectura, paridad CPU/GPU, pruebas, tooling) y deuda priorizada.
+- [`docs/ULTRASOUND_PHYSICS.md`](docs/ULTRASOUND_PHYSICS.md) — qué física se simula y cómo.
 - [`docs/VALIDATION_PROTOCOL.md`](docs/VALIDATION_PROTOCOL.md) — protocolo de validación externa
   preregistrado. **Ningún estudio de validación se ha ejecutado todavía.**
 

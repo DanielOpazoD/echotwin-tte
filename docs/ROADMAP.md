@@ -8,9 +8,9 @@ Estado real según el código el 2026-09-10. Los hitos M0–M6 siguen la especif
 | Toolchain (Vite 7, TS 5.9 strict, ESLint 9, Prettier, Vitest 4, Playwright) | hecho | `package.json`, `tsconfig.json`, `eslint.config.js` |
 | Núcleo matemático determinista (vec3, quat, PRNG, hash, ruido, unidades) | hecho | `src/core`, `vec3.test.ts` |
 | Esquema de casos Zod con validaciones cruzadas | hecho | `src/cases/schema.ts` |
-| Regla de capas UI ↛ fórmulas | parcial | la regla existe pero no cubre el import del índice |
-| Control de versiones | pendiente | `.git` sin commits |
-| CI (GitHub Actions: lint, typecheck, test, build, Playwright) | parcial | `.github/workflows/ci.yml` existe; nunca se ha ejecutado (sin commits ni remoto) |
+| Regla de capas UI ↛ fórmulas; motor ↛ app/ui/workers; `src/core` ↛ todo | hecho | `eslint.config.js` (`no-restricted-imports`); las fronteras restantes de la tabla de `ARCHITECTURE.md` siguen sin vallar porque el código las viola hoy (`docs/AUDITORIA_INGENIERIA.md`, B1) |
+| Control de versiones | hecho | remoto en GitLab (`gitlab.com/d.opazo.damiani/simuladorecocardiograma`), ramas `feat/*` y MR |
+| CI (lint, typecheck, format, unitarias en 3 shards con cobertura, build, Playwright) | hecho | `.gitlab-ci.yml` (espejo de `.github/workflows/ci.yml`, que GitLab no ejecuta) |
 
 ## M1 — Anatomía y ciclo cardíaco
 | Entregable | Estado | Evidencia |
@@ -76,7 +76,7 @@ Estado real según el código el 2026-09-10. Los hitos M0–M6 siguen la especif
 | Atlas pose-condicionado (32 fases, anclas construidas con la sonda quieta, kNN/RBF, relleno, cuadros compactos) | hecho | `atlasRenderer.ts`, `atlas.test.ts` |
 | Generación offline de atlas (`atlas:build`) | parcial | `build-atlas.ts` genera hojas de contacto de 16 fases por vista para inspección; no exporta un paquete de anclas cargable |
 | Goldens por semilla y renders offline | hecho | `goldens.test.ts`, `render-views.ts` |
-| Pruebas E2E | hecho | 30 pruebas Playwright (`core-flow`, `measurements`, `learning`, `gpu-equivalence`); última ejecución local `passed` |
+| Pruebas E2E | hecho | 46 pruebas Playwright (`core-flow` 10, `gpu-equivalence` 26, `gpu-live` 4 sólo con GPU real, `measurements` 4, `learning` 2); ver `docs/VALIDATION.md` |
 | Protocolo de validación externa (puntuación experta por vista/versión, comparación ciega con imágenes reales anonimizadas, piloto con residentes) preregistrado, con conjunto de revisión exportable y progreso anónimo exportable | hecho (protocolo) / pendiente (ejecución) | `docs/VALIDATION_PROTOCOL.md`, `npm run review:export`, pantalla «Progreso» |
 | Validación contra PyMUST / OpenBCSim / referencia CUDA | pendiente | carpetas vacías |
 | Rendimiento objetivo en navegador (render < 16 ms a calidad media) | parcial | trazador ≈ 10 ms en Node (ruido de retícula); en el navegador, con ancla completa, `stepMs` ≈ 2–3 ms; barridos ≈ 15–30 ms según núcleo |

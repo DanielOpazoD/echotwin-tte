@@ -1,5 +1,10 @@
 # Validación
 
+> **Estado al 2026-09-16 (`ffd6cc5`)**: 60 archivos de prueba unitaria (37 en el tier rápido, 23 en
+> `SLOW_TEST_FILES`) y 46 pruebas E2E en 5 archivos (`npx playwright test --list`). El repositorio
+> tiene remoto en GitLab y pipeline en `.gitlab-ci.yml`. Los párrafos siguientes son instantáneas
+> fechadas de corridas anteriores y conservan las cifras de su fecha.
+
 Estado observado el **2026-09-14 (hora local)** sobre el commit `314eab7`: **46 archivos, 267 pruebas unitarias, todas pasan** con `npx vitest run --testTimeout=180000 --maxWorkers=3` (405 s; varias pruebas «a través del núcleo» superan los 60 s y el timeout de 60 s original ya no basta). Las pruebas E2E **no se reejecutaron en esta corrida**; la última tanda completa registrada fue de 42 pruebas en ~25 min (ver `docs/AUDITORIA_FIDELIDAD.md`, iteración 3).
 
 Estado anterior, el **2026-09-11 a las 21:21 (hora local)** sobre el commit `23eb62c`: **30 archivos, 149 pruebas unitarias, todas pasan** con `npx vitest run --testTimeout=60000 --maxWorkers=3` (82 s), y **34 pruebas E2E** —`core-flow` 10 y `gpu-equivalence` 24— en 28,5 min, todas pasan. La suite E2E completa son 42 (esas dos más `measurements` 2, `learning` 2 y `gpu-live` 4); las otras ocho se corrieron verdes justo antes de ese commit, no en esta tanda. Con la máquina cargada por otros proyectos (media 40–200 esa tarde) `npm run check` llama a `vitest run` sin ampliar el tiempo de espera y expira en tres pruebas (`measurementSupport` auto-trace, `doppler` ley del coseno, `pulmonaryVein` modo M color) que pasan con los parámetros de arriba: son artefactos de carga, no regresiones. Lint y typecheck en verde. Vuelve a ejecutar `npm test` y `npm run test:e2e` antes de fiarte de esta tabla. `.github/workflows/ci.yml` (lint → typecheck → test → build → Playwright en Chromium) existe pero nunca se ha ejecutado en remoto: el repositorio tiene commits locales y no tiene remoto.
