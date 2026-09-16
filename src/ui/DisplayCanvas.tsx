@@ -11,7 +11,13 @@ import { frameBus } from '@/app/frameBus';
 import { ImageHud } from './ImageHud';
 import { discProfileFromContour, volumeFromProfileMl } from '@/simulator/measurements/simpson';
 import { summarizeEnvelope } from '@/simulator/measurements/vti';
-import { evaluateCapture, specFor, type CaptureExtras } from '@/app/measurementCapture';
+import {
+  evaluateCapture,
+  specFor,
+  structureAtPixel,
+  type CaptureExtras,
+} from '@/app/measurementCapture';
+import { structureLabel, type ReviewMarker } from '@/app/review';
 
 /**
  * Ultrasound display: draws the composite frame from the simulator and the overlays (depth scale,
@@ -137,6 +143,11 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
     const st = useSimStore.getState();
     const m = hud.sector;
     const inSector = p.y < m.height;
+    // review mode (decision 134): a plain click marks the image; Shift keeps the ordinary behaviour
+    if (st.ui.reviewMode && st.activeTool === 'none' && !e.shiftKey) {
+      placeReviewMarker(p, hud);
+      return;
+    }
     if (st.activeTool !== 'none') {
       handleToolClick(p, e.detail);
       return;
@@ -211,6 +222,57 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
   };
   const onMouseUp = () => {
     dragRef.current = { kind: 'none', startX: 0, startY: 0 };
+  };
+
+  /** A numbered marker where the click fell, with the structure the frame's own map holds there; the worker's
+   *  classification (coordinates the anatomy code reasons in) arrives asynchronously. */
+  const placeReviewMarker = (p: { x: number; y: number }, hud: SimOutput) => {
+    const st = useSimStore.getState();
+    const m = hud.sector;
+    const strip = hud.strip;
+    const inSector = p.y < m.height;
+    const onStrip = !inSector && strip.kind !== null && p.y >= strip.y;
+    if (!inSector && !onStrip) return;
+    const polar = inSector ? pixelToPolar(m, p.x, p.y) : null;
+    if (polar && (polar.rCm > m.depthCm || Math.abs(polar.thetaRad) > m.sectorRad / 2)) return;
+    const id = `r${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
+    const marker: ReviewMarker = {
+      id,
+      n: st.reviewMarkers.length + 1,
+      x: p.x,
+      y: p.y,
+      captureSector: { ...m },
+      rCm: polar ? polar.rCm : null,
+      thetaRad: polar ? polar.thetaRad : null,
+      strip:
+        onStrip && strip.kind
+          ? {
+              kind: strip.kind,
+              column: p.x - strip.x,
+              value:
+                strip.topValue +
+                ((p.y - strip.y) / strip.height) * (strip.bottomValue - strip.topValue),
+            }
+          : null,
+      frameId: hud.frameId,
+      phase: hud.phase,
+      modality: st.modality,
+      structure: inSector ? structureAtPixel(hud, p.x, p.y) : 0,
+      point: null,
+      note: '',
+      category: 'anatomia',
+    };
+    st.addReviewMarker(marker);
+    if (polar)
+      void frameBus
+        .request({ kind: 'probePoint', rCm: polar.rCm, thetaRad: polar.thetaRad })
+        .then((res) => {
+          if (res && res.kind === 'probePoint')
+            useSimStore.getState().updateReviewMarker(id, { point: res.point });
+        })
+        .catch((e: unknown) => {
+          console.warn('probe point request failed', e instanceof Error ? e.message : e);
+        });
   };
 
   const handleToolClick = (p: { x: number; y: number }, detail: number) => {
@@ -534,6 +596,7 @@ function drawOverlay(
     ui,
     activeTool,
     measurements,
+    reviewMarkers,
   } = st;
   const dpr = window.devicePixelRatio || 1;
   const W = hud.width,
@@ -765,6 +828,42 @@ function drawOverlay(
     const spec = st.activeMeasurementId ? specFor(st.activeMeasurementId) : undefined;
     const prefix = spec ? `${spec.shortLabel} · ` : '';
     ctx.fillText(prefix + TOOL_HINT[activeTool], 8, 30);
+  }
+  // review markers (decision 134): numbered, with the structure the model holds under each one
+  if (ui.reviewMode) {
+    ctx.fillStyle = '#ff6ad5';
+    ctx.fillText(
+      'Revisión: clic = marcar lo que ves mal · Shift+clic = herramienta normal',
+      8,
+      activeTool !== 'none' ? 44 : 30,
+    );
+  }
+  for (const mk of reviewMarkers) {
+    const q = mk.strip
+      ? { x: mk.x, y: mk.y }
+      : (reprojectGeometry([{ x: mk.x, y: mk.y }], mk.captureSector, m)[0] ?? { x: mk.x, y: mk.y });
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#ff6ad5';
+    ctx.fillStyle = 'rgba(20,20,28,0.75)';
+    ctx.beginPath();
+    ctx.arc(q.x, q.y, 9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#ff6ad5';
+    ctx.font = 'bold 11px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(String(mk.n), q.x, q.y + 0.5);
+    ctx.textAlign = 'left';
+    ctx.font = '11px system-ui, sans-serif';
+    if (!mk.strip) {
+      const label = structureLabel(mk.point ? mk.point.structure : mk.structure);
+      const w = ctx.measureText(label).width + 8;
+      ctx.fillStyle = 'rgba(20,20,28,0.75)';
+      ctx.fillRect(q.x + 12, q.y - 8, w, 16);
+      ctx.fillStyle = '#ff6ad5';
+      ctx.fillText(label, q.x + 16, q.y);
+    }
+    ctx.lineWidth = 1;
   }
 }
 

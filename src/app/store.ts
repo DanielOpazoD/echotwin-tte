@@ -12,6 +12,7 @@ import type { SimOutput, QualityTier, RendererBackendChoice } from '@/simulator/
 import type { StructuredEchoTruth } from '@/simulator/hemodynamics/groundTruth';
 import type { Measurement } from '@/simulator/measurements/types';
 import { getMeasurementSpec } from '@/simulator/measurements/protocol';
+import type { ReviewMarker, ReviewReport } from './review';
 import {
   addEvent,
   completeTask,
@@ -32,7 +33,7 @@ import { modePolicy, type ProductMode } from './modePolicy';
 export type { ProductMode };
 
 /** Right-console tabs (PR: tabbed console). Persisted so a reload restores the working context. */
-export type ConsoleTab = 'adquirir' | 'imagen' | 'doppler' | 'medir' | 'lab';
+export type ConsoleTab = 'adquirir' | 'imagen' | 'doppler' | 'medir' | 'lab' | 'revisar';
 
 export interface UiPrefs {
   showTorso: boolean;
@@ -50,6 +51,8 @@ export interface UiPrefs {
   showHints: boolean;
   showPhysics: boolean;
   devPanel: boolean;
+  /** Review mode (decision 134): clicks on the image place numbered markers for a feedback report. Not persisted. */
+  reviewMode: boolean;
   showEcg: boolean;
   tutorialDone: boolean;
   /** Machine-style telemetry overlay on the image corners (case, vitals, acquisition params). */
@@ -98,6 +101,16 @@ export interface SimStore {
   ) => void;
   /** Semantic measurement being captured (protocol id) or null for a free measurement. */
   activeMeasurementId: string | null;
+  /** Review mode markers and the free note of the report being prepared (decision 134). */
+  reviewMarkers: ReviewMarker[];
+  reviewNote: string;
+  addReviewMarker: (m: ReviewMarker) => void;
+  updateReviewMarker: (id: string, patch: Partial<ReviewMarker>) => void;
+  removeReviewMarker: (id: string) => void;
+  clearReview: () => void;
+  setReviewNote: (note: string) => void;
+  /** Restore the state a report describes (case, patient, probe, console) and show its markers. */
+  loadReviewReport: (r: ReviewReport) => void;
   /** Cardiac phase landmarks and LV length of the loaded case (from the simulator). */
   phaseMarks: PhaseMarks | null;
   lvLengthCm: number | null;
@@ -259,6 +272,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
     showHints: true,
     showPhysics: false,
     devPanel: false,
+    reviewMode: false,
     showEcg: true,
     tutorialDone: false,
     showHud: true,
@@ -271,6 +285,8 @@ export const useSimStore = create<SimStore>((set, get) => ({
   truth: null,
   measurements: [],
   activeTool: 'none',
+  reviewMarkers: [],
+  reviewNote: '',
   activeMeasurementId: null,
   progress: loadProgress(typeof localStorage !== 'undefined' ? localStorage : null),
   impressionSelection: [],
@@ -323,6 +339,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
           showHints: policy.hintsEnabled,
           showPhysics: policy.devToolsAllowed ? s.ui.showPhysics : false,
           devPanel: policy.devToolsAllowed ? s.ui.devPanel : false,
+          reviewMode: policy.devToolsAllowed ? s.ui.reviewMode : false,
         },
       };
     }),
@@ -351,6 +368,43 @@ export const useSimStore = create<SimStore>((set, get) => ({
     set((s) => ({ measurements: s.measurements.filter((m) => m.id !== id) })),
   clearMeasurements: () => set({ measurements: [] }),
   setActiveTool: (t) => set({ activeTool: t, activeMeasurementId: null }),
+  addReviewMarker: (m) => set((s) => ({ reviewMarkers: [...s.reviewMarkers, m] })),
+  updateReviewMarker: (id, patch) =>
+    set((s) => ({
+      reviewMarkers: s.reviewMarkers.map((m) => (m.id === id ? { ...m, ...patch } : m)),
+    })),
+  removeReviewMarker: (id) =>
+    set((s) => ({
+      reviewMarkers: s.reviewMarkers.filter((m) => m.id !== id).map((m, i) => ({ ...m, n: i + 1 })),
+    })),
+  clearReview: () => set({ reviewMarkers: [], reviewNote: '' }),
+  setReviewNote: (note) => set({ reviewNote: note }),
+  loadReviewReport: (r) => {
+    const s = get();
+    if (!modePolicy(s.mode).devToolsAllowed) return;
+    if (r.caseId !== s.caseId) s.loadCase(r.caseId);
+    const i = r.input;
+    set({
+      probe: { ...i.probe },
+      patient: { ...i.patient },
+      settings: { ...i.settings, tgcDb: [...i.settings.tgcDb] },
+      modality: i.modality,
+      color: { ...i.color },
+      spectral: { ...i.spectral },
+      cursorThetaRad: i.cursorThetaRad,
+      gateDepthCm: i.gateDepthCm,
+      quality: i.quality,
+      rendererBackend: i.rendererBackend,
+      // a frozen cine cannot be restored: the frame is replayed live at the report's probe and console
+      frozen: false,
+      cineOffset: 0,
+      artifactLab: i.artifactOverrides,
+      presetAnim: null,
+      reviewMarkers: r.markers.map((m, k) => ({ ...m, n: k + 1 })),
+      reviewNote: r.note,
+    });
+    get().setUi({ reviewMode: true, consoleTab: 'revisar' });
+  },
   setActiveMeasurement: (id) => {
     if (!id) return set({ activeMeasurementId: null, activeTool: 'none' });
     const spec = getMeasurementSpec(id);

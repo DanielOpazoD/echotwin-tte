@@ -77,6 +77,17 @@ export function IconLab({ size }: { size?: number }) {
   );
 }
 
+/** Crosshair with a dot — review-mode markers (decision 134). */
+export function IconReview({ size }: { size?: number }) {
+  return (
+    <I size={size}>
+      <circle cx="12" cy="12" r="7" />
+      <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+      <circle cx="12" cy="12" r="1.2" fill="currentColor" />
+    </I>
+  );
+}
+
 /** Horizontal sliders — overflow / display options menu. */
 export function IconSliders({ size }: { size?: number }) {
   return (

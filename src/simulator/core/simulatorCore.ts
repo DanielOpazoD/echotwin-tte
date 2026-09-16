@@ -58,6 +58,7 @@ import {
   type BeamFrame,
 } from '@/simulator/probe/pose';
 import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
+import { probePointAt } from './probePoint';
 import { analyzeView, type ViewAnalysis } from '@/simulator/view-recognition/viewQuality';
 import {
   buildFlowParams,
@@ -136,6 +137,8 @@ export class SimulatorCore {
     this.clutterBoost = a.clutter;
   }
   private input: SimInput;
+  /** Phase of the last frame handed out (live or cine): what a review marker refers to. */
+  private lastPhase = 0;
   private frame: PolarFrame | null = null;
   private display: Uint8ClampedArray | null = null;
   /** The two colour field buffers: each update writes the one that does not hold `colorPrev` (decision 56). */
@@ -689,8 +692,28 @@ export class SimulatorCore {
     return this.heart.lv.lengthCm;
   }
 
-  /** Answer an on-demand request (auto-trace of the spectral envelope between two strip columns). */
+  /** Answer an on-demand request (auto-trace, canonical control, or the model at a point of the image). */
   request(req: SimRequest): SimResponse | null {
+    if (req.kind === 'probePoint') {
+      const inp = this.input;
+      const beam = beamFrameFromPose(
+        poseFromControl(this.thorax, inp.probe),
+        contactQuality(inp.probe.pressure),
+      );
+      const scene = this.scene(this.lastPhase);
+      return {
+        kind: 'probePoint',
+        point: probePointAt(
+          this.heart,
+          this.thorax,
+          scene.heartPose,
+          beam,
+          req.rCm,
+          req.thetaRad,
+          this.lastPhase,
+        ),
+      };
+    }
     if (req.kind === 'canonicalControl')
       return {
         kind: 'canonicalControl',
@@ -805,6 +828,7 @@ export class SimulatorCore {
             ((inp.color.boxThetaMaxRad - inp.color.boxThetaMinRad) / spec.sectorRad) * spec.lines,
           )
         : 0;
+    this.lastPhase = cf ? cf.phase : c.phase;
     return {
       frameId: this.frameId,
       width: W,

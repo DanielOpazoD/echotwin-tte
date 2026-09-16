@@ -98,6 +98,10 @@ Siguen en la CPU, con resultado equivalente (≤ 1 nivel de gris): la consola co
 - `useHudStore`: el último `SimOutput`, actualizado como máximo cada 120 ms para que la consola no se re-renderice por cuadro.
 - `frameBus`: entrega imperativa del cuadro al canvas fuera de React.
 
+## Modo revisión (decisión 134)
+
+Herramienta de mejora continua: `docs/REVIEW_MODE.md`. Con `ui.reviewMode` activo, un clic en `DisplayCanvas.tsx` deja un marcador numerado (`reviewMarkers` en el store) con la estructura del mapa del cuadro y, en cuanto responde el worker, la lectura completa del clasificador en ese punto (petición `probePoint`, `src/simulator/core/probePoint.ts`: mismo rayo, misma fase y mismos clasificadores que formaron el píxel). `ReviewPanel.tsx` (pestaña «Revisar») recoge las notas y copia el informe como texto con el `SimInput` exacto (`src/app/review.ts`: `buildReviewReport`, `reportToMarkdown`, `parseReviewReport`); el mismo panel carga un informe pegado y restaura su estado (`loadReviewReport`). `tools/offline/review/render-report.ts` (`npm run review:render`) reproduce el cuadro del informe con el trazador CPU y vuelve a clasificar cada marcador.
+
 ## RendererBackend
 
 ```ts

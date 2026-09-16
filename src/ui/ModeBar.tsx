@@ -146,6 +146,19 @@ function OverflowMenu() {
       </button>
       {open && (
         <div className="menu" role="menu" aria-label="Paneles y acciones">
+          <MenuCap>Revisión</MenuCap>
+          <CheckItem
+            label="Modo revisión"
+            checked={s.ui.reviewMode}
+            onToggle={() =>
+              s.setUi({
+                reviewMode: !s.ui.reviewMode,
+                consoleTab: s.ui.reviewMode ? 'adquirir' : 'revisar',
+              })
+            }
+            disabled={!policy.devToolsAllowed}
+            hint="Marca sobre la imagen lo que ves mal y copia el informe (R)"
+          />
           <MenuCap>Mostrar</MenuCap>
           <CheckItem
             label="Ayudas de vista"

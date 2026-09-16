@@ -1,0 +1,119 @@
+// @tier fast
+import { describe, expect, it } from 'vitest';
+import {
+  buildReviewReport,
+  markerPlace,
+  parseReviewReport,
+  reportToMarkdown,
+  structureLabel,
+  tissueLabel,
+  type ReviewMarker,
+} from './review';
+import { baseInput } from '@/simulator/core/baseInput';
+import { Structure, Tissue } from '@/simulator/anatomy/tissue';
+
+const sector = {
+  apexX: 320,
+  apexY: 10,
+  pxPerCm: 24,
+  width: 640,
+  height: 420,
+  sectorRad: 1.4,
+  depthCm: 16,
+  invertLR: false,
+};
+
+const marker = (over: Partial<ReviewMarker> = {}): ReviewMarker => ({
+  id: 'r1',
+  n: 1,
+  x: 330,
+  y: 200,
+  captureSector: sector,
+  rCm: 7.9,
+  thetaRad: 0.05,
+  strip: null,
+  frameId: 42,
+  phase: 0.35,
+  modality: '2d',
+  structure: Structure.AorticValve,
+  point: {
+    rCm: 7.9,
+    thetaRad: 0.05,
+    phase: 0.35,
+    torso: { x: 1, y: 2, z: -6 },
+    heart: { x: -0.7, y: 1.4, z: 0.2 },
+    inHeart: true,
+    structure: Structure.AorticValve,
+    tissue: Tissue.Valve,
+    sdfCm: -0.02,
+    azRad: 2.0,
+    levelFrac: 0.03,
+    rootT: 0.45,
+    rootR: 0.9,
+  },
+  note: 'línea brillante en la base del velo',
+  category: 'anatomia',
+  ...over,
+});
+
+describe('review report (decision 134)', () => {
+  it('names structures and tissues in the words of the model, with a fallback for unknown ids', () => {
+    expect(structureLabel(Structure.RvCavity)).toBe('cavidad del VD');
+    expect(tissueLabel(Tissue.Myocardium)).toBe('miocardio');
+    expect(structureLabel(250)).toBe('estructura 250');
+  });
+
+  it('places a marker with its structure, polar position and the anatomy coordinates the worker returned', () => {
+    const place = markerPlace(marker());
+    expect(place).toContain('válvula aórtica');
+    expect(place).toContain('válvula ·');
+    expect(place).toContain('7.9 cm · 3°');
+    expect(place).toContain('corazón (-0.7, 1.4, 0.2)');
+    expect(place).toContain('raíz t 0.45 r 0.90');
+    // before the worker answers, the frame's own structure map names the place
+    expect(markerPlace(marker({ point: null }))).toBe('válvula aórtica · 7.9 cm · 3°');
+    expect(
+      markerPlace(
+        marker({
+          rCm: null,
+          thetaRad: null,
+          strip: { kind: 'spectral', column: 120, value: -0.83 },
+        }),
+      ),
+    ).toBe('tira espectral · columna 120 · -0.83 m/s');
+  });
+
+  it('writes a readable report with the exact input and reads it back from the pasted text', () => {
+    const input = baseInput({ modality: 'pw', gateDepthCm: 4.2 });
+    const report = buildReviewReport({
+      caseId: 'normal-excellent-window',
+      caseTitle: 'Normal — ventana excelente',
+      mode: 'sandbox',
+      workerMode: 'worker',
+      input,
+      hud: null,
+      note: 'la raíz sale ovalada',
+      markers: [marker(), marker({ id: 'r2', n: 2, note: '', category: 'movimiento' })],
+    });
+    const md = reportToMarkdown(report);
+    expect(md).toMatch(/^## Informe de revisión EchoTwin — \d{4}-\d{2}-\d{2} \d{2}:\d{2}/);
+    expect(md).toContain('Caso: normal-excellent-window (Normal — ventana excelente)');
+    expect(md).toContain('Modalidad PW');
+    expect(md).toContain('compuerta 4.2 cm');
+    expect(md).toContain('Nota general: la raíz sale ovalada');
+    expect(md).toContain('1. [Anatomía / forma] válvula aórtica');
+    expect(md).toContain('«línea brillante en la base del velo»');
+    expect(md).toContain('2. [Movimiento / ciclo]');
+    const back = parseReviewReport(md);
+    expect(back).not.toBeNull();
+    expect(back!.input).toEqual(input);
+    expect(back!.markers.map((m) => m.id)).toEqual(['r1', 'r2']);
+    expect(parseReviewReport(JSON.stringify(report))!.caseId).toBe('normal-excellent-window');
+  });
+
+  it('rejects text that carries no report', () => {
+    expect(parseReviewReport('hola')).toBeNull();
+    expect(parseReviewReport('```json\n{"format":"otro"}\n```')).toBeNull();
+    expect(parseReviewReport('{"format":"echotwin-review"}')).toBeNull();
+  });
+});
