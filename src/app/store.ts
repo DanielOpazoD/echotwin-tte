@@ -45,6 +45,8 @@ export interface UiPrefs {
   navVessels: boolean;
   navAxes: boolean;
   navCut: boolean;
+  /** Rings on the skin where each canonical view is acquired (decision 132). */
+  navWindows: boolean;
   showHints: boolean;
   showPhysics: boolean;
   devPanel: boolean;
@@ -185,6 +187,7 @@ function savePrefs(ui: UiPrefs): void {
       navVessels,
       navAxes,
       navCut,
+      navWindows,
       railMini,
       minimal,
       consoleTab,
@@ -205,6 +208,7 @@ function savePrefs(ui: UiPrefs): void {
         navVessels,
         navAxes,
         navCut,
+        navWindows,
         railMini,
         minimal,
         consoleTab,
@@ -251,6 +255,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
     navVessels: true,
     navAxes: true,
     navCut: false,
+    navWindows: true,
     showHints: true,
     showPhysics: false,
     devPanel: false,

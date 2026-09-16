@@ -7,6 +7,7 @@ import { heartGhostPrimitives, type GhostPrimitive } from '@/simulator/anatomy/h
 import type { HeartFrame } from '@/simulator/anatomy/heartFrame';
 import type { ThoraxModel } from '@/simulator/anatomy/thoraxModel';
 import type { PatientState } from '@/simulator/anatomy/thoraxModel';
+import { canonicalControl, VIEW_TARGETS, type WindowId } from '@/simulator/windows/viewTargets';
 
 /**
  * Builds the navigator's heart surfaces off the UI thread (decision 57). Extraction samples the implicit
@@ -42,6 +43,17 @@ export interface NavigatorModel {
   frame: HeartFrame;
   lvLengthCm: number;
   ghost: GhostPrimitive[];
+  /** Where each canonical view is acquired on this patient's skin (decision 132). */
+  windows: WindowMark[];
+}
+
+/** Skin position (torso cm) of one canonical view's acoustic window, solved for the case anatomy. */
+export interface WindowMark {
+  viewId: string;
+  name: string;
+  window: WindowId;
+  u: number;
+  v: number;
 }
 
 export interface MeshReply {
@@ -81,6 +93,10 @@ function buildAllPhases(
     frame: heart.frame,
     lvLengthCm: heart.lv.lengthCm,
     ghost: heartGhostPrimitives(heart),
+    windows: VIEW_TARGETS.map((view) => {
+      const c = canonicalControl(view, heart, thorax);
+      return { viewId: view.id, name: view.name, window: view.window, u: c.u, v: c.v };
+    }),
   };
   (self as unknown as Worker).postMessage(model);
   for (let i = 0; i < phases.length; i++) {

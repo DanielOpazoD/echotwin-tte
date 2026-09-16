@@ -42,6 +42,16 @@ describe('heartMesh.worker', () => {
     expect(model.lvLengthCm).toBeGreaterThan(5);
     expect(model.ghost.length).toBeGreaterThan(3);
     expect(Number.isFinite(model.frame.origin.x)).toBe(true);
+    // one window mark per canonical view, solved on this patient's skin
+    expect(model.windows.map((w) => w.viewId)).toContain('plax');
+    expect(model.windows.map((w) => w.viewId)).toContain('subcostal-ivc');
+    for (const w of model.windows) {
+      expect(Number.isFinite(w.u) && Number.isFinite(w.v)).toBe(true);
+      expect(['parasternal', 'apical', 'subcostal', 'suprasternal']).toContain(w.window);
+    }
+    expect(model.windows.find((w) => w.viewId === 'plax')!.v).toBeGreaterThan(
+      model.windows.find((w) => w.viewId === 'subcostal-4c')!.v,
+    );
     for (const [i, reply] of (posted.slice(1) as MeshReply[]).entries()) {
       expect(reply.index).toBe(i);
       expect(reply.total).toBe(2);
