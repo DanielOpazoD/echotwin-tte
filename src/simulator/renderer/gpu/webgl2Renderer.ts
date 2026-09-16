@@ -1,6 +1,7 @@
 import type { BeamFrame } from '@/simulator/probe/pose';
 import type {
   AcquisitionSettings,
+  ColorPresentSettings,
   DisplayConsole,
   PolarFrame,
   PolarFrameSpec,
@@ -38,7 +39,6 @@ import {
 import { consoleCompensation, type ConsoleState } from '../postprocess/consolePipeline';
 import { TRANS_DECODE } from '../transmissionCode';
 import { packScanLutTexels, type ScanLut } from '../scanConvert';
-import type { ColorSettings } from '@/simulator/doppler/color/colorDoppler';
 
 /** Colour field blended by the present pass: velocity per polar sample (NaN = no colour) and variance. */
 export interface PresentColor {
@@ -46,7 +46,7 @@ export interface PresentColor {
   variance: Float32Array;
   /** Changes whenever the field is recomputed, so an unchanged field is not uploaded again. */
   version: number;
-  settings: ColorSettings;
+  settings: ColorPresentSettings;
 }
 
 export interface PresentRequest {

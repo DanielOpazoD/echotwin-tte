@@ -1,6 +1,6 @@
 import { aliasVelocity } from '@/clinical/formulas';
 import { hash3 } from '@/core/random';
-import { APERTURE_MM } from '@/simulator/renderer/acoustic/psf';
+import { APERTURE_MM } from '@/simulator/probe/transducer';
 
 /**
  * Spectral Doppler column generation (spec 62): velocity distribution → histogram over the

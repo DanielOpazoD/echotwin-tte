@@ -118,6 +118,21 @@ export interface DisplayConsole {
   state: ConsoleState;
 }
 
+/**
+ * What the presentation of a colour field needs of the colour Doppler settings (the full `ColorSettings` lives in
+ * doppler/color/colorDoppler.ts and satisfies this structurally): the box in polar coordinates, the scale the map
+ * saturates at, and whether variance is shown. Declared here so the renderer never imports the Doppler engine.
+ */
+export interface ColorPresentSettings {
+  boxThetaMinRad: number;
+  boxThetaMaxRad: number;
+  boxRMinCm: number;
+  boxRMaxCm: number;
+  scaleMps: number;
+  showVariance: boolean;
+  invert: boolean;
+}
+
 export interface RendererBackend {
   readonly id: 'atlas' | 'procedural' | 'webgl2-procedural' | 'webgpu-procedural' | 'remote-cuda';
   render(

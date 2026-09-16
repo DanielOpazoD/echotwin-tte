@@ -4,7 +4,7 @@ import { validateCase } from './schema';
 import { VIEW_TARGETS } from '@/simulator/windows/viewTargets';
 import { getMeasurementSpec } from '@/simulator/measurements/protocol';
 import { computeGroundTruth } from '@/simulator/hemodynamics/groundTruth';
-import { pathologyImpressions } from '@/clinical/reporting/report';
+import { pathologyImpressions } from '@/education/report';
 
 /** The 12 mandatory cases (spec 56): schema-valid, distinct, teachable and consistent with their impressions. */
 describe('case library', () => {

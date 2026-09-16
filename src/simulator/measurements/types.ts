@@ -1,5 +1,16 @@
-import type { TechniqueResult } from '@/education/technique';
 import type { SectorMapping } from '../renderer/scanConvert';
+
+/** How a measurement was taken, graded by education/technique.ts: one finding per check, levels multiply. */
+export type FindingLevel = 'ok' | 'warn' | 'invalid';
+export interface TechniqueFinding {
+  code: string;
+  level: FindingLevel;
+  message: string;
+}
+export interface TechniqueResult {
+  score: number; // 0..1
+  findings: TechniqueFinding[];
+}
 
 /**
  * Measurement record (spec 16.6): every measurement keeps its provenance so scoring can judge
