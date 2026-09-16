@@ -6,11 +6,18 @@ import {
   ribCenterY,
   ribDepth,
   ribRadiusAt,
+  skinNormal,
   skinZ,
   type ThoraxModel,
 } from '@/simulator/anatomy/thoraxModel';
 import { heartToTorso, type HeartFrame } from '@/simulator/anatomy/heartFrame';
-import type { MeshError, MeshReply, MeshRequest, NavigatorModel } from '@/workers/heartMesh.worker';
+import type {
+  MeshError,
+  MeshReply,
+  MeshRequest,
+  NavigatorModel,
+  WindowMark,
+} from '@/workers/heartMesh.worker';
 import { beamFrameFromPose, poseFromControl, type BeamFrame } from '@/simulator/probe/pose';
 import { RotationDial } from './RotationDial';
 import { CheckItem, MenuCap, usePopover } from './menu';
@@ -62,6 +69,7 @@ export function TorsoView() {
     let skin: THREE.Mesh | null = null;
     let skeleton: THREE.Group | null = null;
     let ghost: THREE.Group | null = null;
+    let windowMarks: THREE.Group | null = null;
     // the imaging plane doubles as a clipping plane: the 3D heart is split exactly where the beam cuts
     const cutPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
     const onModel = (model: NavigatorModel) => {
@@ -73,6 +81,8 @@ export function TorsoView() {
       scene.add(skeleton);
       ghost = buildHeartGhost(model);
       scene.add(ghost);
+      windowMarks = buildWindowMarks(model.thorax, model.windows);
+      scene.add(windowMarks);
     };
     // surfaces extracted from the same implicit model the beam samples, so navigator and image cannot disagree
     const heartMeshes = new THREE.Group();
@@ -433,6 +443,7 @@ export function TorsoView() {
         set(latAxis, beam.lateral, 4);
       }
       if (skeleton) skeleton.visible = st.ui.showSkeleton;
+      if (windowMarks) windowMarks.visible = st.ui.navWindows;
       // the skin is a layer of its own: hiding the bones used to make it opaque, which hid the heart
       if (skin) {
         skin.visible = st.ui.navSkin;
@@ -520,6 +531,7 @@ function LayerMenu() {
           {layer('Válvulas', 'navValves', 'Válvulas y cuerdas')}
           {layer('Vasos', 'navVessels', 'Raíz aórtica, pulmonar y cavas')}
           <MenuCap>Examen</MenuCap>
+          {layer('Ventanas', 'navWindows', 'Ventanas acústicas de las vistas canónicas')}
           {layer('Ejes', 'navAxes', 'Haz, elevación y lateral')}
           {layer('Corte', 'navCut', 'Cortar el corazón por el plano de imagen')}
         </div>
@@ -641,6 +653,95 @@ function buildSkin(t: ThoraxModel): THREE.Mesh {
     mesh.add(sh);
   }
   return mesh;
+}
+
+/** Colour of each acoustic window's marks: the same family the console uses for the view presets. */
+const WINDOW_COLORS: Record<WindowMark['window'], number> = {
+  parasternal: 0xffc857,
+  apical: 0x5cc8ff,
+  subcostal: 0x7ce8a0,
+  suprasternal: 0xf28cb1,
+};
+const WINDOW_LABELS: Record<WindowMark['window'], string> = {
+  parasternal: 'Paraesternal',
+  apical: 'Apical',
+  subcostal: 'Subcostal',
+  suprasternal: 'Supraesternal',
+};
+
+/**
+ * Rings on the skin where the canonical views are acquired for this patient (decision 132): one ring per distinct
+ * position (several short-axis presets share the parasternal window to the millimetre) and one label per window.
+ * The positions come from the same window solver that scores the views, so the marks and the guidance agree.
+ */
+function buildWindowMarks(t: ThoraxModel, marks: WindowMark[]): THREE.Group {
+  const g = new THREE.Group();
+  const placed: { window: WindowMark['window']; u: number; v: number }[] = [];
+  for (const m of marks) {
+    if (placed.some((p) => p.window === m.window && Math.hypot(p.u - m.u, p.v - m.v) < 0.35))
+      continue;
+    placed.push({ window: m.window, u: m.u, v: m.v });
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.42, 0.62, 32),
+      new THREE.MeshBasicMaterial({
+        color: WINDOW_COLORS[m.window],
+        transparent: true,
+        opacity: 0.85,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      }),
+    );
+    const n = skinNormal(t, m.u, m.v);
+    const z = skinZ(t, m.u, m.v);
+    ring.position.set(m.u + n.x * 0.06, m.v + n.y * 0.06, z + n.z * 0.06);
+    ring.lookAt(m.u + n.x, m.v + n.y, z + n.z);
+    ring.renderOrder = 3;
+    g.add(ring);
+  }
+  // one label per window, above the centroid of its rings
+  const byWindow = new Map<WindowMark['window'], { u: number; v: number; n: number }>();
+  for (const p of placed) {
+    const acc = byWindow.get(p.window) ?? { u: 0, v: 0, n: 0 };
+    acc.u += p.u;
+    acc.v += p.v;
+    acc.n++;
+    byWindow.set(p.window, acc);
+  }
+  for (const [w, acc] of byWindow) {
+    const u = acc.u / acc.n,
+      v = acc.v / acc.n;
+    const n = skinNormal(t, u, v);
+    const sprite = textSprite(WINDOW_LABELS[w], WINDOW_COLORS[w]);
+    sprite.position.set(u + n.x * 1.2, v + n.y * 1.2 + 1.1, skinZ(t, u, v) + n.z * 1.2);
+    sprite.renderOrder = 3;
+    g.add(sprite);
+  }
+  return g;
+}
+
+/** A small text label that always faces the camera (canvas texture on a sprite). */
+function textSprite(text: string, color: number): THREE.Sprite {
+  const canvas = document.createElement('canvas');
+  const scale = 2;
+  const font = `${13 * scale}px system-ui, sans-serif`;
+  const ctx = canvas.getContext('2d');
+  const w = ctx ? Math.ceil(((ctx.font = font), ctx.measureText(text).width) + 12 * scale) : 96;
+  canvas.width = w;
+  canvas.height = 20 * scale;
+  if (ctx) {
+    ctx.font = font;
+    ctx.fillStyle = 'rgba(12, 16, 22, 0.72)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = `#${color.toString(16).padStart(6, '0')}`;
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, 6 * scale, canvas.height / 2);
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  const sprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false }),
+  );
+  sprite.scale.set((canvas.width / canvas.height) * 1.1, 1.1, 1);
+  return sprite;
 }
 
 function buildSkeleton(t: ThoraxModel): THREE.Group {
