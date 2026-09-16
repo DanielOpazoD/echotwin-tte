@@ -97,10 +97,9 @@ describe('useSimStore', () => {
     expect(store.getState().presetAnim).toBeNull();
     store.getState().setMode('sandbox');
     store.getState().startPresetView('plax');
-    // the pose is asked of the worker (none here: the main-thread models answer on the next tick)
-    await new Promise((r) => setTimeout(r, 0));
+    // the pose is asked of the worker (none here: the main-thread models answer after loading on demand)
+    await vi.waitFor(() => expect(store.getState().presetAnim).not.toBeNull(), { timeout: 5000 });
     const anim = store.getState().presetAnim;
-    expect(anim).not.toBeNull();
     expect(anim!.viewId).toBe('plax');
     expect(store.getState().targetViewId).toBe('plax');
     // a manual move cancels the animation

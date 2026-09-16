@@ -10,14 +10,16 @@ const DIST = join(process.cwd(), 'dist', 'assets');
 const KB = 1024;
 /** [pattern, max bytes]; every JS asset must match one pattern. */
 const BUDGETS = [
-  // entry: the imaging app without three.js, the secondary screens and the backend-comparison hook. It
-  // still carries the engine (anatomy, windows, renderer types) because the presets and the navigator
-  // compute on the main thread — moving that into the worker is the structural work of audit finding B7.
-  [/^index-.*\.js$/, 800 * KB],
+  // entry: the imaging app without three.js, the secondary screens, the backend-comparison hook and — since the
+  // navigator model comes from the mesh worker and the inline core loads on demand (audit B7) — without the
+  // anatomy engine: 499 kB measured on 2026-09-16, down from 703 kB.
+  [/^index-.*\.js$/, 575 * KB],
   [/^three-.*\.js$/, 600 * KB], // three.js, loaded with the navigator
   [/^react-.*\.js$/, 40 * KB],
   [/^TorsoView-.*\.js$/, 60 * KB],
   [/^sim\.worker-.*\.js$/, 320 * KB],
+  // the WebGL2 port and its shaders: shared by the simulation worker and the lazy backend comparison
+  [/^webgl2Renderer-.*\.js$/, 120 * KB],
   [/^heartMesh\.worker-.*\.js$/, 220 * KB],
   [/^(ReportScreen|CurriculumScreen|ProgressScreen|ReferencesScreen)-.*\.js$/, 80 * KB],
   [/\.js$/, 80 * KB], // any other chunk Rollup splits out

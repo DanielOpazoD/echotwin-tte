@@ -31,12 +31,12 @@ describe('SimClient inline path', () => {
     vi.useRealTimers();
   });
 
-  it('reports inline mode, announces the case as ready with its truth and phase marks', () => {
+  it('reports inline mode, announces the case as ready with its truth and phase marks', async () => {
     const h = handlers();
     client = new SimClient(h);
     expect(client.mode).toBe('inline');
     const c = loadCaseById('normal-excellent-window');
-    client.loadCase(c, baseInput());
+    await client.loadCase(c, baseInput());
     expect(h.errors).toEqual([]);
     expect(h.ready).toHaveLength(1);
     const [truth, caseId, marks, lvLen] = h.ready[0] as [
@@ -52,11 +52,11 @@ describe('SimClient inline path', () => {
     expect(lvLen).toBeGreaterThan(0);
   });
 
-  it('delivers frames on its timer until disposed', () => {
+  it('delivers frames on its timer until disposed', async () => {
     vi.useFakeTimers();
     const h = handlers();
     client = new SimClient(h);
-    client.loadCase(loadCaseById('normal-excellent-window'), baseInput());
+    await client.loadCase(loadCaseById('normal-excellent-window'), baseInput());
     vi.advanceTimersByTime(500);
     const n = h.frames.length;
     expect(n).toBeGreaterThan(0);
@@ -70,7 +70,7 @@ describe('SimClient inline path', () => {
     const h = handlers();
     client = new SimClient(h);
     const input = baseInput();
-    client.loadCase(loadCaseById('normal-excellent-window'), input);
+    await client.loadCase(loadCaseById('normal-excellent-window'), input);
     // an autoTrace request with no spectral strip yet resolves to null, not an error
     await expect(client.request({ kind: 'autoTrace', x0: 0, x1: 10 })).resolves.toBeNull();
     client.send(input);
@@ -140,7 +140,7 @@ describe('SimClient worker path: every request settles', () => {
   it('rejects when the case is reloaded or the client is disposed', async () => {
     const { w } = make();
     const p1 = client!.request({ kind: 'autoTrace', x0: 0, x1: 10 });
-    client!.loadCase(loadCaseById('normal-excellent-window'), baseInput());
+    void client!.loadCase(loadCaseById('normal-excellent-window'), baseInput());
     await expect(p1).rejects.toThrow(/reloaded/);
     const p2 = client!.request({ kind: 'autoTrace', x0: 0, x1: 10 });
     client!.dispose();

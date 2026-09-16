@@ -1,6 +1,6 @@
 import { useHudStore, useSimStore } from '@/app/store';
 import { modePolicy } from '@/app/modePolicy';
-import { getViewTarget } from '@/simulator/windows/viewTargets';
+import { getViewTarget } from '@/simulator/windows/viewDefinitions';
 import { explainAnalysis } from '@/education/causes';
 
 /**

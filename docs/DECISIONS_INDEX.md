@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 128 (última: 128).
+Decisiones: 129 (última: 129).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -136,3 +136,4 @@ Decisiones: 128 (última: 128).
 | [126](DECISIONS.md#L409) | 2026-09-16 | El clasificador del corazón se parte en siete bloques con un contexto compartido | vigente |
 | [127](DECISIONS.md#L411) | 2026-09-16 | Cada modalidad de imagen se describe una sola vez | vigente |
 | [128](DECISIONS.md#L413) | 2026-09-16 | La pose de una vista predeterminada la calcula el worker | vigente |
+| [129](DECISIONS.md#L415) | 2026-09-16 | El hilo principal no construye modelos: el navegador 3D recibe los suyos del worker de mallas y el núcleo en línea se carga bajo demanda | vigente |

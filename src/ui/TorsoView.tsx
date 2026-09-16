@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { useHudStore, useSimStore } from '@/app/store';
-import { getCaseModels } from '@/app/caseModels';
 import {
   ribCenterY,
   ribDepth,
@@ -10,13 +9,8 @@ import {
   skinZ,
   type ThoraxModel,
 } from '@/simulator/anatomy/thoraxModel';
-import {
-  heartGhostPrimitives,
-  heartToTorso,
-  heartDirToTorso,
-  type HeartModel,
-} from '@/simulator/anatomy/heartModel';
-import type { MeshError, MeshReply, MeshRequest } from '@/workers/heartMesh.worker';
+import { heartToTorso, type HeartFrame } from '@/simulator/anatomy/heartFrame';
+import type { MeshError, MeshReply, MeshRequest, NavigatorModel } from '@/workers/heartMesh.worker';
 import { beamFrameFromPose, poseFromControl, type BeamFrame } from '@/simulator/probe/pose';
 import { RotationDial } from './RotationDial';
 import { CheckItem, MenuCap, usePopover } from './menu';
@@ -37,7 +31,10 @@ export function TorsoView() {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const { thorax, heart } = getCaseModels(caseId, patient);
+    // the models arrive from the mesh worker as data (NavigatorModel, audit B7): until then the scene has the
+    // probe, the fan and the lights, and the pose-dependent parts wait
+    let thorax: ThoraxModel | null = null;
+    let heartFrame: HeartFrame | null = null;
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, stencil: true });
     renderer.localClippingEnabled = true; // the heart is cut by the imaging plane (decision 57)
     renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
@@ -61,15 +58,22 @@ export function TorsoView() {
     fill.position.set(20, -10, 30);
     scene.add(fill);
 
-    // ---- body ----
-    const skin = buildSkin(thorax);
-    scene.add(skin);
-    const skeleton = buildSkeleton(thorax);
-    scene.add(skeleton);
+    // ---- body (built when the navigator model arrives) ----
+    let skin: THREE.Mesh | null = null;
+    let skeleton: THREE.Group | null = null;
+    let ghost: THREE.Group | null = null;
     // the imaging plane doubles as a clipping plane: the 3D heart is split exactly where the beam cuts
     const cutPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
-    const ghost = buildHeartGhost(heart);
-    scene.add(ghost);
+    const onModel = (model: NavigatorModel) => {
+      thorax = model.thorax;
+      heartFrame = model.frame;
+      skin = buildSkin(model.thorax);
+      scene.add(skin);
+      skeleton = buildSkeleton(model.thorax);
+      scene.add(skeleton);
+      ghost = buildHeartGhost(model);
+      scene.add(ghost);
+    };
     // surfaces extracted from the same implicit model the beam samples, so navigator and image cannot disagree
     const heartMeshes = new THREE.Group();
     scene.add(heartMeshes);
@@ -92,12 +96,17 @@ export function TorsoView() {
       // the ghost stays; the image is unaffected (it does not use these meshes)
       console.warn('heart mesh worker failed to load; keeping the schematic heart', e.message);
     };
-    meshWorker.onmessage = (ev: MessageEvent<MeshReply | MeshError>) => {
+    meshWorker.onmessage = (ev: MessageEvent<MeshReply | MeshError | NavigatorModel>) => {
+      if ('kind' in ev.data) {
+        onModel(ev.data);
+        return;
+      }
       if ('error' in ev.data) {
         console.warn('heart mesh extraction failed; keeping the schematic heart', ev.data.error);
         return;
       }
-      const f = heart.frame;
+      const f = heartFrame;
+      if (!f) return; // the model always precedes the meshes
       const basis = new THREE.Matrix4().makeBasis(
         new THREE.Vector3(f.ex.x, f.ex.y, f.ex.z),
         new THREE.Vector3(f.ey.x, f.ey.y, f.ey.z),
@@ -155,7 +164,7 @@ export function TorsoView() {
         }
       }
       phasesReady = Math.max(phasesReady, ev.data.index + 1);
-      ghost.visible = false;
+      if (ghost) ghost.visible = false;
     };
     // 0.26 cm and ten phases: extraction costs 553 ms per phase at this step against 2171 ms at 0.20, so the
     // whole beat is ready in ~5.5 s of worker time with the first phase on screen in half a second. The
@@ -219,6 +228,7 @@ export function TorsoView() {
         updateCamera();
       },
       center: () => {
+        if (!thorax) return;
         const p = poseFromControl(thorax, useSimStore.getState().probe).position;
         orbit.tx = p.x;
         orbit.ty = p.y;
@@ -245,6 +255,7 @@ export function TorsoView() {
     const pickSkin = (e: MouseEvent): { u: number; v: number } | null => {
       toNdc(e);
       raycaster.setFromCamera(mouse, camera);
+      if (!skin || !thorax) return null;
       const hit = raycaster.intersectObject(skin, false)[0];
       if (!hit) return null;
       // only the anterior surface is a valid probe location (the model's skin function covers it)
@@ -252,6 +263,7 @@ export function TorsoView() {
       return { u: hit.point.x, v: hit.point.y };
     };
     const probeScreenCenter = (r: DOMRect) => {
+      if (!thorax) return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
       const p = poseFromControl(thorax, useSimStore.getState().probe).position;
       const v = new THREE.Vector3(p.x, p.y, p.z).project(camera);
       return { x: r.left + ((v.x + 1) / 2) * r.width, y: r.top + ((1 - v.y) / 2) * r.height };
@@ -344,6 +356,10 @@ export function TorsoView() {
     const tick = () => {
       raf = requestAnimationFrame(tick);
       const st = useSimStore.getState();
+      if (!thorax) {
+        renderer.render(scene, camera);
+        return;
+      }
       const pose = poseFromControl(thorax, st.probe);
       const beam = beamFrameFromPose(pose);
       probe.position.set(pose.position.x, pose.position.y, pose.position.z);
@@ -416,11 +432,13 @@ export function TorsoView() {
         set(elevAxis, beam.normal, 4);
         set(latAxis, beam.lateral, 4);
       }
-      skeleton.visible = st.ui.showSkeleton;
+      if (skeleton) skeleton.visible = st.ui.showSkeleton;
       // the skin is a layer of its own: hiding the bones used to make it opaque, which hid the heart
-      skin.visible = st.ui.navSkin;
-      (skin.material as THREE.MeshStandardMaterial).opacity =
-        st.ui.navHeart || st.ui.navChambers || st.ui.navVessels ? 0.32 : 0.85;
+      if (skin) {
+        skin.visible = st.ui.navSkin;
+        (skin.material as THREE.MeshStandardMaterial).opacity =
+          st.ui.navHeart || st.ui.navChambers || st.ui.navVessels ? 0.32 : 0.85;
+      }
       renderer.render(scene, camera);
     };
     tick();
@@ -695,15 +713,15 @@ function buildSkeleton(t: ThoraxModel): THREE.Group {
   return g;
 }
 
-function buildHeartGhost(heart: HeartModel): THREE.Group {
+function buildHeartGhost(model: NavigatorModel): THREE.Group {
   const g = new THREE.Group();
-  const f = heart.frame;
+  const f = model.frame;
   const basis = new THREE.Matrix4().makeBasis(
     new THREE.Vector3(f.ex.x, f.ex.y, f.ex.z),
     new THREE.Vector3(f.ey.x, f.ey.y, f.ey.z),
     new THREE.Vector3(f.ez.x, f.ez.y, f.ez.z),
   );
-  for (const p of heartGhostPrimitives(heart)) {
+  for (const p of model.ghost) {
     const mat = new THREE.MeshStandardMaterial({
       color: p.color,
       transparent: true,
@@ -733,9 +751,8 @@ function buildHeartGhost(heart: HeartModel): THREE.Group {
     }
   }
   // LV long axis hint
-  const apex = heartToTorso(f, { x: 0, y: 0, z: heart.lv.lengthCm });
+  const apex = heartToTorso(f, { x: 0, y: 0, z: model.lvLengthCm });
   const base = heartToTorso(f, { x: 0, y: 0, z: 0 });
-  void heartDirToTorso;
   const line = new THREE.Line(
     new THREE.BufferGeometry().setFromPoints([
       new THREE.Vector3(base.x, base.y, base.z),

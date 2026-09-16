@@ -25,9 +25,7 @@ import { expectedFindings, getFinding, scoreImpression } from '@/education/impre
 import { buildExamSummary } from '@/education/scoring/scoring';
 import { loadCaseById } from '@/cases';
 import type { PhaseMarks } from '@/simulator/core/protocol';
-import { getCaseModels } from './caseModels';
 import { frameBus } from './frameBus';
-import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
 import { easeInOut, lerpControl, presetDurationMs } from '@/simulator/probe/interpolate';
 import { modePolicy, type ProductMode } from './modePolicy';
 
@@ -410,8 +408,15 @@ export const useSimStore = create<SimStore>((set, get) => ({
       .request({ kind: 'canonicalControl', viewId })
       .then((res) => {
         if (res && res.kind === 'canonicalControl') return begin(clampProbe(res.control));
-        const { heart, thorax } = getCaseModels(get().caseId, get().patient);
-        begin(clampProbe(canonicalControl(getViewTarget(viewId), heart, thorax)));
+        // no worker answered (tests, inline mode): the main-thread copies compute it, loaded on demand so the
+        // anatomy engine stays out of the entry chunk
+        return Promise.all([
+          import('./caseModels'),
+          import('@/simulator/windows/viewTargets'),
+        ]).then(([cm, vt]) => {
+          const { heart, thorax } = cm.getCaseModels(get().caseId, get().patient);
+          begin(clampProbe(vt.canonicalControl(vt.getViewTarget(viewId), heart, thorax)));
+        });
       })
       .catch((e: unknown) => {
         console.warn('preset view request failed', e instanceof Error ? e.message : e);

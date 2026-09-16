@@ -1,6 +1,6 @@
 import { useSimStore } from '@/app/store';
 import { exportProgressJson, summarizeProgress } from '@/education/progress';
-import { VIEW_TARGETS } from '@/simulator/windows/viewTargets';
+import { VIEW_TARGETS } from '@/simulator/windows/viewDefinitions';
 
 /** Local learning analytics (proposal 7): everything stays in this browser; export is a file the learner downloads. */
 export function ProgressScreen() {

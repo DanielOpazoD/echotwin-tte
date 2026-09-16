@@ -3,6 +3,9 @@ import { computeHeartPose } from '@/simulator/anatomy/heartModel';
 import { cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { buildCaseModels } from '@/simulator/anatomy/caseModels';
 import { buildHeartMeshes, type MeshGroup } from '@/simulator/anatomy/heartMesh';
+import { heartGhostPrimitives, type GhostPrimitive } from '@/simulator/anatomy/heartModel';
+import type { HeartFrame } from '@/simulator/anatomy/heartFrame';
+import type { ThoraxModel } from '@/simulator/anatomy/thoraxModel';
 import type { PatientState } from '@/simulator/anatomy/thoraxModel';
 
 /**
@@ -24,6 +27,21 @@ export interface MeshRequest {
 export interface MeshError {
   caseId: string;
   error: string;
+}
+
+/**
+ * What the navigator needs of the models, as plain data, sent before the meshes (audit B7): the thorax the
+ * skin, ribs and probe pose are built from, the heart frame the meshes are placed with, the LV length of the
+ * long-axis hint and the schematic ghost shown until the surfaces arrive. The main thread never builds the
+ * models itself, so the anatomy engine stays out of the entry chunk.
+ */
+export interface NavigatorModel {
+  kind: 'model';
+  caseId: string;
+  thorax: ThoraxModel;
+  frame: HeartFrame;
+  lvLengthCm: number;
+  ghost: GhostPrimitive[];
 }
 
 export interface MeshReply {
@@ -55,7 +73,16 @@ function buildAllPhases(
   stepCm: number,
   phases: number[],
 ): void {
-  const { heart, tables } = buildCaseModels(loadCaseById(caseId), patient);
+  const { heart, thorax, tables } = buildCaseModels(loadCaseById(caseId), patient);
+  const model: NavigatorModel = {
+    kind: 'model',
+    caseId,
+    thorax,
+    frame: heart.frame,
+    lvLengthCm: heart.lv.lengthCm,
+    ghost: heartGhostPrimitives(heart),
+  };
+  (self as unknown as Worker).postMessage(model);
   for (let i = 0; i < phases.length; i++) {
     const phase = phases[i]!;
     const t0 = performance.now();
