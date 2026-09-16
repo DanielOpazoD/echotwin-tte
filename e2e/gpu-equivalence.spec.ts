@@ -7,6 +7,7 @@ import { expect, test } from '@playwright/test';
  */
 interface Comparison {
   error?: string;
+  perStructure?: Record<string, { samples: number; mismatched: number }>;
   structureAgreement: number;
   tissueAgreement: number;
   ampRelDiff: number;
@@ -29,6 +30,16 @@ test.beforeEach(async ({ page }) => {
     ),
   );
 });
+
+/**
+ * Per-structure bound, calibrated on 2026-09-16 over the whole matrix on SwiftShader: the worst structure
+ * disagreed on 3.3 % of its samples (superior vena cava, 61 samples; then right atrial wall 2.9 %, tricuspid
+ * 2.7 %), all boundary samples that float precision labels differently on the two sides. A structure the
+ * shader forgets or guards differently disagrees on 30–100 % of its samples (decision 71), so twice the
+ * measured worst case separates precision from drift. Structures with fewer samples are too small to judge.
+ */
+const MIN_SAMPLES = 60;
+const MAX_STRUCTURE_DISAGREEMENT = 0.06;
 
 const MATRIX: [string, string[], number[], ('low' | 'medium' | 'high')?, number?][] = [
   ['normal-excellent-window', ['plax', 'a4c', 'psax-av'], [0, 0.35]],
@@ -74,6 +85,23 @@ for (const [caseId, views, phases, tier, offsetV] of MATRIX) {
         expect(r.tissueAgreement).toBeGreaterThan(0.995);
         expect(r.ampRelDiff).toBeLessThan(0.01);
         expect(r.transDiff).toBeLessThan(0.001);
+        // per structure: the frame-wide 99.5 % let a whole atrial wall drift for a day (decision 71); every
+        // structure the CPU draws with at least MIN_SAMPLES samples must agree on all but a small fraction
+        const worst = Object.entries(r.perStructure ?? {})
+          .filter(([, v]) => v.samples >= MIN_SAMPLES)
+          .map(([name, v]) => ({ name, frac: v.mismatched / v.samples, ...v }))
+          .sort((a, b) => b.frac - a.frac);
+        console.info(
+          `per-structure worst: ${worst
+            .slice(0, 3)
+            .map((w) => `${w.name} ${(100 * w.frac).toFixed(2)}% of ${w.samples}`)
+            .join(', ')}`,
+        );
+        for (const w of worst)
+          expect(
+            w.frac,
+            `${w.name}: ${w.mismatched} of ${w.samples} samples differ between CPU and GPU`,
+          ).toBeLessThanOrEqual(MAX_STRUCTURE_DISAGREEMENT);
       });
     }
   }

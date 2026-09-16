@@ -73,6 +73,11 @@ y la sección «Herramientas» del método de fidelidad. Los scripts temporales 
 ## Entregar
 
 Rama `feat/<nombre>` desde `main`, commit con mensaje en imperativo, MR en GitLab. El pipeline
-(`.gitlab-ci.yml`) corre lint, formato, tipos, unitarias con cobertura, build y E2E; un MR se
-mergea con el pipeline en verde. Los commits de formato masivo van a `.git-blame-ignore-revs`
+(`.gitlab-ci.yml`) tiene dos perfiles: en el MR corre lint, formato, tipos, la suite rápida, el build
+y el presupuesto de bundle (~5 min); en `main` añade la suite completa con cobertura en tres shards
+y los E2E sobre `dist/` (~40 min de runner). Un MR se mergea con su pipeline en verde y se vigila el
+de `main`. El plan gratuito de GitLab da 400 minutos de runner al mes: el 2026-09-16 se agotaron en
+una tarde con el perfil completo en cada MR. Si el equipo crece, un runner propio (`gitlab-runner`
+en cualquier máquina del equipo) elimina el límite; mientras tanto, verifica en local antes de
+abrir el MR (la sección anterior es exactamente lo que el pipeline hace). Los commits de formato masivo van a `.git-blame-ignore-revs`
 (`git config blame.ignoreRevsFile .git-blame-ignore-revs`).
