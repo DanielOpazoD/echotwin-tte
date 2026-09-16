@@ -1,3 +1,4 @@
+// @tier slow
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BeamFrame } from '@/simulator/probe/pose';
 import type { DisplayConsole, PolarFrame, PolarFrameSpec, Scene } from '@/simulator/renderer/types';

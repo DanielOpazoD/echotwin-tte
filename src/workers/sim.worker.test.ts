@@ -1,3 +1,4 @@
+// @tier fast
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadCaseById } from '@/cases';
 import { baseInput } from '@/simulator/core/baseInput';

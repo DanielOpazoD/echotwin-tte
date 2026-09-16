@@ -1,3 +1,4 @@
+// @tier slow
 import { describe, expect, it } from 'vitest';
 import { SimulatorCore } from './simulatorCore';
 import { baseInput } from './baseInput';

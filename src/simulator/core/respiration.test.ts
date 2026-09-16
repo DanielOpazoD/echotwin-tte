@@ -1,3 +1,4 @@
+// @tier slow
 import { describe, expect, it, vi } from 'vitest';
 import { AtlasRenderer, ATLAS_PHASES } from '@/simulator/renderer/atlas/atlasRenderer';
 import { ProceduralSliceRenderer } from '@/simulator/renderer/procedural/sliceRenderer';

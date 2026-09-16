@@ -1,3 +1,4 @@
+// @tier slow
 import { describe, expect, it } from 'vitest';
 import { loadCaseById } from '@/cases';
 import { SimulatorCore } from '@/simulator/core/simulatorCore';
