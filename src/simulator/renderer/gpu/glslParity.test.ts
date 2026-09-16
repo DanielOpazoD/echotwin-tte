@@ -15,6 +15,7 @@ import {
   GLSL_PRESENT_FRAG,
 } from './glslImage';
 import { ACOUSTIC_GLSL_CONSTANTS } from '../acoustic/acoustics';
+import { GLSL_GENERATED } from './glslGenerated';
 
 /**
  * Drift guard for the acoustic image chain, which exists twice by design: CPU (procedural/sliceRenderer.ts,
@@ -92,7 +93,7 @@ describe('acoustic chain: CPU ↔ GLSL parity mechanism', () => {
   });
 
   it('every acoustic define reaches some GLSL body', () => {
-    const all = GLSL_BODIES.map(stripComments).join('\n');
+    const all = [...GLSL_BODIES, GLSL_GENERATED].map(stripComments).join('\n');
     const dead = Object.keys(ACOUSTIC_GLSL_CONSTANTS).filter(
       (name) => !new RegExp(`\\b${name}\\b`).test(all),
     );

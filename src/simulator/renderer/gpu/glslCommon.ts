@@ -2,6 +2,7 @@ import { Structure, Tissue } from '@/simulator/anatomy/tissue';
 import { paramDefinesGlsl } from './paramLayout';
 import { acousticDefinesGlsl } from '../acoustic/acoustics';
 import { ENVELOPE_NORM, psfDefinesGlsl } from '../acoustic/psf';
+import { GLSL_GENERATED } from './glslGenerated';
 
 /** GLSL defines for the tissue and structure ids used by the shaders (kept in sync with tissue.ts). */
 export function enumDefinesGlsl(): string {
@@ -159,8 +160,5 @@ float smin(float a, float b, float k) {
   return min(a, b) - h * h * k * 0.25;
 }
 float smax(float a, float b, float k) { return -smin(-a, -b, k); }
-float saddleOffset(float phi, float phiA, float saddle) {
-  float sn = sin(phi - phiA);
-  return saddle * sn * sn;
-}
+${GLSL_GENERATED}
 `;

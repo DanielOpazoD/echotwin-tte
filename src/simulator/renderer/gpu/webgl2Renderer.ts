@@ -972,10 +972,11 @@ export function createWebgl2Renderer(
     if (!gl) return { renderer: null, reason: 'WebGL2 unavailable' };
     const name = webglRendererName(gl);
     if (!options.allowSoftware && SOFTWARE_GL.test(name)) {
-      // lib.dom types this extension; the linter's program does not resolve the overload, tsc does
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
-      const lose: { loseContext(): void } | null = gl.getExtension('WEBGL_lose_context');
-      lose?.loseContext();
+      // lib.dom types this extension and tsc accepts the call; the linter's program resolves the overload only
+      // on some runs and reports an unsafe call on the others, so the directive is kept and its «unused» warning
+      // is silenced for this file in eslint.config.js
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      gl.getExtension('WEBGL_lose_context')?.loseContext();
       return { renderer: null, reason: `software WebGL (${name.slice(0, 60)}): CPU tracer` };
     }
     return { renderer: new Webgl2Renderer(gl), reason: 'ok' };

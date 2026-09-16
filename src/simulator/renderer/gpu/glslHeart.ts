@@ -430,23 +430,14 @@ float lvProfileDG(float zeta) {
   float d = -((LV_N / 2.0) * pow(s, LV_N - 1.0)) / sqrt(max(1e-9, 1.0 - sn)) / (1.0 - LV_ZETAMAX);
   return max(-6.0, d);
 }
-float ellipseFactor(float az) {
-  float c = cos(az), s = sin(az) / LV_RATIO;
-  return 1.0 / sqrt(c * c + s * s);
-}
 float lvCavityRadius(float az, float z) {
   float zeta = (z - ZANN) / max(LENGTH_NOW, 1e-3);
-  return LV_RMAX * lvProfileG(zeta) * ellipseFactor(az);
+  return LV_RMAX * lvProfileG(zeta) * ellipseFactor(LV_RATIO, az);
 }
 float lvRadialOffsetFactor(float az, float z) {
   float zeta = (z - ZANN) / max(LENGTH_NOW, 1e-3);
-  float drdz = LV_RMAX * lvProfileDG(zeta) * ellipseFactor(az) / max(LENGTH_NOW, 1e-3);
+  float drdz = LV_RMAX * lvProfileDG(zeta) * ellipseFactor(LV_RATIO, az) / max(LENGTH_NOW, 1e-3);
   return sqrt(1.0 + min(9.0, drdz * drdz));
-}
-float axialWallFactor(float zeta, float apexFrac) {
-  if (zeta <= 0.5) return 1.0;
-  float u = min(1.0, (zeta - 0.5) / 0.5);
-  return 1.0 - (1.0 - apexFrac) * u * u;
 }
 // signed distance to the tabulated cavity surface (polar table from the centre LV_PZC); writes the normal
 float lvCavitySdf(float xs, float y, float z, out vec3 n) {
@@ -481,26 +472,12 @@ float wallThicknessAt(float az, float levelFrac, float amp) {
   return tED * max(0.6, 1.0 + (LV_THICK_K - 1.0) * (0.35 + 0.65 * amp)) * wallMod;
 }
 
-float septalShiftAt(float az, float levelFrac) {
-  if (SEPTAL_SHIFT <= 0.0) return 0.0;
-  float c = -cos(az);
-  if (c <= 0.0) return 0.0;
-  float zw = 1.0 - pow((levelFrac - 0.45) / 0.45, 2.0);
-  if (zw <= 0.0) return 0.0;
-  return SEPTAL_SHIFT * c * c * zw;
-}
 
 float rvAzProfile(float u) {
   float sn = sin(PI * u);
   float uIn = (PI + 0.04 - RV_AZA) / (RV_AZP - RV_AZA);
   float inflow = exp(-((u - uIn) * (u - uIn)) / (2.0 * 0.18 * 0.18));
   return pow(min(1.0, max(0.0, sn) / 0.75), 0.7) * (0.85 + 0.15 * inflow);
-}
-float rvAxialTaper(float tvPlane, float zApex, float z) {
-  if (z <= tvPlane) return 0.85;
-  float q = min(1.0, (z - tvPlane) / max(0.5, zApex - tvPlane));
-  float s = max(0.0, (q - 0.25) / 0.75);
-  return (1.0 - 0.55 * s) * sqrt(max(0.0, 1.0 - s * s * s * s * s));
 }
 // [rIn, u, rOut, t] without trabecular noise
 vec4 rvRadii(float az, float z) {
@@ -511,7 +488,7 @@ vec4 rvRadii(float az, float z) {
   float levelFrac = clamp((z - ZANN) / max(LENGTH_NOW, 1.0), 0.0, 1.0);
   float amp = P(SEG_AMP_BASE + ahaSegment(az, levelFrac));
   float rEpi = rCav + wallThicknessAt(az, levelFrac, amp) * lvRadialOffsetFactor(az, z);
-  float rIn = rEpi - septalShiftAt(az, levelFrac) + 0.05;
+  float rIn = rEpi - septalShiftAt(SEPTAL_SHIFT, az, levelFrac) + 0.05;
   if (u <= 0.0 || u >= 1.0) return vec4(rIn, u, rIn, 0.0);
   float tvPlane = TV_CZ + TVZ;
   float t = RV_T * rvAzProfile(u) * rvAxialTaper(tvPlane, RV_APEX_FRAC * L, z) * (1.0 - 0.35 * CONTRACTION);
@@ -671,7 +648,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
   // ---------- LV cavity & wall ----------
   float az = atan(y, x);
   float levelFrac = clamp((z - zAnn) / max(LENGTH_NOW, 1.0), 0.0, 1.0);
-  float septalShift = septalShiftAt(az, levelFrac);
+  float septalShift = septalShiftAt(SEPTAL_SHIFT, az, levelFrac);
   float xs = x - septalShift;
   vec3 n0;
   float dProf = lvCavitySdf(xs, y, z, n0);
