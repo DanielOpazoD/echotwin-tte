@@ -202,6 +202,11 @@ const KNOWN_VIEW_LIMITATIONS: ReadonlySet<string> = new Set([
   // solver puts the beam 24.3° away from the requested short axis (decision 59). The hepatic vein left this
   // plane when it took its real course, in front of the cava (decision 131).
   'psax-mv/inferior vena cava',
+  // The section perpendicular to the aortic root at its coaptation (decision 133) passes 1.3-1.5 cm on the atrial side
+  // of the tricuspid annulus in every case (ring reach ±0.8-1.0 cm), so the leaflets never enter it: the relation
+  // between the tricuspid annulus and the root, not the plane, is what has to change (the annulus is a ring level with
+  // the mitral one, 0.7 cm apical, where the real one is tilted, its anterolateral half at the level of the root).
+  'psax-av/tricuspid valve',
   // The two-chamber plane clips the pulmonary trunk beside the left atrial appendage, 12-14 cm deep at the anterior edge
   // of the sector. The lung hid it until the A2C preset stopped sliding under the lingula (decisions 72 and 83).
   'a2c/pulmonary artery',

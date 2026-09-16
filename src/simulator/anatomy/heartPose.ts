@@ -30,7 +30,7 @@ import {
   type SkirtDesc,
 } from './valveSkirt';
 import { septalShiftAt } from './lvWall';
-import { rvRadii } from './rv';
+import { rvFloorZ, rvRadii } from './rv';
 import { anchorsCached } from './anchors';
 import type { HeartModel } from './heartModel';
 
@@ -184,6 +184,7 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
   const A = anchorsCached(m);
   const cusps = m.anatomy.aorticValve.bicuspid ? 2 : 3;
   const tvZ = m.physiology.tapseCm * state.rvLongitudinal;
+  const pvZ = PV_ROOT_EXCURSION * zAnn;
   const septalShiftCm = m.anatomy.rv.septalFlattening * 0.9;
   const rvCollapse = tamp * rvCollapseWindow(state);
   // papillary tips (the apices of the cones built below): about halfway to the axis at 40% of the ventricle's length
@@ -335,8 +336,7 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
       let d = 1e3;
       const u = rvRad[1]!;
       if (u > 0 && u < 1) {
-        const tvPlane = A.tvCenter.z + tvZ;
-        const zBase = u >= 0.35 ? tvPlane : tvPlane - 2.6 * (1 - u / 0.35);
+        const zBase = rvFloorZ(A.tvCenter.z, tvZ, pvZ, u);
         const r = Math.hypot(px, py);
         d = Math.max(rvRad[0]! - r, r - rvRad[2]!, zBase - pz, pz - A.rvApexFrac * m.lv.lengthCm);
       }
@@ -436,7 +436,6 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
   // pulmonary valve: three cusps hinged at the outflow–trunk junction on the trunk axis, opening with RV ejection
   const pvSegs = new Float64Array(36);
   const pvWidths = new Float64Array(9);
-  const pvZ = PV_ROOT_EXCURSION * zAnn;
   const pvSegLen = buildCuspChains(
     A.rvotB.x,
     A.rvotB.y,

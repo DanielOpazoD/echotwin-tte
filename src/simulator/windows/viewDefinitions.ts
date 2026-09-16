@@ -125,7 +125,7 @@ export function buildViewTargets(): ViewTarget[] {
       recommendedDepthRangeCm: [12, 16],
       recommendedFocusCm: 7,
       hints: [
-        'Desde PLAX rota 90° en sentido horario y angula ligeramente hacia la base hasta ver la válvula aórtica en el centro con sus tres velos.',
+        'Desde PLAX rota 90° en sentido horario y angula hacia la base hasta ver la válvula aórtica en el centro con sus tres velos; si la raíz sale ovalada, sube un espacio intercostal: el corte debe ser perpendicular a la raíz.',
       ],
       commonErrors: [
         'Rotación incompleta (plano oblicuo)',

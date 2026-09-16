@@ -19,6 +19,19 @@ export function rvAzProfile(rvAzA: number, rvAzP: number, u: number): number {
   return Math.pow(Math.min(1, Math.max(0, sn) / 0.75), 0.7) * (0.85 + 0.15 * inflow);
 }
 
+/**
+ * Basal boundary of the RV crescent (z, heart frame) at groove fraction u: the tricuspid plane for the inflow and the
+ * body, rising 2.6 cm into the infundibulum over the anterior third. The inflow descends with the annulus (tvZ); the
+ * infundibulum with the pulmonary root (pvZ, decision 111). Until decision 133 the whole floor followed the annulus, so
+ * the base of the outflow dropped 2 cm with TAPSE and the short axis of the great vessels lost the tract in systole.
+ */
+export function rvFloorZ(tvCz: number, tvZ: number, pvZ: number, u: number): number {
+  const uInf = 0.35;
+  if (u >= uInf) return tvCz + tvZ;
+  const w = u / uInf;
+  return tvCz + pvZ + (tvZ - pvZ) * w - 2.6 * (1 - w);
+}
+
 /** Triangular axial taper of the RV from the tricuspid plane (1) to a rounded apex (0 at zApex); 0.85 in the infundibulum above the plane. */
 export function rvAxialTaper(tvPlane: number, zApex: number, z: number): number {
   if (z <= tvPlane) return 0.85;
@@ -118,11 +131,8 @@ export function rvCrescent(
     return;
   }
   const L = m.lv.lengthCm;
-  const tvPlane = A.tvCenter.z + hp.tvZ;
   const zApex = A.rvApexFrac * L;
-  // basal boundary: tricuspid plane for the inflow, rising smoothly into the infundibulum for the anterior third
-  const uInf = 0.35;
-  const zBase = u >= uInf ? tvPlane : tvPlane - 2.6 * (1 - u / uInf);
+  const zBase = rvFloorZ(A.tvCenter.z, hp.tvZ, hp.pvZ, u);
   let t = rvRad[3]!;
   // trabeculae: longitudinal ridges that coarsen toward the apex, where the mesh narrows the cavity
   if (z > 0.25 * L) {

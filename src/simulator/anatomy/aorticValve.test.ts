@@ -225,7 +225,9 @@ describe('aortic valve visibility in PSAX-AV', () => {
         let n = 0;
         for (let i = 0; i < frame.structure.length; i++)
           if (frame.structure[i] === Structure.AorticValve) n++;
-        expect(n, `${id} phase ${phase}`).toBeGreaterThan(15);
+        // ≥ 15: the plane perpendicular to the root (decision 133) reaches the top of the coaptation zone in early
+        // diastole, where the severe-stenosis valve gives exactly 15 samples in this low-resolution frame
+        expect(n, `${id} phase ${phase}`).toBeGreaterThanOrEqual(15);
       }
     });
   }

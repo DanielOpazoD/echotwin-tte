@@ -474,7 +474,7 @@ float wallThicknessAt(float az, float levelFrac, float amp) {
 
 
 // [rIn, u, rOut, t] without trabecular noise
-vec4 rvRadii(float az, float z) {
+vec4 rvRadii(float az, float z, float contraction, float tvZ, float rvCollapse) {
   float L = LV_LEN;
   float azN = az < 0.0 ? az + TWO_PI : az;
   float u = (azN - RV_AZA) / (RV_AZP - RV_AZA);
@@ -484,9 +484,9 @@ vec4 rvRadii(float az, float z) {
   float rEpi = rCav + wallThicknessAt(az, levelFrac, amp) * lvRadialOffsetFactor(az, z);
   float rIn = rEpi - septalShiftAt(SEPTAL_SHIFT, az, levelFrac) + 0.05;
   if (u <= 0.0 || u >= 1.0) return vec4(rIn, u, rIn, 0.0);
-  float tvPlane = TV_CZ + TVZ;
-  float t = RV_T * rvAzProfile(RV_AZA, RV_AZP, u) * rvAxialTaper(tvPlane, RV_APEX_FRAC * L, z) * (1.0 - 0.35 * CONTRACTION);
-  if (RV_COLLAPSE > 0.0 && u < 0.55) t *= 1.0 - 0.65 * RV_COLLAPSE * (1.0 - u / 0.55);
+  float tvPlane = TV_CZ + tvZ;
+  float t = RV_T * rvAzProfile(RV_AZA, RV_AZP, u) * rvAxialTaper(tvPlane, RV_APEX_FRAC * L, z) * (1.0 - 0.35 * contraction);
+  if (rvCollapse > 0.0 && u < 0.55) t *= 1.0 - 0.65 * rvCollapse * (1.0 - u / 0.55);
   return vec4(rIn, u, rIn + t, t);
 }
 // tricuspid inflow column (heartModel.ts tvInflowSdf): annular circle narrowing below the hinges, closed on the atrial side
@@ -503,14 +503,12 @@ float tvInflowSdf(vec3 p) {
 }
 // RV crescent: returns [signed distance, rIn, rOut]
 vec3 rvCrescent(vec3 p, float az) {
-  vec4 rr = rvRadii(az, p.z);
+  vec4 rr = rvRadii(az, p.z, CONTRACTION, TVZ, RV_COLLAPSE);
   float rIn = rr.x, u = rr.y;
   if (u <= 0.0 || u >= 1.0) return vec3(1e3, rIn, rIn);
   float L = LV_LEN;
-  float tvPlane = TV_CZ + TVZ;
   float zApex = RV_APEX_FRAC * L;
-  float uInf = 0.35;
-  float zBase = u >= uInf ? tvPlane : tvPlane - 2.6 * (1.0 - u / uInf);
+  float zBase = rvFloorZ(TV_CZ, TVZ, PV_Z, u);
   float t = rr.w;
   if (p.z > 0.25 * L) {
     float w = min(1.0, (p.z - 0.25 * L) / (0.35 * L));
@@ -711,6 +709,8 @@ bool classifyHeart(vec3 p0, out Sample s) {
     return true;
   }
 
+  // the base the ventricle vacated as the annulus descended, atrium now (decision 133); read again by the pericardium
+  float raSleeve = 1e3;
   // ---------- atria ----------
   vec3 la = vec3(LA_CX, LA_CY, LA_CZ);
   vec3 lr = vec3(LA_RX, LA_RY, LA_RZ);
@@ -739,12 +739,21 @@ bool classifyHeart(vec3 p0, out Sample s) {
     }
     float zTopR = ra.z - rar.z;
     // the atrium ends at the annulus (decision 64): mirrors classifyHeart
-    float zBotR = TV_CZ + TVZ * 0.7 + 0.03;
+    float zBotR = TV_CZ + TVZ + 0.03;
     czR = (zTopR + zBotR) / 2.0;
     rzR = (zBotR - zTopR) / 2.0;
     float raC = raCollapseScale(RA_COLLAPSE);
     float dEllRa = sdEllipsoid(p, vec3(ra.x, ra.y, czR), vec3(rar.x * bo * raC, rar.y * bo * raC, rzR));
     float dFreeRa = smax(dEllRa, ra.y - 0.8 * rar.y * bo - y, 0.6);
+    if (TVZ > 0.05) {
+      vec4 rr0 = rvRadii(az, z, 0.0, 0.0, 0.0);
+      float u0 = rr0.y;
+      if (u0 > 0.0 && u0 < 1.0) {
+        float r0 = length(p.xy);
+        raSleeve = max(max(rr0.x + 0.1 - r0, r0 - (rr0.z - RV_FW)), max(rvFloorZ(TV_CZ, 0.0, 0.0, u0) - z, z - rvFloorZ(TV_CZ, TVZ, PV_Z, u0)));
+      }
+    }
+    dFreeRa = min(dFreeRa, raSleeve);
     float dR = smax(dFreeRa, x - (xIas - tIas / 2.0), 0.3);
     if (dR < 0.0) {
       setSample(s, T_BLOOD, dR, vec3((x - ra.x) / rar.x, (y - ra.y) / rar.y, (z - czR) / rzR), p, 0.0, S_RA_CAV);
@@ -753,7 +762,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     if (dFreeRa < 0.22 && x < xIas - tIas / 2.0) {
       // no wall across the tricuspid orifice (decision 64): atrial blood up to the annular plane, ventricular past it
       if (length(vec2(x - TVS_CX, y - TVS_CY)) < TVS_R) {
-        setSample(s, T_BLOOD, dFreeRa - 0.22, vec3((x - ra.x) / rar.x, (y - ra.y) / rar.y, (z - czR) / rzR), p, 0.0, z > TV_CZ + TVZ * 0.7 ? S_RV_CAV : S_RA_CAV);
+        setSample(s, T_BLOOD, dFreeRa - 0.22, vec3((x - ra.x) / rar.x, (y - ra.y) / rar.y, (z - czR) / rzR), p, 0.0, z > TV_CZ + TVZ ? S_RV_CAV : S_RA_CAV);
         return true;
       }
       setSample(s, T_MYO, -min(dFreeRa, 0.22 - dFreeRa), vec3((x - ra.x) / rar.x, (y - ra.y) / rar.y, (z - czR) / rzR), p, 0.0, S_RA_WALL);
@@ -889,7 +898,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float fw = RV_FW;
     float dRvEpi = dRvU - fw;
     float dLaEpi = sdEllipsoid(p, la, lr + 0.25);
-    float dRaEpi = sdEllipsoid(p, ra, rar + 0.22);
+    float dRaEpi = min(sdEllipsoid(p, ra, rar + 0.22), raSleeve + 0.22);
     // the sac around the outflow tract and the trunk stays where the pericardium is anchored (decision 111)
     vec3 rvotA = vec3(RVOT_AX, RVOT_AY, RVOT_AZ);
     vec3 rvotB = vec3(RVOT_BX, RVOT_BY, RVOT_BZ);
