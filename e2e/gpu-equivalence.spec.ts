@@ -51,7 +51,7 @@ for (const [caseId, views, phases, tier, offsetV] of MATRIX) {
       test(`${caseId} ${viewId} @${phase}${tier ? ` (${tier})` : ''}${offsetV ? ` probe v${offsetV > 0 ? '+' : ''}${offsetV}` : ''}: GPU frame matches the CPU reference`, async ({
         page,
       }) => {
-        const r = (await page.evaluate(
+        const r = await page.evaluate(
           ([v, p, c, t, o]) =>
             (
               window as unknown as {
@@ -65,15 +65,9 @@ for (const [caseId, views, phases, tier, offsetV] of MATRIX) {
                   ) => Comparison;
                 };
               }
-            ).__echotwin.compareBackends(
-              v as string,
-              p as number,
-              c as string,
-              t as string | undefined,
-              o as number,
-            ),
+            ).__echotwin.compareBackends(v, p, c, t as string | undefined, o),
           [viewId, phase, caseId, tier ?? 'medium', offsetV ?? 0] as const,
-        )) as Comparison;
+        );
         expect(r.error, 'WebGL2 must be available in the test browser').toBeUndefined();
         expect(r.lines).toBeGreaterThan(60);
         expect(r.structureAgreement).toBeGreaterThan(0.995);
@@ -132,7 +126,7 @@ for (const [caseId, viewId, phase, tier, overrides] of CHAIN) {
   test(`${caseId} ${viewId} @${phase} (${tier}): GPU console and present pass match the CPU image chain`, async ({
     page,
   }) => {
-    const r = (await page.evaluate(
+    const r = await page.evaluate(
       ([v, p, c, t, o]) =>
         (
           window as unknown as {
@@ -146,9 +140,9 @@ for (const [caseId, viewId, phase, tier, overrides] of CHAIN) {
               ) => ChainComparison;
             };
           }
-        ).__echotwin.compareImageChain(v as string, p as number, c as string, t as string, o),
+        ).__echotwin.compareImageChain(v, p, c, t as string, o),
       [viewId, phase, caseId, tier, overrides] as const,
-    )) as ChainComparison;
+    );
     expect(r.error, 'WebGL2 must be available in the test browser').toBeUndefined();
     expect(r.lines).toBeGreaterThan(60);
     expect(r.framePaths).toEqual(['gpu', 'gpu', 'cpu', 'gpu']);

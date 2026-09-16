@@ -305,8 +305,8 @@ export class ProceduralSliceRenderer implements RendererBackend {
           ? (i + 0.5 - centre) * dr * SCATTER_FREQ
           : along[i]! * SCATTER_FREQ;
         const qx = u + offset,
-          qy = across[i]! + u * pathY!,
-          qz = elev[i]! + u * pathZ!;
+          qy = across[i]! + u * pathY,
+          qz = elev[i]! + u * pathZ;
         re[i] =
           re[i]! +
           sg *
@@ -556,7 +556,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
           (PLEURA_BASE +
             PLEURA_AMP *
               latticeNoise3(li * PLEURA_LINE_FREQ, r * PLEURA_DEPTH_FREQ, PLEURA_Z, latA));
-        if (lk) re[idx] = re[idx]! * lk.single;
+        if (lk) re[idx] = re[idx] * lk.single;
         im[idx] = 0;
         dead = true;
         continue;

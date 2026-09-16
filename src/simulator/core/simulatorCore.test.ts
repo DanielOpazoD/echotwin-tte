@@ -29,6 +29,7 @@ describe('SimulatorCore acquisition controls', () => {
     'reacquires frequency changes through the real core after the atlas cine fills',
     { timeout: 120_000 },
     () => {
+      // eslint-disable-next-line @typescript-eslint/unbound-method -- invoked with .call(this) below
       const render = AtlasRenderer.prototype.render;
       const scheduling = vi.spyOn(AtlasRenderer.prototype, 'render').mockImplementation(function (
         this: AtlasRenderer,

@@ -24,6 +24,7 @@ describe('rendered respiratory anatomy', () => {
   it.each(['expiration', 'free-breathing'] as const)(
     'the atlas shows the IVC of the current beat in %s',
     (respiration) => {
+      // eslint-disable-next-line @typescript-eslint/unbound-method -- invoked with .call(this) below
       const render = AtlasRenderer.prototype.render;
       const schedule = vi.spyOn(AtlasRenderer.prototype, 'render').mockImplementation(function (
         this: AtlasRenderer,

@@ -86,14 +86,22 @@ export function erode(
 function summarise(values: number[]): RegionSummary {
   const n = values.length;
   if (n === 0)
-    return { n: 0, mean: NaN, median: NaN, p10: NaN, p90: NaN, histogram: new Array(16).fill(0) };
+    return {
+      n: 0,
+      mean: NaN,
+      median: NaN,
+      p10: NaN,
+      p90: NaN,
+      histogram: new Array<number>(16).fill(0),
+    };
   const s = [...values].sort((a, b) => a - b);
   const at = (q: number): number => s[Math.min(n - 1, Math.floor(q * n))]!;
-  const histogram = new Array(16).fill(0);
+  const histogram = new Array<number>(16).fill(0);
   let sum = 0;
   for (const v of values) {
     sum += v;
-    histogram[Math.min(15, Math.max(0, Math.floor(v / 16)))] += 1 / n;
+    const k = Math.min(15, Math.max(0, Math.floor(v / 16)));
+    histogram[k] = (histogram[k] ?? 0) + 1 / n;
   }
   return { n, mean: sum / n, median: at(0.5), p10: at(0.1), p90: at(0.9), histogram };
 }

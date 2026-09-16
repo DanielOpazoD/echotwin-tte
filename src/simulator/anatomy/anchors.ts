@@ -436,7 +436,7 @@ function placePulmonaryRoot(m: HeartModel, A: AnchorsCached): void {
     mz: 0,
     extraReflect: 0,
     structure: 0,
-  } as unknown as TissueSample;
+  };
   const e1 = A.pvE1,
     e2 = A.pvE2,
     d = A.paDir;

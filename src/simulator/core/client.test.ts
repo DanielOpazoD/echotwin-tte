@@ -19,7 +19,7 @@ function handlers(): SimClientHandlers & { ready: unknown[]; frames: unknown[]; 
       h.errors.push(m);
     },
   };
-  return h as SimClientHandlers & { ready: unknown[]; frames: unknown[]; errors: string[] };
+  return h;
 }
 
 // Node has no Worker, so the client always takes the inline path here — the same path tests use.

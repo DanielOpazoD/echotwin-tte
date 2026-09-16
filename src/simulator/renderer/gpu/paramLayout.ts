@@ -378,10 +378,10 @@ export function packScene(
   set('LV_PZC', hp.prof.zc);
   set('LV_THICK_K', hp.thickK);
   set('LENGTH_NOW', hp.lengthNow);
-  d.set(hp.prof.R, PARAM_OFFSET['LV_PROF_R']!);
-  d.set(hp.prof.S, PARAM_OFFSET['LV_PROF_S']!);
-  d.set(hp.paps, PARAM_OFFSET['PAPS']!);
-  d.set(hp.rvPap, PARAM_OFFSET['RVPAP']!);
+  d.set(hp.prof.R, PARAM_OFFSET['LV_PROF_R']);
+  d.set(hp.prof.S, PARAM_OFFSET['LV_PROF_S']);
+  d.set(hp.paps, PARAM_OFFSET['PAPS']);
+  d.set(hp.rvPap, PARAM_OFFSET['RVPAP']);
   set('RADIAL_SCALE', hp.radialScale);
   set('LONG_SCALE', hp.longScale);
   set('CONTRACTION', hp.state.contraction);
@@ -537,7 +537,7 @@ export function packScene(
     d.set(L.tent, tb + 2 * MV_BINS);
     d.set(L.hingeZ, tb + 3 * MV_BINS);
     d.set(L.openRot, tb + 4 * MV_BINS);
-    d.set(L.openProf, PARAM_OFFSET[`${prefix}_PROF`]!);
+    d.set(L.openProf, PARAM_OFFSET[`${prefix}_PROF`]);
   }
   const sk = (prefix: 'TVS', k: typeof V.tv): void => {
     set(`${prefix}_CX`, k.cx);
@@ -565,13 +565,13 @@ export function packScene(
     }
   };
   sk('TVS', V.tv);
-  d.set(heart.segAmp.subarray(0, 18), PARAM_OFFSET['SEG_AMP']!);
-  d.set(V.chordae.subarray(0, 60), PARAM_OFFSET['CHORDAE']!);
+  d.set(heart.segAmp.subarray(0, 18), PARAM_OFFSET['SEG_AMP']);
+  d.set(V.chordae.subarray(0, 60), PARAM_OFFSET['CHORDAE']);
   set('PV_HALF', V.pvHalf);
   set('PV_SEGLEN', V.pvSegLen);
   set('PV_T', V.pvThickness);
-  d.set(V.pvSegs, PARAM_OFFSET['PV_SEGS']!);
-  d.set(V.pvWidths, PARAM_OFFSET['PV_W']!);
+  d.set(V.pvSegs, PARAM_OFFSET['PV_SEGS']);
+  d.set(V.pvWidths, PARAM_OFFSET['PV_W']);
   set('TH_AW', thorax.aw);
   set('TH_BDEPTH', thorax.bDepth);
   set('TH_N', thorax.n);

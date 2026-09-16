@@ -779,7 +779,7 @@ describe('mitral leaflet motion in the parasternal M-mode (decision 100)', () =>
       const tips = states.map((st) => {
         const pose = computeHeartPose(heart, st);
         mitralFreeEdge(pose.valves.mitral, 0, 0, edge);
-        return heartToTorso(heart.frame, v3(edge[0]! + pose.swingX, edge[1]!, edge[2]!));
+        return heartToTorso(heart.frame, v3(edge[0]! + pose.swingX, edge[1], edge[2]));
       });
       const inWindow = (k: number, from: number, to: number) => k * dt >= from && k * dt < to;
       let kE = Math.ceil(t.mitralOpenS / dt);

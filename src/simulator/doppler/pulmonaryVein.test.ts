@@ -78,13 +78,14 @@ describe('pulmonary venous flow and colour M-mode', () => {
     );
     let out = null;
     for (let i = 0; i < 40; i++) out = core.step(0.03) ?? out;
-    expect(out?.strip.kind).toBe('m-mode');
+    if (!out) throw new Error('no frame produced in forty steps');
+    expect(out.strip.kind).toBe('m-mode');
     // the composite strip must contain coloured pixels (red/blue dominant) in the lower half of the display
-    const W = out!.width,
-      H = out!.height;
-    const rgba = new Uint8ClampedArray(out!.rgba);
+    const W = out.width,
+      H = out.height;
+    const rgba = new Uint8ClampedArray(out.rgba);
     let coloured = 0;
-    for (let y = out!.strip.y; y < H; y += 2)
+    for (let y = out.strip.y; y < H; y += 2)
       for (let x = 0; x < W; x += 2) {
         const o = (y * W + x) * 4;
         const r = rgba[o]!,
@@ -113,11 +114,12 @@ describe('pulmonary venous flow and colour M-mode', () => {
       a = coreA.step(0.05) ?? a;
       b = coreB.step(0.05) ?? b;
     }
+    if (!a || !b) throw new Error('no frame produced in three steps');
     // Measured inside the sector and in grey levels, not as a ratio of the whole-frame mean: a ratio depends on how
     // bright the console makes the rest of the image (decision 70 raised blood from grey ~25 to ~60 and the ratio
     // fell from 1.12 to 1.04 while the artifacts changed the same share of pixels, about a fifth by 8 levels or more).
-    const pa = new Uint8ClampedArray(a!.rgba),
-      pb = new Uint8ClampedArray(b!.rgba);
+    const pa = new Uint8ClampedArray(a.rgba),
+      pb = new Uint8ClampedArray(b.rgba);
     let sector = 0,
       brighter = 0,
       changed = 0;
@@ -127,7 +129,7 @@ describe('pulmonary venous flow and colour M-mode', () => {
       brighter += pb[i]! - pa[i]!;
       if (Math.abs(pb[i]! - pa[i]!) >= 8) changed++;
     }
-    expect(a!.phase).toBeCloseTo(b!.phase, 6);
+    expect(a.phase).toBeCloseTo(b.phase, 6);
     expect(brighter / sector).toBeGreaterThan(1);
     expect(changed / sector).toBeGreaterThan(0.1);
   });
