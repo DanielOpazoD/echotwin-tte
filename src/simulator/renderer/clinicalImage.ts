@@ -1,7 +1,7 @@
 import { loadCaseById } from '@/cases';
-import { computeHeartPose, createHeartModel } from '@/simulator/anatomy/heartModel';
-import { createThoraxModel } from '@/simulator/anatomy/thoraxModel';
-import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
+import { computeHeartPose } from '@/simulator/anatomy/heartModel';
+import { buildCaseModels } from '@/simulator/anatomy/caseModels';
+import { cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { Structure } from '@/simulator/anatomy/tissue';
 import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
 import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
@@ -54,25 +54,11 @@ export function renderApical(
   scatterSeed?: number,
 ): ApicalRender {
   const c = loadCaseById(caseId);
-  const thorax = createThoraxModel(
-    c.bodyHabitus,
-    c.acousticWindow,
-    { position: 'left-lateral', respiration: 'expiration', headElevationDeg: 0 },
-    c.anatomy.ivc.collapsePct,
-  );
-  const heart = createHeartModel(
-    c.anatomy,
-    c.physiology,
-    thorax.heartOffset,
-    c.seed,
-    thorax.ivcCollapse,
-  );
-  const tables = buildBeatTables(
-    60 / c.rhythm.heartRateBpm,
-    c.physiology,
-    c.rhythm,
-    c.hemodynamics,
-  );
+  const { thorax, heart, tables } = buildCaseModels(c, {
+    position: 'left-lateral',
+    respiration: 'expiration',
+    headElevationDeg: 0,
+  });
   const phase = ed ? 0 : tables.timings.ejectionEndS / tables.rrS;
   const settings = DEFAULT_ACQUISITION;
   const spec = polarSpecFor(settings, 'high');

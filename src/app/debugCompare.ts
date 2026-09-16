@@ -1,7 +1,7 @@
 import { loadCaseById } from '@/cases';
-import { computeHeartPose, createHeartModel, heartLandmarks } from '@/simulator/anatomy/heartModel';
-import { createThoraxModel } from '@/simulator/anatomy/thoraxModel';
-import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
+import { computeHeartPose } from '@/simulator/anatomy/heartModel';
+import { cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
+import { buildCaseModels } from '@/simulator/anatomy/caseModels';
 import { ProceduralSliceRenderer } from '@/simulator/renderer/procedural/sliceRenderer';
 import { createWebgl2Renderer } from '@/simulator/renderer/gpu/webgl2Renderer';
 import {
@@ -63,19 +63,11 @@ function canonicalSetup(
   probeOffsetV = 0,
 ) {
   const c = loadCaseById(caseId);
-  const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, {
+  const { thorax, heart, tables } = buildCaseModels(c, {
     position: 'left-lateral',
     respiration: 'expiration',
     headElevationDeg: 0,
   });
-  const heart = createHeartModel(c.anatomy, c.physiology, thorax.heartOffset, c.seed);
-  heartLandmarks(heart);
-  const tables = buildBeatTables(
-    60 / c.rhythm.heartRateBpm,
-    c.physiology,
-    c.rhythm,
-    c.hemodynamics,
-  );
   const canonical = canonicalControl(getViewTarget(viewId), heart, thorax);
   // an offset along the ribs' spacing puts a rib under the probe, which the presets avoid
   const ctrl = { ...canonical, v: canonical.v + probeOffsetV };

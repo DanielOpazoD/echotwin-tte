@@ -8,6 +8,14 @@ import type { SectorMapping } from '@/simulator/renderer/scanConvert';
 import type { CaseDefinition } from '@/cases/schema';
 import type { StructuredEchoTruth } from '@/simulator/hemodynamics/groundTruth';
 
+/**
+ * The backend the user selects (Dev panel). `atlas` wraps the GPU port when available and the CPU tracer
+ * otherwise; `procedural` forces the CPU reference; `webgl2` asks for the port directly. One list for the
+ * protocol, the store and the panel (engineering audit, B3).
+ */
+export const RENDERER_BACKEND_CHOICES = ['atlas', 'procedural', 'webgl2'] as const;
+export type RendererBackendChoice = (typeof RENDERER_BACKEND_CHOICES)[number];
+
 export type QualityTier = 'low' | 'medium' | 'high';
 
 /** Everything the UI can change, sent to the simulator every animation frame. */
@@ -26,7 +34,7 @@ export interface SimInput {
   gateDepthCm: number;
   quality: QualityTier;
   display: { width: number; height: number };
-  rendererBackend: 'atlas' | 'procedural' | 'webgl2';
+  rendererBackend: RendererBackendChoice;
   /** Artifact laboratory: live overrides of the case artifacts (0..1 each); null = as defined by the case. */
   artifactOverrides: {
     sideLobe: number;

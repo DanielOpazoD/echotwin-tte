@@ -1,12 +1,12 @@
 import type { CaseDefinition } from '@/cases/schema';
 import {
   computeHeartPose,
-  createHeartModel,
   heartLandmarks,
   type HeartModel,
   type HeartPose,
 } from '@/simulator/anatomy/heartModel';
-import { createThoraxModel, type ThoraxModel } from '@/simulator/anatomy/thoraxModel';
+import type { ThoraxModel } from '@/simulator/anatomy/thoraxModel';
+import { buildCaseModels } from '@/simulator/anatomy/caseModels';
 import {
   buildBeatTables,
   cycleStateAt,
@@ -189,26 +189,11 @@ export class SimulatorCore {
   constructor(caseDef: CaseDefinition, input: SimInput) {
     this.caseDef = caseDef;
     this.input = input;
-    this.thorax = createThoraxModel(
-      caseDef.bodyHabitus,
-      caseDef.acousticWindow,
-      input.patient,
-      caseDef.anatomy.ivc.collapsePct,
-    );
+    const models = buildCaseModels(caseDef, input.patient);
+    this.thorax = models.thorax;
+    this.heart = models.heart;
+    this.tables = models.tables;
     this.patientKey = JSON.stringify(input.patient);
-    this.heart = createHeartModel(
-      caseDef.anatomy,
-      caseDef.physiology,
-      this.thorax.heartOffset,
-      caseDef.seed,
-      this.thorax.ivcCollapse,
-    );
-    this.tables = buildBeatTables(
-      60 / caseDef.rhythm.heartRateBpm,
-      caseDef.physiology,
-      caseDef.rhythm,
-      caseDef.hemodynamics,
-    );
     this.nominalTables = this.tables;
     this.clock = new CardiacClock(caseDef.rhythm, caseDef.seed);
     this.truth = computeGroundTruth(caseDef, this.tables);
@@ -334,19 +319,10 @@ export class SimulatorCore {
   setInput(input: SimInput): void {
     const key = JSON.stringify(input.patient);
     if (key !== this.patientKey) {
-      this.thorax = createThoraxModel(
-        this.caseDef.bodyHabitus,
-        this.caseDef.acousticWindow,
-        input.patient,
-        this.caseDef.anatomy.ivc.collapsePct,
-      );
-      this.heart = createHeartModel(
-        this.caseDef.anatomy,
-        this.caseDef.physiology,
-        this.thorax.heartOffset,
-        this.caseDef.seed,
-        this.thorax.ivcCollapse,
-      );
+      // the beat tables of the running case are kept (chained beats continue); only the anatomy follows the patient
+      const models = buildCaseModels(this.caseDef, input.patient);
+      this.thorax = models.thorax;
+      this.heart = models.heart;
       // chained beats start again from the case tables with the new breathing (decision 108)
       if (
         input.patient.respiration !== this.input.patient.respiration &&
