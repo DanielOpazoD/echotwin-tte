@@ -722,6 +722,7 @@ select:focus-visible {
 }
 .torso-help {
   position: absolute;
+  pointer-events: none;
   left: 6px;
   right: 6px;
   bottom: 6px;

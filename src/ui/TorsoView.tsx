@@ -52,6 +52,11 @@ export function TorsoView() {
     el.appendChild(renderer.domElement);
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(35, 1, 1, 300);
+    // render-on-change bookkeeping for the navigator (see tick)
+    let dirty = true;
+    let lastRenderAt = 0;
+    let lastCostMs = 0;
+    let shownPhaseIdx = -1;
     // second view (decision 137): the heart cut by the imaging plane, seen face-on with the image's own
     // orientation (probe at the top, the image's lateral direction to the right)
     const cutCamera = new THREE.PerspectiveCamera(32, 1, 0.5, 200);
@@ -62,19 +67,31 @@ export function TorsoView() {
     const labelGroup = new THREE.Group();
     labelGroup.visible = false;
     scene.add(labelGroup);
-    const cutTicks = new THREE.LineSegments(
+    // What the cut view draws on the imaging plane, in plane coordinates (x lateral, y along the beam, cm) and
+    // carried by a per-frame transform: a veil over everything outside the sector, so the part of the cut that is
+    // not in the image reads as such without any line across the heart, and a depth ruler outside the left edge.
+    const cutOverlay = new THREE.Group();
+    cutOverlay.visible = false;
+    cutOverlay.matrixAutoUpdate = false;
+    scene.add(cutOverlay);
+    const outsideSector = new THREE.Mesh(
       new THREE.BufferGeometry(),
-      new THREE.LineBasicMaterial({
-        color: 0xffc857,
+      new THREE.MeshBasicMaterial({
+        color: 0x05070a,
         transparent: true,
-        opacity: 0.7,
-        depthTest: false,
+        opacity: 0.55,
+        depthWrite: false,
+        side: THREE.DoubleSide,
       }),
     );
-    cutTicks.visible = false;
+    outsideSector.renderOrder = 24;
+    const cutTicks = new THREE.LineSegments(
+      new THREE.BufferGeometry(),
+      new THREE.LineBasicMaterial({ color: 0xffc857, transparent: true, opacity: 0.8 }),
+    );
     cutTicks.renderOrder = 25;
-    scene.add(cutTicks);
-    let ticksDepth = -1;
+    cutOverlay.add(outsideSector, cutTicks);
+    let overlayKey = '';
     const layout = () => {
       const w = el.clientWidth || 300,
         h = el.clientHeight || 300;
@@ -130,6 +147,7 @@ export function TorsoView() {
       for (const l of model.landmarks) {
         const sp = textSprite(l.label, 0xffe8a3);
         sp.scale.multiplyScalar(0.8);
+        sp.renderOrder = 26;
         sp.userData['p'] = l.p;
         labelGroup.add(sp);
       }
@@ -147,6 +165,7 @@ export function TorsoView() {
     // standing still next to it (decision 68). Phases arrive one by one from the worker.
     const geomByGroup = new Map<string, THREE.BufferGeometry[]>();
     let phasesReady = 0;
+    let shownPhasesReady = -1;
     // extraction samples the implicit model hundreds of thousands of times: off the UI thread, with the
     // ghost showing until the surfaces arrive
     const meshWorker = new Worker(new URL('../workers/heartMesh.worker.ts', import.meta.url), {
@@ -225,6 +244,7 @@ export function TorsoView() {
       }
       phasesReady = Math.max(phasesReady, ev.data.index + 1);
       if (ghost) ghost.visible = false;
+      dirty = true;
     };
     // 0.26 cm and ten phases: extraction costs 553 ms per phase at this step against 2171 ms at 0.20, so the
     // whole beat is ready in ~5.5 s of worker time with the first phase on screen in half a second. The
@@ -342,6 +362,7 @@ export function TorsoView() {
     const mouse = new THREE.Vector2();
     const orbit = { az: 0.12, el: 0.08, r: 54, tx: 2, ty: -1.5, tz: -6 };
     const updateCamera = () => {
+      dirty = true;
       camera.position.set(
         orbit.tx + orbit.r * Math.sin(orbit.az) * Math.cos(orbit.el),
         orbit.ty + orbit.r * Math.sin(orbit.el),
@@ -542,6 +563,7 @@ export function TorsoView() {
       } else if (drag.mode === 'cutOrbit') {
         cutOrbit.yaw = Math.max(-0.7, Math.min(0.7, cutOrbit.yaw + dx * 0.005));
         cutOrbit.pitch = Math.max(-0.5, Math.min(0.5, cutOrbit.pitch - dy * 0.005));
+        dirty = true;
         drag = { ...drag, x: e.clientX, y: e.clientY };
       } else if (drag.mode === 'orbit') {
         orbit.az += dx * 0.006;
@@ -567,6 +589,7 @@ export function TorsoView() {
       e.preventDefault();
       if (halfOf(e) === 'bottom') {
         cutOrbit.zoom = Math.max(0.45, Math.min(2.5, cutOrbit.zoom * (e.deltaY > 0 ? 1.1 : 0.9)));
+        dirty = true;
         return;
       }
       if (e.ctrlKey || e.metaKey) {
@@ -583,6 +606,7 @@ export function TorsoView() {
         cutOrbit.yaw = 0;
         cutOrbit.pitch = 0;
         cutOrbit.zoom = 1;
+        dirty = true;
       }
     };
     dom.addEventListener('dblclick', onDbl);
@@ -599,12 +623,19 @@ export function TorsoView() {
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
+      dirty = true;
     };
     const ro = new ResizeObserver(resize);
     ro.observe(el);
     resize();
 
     let raf = 0;
+    // The navigator renders when something it shows has changed, and no faster than its own cost allows: two
+    // views with stencil caps are cheap on a GPU but not on a software renderer (the E2E browser), where a
+    // navigator drawn at 60 Hz starved the main thread of the simulator's frames.
+    const unsubDirty = useSimStore.subscribe(() => {
+      dirty = true;
+    });
     const tick = () => {
       raf = requestAnimationFrame(tick);
       const st = useSimStore.getState();
@@ -612,6 +643,16 @@ export function TorsoView() {
         renderer.render(scene, camera);
         return;
       }
+      const hudPhaseNow = useHudStore.getState().hud?.phase ?? 0;
+      const phaseIdxNow = Math.round(hudPhaseNow * MESH_PHASES.length) % MESH_PHASES.length;
+      if (phaseIdxNow !== shownPhaseIdx || phasesReady !== shownPhasesReady) dirty = true;
+      const now = performance.now();
+      const minInterval = lastCostMs > 25 ? Math.min(500, lastCostMs * 4) : 0;
+      if ((!dirty && now - lastRenderAt < 1000) || now - lastRenderAt < minInterval) return;
+      dirty = false;
+      lastRenderAt = now;
+      shownPhaseIdx = phaseIdxNow;
+      shownPhasesReady = phasesReady;
       const pose = poseFromControl(thorax, st.probe);
       const beam = beamFrameFromPose(pose);
       beamNow = beam;
@@ -709,6 +750,7 @@ export function TorsoView() {
       renderer.render(scene, camera);
       if (L.split && L.hBot > 20) renderCutView(st, beam, L);
       renderer.setScissorTest(false);
+      lastCostMs = performance.now() - now;
     };
     /** The cut view: the half of the heart the image plane leaves on the far side, seen from the removed side so
      *  that screen-right is the image's lateral direction and the probe sits at the top (mirrored when the
@@ -740,17 +782,47 @@ export function TorsoView() {
       cutCamera.updateProjectionMatrix();
       cutLight.position.copy(cutCamera.position);
       cutLight.target.position.copy(target);
-      if (ticksDepth !== depth) {
+      // the veil and the ruler are rebuilt when the sector changes; the transform follows the probe every frame.
+      // A ruler down the beam axis, and the sector's edge lines, crossed the heart in every view.
+      const key = `${depth}|${st.settings.sectorDeg}|${side}`;
+      if (key !== overlayKey) {
+        const half = (st.settings.sectorDeg * Math.PI) / 360;
+        const box = new THREE.Shape();
+        box.moveTo(-40, -12);
+        box.lineTo(40, -12);
+        box.lineTo(40, depth + 30);
+        box.lineTo(-40, depth + 30);
+        box.closePath();
+        const hole = new THREE.Path();
+        hole.moveTo(0, 0);
+        for (let i = 0; i <= 40; i++) {
+          const a = -half + (2 * half * i) / 40;
+          hole.lineTo(depth * Math.sin(a), depth * Math.cos(a));
+        }
+        hole.closePath();
+        box.holes.push(hole);
+        outsideSector.geometry.dispose();
+        outsideSector.geometry = new THREE.ShapeGeometry(box);
+        const ex = -Math.sin(half) * side,
+          ey = Math.cos(half);
+        const ox = -Math.cos(half) * side,
+          oy = -Math.sin(half);
         const pts: THREE.Vector3[] = [];
         for (let d = 1; d <= depth; d++) {
-          const c = o.clone().addScaledVector(f, d);
-          const half = d % 5 === 0 ? 0.45 : 0.22;
-          pts.push(c.clone().addScaledVector(lat, -half), c.clone().addScaledVector(lat, half));
+          const len = d % 5 === 0 ? 0.7 : 0.35;
+          pts.push(
+            new THREE.Vector3(ex * d, ey * d, 0),
+            new THREE.Vector3(ex * d + ox * len, ey * d + oy * len, 0),
+          );
         }
         cutTicks.geometry.dispose();
         cutTicks.geometry = new THREE.BufferGeometry().setFromPoints(pts);
-        ticksDepth = depth;
+        overlayKey = key;
       }
+      cutOverlay.matrix
+        .makeBasis(lat, f, n)
+        .setPosition(o.x + n.x * side * 0.08, o.y + n.y * side * 0.08, o.z + n.z * side * 0.08);
+      cutOverlay.matrixWorldNeedsUpdate = true;
       for (const sp of labelGroup.children) {
         const p = sp.userData['p'] as { x: number; y: number; z: number };
         const d = (p.x - o.x) * n.x + (p.y - o.y) * n.y + (p.z - o.z) * n.z;
@@ -774,18 +846,19 @@ export function TorsoView() {
       }
       // the sector's fill would veil the cut face: only its edges stay
       const hidden: THREE.Object3D[] = [];
-      for (const x of [skin, skeleton, ghost, windowMarks, axisGroup, fan]) if (x) hidden.push(x);
+      for (const x of [skin, skeleton, ghost, windowMarks, axisGroup, fan, fanEdges])
+        if (x) hidden.push(x);
       const wasVisible = hidden.map((x) => x.visible);
       for (const x of hidden) x.visible = false;
       cutLight.visible = true;
       labelGroup.visible = true;
-      cutTicks.visible = true;
+      cutOverlay.visible = true;
       renderer.setViewport(0, 0, L.w, L.hBot);
       renderer.setScissor(0, 0, L.w, L.hBot);
       renderer.render(scene, cutCamera);
       cutLight.visible = false;
       labelGroup.visible = false;
-      cutTicks.visible = false;
+      cutOverlay.visible = false;
       hidden.forEach((x, i) => (x.visible = wasVisible[i]!));
       cutPlane.normal.copy(n);
       cutPlane.constant = -n.dot(o);
@@ -800,6 +873,7 @@ export function TorsoView() {
     tick();
     return () => {
       cancelAnimationFrame(raf);
+      unsubDirty();
       meshWorker.terminate();
       ro.disconnect();
       dom.removeEventListener('mousedown', onDown);

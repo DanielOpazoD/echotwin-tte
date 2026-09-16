@@ -77,6 +77,11 @@ Herramientas de medición (`npm run measure -- <caso>`, `slice-map.ts`, `audit-v
 `render-views.ts`, `camus-compare.ts`) y el runbook de goldens y renders: `docs/validation/README.md`
 y la sección «Herramientas» del método de fidelidad. Los scripts temporales van fuera del repositorio.
 
+Los E2E locales levantan su propio `vite preview` en el puerto 4190 (`E2E_PORT` lo cambia) y nunca reutilizan un
+servidor ya existente: en esta máquina el runner propio sirve su checkout en el 4173 y quedan vistas previas de
+worktrees viejos en otros puertos, y una corrida que las reutilizara probaría otra build y no tu árbol de trabajo.
+Si el puerto está ocupado, Playwright falla en vez de probar lo que no es.
+
 ## Entregar
 
 Rama `feat/<nombre>` desde `main`, commit con mensaje en imperativo, MR en GitLab. El pipeline
