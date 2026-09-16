@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 130 (última: 130).
+Decisiones: 131 (última: 131).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -138,3 +138,4 @@ Decisiones: 130 (última: 130).
 | [128](DECISIONS.md#L413) | 2026-09-16 | La pose de una vista predeterminada la calcula el worker | vigente |
 | [129](DECISIONS.md#L415) | 2026-09-16 | El hilo principal no construye modelos: el navegador 3D recibe los suyos del worker de mallas y el núcleo en línea se carga bajo demanda | vigente |
 | [130](DECISIONS.md#L417) | 2026-09-16 | Los bloques del clasificador exponen sus fórmulas escalares y el sombreador las recibe generadas | vigente |
+| [131](DECISIONS.md#L419) | 2026-09-16 | La subcostal de la vena cava inferior contiene la cava y la vena hepática en todos los casos | vigente |

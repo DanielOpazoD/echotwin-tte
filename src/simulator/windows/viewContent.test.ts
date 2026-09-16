@@ -178,6 +178,9 @@ const EXPECTED: Record<string, { needs: Requirement[]; forbids?: Forbidden[] }> 
     needs: [
       need('inferior vena cava', Structure.Ivc, 1),
       need('right atrium', Structure.RaCavity, 0.5),
+      // the vein joining the cava is how the junction is found and where the calibre is measured; until decision 131
+      // it ran posterior and to the right, out of this plane, and no case showed it
+      need('hepatic vein', Structure.HepaticVein, 0.3),
     ],
   },
   'rv-focused': {
@@ -195,10 +198,10 @@ const EXPECTED: Record<string, { needs: Requirement[]; forbids?: Forbidden[] }> 
  * removed once fixed — the same contract as KNOWN_MODEL_LIMITATIONS in proportions.test.ts.
  */
 const KNOWN_VIEW_LIMITATIONS: ReadonlySet<string> = new Set([
-  // The mitral short axis cuts the inferior vena cava and a hepatic vein, which cannot be in that plane;
-  // the parasternal window solver puts the beam 24.3° away from the requested short axis (decision 59).
+  // The mitral short axis cuts the inferior vena cava, which cannot be in that plane; the parasternal window
+  // solver puts the beam 24.3° away from the requested short axis (decision 59). The hepatic vein left this
+  // plane when it took its real course, in front of the cava (decision 131).
   'psax-mv/inferior vena cava',
-  'psax-mv/hepatic vein',
   // The two-chamber plane clips the pulmonary trunk beside the left atrial appendage, 12-14 cm deep at the anterior edge
   // of the sector. The lung hid it until the A2C preset stopped sliding under the lingula (decisions 72 and 83).
   'a2c/pulmonary artery',

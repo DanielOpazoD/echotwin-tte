@@ -128,6 +128,7 @@ export function anchors(m: HeartModel): Anchors {
   const tRight = dirH(v3(-1, 0, 0)),
     tLeft = dirH(v3(1, 0, 0)),
     tPost = dirH(v3(0, 0, -1)),
+    tAnt = dirH(v3(0, 0, 1)),
     tSup = dirH(v3(0, 1, 0)),
     tInf = dirH(v3(0, -1, 0));
   // venae cavae: SVC from the posterior RA roof upward, IVC from the posterior RA floor downward and back
@@ -211,9 +212,12 @@ export function anchors(m: HeartModel): Anchors {
     ivcB: add(ivcA, scale(ivcDir, 5.0)),
     ivcR: a.ivc.diameterCm / 2,
     hvA,
+    // the middle hepatic vein reaches the cava from the liver parenchyma in front of and below the junction, a little to
+    // the left: the course the subcostal long axis of the cava contains. Until 2026-09-16 it ran posterior and to the
+    // right, out of that plane, so the view that is defined by the vein joining the cava never showed it (decision 131)
     hvB: add(
       hvA,
-      scale(normalize(add(add(scale(tPost, 0.6), scale(tRight, 0.5)), scale(tInf, 0.3))), 2.5),
+      scale(normalize(add(add(scale(tAnt, 0.65), scale(tLeft, 0.3)), scale(tInf, 0.65))), 2.5),
     ),
     // papillary azimuths (model frame = AHA − 28°): anterolateral at the lateral wall (AHA ≈ 0°, 3 o'clock in
     // PSAX), posteromedial at the inferior / inferoseptal junction (AHA ≈ 250°, 7–8 o'clock)
