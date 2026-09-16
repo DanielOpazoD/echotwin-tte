@@ -41,16 +41,25 @@ test.describe('EchoTwin TTE core flow', () => {
     expect(probeAfter.u).toBeCloseTo(probeBefore.u + 0.2, 5);
     // rotate a lot: the view analysis must react (score/plane error change)
     const hud0 = await getHud(page);
-    for (let i = 0; i < 6; i++) await page.keyboard.press('Shift+E');
-    await page.waitForTimeout(1500);
-    const hud1 = await getHud(page);
     const v0 = hud0?.['view'] as { score: number; inPlaneRotationDeg: number } | null;
-    const v1 = hud1?.['view'] as { score: number; inPlaneRotationDeg: number } | null;
-    expect(
-      v0 &&
-        v1 &&
-        (v0.score !== v1.score || Math.abs(v0.inPlaneRotationDeg - v1.inPlaneRotationDeg) > 5),
-    ).toBeTruthy();
+    expect(v0).toBeTruthy();
+    for (let i = 0; i < 6; i++) await page.keyboard.press('Shift+E');
+    // the view analysis runs every five frames: poll for it instead of sleeping a fixed time (flaky on shared runners)
+    await expect
+      .poll(
+        async () => {
+          const v1 = (await getHud(page))?.['view'] as {
+            score: number;
+            inPlaneRotationDeg: number;
+          } | null;
+          return (
+            !!v1 &&
+            (v0!.score !== v1.score || Math.abs(v0!.inPlaneRotationDeg - v1.inPlaneRotationDeg) > 5)
+          );
+        },
+        { timeout: 30_000 },
+      )
+      .toBe(true);
   });
 
   test('colour Doppler can be enabled and its scale changed', async ({ page }) => {
@@ -63,9 +72,9 @@ test.describe('EchoTwin TTE core flow', () => {
     await scale.fill('0.3');
     const s = await getStore(page);
     expect((s['color'] as { scaleMps: number }).scaleMps).toBeCloseTo(0.3, 5);
-    await page.waitForTimeout(1500);
-    const hud = await getHud(page);
-    expect((hud?.['colorFps'] as number) ?? 0).toBeGreaterThan(0);
+    await expect
+      .poll(async () => ((await getHud(page))?.['colorFps'] as number) ?? 0, { timeout: 30_000 })
+      .toBeGreaterThan(0);
   });
 
   test('freeze, cine and a linear caliper measurement', async ({ page }) => {
@@ -89,14 +98,14 @@ test.describe('EchoTwin TTE core flow', () => {
 
   test('PW Doppler shows a spectral strip and M-mode a trace', async ({ page }) => {
     await page.getByRole('button', { name: 'PW', exact: true }).click();
-    await page.waitForTimeout(2000);
-    let hud = await getHud(page);
-    expect((hud?.['strip'] as { kind: string }).kind).toBe('spectral');
-    expect(hud?.['spectrumColumn']).toBeTruthy();
+    const stripKind = async () =>
+      ((await getHud(page))?.['strip'] as { kind: string } | undefined)?.kind ?? null;
+    await expect.poll(stripKind, { timeout: 30_000 }).toBe('spectral');
+    await expect
+      .poll(async () => !!(await getHud(page))?.['spectrumColumn'], { timeout: 30_000 })
+      .toBe(true);
     await page.getByRole('button', { name: 'M', exact: true }).click();
-    await page.waitForTimeout(1500);
-    hud = await getHud(page);
-    expect((hud?.['strip'] as { kind: string }).kind).toBe('m-mode');
+    await expect.poll(stripKind, { timeout: 30_000 }).toBe('m-mode');
   });
 
   test('exam mode hides hints, physics and dev panel', async ({ page }) => {
@@ -158,10 +167,19 @@ test('a preset view moves the probe continuously and reaches the target view', a
   await waitForFrames(page, 3);
   const before = (await getStore(page))['probe'] as { u: number; v: number; rotationDeg: number };
   await page.getByRole('button', { name: 'A4C', exact: true }).click();
-  await page.waitForTimeout(400);
-  const mid = (await getStore(page))['probe'] as { u: number; v: number; rotationDeg: number };
-  // still travelling: between the start and the apical window
-  expect(Math.hypot(mid.u - before.u, mid.v - before.v)).toBeGreaterThan(0.1);
+  // still travelling: catch the probe between the start and the apical window while the animation runs
+  const probe = async () =>
+    (await getStore(page))['probe'] as { u: number; v: number; rotationDeg: number };
+  await expect
+    .poll(
+      async () => {
+        const p = await probe();
+        return Math.hypot(p.u - before.u, p.v - before.v);
+      },
+      { timeout: 5000 },
+    )
+    .toBeGreaterThan(0.1);
+  const mid = await probe();
   await page.waitForFunction(
     () => {
       const w = window as unknown as {
@@ -172,11 +190,13 @@ test('a preset view moves the probe continuously and reaches the target view', a
     undefined,
     { timeout: 8000 },
   );
-  await page.waitForTimeout(1500);
-  const hud = await getHud(page);
-  const view = hud?.['view'] as { bestViewId: string; score: number };
-  expect(view.bestViewId).toBe('a4c');
-  expect(view.score).toBeGreaterThan(55);
+  // the analysis of the final pose arrives a few frames later
+  const view = async () =>
+    (await getHud(page))?.['view'] as { bestViewId: string; score: number } | undefined;
+  await expect.poll(async () => (await view())?.bestViewId, { timeout: 15_000 }).toBe('a4c');
+  await expect
+    .poll(async () => (await view())?.score ?? 0, { timeout: 15_000 })
+    .toBeGreaterThan(55);
   // the probe remains manipulable afterwards
   await page.keyboard.press('e');
   const after = (await getStore(page))['probe'] as { rotationDeg: number };
