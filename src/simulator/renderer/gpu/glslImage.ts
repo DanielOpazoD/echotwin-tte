@@ -1,4 +1,16 @@
-import { CLINICAL_GREY_CURVE, NOISE_RMS, REF_DB } from '../postprocess/consolePipeline';
+import {
+  CLINICAL_GREY_CURVE,
+  HIGH_CONTRAST_GAMMA,
+  LOG_FLOOR,
+  NOISE_MAGNITUDE_BINS,
+  NOISE_PHASE_BINS,
+  NOISE_RMS,
+  NOISE_TAIL,
+  REF_DB,
+  S_CURVE_MIX,
+} from '../postprocess/consolePipeline';
+import { colorMapDefinesGlsl } from '../postprocess/colorMap';
+import { psfDefinesGlsl } from '../acoustic/psf';
 import { TRANS_K } from '../transmissionCode';
 
 /**
@@ -37,24 +49,28 @@ uniform uint uSeed;
 uniform uint uFrameIndex;
 layout(location = 0) out vec4 outNoise;  // re, 0, im, 1
 #define NOISE_RMS ${glslFloat(NOISE_RMS)}
+#define NOISE_TAIL ${glslFloat(NOISE_TAIL)}
+#define NOISE_MAGNITUDE_BINS ${NOISE_MAGNITUDE_BINS}
+#define NOISE_PHASE_BINS ${NOISE_PHASE_BINS}
+${psfDefinesGlsl()}
 ${GLSL_HASH}
 // consolePipeline.ts receiverNoise: magnitude from the high 16 bits of one hash, phase from its low 10 bits
 vec2 white(int li, int si) {
   uint h = hash3u(uint(li), uint(si), uFrameIndex, uSeed);
-  float r = NOISE_RMS * sqrt(-log(1.0 - 0.999999 * (float(h >> 16u) / 65536.0)));
-  float phi = 6.283185307179586 * (float(h & 1023u) / 1024.0);
+  float r = NOISE_RMS * sqrt(-log(1.0 - NOISE_TAIL * (float(h >> 16u) / float(NOISE_MAGNITUDE_BINS))));
+  float phi = 6.283185307179586 * (float(h & uint(NOISE_PHASE_BINS - 1)) / float(NOISE_PHASE_BINS));
   return vec2(r * cos(phi), r * sin(phi));
 }
 
 void main() {
   int si = int(gl_FragCoord.x);
   int li = int(gl_FragCoord.y);
-  int R = int(texelFetch(uKernels, ivec2(8, 0), 0).g + 0.5);
+  int R = int(texelFetch(uKernels, ivec2(PSF_LATERAL_RADIUS, 0), 0).g + 0.5);
   int last = uSamples - 1;
   vec2 acc = vec2(0.0);
-  for (int j = -4; j <= 4; j++) {
+  for (int j = -PSF_AXIAL_RADIUS; j <= PSF_AXIAL_RADIUS; j++) {
     if (j < -R || j > R) continue;
-    acc += texelFetch(uKernels, ivec2(8 + j, 0), 0).r * white(li, clamp(si + j, 0, last));
+    acc += texelFetch(uKernels, ivec2(PSF_LATERAL_RADIUS + j, 0), 0).r * white(li, clamp(si + j, 0, last));
   }
   outNoise = vec4(acc.x, 0.0, acc.y, 1.0);
 }
@@ -69,16 +85,17 @@ uniform sampler2D uNoiseAx;
 uniform sampler2D uKernels;
 uniform int uLines;
 layout(location = 0) out vec4 outNoise;  // re, 0, im, 1
+${psfDefinesGlsl()}
 
 void main() {
   int si = int(gl_FragCoord.x);
   int li = int(gl_FragCoord.y);
-  int R = int(texelFetch(uKernels, ivec2(8, si + 1), 0).g + 0.5);
+  int R = int(texelFetch(uKernels, ivec2(PSF_LATERAL_RADIUS, si + 1), 0).g + 0.5);
   int last = uLines - 1;
   vec4 acc = vec4(0.0);
-  for (int j = -8; j <= 8; j++) {
+  for (int j = -PSF_LATERAL_RADIUS; j <= PSF_LATERAL_RADIUS; j++) {
     if (j < -R || j > R) continue;
-    acc += texelFetch(uKernels, ivec2(8 + j, si + 1), 0).r * texelFetch(uNoiseAx, ivec2(si, clamp(li + j, 0, last)), 0);
+    acc += texelFetch(uKernels, ivec2(PSF_LATERAL_RADIUS + j, si + 1), 0).r * texelFetch(uNoiseAx, ivec2(si, clamp(li + j, 0, last)), 0);
   }
   outNoise = vec4(acc.x, 0.0, acc.z, 1.0);
 }
@@ -104,6 +121,9 @@ layout(location = 1) out vec4 outPacked;
 #define TRANS_K ${glslFloat(TRANS_K)}
 #define GREY_C ${glslFloat(CLINICAL_GREY_CURVE)}
 #define GREY_LOG ${glslFloat(Math.log1p(CLINICAL_GREY_CURVE))}
+#define S_CURVE_MIX ${glslFloat(S_CURVE_MIX)}
+#define HIGH_CONTRAST_GAMMA ${glslFloat(HIGH_CONTRAST_GAMMA)}
+#define LOG_FLOOR ${glslFloat(LOG_FLOOR)}
 
 // detection with the receiver noise + amplification + log compression of one sample → 0..1
 float compressed(int si, int li) {
@@ -111,7 +131,7 @@ float compressed(int si, int li) {
   vec4 nz = texelFetch(uNoise, ivec2(si, li), 0);
   float x = amp + nz.r;
   float a = sqrt(x * x + nz.b * nz.b) * texelFetch(uComp, ivec2(si, 0), 0).r;
-  float db = 20.0 * log(a + 1e-6) * 0.4342944819032518 - REF_DB;
+  float db = 20.0 * log(a + LOG_FLOOR) * 0.4342944819032518 - REF_DB;
   return clamp((db + uDynRange) / uDynRange, 0.0, 1.0);
 }
 
@@ -127,8 +147,8 @@ void main() {
   if (uPersist > 0.0) y = y * (1.0 - uPersist) + texelFetch(uHist, ivec2(si, li), 0).r * uPersist;
   outHist = vec4(y, 0.0, 0.0, 1.0);
   float g = y;
-  if (uGrayMap == 1) g = g * g * (3.0 - 2.0 * g) * 0.85 + g * 0.15;
-  else if (uGrayMap == 2) g = pow(g, 1.6);
+  if (uGrayMap == 1) g = g * g * (3.0 - 2.0 * g) * S_CURVE_MIX + g * (1.0 - S_CURVE_MIX);
+  else if (uGrayMap == 2) g = pow(g, HIGH_CONTRAST_GAMMA);
   else if (uGrayMap == 3) g = (exp(g * GREY_LOG) - 1.0) / GREY_C;
   vec4 ids = texelFetch(uIds, ivec2(si, li), 0);
   float t = clamp(texelFetch(uEnv, ivec2(si, li), 0).g, 1e-4, 1.0);
@@ -153,21 +173,23 @@ uniform int uColorOn;
 uniform vec4 uBox;          // rMin, rMax, thetaMin, thetaMax
 uniform vec2 uColorMap;     // scale (m/s), show variance (0/1)
 out vec4 outColor;
+${colorMapDefinesGlsl()}
 
 uint grey(int s, int l) { return uint(texelFetch(uPacked, ivec2(s, l), 0).r * 255.0 + 0.5); }
 
-// colorDoppler.ts colorMap
+// postprocess/colorMap.ts colorMap
 vec3 colorMap(float v, float scale, float variance, bool showVariance) {
   float t = clamp(v / scale, -1.0, 1.0);
   float a = abs(t);
+  float dominant = CM_DOMINANT_BASE + CM_DOMINANT_RANGE * min(1.0, a * CM_DOMINANT_GAIN);
   vec3 c = t >= 0.0
-    ? vec3(120.0 + 135.0 * min(1.0, a * 1.2), 20.0 + 220.0 * max(0.0, a - 0.55) * 2.2, 20.0)
-    : vec3(20.0, 40.0 + 200.0 * max(0.0, a - 0.55) * 2.2, 120.0 + 135.0 * min(1.0, a * 1.2));
-  if (showVariance && variance > 0.15) {
-    float g = min(1.0, (variance - 0.15) * 1.5);
-    c.g = c.g * (1.0 - g) + 230.0 * g;
-    c.r = c.r * (1.0 - g * 0.4);
-    c.b = c.b * (1.0 - g * 0.4);
+    ? vec3(dominant, CM_GREEN_BASE_TOWARD + CM_GREEN_RANGE_TOWARD * max(0.0, a - CM_GREEN_KNEE) * CM_GREEN_GAIN, CM_QUIET)
+    : vec3(CM_QUIET, CM_GREEN_BASE_AWAY + CM_GREEN_RANGE_AWAY * max(0.0, a - CM_GREEN_KNEE) * CM_GREEN_GAIN, dominant);
+  if (showVariance && variance > CM_VARIANCE_MIN) {
+    float g = min(1.0, (variance - CM_VARIANCE_MIN) * CM_VARIANCE_GAIN);
+    c.g = c.g * (1.0 - g) + CM_VARIANCE_GREEN * g;
+    c.r = c.r * (1.0 - g * CM_VARIANCE_FADE);
+    c.b = c.b * (1.0 - g * CM_VARIANCE_FADE);
   }
   return c;
 }
@@ -195,7 +217,7 @@ void main() {
       int li = min(uLines - 1, l0 + (lt >= 512u ? 1 : 0));
       int si = min(uSamples - 1, s0 + (st >= 512u ? 1 : 0));
       vec4 cf = texelFetch(uColor, ivec2(si, li), 0);
-      if (cf.b > 0.5) rgb = floor(colorMap(cf.r, uColorMap.x, cf.g, uColorMap.y > 0.5) * 0.85 + rgb * 0.15 + 0.5);
+      if (cf.b > 0.5) rgb = floor(colorMap(cf.r, uColorMap.x, cf.g, uColorMap.y > 0.5) * COLOR_BLEND + rgb * (1.0 - COLOR_BLEND) + 0.5);
     }
   }
   outColor = vec4(rgb / 255.0, 1.0);

@@ -38,6 +38,19 @@ export const REF_DB = -4;
  */
 export const CLINICAL_GREY_CURVE = 3.5;
 const CLINICAL_GREY_LOG = Math.log1p(CLINICAL_GREY_CURVE);
+/** S-curve grey map: smoothstep weighted against the identity. */
+export const S_CURVE_MIX = 0.85;
+/** High-contrast grey map exponent. */
+export const HIGH_CONTRAST_GAMMA = 1.6;
+/** Floor added before the log so a zero envelope compresses to −∞ dB without NaN. */
+export const LOG_FLOOR = 1e-6;
+/**
+ * Receiver-noise magnitude table: the Rayleigh tail is truncated at this fraction of the CDF (3.3 RMS), the
+ * magnitude comes from the high 16 bits of the hash and the phase from its low 10 bits (decision 91).
+ */
+export const NOISE_TAIL = 0.999999;
+export const NOISE_MAGNITUDE_BINS = 65536;
+export const NOISE_PHASE_BINS = 1024;
 
 /**
  * Persistence weight of a frame that arrives `elapsedS` after the previous one, for a scanner whose frame interval is
@@ -74,11 +87,15 @@ const noiseKernelCache = new Map<string, PsfKernels>();
  * same expressions on the same bits.
  */
 const NOISE_MAGNITUDE = Float32Array.from(
-  { length: 65536 },
-  (_, i) => NOISE_RMS * Math.sqrt(-Math.log(1 - 0.999999 * (i / 65536))),
+  { length: NOISE_MAGNITUDE_BINS },
+  (_, i) => NOISE_RMS * Math.sqrt(-Math.log(1 - NOISE_TAIL * (i / NOISE_MAGNITUDE_BINS))),
 );
-const NOISE_COS = Float32Array.from({ length: 1024 }, (_, i) => Math.cos((2 * Math.PI * i) / 1024));
-const NOISE_SIN = Float32Array.from({ length: 1024 }, (_, i) => Math.sin((2 * Math.PI * i) / 1024));
+const NOISE_COS = Float32Array.from({ length: NOISE_PHASE_BINS }, (_, i) =>
+  Math.cos((2 * Math.PI * i) / NOISE_PHASE_BINS),
+);
+const NOISE_SIN = Float32Array.from({ length: NOISE_PHASE_BINS }, (_, i) =>
+  Math.sin((2 * Math.PI * i) / NOISE_PHASE_BINS),
+);
 
 /** Receive response of the noise for a frame or M-mode line geometry (a few geometries alternate: frames and lines). */
 function noiseKernels(spec: PolarFrameSpec, settings: AcquisitionSettings): PsfKernels {
@@ -111,7 +128,7 @@ export function receiverNoise(
     for (let si = 0; si < samples; si++) {
       const h = hash3(li, si, frameIndex, seed) * 4294967296;
       const r = NOISE_MAGNITUDE[h >>> 16]!,
-        q = h & 1023;
+        q = h & (NOISE_PHASE_BINS - 1);
       re[li * samples + si] = r * NOISE_COS[q]!;
       im[li * samples + si] = r * NOISE_SIN[q]!;
     }
@@ -267,7 +284,7 @@ export function applyConsole(
   b.set(a);
   // 3) log compression / dynamic range → 0..1
   for (let i = 0; i < n; i++) {
-    const db = 20 * Math.log10((b[i] ?? 0) + 1e-6) - REF_DB;
+    const db = 20 * Math.log10((b[i] ?? 0) + LOG_FLOOR) - REF_DB;
     const y = (db + dr_) / dr_;
     a[i] = y < 0 ? 0 : y > 1 ? 1 : y;
   }
@@ -307,8 +324,9 @@ export function applyConsole(
   // 7) gray map
   for (let i = 0; i < n; i++) {
     let y = a[i] ?? 0;
-    if (settings.grayMap === 's-curve') y = y * y * (3 - 2 * y) * 0.85 + y * 0.15;
-    else if (settings.grayMap === 'high-contrast') y = Math.pow(y, 1.6);
+    if (settings.grayMap === 's-curve')
+      y = y * y * (3 - 2 * y) * S_CURVE_MIX + y * (1 - S_CURVE_MIX);
+    else if (settings.grayMap === 'high-contrast') y = Math.pow(y, HIGH_CONTRAST_GAMMA);
     else if (settings.grayMap === 'clinical')
       y = Math.expm1(y * CLINICAL_GREY_LOG) / CLINICAL_GREY_CURVE;
     outU8[i] = Math.round(y * 255);
