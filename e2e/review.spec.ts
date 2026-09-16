@@ -54,3 +54,117 @@ test('a marker names the structure under the click and the report round-trips th
   const store = await getStore(page);
   expect((store['ui'] as { reviewMode: boolean }).reviewMode).toBe(true);
 });
+
+test('markers move by dragging, delete with a key, come back with undo, and can be put on the 3D model', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await waitForFrames(page, 3);
+  await page.evaluate(() => {
+    const w = window as unknown as EchoWindow;
+    (w.__echotwin.useSimStore.getState()['setUi'] as (u: unknown) => void)({
+      reviewMode: true,
+      consoleTab: 'revisar',
+      tutorialDone: true,
+    });
+  });
+  const canvas = page.locator('canvas.overlay');
+  const box = (await canvas.boundingBox())!;
+  const at = { x: box.x + box.width * 0.5, y: box.y + box.height * 0.4 };
+  await page.mouse.click(at.x, at.y);
+  const markers = () =>
+    page.evaluate(() => {
+      const w = window as unknown as EchoWindow;
+      return (
+        w.__echotwin.useSimStore.getState()['reviewMarkers'] as {
+          id: string;
+          space: string;
+          rCm: number | null;
+          point: { structure: number; offPlaneCm: number } | null;
+        }[]
+      ).map((m) => ({ id: m.id, space: m.space, rCm: m.rCm, point: m.point }));
+    });
+  await expect.poll(async () => (await markers())[0]?.point !== null).toBe(true);
+  const before = (await markers())[0]!;
+  // the first marker on a live image froze it (decision 135)
+  expect((await getStore(page))['frozen'] as boolean).toBe(true);
+
+  // drag the marker 40 px deeper: its polar position changes and the worker answers again
+  await page.mouse.move(at.x, at.y);
+  await page.mouse.down();
+  await page.mouse.move(at.x, at.y + 20, { steps: 4 });
+  await page.mouse.move(at.x, at.y + 40, { steps: 4 });
+  await page.mouse.up();
+  await expect.poll(async () => (await markers())[0]?.point !== null).toBe(true);
+  const after = (await markers())[0]!;
+  expect(after.id).toBe(before.id);
+  expect(after.rCm!).toBeGreaterThan(before.rCm! + 0.5);
+
+  // the click selected it: Delete removes it, undo brings it back
+  await expect(page.locator('.review-item.on')).toHaveCount(1);
+  await page.keyboard.press('Delete');
+  await expect(page.locator('.review-item')).toHaveCount(0);
+  await page.keyboard.press('Control+z');
+  await expect(page.locator('.review-item')).toHaveCount(1);
+
+  // a click without drag on the 3D navigator marks the surface it hits (skin, bone or heart)
+  const torso = page.locator('.torso-wrap canvas');
+  const tb = (await torso.boundingBox())!;
+  await expect
+    .poll(
+      async () => {
+        await page.mouse.click(tb.x + tb.width * 0.5, tb.y + tb.height * 0.45);
+        return (await markers()).some((m) => m.space === 'model');
+      },
+      { timeout: 30_000, intervals: [1000] },
+    )
+    .toBe(true);
+  await expect(page.locator('.review-chip')).toHaveCount(1);
+  await expect
+    .poll(async () => (await markers()).find((m) => m.space === 'model')?.point !== null)
+    .toBe(true);
+  const model = (await markers()).find((m) => m.space === 'model')!;
+  expect(Number.isFinite(model.point!.offPlaneCm)).toBe(true);
+  await expect(page.locator('.review-item').last().locator('.review-place')).toContainText('3D ·');
+});
+
+test('Alt+click adds a secondary point to the selected marker, joined to it in the report', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await waitForFrames(page, 3);
+  await page.evaluate(() => {
+    const w = window as unknown as EchoWindow;
+    (w.__echotwin.useSimStore.getState()['setUi'] as (u: unknown) => void)({
+      reviewMode: true,
+      consoleTab: 'revisar',
+      tutorialDone: true,
+    });
+  });
+  const canvas = page.locator('canvas.overlay');
+  const box = (await canvas.boundingBox())!;
+  await canvas.click({ position: { x: box.width * 0.5, y: box.height * 0.35 } });
+  await canvas.click({
+    position: { x: box.width * 0.42, y: box.height * 0.28 },
+    modifiers: ['Alt'],
+  });
+  await expect(page.locator('.review-item')).toHaveCount(1);
+  await expect(page.locator('.review-child')).toHaveCount(1);
+  await expect(page.locator('.review-child .review-n')).toHaveText('1a');
+  // the armed button links the next click too
+  await page.getByRole('button', { name: 'Añadir puntos secundarios al marcador 1' }).click();
+  await canvas.click({ position: { x: box.width * 0.58, y: box.height * 0.3 } });
+  await expect(page.locator('.review-child')).toHaveCount(2);
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Copiar informe' }).click();
+  const text = await page.getByLabel('Informe de revisión en texto').inputValue();
+  expect(text).toMatch(/\n {2}1a\. .* cm de 1 \(/);
+  expect(text).toContain('\n  1b. ');
+  // deleting the primary takes both secondaries; undo brings the three back (the badge selects the card
+  // without focusing its note, where Delete would only edit text)
+  await page.locator('.review-item > .review-head > .review-n').first().click();
+  await page.keyboard.press('Delete');
+  await expect(page.locator('.review-item')).toHaveCount(0);
+  await page.keyboard.press('Control+z');
+  await expect(page.locator('.review-child')).toHaveCount(2);
+});

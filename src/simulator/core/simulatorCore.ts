@@ -58,7 +58,7 @@ import {
   type BeamFrame,
 } from '@/simulator/probe/pose';
 import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
-import { probePointAt } from './probePoint';
+import { probePointAt, probeTorsoPointAt } from './probePoint';
 import { analyzeView, type ViewAnalysis } from '@/simulator/view-recognition/viewQuality';
 import {
   buildFlowParams,
@@ -703,15 +703,24 @@ export class SimulatorCore {
       const scene = this.scene(this.lastPhase);
       return {
         kind: 'probePoint',
-        point: probePointAt(
-          this.heart,
-          this.thorax,
-          scene.heartPose,
-          beam,
-          req.rCm,
-          req.thetaRad,
-          this.lastPhase,
-        ),
+        point: req.torso
+          ? probeTorsoPointAt(
+              this.heart,
+              this.thorax,
+              scene.heartPose,
+              beam,
+              req.torso,
+              this.lastPhase,
+            )
+          : probePointAt(
+              this.heart,
+              this.thorax,
+              scene.heartPose,
+              beam,
+              req.rCm ?? 0,
+              req.thetaRad ?? 0,
+              this.lastPhase,
+            ),
       };
     }
     if (req.kind === 'canonicalControl')

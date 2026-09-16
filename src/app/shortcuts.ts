@@ -18,6 +18,10 @@ export const SHORTCUTS: { keys: string; action: string }[] = [
   { keys: '- / +', action: 'Ganancia −/+ 2 dB' },
   { keys: 'H', action: 'Mostrar/ocultar torso 3D' },
   { keys: 'R', action: 'Modo revisión: marcar la imagen para un informe' },
+  {
+    keys: 'Supr / Retroceso',
+    action: 'Revisión: borrar el marcador seleccionado (Ctrl+Z deshace)',
+  },
   { keys: '. / ,', action: 'Cine: cuadro siguiente/anterior (en freeze)' },
   { keys: 'Esc', action: 'Cancelar la medición en curso' },
 ];
@@ -130,6 +134,19 @@ export function useShortcuts(): void {
         case 'Escape':
           if (s.activeMeasurementId) s.setActiveMeasurement(null);
           else if (s.activeTool !== 'none') s.setActiveTool('none');
+          else if (s.reviewLinkParentId) s.armReviewLink(null);
+          else if (s.reviewSelectedId) s.selectReviewMarker(null);
+          break;
+        case 'Delete':
+        case 'Backspace':
+          if (s.ui.reviewMode && s.reviewSelectedId) s.removeReviewMarker(s.reviewSelectedId);
+          else return;
+          break;
+        case 'z':
+        case 'Z':
+          if ((e.ctrlKey || e.metaKey) && s.ui.reviewMode && s.reviewUndo.length)
+            s.undoReviewRemove();
+          else return;
           break;
         default:
           return;

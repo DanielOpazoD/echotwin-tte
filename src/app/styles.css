@@ -1394,3 +1394,57 @@ details.adv > summary:hover::before {
   color: #7ce8a0;
   margin-top: 6px;
 }
+.review-item.on {
+  border-color: #ff6ad5;
+  box-shadow: 0 0 0 1px #ff6ad5 inset;
+}
+.review-item {
+  cursor: pointer;
+}
+.review-chip {
+  font-size: 10px;
+  border: 1px solid #ff6ad5;
+  color: #ff6ad5;
+  border-radius: 4px;
+  padding: 0 4px;
+  flex: none;
+}
+.review-help {
+  font-size: 11px;
+  color: #9aa4b5;
+  margin-top: 6px;
+}
+.review-source {
+  font-size: 12px;
+  color: #ffc857;
+  margin-top: 4px;
+}
+canvas.overlay.review {
+  cursor: crosshair;
+}
+.review-children {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-left: 14px;
+  border-left: 2px solid #ff6ad5;
+  padding-left: 8px;
+}
+.review-child {
+  display: grid;
+  gap: 4px;
+  padding: 4px 0;
+  cursor: pointer;
+}
+.review-child.on .review-n {
+  background: #ffffff;
+}
+.review-n.small {
+  width: 26px;
+  border-radius: 8px;
+  font-size: 11px;
+}
+.review-actions button.on {
+  border-color: #ffc857;
+  color: #ffc857;
+}
