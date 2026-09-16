@@ -49,6 +49,10 @@ describe('heartMesh.worker', () => {
       expect(Number.isFinite(w.u) && Number.isFinite(w.v)).toBe(true);
       expect(['parasternal', 'apical', 'subcostal', 'suprasternal']).toContain(w.window);
     }
+    // named points for the cut view: the LV apex is caudal to the mitral valve along the torso's superior axis
+    const lm = (id: string) => model.landmarks.find((l) => l.id === id)!;
+    expect(lm('mv')).toBeDefined();
+    expect(lm('lv-apex').p.y).toBeLessThan(lm('mv').p.y);
     expect(model.windows.find((w) => w.viewId === 'plax')!.v).toBeGreaterThan(
       model.windows.find((w) => w.viewId === 'subcostal-4c')!.v,
     );

@@ -84,6 +84,10 @@ Siguen en la CPU, con resultado equivalente (≤ 1 nivel de gris): la consola co
 
 `heartMesh.ts` extrae las superficies del mismo `classifyHeart` que muestrea el trazador, de modo que el navegador y la imagen no pueden discrepar: surface nets sobre una rejilla de ocupación (0,28 cm, límites (−8,−7,−7)–(7,8,12) cm del marco del corazón), siete grupos conmutables y normales geométricas ponderadas por área con dos pasadas de suavizado. `heartMesh.worker.ts` hace la extracción fuera del hilo de UI (516 ms en Node) y transfiere posiciones, normales e índices; `TorsoView` mantiene el fantasma de elipsoides hasta que llegan y sitúa las mallas con la base del marco del corazón. El plano de imagen se usa como plano de recorte local de three.js, actualizado en cada cuadro desde el origen y la normal del haz, y los ejes de examinación salen de la misma trama del haz. Sólo se vuelve a extraer al cambiar de caso o de paciente.
 
+### Dos vistas en un lienzo (decisión 137)
+
+`TorsoView.tsx` dibuja dos ventanas gráficas sobre el mismo lienzo y la misma escena (`setScissorTest`): arriba el torso con la sonda y el plano (cámara orbital), abajo **el corte de frente**: la mitad del corazón que queda al otro lado del plano de imagen vista desde la mitad retirada, con la sonda arriba y la dirección lateral de la imagen a la derecha (espejada cuando la imagen lo está), con el plano de recorte invertido sólo para ese render, tapas en todos los grupos visibles, un foco desde la cámara, marcas de profundidad cada centímetro y las etiquetas de los `landmarks` del `NavigatorModel` que quedan a menos de 1,6 cm del plano, proyectadas sobre él. Piel, esqueleto, fantasma y ventanas no se dibujan en esa vista. El ratón se enruta por mitad: arriba, los gestos de la sonda; abajo, rueda (zoom), arrastre (inclinar ±40°) y doble clic (centrar); en modo revisión el clic marca sobre el corte con la cámara de esa mitad.
+
 ## Worker y protocolo
 
 - `SimClient` (`core/client.ts`) crea `new Worker(sim.worker.ts, { type: 'module' })`; si `Worker` no existe, cae a un `SimulatorCore` inline con `setInterval` de 33 ms.

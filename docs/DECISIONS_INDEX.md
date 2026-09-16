@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 136 (última: 136).
+Decisiones: 137 (última: 137).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -144,3 +144,4 @@ Decisiones: 136 (última: 136).
 | [134](DECISIONS.md#L423) | 2026-09-16 | Modo revisión: marcar sobre la imagen lo que se ve mal y llevarse el estado exacto para reproducirlo | vigente |
 | [135](DECISIONS.md#L425) | 2026-09-16 | Los marcadores de revisión se mueven, se seleccionan, se borran con una tecla y se ponen también sobre el modelo 3D | vigente |
 | [136](DECISIONS.md#L427) | 2026-09-16 | Un marcador de revisión puede tener puntos secundarios enlazados | vigente |
+| [137](DECISIONS.md#L429) | 2026-09-16 | El navegador 3D se divide en dos: la sonda sobre el tórax arriba y el corte cardíaco de frente abajo | vigente |
