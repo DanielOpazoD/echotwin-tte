@@ -687,17 +687,20 @@ function MeasureTab() {
     return (
       <>
         <Section title="Midiendo">
-          <div className="capture-head">
-            <span className="capture-dot" aria-hidden="true" />
-            <b>{spec ? spec.label : (tool?.title ?? tool?.label ?? s.activeTool)}</b>
-          </div>
-          {spec && (
-            <div className="small">
-              {spec.modalities.map((m) => m.toUpperCase()).join('/')} ·{' '}
-              {spec.views.map((v) => v.toUpperCase()).join('/')}
+          {/* a live region: screen readers and the E2E flow learn which tool is armed and how to use it */}
+          <div role="status">
+            <div className="capture-head">
+              <span className="capture-dot" aria-hidden="true" />
+              <b>{spec ? spec.label : (tool?.title ?? tool?.label ?? s.activeTool)}</b>
             </div>
-          )}
-          <p className="capture-hint">{spec ? spec.instruction : FREE_TOOL_HINT[s.activeTool]}</p>
+            {spec && (
+              <div className="small">
+                {spec.modalities.map((m) => m.toUpperCase()).join('/')} ·{' '}
+                {spec.views.map((v) => v.toUpperCase()).join('/')}
+              </div>
+            )}
+            <p className="capture-hint">{spec ? spec.instruction : FREE_TOOL_HINT[s.activeTool]}</p>
+          </div>
           <button className="capture-cancel" onClick={cancel}>
             Cancelar <span className="small">(Esc)</span>
           </button>

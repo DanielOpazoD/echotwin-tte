@@ -782,6 +782,11 @@ select:focus-visible {
   overflow-y: auto;
   font-size: 12px;
 }
+/* exam notice shown in the centre column when the clean interface hides the rail */
+.center > .exam-notice {
+  margin: 8px 12px 0;
+  flex: 0 0 auto;
+}
 .guidance .score {
   display: flex;
   align-items: baseline;

@@ -8,7 +8,7 @@ import { TorsoView } from '@/ui/TorsoView';
 import { ConsolePanel } from '@/ui/ConsolePanel';
 import { TopBar } from '@/ui/TopBar';
 import { ModeBar } from '@/ui/ModeBar';
-import { GuidancePanel } from '@/ui/GuidancePanel';
+import { ExamNotice, GuidancePanel } from '@/ui/GuidancePanel';
 import { CurriculumScreen } from '@/ui/CurriculumScreen';
 import { ProgressScreen } from '@/ui/ProgressScreen';
 import { evaluateTasks, type LearnerSnapshot } from '@/education/curriculum';
@@ -144,11 +144,14 @@ export function App() {
             {/* the torso stays mounted while mini so its mesh worker is not rebuilt on expand */}
             <div className="rail-main" style={{ display: ui.railMini ? 'none' : 'flex' }}>
               {railVisible && <TorsoView />}
-              <GuidancePanel />
+              {railVisible && <GuidancePanel />}
             </div>
             {ui.railMini && <RailMini />}
           </div>
           <div className="center">
+            {/* the clean interface hides the rail (always in exam mode): the exam notice moves here so it is
+                never silently lost — the E2E flow caught it hidden after commit 93d30b0 */}
+            {minimal && mode === 'exam' && <ExamNotice />}
             {error && (
               <div className="error" role="alert">
                 {error}
