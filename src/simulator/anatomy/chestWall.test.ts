@@ -1,3 +1,4 @@
+// @tier slow
 import { describe, expect, it } from 'vitest';
 import { CASE_INPUTS, loadCaseById } from '@/cases';
 import { classifyHeart, computeHeartPose, createHeartModel, torsoToHeart } from './heartModel';

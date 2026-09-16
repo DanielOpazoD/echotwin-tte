@@ -3,6 +3,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { CASE_INPUTS } from '@/cases';
 import { VIEW_TARGETS } from '@/simulator/windows/viewTargets';
+import { parseDecisions, renderIndex } from '../../tools/docs/decisions-index';
 
 /**
  * Documentation drift guard: CLINICAL_SCOPE.md is the human-readable inventory of cases and views;
@@ -48,6 +49,21 @@ function sourceBasenames(): Set<string> {
   for (const top of ['src', 'e2e', 'tools']) walk(join(ROOT, top));
   return out;
 }
+
+describe('DECISIONS_INDEX.md is generated from DECISIONS.md', () => {
+  it('matches the log (run npm run docs:index after adding or tagging a decision)', () => {
+    const entries = parseDecisions(read('docs/DECISIONS.md'));
+    expect(entries.length).toBeGreaterThan(120);
+    expect(read('docs/DECISIONS_INDEX.md')).toBe(renderIndex(entries));
+  });
+
+  it('numbers the decisions 1..N without gaps or duplicates (60 sits before 59 in the log, on purpose)', () => {
+    const ns = parseDecisions(read('docs/DECISIONS.md'))
+      .map((d) => d.n)
+      .sort((a, b) => a - b);
+    expect(ns).toEqual(ns.map((_, i) => i + 1));
+  });
+});
 
 describe('ARCHITECTURE.md stays in sync with the code', () => {
   it('states the real number of cases', () => {

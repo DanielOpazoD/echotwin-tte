@@ -1,3 +1,4 @@
+// @tier slow
 import { describe, expect, it } from 'vitest';
 import type { ImageStats } from '@/clinical/regionStats';
 import { apicalGeometry, type ApicalGeometry } from '@/clinical/apicalGeometry';

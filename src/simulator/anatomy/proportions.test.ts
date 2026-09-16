@@ -1,3 +1,4 @@
+// @tier slow
 import { describe, expect, it } from 'vitest';
 import { measureModel } from './measureModel';
 import { CASE_INPUTS, loadCaseById } from '@/cases';

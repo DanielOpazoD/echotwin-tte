@@ -21,7 +21,10 @@ descárgalos aparte y pásalos con `CAMUS_DIR=<ruta fuera del repo>` (decisión 
 
 1. `docs/ARCHITECTURE.md`: capas, flujo de datos por cuadro, contrato del worker.
 2. `docs/DECISIONS.md`: registro numerado; si tu cambio altera el modelo, añade la decisión siguiente
-   con las medidas que la justifican. `docs/LIMITATIONS.md` recoge lo que sigue mal.
+   con las medidas que la justifican y regenera el índice con `npm run docs:index`. Una decisión que
+   otra posterior sustituye lleva `[Estado: superada por N]` tras su título. `docs/LIMITATIONS.md`
+   recoge lo que sigue mal; cada id de `KNOWN_MODEL_LIMITATIONS` y `KNOWN_VIEW_LIMITATIONS` debe
+   aparecer allí entre acentos graves (`src/tests/limitationsConsistency.test.ts`).
 3. `.claude/skills/fidelity-method/SKILL.md`: 18 reglas de método para anatomía e imagen (medir antes
    de tocar, CPU y GPU en paridad, tests validados por mutación). Están escritas para un agente pero
    valen igual para una persona.
@@ -60,7 +63,8 @@ npx vite build && npm run test:e2e   # Playwright prueba dist/, así que constru
 ```
 
 `npm run coverage` aplica los pisos por área de `vite.config.ts`. Un test nuevo que renderice cuadros
-o avance el núcleo varios latidos va en `SLOW_TEST_FILES` de `vite.config.ts`.
+o avance el núcleo varios latidos lleva `// @tier slow` en su primera línea (y `// @tier fast` si
+importa esos módulos pero se mantiene ligero a propósito); `src/tests/testTiers.test.ts` lo exige.
 
 Herramientas de medición (`npm run measure -- <caso>`, `slice-map.ts`, `audit-views.ts`,
 `render-views.ts`, `camus-compare.ts`) y el runbook de goldens y renders: `docs/validation/README.md`

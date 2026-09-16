@@ -1,3 +1,4 @@
+// @tier slow
 import { describe, expect, it } from 'vitest';
 import { loadCaseById } from '@/cases';
 import { computeHeartPose, createHeartModel } from '@/simulator/anatomy/heartModel';

@@ -1,3 +1,4 @@
+// @tier slow
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
   binsToTrace,
