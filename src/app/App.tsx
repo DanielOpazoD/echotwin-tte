@@ -15,6 +15,7 @@ import { Tutorial } from '@/ui/Tutorial';
 import type { SimOutput } from '@/simulator/core/protocol';
 import { DopplerAudio } from '@/simulator/doppler/audio/dopplerAudio';
 import { frameBus } from './frameBus';
+import { isSpectralModality } from '@/simulator/renderer/modality';
 
 // Loaded on demand (engineering audit, B4): the 3D navigator carries three.js (540 kB) and the secondary
 // screens are not part of imaging. The entry chunk holds only what the first frame needs.
@@ -97,7 +98,7 @@ export function App() {
         }
       }
       const audio = audioRef.current;
-      if (audio && (modality === 'pw' || modality === 'cw' || modality === 'tdi'))
+      if (audio && isSpectralModality(modality))
         audio.update(out.spectrumColumn, out.spectralRange.vMin, out.spectralRange.vMax);
     },
     [setHud, modality],
@@ -105,8 +106,7 @@ export function App() {
   useSimulation(size, onFrame);
 
   useEffect(() => {
-    const wantAudio =
-      spectral.audioOn && (modality === 'pw' || modality === 'cw' || modality === 'tdi');
+    const wantAudio = spectral.audioOn && isSpectralModality(modality);
     if (wantAudio && !audioRef.current) {
       audioRef.current = new DopplerAudio();
       audioRef.current.start();

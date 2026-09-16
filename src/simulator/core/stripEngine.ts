@@ -21,6 +21,7 @@ import {
   relativeTransmission,
 } from '@/simulator/doppler/color/colorDoppler';
 import { aliasVelocity } from '@/clinical/formulas';
+import { MODALITIES } from '@/simulator/renderer/modality';
 import {
   buildSpectralColumn,
   CLICK_SIGMA_S,
@@ -173,8 +174,7 @@ export class StripEngine {
     ctx: StripCtx,
   ): void {
     const inp = ctx.input;
-    const kind: 'spectral' | 'm-mode' =
-      inp.modality === 'm-mode' || inp.modality === 'cmm' ? 'm-mode' : 'spectral';
+    const kind: 'spectral' | 'm-mode' = MODALITIES[inp.modality].strip ?? 'spectral';
     const stripWidth = Math.max(64, inp.display.width);
     const secondsShown = STRIP_MM_WIDTH / inp.spectral.sweepSpeedMmPerS;
     const cps = stripWidth / secondsShown;
@@ -495,7 +495,7 @@ export class StripEngine {
       );
       samples.push({ v: -axial, weight: 1, dispersion: fs.dispersion, vPerp, depthCm: r });
     };
-    const aliasing = inp.modality !== 'cw';
+    const aliasing = MODALITIES[inp.modality].aliasing;
     // heart-frame points where the sample volume can meet a valve's leaflets: along the CW line, or the PW gate
     const clickPoints: number[] = [];
     const clickPoint = (r: number): void => {

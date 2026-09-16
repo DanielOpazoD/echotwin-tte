@@ -1,20 +1,12 @@
 import { useHudStore, useSimStore } from '@/app/store';
 import { modePolicy } from '@/app/modePolicy';
-import type { ImagingModality } from '@/simulator/renderer/types';
 import { exportDisplayPng } from '@/app/exportImage';
 import { useRestartTutorial } from './Tutorial';
 import { IconSliders } from './icons';
+import { MODALITY_LIST } from '@/simulator/renderer/modality';
 import { ActionItem, CheckItem, MenuCap, usePopover } from './menu';
 
-const MODES: { id: ImagingModality; label: string; key: string }[] = [
-  { id: '2d', label: '2D', key: '2' },
-  { id: 'color', label: 'Color', key: 'C' },
-  { id: 'm-mode', label: 'M', key: 'M' },
-  { id: 'cmm', label: 'CMM', key: 'Shift+M' },
-  { id: 'pw', label: 'PW', key: 'P' },
-  { id: 'cw', label: 'CW', key: 'X' },
-  { id: 'tdi', label: 'TDI', key: 'T' },
-];
+const MODES = MODALITY_LIST;
 
 /**
  * Bottom toolbar: only the acquisition controls live in the first row — modality keys, freeze/cine
