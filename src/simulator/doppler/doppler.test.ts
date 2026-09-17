@@ -244,9 +244,11 @@ describe('Doppler through the simulator core', () => {
     }
     return peak;
   };
+  // These drive the whole simulator core for eight to ten poses: 30-60 s on an idle machine, 130-215 s on the own
+  // runner while it shares the Mac with other work, where the 90 s budget failed main pipelines that were fine.
   it(
     'PW at the LVOT: the measured peak falls monotonically as the beam–flow angle grows (cosine law)',
-    { timeout: 90_000 },
+    { timeout: 240_000 },
     () => {
       const a5c = canonicalControl(getViewTarget('a5c'), heart, thorax);
       // flow direction at the LVOT at peak systole (torso frame)
@@ -320,7 +322,7 @@ describe('Doppler through the simulator core', () => {
   );
   it(
     'CW along the same line does not depend on gate depth (no range resolution) and PW does',
-    { timeout: 60_000 },
+    { timeout: 240_000 },
     () => {
       const a5c = canonicalControl(getViewTarget('a5c'), heart, thorax);
       const cwA = runPw(a5c, 'cw', 3);

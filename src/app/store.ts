@@ -46,6 +46,10 @@ export interface UiPrefs {
   navVessels: boolean;
   navAxes: boolean;
   navCut: boolean;
+  /** Second navigator view under the torso: the heart cut by the imaging plane, seen face-on (decision 137). */
+  navSplit: boolean;
+  /** Chamber and valve names on the cut face. */
+  navLabels: boolean;
   /** Rings on the skin where each canonical view is acquired (decision 132). */
   navWindows: boolean;
   showHints: boolean;
@@ -214,6 +218,8 @@ function savePrefs(ui: UiPrefs): void {
       navAxes,
       navCut,
       navWindows,
+      navSplit,
+      navLabels,
       reviewFreezeOnMark,
       railMini,
       minimal,
@@ -236,6 +242,8 @@ function savePrefs(ui: UiPrefs): void {
         navAxes,
         navCut,
         navWindows,
+        navSplit,
+        navLabels,
         reviewFreezeOnMark,
         railMini,
         minimal,
@@ -284,6 +292,8 @@ export const useSimStore = create<SimStore>((set, get) => ({
     navAxes: true,
     navCut: false,
     navWindows: true,
+    navSplit: true,
+    navLabels: true,
     showHints: true,
     showPhysics: false,
     devPanel: false,

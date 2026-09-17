@@ -84,7 +84,9 @@ test('markers move by dragging, delete with a key, come back with undo, and can 
         }[]
       ).map((m) => ({ id: m.id, space: m.space, rCm: m.rCm, point: m.point }));
     });
-  await expect.poll(async () => (await markers())[0]?.point !== null).toBe(true);
+  await expect
+    .poll(async () => (await markers())[0]?.point !== null, { timeout: 30_000 })
+    .toBe(true);
   const before = (await markers())[0]!;
   // the first marker on a live image froze it (decision 135)
   expect((await getStore(page))['frozen'] as boolean).toBe(true);
@@ -95,7 +97,9 @@ test('markers move by dragging, delete with a key, come back with undo, and can 
   await page.mouse.move(at.x, at.y + 20, { steps: 4 });
   await page.mouse.move(at.x, at.y + 40, { steps: 4 });
   await page.mouse.up();
-  await expect.poll(async () => (await markers())[0]?.point !== null).toBe(true);
+  await expect
+    .poll(async () => (await markers())[0]?.point !== null, { timeout: 30_000 })
+    .toBe(true);
   const after = (await markers())[0]!;
   expect(after.id).toBe(before.id);
   expect(after.rCm!).toBeGreaterThan(before.rCm! + 0.5);
@@ -107,13 +111,14 @@ test('markers move by dragging, delete with a key, come back with undo, and can 
   await page.keyboard.press('Control+z');
   await expect(page.locator('.review-item')).toHaveCount(1);
 
-  // a click without drag on the 3D navigator marks the surface it hits (skin, bone or heart)
+  // a click without drag on the 3D navigator marks the surface it hits (skin, bone or heart); the torso view
+  // is the upper half of the navigator canvas (decision 137)
   const torso = page.locator('.torso-wrap canvas');
   const tb = (await torso.boundingBox())!;
   await expect
     .poll(
       async () => {
-        await page.mouse.click(tb.x + tb.width * 0.5, tb.y + tb.height * 0.45);
+        await page.mouse.click(tb.x + tb.width * 0.5, tb.y + tb.height * 0.4);
         return (await markers()).some((m) => m.space === 'model');
       },
       { timeout: 30_000, intervals: [1000] },
@@ -121,11 +126,32 @@ test('markers move by dragging, delete with a key, come back with undo, and can 
     .toBe(true);
   await expect(page.locator('.review-chip')).toHaveCount(1);
   await expect
-    .poll(async () => (await markers()).find((m) => m.space === 'model')?.point !== null)
+    .poll(async () => (await markers()).find((m) => m.space === 'model')?.point !== null, {
+      timeout: 30_000,
+    })
     .toBe(true);
   const model = (await markers()).find((m) => m.space === 'model')!;
   expect(Number.isFinite(model.point!.offPlaneCm)).toBe(true);
   await expect(page.locator('.review-item').last().locator('.review-place')).toContainText('3D ·');
+
+  // on the cut view (lower half) the marker lands on the cut face itself: in the image plane (decision 137)
+  const before3d = (await markers()).filter((m) => m.space === 'model').length;
+  await expect
+    .poll(
+      async () => {
+        await page.mouse.click(tb.x + tb.width * 0.5, tb.y + tb.height * 0.7);
+        return (await markers()).filter((m) => m.space === 'model').length > before3d;
+      },
+      { timeout: 30_000, intervals: [1000] },
+    )
+    .toBe(true);
+  await expect
+    .poll(async () => (await markers()).filter((m) => m.space === 'model').at(-1)?.point !== null, {
+      timeout: 30_000,
+    })
+    .toBe(true);
+  const onCut = (await markers()).filter((m) => m.space === 'model').at(-1)!;
+  expect(Math.abs(onCut.point!.offPlaneCm)).toBeLessThan(0.05);
 });
 
 test('Alt+click adds a secondary point to the selected marker, joined to it in the report', async ({

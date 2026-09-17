@@ -3,7 +3,12 @@ import { computeHeartPose } from '@/simulator/anatomy/heartModel';
 import { cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { buildCaseModels } from '@/simulator/anatomy/caseModels';
 import { buildHeartMeshes, type MeshGroup } from '@/simulator/anatomy/heartMesh';
-import { heartGhostPrimitives, type GhostPrimitive } from '@/simulator/anatomy/heartModel';
+import {
+  heartGhostPrimitives,
+  heartLandmarks,
+  type GhostPrimitive,
+} from '@/simulator/anatomy/heartModel';
+import { heartToTorso } from '@/simulator/anatomy/heartFrame';
 import type { HeartFrame } from '@/simulator/anatomy/heartFrame';
 import type { ThoraxModel } from '@/simulator/anatomy/thoraxModel';
 import type { PatientState } from '@/simulator/anatomy/thoraxModel';
@@ -45,7 +50,36 @@ export interface NavigatorModel {
   ghost: GhostPrimitive[];
   /** Where each canonical view is acquired on this patient's skin (decision 132). */
   windows: WindowMark[];
+  /** Named points of the anatomy (torso cm) the cut view labels when the plane passes near them (decision 137). */
+  landmarks: { id: string; label: string; p: { x: number; y: number; z: number } }[];
 }
+
+/** Short names for the cut face; the landmark's own label otherwise. */
+const SHORT_LABELS: Record<string, string> = {
+  'lv-mid': 'VI',
+  'lv-apex': 'ápex',
+  'lv-apical-cavity': 'VI ap',
+  rv: 'VD',
+  'rv-anterior': 'VD ant',
+  'rv-inferior': 'VD inf',
+  la: 'AI',
+  ra: 'AD',
+  mv: 'VM',
+  av: 'VAo',
+  tv: 'VT',
+  lvot: 'TSVI',
+  rvot: 'TSVD',
+  'aortic-root': 'Ao',
+  pa: 'AP',
+  'pa-bifurcation': 'AP bif',
+  ivc: 'VCI',
+  svc: 'VCS',
+  'desc-aorta': 'Ao desc',
+  ias: 'TIA',
+  'pap-al': 'pap AL',
+  'pap-pm': 'pap PM',
+  'hepatic-vein': 'v. hep.',
+};
 
 /** Skin position (torso cm) of one canonical view's acoustic window, solved for the case anatomy. */
 export interface WindowMark {
@@ -97,6 +131,13 @@ function buildAllPhases(
       const c = canonicalControl(view, heart, thorax);
       return { viewId: view.id, name: view.name, window: view.window, u: c.u, v: c.v };
     }),
+    landmarks: heartLandmarks(heart)
+      .filter((l) => !l.id.startsWith('wall-') && !l.id.startsWith('ivs-'))
+      .map((l) => ({
+        id: l.id,
+        label: SHORT_LABELS[l.id] ?? l.label,
+        p: heartToTorso(heart.frame, l.p),
+      })),
   };
   (self as unknown as Worker).postMessage(model);
   for (let i = 0; i < phases.length; i++) {
