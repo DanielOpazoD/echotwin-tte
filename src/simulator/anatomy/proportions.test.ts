@@ -19,10 +19,9 @@ const KNOWN_MODEL_LIMITATIONS: ReadonlySet<string> = new Set([
   // aortic axis (decision 59), measures 14–16° in every case: nothing flagged that exemption as stale until
   // decision 86 added the check below.
   'av-tv-distance',
-  // The right atrial long axis sits at the upper bound of its approximate range in the cases without atrial dilatation
-  // (5.2-5.6 cm, and 5.62 in the pulmonary hypertension case that declares a dilated atrium): it does not tell a normal
-  // atrium from a dilated one. Putting the tricuspid plane back on the leaflets (decision 110) moved four cases from 5.60
-  // to 5.62 cm (docs/LIMITATIONS.md).
+  // The right atrial long axis sits above its approximate range: 5.2-5.6 cm until decision 133, 5.6-6.8 since the
+  // atrium lengthens over the base the ventricle vacates in systole under a fixed roof (the measure takes the longest
+  // frame). It does not tell a normal atrium from a dilated one (docs/LIMITATIONS.md).
   'ra-long',
 ]);
 

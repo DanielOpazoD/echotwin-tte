@@ -3,7 +3,7 @@ import { sdCapsule, sdSegmentChain, sdTorusZ, type ChainHit } from '../sdf';
 import { fastAtan2 } from '@/core/noise';
 import { aorticContactBand, aorticCuspDistance, aorticHit, AV_COAPT_HALF } from '../aorticValve';
 import { mitralAnnulusDistance, mitralDistance, mitralHit } from '../mitralValve';
-import { TWO_PI, saddleOffset, skirtDistance, skirtHit } from '../valveSkirt';
+import { TWO_PI, skirtDistance, skirtHit, skirtOffset } from '../valveSkirt';
 import { setSample, type ClassifyCtx } from './context';
 
 const chainHit: ChainHit = { d: 0, frac: 0 };
@@ -181,7 +181,7 @@ export function classifyValves(c: ClassifyCtx): boolean {
     const dT = sdTorusZ(
       x,
       y,
-      z - saddleOffset(fastAtan2(y - q[1], x - q[0]), V.tv.zones[0]!.phi, V.tv.saddle),
+      z - skirtOffset(V.tv, fastAtan2(y - q[1], x - q[0])),
       q[0],
       q[1],
       q[2],

@@ -34,6 +34,7 @@ import {
   SKIRT_THICK_COMMISSURE,
   SKIRT_THICK_EDGE,
   SKIRT_THICK_FLOOR_CM,
+  TV_INFLOW_BULGE_CM,
 } from '@/simulator/anatomy/valveSkirt';
 
 const f = (v: number): string => (Number.isInteger(v) ? `${v}.0` : `${v}`);
@@ -53,6 +54,7 @@ const float AML_ARC_EXTENSION = ${f(AML_ARC_EXTENSION)};
 const float MV_CLOSED_REACH[3] = float[3](${CLOSED_REACH.map(f).join(', ')});
 const float MV_CLOSED_DEPTH[3] = float[3](${CLOSED_DEPTH.map(f).join(', ')});
 const float SKIRT_ABOVE_CM = ${f(SKIRT_ABOVE_CM)};
+const float TV_INFLOW_BULGE_CM = ${f(TV_INFLOW_BULGE_CM)};
 const float SKIRT_BELOW_CM = ${f(SKIRT_BELOW_CM)};
 const float SKIRT_RADIAL_MARGIN_CM = ${f(SKIRT_RADIAL_MARGIN_CM)};
 const float SKIRT_FIBRE_CLIP = ${f(SKIRT_FIBRE_CLIP)};
@@ -95,7 +97,7 @@ float skirtDistance(vec3 p, vec3 c, float R, int zonesBase, int profBase, int nz
   nOut = vec3(0.0, 0.0, 1.0);
   if (zr0 > SKIRT_ABOVE_CM || zr0 < -SKIRT_BELOW_CM || rho > R + SKIRT_RADIAL_MARGIN_CM) { dOut = 1e3; fracOut = 0.0; return 0.0; }
   float phi = atan(d.y, d.x);
-  float zr = zr0 - saddleOffset(phi, P(zonesBase), saddle);
+  float zr = zr0 - annulusOffset(phi, TVS_SADDLE_PHI, saddle);
   float best = 1e9, bestFrac = 0.0, bestW = 0.0;
   int bestZone = 0;
   float bestEx = 0.0, bestEz = 1.0, bestCa = 1.0, bestSa = 0.0, bestKind = 0.0;
@@ -490,16 +492,20 @@ vec4 rvRadii(float az, float z, float contraction, float tvZ, float rvCollapse) 
   return vec4(rIn, u, rIn + t, t);
 }
 // tricuspid inflow column (heartModel.ts tvInflowSdf): annular circle narrowing below the hinges, closed on the atrial side
+// annulus offset above a point, by its azimuth around the tricuspid centre (valveSkirt.ts skirtOffsetAt)
+float tvOffsetAt(vec2 q) {
+  vec2 d = q - vec2(TVS_CX, TVS_CY);
+  float phi = dot(d, d) > 1e-12 ? atan(d.y, d.x) : 0.0;
+  return annulusOffset(phi, TVS_SADDLE_PHI, TVS_SADDLE);
+}
 float tvInflowSdf(vec3 p) {
   vec2 d = p.xy - vec2(TVS_CX, TVS_CY);
   float r2 = dot(d, d);
   float rho = sqrt(r2);
-  float phiA = P(TVS_ZONES_BASE);
-  float sn = d.y * cos(phiA) - d.x * sin(phiA);
-  float h = p.z - (TVS_CZ + TVS_SADDLE * (r2 > 0.0 ? sn * sn / r2 : 0.0));
-  float closeD = 0.25 + 0.3 * TVZ;
-  float taper = h > 0.0 ? 0.25 * h + 0.25 * h * h : (h < -closeD ? 2.0 * (-h - closeD) : 0.0);
-  return rho - TVS_R + 0.04 + taper;
+  float phi = r2 > 1e-12 ? atan(d.y, d.x) : 0.0;
+  float h = p.z - (TVS_CZ + annulusOffset(phi, TVS_SADDLE_PHI, TVS_SADDLE));
+  float bulge = TV_INFLOW_BULGE_CM * 0.5 * (1.0 - cos(phi - P(TVS_ZONES_BASE + 6)));
+  return rho - TVS_R + 0.04 + tvInflowTaper(h, 0.25 + 0.3 * TVZ, bulge);
 }
 // RV crescent: returns [signed distance, rIn, rOut]
 vec3 rvCrescent(vec3 p, float az) {
@@ -508,7 +514,7 @@ vec3 rvCrescent(vec3 p, float az) {
   if (u <= 0.0 || u >= 1.0) return vec3(1e3, rIn, rIn);
   float L = LV_LEN;
   float zApex = RV_APEX_FRAC * L;
-  float zBase = rvFloorZ(TV_CZ, TVZ, PV_Z, u);
+  float zBase = rvFloorZ(TV_CZ, TVZ, PV_Z, u, tvOffsetAt(p.xy));
   float t = rr.w;
   if (p.z > 0.25 * L) {
     float w = min(1.0, (p.z - 0.25 * L) / (0.35 * L));
@@ -622,7 +628,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
       return true;
     }
     vec3 q = vec3(TV_RING_X, TV_RING_Y, TV_RING_Z);
-    float dT = sdTorusZ(vec3(x, y, z - saddleOffset(atan(y - q.y, x - q.x), P(TVS_ZONES_BASE), TVS_SADDLE)), q, TV_RING_R, 0.09);
+    float dT = sdTorusZ(vec3(x, y, z - tvOffsetAt(p.xy)), q, TV_RING_R, 0.09);
     if (dT < 0.0) {
       setSample(s, T_FIBROUS, dT, vec3(x - q.x, y - q.y, 0.0), p, 0.0, S_TV_ANN);
       return true;
@@ -739,7 +745,8 @@ bool classifyHeart(vec3 p0, out Sample s) {
     }
     float zTopR = ra.z - rar.z;
     // the atrium ends at the annulus (decision 64): mirrors classifyHeart
-    float zBotR = TV_CZ + TVZ + 0.03;
+    float tvOff = tvOffsetAt(p.xy);
+    float zBotR = TV_CZ + TVZ + tvOff + 0.03;
     czR = (zTopR + zBotR) / 2.0;
     rzR = (zBotR - zTopR) / 2.0;
     float raC = raCollapseScale(RA_COLLAPSE);
@@ -750,7 +757,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
       float u0 = rr0.y;
       if (u0 > 0.0 && u0 < 1.0) {
         float r0 = length(p.xy);
-        raSleeve = max(max(rr0.x + 0.1 - r0, r0 - (rr0.z - RV_FW)), max(rvFloorZ(TV_CZ, 0.0, 0.0, u0) - z, z - rvFloorZ(TV_CZ, TVZ, PV_Z, u0)));
+        raSleeve = max(max(rr0.x + 0.1 - r0, r0 - (rr0.z - RV_FW)), max(rvFloorZ(TV_CZ, 0.0, 0.0, u0, tvOff) - z, z - rvFloorZ(TV_CZ, TVZ, PV_Z, u0, tvOff)));
       }
     }
     dFreeRa = min(dFreeRa, raSleeve);
@@ -762,7 +769,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     if (dFreeRa < 0.22 && x < xIas - tIas / 2.0) {
       // no wall across the tricuspid orifice (decision 64): atrial blood up to the annular plane, ventricular past it
       if (length(vec2(x - TVS_CX, y - TVS_CY)) < TVS_R) {
-        setSample(s, T_BLOOD, dFreeRa - 0.22, vec3((x - ra.x) / rar.x, (y - ra.y) / rar.y, (z - czR) / rzR), p, 0.0, z > TV_CZ + TVZ ? S_RV_CAV : S_RA_CAV);
+        setSample(s, T_BLOOD, dFreeRa - 0.22, vec3((x - ra.x) / rar.x, (y - ra.y) / rar.y, (z - czR) / rzR), p, 0.0, z > TV_CZ + TVZ + tvOff ? S_RV_CAV : S_RA_CAV);
         return true;
       }
       setSample(s, T_MYO, -min(dFreeRa, 0.22 - dFreeRa), vec3((x - ra.x) / rar.x, (y - ra.y) / rar.y, (z - czR) / rzR), p, 0.0, S_RA_WALL);
@@ -882,7 +889,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
         }
       }
       float rr = length(p.xy); if (rr == 0.0) rr = 1.0;
-      setSample(s, T_BLOOD, dCavRv, vec3(x / rr, y / rr, 0.0), vec3(x / sc3, y / sc3, z), 0.0, dRvot < dRvU ? S_RVOT : ((dRv >= 0.0 && z <= TV_CZ + TVZ * 0.7) ? S_RA_CAV : S_RV_CAV));
+      setSample(s, T_BLOOD, dCavRv, vec3(x / rr, y / rr, 0.0), vec3(x / sc3, y / sc3, z), 0.0, dRvot < dRvU ? S_RVOT : ((dRv >= 0.0 && z <= TV_CZ + TVZ + tvOffsetAt(p.xy)) ? S_RA_CAV : S_RV_CAV));
       return true;
     }
     if (dCavRv < fw) {

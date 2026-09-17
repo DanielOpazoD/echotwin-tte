@@ -236,6 +236,7 @@ const SCALARS = [
   'TVS_BLEND',
   'TVS_T',
   'TVS_SADDLE',
+  'TVS_SADDLE_PHI',
   // thorax
   'TH_AW',
   'TH_BDEPTH',
@@ -549,6 +550,7 @@ export function packScene(
     set(`${prefix}_BLEND`, k.blend);
     set(`${prefix}_T`, k.thickness);
     set(`${prefix}_SADDLE`, k.saddle);
+    set(`${prefix}_SADDLE_PHI`, k.saddlePhi);
     const zb = PARAM_OFFSET[`${prefix}_ZONES`]!;
     const pb = PARAM_OFFSET[`${prefix}_PROF`]!;
     d.fill(0, zb, zb + 18);

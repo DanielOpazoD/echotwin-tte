@@ -15,7 +15,7 @@ import {
 import { mitralFreeEdge, mitralLeafletPoint, MV_BINS } from './mitralValve';
 import { rootRadiusAt } from './aorticValve';
 import { rvCrescent } from './rv';
-import { tvInflowSdf, skirtDistance, skirtHit } from './valveSkirt';
+import { tvInflowSdf, skirtDistance, skirtHit, skirtOffset } from './valveSkirt';
 import { smin } from './sdf';
 import { SimulatorCore } from '@/simulator/core/simulatorCore';
 import { baseInput } from '@/simulator/core/baseInput';
@@ -492,8 +492,7 @@ describe('tricuspid apparatus (decision 78)', () => {
         };
         const at = (x: number, y: number, z: number): Tissue =>
           classifyHeart(heart, hidden, x + pose.swingX, y, z, s) ? s.tissue : Tissue.None;
-        const hingeZ = (ang: number): number =>
-          tv.cz + tv.saddle * Math.sin(ang - tv.zones[0]!.phi) ** 2;
+        const hingeZ = (ang: number): number => tv.cz + skirtOffset(tv, ang);
         const label = `${input.id} @${(i / 10).toFixed(1)}`;
         // lateral hinge (−x, toward the free wall): heart behind it, ventricular blood within 2 mm inside it
         if (at(tv.cx - tv.R - 0.2, tv.cy, hingeZ(Math.PI)) === Tissue.None)
@@ -571,7 +570,7 @@ describe('tricuspid apparatus (decision 78)', () => {
                   hidden,
                   tv.cx + rho * Math.cos(ang) + pose.swingX,
                   tv.cy + rho * Math.sin(ang),
-                  tv.cz + zz + tv.saddle * Math.sin(ang - tv.zones[0]!.phi) ** 2,
+                  tv.cz + zz + skirtOffset(tv, ang),
                   s,
                 ) ||
                 (s.tissue !== Tissue.Blood && s.tissue !== Tissue.Chordae)
@@ -1057,7 +1056,11 @@ describe('pulmonary root beside the aortic root (decision 112)', () => {
     for (const input of CASE_INPUTS) {
       const { heart, tables } = setup(input.id);
       const A = heartAnchors(heart);
-      const pose = computeHeartPose(heart, cycleStateAt(tables, 0));
+      // a phase with the valve closed: the atrial fibrillation case is half open at phase 0 (no atrial contraction
+      // closes it), and since decision 138 its open leaflets lie along the walls, so the blended profile is not flat
+      let closedPhase = 0;
+      while (cycleStateAt(tables, closedPhase).tvOpen > 0 && closedPhase < 0.5) closedPhase += 0.05;
+      const pose = computeHeartPose(heart, cycleStateAt(tables, closedPhase));
       const tv = pose.valves.tv;
       const zn = tv.zones[0]!;
       const phi = zn.phi;

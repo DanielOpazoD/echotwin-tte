@@ -18,6 +18,13 @@ En el código, cada referencia vive en `src/clinical/guidelines/references.ts` c
 | `ase-eacvi-chamber-2015` | Cardiac Chamber Quantification by Echocardiography in Adults (ASE/EACVI) | Lang RM, Badano LP, Mor-Avi V, et al. JASE 2015;28(1):1-39.e14. DOI 10.1016/j.echo.2014.10.003. PMID 25559473 | VERIFIED. **Aviso**: JASE anunció un número monográfico con nuevas guías de cuantificación para inicios de 2026; no localizadas en PubMed ni en la ASE al 2026-09-10 — recomprobar antes de publicar |
 | `ase-eacvi-aortic-stenosis-2017` | Echocardiographic Assessment of Aortic Valve Stenosis: A Focused Update (EACVI/ASE) | Baumgartner H, Hung J, Bermejo J, et al. JASE 2017;30(4):372-392. DOI 10.1016/j.echo.2017.02.009. PMID 28385280 | VERIFIED; sin actualización ASE/EACVI posterior. La URL en el código (`…/echocardiographic-assessment-of-aortic-valve-stenosis/`) difiere de la de la revisión (`…/update-of-aortic-valve-stenosis/`): cuál está viva es **NOT VERIFIED** |
 
+### Anatomía del anillo tricúspide (decisión 138)
+| Id en código | Documento | Cita | Estado |
+|---|---|---|---|
+| `fukuda-ta-2006` | Three-dimensional geometry of the tricuspid annulus in healthy subjects and in patients with functional tricuspid regurgitation (RT3DE) | Fukuda S, et al. Circulation 2006;114(1 Suppl):I492-8. PMID 16820625 | VERIFIED vía PubMed: anillo no plano en sanos, porción anteroseptal la más alta (auricular) y posteroseptal la más baja (hacia el ápex) |
+| `malinowski-ta-2019` | Sonomicrometry-derived 3-dimensional geometry of the human tricuspid annulus | Malinowski M, Jazwiec T, Goehler M, et al. J Thorac Cardiovasc Surg 2019;157(4):1452-1461.e1 | VERIFIED por búsqueda: puntos altos en la comisura anteroseptal y la región medioposterior, altura máxima 5,0 ± 1,1 mm |
+| `muraru-ta-2022` | Reference ranges of tricuspid annulus geometry in healthy adults using a dedicated 3D echocardiography software package | Muraru D, Gavazzoni M, Heilbron F, et al. Front Cardiovasc Med 2022;9:1011931. DOI 10.3389/fcvm.2022.1011931 | VERIFIED (texto completo en PMC9513148): silla con puntos altos anteroseptal y posterolateral y bajos anterolateral y posteroseptal; telediástole área 9,6 ± 2,1 cm², diámetro 4C 33 ± 4 mm |
+
 ## Mapeo a `src/clinical/reference-values` y discrepancias
 | Regla en código | Valor en código | Valor verificado | Acción |
 |---|---|---|---|

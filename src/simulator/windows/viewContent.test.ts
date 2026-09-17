@@ -203,9 +203,11 @@ const KNOWN_VIEW_LIMITATIONS: ReadonlySet<string> = new Set([
   // plane when it took its real course, in front of the cava (decision 131).
   'psax-mv/inferior vena cava',
   // The section perpendicular to the aortic root at its coaptation (decision 133) passes 1.3-1.5 cm on the atrial side
-  // of the tricuspid annulus in every case (ring reach ±0.8-1.0 cm), so the leaflets never enter it: the relation
-  // between the tricuspid annulus and the root, not the plane, is what has to change (the annulus is a ring level with
-  // the mitral one, 0.7 cm apical, where the real one is tilted, its anterolateral half at the level of the root).
+  // of the tricuspid annulus in every case, so the leaflets never enter it. Neither lever tried in decision 138 settles
+  // it: tilting the annulus (anterior side basal) by 8 mm shows the valve at end-diastole in one case of three, and
+  // tilting the plane toward the tricuspid inflow shows it in all twelve from 8-10° but moves the preset between two
+  // intercostal spaces, drops the cut below the coaptation at end-diastole or loses the pulmonary valve. What has to
+  // change is where the tricuspid annulus sits relative to the root (the declared 'av-tv-distance' of the proportions).
   'psax-av/tricuspid valve',
   // The two-chamber plane clips the pulmonary trunk beside the left atrial appendage, 12-14 cm deep at the anterior edge
   // of the sector. The lung hid it until the A2C preset stopped sliding under the lingula (decisions 72 and 83).

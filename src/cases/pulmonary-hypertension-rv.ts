@@ -96,6 +96,10 @@ export const pulmonaryHypertensionRvCase: CaseDefinitionInput = {
   expectedDeviations: [
     'lv-idd',
     'rv-edvi',
+    // a right ventricle 4.9 cm wide at the base is dilated at mid-cavity and in absolute volume too (decision 138:
+    // the inflow below the 4.4 cm annulus keeps its width over the leaflets)
+    'rv-edv',
+    'rv-mid',
     'rv-basal',
     'rv-lv-basal-ratio',
     'rv-wall',

@@ -24,7 +24,8 @@ import {
   TWO_PI,
   buildCuspChains,
   buildProfile,
-  saddleOffset,
+  skirtOffset,
+  skirtOffsetAt,
   skirtTip,
   tvInflowSdf,
   type SkirtDesc,
@@ -44,6 +45,15 @@ const rvRad = new Float64Array(4);
  * moves.
  */
 export const TV_SYSTOLIC_SHORTENING = 0.2;
+/**
+ * Shape of the tricuspid annulus (decision 138). It is a saddle whose high, most atrial points lie at the anteroseptal
+ * commissure and the posterolateral region and whose low points are anterolateral and posteroseptal, about 5 mm from
+ * high to low (`fukuda-ta-2006`, `malinowski-ta-2019`, `muraru-ta-2022` in docs/REFERENCES.md).
+ * Until decision 138 the model's saddle was 1.5 mm high with its high points anterior and posterior. Azimuths are around
+ * the annulus centre in the heart frame: 0 septal (+x), π/2 anterior (+y).
+ */
+export const TV_SADDLE_CM = 0.5;
+export const TV_SADDLE_PHI = Math.PI / 4;
 /** Closed tricuspid leaflets: depth of the central coaptation below the hinges (cm) and the profile's vertex fractions. */
 const TV_TENTING_CM = 0.3;
 const TV_CLOSED_REACH = [0.36, 0.71, 1];
@@ -291,7 +301,8 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
     R: tvRNow,
     blend: 0.25,
     thickness: 0.09,
-    saddle: 0.15,
+    saddle: TV_SADDLE_CM,
+    saddlePhi: TV_SADDLE_PHI,
     closed: 1 - tvOpen,
     zones: [],
   };
@@ -336,7 +347,7 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
       let d = 1e3;
       const u = rvRad[1]!;
       if (u > 0 && u < 1) {
-        const zBase = rvFloorZ(A.tvCenter.z, tvZ, pvZ, u);
+        const zBase = rvFloorZ(A.tvCenter.z, tvZ, pvZ, u, skirtOffsetAt(tv, px, py));
         const r = Math.hypot(px, py);
         d = Math.max(rvRad[0]! - r, r - rvRad[2]!, zBase - pz, pz - A.rvApexFrac * m.lv.lengthCm);
       }
@@ -379,11 +390,8 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
               const need = Math.min(0.25, 0.4 * (Math.hypot(tvRNow - rho, zz) - 0.15));
               if (need <= 0) continue;
               if (
-                rvCavity(
-                  tv.cx + rho * ca,
-                  tv.cy + rho * sa,
-                  tv.cz + zz + saddleOffset(ang, zoneDefs[0]![0], tv.saddle),
-                ) > -need
+                rvCavity(tv.cx + rho * ca, tv.cy + rho * sa, tv.cz + zz + skirtOffset(tv, ang)) >
+                -need
               )
                 return false;
             }
