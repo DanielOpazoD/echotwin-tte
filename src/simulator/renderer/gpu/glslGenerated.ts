@@ -3,10 +3,21 @@
 
 /** Pure scalar functions shared by the CPU tracer and the shaders, transpiled from their TypeScript source. */
 export const GLSL_GENERATED = /* glsl */ `
-// src/simulator/anatomy/valveSkirt.ts: saddleOffset
-float saddleOffset(float phi, float phiA, float saddle) {
-  float sn = sin(phi - phiA);
-  return saddle * sn * sn;
+// src/simulator/anatomy/valveSkirt.ts: annulusOffset
+float annulusOffset(float phi, float saddlePhi, float saddle) {
+  float sn = sin(phi - saddlePhi);
+  return saddle * (sn * sn - 0.5);
+}
+// src/simulator/anatomy/valveSkirt.ts: tvInflowTaper
+float tvInflowTaper(float h, float close, float bulge) {
+  if (h < -close) {
+    return 2.0 * (-h - close);
+  }
+  if (h <= 0.0) {
+    return 0.0;
+  }
+  float past = max(0.0, h - 1.6);
+  return -bulge * min(1.0, h / 0.8) + 0.25 * past + 0.25 * past * past;
 }
 // src/simulator/anatomy/lvShape.ts: ellipseFactor
 float ellipseFactor(float ratio, float az) {
@@ -39,13 +50,13 @@ float rvAzProfile(float rvAzA, float rvAzP, float u) {
   return pow(min(1.0, max(0.0, sn) / 0.75), 0.7) * (0.85 + 0.15 * inflow);
 }
 // src/simulator/anatomy/rv.ts: rvFloorZ
-float rvFloorZ(float tvCz, float tvZ, float pvZ, float u) {
+float rvFloorZ(float tvCz, float tvZ, float pvZ, float u, float off) {
   float uInf = 0.35;
   if (u >= uInf) {
-    return tvCz + tvZ;
+    return tvCz + tvZ + off;
   }
   float w = u / uInf;
-  return tvCz + pvZ + (tvZ - pvZ) * w - 2.6 * (1.0 - w);
+  return tvCz + pvZ + (tvZ + off - pvZ) * w - 2.6 * (1.0 - w);
 }
 // src/simulator/anatomy/lvWall.ts: septalShiftAt
 float septalShiftAt(float shiftCm, float az, float levelFrac) {

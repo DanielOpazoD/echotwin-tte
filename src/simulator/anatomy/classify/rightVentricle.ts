@@ -1,6 +1,6 @@
 import { Structure, Tissue } from '../tissue';
 import { sdCapsule, sdRoundCone, smin } from '../sdf';
-import { tvInflowSdf } from '../valveSkirt';
+import { skirtOffsetAt, tvInflowSdf } from '../valveSkirt';
 import { rvCrescent } from '../rv';
 import { setSample, type ClassifyCtx } from './context';
 
@@ -182,7 +182,8 @@ export function classifyRightVentricle(c: ClassifyCtx): boolean {
       0,
       dRvot < dRvU
         ? Structure.Rvot
-        : dRv >= 0 && z <= A.tvCenter.z + hp.tvZ * 0.7
+        : // the inflow column above the annulus is atrium (the annulus level itself since decisions 133 and 138)
+          dRv >= 0 && z <= A.tvCenter.z + hp.tvZ + skirtOffsetAt(V.tv, x, y)
           ? Structure.RaCavity
           : Structure.RvCavity,
     );

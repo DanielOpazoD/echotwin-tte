@@ -45,17 +45,48 @@ export interface SkirtDesc {
   R: number; // annulus radius
   blend: number; // azimuthal blend width at the commissures of radial zones (rad)
   thickness: number;
-  /** Saddle height (cm): commissures sit this much more apical than the anterior/posterior high points. */
+  /** Saddle height (cm, high to low) and the azimuth of its high points (the most atrial, decision 138). */
   saddle: number;
+  saddlePhi: number;
   /** 1 when closed (coaptation-line shaping and scallops fully applied), 0 when open. */
   closed: number;
   zones: SkirtZone[];
 }
 
-/** Apical offset of a saddle-shaped annulus at azimuth `phi` (0 at the high points, `saddle` at the commissures). */
-export function saddleOffset(phi: number, phiA: number, saddle: number): number {
-  const sn = Math.sin(phi - phiA);
-  return saddle * sn * sn;
+/**
+ * Apical offset (cm) of the tricuspid annulus from its mean level at azimuth `phi` (decision 138): a saddle `saddle`
+ * cm high whose high (most atrial) points lie at `saddlePhi` and opposite, centred on the mean level. The leaflets, the
+ * ring, the inflow column and the floors of the atrium and the ventricle all hang from this surface.
+ */
+export function annulusOffset(phi: number, saddlePhi: number, saddle: number): number {
+  const sn = Math.sin(phi - saddlePhi);
+  return saddle * (sn * sn - 0.5);
+}
+
+/** The annulus offset of a skirt at azimuth `phi` around its centre. */
+export function skirtOffset(k: SkirtDesc, phi: number): number {
+  return annulusOffset(phi, k.saddlePhi, k.saddle);
+}
+
+/** The annulus offset above a heart-frame point, by its azimuth around the annulus centre. */
+export function skirtOffsetAt(k: SkirtDesc, x: number, y: number): number {
+  return skirtOffset(k, fastAtan2(y - k.cy, x - k.cx));
+}
+
+/**
+ * Radial shrink (cm; negative widens) of the tricuspid inflow column at height `h` below the annulus (positive
+ * apical). Above the annulus it closes after `close` cm. Below it the column keeps the annular width over the length
+ * of the septal and posterior leaflets (1.6 cm), widening by up to `bulge` toward the free wall, and only then narrows
+ * at the rate it used to narrow from the annulus into the
+ * crescent: the right ventricular base is at least as wide as the annulus (basal diameter 3.4 cm for a 3.3 cm annulus
+ * in the normal case). Until decision 138 the column narrowed 0.9 cm within 1.5 cm, and the open leaflets, kept 2.5 mm
+ * inside the cavity, formed a funnel that pointed 25-53° toward the centre of the orifice.
+ */
+export function tvInflowTaper(h: number, close: number, bulge: number): number {
+  if (h < -close) return 2 * (-h - close);
+  if (h <= 0) return 0;
+  const past = Math.max(0, h - 1.6);
+  return -bulge * Math.min(1, h / 0.8) + 0.25 * past + 0.25 * past * past;
 }
 
 /** Build a (ρ, z) profile polyline from per-segment angles (from +z toward inward −ρ) and a segment length. */
@@ -97,7 +128,7 @@ export function skirtDistance(x: number, y: number, z: number, k: SkirtDesc): nu
     return 0;
   }
   const phi = fastAtan2(dy, dx);
-  const zr = zr0 - saddleOffset(phi, k.zones[0]!.phi, k.saddle);
+  const zr = zr0 - skirtOffset(k, phi);
   let best = Infinity,
     bestFrac = 0,
     bestW = 0,
@@ -186,7 +217,6 @@ export function skirtDistance(x: number, y: number, z: number, k: SkirtDesc): nu
 /** Free-edge point of a skirt zone at lateral fraction t (parallel zones) or azimuth offset Δφ (radial zones). */
 export function skirtTip(k: SkirtDesc, zn: SkirtZone, param: number, out: number[]): void {
   const P = zn.prof;
-  const phiA = k.zones[0]!.phi;
   if (zn.kind === 1) {
     const t = param;
     const u = t * k.R;
@@ -199,8 +229,7 @@ export function skirtTip(k: SkirtDesc, zn: SkirtZone, param: number, out: number
       sa = Math.sin(zn.phi);
     out[0] = k.cx + ca * vTip - sa * u;
     out[1] = k.cy + sa * vTip + ca * u;
-    out[2] =
-      k.cz + P[7]! * s + saddleOffset(Math.atan2(out[1] - k.cy, out[0] - k.cx), phiA, k.saddle);
+    out[2] = k.cz + P[7]! * s + skirtOffset(k, Math.atan2(out[1] - k.cy, out[0] - k.cx));
   } else {
     const dphi = param;
     const q = dphi / zn.halfSpan;
@@ -209,7 +238,7 @@ export function skirtTip(k: SkirtDesc, zn: SkirtZone, param: number, out: number
     const ang = zn.phi + dphi;
     out[0] = k.cx + rTip * Math.cos(ang);
     out[1] = k.cy + rTip * Math.sin(ang);
-    out[2] = k.cz + P[7]! * s + saddleOffset(ang, phiA, k.saddle);
+    out[2] = k.cz + P[7]! * s + skirtOffset(k, ang);
   }
 }
 
@@ -220,16 +249,17 @@ export function skirtTip(k: SkirtDesc, zn: SkirtZone, param: number, out: number
 export function tvInflowSdf(x: number, y: number, z: number, tv: SkirtDesc, tvZ: number): number {
   const dx = x - tv.cx,
     dy = y - tv.cy;
-  const r2 = dx * dx + dy * dy;
-  const rho = Math.sqrt(r2);
-  // the same saddle as the leaflets and ring (saddleOffset about zones[0].phi)
-  const phiA = tv.zones[0]!.phi;
-  const sn = dy * Math.cos(phiA) - dx * Math.sin(phiA);
-  const h = z - (tv.cz + tv.saddle * (r2 > 0 ? (sn * sn) / r2 : 0));
-  const close = 0.25 + 0.3 * tvZ;
-  const taper = h > 0 ? 0.25 * h + 0.25 * h * h : h < -close ? 2 * (-h - close) : 0;
-  return rho - tv.R + 0.04 + taper;
+  const rho = Math.sqrt(dx * dx + dy * dy);
+  // the same annulus surface as the leaflets and the ring
+  const phi = fastAtan2(dy, dx);
+  const h = z - (tv.cz + skirtOffset(tv, phi));
+  // the bulge goes toward the free wall, not into the septum (the septal leaflet lies on it: zone 1)
+  const bulge = TV_INFLOW_BULGE_CM * 0.5 * (1 - Math.cos(phi - (tv.zones[1]?.phi ?? 0)));
+  return rho - tv.R + 0.04 + tvInflowTaper(h, 0.25 + 0.3 * tvZ, bulge);
 }
+
+/** How far the right ventricular inflow widens beyond the annulus toward the free wall (cm, decision 138). */
+export const TV_INFLOW_BULGE_CM = 0.2;
 
 /**
  * Semilunar cusps as 2-segment chains in the (inward, axis) plane: closed = shallow cup with the free edges

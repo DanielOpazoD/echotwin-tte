@@ -4,6 +4,7 @@ import { lvCavityRadius } from '../lvShape';
 import { latticeNoise3 } from '@/core/noise';
 import { inflowTaper } from '../mitralValve';
 import { rvFloorZ, rvRadii } from '../rv';
+import { skirtOffsetAt } from '../valveSkirt';
 import { setSample, type ClassifyCtx } from './context';
 
 /** Radial scale of the atria: reservoir/conduit/booster with the LV contraction, shrunk by the atrial kick and its hold. */
@@ -89,7 +90,9 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   // orifice and hiding the excess, so the cavity measured 5.60 cm (the top of the 3.5-5.6 range) while the
   // ellipsoid was really 5.82 cm long. Opening the orifice exposed that, so the ellipsoid is shortened by
   // the same amount instead of letting a wall trim it.
-  const zBotR = A.tvCenter.z + hp.tvZ + 0.03; // the floor is the annulus, wherever TAPSE has taken it (decision 133)
+  // the floor is the annulus, wherever TAPSE has taken it (decision 133) and with its saddle and tilt (decision 138)
+  const tvOff = skirtOffsetAt(V.tv, x, y);
+  const zBotR = A.tvCenter.z + hp.tvZ + tvOff + 0.03;
   const czR = (zTopR + zBotR) / 2,
     rzR = (zBotR - zTopR) / 2;
   const raC = raCollapseScale(hp.raCollapse);
@@ -110,8 +113,8 @@ export function classifyAtria(c: ClassifyCtx): boolean {
       dSleeve = Math.max(
         rad[0]! + 0.1 - r,
         r - (rad[2]! - m.anatomy.rv.freeWallThicknessCm),
-        rvFloorZ(A.tvCenter.z, 0, 0, u) - z,
-        z - rvFloorZ(A.tvCenter.z, hp.tvZ, hp.pvZ, u),
+        rvFloorZ(A.tvCenter.z, 0, 0, u, tvOff) - z,
+        z - rvFloorZ(A.tvCenter.z, hp.tvZ, hp.pvZ, u, tvOff),
       );
     }
   }
@@ -144,7 +147,7 @@ export function classifyAtria(c: ClassifyCtx): boolean {
     if (Math.hypot(x - V.tv.cx, y - V.tv.cy) < V.tv.R) {
       // past the annulus the blood belongs to the ventricle, as it does on the left where the LV cavity
       // claims the mitral orifice: calling it atrium instead stretched ra-long past its reference range
-      const past = z > A.tvCenter.z + hp.tvZ;
+      const past = z > A.tvCenter.z + hp.tvZ + tvOff;
       setSample(
         out,
         Tissue.Blood,
