@@ -35,6 +35,11 @@ export interface BeamFrame {
 
 export const RIGHT_SHOULDER_DIR: Vec3 = normalize(v3(-1, 1, 0));
 
+/** How far under the skin the probe pressure puts the beam origin (cm), along the skin normal. */
+export function probeCompressionCm(pressure: number): number {
+  return 0.3 + 0.5 * Math.max(0, Math.min(1, pressure));
+}
+
 export function poseFromControl(t: ThoraxModel, c: ProbeControl): ProbePose {
   const n = skinNormal(t, c.u, c.v); // outward
   const into = scale(n, -1);
@@ -52,8 +57,7 @@ export function poseFromControl(t: ThoraxModel, c: ProbeControl): ProbePose {
   const qRock = qFromAxisAngle(up2, degToRad(c.rockDeg));
   const orientation = qMul(qRock, qMul(qTilt, qMul(qRot, qBase)));
   const skinPoint = v3(c.u, c.v, skinZ(t, c.u, c.v));
-  const compress = 0.3 + 0.5 * Math.max(0, Math.min(1, c.pressure));
-  const position = add(skinPoint, scale(into, compress));
+  const position = add(skinPoint, scale(into, probeCompressionCm(c.pressure)));
   return { position, orientation };
 }
 

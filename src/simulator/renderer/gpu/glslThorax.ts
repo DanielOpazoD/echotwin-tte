@@ -47,7 +47,7 @@ bool classifyThorax(vec3 p, out Sample s) {
   float T = TH_CHESTWALL;
   if (abs(x) < 1.6 && y > -5.0 && y < 9.5 && depth > T * 0.3 && depth < T * 0.3 + 1.0) { s.tissue = T_BONE; s.structure = S_STERNUM; s.sdf = -0.3; return true; }
   if (abs(x) >= 1.6 && abs(x) < TH_AW * 0.95) {
-    float kf = (TH_RIB2Y + TH_RIBSLOPE * abs(x) - y) / TH_RIBSP + 2.0;
+    float kf = (TH_RIB2Y + TH_RIBSLOPE * abs(x) - y) / ribSpacingAt(x) + 2.0;
     float k = floor(kf + 0.5);
     if (k >= 2.0 && k <= 9.0) {
       float ry = ribCenterY(k, x);

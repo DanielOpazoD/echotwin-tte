@@ -47,6 +47,8 @@ const PLAX_AP = R(v3(-0.5, 0.866, 0)); // from lateral(x)/anterior(y): anterosep
 /** A2C plane: 60° from A4C (which lies at azimuth ~2°, through the tricuspid inflow) and 60° from A3C/PLAX (122°). */
 const A2C_RIGHT = R(v3(Math.cos(1.082), Math.sin(1.082), 0)); // 62°
 const AV_CENTER = v3(-0.7, 1.35, -0.25);
+/** Turn of the A5C plane about the long axis from the septal–lateral direction toward the inferior wall (decision 139). */
+const A5C_TURN = (-4 * Math.PI) / 180;
 
 export function buildViewTargets(): ViewTarget[] {
   return [
@@ -260,8 +262,11 @@ export function buildViewTargets(): ViewTarget[] {
       // the aortic valve 0.55 cm behind its centre so the cusps and both atria stay in the sector (decision 85). It was
       // rotated 19° toward the anterior wall and aimed 1 cm into the ventricle: the plane grazed the back of the root
       // 0.9 cm from its centre, and the valve showed 1.3-2.1 cm from the septum, under the middle of the ventricle where
-      // the mitral valve belongs, instead of against the septum between both atria.
-      planeRight: R(v3(1, 0, 0)),
+      // the mitral valve belongs, instead of against the septum between both atria. Seen from the apical probe on the
+      // long axis (decision 139), the unrotated plane cut the valve and the left atrium at their edges: 43 atrial samples
+      // in systole in the tamponade case against 50 needed, and a target 0.1 cm lower lost the valve in the atrial
+      // fibrillation case. Turned 4° toward the inferolateral wall, the plane keeps both in all twelve cases, from 3° to 6°.
+      planeRight: R(v3(Math.cos(A5C_TURN), Math.sin(A5C_TURN), 0)),
       planeDown: R(v3(0, 0, -1)),
       target: v3(AV_CENTER.x, AV_CENTER.y - 0.55, AV_CENTER.z),
       skin: { u: 6.8, v: -2.8 },

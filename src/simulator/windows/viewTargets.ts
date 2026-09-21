@@ -5,8 +5,9 @@ import { lvProfileG } from '@/simulator/anatomy/lvShape';
 import { AV_COAPTATION_HEIGHT } from '@/simulator/anatomy/aorticValve';
 import { anchorsCached, heartDirToTorso, heartToTorso } from '@/simulator/anatomy/heartModel';
 import {
+  clampToIntercostal,
   isAnteriorLung,
-  ribSpacingAt,
+  skinNormal,
   skinZ,
   snapToIntercostal,
   type ThoraxModel,
@@ -15,6 +16,7 @@ import {
   beamFrameFromPose,
   controlAimingAt,
   poseFromControl,
+  probeCompressionCm,
   type BeamFrame,
   type ProbeControl,
 } from '@/simulator/probe/pose';
@@ -27,7 +29,7 @@ export {
   type ViewTarget,
   type WindowId,
 } from './viewDefinitions';
-import type { ViewTarget } from './viewDefinitions';
+import { getViewTarget, type ViewTarget } from './viewDefinitions';
 
 export function skinPointOnPlane(
   thorax: ThoraxModel,
@@ -123,6 +125,84 @@ export function ventricleHiddenShare(
   return seen ? hidden / seen : 0;
 }
 
+/**
+ * Heart-frame point the apical probe looks from, through the LV apex (decision 139). In clinical four-chamber images the
+ * cavity apex lies on the sector centre line (CAMUS Good: 0 mm, interquartile range −3.9 to 3.2) with the ventricle
+ * tilted 6° (2–9°) toward the lateral wall, so the centre line runs from the apex to 0.8 cm septal of the mitral
+ * centre; and in two-chamber images the apex lies 7 mm (4–10) toward the inferior wall with the ventricle tilted 7°
+ * (4–11°) the other way, which from the same probe position needs the probe ~1 cm toward the anterior wall of the
+ * axis line: an aim 2 cm on the inferior side of the base puts it there.
+ */
+export const APICAL_PROBE_AIM: Vec3 = v3(-0.8, -2.0, 1.5);
+/** Half-height of the probe face across the ribs: the probe stays this far from the rib surfaces (cm). */
+const APICAL_FACE_MARGIN_CM = 0.6;
+const APICAL_PRESSURE = 0.6;
+
+const apicalSkinCache = new WeakMap<HeartModel, Map<string, { u: number; v: number }>>();
+
+/**
+ * The skin point of every apical view (decision 139). A sonographer finds the apex beat and aims down the ventricle, then
+ * rotates the probe in place for the two-, three- and five-chamber views: the probe sits where the line from
+ * `APICAL_PROBE_AIM` through the LV cavity apex leaves the chest — with its beam origin, pushed under the skin by the
+ * probe pressure, on that line — inside the rib-free band of its intercostal space. Until decision 139 each view slid
+ * from the anterior projection of the apex toward its own plane; that point lay 2.6 cm septal of the long axis, and the
+ * four-chamber apex showed 19 mm lateral of the centre line, 47° off it from the probe. If lung hides more than a tenth of
+ * the ventricular wall in the four- or two-chamber view, the probe slides medially along the space (decision 83).
+ */
+export function apicalSkinPoint(heart: HeartModel, thorax: ThoraxModel): { u: number; v: number } {
+  let cache = apicalSkinCache.get(heart);
+  if (!cache) {
+    cache = new Map();
+    apicalSkinCache.set(heart, cache);
+  }
+  const key = `${thorax.lungShiftCm}|${thorax.chestWall}|${thorax.aw}|${thorax.bDepth}|${thorax.ribSpacing}|${thorax.ribRadius}`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+  const apex = heartToTorso(heart.frame, v3(0, 0, heart.lv.lengthCm));
+  const out = normalize(sub(apex, heartToTorso(heart.frame, APICAL_PROBE_AIM)));
+  const compress = probeCompressionCm(APICAL_PRESSURE);
+  // signed height of the skin point above the beam origin at s cm along the line (positive once outside)
+  const above = (s: number): { h: number; u: number; v: number } => {
+    const p = add(apex, scale(out, s));
+    const q = add(p, scale(skinNormal(thorax, p.x, p.y), compress));
+    return { h: q.z - skinZ(thorax, q.x, q.y), u: q.x, v: q.y };
+  };
+  let lo = 0,
+    hi = 0.25;
+  while (above(hi).h < 0 && hi < 25) {
+    lo = hi;
+    hi += 0.25;
+  }
+  for (let i = 0; i < 24; i++) {
+    const mid = (lo + hi) / 2;
+    if (above(mid).h < 0) lo = mid;
+    else hi = mid;
+  }
+  const exit = above(hi);
+  let skin = clampToIntercostal(thorax, exit.u, exit.v, APICAL_FACE_MARGIN_CM);
+  const views = [getViewTarget('a4c'), getViewTarget('a2c')].map((v) => canonicalPlane(v, heart));
+  const hiddenAt = (p: { u: number; v: number }): number =>
+    Math.max(
+      ...views.map((pl) =>
+        ventricleHiddenShare(
+          heart,
+          thorax,
+          controlAimingAt(thorax, p.u, p.v, pl.target, pl.right, APICAL_PRESSURE),
+        ),
+      ),
+    );
+  if (hiddenAt(skin) > 0.1) {
+    const stops = [skin];
+    for (let d = 0.5; d <= 4; d += 0.5)
+      stops.push(clampToIntercostal(thorax, skin.u - d, skin.v, APICAL_FACE_MARGIN_CM));
+    const hid = stops.map(hiddenAt);
+    const tolerated = Math.max(0.1, Math.min(...hid) + 0.05);
+    skin = stops[hid.findIndex((h) => h <= tolerated + 1e-9)]!;
+  }
+  cache.set(key, skin);
+  return skin;
+}
+
 /** Canonical probe control for a view target, computed from the case anatomy (for scoring/ghost only). */
 export function canonicalControl(
   view: ViewTarget,
@@ -130,57 +210,10 @@ export function canonicalControl(
   thorax: ThoraxModel,
 ): ProbeControl {
   const plane = canonicalPlane(view, heart);
-  let preferred = view.skin;
+  const preferred = view.skin;
   let skin = preferred;
   if (view.window === 'apical') {
-    const apex = heartToTorso(heart.frame, v3(0, 0, heart.lv.lengthCm));
-    preferred = { u: apex.x, v: apex.y };
-    // rotate at the apex and slide at most 2 cm: the exact 60° planes through the long axis would need a 3.4 cm
-    // lateral slide for A2C (among the lateral ribs); a real A2C accepts a few degrees of obliquity instead
-    const slid = skinPointOnPlane(thorax, plane, preferred, 2.0);
-    // A sonographer takes the intercostal space from which the heart is seen. The slid point can fall almost halfway
-    // between two spaces: the A3C one did (v −3.1, centres at −1.6 and −4.8), the nearest was the upper space, and
-    // there the lingula lies between chest wall and heart — the A3C preset showed 66–83% lung and no LV in eight of
-    // the twelve cases (decision 72). The adjacent space wins only when it clearly hides less of the sector: in the
-    // eight broken presets it hid 0% of the rays against 65–88%, and elsewhere the difference never exceeded 6%
-    // (always choosing the apex's own space instead foreshortened A4C from 9° to 31–41° in three cases).
-    const near = snapToIntercostal(thorax, slid.u, slid.v);
-    const spacing = ribSpacingAt(thorax, slid.u);
-    const other = snapToIntercostal(
-      thorax,
-      slid.u,
-      near.v + (slid.v > near.v ? spacing : -spacing),
-    );
-    const hidden = (p: { u: number; v: number }): number =>
-      lungOcclusion(
-        thorax,
-        controlAimingAt(thorax, p.u, p.v, plane.target, plane.right, 0.6),
-        plane.target,
-      );
-    skin = hidden(other) < hidden(near) - 0.1 ? other : near;
-    // Within that space the slide toward the plane stops before the lung covers the ventricle. Sliding the full 2 cm put
-    // the A2C probe over the lung border: the lingula hid 35% of the LV wall in the normal case — the anterior wall — and
-    // 23-50% in all twelve, while 1-1.5 cm back toward the apex the wall lay clear (decision 83). The probe keeps the
-    // longest slide, the least obliquity, that leaves at most a tenth of the wall behind lung, or failing that no more
-    // than 5 points above the clearest position this window allows.
-    const back = Math.sign(preferred.u - skin.u);
-    const stops = [skin];
-    for (let d = 0.5; d < Math.abs(preferred.u - skin.u); d += 0.5)
-      stops.push(snapToIntercostal(thorax, skin.u + back * d, skin.v));
-    if (Math.abs(preferred.u - skin.u) > 0.25)
-      stops.push(snapToIntercostal(thorax, preferred.u, skin.v));
-    const hiddenAt = (p: { u: number; v: number }): number =>
-      ventricleHiddenShare(
-        heart,
-        thorax,
-        controlAimingAt(thorax, p.u, p.v, plane.target, plane.right, 0.6),
-      );
-    // a clear first position needs no search: it is the longest slide and within any tolerance
-    if (stops.length > 1 && hiddenAt(skin) > 0.1) {
-      const hid = stops.map(hiddenAt);
-      const tolerated = Math.max(0.1, Math.min(...hid) + 0.05);
-      skin = stops[hid.findIndex((h) => h <= tolerated + 1e-9)]!;
-    }
+    skin = apicalSkinPoint(heart, thorax);
   } else if (view.id === 'plax') {
     skin = skinPointOnPlane(thorax, plane, preferred, 1.5);
   } else if (view.window === 'parasternal') {
@@ -206,8 +239,10 @@ export function canonicalControl(
     const p = skinPointOnPlane(thorax, plane, preferred, 2.0);
     skin = { u: p.u, v: Math.min(-8.5, p.v) };
   }
-  // a sonographer always sits in an intercostal space, never on a rib (the subcostal window has none)
-  if (view.window !== 'subcostal') skin = snapToIntercostal(thorax, skin.u, skin.v);
+  // a sonographer always sits in an intercostal space, never on a rib (the subcostal window has none; the apical point
+  // is already inside the rib-free band of its space)
+  if (view.window !== 'subcostal' && view.window !== 'apical')
+    skin = snapToIntercostal(thorax, skin.u, skin.v);
   return controlAimingAt(thorax, skin.u, skin.v, plane.target, plane.right, 0.6);
 }
 
