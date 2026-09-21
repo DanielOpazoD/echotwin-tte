@@ -41,6 +41,8 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
   const [size, setSize] = useState({ width: 640, height: 520 });
   const pendingRef = useRef<Pending>({ points: [] });
   const lastOutRef = useRef<SimOutput | null>(null);
+  /** the overlay redraw of the drawing effect, so tool clicks refresh the overlay without waiting for a frame */
+  const redrawOverlayRef = useRef<() => void>(() => {});
   const dragRef = useRef<{
     kind: 'box-move' | 'box-resize' | 'cursor' | 'marker' | 'none';
     startX: number;
@@ -125,6 +127,7 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
       frameBus.diag.overlayMs = performance.now() - t1;
       frameBus.diag.frames++;
     });
+    redrawOverlayRef.current = redrawOverlay;
     const unsubStore = useSimStore.subscribe(redrawOverlay);
     return () => {
       unsubFrame();
@@ -361,7 +364,10 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
     } else pend.captureSector = undefined;
     const spec = specFor(st.activeMeasurementId);
     const modality = st.modality === 'color' ? '2d' : st.modality;
-    const redraw = () => useHudStore.getState().setHud({ ...hud });
+    const redraw = () => {
+      redrawOverlayRef.current();
+      useHudStore.getState().setHud({ ...hud });
+    };
     const commit = (
       ms: Omit<
         Measurement,
@@ -380,6 +386,10 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
       >,
       extras: CaptureExtras = {},
     ) => {
+      // pending points go before the store update: the store subscription redraws the overlay synchronously, and
+      // with the points still pending their cyan crosses covered the measurement's yellow ones until the next frozen
+      // frame (80 ms), which the caliper E2E read as a crosshair drawn elsewhere
+      pend.points = [];
       st.addMeasurement({
         ...ms,
         captureSector: sectorTool ? { ...m } : undefined,
@@ -397,7 +407,6 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
         userAssisted: extras.userAssisted ?? false,
         referenceGuidelineIds: spec ? spec.referenceIds : ['ase-tte-2019'],
       });
-      pend.points = [];
       if (spec) st.setActiveMeasurement(null);
     };
     const stripVelocity = (y: number) =>
