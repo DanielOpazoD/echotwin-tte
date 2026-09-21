@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { loadCaseById } from '@/cases';
 import { SimulatorCore } from '@/simulator/core/simulatorCore';
 import { baseInput } from '@/simulator/core/baseInput';
-import { createHeartModel, computeHeartPose } from '@/simulator/anatomy/heartModel';
+import { createHeartModel, computeHeartPose, torsoToHeart } from '@/simulator/anatomy/heartModel';
 import { createThoraxModel } from '@/simulator/anatomy/thoraxModel';
 import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { ProceduralSliceRenderer } from '../procedural/sliceRenderer';
@@ -20,6 +20,7 @@ import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
 import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
 import { Structure, Tissue } from '@/simulator/anatomy/tissue';
 import { pleuralReverberation } from './acoustics';
+import { add, scale, sub } from '@/core/vec3';
 
 /**
  * Acceptance numbers of the acoustic image formation (decision 52, docs/AUDITORIA_FIDELIDAD.md E-2) measured on
@@ -253,20 +254,39 @@ describe('acoustic image formation', () => {
 
   // In PSAX the LV ring is perpendicular to the beam where the central lines cross it and parallel at the
   // sector edges: the lateral walls must drop out, not stay a uniform bright ring — the fibre-orientation
-  // model puts the beam along the circumferential fibres there. Measured 0.57 → 0.50.
-  it('the PSAX ring drops out where the beam runs along the wall', () => {
-    const { lines: L, samples: N } = spec;
+  // model puts the beam along the circumferential fibres there. Samples are bucketed by the beam's alignment with
+  // the circumferential fibre direction at each of them (|beam · φ̂| below 0.3 against above 0.85), not by which sector
+  // line holds them: line buckets read the window's obliquity, and the 2° the papillary short axis moved in decision
+  // 139 took their ratio from 0.50 to 0.552. myoAnisoGain gives 0.45/0.92 ≈ 0.49 at the bucket edges (beam across the
+  // long axis) and 0.24 at full alignment; measured 0.36 (line buckets: 0.57 → 0.50 before decision 123).
+  it('the PSAX ring drops out where the beam runs along the fibres', () => {
+    const { lines: L, samples: N, sectorRad } = spec;
     const dr = spec.depthCm / N;
-    const buckets: number[][] = [[], [], [], [], [], []];
-    for (let li = 0; li < L; li++)
+    const beam = beamFrameFromPose(
+      poseFromControl(thorax, canonicalControl(getViewTarget('psax-pm'), heart, thorax)),
+      1,
+    );
+    const origin = torsoToHeart(heart.frame, beam.origin);
+    const along: number[] = [];
+    const across: number[] = [];
+    for (let li = 0; li < L; li++) {
+      const theta = -sectorRad / 2 + (sectorRad * (li + 0.5)) / L;
+      const dir = add(scale(beam.forward, Math.cos(theta)), scale(beam.lateral, Math.sin(theta)));
+      const dH = sub(torsoToHeart(heart.frame, add(beam.origin, dir)), origin);
       for (let si = Math.floor(3 / dr); si < Math.floor(12 / dr); si++) {
         const i = li * N + si;
-        if (psax.tissue[i] === Tissue.Myocardium && isLvWall(psax.structure[i] ?? 0))
-          buckets[Math.floor((6 * li) / L)]!.push(norm(psax, i));
+        if (psax.tissue[i] !== Tissue.Myocardium || !isLvWall(psax.structure[i] ?? 0)) continue;
+        const p = torsoToHeart(heart.frame, add(beam.origin, scale(dir, (si + 0.5) * dr)));
+        const rr = Math.hypot(p.x, p.y);
+        if (rr < 0.5) continue;
+        const alignment = Math.abs((dH.y * p.x - dH.x * p.y) / rr);
+        if (alignment < 0.3) across.push(norm(psax, i));
+        else if (alignment > 0.85) along.push(norm(psax, i));
       }
-    const oblique = [...buckets[1]!, ...buckets[4]!];
-    const perpendicular = [...buckets[2]!, ...buckets[3]!];
-    const ratio = mean(oblique) / mean(perpendicular);
+    }
+    expect(across.length).toBeGreaterThan(200);
+    expect(along.length).toBeGreaterThan(200);
+    const ratio = mean(along) / mean(across);
     expect(ratio).toBeLessThan(0.55);
     expect(ratio).toBeGreaterThan(0.2);
   });

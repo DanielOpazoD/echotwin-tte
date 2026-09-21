@@ -275,9 +275,13 @@ describe('M-mode strip through the simulator (decision 84)', () => {
       const hp = computeHeartPose(heart, cycleStateAt(tables, s.phase[col]!));
       const { peri } = lineAnatomy(hp, theta);
       if (peri < 0) continue;
-      // intensity centroid of the bright pericardial complex (pericardium and pleura move together)
+      // intensity centroid of the pericardial echo, 1.5 mm to either side of the model's pericardium. The window used to
+      // reach 3 mm behind it, into the pleural reverberation, which does not move with the heart (the lung is static
+      // in the model): that read the pericardium–pleura distance, not the echo's continuity, and once decision 139
+      // moved the base 0.7 cm posterior the rms step rose from 0.080 to 0.121 mm with the wide window while the
+      // pericardium itself stayed at 0.086–0.095 mm.
       const a0 = Math.max(0, Math.floor((peri - 0.15) / dr)),
-        a1 = Math.min(s.samples - 1, Math.ceil((peri + 0.3) / dr));
+        a1 = Math.min(s.samples - 1, Math.ceil((peri + 0.15) / dr));
       let base = 255;
       for (let i = a0; i <= a1; i++) base = Math.min(base, s.grey[i * cols + col]!);
       let w = 0,
@@ -527,8 +531,9 @@ describe('M-mode strip through the simulator (decision 84)', () => {
   });
 
   it('a line four times finer than the frame keeps, tissue by tissue, the levels of the same line sampled like a frame', () => {
-    // Levels are compared inside tissue runs over the whole sector and four phases: one line alone holds a single speckle
-    // realisation of still tissue. Interface peaks are not compared here: the frame merges the two surfaces of a thin
+    // Levels are compared inside tissue runs over the whole sector and five phases: one line alone holds a single speckle
+    // realisation of still tissue (four phases left the mediastinal fat 15 samples short of the 300 the comparison
+    // asks for once the apical probe of decision 139 put lung on the edge lines). Interface peaks are not compared here: the frame merges the two surfaces of a thin
     // membrane that the finer line resolves (psf.test.ts checks a single interface).
     const renderer = new ProceduralSliceRenderer();
     const spec = polarSpecFor(baseInput().settings, 'medium');
@@ -555,10 +560,10 @@ describe('M-mode strip through the simulator (decision 84)', () => {
       return x.st[i] !== 0;
     };
     const power = new Map<number, [number, number, number, number]>();
-    for (let p = 0; p < 4; p++) {
+    for (let p = 0; p < 5; p++) {
       const scene = {
         heart,
-        heartPose: computeHeartPose(heart, cycleStateAt(tables, p / 4)),
+        heartPose: computeHeartPose(heart, cycleStateAt(tables, p / 5)),
         thorax,
         physics,
       };

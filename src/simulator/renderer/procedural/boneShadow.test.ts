@@ -2,7 +2,12 @@
 import { describe, expect, it } from 'vitest';
 import { loadCaseById } from '@/cases';
 import { computeHeartPose, createHeartModel } from '@/simulator/anatomy/heartModel';
-import { createThoraxModel } from '@/simulator/anatomy/thoraxModel';
+import {
+  createThoraxModel,
+  ribCenterY,
+  ribIndexAt,
+  ribRadiusAt,
+} from '@/simulator/anatomy/thoraxModel';
 import { Tissue } from '@/simulator/anatomy/tissue';
 import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
@@ -101,8 +106,12 @@ describe('bone attenuation is integrated over distance', () => {
   };
 
   it('the same rib shadows alike in the low, medium and high tiers', { timeout: 120_000 }, () => {
-    // on a rib (4 mm of bone along most lines) and at a rib's edge (about 1 mm along a few lines)
-    for (const offsetV of [1.4, -1.4]) {
+    // on a rib (bone along most lines) and 1 mm inside a rib's edge (a short path along a few lines): the offsets come
+    // from the rib geometry at the apical probe, not from fixed numbers — a fixed ±1.4 cm landed on the rib only while
+    // the probe sat where the ribs were 3.1 cm apart, and missed it once decision 139 moved it 3 cm lateral
+    const a4c = canonicalControl(getViewTarget('a4c'), heart, thorax);
+    const rib = ribCenterY(thorax, Math.round(ribIndexAt(thorax, a4c.u, a4c.v)), a4c.u) - a4c.v;
+    for (const offsetV of [rib, rib + ribRadiusAt(thorax, a4c.u) - 0.1]) {
       const tiers = (['low', 'medium', 'high'] as const).map((t) => shadowDb(offsetV, t));
       for (const t of tiers) expect(t.boneLineShare).toBeGreaterThan(0.02);
       const dbs = tiers.map((t) => t.db);

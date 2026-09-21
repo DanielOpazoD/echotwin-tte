@@ -128,12 +128,15 @@ export function ventricleHiddenShare(
 /**
  * Heart-frame point the apical probe looks from, through the LV apex (decision 139). In clinical four-chamber images the
  * cavity apex lies on the sector centre line (CAMUS Good: 0 mm, interquartile range −3.9 to 3.2) with the ventricle
- * tilted 6° (2–9°) toward the lateral wall, so the centre line runs from the apex to 0.8 cm septal of the mitral
- * centre; and in two-chamber images the apex lies 7 mm (4–10) toward the inferior wall with the ventricle tilted 7°
- * (4–11°) the other way, which from the same probe position needs the probe ~1 cm toward the anterior wall of the
- * axis line: an aim 2 cm on the inferior side of the base puts it there.
+ * tilted 6° (2–9°) toward the lateral wall, and in two-chamber images it lies 7 mm (4–10) toward the inferior wall with
+ * the ventricle tilted 7° (4–11°) the other way. One probe position serves both when the centre line runs from the apex
+ * to a point 1.2 cm septal and 1.5 cm inferior of the mitral centre, at the level the apical planes aim at: measured on
+ * the rendered images as CAMUS is, the four-chamber apex comes out 3.2 mm from the centre line at 26.9 mm with a 5.7°
+ * tilt (CAMUS medians 0, 27.4 and 5.7) and the two-chamber apex −4.4 mm. With 0.8 and 2.0 cm the four-chamber plane
+ * passed 4 mm beside the apex and its cavity apex showed 6.2 mm lateral; with 1.0 cm inferior the two-chamber tilt fell
+ * to 0.7°.
  */
-export const APICAL_PROBE_AIM: Vec3 = v3(-0.8, -2.0, 1.5);
+export const APICAL_PROBE_AIM: Vec3 = v3(-1.2, -1.5, 1.5);
 /** Half-height of the probe face across the ribs: the probe stays this far from the rib surfaces (cm). */
 const APICAL_FACE_MARGIN_CM = 0.6;
 const APICAL_PRESSURE = 0.6;
@@ -276,15 +279,18 @@ export function canonicalPlane(
     // closed cusps: that is what makes the valve a circle with the Y of its commissures. The declared plane stood 32.9°
     // off the root axis, so the section rose from 0.2 to 1.0 cm above the annulus across the root and one side cut the
     // cusp bellies against the sinus wall (decision 133). Normal = root axis; the declared beam direction is kept in
-    // the plane. The target sits 0.35 cm above the annulus: the root descends ~1 cm with the base (ROOT_EXCURSION), so a
-    // fixed plane cuts the closed valve at the bottom of its coaptation zone at end-diastole (t ≈ 0.46), near its top
-    // in early diastole (≈ 0.75) and the open cusps at ≈ 1.4 cm in systole; 0.2 cm higher, early diastole showed only
-    // the Y's centre (10 samples in the low-resolution frame) and systole only the commissures.
+    // the plane. The target sits 0.47 cm above the annulus, just above the bottom of the coaptation zone: the root
+    // descends ~1 cm with the base (ROOT_EXCURSION), so a fixed plane cuts the closed valve at the bottom of its
+    // coaptation zone at end-diastole (t ≈ 0.47), near its top in early diastole (≈ 0.8) and the open cusps at
+    // ≈ 1.4 cm in systole; 0.2 cm higher, early diastole showed only the Y's centre (10 samples in the low-resolution
+    // frame) and systole only the commissures. Until decision 139 the target was written 0.35 cm above the annulus and
+    // the beam, aimed from the skin point instead of its compressed origin, passed 0.1 cm above it: the same cut,
+    // reached by two errors; aimed exactly, the 0.2 mm above the zone's bottom keep the end-diastolic cut inside it.
     const A = anchorsCached(heart);
     const axis = A.avAxis;
     const declaredN = normalize(cross(view.planeRight, view.planeDown));
     const n = dot(axis, declaredN) < 0 ? scale(axis, -1) : axis;
-    targetH = add(A.avCenter, scale(axis, AV_COAPTATION_HEIGHT - 0.1));
+    targetH = add(A.avCenter, scale(axis, AV_COAPTATION_HEIGHT + 0.02));
     downH = normalize(sub(view.planeDown, scale(n, dot(view.planeDown, n))));
     const r = cross(downH, n);
     rightH = dot(r, view.planeRight) < 0 ? scale(r, -1) : r;

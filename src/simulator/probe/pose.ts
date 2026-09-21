@@ -87,8 +87,13 @@ export function controlAimingAt(
   screenRightDir: Vec3,
   pressure = 0.6,
 ): ProbeControl {
-  // Iteratively fit rotation/tilt/rock: cheap coordinate descent on angle error (deterministic).
-  const desiredForward = normalize(sub(target, v3(u, v, skinZ(t, u, v))));
+  // Iteratively fit rotation/tilt/rock: cheap coordinate descent on angle error (deterministic). The beam leaves the
+  // origin the pressure pushes under the skin, not the skin point: aimed from the skin, every canonical centre line
+  // missed its target by 0.16-0.40 cm (0.16-0.39 cm out of the plane), and the great-vessel short axis cut the aortic
+  // cusps 1.6 mm above its coaptation target (decision 139).
+  const n = skinNormal(t, u, v);
+  const origin = add(v3(u, v, skinZ(t, u, v)), scale(n, -probeCompressionCm(pressure)));
+  const desiredForward = normalize(sub(target, origin));
   const desiredLateral = normalize(
     sub(screenRightDir, scale(desiredForward, dot(screenRightDir, desiredForward))),
   );
