@@ -62,9 +62,9 @@ const renderOnce = (view: 'a4c' | 'a2c', ed: boolean): ApicalRender[] => {
  * range leave 4 to 7 conditions out and never fix either contrast (decision 70). The fibre-orientation anisotropy of
  * decision 123 keeps the beam-parallel apical walls bright, which brought A2C end-diastole contrast inside (38
  * against quartiles 36-53) and A2C end-systole myocardium and contrast closer, while the A4C end-diastole contrast
- * stayed above the upper quartile (51 against 47, within the p90 of 53): without spatial compounding the
- * perpendicular walls hold their full backscatter. A declaration that holds no longer fails the test, so the
- * list cannot outlive the defect.
+ * stayed above the upper quartile (51 against 47). From the apical probe of decision 139 every wall is seen at about
+ * 20° and the three came inside (A4C end-diastole contrast 48, A2C end-systole myocardium 99 and contrast 41). A
+ * declaration that holds no longer fails the test, so the list cannot outlive the defect.
  */
 const KNOWN_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // Each entry holds its baseline: the signed distance outside the clinical quartiles, in quartile widths (negative
@@ -72,9 +72,6 @@ const KNOWN_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // declared and not stale, so it could grow without limit (external audit F11, decision 88). Baselines measured with
   // the complex receiver noise and the clinical grey map, averaged over the noise realizations (decision 91);
   // re-baselined under the fibre-orientation model of decision 123.
-  ['4CH-ED:contrast', 0.3],
-  ['2CH-ES:myocardiumGrey', -0.19],
-  ['2CH-ES:contrast', -0.83],
   // Texture (decisions 74 and 91, docs/LIMITATIONS.md): the speckle cell is 1.4-1.5 × 1.0 mm against 2.1 × 1.7 mm, so a
   // 5×5 window holds more of the texture variance than in a clinical image: local std 11.7-12.4 against upper quartiles of 10.1-11.3 while
   // the std against the ±4 mm mean is 16.1-17.2 against ~21 (ratio 0.69-0.70 against 0.45-0.51). The fibre-orientation
@@ -84,27 +81,27 @@ const KNOWN_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // envelope hid part of this until decision 91: it filled the nulls (local std 9.3-9.7, texture contrast ~13) and its
   // per-sample grain shrank the cell to 1.2-1.35 × 0.9-1.0 mm. Widening the PSF matched these numbers and looked false
   // (dark worm-like nulls, granular blood); smoothing after detection lost the texture contrast (decision 74).
-  ['4CH-ED:myocardialLocalStd', 1.02],
-  ['4CH-ES:myocardialLocalStd', 0.54],
-  ['2CH-ED:myocardialLocalStd', 1.49],
-  ['2CH-ES:myocardialLocalStd', 0.59],
-  ['4CH-ED:myocardialDetrendedStd', -0.49],
-  ['4CH-ES:myocardialDetrendedStd', -0.55],
-  ['2CH-ED:myocardialDetrendedStd', -0.46],
-  ['2CH-ES:myocardialDetrendedStd', -0.48],
-  ['4CH-ED:speckleCellHorizontalMm', -1.61],
+  ['4CH-ED:myocardialLocalStd', 1.29],
+  ['4CH-ES:myocardialLocalStd', 0.74],
+  ['2CH-ED:myocardialLocalStd', 1.9],
+  ['2CH-ES:myocardialLocalStd', 1.13],
+  ['4CH-ED:myocardialDetrendedStd', -0.19],
+  ['4CH-ES:myocardialDetrendedStd', -0.29],
+  ['2CH-ED:myocardialDetrendedStd', -0.15],
+  ['2CH-ES:myocardialDetrendedStd', -0.14],
+  ['4CH-ED:speckleCellHorizontalMm', -1.36],
   ['4CH-ES:speckleCellHorizontalMm', -2.23],
   ['2CH-ED:speckleCellHorizontalMm', -1.59],
-  ['2CH-ES:speckleCellHorizontalMm', -2.46],
-  ['4CH-ED:speckleCellVerticalMm', -2.18],
-  ['4CH-ES:speckleCellVerticalMm', -2.26],
+  ['2CH-ES:speckleCellHorizontalMm', -2.64],
+  ['4CH-ED:speckleCellVerticalMm', -1.95],
+  ['4CH-ES:speckleCellVerticalMm', -2.06],
   ['2CH-ED:speckleCellVerticalMm', -1.96],
   ['2CH-ES:speckleCellVerticalMm', -1.93],
   // Shape of the grey scale (decisions 90-91). The slope of local std against grey level and the white end came inside
   // with the clinical grey map; the skewness of the myocardial residuals rose from −0.35..−0.51 but is still negative.
-  ['4CH-ED:myocardialResidualSkew', -0.88],
-  ['4CH-ES:myocardialResidualSkew', -1.11],
-  ['2CH-ED:myocardialResidualSkew', -0.73],
+  ['4CH-ED:myocardialResidualSkew', -0.55],
+  ['4CH-ES:myocardialResidualSkew', -0.86],
+  ['2CH-ED:myocardialResidualSkew', -0.5],
   ['2CH-ES:myocardialResidualSkew', -0.35],
 ]);
 
@@ -126,33 +123,20 @@ const QUARTILE_EDGE = 0.1;
 
 /**
  * Where the left ventricle sits in the apical images against the sector (decision 92, docs/LIMITATIONS.md), baselines in
- * quartile widths like KNOWN_DEVIATIONS. The A4C probe sits 2.6 cm septal of the LV long axis, so the apex lies 47° off
- * the centre line (19 mm lateral in the image against 0 in CAMUS Good): the septum runs along its scan lines (3.5° against
- * 21°), whose path crosses 3.6 cm of myocardium before the mid-septum, the lateral wall is seen obliquely (32° against
- * 17°), and the septum comes out darker than the lateral wall (−46 grey levels at end-diastole, −28 at end-systole,
- * against +35 and +24 in CAMUS Good; the fibre-orientation anisotropy of decision 123 brightened both walls relative
- * to the wall-normal model). The A2C apex lies on the
- * other side of the centre line from the clinical one, with the axis tilted the other way and 6-9 mm deeper.
+ * quartile widths like KNOWN_DEVIATIONS. Until decision 139 the A4C probe sat 2.6 cm septal of the LV long axis and
+ * eighteen of these were declared: the apex 19 mm lateral of the centre line (0 in CAMUS Good), the septum along its scan
+ * lines (3.5° against 21°), the lateral wall oblique (32° against 17°) and the septum 46 grey levels darker than the
+ * lateral wall (+35 in CAMUS Good). With the long axis where cardiac MRI puts it and the apical probe looking down it,
+ * fourteen fall inside the clinical interquartile range (four-chamber end-diastole: apex 3.2 mm from the centre line at
+ * 26.9 mm, axis 5.7°, walls at 22° and 19°). What stays outside: the septum is as bright as the lateral wall at
+ * end-diastole, not brighter (+2 grey levels against +13 to +53); at end-systole the axis tilts 8° (0.3–6.9) and the
+ * septum stands 21° to its scan lines (8–20); and the two-chamber axis tilts 1.5° at end-diastole against 3.8–10.8°.
  */
 const KNOWN_GEOMETRY_DEVIATIONS: ReadonlyMap<string, number> = new Map([
-  ['4CH-ED:apexOffsetMm', 2.25],
-  ['4CH-ED:apexDepthMm', -0.11],
-  ['4CH-ED:axisTiltDeg', -0.63],
-  ['4CH-ED:septalRayAngleDeg', -0.97],
-  ['4CH-ED:lateralRayAngleDeg', 1.42],
-  ['4CH-ED:septalMinusLateralGrey', -1.47],
-  ['4CH-ES:apexOffsetMm', 1.72],
-  ['4CH-ES:apexDepthMm', -0.46],
-  ['4CH-ES:axisTiltDeg', -0.43],
-  ['4CH-ES:septalRayAngleDeg', -0.52],
-  ['4CH-ES:lateralRayAngleDeg', 1.21],
-  ['4CH-ES:septalMinusLateralGrey', -0.93],
-  ['2CH-ED:apexOffsetMm', 1.23],
-  ['2CH-ED:apexDepthMm', 0.2],
-  ['2CH-ED:axisTiltDeg', -0.9],
-  ['2CH-ES:apexOffsetMm', 0.46],
-  ['2CH-ES:apexDepthMm', 0.34],
-  ['2CH-ES:axisTiltDeg', -0.55],
+  ['4CH-ED:septalMinusLateralGrey', -0.28],
+  ['4CH-ES:axisTiltDeg', 0.16],
+  ['4CH-ES:septalRayAngleDeg', 0.11],
+  ['2CH-ED:axisTiltDeg', -0.33],
 ]);
 
 /** Signed distance outside the quartiles in quartile widths: negative below p25, positive above p75, 0 inside. */

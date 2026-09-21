@@ -36,6 +36,17 @@ export interface ThoraxModel {
   ivcCollapse: number;
 }
 
+/**
+ * How much further lateral the left lung's cardiac notch reaches in the left lateral decubitus position (cm). Turning onto
+ * the left side moves the left ventricle toward the lateral chest wall — 1.1 cm laterally and 1.3 cm anteriorly by
+ * cardiac MRI in 20 healthy adults (Gottlieb et al., Physiol Rep 2021;9:e15022) — and the apex that comes to rest against
+ * the wall displaces the lingula: that is why echocardiography is done in this position. The apical window sits where the
+ * left ventricular long axis leaves the chest, 9.7-10.6 cm from the midline in the eleven cases with a lung-free window,
+ * lateral to the 9.0 cm the notch reaches supine; a lingula over it hid 30-35% of the ventricular wall in the two- and
+ * five-chamber views (decision 139).
+ */
+export const LLD_NOTCH_WIDENING_CM = 1.6;
+
 export function createThoraxModel(
   habitus: BodyHabitusConfig,
   window: AcousticWindowConfig,
@@ -63,6 +74,7 @@ export function createThoraxModel(
   } else if (patient.position === 'left-lateral') {
     heartOffset.x += 0.6;
     heartOffset.z += 0.4;
+    lungShift -= LLD_NOTCH_WIDENING_CM;
   } else if (patient.position === 'subcostal-supine') {
     // supine with the knees bent: the abdomen relaxes and the liver dome rises against the heart
     heartOffset.z -= 0.6;
@@ -151,13 +163,39 @@ export function ribDepth(t: ThoraxModel): number {
   return t.chestWall * 0.7;
 }
 
+/** Fractional index of the rib at height y and lateral position x: ribs k and k+1 bound the space at floor(). */
+export function ribIndexAt(t: ThoraxModel, x: number, y: number): number {
+  return (t.rib2Y + t.ribSlope * Math.abs(x) - y) / ribSpacingAt(t, x) + 2;
+}
+
 /** Snap a skin point to the centre of the intercostal space it falls in (or the nearest one). */
 export function snapToIntercostal(t: ThoraxModel, u: number, v: number): { u: number; v: number } {
-  const kf = (t.rib2Y + t.ribSlope * Math.abs(u) - v) / ribSpacingAt(t, u) + 2; // fractional rib index
-  const kAbove = Math.floor(kf);
+  const kAbove = Math.floor(ribIndexAt(t, u, v));
   const yAbove = ribCenterY(t, kAbove, u);
   const yBelow = ribCenterY(t, kAbove + 1, u);
   return { u, v: (yAbove + yBelow) / 2 };
+}
+
+/**
+ * Keep a skin point inside the rib-free band of the intercostal space it falls in, `marginCm` from each rib surface (the
+ * half-height of the probe face across the ribs); the space centre when the band is narrower than the face. Lateral
+ * spaces are wide (2.9 cm between the rib surfaces at 10 cm from the midline): a sonographer holds the probe where the
+ * view needs it within the space, not on its centre line.
+ */
+export function clampToIntercostal(
+  t: ThoraxModel,
+  u: number,
+  v: number,
+  marginCm: number,
+): { u: number; v: number } {
+  const kAbove = Math.floor(ribIndexAt(t, u, v));
+  const yAbove = ribCenterY(t, kAbove, u);
+  const yBelow = ribCenterY(t, kAbove + 1, u);
+  const r = ribRadiusAt(t, u);
+  const hi = yAbove - r - marginCm,
+    lo = yBelow + r + marginCm;
+  if (lo >= hi) return { u, v: (yAbove + yBelow) / 2 };
+  return { u, v: Math.min(hi, Math.max(lo, v)) };
 }
 
 /**
@@ -220,8 +258,9 @@ export function classifyThorax(
   }
   // Ribs: nearest rib index by y at this x
   if (Math.abs(x) >= 1.6 && Math.abs(x) < t.aw * 0.95) {
-    const kf = (t.rib2Y + t.ribSlope * Math.abs(x) - y) / t.ribSpacing + 2;
-    const k = Math.round(kf);
+    // nearest rib with the spacing it has here: dividing by the sternal spacing (until decision 139) picked the wrong
+    // rib lateral to ~5 cm, where the spaces widen, and ribs 5-7 were never drawn over the apical window
+    const k = Math.round(ribIndexAt(t, x, y));
     if (k >= 2 && k <= 9) {
       const ry = ribCenterY(t, k, x);
       const rDepth = ribDepth(t);

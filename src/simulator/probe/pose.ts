@@ -35,6 +35,11 @@ export interface BeamFrame {
 
 export const RIGHT_SHOULDER_DIR: Vec3 = normalize(v3(-1, 1, 0));
 
+/** How far under the skin the probe pressure puts the beam origin (cm), along the skin normal. */
+export function probeCompressionCm(pressure: number): number {
+  return 0.3 + 0.5 * Math.max(0, Math.min(1, pressure));
+}
+
 export function poseFromControl(t: ThoraxModel, c: ProbeControl): ProbePose {
   const n = skinNormal(t, c.u, c.v); // outward
   const into = scale(n, -1);
@@ -52,8 +57,7 @@ export function poseFromControl(t: ThoraxModel, c: ProbeControl): ProbePose {
   const qRock = qFromAxisAngle(up2, degToRad(c.rockDeg));
   const orientation = qMul(qRock, qMul(qTilt, qMul(qRot, qBase)));
   const skinPoint = v3(c.u, c.v, skinZ(t, c.u, c.v));
-  const compress = 0.3 + 0.5 * Math.max(0, Math.min(1, c.pressure));
-  const position = add(skinPoint, scale(into, compress));
+  const position = add(skinPoint, scale(into, probeCompressionCm(c.pressure)));
   return { position, orientation };
 }
 
@@ -83,8 +87,13 @@ export function controlAimingAt(
   screenRightDir: Vec3,
   pressure = 0.6,
 ): ProbeControl {
-  // Iteratively fit rotation/tilt/rock: cheap coordinate descent on angle error (deterministic).
-  const desiredForward = normalize(sub(target, v3(u, v, skinZ(t, u, v))));
+  // Iteratively fit rotation/tilt/rock: cheap coordinate descent on angle error (deterministic). The beam leaves the
+  // origin the pressure pushes under the skin, not the skin point: aimed from the skin, every canonical centre line
+  // missed its target by 0.16-0.40 cm (0.16-0.39 cm out of the plane), and the great-vessel short axis cut the aortic
+  // cusps 1.6 mm above its coaptation target (decision 139).
+  const n = skinNormal(t, u, v);
+  const origin = add(v3(u, v, skinZ(t, u, v)), scale(n, -probeCompressionCm(pressure)));
+  const desiredForward = normalize(sub(target, origin));
   const desiredLateral = normalize(
     sub(screenRightDir, scale(desiredForward, dot(screenRightDir, desiredForward))),
   );

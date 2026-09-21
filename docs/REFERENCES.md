@@ -25,6 +25,15 @@ En el código, cada referencia vive en `src/clinical/guidelines/references.ts` c
 | `malinowski-ta-2019` | Sonomicrometry-derived 3-dimensional geometry of the human tricuspid annulus | Malinowski M, Jazwiec T, Goehler M, et al. J Thorac Cardiovasc Surg 2019;157(4):1452-1461.e1 | VERIFIED por búsqueda: puntos altos en la comisura anteroseptal y la región medioposterior, altura máxima 5,0 ± 1,1 mm |
 | `muraru-ta-2022` | Reference ranges of tricuspid annulus geometry in healthy adults using a dedicated 3D echocardiography software package | Muraru D, Gavazzoni M, Heilbron F, et al. Front Cardiovasc Med 2022;9:1011931. DOI 10.3389/fcvm.2022.1011931 | VERIFIED (texto completo en PMC9513148): silla con puntos altos anteroseptal y posterolateral y bajos anterolateral y posteroseptal; telediástole área 9,6 ± 2,1 cm², diámetro 4C 33 ± 4 mm |
 
+### Orientación del corazón y ventana apical (decisión 139)
+| Id en código | Documento | Cita | Estado |
+|---|---|---|---|
+| `engblom-axis-2005` | The relationship between electrical axis by 12-lead electrocardiogram and anatomical axis of the heart by cardiac magnetic resonance in healthy subjects | Engblom H, Foster JE, Martin TN, et al. Am Heart J 2005;150(3):507-12. DOI 10.1016/j.ahj.2004.10.041. PMID 16169332 | VERIFIED (resumen en PubMed): eje anatómico del VI en 94 sanos, frontal +38 ± 10°, transversal +46 ± 7° |
+| `martin-axis-2003` | Comparison of the anatomical and electrical cardiac axes in subjects with no history of cardiac disease | Martin TN, Wagner GS, Groenning BA, et al. Proc ISMRM 2003;11:1586 | VERIFIED (texto del resumen): eje anatómico frontal 39 ± 14°, horizontal 51 ± 8°, definido del centro de la mitral a la punta del VI en el 4C; reproducibilidad 16 % y 8,7 % |
+| `gottlieb-lld-2021` | A left lateral body position increases pulmonary vein stress in healthy humans | Gottlieb LA, El Hamrani D, Naulin J, et al. Physiol Rep 2021;9(18):e15022 | VERIFIED (texto completo en PMC8461032): RM en 20 sanos; de supino a decúbito lateral izquierdo el VI se desplaza 1,1 cm lateral (8,8 → 9,9 cm desde la vértebra) y 1,3 cm anterior (13,3 → 14,6 cm) |
+| `rosman-precordial-1990` | Precordial Impulses (Clinical Methods, 3.ª ed., cap. 21) | Rosman HS. En: Walker HK, Hall WD, Hurst JW (eds). Butterworths 1990. NBK322 | VERIFIED (NCBI Bookshelf): latido apical normal de menos de 3 cm, dentro de la línea medioclavicular; el decúbito lateral izquierdo lo desplaza lateralmente |
+| `leclerc-camus-2019` | Deep Learning for Segmentation Using an Open Large-Scale Dataset in 2D Echocardiography (CAMUS) | Leclerc S, Smistad E, Jodoin PM, et al. IEEE TMI 2019;38(9):2198-2210 | VERIFIED: 505 secuencias de calidad Good medidas con `tools/clinical/camus-compare.ts`; geometría apical de referencia en `camusApicalGeometry.ts` (ápex del 4C a 0 mm de la línea central, RIC −3,9 a 3,2; profundidad 27 mm; eje 6°) |
+
 ## Mapeo a `src/clinical/reference-values` y discrepancias
 | Regla en código | Valor en código | Valor verificado | Acción |
 |---|---|---|---|

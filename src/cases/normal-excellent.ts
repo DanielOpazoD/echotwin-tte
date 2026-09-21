@@ -48,10 +48,18 @@ export const normalExcellentCase: CaseDefinitionInput = {
     tricuspid: { annulusDiameterCm: 3.3 },
     ivc: { diameterCm: 1.7, collapsePct: 70 },
     pericardium: { effusionCm: 0 },
+    // The long axis (mitral centre → apex) projects 36° below the leftward horizontal in the frontal plane and 47° anterior
+    // of leftward in the transverse plane: healthy adults measure 38 ± 10° and 46 ± 7° by cardiac MRI (Engblom et al., Am
+    // Heart J 2005;150:507, n = 94). Until decision 139 the transverse angle was 37°: the axis ran too close to the chest
+    // wall, left the skin 3.4 cm lateral of the apex and kept the apex 2.1 cm behind the wall along it, so no probe on
+    // the apex looked down the ventricle. The axis turned 9° forward about the apex tip, and the heart moved 0.8 cm out
+    // along it: the tip rests 0.9 cm behind the chest wall along the axis (the apex beat), which puts the cavity apex
+    // 25-28 mm under the apical probe, as in clinical four-chamber images (CAMUS Good, median 27 mm). The mitral centre
+    // sits behind the fourth costal cartilage, 1.7 cm left of the midline (2.3 cm with the lateral decubitus shift).
     heartPosition: {
-      baseCm: { x: 0.5, y: 0.6, z: -7.8 },
-      longAxis: { x: 0.68, y: -0.5, z: 0.52 },
-      anterior: { x: 0.3, y: 0.55, z: 0.6 },
+      baseCm: { x: 1.682, y: -0.269, z: -8.458 },
+      longAxis: { x: 0.611, y: -0.45, z: 0.651 },
+      anterior: { x: 0.092, y: 0.858, z: 0.506 },
     },
     wallMotion: [],
   },

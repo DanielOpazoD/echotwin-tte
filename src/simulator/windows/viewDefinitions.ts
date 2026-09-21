@@ -44,9 +44,16 @@ const R = (v: Vec3): Vec3 => normalize(v);
 
 /** Heart-frame direction that PLAX sweeps across: anteroseptal (+) ↔ inferolateral (−). */
 const PLAX_AP = R(v3(-0.5, 0.866, 0)); // from lateral(x)/anterior(y): anteroseptal direction
-/** A2C plane: 60° from A4C (which lies at azimuth ~2°, through the tricuspid inflow) and 60° from A3C/PLAX (122°). */
-const A2C_RIGHT = R(v3(Math.cos(1.082), Math.sin(1.082), 0)); // 62°
+/**
+ * A2C plane: ~60° from A4C (which lies at azimuth ~2°, through the tricuspid inflow) and ~60° from A3C/PLAX (122°).
+ * 64° rather than the 62° halfway: at 62° the plane, aimed exactly from the apical probe (decision 139), clipped the
+ * inferior vena cava at the deep inferior edge of the sector (0.23% of it), which no two-chamber view holds; at 64° it
+ * misses the cava in the normal case (1% at 58°, 0 from 64° on).
+ */
+const A2C_RIGHT = R(v3(Math.cos(1.117), Math.sin(1.117), 0)); // 64°
 const AV_CENTER = v3(-0.7, 1.35, -0.25);
+/** Turn of the A5C plane about the long axis from the septal–lateral direction toward the inferior wall (decision 139). */
+const A5C_TURN = (-6 * Math.PI) / 180;
 
 export function buildViewTargets(): ViewTarget[] {
   return [
@@ -260,10 +267,15 @@ export function buildViewTargets(): ViewTarget[] {
       // the aortic valve 0.55 cm behind its centre so the cusps and both atria stay in the sector (decision 85). It was
       // rotated 19° toward the anterior wall and aimed 1 cm into the ventricle: the plane grazed the back of the root
       // 0.9 cm from its centre, and the valve showed 1.3-2.1 cm from the septum, under the middle of the ventricle where
-      // the mitral valve belongs, instead of against the septum between both atria.
-      planeRight: R(v3(1, 0, 0)),
+      // the mitral valve belongs, instead of against the septum between both atria. Seen from the apical probe on the
+      // long axis and aimed from the beam's compressed origin (decision 139), that plane cut the valve and the left
+      // atrium at their edges (0.26% of left atrium in the normal case against the 1% the view needs; 43 atrial samples
+      // in systole in the tamponade case against 50). Turned 6° toward the inferolateral wall and aimed 0.3 cm further
+      // toward the inferior wall, it keeps valve, root and both atria in all twelve cases (left atrium 1.2-6.6% of the
+      // sector); 8° failed the difficult window (root no longer on the septal side) and 4° the tamponade.
+      planeRight: R(v3(Math.cos(A5C_TURN), Math.sin(A5C_TURN), 0)),
       planeDown: R(v3(0, 0, -1)),
-      target: v3(AV_CENTER.x, AV_CENTER.y - 0.55, AV_CENTER.z),
+      target: v3(AV_CENTER.x, AV_CENTER.y - 0.85, AV_CENTER.z),
       skin: { u: 6.8, v: -2.8 },
       requiredLandmarks: [
         { landmarkId: 'lvot', weight: 1.3, required: true },

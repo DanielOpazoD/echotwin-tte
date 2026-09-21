@@ -225,9 +225,11 @@ describe('aortic valve visibility in PSAX-AV', () => {
         let n = 0;
         for (let i = 0; i < frame.structure.length; i++)
           if (frame.structure[i] === Structure.AorticValve) n++;
-        // ≥ 15: the plane perpendicular to the root (decision 133) reaches the top of the coaptation zone in early
-        // diastole, where the severe-stenosis valve gives exactly 15 samples in this low-resolution frame
-        expect(n, `${id} phase ${phase}`).toBeGreaterThanOrEqual(15);
+        // The plane perpendicular to the root (decision 133) reaches the top of the coaptation zone in early diastole,
+        // where the thick, restricted cusps of the severe stenosis give the fewest samples in this low-resolution
+        // frame: 12 at 1.08 cm above the annulus with the beam aimed from its compressed origin (decision 139; 15 with
+        // the skin-aimed beam that passed 1 mm lower). Normal case 31 / 60 / 16, severe stenosis 87 / 160 / 12.
+        expect(n, `${id} phase ${phase}`).toBeGreaterThanOrEqual(12);
       }
     });
   }
