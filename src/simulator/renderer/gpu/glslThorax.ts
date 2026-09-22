@@ -2,7 +2,6 @@ import {
   ANTERIOR_CORRIDOR_CM,
   FASCIA_HALF_CM,
   FAT_FRACTION,
-  MEDIASTINAL_COLUMN_HALF_CM,
   PERICARDIAL_FAT_CM,
   SKIN_CM,
 } from '@/simulator/anatomy/thoraxModel';
@@ -12,7 +11,6 @@ const f = (v: number): string => (Number.isInteger(v) ? `${v}.0` : `${v}`);
 /** GLSL port of thoraxModel.ts (skinZ, isAnteriorLung, classifyThorax). */
 export const GLSL_THORAX = /* glsl */ `
 const float PERICARDIAL_FAT_CM = ${f(PERICARDIAL_FAT_CM)};
-const float MEDIASTINAL_COLUMN_HALF_CM = ${f(MEDIASTINAL_COLUMN_HALF_CM)};
 const float ANTERIOR_CORRIDOR_CM = ${f(ANTERIOR_CORRIDOR_CM)};
 const float SKIN_CM = ${f(SKIN_CM)};
 const float FAT_FRACTION = ${f(FAT_FRACTION)};
@@ -110,10 +108,11 @@ bool classifyThorax(vec3 p, out Sample s, float heartDist) {
   }
   bool lungL = x > leftLungBorderX(y);
   bool lungR = x < rightLungBorderX();
-  bool posteriorWrap = z < -10.5 && abs(x + 0.5) > 1.5;
+
   // the pleural cavities wrap the pericardium (decision 144)
-  bool aroundHeart = heartDist > PERICARDIAL_FAT_CM && abs(x + 0.5) > MEDIASTINAL_COLUMN_HALF_CM && depth > T + ANTERIOR_CORRIDOR_CM;
-  if (lungL || lungR || posteriorWrap || aroundHeart) { s.tissue = T_LUNG; s.structure = S_LUNG; s.sdf = -1.0; s.n = vec3(0.0, 0.0, 1.0); return true; }
+  // beyond the pericardial fat pad and the corridor, outside the posterior and superior mediastinum (thoraxModel.ts, decision 150)
+  bool aroundHeart = heartDist > PERICARDIAL_FAT_CM && depth > T + ANTERIOR_CORRIDOR_CM && mediastinumDistance(x, y, z) > 0.0;
+  if (lungL || lungR || aroundHeart) { s.tissue = T_LUNG; s.structure = S_LUNG; s.sdf = -1.0; s.n = vec3(0.0, 0.0, 1.0); return true; }
   s.tissue = T_FAT; s.structure = S_NONE; s.sdf = -1.0;
   return true;
 }
