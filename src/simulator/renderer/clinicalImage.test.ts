@@ -7,6 +7,8 @@ import {
   type ApicalGeometryMetric,
 } from '@/clinical/reference-values/camusApicalGeometry';
 import { CAMUS_GOOD, type CamusMetric } from '@/clinical/reference-values/camusImageStats';
+import { CAMUS_GOOD_SECTOR } from '@/clinical/reference-values/camusSectorStats';
+import { SECTOR_METRICS, sectorStats } from '@/clinical/sectorStats';
 import {
   apicalStats,
   meanStat,
@@ -138,14 +140,128 @@ const KNOWN_GEOMETRY_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['2CH-ED:axisTiltDeg', -0.33],
 ]);
 
-/** Signed distance outside the quartiles in quartile widths: negative below p25, positive above p75, 0 inside. */
-const outsideQuartiles = (v: number, q: { p25: number; p75: number }): number =>
-  v < q.p25 ? (v - q.p25) / (q.p75 - q.p25) : v > q.p75 ? (v - q.p75) / (q.p75 - q.p25) : 0;
+/**
+ * The whole sector against CAMUS Good, without labels (decision 146), baselines in quartile widths like KNOWN_DEVIATIONS.
+ * These are the statistics that told twelve blind-test tiles apart when the LV statistics could not, so each entry is a
+ * named visual defect: the sector holds black pixels where a clinical image never does (its cavities and background
+ * keep a haze above grey 20), it is sharper (gradients 1.5× the clinical median) and drawn with thin bright lines, its
+ * texture is longer along the beam at 1 mm and more coherent across it at 8 mm, its near field (0–2 cm) is brighter and
+ * its cavity band (4–6 cm) darker, and the outer sector is brighter against the centre. Filled in at decision 146 from
+ * the first measurement; each is a target of phases 1–3 of the fidelity plan.
+ */
+const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
+  // black pixels where a clinical image has none (its cavities and background keep a haze above grey 20)
+  ['4CH-ED:darkFraction', 2.1],
+  ['4CH-ES:darkFraction', 0.77],
+  ['2CH-ED:darkFraction', 1.78],
+  ['2CH-ES:darkFraction', 1.27],
+  ['2CH-ED:bandDark0', 0.22],
+  ['2CH-ES:bandDark0', 0.22],
+  ['4CH-ED:bandDark2', 0.44],
+  ['4CH-ES:bandDark2', 0.44],
+  ['2CH-ED:bandDark2', 0.67],
+  ['2CH-ES:bandDark2', 1.22],
+  ['4CH-ED:bandDark4', 3.9],
+  ['4CH-ES:bandDark4', 3.23],
+  ['2CH-ED:bandDark4', 4.96],
+  ['2CH-ES:bandDark4', 4.81],
+  ['4CH-ED:bandDark6', 27.9],
+  ['4CH-ES:bandDark6', 2.58],
+  ['2CH-ED:bandDark6', 30.69],
+  ['2CH-ES:bandDark6', 30.38],
+  ['4CH-ED:bandDark8', 13.94],
+  ['4CH-ES:bandDark8', 1.63],
+  ['2CH-ED:bandDark8', 12.78],
+  ['2CH-ES:bandDark8', 1.47],
+  ['4CH-ED:bandDark10', 0.35],
+  ['4CH-ES:bandDark10', 1.18],
+  ['2CH-ED:bandDark10', 0.21],
+  ['2CH-ES:bandDark10', 1.24],
+  // sharper than clinical (gradients 1.4-1.5× the median) and drawn with thin bright lines
+  ['4CH-ED:gradientP50', 2.51],
+  ['4CH-ES:gradientP50', 2.52],
+  ['2CH-ED:gradientP50', 3.09],
+  ['2CH-ES:gradientP50', 2.42],
+  ['4CH-ED:gradientP95', 0.92],
+  ['4CH-ES:gradientP95', 0.66],
+  ['2CH-ED:gradientP95', 1.11],
+  ['2CH-ES:gradientP95', 0.76],
+  ['4CH-ED:ridgeFraction', 1.97],
+  ['4CH-ES:ridgeFraction', 1.71],
+  ['2CH-ED:ridgeFraction', 0.97],
+  ['2CH-ES:ridgeFraction', 0.18],
+  // more texture contrast over the whole sector: the blood pool and background are grainier than the clinical haze
+  ['4CH-ED:localStd', 0.11],
+  ['4CH-ED:detrendedStd', 0.5],
+  ['2CH-ED:detrendedStd', 0.47],
+  // texture longer along the beam at 1 mm (0.31-0.35 against 0.20-0.23) and, in the 2CH, less coherent across it at 2-4 mm
+  ['4CH-ED:radialCorr1', 1.33],
+  ['4CH-ES:radialCorr1', 0.59],
+  ['2CH-ED:radialCorr1', 1.72],
+  ['2CH-ES:radialCorr1', 1.17],
+  ['2CH-ED:radialCorr2', 0.26],
+  ['4CH-ED:radialCorr4', -0.15],
+  ['4CH-ES:radialCorr4', -0.24],
+  ['2CH-ED:radialCorr4', 0.23],
+  ['2CH-ES:radialCorr4', 0.15],
+  ['4CH-ES:radialCorr8', -0.16],
+  ['2CH-ED:radialCorr8', -0.34],
+  ['2CH-ES:radialCorr8', -0.88],
+  ['2CH-ED:tangentialCorr2', -0.2],
+  ['2CH-ES:tangentialCorr2', -0.11],
+  ['4CH-ES:tangentialCorr4', -0.21],
+  ['2CH-ED:tangentialCorr4', -1.08],
+  ['2CH-ES:tangentialCorr4', -0.99],
+  ['4CH-ED:tangentialCorr8', 0.77],
+  ['2CH-ES:tangentialCorr8', -0.35],
+  // near field (0-2 cm) brighter (141-154 against 105-115) and the cavity bands (4-10 cm) darker than clinical
+  ['4CH-ED:bandGrey0', 0.53],
+  ['4CH-ES:bandGrey0', 0.76],
+  ['2CH-ED:bandGrey0', 0.24],
+  ['2CH-ES:bandGrey0', 0.55],
+  ['4CH-ED:bandGrey4', -0.27],
+  ['4CH-ES:bandGrey4', -0.2],
+  ['2CH-ED:bandGrey4', -0.5],
+  ['2CH-ES:bandGrey4', -0.83],
+  ['4CH-ES:bandGrey6', -0.25],
+  ['2CH-ED:bandGrey6', -0.26],
+  ['2CH-ES:bandGrey6', -0.35],
+  ['4CH-ES:bandGrey8', -0.29],
+  ['2CH-ED:bandGrey8', -0.15],
+  ['2CH-ES:bandGrey8', -0.31],
+  // a duller bright end at end-systole and, in the 4CH, an outer sector brighter against the centre
+  ['2CH-ES:greyP75', -0.1],
+  ['4CH-ES:greyP95', -0.14],
+  ['2CH-ES:greyP95', -0.15],
+  ['4CH-ED:edgeRollOff', 0.12],
+  ['2CH-ED:edgeRollOff', -0.27],
+  ['2CH-ES:edgeRollOff', -0.43],
+]);
+
+/**
+ * Signed distance outside the quartiles in quartile widths: negative below p25, positive above p75, 0 inside. A metric
+ * the clinical images hold constant (the fraction of black pixels is 0 in three images of four) has no quartile width;
+ * its unit is then the 10th–90th percentile spread or, failing that too, one hundredth of the median (at least 0.01).
+ */
+const outsideQuartiles = (
+  v: number,
+  q: { p25: number; p75: number; median: number; p10?: number; p90?: number },
+): number => {
+  const width =
+    q.p75 - q.p25 > 0
+      ? q.p75 - q.p25
+      : Math.max((q.p90 ?? 0) - (q.p10 ?? 0), 0.01 * Math.max(1, Math.abs(q.median)));
+  return v < q.p25 ? (v - q.p25) / width : v > q.p75 ? (v - q.p75) / width : 0;
+};
 
 /** Undeclared, stale and moved entries of one condition's measured values against a reference and its declarations. */
 function audit(
   key: string,
-  values: [string, number, { p25: number; p75: number; median: number }][],
+  values: [
+    string,
+    number,
+    { p25: number; p75: number; median: number; p10?: number; p90?: number },
+  ][],
   declared: ReadonlyMap<string, number>,
   out: { outside: string[]; stale: string[]; moved: string[] },
 ): void {
@@ -155,7 +271,9 @@ function audit(
     const id = `${key}:${metric}`;
     const baseline = declared.get(id);
     if (d !== 0 && baseline === undefined)
-      out.outside.push(`${id} = ${v.toFixed(2)} outside [${q.p25}, ${q.p75}] (median ${q.median})`);
+      out.outside.push(
+        `${id} = ${v.toFixed(3)} outside [${q.p25}, ${q.p75}] (median ${q.median}): ${d.toFixed(2)} quartile widths`,
+      );
     if (d === 0 && baseline !== undefined)
       out.stale.push(`${id} = ${v.toFixed(2)} is inside [${q.p25}, ${q.p75}]`);
     if (d !== 0 && baseline !== undefined && Math.abs(d - baseline) > BASELINE_TOLERANCE)
@@ -173,6 +291,13 @@ describe('the default console against clinical optimal-window images (CAMUS Good
       CONDITIONS.flatMap(([k]) => Object.keys(CAMUS_GOOD_GEOMETRY[k]).map((m) => `${k}:${m}`)),
     );
     expect([...KNOWN_GEOMETRY_DEVIATIONS.keys()].filter((d) => !realGeometry.has(d))).toEqual([]);
+    const realSector = new Set(
+      CONDITIONS.flatMap(([k]) => Object.keys(CAMUS_GOOD_SECTOR[k]).map((m) => `${k}:${m}`)),
+    );
+    expect([...KNOWN_SECTOR_DEVIATIONS.keys()].filter((d) => !realSector.has(d))).toEqual([]);
+    expect(
+      [...KNOWN_SECTOR_DEVIATIONS.entries()].filter(([, b]) => Math.abs(b) < QUARTILE_EDGE),
+    ).toEqual([]);
     expect(
       [...KNOWN_GEOMETRY_DEVIATIONS.entries()].filter(([, b]) => Math.abs(b) < QUARTILE_EDGE),
     ).toEqual([]);
@@ -201,6 +326,37 @@ describe('the default console against clinical optimal-window images (CAMUS Good
         out,
         'undeclared deviations from CAMUS Good, declared ones that no longer deviate, and declared ones that moved from their baseline',
       ).toEqual({ outside: [], stale: [], moved: [] });
+    },
+  );
+
+  it(
+    'the whole sector, without labels, reads like clinical images or deviates as declared',
+    { timeout: 240_000 },
+    () => {
+      const out = { outside: [] as string[], stale: [] as string[], moved: [] as string[] };
+      for (const [key, view, ed] of CONDITIONS) {
+        const g = renderOnce(view, ed).flatMap((r) =>
+          Array.from({ length: NOISE_REALIZATIONS }, (_, fi) =>
+            sectorStats(presentApical(r, {}, fi)),
+          ),
+        );
+        const ref = CAMUS_GOOD_SECTOR[key];
+        audit(
+          key,
+          SECTOR_METRICS.filter((m) => ref[m]).map((m) => [
+            m,
+            g.reduce((a, x) => a + x[m], 0) / g.length,
+            ref[m]!,
+          ]),
+          KNOWN_SECTOR_DEVIATIONS,
+          out,
+        );
+      }
+      expect(out, 'undeclared, stale and moved whole-sector deviations from CAMUS Good').toEqual({
+        outside: [],
+        stale: [],
+        moved: [],
+      });
     },
   );
 

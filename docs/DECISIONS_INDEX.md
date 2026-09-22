@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 145 (última: 145).
+Decisiones: 146 (última: 146).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -153,3 +153,4 @@ Decisiones: 145 (última: 145).
 | [143](DECISIONS.md#L449) | 2026-09-22 | Las venas pulmonares corren hacia los hilios desde la pared lateral y la esquina posteromedial de la aurícula, y ya no hacia atrás | vigente |
 | [144](DECISIONS.md#L453) | 2026-09-22 | El haz tiene perfil de enfoque y anchura, la pared torácica capas, el miocardio una hélice de fibras y el entorno del VI se mide contra CAMUS | vigente |
 | [145](DECISIONS.md#L457) | 2026-09-22 | La imagen se forma con dos miradas de speckle promediadas tras la detección, el parénquima lleva granos coherentes integrados sobre el corte y el pulso axial es el del filtro armónico | vigente |
+| [146](DECISIONS.md#L461) | 2026-09-22 | El sector entero se mide sin etiquetas contra CAMUS, un clasificador puntúa cuánto delata al simulador y la prueba ciega tiene protocolo | vigente |

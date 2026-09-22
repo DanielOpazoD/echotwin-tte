@@ -10,7 +10,7 @@ Estado observado el **2026-09-14 (hora local)** sobre el commit `314eab7`: **46 
 Estado anterior, el **2026-09-11 a las 21:21 (hora local)** sobre el commit `23eb62c`: **30 archivos, 149 pruebas unitarias, todas pasan** con `npx vitest run --testTimeout=60000 --maxWorkers=3` (82 s), y **34 pruebas E2E** —`core-flow` 10 y `gpu-equivalence` 24— en 28,5 min, todas pasan. La suite E2E completa son 42 (esas dos más `measurements` 2, `learning` 2 y `gpu-live` 4); las otras ocho se corrieron verdes justo antes de ese commit, no en esta tanda. Con la máquina cargada por otros proyectos (media 40–200 esa tarde) `npm run check` llama a `vitest run` sin ampliar el tiempo de espera y expira en tres pruebas (`measurementSupport` auto-trace, `doppler` ley del coseno, `pulmonaryVein` modo M color) que pasan con los parámetros de arriba: son artefactos de carga, no regresiones. Lint y typecheck en verde. Vuelve a ejecutar `npm test` y `npm run test:e2e` antes de fiarte de esta tabla. `.github/workflows/ci.yml` (lint → typecheck → test → build → Playwright en Chromium) existe pero nunca se ha ejecutado en remoto: el repositorio tiene commits locales y no tiene remoto.
 
 ## Feature → referencia → tolerancia → resultado
-Referencia = con qué se compara (valor analítico, consistencia interna o rango fisiológico). Ninguna prueba compara con datos de pacientes reales.
+Referencia = con qué se compara (valor analítico, consistencia interna, rango fisiológico o, desde la decisión 69, los cuartiles agregados de CAMUS Good, que `clinicalImage.test.ts` y `surroundings.test.ts` comparan con el simulador; ninguna imagen clínica entra en el repositorio).
 
 | Archivo | Feature | Referencia | Tolerancia | Resultado |
 |---|---|---|---|---|
@@ -116,7 +116,7 @@ Referencia = con qué se compara (valor analítico, consistencia interna o rango
 | Barrido PLAX→PSAX con un cine presente | `atlas.test.ts`: diferencia máxima entre cuadros < 3,5 veces la media | pasa |
 
 ## Formación acústica de la imagen (2026-09-11)
-Medido con `tools/offline/render/image-metrics.ts` en el caso normal, fase 0,35, trazador CPU (antes → después de la decisión 52):
+Instantánea histórica de la decisión 52. Sus cifras ya no describen la imagen: desde la decisión 145 la envolvente es la media de dos miradas con granos coherentes (ya no es Rayleigh ni tiene SNR 2,0) y la celda medida contra CAMUS es de 2,0–2,3 × 1,7–1,85 mm, no de 1,1–1,3; los valores vigentes están en la fila de la decisión 145 de la tabla principal y en `docs/LIMITATIONS.md`. Medido entonces con `tools/offline/render/image-metrics.ts` en el caso normal, fase 0,35, trazador CPU (antes → después de la decisión 52):
 
 | Magnitud | Tier medio | Tier alto | Referencia |
 |---|---|---|---|
@@ -136,6 +136,10 @@ Medido con `tools/offline/render/image-metrics.ts` en el caso normal, fase 0,35,
 | SNR local, celda anisótropa creciente, contraste, anisotropía y grises en PLAX/A4C | `imageFormation.test.ts` | pasa |
 | Sombra de costilla independiente del muestreo: sonda sobre una costilla (A4C + 1,4 cm) y en su borde, transmisión 1 cm detrás del hueso en los tiers bajo, medio y alto con < 3 dB de diferencia (decisión 89) | `boneShadow.test.ts` | pasa |
 | Imagen apical del caso de ventana óptima frente a CAMUS Good (A4C y A2C, telediástole y telesístole): doce métricas de gris, contraste, textura y forma de la escala de grises, medias de 8 realizaciones del speckle con 4 realizaciones del ruido cada una, dentro del rango intercuartílico o a menos de 0,1 anchuras de él; 11 de 48 declaradas como desviaciones del modelo (23 hasta la decisión 145), cada una con su valor basal y una tolerancia de 0,15 anchuras intercuartílicas (decisiones 88, 90, 91, 99 y 145) | `clinicalImage.test.ts` | pasa |
+| Sector entero sin etiquetas frente a CAMUS Good (decisión 146): 33 estadísticas en milímetros desde el ápex (percentiles, fracciones negra y blanca, desviación local y contra la media, gradientes, crestas finas, correlación a lo largo y de través del haz a 1–8 mm, bandas de profundidad, caída angular), medias de 8 realizaciones × 4 ruidos en las cuatro condiciones; 80 de 132 fuera del rango intercuartílico, declaradas con su basal (`KNOWN_SECTOR_DEVIATIONS`): píxeles negros donde la clínica no tiene ninguno, gradiente 1,5× el clínico, líneas finas, textura más larga a lo largo del haz, campo cercano más brillante y bandas de 4–10 cm más oscuras | `clinicalImage.test.ts` | pasa |
+| Estadísticas de sector sobre fantomas de verdad conocida: la misma textura a 0,25 y 0,40 mm/px da las mismas cifras (correlaciones ±0,08, niveles ±15 %), una red de 1,2 mm a lo largo y 3,5 mm de través se lee como tal, cuña negra y caída angular conocidas, una línea fina cuenta como cresta y una banda ancha no; todas las medidas finitas en un sector liso | `sectorStats.test.ts` | pasa |
+| Distinguibilidad por regresión logística: AUC exacto en rankings conocidos (1, 0, ½, 0,875 con empate), nubes gaussianas que difieren en una de ocho variables (AUC > 0,97 en validación cruzada, el peso cae en esa variable y una variable siempre ausente pesa 0), etiquetas sin información en 0,4–0,6 con una clase de cada cuatro | `logistic.test.ts` | pasa |
+| Corrección de la prueba ciega: aciertos, confusiones y probabilidad binomial (24 de 24 → 0,5²⁴; 12 → 0,58; 17 → 0,032; 16 > 0,05), sin acreditar respuestas ausentes o malformadas | `blindTest.test.ts` | pasa |
 | Intrusión del corazón en la pared torácica por caso, en telediástole y sístole, declarada con basal y tolerancia de 0,1 cm (decisión 93) | `chestWall.test.ts` | pasa |
 | Speckle del cuadro fuera del plano: con el corazón desplazado a lo largo de la normal del A4C, correlación de la envolvente del miocardio interior ≥ 0,97 a 0,2 mm y ≤ 0,8 a 3,2 mm (antes 0,76 a 0,2 mm) (decisión 99; con los granos integrados sobre el corte de la decisión 145, una sola muestra de grano proyectada daba 0,94) | `elevationSpeckle.test.ts` | pasa |
 | Textura frente a CAMUS Good con dos miradas y granos (decisión 145): celda 1,99–2,28 × 1,69–1,85 mm (rangos 1,98–2,28 × 1,52–1,99), asimetría de los residuos +0,18 a +0,30 (rangos −0,13 a +0,48) y desviación local telediastólica 9,1–9,4 dentro del rango; varianza gruesa (15,0–17,4 frente a 18,4–24), desviación local telesistólica y pendiente declaradas con su basal | `clinicalImage.test.ts` | pasa |
@@ -209,6 +213,19 @@ Decisión 56. Pruebas en `src/simulator/doppler/color/colorDoppler.test.ts`. Cad
 
 Antes de la primera prueba, `e2e/globalSetup.ts` espera hasta 20 minutos (10 en CI, `E2E_LOAD_WAIT_MIN`) a que la carga media de la máquina baje de seis veces sus núcleos (`E2E_MAX_LOAD`): el 21-09 seis pruebas cayeron en su primer `waitForFrames` a carga 440 y pasaron todas a carga 60, sin cambio alguno en el código; una suite que arranca en una máquina saturada no prueba nada. El `beforeEach` de las siete primeras marca `tutorialDone` en `localStorage` para que el tutorial no tape la interfaz. Los helpers usan el gancho `window.__echotwin` (`src/main.tsx`) para leer los stores; el buffer RGBA no se serializa.
 
+## Prueba ciega y distinguibilidad (decisión 146)
+Protocolo: `CAMUS_DIR=… npx tsx tools/clinical/blind-test.ts --out <carpeta fuera del repositorio> --n 24 --seed <nuevo>` genera 24 mosaicos apicales (12 CAMUS Good, 12 simulados) a la misma escala física y en orden aleatorio, con la clave aparte; quien la rinde marca todos, guarda `answers.json` desde la página y la corrección oficial es `npx tsx tools/clinical/blind-test.ts --grade answers.json` (acierto, confusiones y probabilidad binomial de hacerlo igual de bien por azar). Una sesión por evaluador y versión del simulador; cuenta la de quien lee ecocardiogramas. Meta: acierto ≤ 70 % (17 de 24 es el primer resultado improbable por azar, p ≈ 0,03).
+
+| Fecha | Versión | Evaluador | Aciertos | p (azar) |
+|---|---|---|---|---|
+| — | — | ninguna sesión rendida todavía | — | — |
+
+Distinguibilidad automática (`tools/clinical/discriminate.ts`): regresión logística sobre las 33 estadísticas de sector, 1010 cuadros CAMUS Good contra 96 simulados, AUC en cinco pliegues estratificados. Meta: ≤ 0,7.
+
+| Fecha | Versión | AUC | Lo que más delata (AUC de cada estadística sola) |
+|---|---|---|---|
+| 2026-09-22 | decisión 146 (`393ac87` + medición) | 1,000 (cinco pliegues 1,000; cuatro condiciones 1,000) | gradiente p50 0,999 (15,0 frente a 10,1 gris/mm), correlación radial a 1 mm 0,983 (0,33 frente a 0,21), crestas finas 0,971, negros a 4–6 cm 0,967 (4,3 % frente a 0), gradiente p95 0,946, campo cercano 0,922 (148 frente a 109), banda de 4–6 cm 0,127 (48 frente a 77), coherencia de través a 4 mm 0,151 |
+
 ## Validación externa
 El protocolo preregistrado (tres estudios: puntuación experta por vista y versión, comparación ciega con imágenes reales anonimizadas, piloto con residentes) está en `docs/VALIDATION_PROTOCOL.md`. Materiales listos: `npm run review:export` (288 imágenes + hoja CSV + guion) y la exportación anónima del progreso. **Ninguno de los tres estudios se ha ejecutado**; los resultados irán a `docs/validation/results/`.
 
@@ -219,4 +236,4 @@ El protocolo preregistrado (tres estudios: puntuación experta por vista y versi
 - Caso de estenosis aórtica: ninguna prueba comprueba su Vmax/gradientes/AVA ni la graduación del informe (sus proporciones y su válvula sí se prueban).
 - Worker (contrapresión, reciclaje), reloj/ECG en la app, audio Doppler.
 - Rendimiento: `bench.ts` se ejecuta a mano; sin umbral automatizado.
-- CI nunca ejecutada.
+- Prueba ciega (decisión 146): el protocolo está definido (§ «Prueba ciega») y ningún ecocardiografista la ha rendido todavía; el único resultado registrado es la puntuación de distinguibilidad automática.
