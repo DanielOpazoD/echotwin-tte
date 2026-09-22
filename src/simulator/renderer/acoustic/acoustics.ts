@@ -120,6 +120,32 @@ export const CALCIUM_OFFSET: readonly [number, number, number] = [3.3, 1.1, 9.2]
 /** Elevational slice half-width (cm) at depth r: base + slope · |r − focus| (decision 48). */
 export const SLICE_HALF_BASE_CM = 0.2;
 export const SLICE_HALF_SLOPE = 0.04;
+/**
+ * Compounding (decision 145): the frame is formed from COMPOUND_LOOKS independent speckle realizations — the same
+ * scene, the same coherent echoes, a different scatterer phasor per look — and their envelopes are averaged after
+ * detection, as a scanner's spatial or frequency compounding averages looks whose speckle differs. A single look is a
+ * Rayleigh envelope with its long tail of dark nulls (log-residual skewness −0.2…−0.35 against +0.1…+0.3 in CAMUS
+ * Good); the mean of a few looks keeps the bright grains and fills the nulls. Each look shifts the scatterer lattice by
+ * LOOK_SHIFT[k] (lattice units), which decorrelates it fully; the M-mode line keeps one look.
+ */
+export const COMPOUND_LOOKS = 2;
+export const LOOK_SHIFT: readonly (readonly [number, number, number])[] = [
+  [0, 0, 0],
+  [61.7, 23.9, 47.3],
+  [29.3, 79.1, 13.7],
+  [83.9, 41.3, 67.9],
+];
+/**
+ * Bright grains (decision 145): a sparse coherent component of the parenchyma — bundles and sheets that reflect as a
+ * unit — on top of the diffuse scatterers. A fully developed speckle is a Rayleigh envelope whose log-residuals skew
+ * negative (dark nulls); the clinical myocardium skews positive (+0.1…+0.3 in CAMUS Good) with bright grains over a
+ * smoother ground and its variance sits at the 2–4 mm scale (21 against a 5×5 window's 10). The grain field is a
+ * lattice at each tissue's grain frequency (`TISSUE_PROPS.grain`, cycles/cm): where it rises above GRAIN_THRESHOLD a
+ * coherent echo of up to GRAIN_GAIN × σ is added, the same in every compounding look.
+ */
+export const GRAIN_GAIN = 4.8;
+export const GRAIN_THRESHOLD = 0.72;
+export const GRAIN_OFFSET: readonly [number, number, number] = [43.1, 17.7, 61.3];
 /** Lattice offsets of the two-term complex scatterer phasor (decision 52); the M-mode line uses the same. */
 export const PHASOR_RE_B: readonly [number, number, number] = [37.3, 11.9, 23.7];
 export const PHASOR_IM_A: readonly [number, number, number] = [71.1, 53.5, 5.3];
@@ -234,6 +260,11 @@ export const ACOUSTIC_GLSL_CONSTANTS: Readonly<
   SCATTER_FREQ,
   SCATTER_FREQ_RATIO,
   PHASOR_NORM,
+  COMPOUND_LOOKS,
+  LOOK_SHIFT_1: LOOK_SHIFT[1]!,
+  GRAIN_GAIN,
+  GRAIN_THRESHOLD,
+  GRAIN_OFFSET,
   MYO_ANISO_FLOOR,
   MYO_HELIX_COS2,
   MYO_ANISO_RADIAL_EPS,

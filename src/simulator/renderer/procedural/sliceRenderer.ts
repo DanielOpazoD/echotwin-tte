@@ -80,6 +80,11 @@ import {
   beamHalfWidthCm,
   BEAM_ATTEN_MAX_LINES,
   BEAM_ATTEN_MIN_ARC_CM,
+  COMPOUND_LOOKS,
+  LOOK_SHIFT,
+  GRAIN_GAIN,
+  GRAIN_THRESHOLD,
+  GRAIN_OFFSET,
   SCATTER_FREQ,
   SCATTER_FREQ_RATIO,
   SPECULAR_GAIN,
@@ -94,6 +99,7 @@ const [PRB_X, PRB_Y, PRB_Z] = PHASOR_RE_B;
 const [PIA_X, PIA_Y, PIA_Z] = PHASOR_IM_A;
 const [PIB_X, PIB_Y, PIB_Z] = PHASOR_IM_B;
 const [HET_X, HET_Y, HET_Z] = HETERO_OFFSET;
+const [GR_X, GR_Y, GR_Z] = GRAIN_OFFSET;
 const [CAL_X, CAL_Y, CAL_Z] = CALCIUM_OFFSET;
 const [RRB_X, RRB_Y, RRB_Z] = REVERB_PHASOR_RE_B;
 const [RIA_X, RIA_Y, RIA_Z] = REVERB_PHASOR_IM_A;
@@ -124,6 +130,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
   private im = new Float32Array(0);
   private tmpRe = new Float32Array(0);
   private tmpIm = new Float32Array(0);
+  private tmpAmp = new Float32Array(0);
   /** Attenuation increment of each sample (Np), for the beam-averaged march of a frame (decision 144). */
   private atten = new Float32Array(0);
   private prefix = new Float32Array(0);
@@ -135,6 +142,8 @@ export class ProceduralSliceRenderer implements RendererBackend {
   private lineAcross = new Float32Array(0);
   private lineElevation = new Float32Array(0);
   private lineAlong = new Float32Array(0);
+  private lineGrainScale = new Float32Array(0);
+  private lineGrainCells = new Float32Array(0);
   private psf: PsfKernels | null = null;
   private linePsf: LineKernels | null = null;
   private acA = { sigma: 0, spec: 0 };
@@ -163,11 +172,13 @@ export class ProceduralSliceRenderer implements RendererBackend {
   ): void {
     const t0 = performance.now();
     const n = spec.lines * spec.samples;
-    if (this.re.length !== n) {
-      this.re = new Float32Array(n);
-      this.im = new Float32Array(n);
+    if (this.re.length !== n * COMPOUND_LOOKS) {
+      // one complex signal per compounding look (decision 145)
+      this.re = new Float32Array(n * COMPOUND_LOOKS);
+      this.im = new Float32Array(n * COMPOUND_LOOKS);
       this.tmpRe = new Float32Array(n);
       this.tmpIm = new Float32Array(n);
+      this.tmpAmp = new Float32Array(n);
       this.atten = new Float32Array(n);
       this.prefix = new Float32Array((spec.lines + 1) * spec.samples);
     }
@@ -199,17 +210,26 @@ export class ProceduralSliceRenderer implements RendererBackend {
       ctx.contact,
       ctx.seed,
       this.prefix,
+      COMPOUND_LOOKS,
     );
-    formEnvelope(
-      this.re,
-      this.im,
-      spec.lines,
-      spec.samples,
-      kernels,
-      out.amplitude,
-      this.tmpRe,
-      this.tmpIm,
-    );
+    // the looks are detected one by one and their envelopes averaged (compounding, decision 145)
+    out.amplitude.fill(0);
+    for (let k = 0; k < COMPOUND_LOOKS; k++) {
+      formEnvelope(
+        this.re.subarray(k * n, (k + 1) * n),
+        this.im.subarray(k * n, (k + 1) * n),
+        spec.lines,
+        spec.samples,
+        kernels,
+        this.tmpAmp,
+        this.tmpRe,
+        this.tmpIm,
+      );
+      const amp = out.amplitude,
+        ta = this.tmpAmp,
+        w = 1 / COMPOUND_LOOKS;
+      for (let i = 0; i < n; i++) amp[i]! += ta[i]! * w;
+    }
     this.lastMs = performance.now() - t0;
     this.lastSamples = n;
   }
@@ -256,8 +276,11 @@ export class ProceduralSliceRenderer implements RendererBackend {
       this.lineAcross = new Float32Array(samples);
       this.lineElevation = new Float32Array(samples);
       this.lineAlong = new Float32Array(samples);
+      this.lineGrainScale = new Float32Array(samples);
+      this.lineGrainCells = new Float32Array(samples);
     }
     this.lineSigma.fill(0);
+    this.lineGrainScale.fill(0);
     const spec: PolarFrameSpec = { ...frame, samples, elevationSamples: 1 };
     const k = this.lineKernels(scene, frame, samples);
     const ctx = this.prepare(scene, beam, spec);
@@ -297,6 +320,8 @@ export class ProceduralSliceRenderer implements RendererBackend {
       across: this.lineAcross,
       elevation: this.lineElevation,
       along: this.lineAlong,
+      grainScale: this.lineGrainScale,
+      grainCells: this.lineGrainCells,
     };
     const li = Math.round(((theta + frame.sectorRad / 2) / frame.sectorRad) * frame.lines);
     const re = this.lineRe,
@@ -314,7 +339,9 @@ export class ProceduralSliceRenderer implements RendererBackend {
     const sigma = this.lineSigma,
       across = this.lineAcross,
       elev = this.lineElevation,
-      along = this.lineAlong;
+      along = this.lineAlong,
+      grainScale = this.lineGrainScale,
+      grainCells = this.lineGrainCells;
     const [, pathY, pathZ] = LINE_LATTICE_PATH;
     for (let a = 0; a < samples;) {
       let b = a + 1;
@@ -324,9 +351,26 @@ export class ProceduralSliceRenderer implements RendererBackend {
       for (let i = a; i < b; i++) {
         const sg = sigma[i]!;
         if (sg === 0) continue;
-        const u = Number.isNaN(along[i]!)
-          ? (i + 0.5 - centre) * dr * SCATTER_FREQ
-          : along[i]! * SCATTER_FREQ;
+        const uc = Number.isNaN(along[i]!) ? (i + 0.5 - centre) * dr : along[i]!;
+        const u = uc * SCATTER_FREQ;
+        const gs = grainScale[i]!;
+        if (gs > 0) {
+          // the grains of the run travel with it too; across the beam their cell is the beam width or the slice
+          // thickness where those are coarser than the grain
+          const gf = grainCells[i]!;
+          const ug = uc * gf;
+          re[i] =
+            re[i]! +
+            gs *
+              grainCoef(
+                ug + offset + GR_X,
+                across[i]! * Math.min(1, gf / k.lateralCells[i]!) + ug * pathY + GR_Y,
+                elev[i]! * Math.min(1, gf / k.elevationCells[i]!) + ug * pathZ + GR_Z,
+                latA,
+                latB,
+                latC,
+              );
+        }
         const qx = u + offset,
           qy = across[i]! + u * pathY,
           qz = elev[i]! + u * pathZ;
@@ -423,6 +467,9 @@ export class ProceduralSliceRenderer implements RendererBackend {
     const samples = spec.samples;
     const nElev = spec.elevationSamples;
     const focus = spec.focusCm;
+    // compounding looks of a frame (decision 145); an M-mode line has one
+    const looks = line ? 1 : COMPOUND_LOOKS;
+    const nFrame = spec.lines * samples;
     const ox = beam.origin.x,
       oy = beam.origin.y,
       oz = beam.origin.z;
@@ -547,23 +594,28 @@ export class ProceduralSliceRenderer implements RendererBackend {
           REVERB_MOD_AMP *
             latticeNoise3(li * REVERB_MOD_LINE_FREQ, r * REVERB_MOD_DEPTH_FREQ, REVERB_MOD_Z, latC);
         const a = pleuralReverberation(r, lungEntryR, lungEntryT, nn);
-        // reverberation energy is incoherent: a phasor tied to the line and the depth
+        // reverberation energy is incoherent: a phasor tied to the line and the depth, one per look (decision 145)
         const px2 = li * REVERB_PHASOR_LINE_FREQ,
           pr = r * SCATTER_FREQ;
-        re[idx] =
-          a *
-          (latticeNoise3(px2, pr, REVERB_PHASOR_RE_A_Z, latA) +
-            latticeNoise3(px2 + RRB_X, pr * R + RRB_Y, RRB_Z, latB) -
-            1) *
-          PHASOR_NORM *
-          incAxial;
-        im[idx] =
-          a *
-          (latticeNoise3(px2 + RIA_X, pr + RIA_Y, RIA_Z, latC) +
-            latticeNoise3(px2 + RIB_X, pr * R + RIB_Y, RIB_Z, latA) -
-            1) *
-          PHASOR_NORM *
-          incAxial;
+        for (let k = 0; k < looks; k++) {
+          const sx = LOOK_SHIFT[k]![0],
+            sy = LOOK_SHIFT[k]![1],
+            sz = LOOK_SHIFT[k]![2];
+          re[k * nFrame + idx] =
+            a *
+            (latticeNoise3(px2 + sx, pr + sy, REVERB_PHASOR_RE_A_Z + sz, latA) +
+              latticeNoise3(px2 + RRB_X + sx, pr * R + RRB_Y + sy, RRB_Z + sz, latB) -
+              1) *
+            PHASOR_NORM *
+            incAxial;
+          im[k * nFrame + idx] =
+            a *
+            (latticeNoise3(px2 + RIA_X + sx, pr + RIA_Y + sy, RIA_Z + sz, latC) +
+              latticeNoise3(px2 + RIB_X + sx, pr * R + RIB_Y + sy, RIB_Z + sz, latA) -
+              1) *
+            PHASOR_NORM *
+            incAxial;
+        }
         st[idx] = Structure.Lung;
         tr[idx] = 0;
         ti[idx] = Tissue.Lung;
@@ -574,8 +626,10 @@ export class ProceduralSliceRenderer implements RendererBackend {
         pz = oz + dz * r;
       const kind = classifyAt(px, py, pz, s);
       if (kind === 0) {
-        re[idx] = 0;
-        im[idx] = 0;
+        for (let k = 0; k < looks; k++) {
+          re[k * nFrame + idx] = 0;
+          im[k * nFrame + idx] = 0;
+        }
         st[idx] = Structure.None;
         tr[idx] = transmission;
         ti[idx] = Tissue.None;
@@ -592,13 +646,17 @@ export class ProceduralSliceRenderer implements RendererBackend {
         lungEntryR = r;
         // a frame's lung echoes are scaled by the beam's transmission at the entry in the beam march; a line's by its own
         lungEntryT = line ? transmission : 1;
-        re[idx] =
+        let pleura =
           lungEntryT *
           (PLEURA_BASE +
             PLEURA_AMP *
               latticeNoise3(li * PLEURA_LINE_FREQ, r * PLEURA_DEPTH_FREQ, PLEURA_Z, latA));
-        if (lk) re[idx] = re[idx] * lk.single;
-        im[idx] = 0;
+        if (lk) pleura *= lk.single;
+        // coherent: the same in every compounding look
+        for (let k = 0; k < looks; k++) {
+          re[k * nFrame + idx] = pleura;
+          im[k * nFrame + idx] = 0;
+        }
         dead = true;
         continue;
       }
@@ -641,7 +699,37 @@ export class ProceduralSliceRenderer implements RendererBackend {
       const qx = s.mx * SCATTER_FREQ - across * nhx,
         qy = s.my * SCATTER_FREQ - across * nhy,
         qz = s.mz * SCATTER_FREQ - across * nhz;
-      let sRe: number, sIm: number;
+      // bright grains of the parenchyma: a sparse coherent component over the diffuse scatterers, the same in every look
+      // (decision 145). The grain lattice is anchored in tissue coordinates at the tissue's grain frequency; across the
+      // plane its cell is the slice thickness where that is coarser, as for the scatterer phasor, and the slice
+      // integrates the grains it holds across (`grainCoef`). An M-mode line places its grains per structure run after
+      // the march (`renderMmodeLine`), like its scatterers
+      let grain = 0;
+      const gf = props.grain;
+      if (tissue === Tissue.Myocardium || tissue === Tissue.Muscle || tissue === Tissue.Liver) {
+        if (line && lk) {
+          line.grainScale[si] = sigma * GRAIN_GAIN * transmission * lk.smooth;
+          line.grainCells[si] = gf;
+        } else {
+          const ga = gf - Math.min(gf, 1 / (2 * sliceHalfWidthCm(r, focus)));
+          const gm = (s.mx * nhx + s.my * nhy + s.mz * nhz) * ga;
+          grain =
+            sigma *
+            GRAIN_GAIN *
+            grainCoef(
+              s.mx * gf - gm * nhx + GR_X,
+              s.my * gf - gm * nhy + GR_Y,
+              s.mz * gf - gm * nhz + GR_Z,
+              latA,
+              latB,
+              latC,
+            );
+        }
+      }
+      // a frame forms one complex signal per compounding look: the scatterer and clutter phasors differ between looks,
+      // the coherent echoes (specular, ring-down) do not (decision 145); an M-mode line keeps one look
+      let sRe = 0,
+        sIm = 0;
       if (line && lk) {
         // M-mode line (decision 84): the lattice axes follow the beam, with the beam width as the cell across it; the
         // coordinate along the beam is set per structure after the march (`renderMmodeLine`), so only σ is kept here
@@ -654,23 +742,11 @@ export class ProceduralSliceRenderer implements RendererBackend {
         line.sigma[si] = sigma * inc * transmission;
         sRe = specular * lk.specular;
         sIm = 0;
-      } else {
-        const zr =
-          (latticeNoise3(qx, qy, qz, latA) +
-            latticeNoise3(qx * R + PRB_X, qy * R + PRB_Y, qz * R + PRB_Z, latB) -
-            1) *
-          PHASOR_NORM;
-        const zi =
-          (latticeNoise3(qx + PIA_X, qy + PIA_Y, qz + PIA_Z, latC) +
-            latticeNoise3(qx * R + PIB_X, qy * R + PIB_Y, qz * R + PIB_Z, latA) -
-            1) *
-          PHASOR_NORM;
-        sRe = sigma * zr + specular;
-        sIm = sigma * zi;
       }
-      if (r < CLUTTER_MAX_CM && clutter > 0) {
+      let cm = 0;
+      if (r < CLUTTER_MAX_CM && clutter > 0)
         // near-field clutter: reverberation in the chest wall under the footprint, incoherent, fixed to the probe position
-        const cm =
+        cm =
           clutter *
           Math.exp(-r / CLUTTER_DECAY_CM) *
           (CLUTTER_BASE +
@@ -681,31 +757,67 @@ export class ProceduralSliceRenderer implements RendererBackend {
                 r * CLUTTER_MOD_DEPTH_FREQ,
                 latC,
               ));
-        const cx = ox * CLUTTER_FREQ + li * CLUTTER_LINE_FREQ,
-          cy = oy * CLUTTER_FREQ + oz * CLUTTER_FREQ,
-          cz = r * SCATTER_FREQ;
-        sRe +=
-          cm *
-          (latticeNoise3(cx + CLUTTER_RE_A_X, cy, cz, latA) +
-            latticeNoise3(cx * R + CRB_X, cy + CRB_Y, cz * R, latB) -
-            1) *
-          PHASOR_NORM *
-          incAxial;
-        sIm +=
-          cm *
-          (latticeNoise3(cx + CIA_X, cy + CIA_Y, cz + CIA_Z, latC) +
-            latticeNoise3(cx * R + CIB_X, cy + CIB_Y, cz * R + CIB_Z, latA) -
-            1) *
-          PHASOR_NORM *
-          incAxial;
-      }
+      const cx = ox * CLUTTER_FREQ + li * CLUTTER_LINE_FREQ,
+        cy = oy * CLUTTER_FREQ + oz * CLUTTER_FREQ,
+        cz = r * SCATTER_FREQ;
       const ringDown = r < RINGDOWN_CM ? RINGDOWN_GAIN * (1 - r / RINGDOWN_CM) : 0; // transducer ring-down
-      if (ringDown > 0) sRe += lk ? ringDown * lk.smooth : ringDown;
-      // a frame scales its echoes by the beam's transmission in the beam march; an M-mode line, with no lateral
-      // neighbours, by its own
-      const tScale = line ? transmission : 1;
-      re[idx] = sRe * tScale;
-      im[idx] = sIm * tScale;
+      if (line && lk) {
+        if (cm > 0) {
+          sRe +=
+            cm *
+            (latticeNoise3(cx + CLUTTER_RE_A_X, cy, cz, latA) +
+              latticeNoise3(cx * R + CRB_X, cy + CRB_Y, cz * R, latB) -
+              1) *
+            PHASOR_NORM *
+            incAxial;
+          sIm +=
+            cm *
+            (latticeNoise3(cx + CIA_X, cy + CIA_Y, cz + CIA_Z, latC) +
+              latticeNoise3(cx * R + CIB_X, cy + CIB_Y, cz * R + CIB_Z, latA) -
+              1) *
+            PHASOR_NORM *
+            incAxial;
+        }
+        if (ringDown > 0) sRe += ringDown * lk.smooth;
+        // an M-mode line scales its echoes by its own transmission (no lateral neighbours)
+        re[idx] = sRe * transmission;
+        im[idx] = sIm * transmission;
+      } else {
+        // a frame's echoes are scaled by the beam's transmission in the beam march
+        for (let k = 0; k < looks; k++) {
+          const sx = LOOK_SHIFT[k]![0],
+            sy = LOOK_SHIFT[k]![1],
+            sz = LOOK_SHIFT[k]![2];
+          const zr =
+            (latticeNoise3(qx + sx, qy + sy, qz + sz, latA) +
+              latticeNoise3(qx * R + PRB_X + sx, qy * R + PRB_Y + sy, qz * R + PRB_Z + sz, latB) -
+              1) *
+            PHASOR_NORM;
+          const zi =
+            (latticeNoise3(qx + PIA_X + sx, qy + PIA_Y + sy, qz + PIA_Z + sz, latC) +
+              latticeNoise3(qx * R + PIB_X + sx, qy * R + PIB_Y + sy, qz * R + PIB_Z + sz, latA) -
+              1) *
+            PHASOR_NORM;
+          let lre = sigma * zr + specular + grain + ringDown;
+          let lim = sigma * zi;
+          if (cm > 0) {
+            lre +=
+              cm *
+              (latticeNoise3(cx + CLUTTER_RE_A_X + sx, cy + sy, cz + sz, latA) +
+                latticeNoise3(cx * R + CRB_X + sx, cy + CRB_Y + sy, cz * R + sz, latB) -
+                1) *
+              PHASOR_NORM;
+            lim +=
+              cm *
+              (latticeNoise3(cx + CIA_X + sx, cy + CIA_Y + sy, cz + CIA_Z + sz, latC) +
+                latticeNoise3(cx * R + CIB_X + sx, cy + CIB_Y + sy, cz * R + CIB_Z + sz, latA) -
+                1) *
+              PHASOR_NORM;
+          }
+          re[k * nFrame + idx] = lre;
+          im[k * nFrame + idx] = lim;
+        }
+      }
       // two-way amplitude loss integrated over the sample's length (decision 89): 0.23 Np per dB·cm⁻¹·MHz⁻¹ of one-way
       // attenuation, so a layer loses the same whatever the sampling. Bone, calcium and spine used a fixed 1.2 Np per
       // sample, which made a rib's shadow depend on the quality tier (17 dB between low and high behind 4 mm of rib).
@@ -742,8 +854,10 @@ export function beamMarch(
   contact: number,
   seed: number,
   prefix: Float32Array,
+  looks = 1,
 ): void {
   const { lines, samples } = spec;
+  const n = lines * samples;
   const dr = spec.depthCm / samples;
   const dTheta = spec.sectorRad / lines;
   // prefix sums per sample across lines: `prefix` ((lines + 1) × samples) holds the increment sums, `count` the
@@ -797,13 +911,17 @@ export function beamMarch(
           lungScale = transmission;
           tr[i] = transmission;
         } else tr[i] = 0;
-        re[i]! *= lungScale;
-        im[i]! *= lungScale;
+        for (let k = 0; k < looks; k++) {
+          re[k * n + i]! *= lungScale;
+          im[k * n + i]! *= lungScale;
+        }
         continue;
       }
       tr[i] = transmission;
-      re[i]! *= transmission;
-      im[i]! *= transmission;
+      for (let k = 0; k < looks; k++) {
+        re[k * n + i]! *= transmission;
+        im[k * n + i]! *= transmission;
+      }
       transmission *= Math.exp(-atten[i]!);
       if (transmission < TRANSMISSION_FLOOR) transmission = TRANSMISSION_FLOOR;
     }
@@ -844,7 +962,34 @@ interface LineContext {
     across: Float32Array;
     elevation: Float32Array;
     along: Float32Array;
+    /** Per sample: scale of the parenchymal grains reaching the probe (0 without grains) and their lattice frequency. */
+    grainScale: Float32Array;
+    grainCells: Float32Array;
   } | null;
+}
+
+/** A grain field above its threshold, 0–1. */
+const grainAbove = (g: number): number =>
+  g > GRAIN_THRESHOLD ? (g - GRAIN_THRESHOLD) / (1 - GRAIN_THRESHOLD) : 0;
+
+/**
+ * Coefficient (0–1) of the parenchymal grains at a lattice coordinate (decision 145): the slice holds two or three grain
+ * cells across, whose coherent echoes add, so it reads the mean (¼ ½ ¼) of three independent grain fields rather than a
+ * single one, at every tier and on an M-mode line alike.
+ */
+function grainCoef(
+  x: number,
+  y: number,
+  z: number,
+  latA: Uint8Array,
+  latB: Uint8Array,
+  latC: Uint8Array,
+): number {
+  return (
+    0.25 * grainAbove(latticeNoise3(x, y, z, latA)) +
+    0.5 * grainAbove(latticeNoise3(x, y, z, latB)) +
+    0.25 * grainAbove(latticeNoise3(x, y, z, latC))
+  );
 }
 
 function torsoToHeartDir(

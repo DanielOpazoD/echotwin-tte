@@ -20,6 +20,7 @@ import { classifyHeart, computeHeartPose, type HeartPose } from '@/simulator/ana
 import { cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { makeSample, Structure } from '@/simulator/anatomy/tissue';
 import { polarSpecFor } from '@/simulator/renderer/types';
+import { axialFwhmMm } from '@/simulator/renderer/acoustic/psf';
 import { ProceduralSliceRenderer } from '@/simulator/renderer/procedural/sliceRenderer';
 
 const line = (v: number): MmodeLine => ({ amp: new Float32Array([v]), velocity: null });
@@ -456,6 +457,7 @@ describe('M-mode strip through the simulator (decision 84)', () => {
     })();
     const errors = new Map<number, number[]>();
     const bloodPersistence: number[] = [];
+    const pulseSamples = axialFwhmMm(physics.frequencyMHz, physics.harmonics) / 10 / dr;
     for (const th of [theta, avTheta]) {
       for (let p = 0; p < 40; p++) {
         const A = render(p / 40, th),
@@ -501,7 +503,10 @@ describe('M-mode strip through the simulator (decision 84)', () => {
           if (!match || Math.abs(match[1] - match[0] - (j - i)) > 3) continue;
           const moved = ((match[0] + match[1] - i - j) / 2) * dr;
           if (Math.abs(moved) < 0.03) continue;
-          const [, shift] = bestShift(A, B, i + 2, j - 2, Math.round(0.25 / dr));
+          // the texture inside a band is tracked over a window of at least two pulse lengths; a thinner band (the aortic
+          // root wall, 2.0–2.4 mm against a 1.3 mm pulse since decision 145) is tracked whole, its interface echoes included
+          const margin = j - i - 4 >= 2 * pulseSamples ? 2 : 0;
+          const [, shift] = bestShift(A, B, i + margin, j - margin, Math.round(0.25 / dr));
           const e = errors.get(id) ?? [];
           e.push(Math.abs(shift * dr - moved) * 10);
           errors.set(id, e);

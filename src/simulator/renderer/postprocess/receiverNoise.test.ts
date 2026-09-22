@@ -14,6 +14,7 @@ import {
   MAX_LATERAL_RADIUS,
   type PsfKernels,
 } from '../acoustic/psf';
+import { COMPOUND_LOOKS } from '../acoustic/acoustics';
 import { allocPolarFrame, DEFAULT_ACQUISITION, polarSpecFor, type PolarFrameSpec } from '../types';
 
 /**
@@ -81,7 +82,7 @@ const lagOnePower = (w: ArrayLike<number>, from: number, to: number): number => 
 };
 
 describe('receiver noise', () => {
-  it('adds to the echo before detection: a steady echo reads the Rician second moment, and noise alone its floor', () => {
+  it('adds to the echo before detection: a steady echo reads the Rician second moment, and noise alone its floor over √looks', () => {
     const spec = polarSpecFor(settings, 'medium');
     const { lines: L, samples: N } = spec;
     const A = 2 * NOISE_FLOOR;
@@ -112,7 +113,8 @@ describe('receiver noise', () => {
     receiverNoise(k, L, N, 0, 7, re, im, new Float32Array(L * N), new Float32Array(L * N));
     let mean = 0;
     for (let i = 0; i < L * N; i++) mean += Math.hypot(re[i]!, im[i]!) / (L * N);
-    expect(mean / NOISE_FLOOR).toBeCloseTo(1, 1);
+    // the receiver's floor is per look; the console adds it once, to the compounded envelope (decision 145)
+    expect(mean / (NOISE_FLOOR / Math.sqrt(COMPOUND_LOOKS))).toBeCloseTo(1, 1);
   });
 
   it('has the grain of the receive response, not of the sampling, along and across the beam', () => {

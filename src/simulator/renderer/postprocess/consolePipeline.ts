@@ -1,7 +1,7 @@
 import type { AcquisitionSettings, PolarFrame, PolarFrameSpec } from '../types';
 import { hash3 } from '@/core/random';
 import { buildNoiseKernels, ENVELOPE_NORM, filterComplex, type PsfKernels } from '../acoustic/psf';
-import { focusingGain } from '../acoustic/acoustics';
+import { COMPOUND_LOOKS, focusingGain } from '../acoustic/acoustics';
 
 /**
  * Console post-processing (spec 7.7): linear envelope amplitude → displayed polar intensity 0..255.
@@ -31,12 +31,14 @@ export interface ConsoleState {
  * shows 79 and 60; at 0.0004 they read 85 and 77, with the blood's own backscatter raised (0.012 → 0.018) so the
  * cavity keeps its 50 against 56 instead of falling with the noise.
  */
-export const NOISE_FLOOR = 0.0004;
+export const NOISE_FLOOR = 0.00045;
 /**
  * RMS of the white complex receiver noise before the receive response (decision 91). The response has unit energy, so it
  * keeps E|n|², and a complex Gaussian detects to a mean envelope of √π/2 times its RMS: noise alone reads NOISE_FLOOR.
+ * Compounding averages the looks' noise as it averages their speckle (decision 145): the noise of one frame is that of
+ * one look over √COMPOUND_LOOKS (the console adds it once, to the compounded envelope).
  */
-export const NOISE_RMS = NOISE_FLOOR * ENVELOPE_NORM;
+export const NOISE_RMS = (NOISE_FLOOR * ENVELOPE_NORM) / Math.sqrt(COMPOUND_LOOKS);
 /**
  * White point: envelope amplitude 10^(REF_DB/20) maps to full white at 0 dB gain. 12 dB under the 8 it was since decision
  * 52, set with the clinical grey map and the complex receiver noise against CAMUS Good (decision 91).

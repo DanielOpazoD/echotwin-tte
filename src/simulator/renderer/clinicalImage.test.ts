@@ -81,35 +81,27 @@ const KNOWN_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // envelope hid part of this until decision 91: it filled the nulls (local std 9.3-9.7, texture contrast ~13) and its
   // per-sample grain shrank the cell to 1.2-1.35 × 0.9-1.0 mm. Widening the PSF matched these numbers and looked false
   // (dark worm-like nulls, granular blood); smoothing after detection lost the texture contrast (decision 74).
-  ['4CH-ED:myocardialLocalStd', 1.5],
-  ['4CH-ES:myocardialLocalStd', 0.74],
-  ['2CH-ED:myocardialLocalStd', 1.9],
-  ['2CH-ES:myocardialLocalStd', 0.84],
-  ['4CH-ED:myocardialDetrendedStd', -0.19],
-  ['4CH-ES:myocardialDetrendedStd', -0.56],
-  ['2CH-ED:myocardialDetrendedStd', -0.15],
-  ['2CH-ES:myocardialDetrendedStd', -0.37],
-  ['4CH-ED:speckleCellHorizontalMm', -1.1],
-  ['4CH-ES:speckleCellHorizontalMm', -1.91],
-  ['2CH-ED:speckleCellHorizontalMm', -1.14],
-  ['2CH-ES:speckleCellHorizontalMm', -2.18],
-  ['4CH-ED:speckleCellVerticalMm', -1.95],
-  ['4CH-ES:speckleCellVerticalMm', -2.06],
-  ['2CH-ED:speckleCellVerticalMm', -1.72],
-  ['2CH-ES:speckleCellVerticalMm', -1.93],
-  // Shape of the grey scale (decisions 90-91). The slope of local std against grey level and the white end came inside
-  // with the clinical grey map; the skewness of the myocardial residuals rose from −0.35..−0.51 but is still negative.
+  // Texture under the compounding and grains of decision 145 (docs/LIMITATIONS.md): two looks averaged after detection,
+  // coherent grains integrated over the slice and a 1.35× axial pulse put the speckle cell (2.0-2.3 × 1.7-1.9 mm), the
+  // residual skewness (+0.18 to +0.30) and the end-diastolic local std inside the clinical quartiles; the end-systolic
+  // local std sits under them (8.6-8.7 against 9.1-9.5), the variance against the ±4 mm mean stays short (15-17.4
+  // against 18.4-24: the clinical grain is more contrasted at 2-4 mm than a thresholded lattice) and the slope of local
+  // std against grey level with it (3.6-4.2 against 4.2-5.7 lower quartiles).
+  ['4CH-ES:myocardialLocalStd', -0.43],
+  ['2CH-ES:myocardialLocalStd', -0.32],
+  ['4CH-ED:myocardialDetrendedStd', -0.45],
+  ['4CH-ES:myocardialDetrendedStd', -0.89],
+  ['2CH-ED:myocardialDetrendedStd', -0.52],
+  ['2CH-ES:myocardialDetrendedStd', -0.73],
+  ['4CH-ED:levelStdSlope', -0.12],
+  ['4CH-ES:levelStdSlope', -0.65],
+  ['2CH-ES:levelStdSlope', -0.11],
   // Contrast under the environment of decision 144 (docs/LIMITATIONS.md): the console the CAMUS sweep chose with the
   // focused beam (0.7 dB/cm/MHz) lifts the mid-field walls to 106 while the cavity, read at the receiver's lower noise
-  // floor, stays at 50: 56 grey levels of contrast against 40 [33-47] in the 4CH and 55 against 44 [36-53] in the 2CH
-  // at end-diastole; at end-systole both are inside. Re-baselined texture under the same decision: the beam march and the
-  // fibre helix put more variance inside the 5×5 window of the 4CH (local std 13.2) and less at ±4 mm at end-systole.
-  ['4CH-ED:contrast', 0.63],
-  ['2CH-ED:contrast', 0.13],
-  ['4CH-ED:myocardialResidualSkew', -0.55],
-  ['4CH-ES:myocardialResidualSkew', -0.86],
-  ['2CH-ED:myocardialResidualSkew', -0.25],
-  ['2CH-ES:myocardialResidualSkew', -0.35],
+  // floor, stays at 50: 57 grey levels of contrast against 40 [33-47] in the 4CH and 56 against 44 [36-53] in the 2CH
+  // at end-diastole; at end-systole both are inside.
+  ['4CH-ED:contrast', 0.73],
+  ['2CH-ED:contrast', 0.16],
 ]);
 
 /**

@@ -45,6 +45,8 @@ Este método existe porque casi todos los errores de una sesión larga sobre la 
 
 18. **Antes de ajustar una cinemática o una forma, busca su valor normal publicado y cítalo junto a la constante.** Una proporción inventada deja defectos que parecen de otra cosa: la raíz que bajaba la mitad que la base abría un hueco con la cortina mitral y hundía la silla del anillo hasta un 35% de la anchura intercomisural; los valores publicados (excursión anular aórtica 1,16 ± 0,30 cm frente a 1,4–1,6 cm mitral; silla de 10,6% en diástole y 13,5% en sístole) cerraron ambos a la vez. Si la búsqueda no da un número verificable, dilo y deja el parámetro declarado como supuesto.
 
+19. **Un componente nuevo de la señal tiene que respetar lo que ya cumplía la cadena: el corte, los tiers, la línea de modo M y la GPU.** Los granos coherentes de la decisión 145 pasaron el test clínico a la primera y rompieron tres pruebas lentas: variaban de través al plano con su propia celda (correlación 0,94 a 0,2 mm de elevación, contra 0,97), el tier alto los promediaba sobre sus tres planos de elevación y los demás tomaban una sola muestra (una sola muestra proyectada sube la asimetría de 0,2 a 0,8), y la línea de modo M los tomaba de coordenadas materiales que en la raíz aórtica no se mueven. Antes de calibrar una constante nueva, pásala por el barrido de propiedades de la cadena (`elevationSpeckle`, `mmodeStrip`, paridad GLSL y equivalencia GPU), y define el componente en un solo sitio (`grainCoef`) que usen el cuadro, la línea y el shader.
+
 ## Herramientas
 
 - `npx tsx tools/offline/render/slice-map.ts <salida> <vistas> [caso]` — mapa de estructuras por plano.

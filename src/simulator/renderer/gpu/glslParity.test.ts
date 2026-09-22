@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { GLSL_COMMON } from './glslCommon';
+import { COMPOUND_LOOKS } from '../acoustic/acoustics';
 import {
   GLSL_PASS_A_MAIN,
   GLSL_PASS_B_MAIN,
@@ -126,5 +127,12 @@ describe('acoustic chain: CPU ↔ GLSL parity mechanism', () => {
         if (!declared.has(m[0])) undeclared.add(m[0]);
     }
     expect([...undeclared].sort(), 'used by a pass but never defined').toEqual([]);
+  });
+});
+
+describe('compounding looks', () => {
+  it('the GLSL port carries two looks: more would need another render target on both sides', () => {
+    expect(COMPOUND_LOOKS).toBeLessThanOrEqual(2);
+    expect(COMPOUND_LOOKS).toBeGreaterThanOrEqual(1);
   });
 });
