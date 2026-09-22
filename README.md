@@ -29,8 +29,9 @@ ciclo cardíaco. Mover la sonda un grado cambia la imagen como cambiaría en un 
    coincidan con ≤ 1 nivel de gris.
 
 Hay además Doppler color, pulsado, continuo y tisular, modo M, medidor con evaluación de la técnica,
-navegador 3D del tórax con el corazón mallado desde el mismo modelo que corta el haz, y una capa
-instruccional con tareas, causas y un informe estructurado.
+navegador 3D del tórax con el corazón mallado desde el mismo modelo que corta el haz y, debajo, un mapa a
+color de las estructuras que atraviesa el plano de la imagen, y una capa instruccional con tareas, causas y un
+informe estructurado.
 
 ## Ejecutar
 

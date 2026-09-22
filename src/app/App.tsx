@@ -168,7 +168,23 @@ export function App() {
                   <TorsoView />
                 </Suspense>
               )}
-              {railVisible && <GuidancePanel />}
+              {/* the view guide stays hidden until asked for: the learner reads the image first (decision 141) */}
+              {railVisible && (
+                <button
+                  className="guidance-toggle"
+                  onClick={() => useSimStore.getState().setUi({ guidanceOpen: !ui.guidanceOpen })}
+                  aria-expanded={ui.guidanceOpen}
+                  aria-controls="view-guidance"
+                  title="Puntuación de la vista, referencias que faltan y explicaciones"
+                >
+                  {ui.guidanceOpen ? 'Ocultar guía de la vista' : 'Guía de la vista'}
+                </button>
+              )}
+              {railVisible && ui.guidanceOpen && (
+                <div id="view-guidance">
+                  <GuidancePanel />
+                </div>
+              )}
             </div>
             {ui.railMini && <RailMini />}
           </div>

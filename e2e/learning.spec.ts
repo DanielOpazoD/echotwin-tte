@@ -66,7 +66,10 @@ test('a curriculum task completes when the PLAX preset reaches its score and the
 test('the guidance panel explains causes and the report scores a structured impression', async ({
   page,
 }) => {
-  // an imperfect pose (start probe) yields at least one causal explanation
+  // the guide is hidden until asked for (decision 141); an imperfect pose (start probe) yields at least one
+  // causal explanation
+  await expect(page.locator('.guidance')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Guía de la vista' }).click();
   await expect(page.locator('.guidance .causes')).toHaveCount(1);
   await page.getByRole('button', { name: 'Informe' }).click();
   await page.locator('[data-finding="ef-normal"] input').check();

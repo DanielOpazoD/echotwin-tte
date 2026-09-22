@@ -112,13 +112,13 @@ test('markers move by dragging, delete with a key, come back with undo, and can 
   await expect(page.locator('.review-item')).toHaveCount(1);
 
   // a click without drag on the 3D navigator marks the surface it hits (skin, bone or heart); the torso view
-  // is the upper half of the navigator canvas (decision 137)
-  const torso = page.locator('.torso-wrap canvas');
+  // is the WebGL canvas above the cut map (decisions 137 and 141)
+  const torso = page.locator('.torso-3d canvas');
   const tb = (await torso.boundingBox())!;
   await expect
     .poll(
       async () => {
-        await page.mouse.click(tb.x + tb.width * 0.5, tb.y + tb.height * 0.4);
+        await page.mouse.click(tb.x + tb.width * 0.5, tb.y + tb.height * 0.55);
         return (await markers()).some((m) => m.space === 'model');
       },
       { timeout: 30_000, intervals: [1000] },
@@ -134,24 +134,12 @@ test('markers move by dragging, delete with a key, come back with undo, and can 
   expect(Number.isFinite(model.point!.offPlaneCm)).toBe(true);
   await expect(page.locator('.review-item').last().locator('.review-place')).toContainText('3D ·');
 
-  // on the cut view (lower half) the marker lands on the cut face itself: in the image plane (decision 137)
-  const before3d = (await markers()).filter((m) => m.space === 'model').length;
-  await expect
-    .poll(
-      async () => {
-        await page.mouse.click(tb.x + tb.width * 0.5, tb.y + tb.height * 0.7);
-        return (await markers()).filter((m) => m.space === 'model').length > before3d;
-      },
-      { timeout: 30_000, intervals: [1000] },
-    )
-    .toBe(true);
-  await expect
-    .poll(async () => (await markers()).filter((m) => m.space === 'model').at(-1)?.point !== null, {
-      timeout: 30_000,
-    })
-    .toBe(true);
-  const onCut = (await markers()).filter((m) => m.space === 'model').at(-1)!;
-  expect(Math.abs(onCut.point!.offPlaneCm)).toBeLessThan(0.05);
+  // the cut map takes no markers: a click on it adds nothing
+  const map = page.locator('.cut-map canvas');
+  const mb = (await map.boundingBox())!;
+  await page.mouse.click(mb.x + mb.width * 0.5, mb.y + mb.height * 0.5);
+  await page.waitForTimeout(500);
+  expect((await markers()).filter((m) => m.space === 'model').length).toBe(1);
 });
 
 test('Alt+click adds a secondary point to the selected marker, joined to it in the report', async ({

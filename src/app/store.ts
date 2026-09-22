@@ -50,6 +50,8 @@ export interface UiPrefs {
   navSplit: boolean;
   /** Chamber and valve names on the cut face. */
   navLabels: boolean;
+  /** The view guide (score, hints, details, causes) under the navigator; hidden until asked for (decision 141). */
+  guidanceOpen: boolean;
   /** Rings on the skin where each canonical view is acquired (decision 132). */
   navWindows: boolean;
   showHints: boolean;
@@ -220,6 +222,7 @@ function savePrefs(ui: UiPrefs): void {
       navWindows,
       navSplit,
       navLabels,
+      guidanceOpen,
       reviewFreezeOnMark,
       railMini,
       minimal,
@@ -244,6 +247,7 @@ function savePrefs(ui: UiPrefs): void {
         navWindows,
         navSplit,
         navLabels,
+        guidanceOpen,
         reviewFreezeOnMark,
         railMini,
         minimal,
@@ -294,6 +298,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
     navWindows: true,
     navSplit: true,
     navLabels: true,
+    guidanceOpen: false,
     showHints: true,
     showPhysics: false,
     devPanel: false,

@@ -714,11 +714,43 @@ select:focus-visible {
   flex: 1;
   min-height: 200px;
   position: relative;
+  display: flex;
+  flex-direction: column;
 }
 .torso-wrap canvas {
   width: 100% !important;
   height: 100% !important;
   display: block;
+}
+/* the WebGL torso above and, when split, the 2D cut map below (decision 141) */
+.torso-3d {
+  flex: 1 1 100%;
+  min-height: 0;
+  position: relative;
+}
+.torso-wrap.split .torso-3d {
+  flex: 1 1 50%;
+}
+.cut-map {
+  flex: 1 1 50%;
+  min-height: 0;
+  position: relative;
+  background: #0f1319;
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+}
+.cut-map-hover {
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  font-size: 11px;
+  color: #f4f6fa;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 2px 6px;
+  border-radius: 4px;
+  pointer-events: none;
+}
+.cut-map-hover:empty {
+  display: none;
 }
 .torso-help {
   position: absolute;
@@ -775,6 +807,16 @@ select:focus-visible {
 .torso-buttons button {
   padding: 2px 7px;
   font-size: 11px;
+}
+.guidance-toggle {
+  margin: 0 8px 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  align-self: flex-start;
+  opacity: 0.85;
+}
+.guidance-toggle[aria-expanded='true'] {
+  opacity: 1;
 }
 .guidance {
   padding: 8px;
@@ -1469,17 +1511,7 @@ canvas.overlay.review {
   left: 34px;
 }
 .torso-caption.bottom {
-  top: calc(50% + 6px);
-}
-.torso-wrap.split::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  height: 1px;
-  background: rgba(255, 255, 255, 0.16);
-  pointer-events: none;
+  top: 6px;
 }
 .torso-wrap.split .torso-help {
   bottom: calc(50% + 6px);
