@@ -43,6 +43,7 @@ export const TARGETS: GenTarget[] = [
       'pleuralReverberation',
       'beamHalfWidthCm',
       'focusingGain',
+      'membraneWeight',
     ],
   },
   { file: 'src/simulator/renderer/acoustic/psf.ts', functions: ['sliceHalfWidthCm'] },

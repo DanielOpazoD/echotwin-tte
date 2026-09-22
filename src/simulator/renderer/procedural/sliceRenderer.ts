@@ -77,6 +77,7 @@ import {
   RINGDOWN_CM,
   RINGDOWN_GAIN,
   focusingGain,
+  membraneWeight,
   beamHalfWidthCm,
   BEAM_ATTEN_MAX_LINES,
   BEAM_ATTEN_MIN_ARC_CM,
@@ -663,7 +664,17 @@ export class ProceduralSliceRenderer implements RendererBackend {
       acoustic(s, inHeart, acA);
       let sigma = acA.sigma;
       let specular = acA.spec;
-      if (nElev > 1) {
+      if (tissue === Tissue.Valve) {
+        // a leaflet is a membrane thinner than the slice: it reads by the fraction of the slice it fills, full where it
+        // stands across the plane and MEMBRANE_CM over the slice thickness where it lies in it; the side planes of the
+        // high tier would miss it, so it takes no elevation average (decision 147)
+        const nn = inHeart
+          ? s.nx * nrmH.x + s.ny * nrmH.y + s.nz * nrmH.z
+          : s.nx * nX + s.ny * nY + s.nz * nZ;
+        const w = membraneWeight(nn, sliceHalfWidthCm(r, focus));
+        sigma *= w;
+        specular *= w;
+      } else if (nElev > 1) {
         // slice thickness: the beam's elevational width grows away from the focus; backscatter and interface
         // echo are the weighted mean over the slice (¼ ½ ¼), which blurs obliquely cut structures
         const e = sliceHalfWidthCm(r, focus);

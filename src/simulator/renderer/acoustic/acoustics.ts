@@ -208,6 +208,23 @@ export function focusingGain(rCm: number, focusCm: number): number {
   );
   return Math.sqrt((FOCUS_WAIST_LATERAL_MM / wl) * (FOCUS_WAIST_ELEVATION_MM / we));
 }
+/**
+ * Thickness of a valve leaflet as the slice sees it (cm; aortic cusps 0.8–1 mm, mitral leaflets 1–2 mm). A leaflet is a
+ * membrane thinner than the slice: where the beam meets it edge-on it fills the slice across its whole width and reads
+ * as tissue, but where the imaging plane runs along it (its normal along the plane normal) only MEMBRANE_CM of the slice
+ * thickness holds tissue and the rest is blood. Point classification cannot tell the two apart: a coaptation surface
+ * lying in the long-axis plane read as a bright mass filling the root (decision 147). `membraneWeight` scales the
+ * backscatter and interface echo of valve tissue by the fraction of the slice the membrane occupies.
+ */
+export const MEMBRANE_CM = 0.1;
+/**
+ * Fraction of the slice a membrane fills: 1 when it stands across the plane (|n·N| = 0) and its thickness over the
+ * slice thickness (2 × half width) when it lies in the plane.
+ */
+export function membraneWeight(normalDotPlane: number, sliceHalfWidthCm: number): number {
+  const along = Math.abs(normalDotPlane);
+  return MEMBRANE_CM / (MEMBRANE_CM + 2 * sliceHalfWidthCm * along);
+}
 /** Most lines the beam-attenuation window spans on either side (near the face the beam is wider than the sector). */
 export const BEAM_ATTEN_MAX_LINES = 24;
 /** Floor of the arc one line spans (cm), so the window at the apex sample stays finite. */
@@ -265,6 +282,7 @@ export const ACOUSTIC_GLSL_CONSTANTS: Readonly<
   GRAIN_GAIN,
   GRAIN_THRESHOLD,
   GRAIN_OFFSET,
+  MEMBRANE_CM,
   MYO_ANISO_FLOOR,
   MYO_HELIX_COS2,
   MYO_ANISO_RADIAL_EPS,

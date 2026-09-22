@@ -28,6 +28,9 @@ import {
   AV_PHI0,
   AV_LATERAL_COAPTATION_HEIGHT,
   AV_LATERAL_PROFILE_RADIUS,
+  AV_CROWN_EXPONENT,
+  AV_OPEN_EDGE_FRACTION,
+  AV_OPEN_WALL_GAP,
 } from '@/simulator/anatomy/aorticValve';
 import {
   AML_ARC_EXTENSION,
@@ -65,6 +68,9 @@ const float ROOT_EXCURSION = ${f(ROOT_EXCURSION)};
 const float AV_PHI0 = ${f(AV_PHI0)};
 const float AV_LATERAL_COAPTATION_HEIGHT = ${f(AV_LATERAL_COAPTATION_HEIGHT)};
 const float AV_LATERAL_PROFILE_RADIUS = ${f(AV_LATERAL_PROFILE_RADIUS)};
+const float AV_CROWN_EXPONENT = ${f(AV_CROWN_EXPONENT)};
+const float AV_OPEN_EDGE_FRACTION = ${f(AV_OPEN_EDGE_FRACTION)};
+const float AV_OPEN_WALL_GAP = ${f(AV_OPEN_WALL_GAP)};
 const int MV_BINS = ${MV_BINS};
 const float AML_ARC_EXTENSION = ${f(AML_ARC_EXTENSION)};
 const float MV_CLOSED_REACH[3] = float[3](${CLOSED_REACH.map(f).join(', ')});
@@ -355,10 +361,11 @@ float aorticCuspDistance(float t, float rr, float phi, out float dOut, out float
   if (psi > per / 2.0) psi -= per;
   float q = psi / (per / 2.0);
   float aq = min(1.0, abs(q));
-  float k = 1.0 - sqrt(max(0.0, 1.0 - aq * aq));
+  float k = 1.0 - sqrt(max(0.0, 1.0 - pow(aq, AV_CROWN_EXPONENT)));
   float tAtt = (AVC_HCOMM - 0.1) * k;
   float rw = rootRadiusAt(tAtt, phi) - 0.02;
   float tTopOpen = AVC_HCOMM - 0.35 + 0.25 * aq * aq;
+  float centreWeight = 1.0 - aq * aq;
   float best = 1e9, bestFrac = 0.0;
   vec2 bestN = vec2(0.0, 1.0);
   vec2 a = vec2(0.0);
@@ -369,7 +376,9 @@ float aorticCuspDistance(float t, float rr, float phi, out float dOut, out float
     float rc = rw * rn, tc = tMid + (edge - tMid) * k;
     float fo = float(i) / 3.0;
     float to = tAtt + (tTopOpen - tAtt) * fo;
-    float ro = rootRadiusAt(to, phi) - (0.05 + 0.12 * (1.0 - aq * aq) * fo);
+    float wallR = rootRadiusAt(to, phi) - AV_OPEN_WALL_GAP;
+    float hangR = AV_R * (1.0 - (1.0 - AV_OPEN_EDGE_FRACTION) * fo);
+    float ro = min(wallR, wallR + (hangR - wallR) * centreWeight);
     vec2 b = vec2(rc + (ro - rc) * AVC_OPEN, tc + (to - tc) * AVC_OPEN);
     if (i > 0) {
       vec2 e = b - a;

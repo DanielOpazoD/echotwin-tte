@@ -29,6 +29,25 @@ export const AV_LATERAL_COAPTATION_HEIGHT = 0.59;
 export const AV_LATERAL_PROFILE_RADIUS = 0.64;
 export const AV_COMMISSURE_HEIGHT = 1.75;
 export const AV_BELLY_SAG = 0.15;
+/**
+ * Shape of the crown-shaped attachment, as a superellipse in (azimuth fraction, height): k = 1 − √(1 − aq^n). With n = 2
+ * (a semicircle, decision 79) the attachment reached mid-height 14° from each commissure, so a short-axis cut at the
+ * coaptation level met each cusp body between its attachment and the closure line as a 5 mm «V» at the end of every arm
+ * of the Y, and a physician reading the image saw folds at the base of the cusps that a real valve does not show. With
+ * n = 6 the commissural posts are tall and narrow (the attachment is within 5° of the commissure down to 0.6 cm above the
+ * annulus, 2.3° at the free-edge level), the interleaflet triangles narrow to their apex, and the cut shows the Y alone
+ * (decision 147).
+ */
+export const AV_CROWN_EXPONENT = 6;
+/**
+ * Open cusps hang from the annulus like a slightly tapering cylinder rather than lying on the sinus wall: at the cusp
+ * centre the free edge stands at AV_OPEN_EDGE_FRACTION of the annulus radius, at the commissures on the wall. Cusp
+ * separation in the long axis ≈ 1.9 cm for a 2.4 cm annulus (normal 1.5–2.6 cm) and a rounded triangular orifice in the
+ * short axis, instead of the concentric circle at 0.9 of the sinus radius that a wall-hugging profile drew (decision 147).
+ */
+export const AV_OPEN_EDGE_FRACTION = 0.8;
+/** Gap between an open cusp and the sinus wall at the commissures (cm). */
+export const AV_OPEN_WALL_GAP = 0.05;
 /** Azimuth (rad, e1/e2 basis) of the centre of cusp 0; the sinus bulges share it. */
 export const AV_PHI0 = 0.5;
 
@@ -139,11 +158,14 @@ const prof = new Float64Array(8);
 /** Current profile of a cusp at fraction q ∈ [−1, 1] of its sector (0 = centre, ±1 = commissures), as (r, t) × 4 in `prof`. */
 function cuspProfile(av: AorticValve, root: RootProfile, q: number, phi: number): void {
   const aq = Math.min(1, Math.abs(q));
-  const k = 1 - Math.sqrt(1 - aq * aq);
+  const k = 1 - Math.sqrt(Math.max(0, 1 - Math.pow(aq, AV_CROWN_EXPONENT)));
   const tAtt = (av.hComm - 0.1) * k;
   const rw = rootRadiusAt(root, tAtt, phi) - 0.02;
   const tTopOpen = av.hComm - 0.35 + 0.25 * aq * aq;
   const o = av.open;
+  // open: at the cusp centre the cusp hangs from the annulus, tapering to AV_OPEN_EDGE_FRACTION of the annulus radius at
+  // the free edge; toward the commissures it lies on the sinus wall
+  const centreWeight = 1 - aq * aq;
   for (let i = 0; i < 4; i++) {
     const rn = RN[i]!;
     // closed: belly toward the ventricle at the cusp centre, rising to the edge of the coaptation surfaces toward the commissures
@@ -151,10 +173,11 @@ function cuspProfile(av: AorticValve, root: RootProfile, q: number, phi: number)
     const [edge] = aorticCoaptationBand(av, rn);
     const rc = rw * rn,
       tc = tMid + (edge - tMid) * k;
-    // open: along the sinus wall, the free edge a little off it at the cusp centre
     const f = i / 3;
     const to = tAtt + (tTopOpen - tAtt) * f;
-    const ro = rootRadiusAt(root, to, phi) - (0.05 + 0.12 * (1 - aq * aq) * f);
+    const wallR = rootRadiusAt(root, to, phi) - AV_OPEN_WALL_GAP;
+    const hangR = root.avR * (1 - (1 - AV_OPEN_EDGE_FRACTION) * f);
+    const ro = Math.min(wallR, wallR + (hangR - wallR) * centreWeight);
     prof[i * 2] = rc + (ro - rc) * o;
     prof[i * 2 + 1] = tc + (to - tc) * o;
   }
