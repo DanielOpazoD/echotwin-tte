@@ -35,6 +35,7 @@ export function classifyHeart(
   z: number,
   out: TissueSample,
 ): boolean {
+  out.segment = 0;
   // swinging heart (tamponade): rigid translation of the whole heart inside the pericardial sac
   const x = x0 - hp.swingX;
   const bc = m.boundCenter;

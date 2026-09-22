@@ -4,7 +4,7 @@ import { lvCavitySdf, lvProfileG } from '../lvShape';
 import { fastAtan2, latticeNoise3 } from '@/core/noise';
 import { insideMitralOutline, mitralHingeZ, mitralInflowSdf } from '../mitralValve';
 import { septalShiftAt, wallThicknessAt } from '../lvWall';
-import { ahaSegment } from '../lvGeometry';
+import { aha17FromCode, lvSegmentCode } from '../lvSegments';
 import { setSample, type ClassifyCtx } from './context';
 
 /**
@@ -12,7 +12,7 @@ import { setSample, type ClassifyCtx } from './context';
  * wallT and inAnnularRegion for the blocks after it. True when the point is one of these.
  */
 export function classifyLeftVentricle(c: ClassifyCtx): boolean {
-  const { m, hp, x, y, z, out, rootT, rootRr, rootR, inRootLumen, inOutflowLumen } = c;
+  const { m, hp, A, x, y, z, out, rootT, rootRr, rootR, inRootLumen, inOutflowLumen } = c;
   const lv = m.lv;
   const zAnn = hp.zAnn;
   const V = hp.valves;
@@ -36,8 +36,9 @@ export function classifyLeftVentricle(c: ClassifyCtx): boolean {
   c.nz0 = nz0;
   // clip at annulus plane (z ≥ zAnn) with a smooth max
   const dCav = smax(dProf, zAnn - z, 0.6);
-  const seg = ahaSegment(az, levelFrac);
-  const amp = m.segAmp[seg] ?? 1;
+  // segment of the tissue here (decision 152): its identity, and the regional amplitude of its AHA segment
+  const segCode = lvSegmentCode(az, levelFrac, A.rvAzA, A.rvAzP);
+  const amp = m.segAmp[aha17FromCode(segCode)] ?? 1;
   // Regional wall motion: an akinetic segment keeps its end-diastolic radius → local cavity SDF shifted outward
   const regional = amp < 1 ? (1 - amp) * (lv.rMax - hp.rMax) * lvProfileG(sh, levelFrac) : 0;
   const rsc = hp.radialScale;
@@ -146,6 +147,7 @@ export function classifyLeftVentricle(c: ClassifyCtx): boolean {
     );
     // where across the wall the sample lies, for the fibre helix of the renderer (decision 144)
     out.transmural = Math.min(1, Math.max(0, dEllR / wallT));
+    out.segment = segCode;
     return true;
   }
   // Annular plane region (inside the ellipsoid but basal to the annulus): mitral orifice is blood

@@ -112,9 +112,9 @@ function buildNoiseKernelsCached(spec: PolarFrameSpec, settings: AcquisitionSett
  * WebGL2 procedural renderer: the same scanline model and image formation as ProceduralSliceRenderer,
  * evaluated in four fragment passes — classification and local acoustics in parallel (A), per-line
  * transmission march into a complex signal (B), axial PSF (C), lateral PSF and envelope (D) — and read back
- * into the CPU PolarFrame (`render`), or continued on the GPU through the console into a packed display that is
- * the only read-back and a present pass that scan-converts it into the canvas (`renderDisplay`, `present`,
- * decision 54). Deterministic given the same lattices (a 3D texture), parameters and PSF kernel table.
+ * into the CPU PolarFrame (`render`), or continued on the GPU through the console into a packed display, read back
+ * with the ids of pass B for the LV segment map (decision 152), and a present pass that scan-converts it into the
+ * canvas (`renderDisplay`, `present`, decision 54). Deterministic given the same lattices (a 3D texture), parameters and PSF kernel table.
  * Requires WebGL2 with EXT_color_buffer_float; `createWebgl2Renderer` returns null otherwise.
  */
 export class Webgl2Renderer implements RendererBackend {
@@ -674,7 +674,8 @@ export class Webgl2Renderer implements RendererBackend {
     const amp = out.amplitude,
       tr = out.transmission,
       st = out.structure,
-      ti = out.tissue;
+      ti = out.tissue,
+      sg = out.segment;
     const ra = this.readAmp,
       ri = this.readIds;
     for (let i = 0; i < n; i++) {
@@ -682,6 +683,7 @@ export class Webgl2Renderer implements RendererBackend {
       tr[i] = ra[i * 4 + 1]!;
       st[i] = ri[i * 4]!;
       ti[i] = ri[i * 4 + 1]!;
+      sg[i] = ri[i * 4 + 3]!;
     }
     this.packedFresh = false;
     this.lastOutput = 'float';
@@ -691,8 +693,8 @@ export class Webgl2Renderer implements RendererBackend {
 
   /**
    * Render and form the displayed polar image on the GPU (decision 54): passes A–D, then the console pass,
-   * whose packed RGBA8 output (grey, structure, tissue, transmission code) is the only read-back. The envelope
-   * amplitude stays on the GPU. Advances the console state exactly like `applyConsole`.
+   * whose packed RGBA8 output (grey, structure, tissue, transmission code) is read back, and the ids of pass B for the
+   * LV segment codes their fourth channel carries (decision 152). The envelope amplitude stays on the GPU. Advances the console state exactly like `applyConsole`.
    */
   renderDisplay(
     scene: Scene,
@@ -764,6 +766,10 @@ export class Webgl2Renderer implements RendererBackend {
     const tGpu = performance.now();
     this.lastGpuMs = tGpu - t0;
     gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, this.readPacked);
+    // the LV segment map (decision 152): the ids of pass B, whose fourth channel the packed display has no room for
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbB);
+    gl.readBuffer(gl.COLOR_ATTACHMENT1);
+    gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, this.readIds);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     // a context lost during the frame reads nothing: decline before touching any state
     if (gl.isContextLost()) return false;
@@ -775,14 +781,17 @@ export class Webgl2Renderer implements RendererBackend {
     con.state.frameIndex++;
     const n = w * h;
     const rp = this.readPacked;
+    const ri = this.readIds;
     const st = out.structure,
       ti = out.tissue,
-      tr = out.transmission;
+      tr = out.transmission,
+      sg = out.segment;
     for (let i = 0, o = 0; i < n; i++, o += 4) {
       display[i] = rp[o]!;
       st[i] = rp[o + 1]!;
       ti[i] = rp[o + 2]!;
       tr[i] = TRANS_DECODE[rp[o + 3]!]!;
+      sg[i] = ri[o + 3]!;
     }
     this.lastOutput = 'display';
     this.lastMs = performance.now() - t0;

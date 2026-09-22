@@ -46,6 +46,17 @@ describe('case library', () => {
       expect(c.history).toContain('sintétic');
     });
   }
+  it('asks for a declared wall-motion score where the amplitude changes and refuses one for the apex', () => {
+    const rw = CASE_INPUTS.find((c) => c.id === 'inferior-rwma')!;
+    const withWall = (wallMotion: unknown[]) => ({ ...rw, anatomy: { ...rw.anatomy, wallMotion } });
+    expect(validateCase(withWall([{ segment: 4, amplitude: 0.05 }])).errors.join()).toMatch(
+      /needs a declared score/,
+    );
+    expect(
+      validateCase(withWall([{ segment: 17, amplitude: 0.5, score: 3 }])).errors.join(),
+    ).toMatch(/not scored/);
+    expect(validateCase(withWall([{ segment: 17, amplitude: 0.5 }])).ok).toBe(true);
+  });
   it('ground truth matches the intent of each pathological case', () => {
     const gt = (id: string) => computeGroundTruth(loadCaseById(id));
     const hf = gt('hfref-severe-mr');
@@ -54,6 +65,9 @@ describe('case library', () => {
     expect(hf.lvot.strokeVolumeMl).toBeLessThan(hf.lv.strokeVolumeMl - 10);
     const rw = gt('inferior-rwma');
     expect(rw.wallMotion.abnormalSegments).toEqual([4, 5, 10, 11, 15]);
+    // the declared scores, apart from the amplitudes: 3 + 3 + 3 + 2 + 2 + 11 × 1 over 16 (decision 152)
+    expect(rw.wallMotion.wmsi).toBeCloseTo(24 / 16, 12);
+    expect(gt('normal-excellent-window').wallMotion.wmsi).toBe(1);
     expect(rw.lv.efPct).toBeGreaterThan(40);
     const asm = gt('aortic-stenosis-moderate');
     expect(asm.aorticValve.vmaxMps).toBeGreaterThan(3.0);

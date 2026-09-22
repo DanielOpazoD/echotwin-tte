@@ -1,22 +1,26 @@
 import { useEffect, useRef } from 'react';
 import { frameBus } from '@/app/frameBus';
 import { STRUCTURE_LABELS } from '@/app/review';
-import { useSimStore } from '@/app/store';
+import { segmentLayerOn, useSimStore } from '@/app/store';
 import type { SimOutput } from '@/simulator/core/protocol';
 import { computeSectorMapping, type SectorMapping } from '@/simulator/renderer/scanConvert';
 import { nearestSampleLut, paintCutMap, placeLabels, type CutMapLabel } from './cutMap';
+import { paintSegmentMap, segmentIds, segmentNames } from './segmentMap';
 
 /**
  * Second view of the navigator (decision 141): the imaging plane as a colour-coded map of the structures it
  * passes through, scan-converted from the structure map of the frame on screen. It is the same plane as the
  * image by construction (same beam, phase, sector, depth and left–right convention), drawn in the model's
  * colours with the names of the regions the plane cuts and a depth ruler. Hovering names the structure under
- * the cursor; the map takes no other input (the probe is driven from the torso view).
+ * the cursor. With the segment layer on (decision 152) the LV myocardium is coloured and numbered by the segment of
+ * the tissue the plane crosses, from the frame's segment channel; a click selects a segment, the same selection as the
+ * polar map of the segment panel. The probe is driven from the torso view.
  */
 export function CutMapView() {
   const ref = useRef<HTMLDivElement>(null);
   const hoverRef = useRef<HTMLDivElement>(null);
   const labels = useSimStore((s) => s.ui.navLabels);
+  const segmentsOn = useSimStore(segmentLayerOn);
 
   useEffect(() => {
     const el = ref.current;
@@ -42,6 +46,20 @@ export function CutMapView() {
     let labelsAt = 0;
     let labelsKey = '';
     let labelsShown: CutMapLabel[] = [];
+    // per-sample segment ids of the latest frame in the model shown (recomputed per frame and model)
+    let ids: Uint8Array | null = null;
+    let idsOf: SimOutput | null = null;
+    let idsModel = '';
+    const segmentIdsNow = (out: SimOutput): Uint8Array | null => {
+      const model = useSimStore.getState().ui.segmentModel;
+      if (out.segment.length !== out.structure.length) return null;
+      if (idsOf !== out || idsModel !== model || !ids) {
+        ids = segmentIds(out.segment, model, ids ?? undefined);
+        idsOf = out;
+        idsModel = model;
+      }
+      return ids;
+    };
 
     const draw = () => {
       raf = 0;
@@ -66,7 +84,10 @@ export function CutMapView() {
         back.height = cssH;
       }
       const img = backCtx.createImageData(cssW, cssH);
-      const stats = paintCutMap(img.data, lut, out.structure, cssW);
+      const segIds = segmentLayerOn(st) ? segmentIdsNow(out) : null;
+      const stats = segIds
+        ? paintSegmentMap(img.data, lut, out.structure, segIds, cssW, st.ui.selectedSegment)
+        : paintCutMap(img.data, lut, out.structure, cssW);
       backCtx.putImageData(img, 0, 0);
       const dpr = canvas.width / cssW;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -74,14 +95,47 @@ export function CutMapView() {
       ctx.imageSmoothingEnabled = true;
       ctx.drawImage(back, 0, 0, canvas.width, canvas.height);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      drawRuler(ctx, mapping, p.depthCm);
-      if (st.ui.navLabels) {
+      // with the segments numbered, the depth numbers carry their unit so they are not read as segments
+      drawRuler(ctx, mapping, p.depthCm, segIds !== null);
+      if (segIds) {
+        // segment numbers: every segment in the plane gets its number, re-placed a few times a second
+        ctx.font = '700 12px system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const now = performance.now();
+        const segKey = `${key}|seg|${st.ui.segmentModel}`;
+        if (now - labelsAt > 400 || segKey !== labelsKey) {
+          // structure ids and segment ids share numbers: a label kept across a switch of layer would be wrong
+          if (labelsKey !== segKey) labelsShown = [];
+          labelsShown = placeLabels(
+            stats,
+            lut,
+            segIds,
+            cssW,
+            Math.max(12, 0.0008 * cssW * cssH),
+            (t) => ({ w: ctx.measureText(t).width, h: 13 }),
+            new Set(labelsShown.map((l) => l.id)),
+            (id) => String(id),
+          );
+          labelsAt = now;
+          labelsKey = segKey;
+        }
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
+        ctx.fillStyle = '#ffffff';
+        for (const l of labelsShown) {
+          ctx.strokeText(l.text, l.x, l.y);
+          ctx.fillText(l.text, l.x, l.y);
+        }
+      } else if (st.ui.navLabels) {
         ctx.font = '600 11px system-ui, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         const now = performance.now();
         if (now - labelsAt > 400 || key !== labelsKey) {
           const minPixels = Math.max(60, 0.004 * cssW * cssH);
+          if (labelsKey !== key) labelsShown = [];
           labelsShown = placeLabels(
             stats,
             lut,
@@ -126,6 +180,20 @@ export function CutMapView() {
     const ro = new ResizeObserver(resize);
     ro.observe(el);
     resize();
+    /** Polar sample under a mouse event (−1 outside the sector). */
+    const sampleAt = (e: MouseEvent): number => {
+      if (!lut) return -1;
+      const r = canvas.getBoundingClientRect();
+      const x = Math.floor(((e.clientX - r.left) / r.width) * cssW);
+      const y = Math.floor(((e.clientY - r.top) / r.height) * cssH);
+      return x >= 0 && y >= 0 && x < cssW && y < cssH ? lut[y * cssW + x]! : -1;
+    };
+    /** Segment id under a mouse event in the model shown, 0 when none (or the layer is off). */
+    const segmentAt = (k: number): number => {
+      const out = latest;
+      if (!out || k < 0 || !segmentLayerOn(useSimStore.getState())) return 0;
+      return segmentIdsNow(out)?.[k] ?? 0;
+    };
     const onMove = (e: MouseEvent) => {
       const hover = hoverRef.current;
       if (!hover) return;
@@ -134,18 +202,28 @@ export function CutMapView() {
         hover.textContent = '';
         return;
       }
-      const r = canvas.getBoundingClientRect();
-      const x = Math.floor(((e.clientX - r.left) / r.width) * cssW);
-      const y = Math.floor(((e.clientY - r.top) / r.height) * cssH);
-      const k = x >= 0 && y >= 0 && x < cssW && y < cssH ? lut[y * cssW + x]! : -1;
+      const k = sampleAt(e);
+      const seg = segmentAt(k);
+      if (seg > 0) {
+        const n = segmentNames(seg, useSimStore.getState().ui.segmentModel);
+        hover.textContent = `${seg} · ${n.es} (${n.en})`;
+        return;
+      }
       const id = k >= 0 ? (out.structure[k] ?? 0) : -1;
       hover.textContent = id > 0 ? (STRUCTURE_LABELS[id] ?? '') : '';
+    };
+    const onClick = (e: MouseEvent) => {
+      const st = useSimStore.getState();
+      if (!segmentLayerOn(st)) return;
+      const seg = segmentAt(sampleAt(e));
+      st.setUi({ selectedSegment: seg > 0 && seg !== st.ui.selectedSegment ? seg : null });
     };
     const onLeave = () => {
       if (hoverRef.current) hoverRef.current.textContent = '';
     };
     canvas.addEventListener('mousemove', onMove);
     canvas.addEventListener('mouseleave', onLeave);
+    canvas.addEventListener('click', onClick);
     return () => {
       if (raf) cancelAnimationFrame(raf);
       unsubFrames();
@@ -153,6 +231,7 @@ export function CutMapView() {
       ro.disconnect();
       canvas.removeEventListener('mousemove', onMove);
       canvas.removeEventListener('mouseleave', onLeave);
+      canvas.removeEventListener('click', onClick);
       el.removeChild(canvas);
     };
   }, []);
@@ -161,21 +240,36 @@ export function CutMapView() {
     <div
       className="cut-map"
       ref={ref}
-      aria-label="Corte ecográfico: estructuras en el plano de la imagen"
+      aria-label={
+        segmentsOn
+          ? 'Corte ecográfico: segmentos del ventrículo izquierdo que atraviesa el plano de la imagen'
+          : 'Corte ecográfico: estructuras en el plano de la imagen'
+      }
     >
-      <div className="torso-caption bottom">Corte ecográfico · plano de la imagen</div>
+      <div className="torso-caption bottom">
+        {segmentsOn
+          ? 'Corte ecográfico · segmentos del VI'
+          : 'Corte ecográfico · plano de la imagen'}
+      </div>
       <div className="cut-map-hover" ref={hoverRef} aria-live="off" />
       <div className="torso-help cut">
-        {labels
-          ? 'Estructuras que atraviesa el plano de la imagen, con sus nombres · pasar el ratón: nombre completo'
-          : 'Estructuras que atraviesa el plano de la imagen · pasar el ratón: nombre'}
+        {segmentsOn
+          ? 'Segmentos del VI del tejido que corta el plano (no del nombre de la vista) · pasar el ratón: nombre · clic: seleccionar'
+          : labels
+            ? 'Estructuras que atraviesa el plano de la imagen, con sus nombres · pasar el ratón: nombre completo'
+            : 'Estructuras que atraviesa el plano de la imagen · pasar el ratón: nombre'}
       </div>
     </div>
   );
 }
 
 /** Depth ruler down the left edge of the sector: a tick per centimetre, a number every five. */
-function drawRuler(ctx: CanvasRenderingContext2D, m: SectorMapping, depthCm: number): void {
+function drawRuler(
+  ctx: CanvasRenderingContext2D,
+  m: SectorMapping,
+  depthCm: number,
+  withUnit = false,
+): void {
   const half = m.sectorRad / 2;
   const ex = -Math.sin(half),
     ey = Math.cos(half);
@@ -195,7 +289,8 @@ function drawRuler(ctx: CanvasRenderingContext2D, m: SectorMapping, depthCm: num
     if (y > m.height) break;
     ctx.moveTo(x, y);
     ctx.lineTo(x + ox * len, y + oy * len);
-    if (d % 5 === 0) ctx.fillText(`${d}`, x + ox * (len + 3), y + oy * (len + 3));
+    if (d % 5 === 0)
+      ctx.fillText(withUnit ? `${d} cm` : `${d}`, x + ox * (len + 3), y + oy * (len + 3));
   }
   ctx.stroke();
 }

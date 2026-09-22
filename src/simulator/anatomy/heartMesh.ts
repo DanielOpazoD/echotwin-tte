@@ -19,6 +19,12 @@ export interface MeshGroup {
   /** Per-vertex normals, area-weighted from the triangles: the only rule that survives a one-cell wall. */
   normals: Float32Array;
   indices: Uint32Array;
+  /**
+   * LV myocardium only: the segment code (`lvSegments.ts`, decision 152) of the tissue each vertex bounds, from the
+   * classifier at this phase's grid (0 on the papillary muscles). Each phase is classified anew, so the colour follows
+   * the tissue without assuming that vertex indices match between phases.
+   */
+  segments?: Uint8Array;
 }
 
 export interface HeartMeshOptions {
@@ -131,6 +137,7 @@ export function buildHeartMeshes(
   // one classification pass for every group: the structure id per grid point
   const ids = new Uint8Array(nx * ny * nz);
   const tissues = new Uint8Array(nx * ny * nz);
+  const segs = new Uint8Array(nx * ny * nz);
   const s = makeSample();
   for (let k = 0; k < nz; k++)
     for (let j = 0; j < ny; j++)
@@ -142,9 +149,21 @@ export function buildHeartMeshes(
         const o = (k * ny + j) * nx + i;
         ids[o] = s.structure;
         tissues[o] = s.tissue;
+        segs[o] = s.segment;
       }
   return MESH_GROUPS.map((g) =>
-    surfaceNet(g, ids, tissues, nx, ny, nz, b.min, step, opts.smoothing ?? 2),
+    surfaceNet(
+      g,
+      ids,
+      tissues,
+      nx,
+      ny,
+      nz,
+      b.min,
+      step,
+      opts.smoothing ?? 2,
+      g.id === 'lv-myocardium' ? segs : null,
+    ),
   );
 }
 
@@ -158,6 +177,7 @@ function surfaceNet(
   min: [number, number, number],
   step: number,
   smoothing: number,
+  segs: Uint8Array | null = null,
 ): MeshGroup {
   const inside = new Uint8Array(nx * ny * nz);
   for (let o = 0; o < ids.length; o++)
@@ -165,6 +185,8 @@ function surfaceNet(
   const at = (i: number, j: number, k: number): number => inside[(k * ny + j) * nx + i] ?? 0;
   const cellVertex = new Int32Array((nx - 1) * (ny - 1) * (nz - 1)).fill(-1);
   const pos: number[] = [];
+  const vertexSeg: number[] = [];
+  const votes = new Uint8Array(21);
   const cellIndex = (i: number, j: number, k: number): number => (k * (ny - 1) + j) * (nx - 1) + i;
   for (let k = 0; k < nz - 1; k++)
     for (let j = 0; j < ny - 1; j++)
@@ -205,6 +227,20 @@ function surfaceNet(
               }
             }
         if (!crossings) continue;
+        if (segs) {
+          // the most frequent segment among the cell's inside corners (0 when they are papillary muscle)
+          votes.fill(0);
+          for (let dk = 0; dk < 2; dk++)
+            for (let dj = 0; dj < 2; dj++)
+              for (let di = 0; di < 2; di++)
+                if (at(i + di, j + dj, k + dk)) {
+                  const c = segs[(k + dk) * ny * nx + (j + dj) * nx + i + di]!;
+                  if (c > 0 && c < 21) votes[c]!++;
+                }
+          let best = 0;
+          for (let c = 1; c < 21; c++) if (votes[c]! > votes[best]!) best = c;
+          vertexSeg.push(best);
+        }
         cellVertex[cellIndex(i, j, k)] = pos.length / 3;
         pos.push(
           min[0] + (i + cx / crossings) * step,
@@ -265,6 +301,7 @@ function surfaceNet(
     positions,
     normals,
     indices: new Uint32Array(idx),
+    ...(segs ? { segments: Uint8Array.from(vertexSeg) } : {}),
   };
 }
 

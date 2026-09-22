@@ -25,12 +25,14 @@ export const inferiorRwmaCase: CaseDefinitionInput = {
       apexWallThicknessCm: 0.7,
     },
     la: { apDiameterCm: 3.7, volumeMl: 56 },
+    // amplitude is the mechanics the simulator draws; score is the reading the case intends (pending clinical review of
+    // the rendered loops, decision 152)
     wallMotion: [
-      { segment: 4, amplitude: 0.05, delayPhase: 0.05 },
-      { segment: 5, amplitude: 0.1, delayPhase: 0.05 },
-      { segment: 10, amplitude: 0.1, delayPhase: 0.04 },
-      { segment: 11, amplitude: 0.25, delayPhase: 0.03 },
-      { segment: 15, amplitude: 0.45, delayPhase: 0.02 },
+      { segment: 4, amplitude: 0.05, delayPhase: 0.05, score: 3 },
+      { segment: 5, amplitude: 0.1, delayPhase: 0.05, score: 3 },
+      { segment: 10, amplitude: 0.1, delayPhase: 0.04, score: 3 },
+      { segment: 11, amplitude: 0.25, delayPhase: 0.03, score: 2 },
+      { segment: 15, amplitude: 0.45, delayPhase: 0.02, score: 2 },
     ],
   },
   physiology: {

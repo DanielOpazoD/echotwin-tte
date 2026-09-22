@@ -110,7 +110,7 @@ export const GUIDELINE_REFERENCES: GuidelineReference[] = [
     year: 2015,
     url: 'https://www.asecho.org/guideline/cardiac-chamber-quantification-by-echo-in-adults/',
     accessedAt: '2026-09-10',
-    usedBy: ['reference-values', 'simpson', 'chamber-dimensions'],
+    usedBy: ['reference-values', 'simpson', 'chamber-dimensions', 'wall-motion-scoring'],
     verification: 'title-verified',
   },
   {
@@ -123,6 +123,45 @@ export const GUIDELINE_REFERENCES: GuidelineReference[] = [
     accessedAt: '2026-09-10',
     usedBy: ['aortic-stenosis-grading', 'continuity-equation'],
     verification: 'title-verified',
+  },
+  {
+    id: 'aha-segmentation-2002',
+    society: 'AHA',
+    title:
+      'Standardized Myocardial Segmentation and Nomenclature for Tomographic Imaging of the Heart (Circulation 2002;105:539–542)',
+    year: 2002,
+    url: 'https://doi.org/10.1161/hc0402.102975',
+    accessedAt: '2026-09-22',
+    usedBy: ['myocardial-segmentation', 'segment-catalog'],
+    verification: 'verified-online',
+    notes:
+      'Bibliographic record checked through Crossref (the publisher page refused automated access); the 17-segment rules are encoded in clinical/segmentation/catalog.ts and simulator/anatomy/lvSegments.ts (decision 152).',
+  },
+  {
+    id: 'eacvi-ase-ste-2015',
+    society: 'EACVI/ASE/Industry',
+    title:
+      'Definitions for a Common Standard for 2D Speckle Tracking Echocardiography (J Am Soc Echocardiogr 2015;28:183–193)',
+    year: 2015,
+    url: 'https://doi.org/10.1016/j.echo.2014.11.003',
+    accessedAt: '2026-09-22',
+    usedBy: ['myocardial-segmentation', 'segment-catalog (LV 18, strain: future)'],
+    verification: 'verified-online',
+    notes:
+      'Read online: segments defined at end-diastole and following the tissue; the 16-segment model divides the whole apex into four segments; the anterior RV insertion is the short-axis reference; the 18-segment model is a separate topology.',
+  },
+  {
+    id: 'dicom-cid-3717',
+    society: 'DICOM (NEMA)',
+    title:
+      'PS3.16 CID 3717 Myocardial Wall 17 Segment Model (with CID 3782–3784 for the basal, mid and apical segments)',
+    year: 2026,
+    url: 'https://dicom.nema.org/medical/dicom/current/output/chtml/part16/sect_CID_3717.html',
+    versionLabel: 'current edition',
+    accessedAt: '2026-09-22',
+    usedBy: ['segment-catalog'],
+    verification: 'verified-online',
+    notes: 'Segment names and SNOMED CT codes of catalog.ts.',
   },
 ];
 

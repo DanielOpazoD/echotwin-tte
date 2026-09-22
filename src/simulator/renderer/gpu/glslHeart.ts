@@ -112,6 +112,7 @@ struct Sample {
   vec3 m;
   float extra;
   float transmural; // depth across the LV wall, 0 endocardium → 1 epicardium; −1 elsewhere (decision 144)
+  int segment; // LV segment code of LV compact myocardium (lvSegments.ts, decision 152); 0 elsewhere
 };
 
 void setSample(out Sample s, int tissue, float sdf, vec3 n, vec3 m, float extra, int structure) {
@@ -123,6 +124,7 @@ void setSample(out Sample s, int tissue, float sdf, vec3 n, vec3 m, float extra,
   s.extra = extra;
   s.structure = structure;
   s.transmural = -1.0;
+  s.segment = 0;
 }
 
 // ---- profile helpers (skirts) ----
@@ -427,23 +429,10 @@ float sdCuspChain(vec3 p, int segBase, float segLen, vec3 w, float halfW, float 
   return best;
 }
 
+// AHA 17 id of the tissue at (az, levelFrac): the shared segment code (lvSegments.ts), the apical cap codes 17–20 read as 17
 int ahaSegment(float az, float levelFrac) {
-  float deg = mod(az * 180.0 / PI + 28.0, 360.0);
-  if (deg < 0.0) deg += 360.0;
-  if (levelFrac > 0.93) return 17;
-  if (levelFrac > 0.66) {
-    if (deg < 45.0 || deg >= 315.0) return 16;
-    if (deg < 135.0) return 13;
-    if (deg < 225.0) return 14;
-    return 15;
-  }
-  int base = levelFrac <= 0.33 ? 0 : 6;
-  if (deg < 60.0) return base + 6;
-  if (deg < 120.0) return base + 1;
-  if (deg < 180.0) return base + 2;
-  if (deg < 240.0) return base + 3;
-  if (deg < 300.0) return base + 4;
-  return base + 5;
+  int code = int(lvSegmentCode(az, levelFrac, RV_AZA, RV_AZP) + 0.5);
+  return code > 16 ? 17 : code;
 }
 
 // ---- LV bullet profile (lvShape.ts) ----
@@ -574,6 +563,7 @@ vec3 rvCrescent(vec3 p, float az) {
 
 // Shared RV distance for the pericardium block (recomputed; cheap)
 bool classifyHeart(vec3 p0, out Sample s) {
+  s.segment = 0;
   vec3 p = vec3(p0.x - SWING_X, p0.y, p0.z);
   float x = p.x, y = p.y, z = p.z;
   vec3 bd = p - vec3(BOUND_CX, BOUND_CY, BOUND_CZ);
@@ -734,6 +724,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float sg = nearEpi ? 1.0 : -1.0;
     setSample(s, T_MYO, dIn, sg * n0, vec3(x / rs, y / rs, (z - LV_LEN) / ls), 0.0, structure);
     s.transmural = clamp(dEllR / wallT, 0.0, 1.0);
+    s.segment = int(lvSegmentCode(az, levelFrac, RV_AZA, RV_AZP) + 0.5);
     return true;
   }
   bool inAnnularRegion = dEllR < 0.0 && z < zAnn && !inRootLumen;

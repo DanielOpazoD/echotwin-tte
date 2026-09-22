@@ -45,6 +45,7 @@ interface Anchor {
   trans: (Uint8Array | undefined)[];
   structure: (Uint8Array | undefined)[];
   tissue: (Uint8Array | undefined)[];
+  segment: (Uint8Array | undefined)[];
   filled: number;
   lastUse: number;
 }
@@ -281,6 +282,7 @@ export class AtlasRenderer implements RendererBackend {
       trans: new Array<Uint8Array | undefined>(ATLAS_PHASES),
       structure: new Array<Uint8Array | undefined>(ATLAS_PHASES),
       tissue: new Array<Uint8Array | undefined>(ATLAS_PHASES),
+      segment: new Array<Uint8Array | undefined>(ATLAS_PHASES),
       filled: 0,
       lastUse: ++this.useCounter,
     };
@@ -316,6 +318,7 @@ export class AtlasRenderer implements RendererBackend {
     a.trans[slot] = tr;
     a.structure[slot] = f.structure.slice(0, n);
     a.tissue[slot] = f.tissue.slice(0, n);
+    a.segment[slot] = f.segment.slice(0, n);
   }
 
   private serve(a: Anchor, slot: number, out: PolarFrame, n: number): void {
@@ -323,7 +326,8 @@ export class AtlasRenderer implements RendererBackend {
     const tr = a.trans[slot];
     const st = a.structure[slot];
     const ti = a.tissue[slot];
-    if (!amp || !tr || !st || !ti) return;
+    const sg = a.segment[slot];
+    if (!amp || !tr || !st || !ti || !sg) return;
     const oa = out.amplitude;
     const ot = out.transmission;
     for (let k = 0; k < n; k++) {
@@ -332,5 +336,6 @@ export class AtlasRenderer implements RendererBackend {
     }
     out.structure.set(st);
     out.tissue.set(ti);
+    out.segment.set(sg);
   }
 }

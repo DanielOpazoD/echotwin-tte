@@ -1,4 +1,10 @@
 import type { CaseDefinition } from '@/cases/schema';
+import {
+  computeWmsi,
+  type SegmentAssessment,
+  type WallMotionScore,
+} from '@/clinical/segmentation/wallMotion';
+import type { WallMotionId } from '@/clinical/segmentation/catalog';
 import { buildBeatTables, type BeatTables } from '@/simulator/cardiac-cycle/cycleModel';
 import { lvGeometryFromVolume } from '@/simulator/anatomy/heartModel';
 import { lvProfileG } from '@/simulator/anatomy/lvShape';
@@ -66,7 +72,15 @@ export interface StructuredEchoTruth {
     } | null;
     tr: { eroaCm2: number } | null;
   };
-  wallMotion: { abnormalSegments: number[]; description: string };
+  wallMotion: {
+    /** 16-segment ids the case scores 2 or worse (its declared scores, never the simulation amplitude). */
+    abnormalSegments: number[];
+    /** Declared score of segments 1–16 (index 0 = segment 1); a segment the case leaves alone is 1. */
+    scores: WallMotionScore[];
+    /** Wall-motion score index of the synthetic ground truth, where every segment is scored. */
+    wmsi: number;
+    description: string;
+  };
   pulmonaryVein: { sMps: number; dMps: number; arMps: number; sdRatio: number };
   rv: { basalDiameterCm: number; freeWallThicknessCm: number; septalFlattening: number };
   aorticValve: {
@@ -167,7 +181,23 @@ export function computeGroundTruth(c: CaseDefinition, tables?: BeatTables): Stru
   const rg = t.regurgitation;
   const mrCfg = c.hemodynamics.regurgitation.mr;
   const arCfg = c.hemodynamics.regurgitation.ar;
-  const abnormal = c.anatomy.wallMotion.filter((w) => w.amplitude < 0.85).map((w) => w.segment);
+  // the case's declared scores (decision 152): the amplitude is the mechanics, the score the reading it intends
+  const scores = Array.from({ length: 16 }, (_, i): WallMotionScore => {
+    const w = c.anatomy.wallMotion.find((x) => x.segment === i + 1);
+    return w?.score ?? 1;
+  });
+  const abnormal = scores.flatMap((s, i) => (s >= 2 ? [i + 1] : []));
+  // every segment is scored in the synthetic ground truth: the index of the tested consolidation, never a sum of our own
+  const assessments = scores.map((s, i): SegmentAssessment => ({
+    model: 'LV_16',
+    segmentId: (i + 1) as WallMotionId,
+    source: 'synthetic_ground_truth',
+    score: s,
+    views: [],
+    scores: [s],
+    discrepant: false,
+  }));
+  const wmsi = computeWmsi(assessments).value ?? 1;
   const pvPeaks = pulmonaryVeinPeaks(c);
   // ESD from EDD and contraction geometry (radial fractional shortening ~ derived from volumes)
   const esd = geometricEdd(c, t.edvMl) * Math.cbrt(t.esvMl / t.edvMl) * 0.93;
@@ -233,8 +263,10 @@ export function computeGroundTruth(c: CaseDefinition, tables?: BeatTables): Stru
     pulmonaryVein: { ...pvPeaks, sdRatio: pvPeaks.dMps > 0 ? pvPeaks.sMps / pvPeaks.dMps : 0 },
     wallMotion: {
       abnormalSegments: abnormal,
+      scores,
+      wmsi,
       description: abnormal.length
-        ? `Alteración segmentaria en ${abnormal.length} segmento(s) AHA: ${abnormal.join(', ')}`
+        ? `Alteración segmentaria en ${abnormal.length} segmento(s) del modelo de 16: ${abnormal.join(', ')}; índice de motilidad ${wmsi.toFixed(2).replace('.', ',')}`
         : 'Motilidad segmentaria normal',
     },
     rv: {

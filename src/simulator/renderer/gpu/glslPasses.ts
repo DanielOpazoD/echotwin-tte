@@ -19,7 +19,7 @@ export const GLSL_PASS_A_MAIN = /* glsl */ `
 uniform vec4 uTissue[20]; // reflect, specular, attenuation, grain per tissue id
 uniform float uElevK;     // elevation plane: -1 / 0 / +1 (slice-thickness passes)
 layout(location = 0) out vec4 outA; // backscatter σ, attenNp, lungFlag, inBody
-layout(location = 1) out vec4 outB; // structure/255, tissue/255, extra, 1
+layout(location = 1) out vec4 outB; // structure/255, tissue/255, extra, LV segment code/255 (decision 152)
 layout(location = 2) out vec4 outC; // specular echo, scatterer phasor re, im, grain coefficient (0–1)
 layout(location = 3) out vec4 outD; // scatterer phasor of the second compounding look re, im, 0, 0
 
@@ -75,6 +75,8 @@ void main() {
   vec3 hfO = vec3(HF_OX, HF_OY, HF_OZ);
   vec3 pH = vec3(dot(pT - hfO, ex), dot(pT - hfO, ey), dot(pT - hfO, ez));
   Sample s;
+  s.segment = 0;
+  s.transmural = -1.0;
   bool inHeart = false;
   bool inBody = true;
   if (isAnteriorLung(pT)) {
@@ -85,7 +87,7 @@ void main() {
   }
   if (!inBody) {
     outA = vec4(0.0);
-    outB = vec4(0.0, 0.0, 0.0, 1.0);
+    outB = vec4(0.0);
     outC = vec4(0.0);
     outD = vec4(0.0);
     return;
@@ -127,7 +129,7 @@ void main() {
   if (s.extra > CALCIUM_ATTEN_THRESHOLD) attenNp += CALCIUM_ATTEN_NP * s.extra * (dr / CALCIUM_ATTEN_REF_CM);
   if (!inHeart && (s.tissue == T_FAT || s.tissue == T_MUSCLE || s.tissue == T_SKIN)) attenNp *= 1.0 + WINDOW_ATTEN_GAIN * WINDOW_ATTEN;
   outA = vec4(sigma, attenNp, lungFlag, 1.0);
-  outB = vec4(float(s.structure) / 255.0, float(s.tissue) / 255.0, s.extra, 1.0);
+  outB = vec4(float(s.structure) / 255.0, float(s.tissue) / 255.0, s.extra, float(s.segment) / 255.0);
   outC = vec4(specular, zr, zi, gcoef);
   outD = vec4(zr1, zi1, 0.0, 0.0);
 }
@@ -143,7 +145,7 @@ uniform sampler2D uSideCA;  // pass A attachment C (specular, …) on −e
 uniform sampler2D uSideCB;  // pass A attachment C (specular, …) on +e
 uniform sampler2D uPassD;   // pass A attachment D: the second look's phasor
 layout(location = 0) out vec4 outSig;   // complex signal of the first look re, transmission, im, 1
-layout(location = 1) out vec4 outIds;   // structure/255, tissue/255, 0, 1
+layout(location = 1) out vec4 outIds;   // structure/255, tissue/255, extra, LV segment code/255
 layout(location = 2) out vec4 outSig2;  // complex signal of the second look re, im, 0, 1
 
 
@@ -184,13 +186,13 @@ void main() {
     float zi3 = (lat(vec3(px2, pr, 0.0) + REVERB_PHASOR_IM_A + LOOK_SHIFT_1, 2) + lat(vec3(px2, pr * SCATTER_FREQ_RATIO, 0.0) + REVERB_PHASOR_IM_B + LOOK_SHIFT_1, 0) - 1.0) * PHASOR_NORM;
     outSig = vec4(amp * zr2, 0.0, amp * zi2, 1.0);
     outSig2 = vec4(amp * zr3, amp * zi3, 0.0, 1.0);
-    outIds = vec4(float(S_LUNG) / 255.0, float(T_LUNG) / 255.0, 0.0, 1.0);
+    outIds = vec4(float(S_LUNG) / 255.0, float(T_LUNG) / 255.0, 0.0, 0.0);
     return;
   }
   if (a.w < 0.5) {
     outSig = vec4(0.0, transmission, 0.0, 1.0);
     outSig2 = vec4(0.0, 0.0, 0.0, 1.0);
-    outIds = vec4(0.0, 0.0, 0.0, 1.0);
+    outIds = vec4(0.0);
     return;
   }
   if (a.z > 0.5) {

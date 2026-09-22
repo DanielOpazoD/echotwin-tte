@@ -122,22 +122,22 @@ export interface CutMapLabel {
  * wall falls in the cavity), largest first, and none over another label: a label that would cover one
  * already placed slides along its region (a third of the region's height up or down) before giving up.
  * Regions labelled last time keep their label down to half the size threshold, so a wall that breathes
- * around the threshold does not blink.
+ * around the threshold does not blink. `ids` is the per-sample id the regions were counted on (the structure map, or
+ * the LV segments of `segmentMap.ts`) and `labelOf` names an id (the structure's short name by default).
  */
 export function placeLabels(
   stats: RegionStat[],
   lut: Int32Array,
-  structure: Uint8Array,
+  ids: Uint8Array,
   width: number,
   minPixels: number,
   measure: (text: string) => { w: number; h: number },
   keep: ReadonlySet<number> = new Set(),
+  labelOf: (id: Structure) => string | undefined = (id) => CUT_MAP_LABELS[id],
 ): CutMapLabel[] {
   const wanted = stats
     .filter(
-      (s) =>
-        s.count >= (keep.has(s.id) ? minPixels / 2 : minPixels) &&
-        CUT_MAP_LABELS[s.id] !== undefined,
+      (s) => s.count >= (keep.has(s.id) ? minPixels / 2 : minPixels) && labelOf(s.id) !== undefined,
     )
     .sort((a, b) => b.count - a.count);
   if (!wanted.length) return [];
@@ -155,7 +155,7 @@ export function placeLabels(
   for (let i = 0; i < n; i++) {
     const k = lut[i]!;
     if (k < 0) continue;
-    const list = anchors.get(structure[k] ?? 0);
+    const list = anchors.get(ids[k] ?? 0);
     if (!list) continue;
     const x = i % width,
       y = (i / width) | 0;
@@ -171,7 +171,7 @@ export function placeLabels(
   const placed: { x0: number; y0: number; x1: number; y1: number }[] = [];
   const out: CutMapLabel[] = [];
   for (const s of wanted) {
-    const text = CUT_MAP_LABELS[s.id]!;
+    const text = labelOf(s.id)!;
     const { w, h } = measure(text);
     for (const a of anchors.get(s.id)!) {
       const box = {

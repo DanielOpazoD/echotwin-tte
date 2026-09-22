@@ -72,6 +72,7 @@ function deepestIntrusion(caseId: string, systole: boolean): number {
     extraReflect: 0,
     structure: 0,
     transmural: -1,
+    segment: 0,
   };
   let worst = 0;
   for (let x = -2; x <= 11; x += 0.25)

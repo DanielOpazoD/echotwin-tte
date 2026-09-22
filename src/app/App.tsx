@@ -8,6 +8,7 @@ import { ConsolePanel } from '@/ui/ConsolePanel';
 import { TopBar } from '@/ui/TopBar';
 import { ModeBar } from '@/ui/ModeBar';
 import { ExamNotice, GuidancePanel } from '@/ui/GuidancePanel';
+import { SegmentPanel } from '@/ui/SegmentPanel';
 import { evaluateTasks, type LearnerSnapshot } from '@/education/curriculum';
 import { expectedFindings, scoreImpression } from '@/education/impression';
 import { DevPanel } from '@/ui/DevPanel';
@@ -183,6 +184,23 @@ export function App() {
               {railVisible && ui.guidanceOpen && (
                 <div id="view-guidance">
                   <GuidancePanel />
+                </div>
+              )}
+              {/* LV segments of the plane (decision 152): a learning aid, hidden like the guide until asked for */}
+              {railVisible && modePolicy(mode).hintsEnabled && (
+                <button
+                  className="guidance-toggle"
+                  onClick={() => useSimStore.getState().setUi({ segmentsOpen: !ui.segmentsOpen })}
+                  aria-expanded={ui.segmentsOpen}
+                  aria-controls="lv-segments"
+                  title="Mapa polar de los segmentos del VI, qué muestra el corte y ficha de cada segmento"
+                >
+                  {ui.segmentsOpen ? 'Ocultar segmentos del VI' : 'Segmentos del VI'}
+                </button>
+              )}
+              {railVisible && ui.segmentsOpen && (
+                <div id="lv-segments">
+                  <SegmentPanel />
                 </div>
               )}
             </div>

@@ -57,7 +57,7 @@ bool classifyThorax(vec3 p, out Sample s, float heartDist) {
   float x = p.x, y = p.y, z = p.z;
   float zs = skinZ(x, y);
   float depth = zs - z;
-  s.m = p; s.extra = 0.0; s.n = vec3(0.0, 0.0, 1.0);
+  s.m = p; s.extra = 0.0; s.n = vec3(0.0, 0.0, 1.0); s.transmural = -1.0; s.segment = 0;
   if (depth < 0.0) { s.tissue = T_NONE; s.structure = S_NONE; s.sdf = -depth; return false; }
   if (depth < SKIN_CM) { s.tissue = T_SKIN; s.structure = S_CHEST; s.sdf = -min(depth, SKIN_CM - depth); return true; }
   float T = TH_CHESTWALL;

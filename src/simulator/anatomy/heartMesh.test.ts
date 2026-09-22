@@ -4,6 +4,8 @@ import { computeHeartPose, createHeartModel } from './heartModel';
 import { createThoraxModel } from './thoraxModel';
 import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { buildHeartMeshes, MESH_GROUPS } from './heartMesh';
+import { lvSegmentCode } from './lvSegments';
+import { RV_GROOVE_ANTERIOR_RAD, RV_GROOVE_INFERIOR_RAD } from './anchors';
 
 /**
  * The 3D navigator reads the same implicit model the beam samples (decision 57), so these meshes must be
@@ -53,6 +55,31 @@ describe('heart surface meshes', () => {
       );
     },
   );
+
+  it('carries on the LV myocardium the segment of the tissue at each vertex (decision 152)', () => {
+    const lv = groups.find((g) => g.id === 'lv-myocardium')!;
+    expect(groups.filter((g) => g.segments).map((g) => g.id)).toEqual(['lv-myocardium']);
+    const codes = lv.segments!;
+    expect(codes.length * 3).toBe(lv.positions.length);
+    const present = new Set(codes);
+    for (let id = 1; id <= 16; id++) expect(present.has(id), `segment ${id}`).toBe(true);
+    expect([...present].some((c) => c >= 17)).toBe(true);
+    // away from the boundaries the vertex's code is the rule's at the vertex (the vertex lies between grid points)
+    let agree = 0,
+      n = 0;
+    for (let v = 0; v < codes.length; v++) {
+      const c = codes[v]!;
+      if (c === 0 || c >= 17) continue;
+      const x = lv.positions[v * 3]!,
+        y = lv.positions[v * 3 + 1]!,
+        z = lv.positions[v * 3 + 2]!;
+      const lf = Math.min(1, Math.max(0, (z - pose.zAnn) / pose.lengthNow));
+      n++;
+      if (lvSegmentCode(Math.atan2(y, x), lf, RV_GROOVE_ANTERIOR_RAD, RV_GROOVE_INFERIOR_RAD) === c)
+        agree++;
+    }
+    expect(agree / n).toBeGreaterThan(0.8);
+  });
 
   it('is deterministic for the same heart and phase', { timeout: 60_000 }, () => {
     const again = buildHeartMeshes(heart, pose, { stepCm: 0.8, bounds });

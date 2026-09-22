@@ -818,6 +818,146 @@ select:focus-visible {
 .guidance-toggle[aria-expanded='true'] {
   opacity: 1;
 }
+/* LV segment panel (decision 152): polar map, legend in words, inspector; it scrolls when the rail is short */
+#lv-segments {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 52%;
+  display: flex;
+  flex-direction: column;
+}
+.segment-panel {
+  padding: 8px;
+  border-top: 1px solid var(--border);
+  min-height: 0;
+  overflow-y: auto;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.segment-panel .row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.segment-panel > * {
+  flex: 0 0 auto;
+}
+.bullseye {
+  align-self: center;
+  max-width: 100%;
+  height: auto;
+}
+.bullseye-seg {
+  cursor: pointer;
+  outline: none;
+}
+.bullseye-seg path,
+.bullseye-seg circle {
+  stroke: #0b0e12;
+  stroke-width: 1.2;
+}
+.bullseye-seg.partial path,
+.bullseye-seg.partial circle {
+  stroke: var(--warn);
+  stroke-dasharray: 3 2;
+  stroke-width: 1.4;
+}
+.bullseye-seg text {
+  font-size: 12px;
+  font-weight: 700;
+  pointer-events: none;
+}
+.bullseye-seg:hover path,
+.bullseye-seg:hover circle {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+.bullseye-seg:focus-visible path,
+.bullseye-seg:focus-visible circle {
+  stroke: var(--accent);
+  stroke-width: 3;
+  stroke-dasharray: none;
+}
+.bullseye-seg.selected path,
+.bullseye-seg.selected circle {
+  stroke: #ffffff;
+  stroke-width: 3;
+  stroke-dasharray: none;
+}
+.bullseye-dir {
+  font-size: 9px;
+  fill: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.bullseye-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.bullseye-legend .sw {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  vertical-align: -1px;
+  margin-right: 3px;
+}
+.bullseye-legend .sw.ok {
+  background: linear-gradient(90deg, rgb(58, 108, 184), rgb(184, 132, 58));
+}
+.bullseye-legend .sw.partial {
+  background: rgba(184, 132, 58, 0.35);
+  border: 1px dashed var(--warn);
+}
+.bullseye-legend .sw.out {
+  background: #262c36;
+  border: 1px solid var(--border);
+}
+.segment-summary {
+  color: var(--muted);
+  line-height: 1.4;
+}
+.segment-inspector {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+.segment-title {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.segment-chip {
+  display: inline-block;
+  min-width: 20px;
+  text-align: center;
+  border-radius: 4px;
+  font-weight: 700;
+  padding: 0 4px;
+}
+.segment-inspector dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 8px;
+  margin: 6px 0 0;
+}
+.segment-inspector dt {
+  color: var(--muted);
+}
+.segment-inspector dd {
+  margin: 0;
+}
 .guidance {
   padding: 8px;
   border-top: 1px solid var(--border);

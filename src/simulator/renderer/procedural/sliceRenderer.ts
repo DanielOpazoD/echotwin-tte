@@ -197,6 +197,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
         out.transmission,
         out.tissue,
         this.atten,
+        out.segment,
       );
     }
     const kernels = this.kernels(scene, spec);
@@ -436,6 +437,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
     tr: Float32Array,
     ti: Uint8Array,
     atten: Float32Array | null = null,
+    sg: Uint8Array | null = null,
   ): void {
     const {
       beam,
@@ -504,6 +506,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
         q.my = py;
         q.mz = pz;
         q.extraReflect = 0;
+        q.segment = 0;
         return 1;
       }
       const hx =
@@ -620,6 +623,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
         st[idx] = Structure.Lung;
         tr[idx] = 0;
         ti[idx] = Tissue.Lung;
+        if (sg) sg[idx] = 0;
         continue;
       }
       const px = ox + dx * r,
@@ -634,6 +638,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
         st[idx] = Structure.None;
         tr[idx] = transmission;
         ti[idx] = Tissue.None;
+        if (sg) sg[idx] = 0;
         continue;
       }
       const inHeart = kind === 2;
@@ -642,6 +647,8 @@ export class ProceduralSliceRenderer implements RendererBackend {
       st[idx] = s.structure;
       tr[idx] = transmission;
       ti[idx] = tissue;
+      // the LV segment of the tissue the beam crosses here (decision 152), from the same sample as the structure
+      if (sg) sg[idx] = s.segment;
       if (tissue === Tissue.Lung) {
         // pleural line: a strong coherent reflector; everything behind it is reverberation
         lungEntryR = r;

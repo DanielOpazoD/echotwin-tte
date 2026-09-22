@@ -169,6 +169,7 @@ describe('causal explanations', () => {
     perView: [],
     heartCoverage: 0.5,
     shadowFraction: 0.3,
+    segments: { aha17: [], lv16: [] },
     ...over,
   });
   it('names cause, effect and remedy for oblique plane, missing landmarks and shadowing', () => {

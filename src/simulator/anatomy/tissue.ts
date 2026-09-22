@@ -103,6 +103,11 @@ export interface TissueSample {
   structure: Structure;
   /** Depth across the LV wall, 0 at the endocardium and 1 at the epicardium (fibre helix, decision 144); −1 elsewhere. */
   transmural: number;
+  /**
+   * LV myocardial segment code of `lvSegments.ts` (decision 152): 1–16 AHA segments, 17–20 the apical cap in the quadrant
+   * of 13–16, 0 when the point is not LV compact myocardium (cavity, papillary muscles, valves and every other tissue).
+   */
+  segment: number;
 }
 
 export const enum Structure {
@@ -167,5 +172,6 @@ export function makeSample(): TissueSample {
     extraReflect: 0,
     structure: Structure.None,
     transmural: -1,
+    segment: 0,
   };
 }

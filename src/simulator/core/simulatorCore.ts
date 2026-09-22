@@ -97,6 +97,7 @@ const CINE_FRAMES = 96;
 interface CineFrame {
   display: Uint8ClampedArray;
   structure: Uint8Array;
+  segment: Uint8Array;
   spec: PolarFrameSpec;
   phase: number;
   timeS: number;
@@ -541,12 +542,14 @@ export class SimulatorCore {
         frame: this.frame,
         display: this.display,
         settings: inp.settings,
+        heartPose: scene.heartPose,
       });
       this.timing.analysisMs = performance.now() - ta;
     }
     const tCine = performance.now();
     const cf: CineFrame = {
       structure: new Uint8Array(this.frame.structure),
+      segment: new Uint8Array(this.frame.segment),
       display: new Uint8ClampedArray(this.display!),
       spec,
       phase,
@@ -823,6 +826,7 @@ export class SimulatorCore {
     const view = cf ? cf.analysis : this.lastAnalysis;
     const c = this.clock.current;
     const structure = cf ? cf.structure : this.frame ? this.frame.structure : new Uint8Array(0);
+    const segment = cf ? cf.segment : this.frame ? this.frame.segment : new Uint8Array(0);
     const gate = isStrip
       ? this.strips.gateInfo(beam, fspec, cf ? cf.phase : c.phase, structure, this.stripCtx())
       : null;
@@ -853,6 +857,7 @@ export class SimulatorCore {
         depthCm: fspec.depthCm,
       },
       structure: new Uint8Array(structure),
+      segment: new Uint8Array(segment),
       gate,
       timeS: this.timeS,
       phase: cf ? cf.phase : c.phase,

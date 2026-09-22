@@ -73,6 +73,50 @@ float septalShiftAt(float shiftCm, float az, float levelFrac) {
   }
   return shiftCm * c * c * zw;
 }
+// src/simulator/anatomy/lvSegments.ts: lvSegmentCode
+float lvSegmentCode(float azimuthRad, float levelFrac, float rvAzA, float rvAzP) {
+  float septal = (rvAzA + rvAzP) * 0.5;
+  float raw = ((azimuthRad - septal) * 180.0) / PI + 180.0;
+  float deg = raw - 360.0 * floor(raw / 360.0);
+  if (deg >= 360.0) {
+    deg = 0.0;
+  }
+  float quadrant = 15.0;
+  if (deg < 45.0 || deg >= 315.0) {
+    quadrant = 16.0;
+  } else {
+    if (deg < 135.0) {
+      quadrant = 13.0;
+    } else {
+      if (deg < 225.0) {
+        quadrant = 14.0;
+      }
+    }
+  }
+  if (levelFrac >= 1.0) {
+    return quadrant + 4.0;
+  }
+  if (levelFrac >= 2.0 / 3.0) {
+    return quadrant;
+  }
+  float base = levelFrac < 1.0 / 3.0 ? 0.0 : 6.0;
+  if (deg < 60.0) {
+    return base + 6.0;
+  }
+  if (deg < 120.0) {
+    return base + 1.0;
+  }
+  if (deg < 180.0) {
+    return base + 2.0;
+  }
+  if (deg < 240.0) {
+    return base + 3.0;
+  }
+  if (deg < 300.0) {
+    return base + 4.0;
+  }
+  return base + 5.0;
+}
 // src/simulator/anatomy/classify/root.ts: rootBend
 float rootBend(float t) {
   return t > 3.0 ? 0.16 * (t - 3.0) * (t - 3.0) : 0.0;

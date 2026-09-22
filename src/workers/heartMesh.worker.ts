@@ -154,7 +154,10 @@ function buildAllPhases(
       ms: performance.now() - t0,
     };
     const transfer: Transferable[] = [];
-    for (const g of groups) transfer.push(g.positions.buffer, g.normals.buffer, g.indices.buffer);
+    for (const g of groups) {
+      transfer.push(g.positions.buffer, g.normals.buffer, g.indices.buffer);
+      if (g.segments) transfer.push(g.segments.buffer);
+    }
     (self as unknown as Worker).postMessage(reply, transfer);
   }
 }

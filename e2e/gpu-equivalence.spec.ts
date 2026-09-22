@@ -8,6 +8,9 @@ import { expect, test } from '@playwright/test';
 interface Comparison {
   error?: string;
   perStructure?: Record<string, { samples: number; mismatched: number }>;
+  perSegment?: Record<string, { samples: number; mismatched: number }>;
+  segmentExtra?: number;
+  segmentSamples?: number;
   structureAgreement: number;
   tissueAgreement: number;
   ampRelDiff: number;
@@ -111,6 +114,21 @@ for (const [caseId, views, phases, tier, offsetV] of MATRIX) {
             w.frac,
             `${w.name}: ${w.mismatched} of ${w.samples} samples differ between CPU and GPU`,
           ).toBeLessThanOrEqual(MAX_STRUCTURE_DISAGREEMENT);
+        // LV segments (decision 152): both tracers share lvSegmentCode, so only boundary samples may differ; a segment
+        // the shader labelled from another rule (the old 93 % cap, a fixed 28° offset) would differ on most of its samples
+        const segs = Object.entries(r.perSegment ?? {}).filter(([, v]) => v.samples >= MIN_SAMPLES);
+        if (['a4c', 'plax', 'psax-pm'].includes(viewId)) expect(segs.length).toBeGreaterThan(3);
+        for (const [code, v] of segs)
+          expect(
+            v.mismatched / v.samples,
+            `segment code ${code}: ${v.mismatched} of ${v.samples} samples differ between CPU and GPU`,
+          ).toBeLessThanOrEqual(MAX_STRUCTURE_DISAGREEMENT);
+        // and the GPU labels nothing the CPU leaves unlabelled (a stale field would label whole regions)
+        if ((r.segmentSamples ?? 0) >= MIN_SAMPLES)
+          expect(
+            (r.segmentExtra ?? 0) / r.segmentSamples!,
+            `${r.segmentExtra} samples carry a GPU segment where the CPU has none`,
+          ).toBeLessThanOrEqual(MAX_STRUCTURE_DISAGREEMENT);
       });
     }
   }
@@ -129,6 +147,8 @@ interface ChainComparison {
   displayMaxDiff: number[];
   displayFracOver1: number[];
   idsAgreement: number;
+  segmentAgreement: number;
+  segmentSamples: number;
   transMaxRelErr: number;
   presentMaxDiff: number;
   presentFracOver1: number;
@@ -193,6 +213,10 @@ for (const [caseId, viewId, phase, tier, overrides] of CHAIN) {
       ).toBeLessThan(0.001);
     }
     expect(r.idsAgreement).toBe(1);
+    // the segment map of the display path is read back apart from the packed display (decision 152): the same texture
+    // as the float path, so this checks the read-back plumbing; parity with the CPU is the per-segment test above
+    if (viewId !== 'psax-av') expect(r.segmentSamples).toBeGreaterThan(500);
+    expect(r.segmentAgreement).toBe(r.segmentSamples ? 1 : 0);
     expect(r.transMaxRelErr).toBeLessThan(0.02);
     expect(r.presentMaxDiff, 'largest RGB difference of the present pass').toBeLessThanOrEqual(2);
     expect(r.presentFracOver1, 'sector pixels differing by more than one level').toBe(0);
