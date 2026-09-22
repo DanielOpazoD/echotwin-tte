@@ -98,7 +98,8 @@ describe('useSimStore', () => {
     store.getState().setMode('sandbox');
     store.getState().startPresetView('plax');
     // the pose is asked of the worker (none here: the main-thread models answer after loading on demand)
-    await vi.waitFor(() => expect(store.getState().presetAnim).not.toBeNull(), { timeout: 5000 });
+    // the main-thread models build on demand (~1 s idle; 5 s was exceeded at load 100+ with no fault in the code)
+    await vi.waitFor(() => expect(store.getState().presetAnim).not.toBeNull(), { timeout: 20_000 });
     const anim = store.getState().presetAnim;
     expect(anim!.viewId).toBe('plax');
     expect(store.getState().targetViewId).toBe('plax');

@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 139 (última: 139).
+Decisiones: 143 (última: 143).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -144,6 +144,10 @@ Decisiones: 139 (última: 139).
 | [134](DECISIONS.md#L423) | 2026-09-16 | Modo revisión: marcar sobre la imagen lo que se ve mal y llevarse el estado exacto para reproducirlo | vigente |
 | [135](DECISIONS.md#L425) | 2026-09-16 | Los marcadores de revisión se mueven, se seleccionan, se borran con una tecla y se ponen también sobre el modelo 3D | vigente |
 | [136](DECISIONS.md#L427) | 2026-09-16 | Un marcador de revisión puede tener puntos secundarios enlazados | vigente |
-| [137](DECISIONS.md#L429) | 2026-09-16 | El navegador 3D se divide en dos: la sonda sobre el tórax arriba y el corte cardíaco de frente abajo | vigente |
+| [137](DECISIONS.md#L429) | 2026-09-16 | El navegador 3D se divide en dos: la sonda sobre el tórax arriba y el corte cardíaco de frente abajo | superada por 142 en la vista de abajo; la división y las capas siguen |
 | [138](DECISIONS.md#L431) | 2026-09-16 | Los velos tricúspides abiertos van paralelos a las paredes y el anillo es una silla anteroseptal de 5 mm | vigente |
 | [139](DECISIONS.md#L435) | 2026-09-21 | El eje largo del VI sigue la resonancia de sanos, el ápex descansa contra la pared, todas las vistas apicales comparten la sonda sobre el eje y los haces se apuntan desde su origen | vigente |
+| [140](DECISIONS.md#L439) | 2026-09-22 | La pared libre del VD toma la respuesta de fibras y las paredes auriculares dispersan sin anisotropía; la mitral del A5C queda declarada | vigente |
+| [141](DECISIONS.md#L443) | 2026-09-22 | El panel de guía de la vista queda plegado por defecto | vigente |
+| [142](DECISIONS.md#L445) | 2026-09-22 | El corte ecográfico del navegador es un mapa a color del plano de la imagen, dibujado desde el mapa de estructuras del propio cuadro | vigente |
+| [143](DECISIONS.md#L449) | 2026-09-22 | Las venas pulmonares corren hacia los hilios desde la pared lateral y la esquina posteromedial de la aurícula, y ya no hacia atrás | vigente |

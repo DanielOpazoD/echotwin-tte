@@ -4,6 +4,20 @@
  */
 import { LV_PROF_BINS } from '@/simulator/anatomy/lvShape';
 import {
+  PV_INF_DZ,
+  PV_INF_Z,
+  PV_LEFT_DX,
+  PV_LEFT_DY,
+  PV_LEFT_INF_T,
+  PV_LEFT_SUP_T,
+  PV_RADIUS,
+  PV_RIGHT_DX,
+  PV_RIGHT_DY,
+  PV_RIGHT_T,
+  PV_SUP_DZ,
+  PV_SUP_Z,
+} from '@/simulator/anatomy/pulmonaryVeins';
+import {
   AV_COAPT_HALF,
   ROOT_ASC_T,
   ROOT_EXCURSION,
@@ -53,6 +67,18 @@ const int MV_BINS = ${MV_BINS};
 const float AML_ARC_EXTENSION = ${f(AML_ARC_EXTENSION)};
 const float MV_CLOSED_REACH[3] = float[3](${CLOSED_REACH.map(f).join(', ')});
 const float MV_CLOSED_DEPTH[3] = float[3](${CLOSED_DEPTH.map(f).join(', ')});
+const float PV_LEFT_SUP_T = ${f(PV_LEFT_SUP_T)};
+const float PV_LEFT_INF_T = ${f(PV_LEFT_INF_T)};
+const float PV_RIGHT_T = ${f(PV_RIGHT_T)};
+const float PV_SUP_Z = ${f(PV_SUP_Z)};
+const float PV_INF_Z = ${f(PV_INF_Z)};
+const float PV_LEFT_DX = ${f(PV_LEFT_DX)};
+const float PV_LEFT_DY = ${f(PV_LEFT_DY)};
+const float PV_RIGHT_DX = ${f(PV_RIGHT_DX)};
+const float PV_RIGHT_DY = ${f(PV_RIGHT_DY)};
+const float PV_SUP_DZ = ${f(PV_SUP_DZ)};
+const float PV_INF_DZ = ${f(PV_INF_DZ)};
+const float PV_RADIUS = ${f(PV_RADIUS)};
 const float SKIRT_ABOVE_CM = ${f(SKIRT_ABOVE_CM)};
 const float TV_INFLOW_BULGE_CM = ${f(TV_INFLOW_BULGE_CM)};
 const float SKIRT_BELOW_CM = ${f(SKIRT_BELOW_CM)};
@@ -796,13 +822,18 @@ bool classifyHeart(vec3 p0, out Sample s) {
         return true;
       }
     }
-    // pulmonary veins
+    // pulmonary veins: towards the hila from the lateral wall (left) and the posteromedial corner (right); mirror of
+    // pulmonaryVeins.ts (decision 143)
     for (int i = 0; i < 4; i++) {
       float sx = (i == 0 || i == 2) ? -1.0 : 1.0;
-      float px = la.x + sx * lr.x * 0.6;
-      float pz = czL + (i < 2 ? -0.7 : 0.6);
-      float py0 = la.y - lr.y * 0.7;
-      float dPv = sdCapsule(p, vec3(px, py0, pz), vec3(px + sx * 1.2, py0 - 2.2, pz + (i < 2 ? -0.6 : 0.5)), 0.45);
+      bool sup = i < 2;
+      float dzN = sup ? PV_SUP_Z : PV_INF_Z;
+      float kz = sqrt(1.0 - dzN * dzN);
+      float t = sx > 0.0 ? (sup ? PV_LEFT_SUP_T : PV_LEFT_INF_T) : PV_RIGHT_T;
+      float px = la.x + sx * lr.x * bo * kz * cos(t);
+      float py0 = la.y - lr.y * bo * kz * sin(t);
+      float pz = czL + dzN * rzL;
+      float dPv = sdCapsule(p, vec3(px, py0, pz), vec3(px + sx * (sx > 0.0 ? PV_LEFT_DX : PV_RIGHT_DX), py0 - (sx > 0.0 ? PV_LEFT_DY : PV_RIGHT_DY), pz + (sup ? PV_SUP_DZ : PV_INF_DZ)), PV_RADIUS);
       if (dPv < 0.0) {
         setSample(s, T_BLOOD, dPv, vec3(0.0, -1.0, 0.0), p, 0.0, S_PVEIN);
         return true;

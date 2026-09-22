@@ -1,0 +1,91 @@
+import { describe, expect, it } from 'vitest';
+import { STRUCTURE_RGB } from '@/simulator/anatomy/structurePalette';
+import { Structure } from '@/simulator/anatomy/tissue';
+import { computeSectorMapping } from '@/simulator/renderer/scanConvert';
+import { nearestSampleLut, paintCutMap, placeLabels, type PolarGeometry } from './cutMap';
+
+const polar: PolarGeometry = { lines: 64, samples: 128, sectorRad: Math.PI / 2, depthCm: 16 };
+const spec = { ...polar, elevationSamples: 1, focusCm: 8 };
+
+describe('cut map: nearest-sample lookup', () => {
+  it('maps the beam axis to the middle line and the depth to the sample, and mirrors with invertLR', () => {
+    const m = computeSectorMapping(spec, 200, 200, false);
+    const lut = nearestSampleLut(polar, m);
+    // a point straight below the apex, 8 cm deep
+    const x = Math.floor(m.apexX),
+      y = Math.floor(m.apexY + 8 * m.pxPerCm);
+    const k = lut[y * m.width + x]!;
+    expect(Math.floor(k / polar.samples)).toBeCloseTo(polar.lines / 2, -1);
+    expect(k % polar.samples).toBeCloseTo(polar.samples / 2, -1);
+    // above the apex and beyond the sector's edge there is nothing
+    expect(lut[0]).toBe(-1);
+    expect(lut[Math.floor(m.apexY + 2) * m.width]).toBe(-1);
+    // a point to the screen-right is a late line normally and an early one when the image is mirrored
+    const xr = Math.floor(m.apexX + 4 * m.pxPerCm),
+      yr = Math.floor(m.apexY + 8 * m.pxPerCm);
+    const lineRight = Math.floor(lut[yr * m.width + xr]! / polar.samples);
+    const mirrored = nearestSampleLut(polar, computeSectorMapping(spec, 200, 200, true));
+    const lineRightMirrored = Math.floor(mirrored[yr * m.width + xr]! / polar.samples);
+    expect(lineRight).toBeGreaterThan(polar.lines / 2);
+    expect(lineRightMirrored).toBeLessThan(polar.lines / 2);
+    expect(lineRight + lineRightMirrored).toBeCloseTo(polar.lines - 1, -1);
+  });
+});
+
+describe('cut map: painting and labels', () => {
+  const m = computeSectorMapping(spec, 240, 240, false);
+  const lut = nearestSampleLut(polar, m);
+  // left half of the sector: LV cavity; right half: RV cavity; a thin ring of septum around 8 cm on the left
+  const structure = new Uint8Array(polar.lines * polar.samples);
+  for (let l = 0; l < polar.lines; l++)
+    for (let s = 0; s < polar.samples; s++) {
+      const depth = (s / polar.samples) * polar.depthCm;
+      let id: Structure = l < polar.lines / 2 ? Structure.LvCavity : Structure.RvCavity;
+      if (l < polar.lines / 2 && Math.abs(depth - 8) < 0.4) id = Structure.LvWallSeptal;
+      structure[l * polar.samples + s] = id;
+    }
+
+  it('paints each sample with its structure colour and leaves the outside transparent', () => {
+    const rgba = new Uint8ClampedArray(m.width * m.height * 4);
+    const stats = paintCutMap(rgba, lut, structure, m.width);
+    const at = (x: number, y: number) =>
+      Array.from(rgba.subarray((y * m.width + x) * 4, (y * m.width + x) * 4 + 4));
+    const yMid = Math.floor(m.apexY + 12 * m.pxPerCm);
+    expect(at(Math.floor(m.apexX - 3 * m.pxPerCm), yMid)).toEqual([
+      ...STRUCTURE_RGB[Structure.LvCavity]!,
+      255,
+    ]);
+    expect(at(Math.floor(m.apexX + 3 * m.pxPerCm), yMid)).toEqual([
+      ...STRUCTURE_RGB[Structure.RvCavity]!,
+      255,
+    ]);
+    expect(at(0, 0)[3]).toBe(0);
+    const ids = stats.map((s) => s.id).sort();
+    expect(ids).toEqual([Structure.LvCavity, Structure.LvWallSeptal, Structure.RvCavity].sort());
+    const lv = stats.find((s) => s.id === Structure.LvCavity)!;
+    const rv = stats.find((s) => s.id === Structure.RvCavity)!;
+    expect(lv.cx).toBeLessThan(m.apexX);
+    expect(rv.cx).toBeGreaterThan(m.apexX);
+  });
+
+  it('puts every label on a pixel of its own region, largest first, without overlaps', () => {
+    const rgba = new Uint8ClampedArray(m.width * m.height * 4);
+    const stats = paintCutMap(rgba, lut, structure, m.width);
+    const labels = placeLabels(stats, lut, structure, m.width, 40, (t) => ({
+      w: t.length * 7,
+      h: 12,
+    }));
+    expect(labels.map((l) => l.text)).toContain('VI');
+    expect(labels.map((l) => l.text)).toContain('VD');
+    for (const l of labels) {
+      const k = lut[Math.round(l.y) * m.width + Math.round(l.x)]!;
+      expect(k).toBeGreaterThanOrEqual(0);
+      expect(structure[k]).toBe(l.id);
+    }
+    // the septum is a thin arc: its centroid lies in the LV cavity, its label does not
+    const septum = labels.find((l) => l.id === Structure.LvWallSeptal);
+    expect(septum).toBeDefined();
+    // a region smaller than the threshold gets no label
+    expect(placeLabels(stats, lut, structure, m.width, 1e9, () => ({ w: 10, h: 12 }))).toEqual([]);
+  });
+});

@@ -8,6 +8,9 @@ const PORT = process.env['CI'] ? 4173 : Number(process.env['E2E_PORT'] ?? 4190);
 
 export default defineConfig({
   testDir: './e2e',
+  // waits for the machine's load to drop before the first test: a saturated host fails every spec at its first
+  // frame and proves nothing about the code (e2e/globalSetup.ts)
+  globalSetup: './e2e/globalSetup.ts',
   timeout: 120_000,
   fullyParallel: false,
   // one worker: the GPU-equivalence comparisons render on SwiftShader and starve parallel browsers

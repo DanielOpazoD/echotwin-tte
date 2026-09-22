@@ -28,7 +28,7 @@ Tolerancias (`ViewTarget.tolerance`): paraesternal 18° plano / 20° (PLAX) o 25
 2. Reglas fijas: fracción de sombra > 0,35 (costilla/pulmón), cobertura cardíaca < 8 % (fuera de ventana), referencias faltantes con el plano casi correcto (< 12°), acortamiento apical > 15°, profundidad fuera de rango, `gain < 0,7` (mensaje distinto para exceso y defecto).
 3. En modo guiado se añaden los `hints` estáticos del `ViewTarget` elegido y su score específico.
 
-El `GuidancePanel` muestra el número grande (verde ≥ 75, ámbar ≥ 50, rojo), barras por componente, referencias visibles/faltantes y los hints; en modo examen se oculta todo.
+El `GuidancePanel` muestra el número grande (verde ≥ 75, ámbar ≥ 50, rojo), barras por componente, referencias visibles/faltantes y los hints; queda plegado por defecto tras el botón «Guía de la vista» (`ui.guidanceOpen`, decisión 141) y en modo examen se oculta todo.
 
 ### Ejemplo numérico (código del 2026-09-10 20:07, caso normal, tier low, fase 0,05)
 | | PLAX | A4C |

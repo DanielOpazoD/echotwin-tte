@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 
 /**
  * Test tiers. Tests that drive SimulatorCore through several beats or render frames take seconds to minutes
@@ -15,6 +15,7 @@ import { join } from 'node:path';
  * new heavy test cannot land in the fast tier by omission; `src/tests/testTiers.test.ts` makes files that
  * import the heavy modules declare a tier explicitly.
  */
+const ROOT = fileURLToPath(new URL('.', import.meta.url));
 function testFilesWithMarker(marker: string): string[] {
   const out: string[] = [];
   const walk = (dir: string) => {
@@ -22,10 +23,11 @@ function testFilesWithMarker(marker: string): string[] {
       const p = join(dir, name);
       if (statSync(p).isDirectory()) walk(p);
       else if (/\.test\.tsx?$/.test(name) && readFileSync(p, 'utf8').startsWith(marker))
-        out.push(p.slice(process.cwd().length + 1));
+        out.push(relative(ROOT, p));
     }
   };
-  walk(join(process.cwd(), 'src'));
+  // the config's own directory, not the working directory: a dev server launched from elsewhere found no `src`
+  walk(join(ROOT, 'src'));
   return out;
 }
 const SLOW_TEST_FILES = testFilesWithMarker('// @tier slow');

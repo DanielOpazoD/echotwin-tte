@@ -10,6 +10,11 @@ import type { CaseDefinition } from '@/cases/schema';
 import { circularArea } from '@/clinical/formulas';
 import { smoothstep } from '@/core/vec3';
 import { Structure } from '@/simulator/anatomy/tissue';
+import { atrialScale } from '@/simulator/anatomy/classify/atria';
+import { PV_LEFT_DX, PV_RADIUS, pulmonaryVeinSegment } from '@/simulator/anatomy/pulmonaryVeins';
+
+/** Scratch for the pulmonary vein being sampled (no allocation per sample). */
+const PV_SEG = new Float64Array(6);
 
 /**
  * Parametric hemodynamic flow field (spec 0.5, 10.5, 63). Velocities in m/s, heart frame.
@@ -55,6 +60,8 @@ export interface FlowFieldParams {
   pulmonaryVeins: {
     laCenter: { x: number; y: number; z: number };
     laR: { x: number; y: number; z: number };
+    /** Atrial reservoir scale (the veins ride on the atrial surface as it breathes). */
+    laReservoir: number;
     sMps: number;
     dMps: number;
     arMps: number;
@@ -288,7 +295,12 @@ export function buildFlowParams(
       c.hemodynamics.lvotPeakGradientMmHg,
       c.anatomy.mitral.samSeverity > 0,
     ),
-    pulmonaryVeins: { laCenter: A.laCenter, laR: A.laR, ...pulmonaryVeinPeaks(c) },
+    pulmonaryVeins: {
+      laCenter: A.laCenter,
+      laR: A.laR,
+      laReservoir: A.laReservoir,
+      ...pulmonaryVeinPeaks(c),
+    },
     inflowPropagationCmps: flowPropagationCmps(c),
     inflowWaveCmps: solveInflowWave(
       tables,
@@ -531,8 +543,8 @@ export function samplePulmonaryVeins(
   const pv = p.pulmonaryVeins;
   const la = pv.laCenter,
     lr = pv.laR;
-  // quick reject: far from the posterior LA
-  if (y > la.y - lr.y * 0.3 || Math.abs(x - la.x) > lr.x + 1.5) return;
+  // quick reject: far from the atrium's sides and back
+  if (y > la.y + lr.y * 0.3 || Math.abs(x - la.x) > lr.x + PV_LEFT_DX + 1) return;
   const zTop = la.z - lr.z;
   const zBottom = hp.zAnn + 0.25;
   const czL = (zTop + zBottom) / 2;
@@ -549,14 +561,17 @@ export function samplePulmonaryVeins(
   const arWave = inA ? Math.sin((Math.PI * (t - tm.aStartS)) / (tm.aEndS + 0.03 - tm.aStartS)) : 0;
   const vAlong = pv.sMps * sWave + pv.dMps * dWave - pv.arMps * arWave; // + = into the LA
   if (Math.abs(vAlong) < 0.02) return;
+  const rzL = (zBottom - zTop) / 2;
+  const bo = atrialScale(hp.laBooster, pv.laReservoir, hp.state.contraction);
   for (let i = 0; i < 4; i++) {
-    const sx = i % 2 === 0 ? -1 : 1;
-    const ox = la.x + sx * lr.x * 0.6;
-    const oz = czL + (i < 2 ? -0.7 : 0.6);
-    const oy = la.y - lr.y * 0.8;
-    const ex = ox + sx * 0.9,
-      ey = oy - 1.6,
-      ez = oz + (i < 2 ? -0.5 : 0.4);
+    // the vein of the classifier (pulmonaryVeins.ts): the flow runs where the wall is drawn
+    pulmonaryVeinSegment(i, la, lr, bo, czL, rzL, PV_SEG);
+    const ox = PV_SEG[0]!,
+      oy = PV_SEG[1]!,
+      oz = PV_SEG[2]!;
+    const ex = PV_SEG[3]!,
+      ey = PV_SEG[4]!,
+      ez = PV_SEG[5]!;
     // vein axis from the distal end toward the ostium, extended 0.8 cm into the LA
     const ax = ox - ex,
       ay = oy - ey,
@@ -574,7 +589,7 @@ export function samplePulmonaryVeins(
       qy = dy - uy * along,
       qz = dz - uz * along;
     const rho = Math.sqrt(qx * qx + qy * qy + qz * qz);
-    const R = along <= L ? 0.42 : 0.42 + (along - L) * 0.6; // spreads into the atrium
+    const R = along <= L ? PV_RADIUS - 0.03 : PV_RADIUS - 0.03 + (along - L) * 0.6; // spreads into the atrium
     if (rho >= R) continue;
     const prof = 1 - Math.pow(rho / R, 4);
     const decay = along <= L ? 1 : 1 / (1 + (along - L) / 0.6);

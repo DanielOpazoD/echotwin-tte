@@ -50,6 +50,7 @@ Este método existe porque casi todos los errores de una sesión larga sobre la 
 - `npx tsx tools/offline/render/slice-map.ts <salida> <vistas> [caso]` — mapa de estructuras por plano.
 - `npm run measure -- <caso>` — medidas del modelo, incluidas las relaciones espaciales entre anillos valvulares.
 - `npx tsx tools/offline/render/audit-views.ts` — desviación de plano, rotación y centrado por vista.
+- `npx tsx tools/offline/render/structure-share.ts <Estructura> [caso,...] [vista,...]` — porcentaje del plano que ocupa una estructura en cada vista canónica, por caso y fase, con el máximo (decisión 143: las venas pulmonares eran 1,9 % del PLAX y 0 % del A4C). Antes y después de mover una estructura.
 - `npx tsx tools/offline/render/fidelity-bench.ts [caso,... | all]` — banco multivista por caso (decisión 139): sonda, desvío del plano dibujado, posición del ápex en el haz, inclinación del eje y pared tras pulmón de cada vista apical; oblicuidad de las paraesternales y primer tejido del PLAX; punta del ápex tras la pared e intrusión en la pared torácica. Es lo que hay que mirar antes y después de mover el corazón, el tórax o una regla de ventana.
 - `PHASES=0,0.35 npx tsx tools/offline/render/render-views.ts <salida> <vistas> [caso]` — imágenes.
 - `src/simulator/windows/viewContent.ts` — fracción del sector que ocupa cada estructura sobre el plano dibujado.

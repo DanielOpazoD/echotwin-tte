@@ -13,6 +13,8 @@ import { buildFlowParams, pulmonaryVeinPeaks, sampleFlow } from './flow-primitiv
 import { SimulatorCore } from '@/simulator/core/simulatorCore';
 import { baseInput } from '@/simulator/core/baseInput';
 import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
+import { atrialScale } from '@/simulator/anatomy/classify/atria';
+import { pulmonaryVeinSegment } from '@/simulator/anatomy/pulmonaryVeins';
 
 function setup(id: string) {
   const c = loadCaseById(id);
@@ -50,24 +52,43 @@ describe('pulmonary venous flow and colour M-mode', () => {
       lr = A.laR;
     const t = tables.timings;
     const sysPhase = (t.ejectionStartS + 0.5 * (t.ejectionEndS - t.ejectionStartS)) / tables.rrS;
+    // a point 0.5 cm outside the superior right ostium, on the axis of the vein the classifier draws (decision 143)
+    const pointInVein = (hp: ReturnType<typeof computeHeartPose>) => {
+      const zTop = la.z - lr.z,
+        zBottom = hp.zAnn + 0.25;
+      const seg = new Float64Array(6);
+      pulmonaryVeinSegment(
+        0,
+        la,
+        lr,
+        atrialScale(hp.laBooster, A.laReservoir, hp.state.contraction),
+        (zTop + zBottom) / 2,
+        (zBottom - zTop) / 2,
+        seg,
+      );
+      const L = Math.hypot(seg[3]! - seg[0]!, seg[4]! - seg[1]!, seg[5]! - seg[2]!);
+      // unit axis from the distal end towards the ostium: the direction of flow into the atrium
+      const u = [
+        (seg[0]! - seg[3]!) / L,
+        (seg[1]! - seg[4]!) / L,
+        (seg[2]! - seg[5]!) / L,
+      ] as const;
+      return { p: [seg[0]! - u[0] * 0.5, seg[1]! - u[1] * 0.5, seg[2]! - u[2] * 0.5] as const, u };
+    };
     const hpS = computeHeartPose(heart, cycleStateAt(tables, sysPhase));
-    const czL = (la.z - lr.z + hpS.zAnn + 0.25) / 2;
-    // superior right vein stub, 0.5 cm outside the ostium
-    const ox = la.x - lr.x * 0.6,
-      oy = la.y - lr.y * 0.8,
-      oz = czL - 0.7;
+    const s = pointInVein(hpS);
     const out = { vx: 0, vy: 0, vz: 0, dispersion: 0, present: 0 };
-    sampleFlow(flow, tables, hpS, sysPhase, ox - 0.25, oy - 0.45, oz - 0.15, out);
+    sampleFlow(flow, tables, hpS, sysPhase, s.p[0], s.p[1], s.p[2], out);
     expect(out.present).toBe(1);
     const vS = Math.hypot(out.vx, out.vy, out.vz);
     expect(vS).toBeGreaterThan(0.25);
-    expect(out.vy).toBeGreaterThan(0); // toward +y = toward the LA centre (the veins enter from posterior)
+    expect(out.vx * s.u[0] + out.vy * s.u[1] + out.vz * s.u[2]).toBeGreaterThan(0.25); // into the atrium
     const aPhase = (t.aStartS + 0.5 * (t.aEndS - t.aStartS)) / tables.rrS;
     const hpA = computeHeartPose(heart, cycleStateAt(tables, aPhase));
-    const czA = (la.z - lr.z + hpA.zAnn + 0.25) / 2;
-    sampleFlow(flow, tables, hpA, aPhase, ox - 0.25, oy - 0.45, czA - 0.7 - 0.15, out);
+    const a = pointInVein(hpA);
+    sampleFlow(flow, tables, hpA, aPhase, a.p[0], a.p[1], a.p[2], out);
     expect(out.present).toBe(1);
-    expect(out.vy).toBeLessThan(0); // reversal
+    expect(out.vx * a.u[0] + out.vy * a.u[1] + out.vz * a.u[2]).toBeLessThan(0); // reversal
   });
   it('colour M-mode strip carries aliased velocities along the cursor through the mitral inflow', () => {
     const { c, heart, thorax } = setup('normal-excellent-window');

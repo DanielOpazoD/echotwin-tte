@@ -36,12 +36,13 @@ void acoustic(int tissue, int structure, float sdf, float extra, float nd, vec3 
   if (tissue == T_BLOOD && HARM > 0.5) sigma *= BLOOD_HARMONIC_SIGMA;
   // myocardial backscatter is strongest with the beam across the fibres, which run ~circumferentially
   // around the LV long axis (heart-frame z): circumferential direction = (−m.y, m.x, 0)/r
+  // the RV free wall takes the fibre response too; atrial walls and the interatrial septum scatter without anisotropy (decision 140)
   if (tissue == T_MYO) {
-    if (structure >= S_LV_SEPT && structure <= S_LV_APEX) {
+    if ((structure >= S_LV_SEPT && structure <= S_LV_APEX) || structure == S_RV_WALL) {
       float rr = length(m.xy);
       float dphi = rr > MYO_ANISO_RADIAL_EPS ? abs(dot(dirH.xy, vec2(-m.y, m.x)) / rr) : 0.0;
       sigma *= myoAnisoGain(dphi, dirH.z * dirH.z);
-    } else {
+    } else if (structure != S_LA_WALL && structure != S_RA_WALL && structure != S_IAS) {
       sigma *= MYO_ANISO_FLOOR + (1.0 - MYO_ANISO_FLOOR) * nd * nd;
     }
   }

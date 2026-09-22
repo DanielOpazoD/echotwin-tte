@@ -455,12 +455,26 @@ export class ProceduralSliceRenderer implements RendererBackend {
       // ~circumferentially around the long axis (heart-frame z), so the circumferential direction at
       // the sample is ẑ × radial = (−my, mx, 0)/r — beam·fibre alignment darkens the wall, not the
       // wall normal. Other myocardium keeps the normal-based response.
+      // The right ventricular free wall wraps the same axis with the same circumferential-oblique fibres, so it takes
+      // the fibre response too; the atrial walls and the interatrial septum scatter without anisotropy (thin walls of
+      // crossing fibre bundles, decision 140). Under the wall-normal response both ran along the apical beams and
+      // fell to the floor: RV free wall 71-76 grey against 61 in its blood, atrial walls 75-102 against 74-84, next
+      // to a septum at 95-100 (A4C and A5C, default console).
       if (q.tissue === Tissue.Myocardium) {
-        if (inH && q.structure >= Structure.LvWallSeptal && q.structure <= Structure.LvApex) {
+        if (
+          inH &&
+          ((q.structure >= Structure.LvWallSeptal && q.structure <= Structure.LvApex) ||
+            q.structure === Structure.RvWall)
+        ) {
           const rr = Math.sqrt(q.mx * q.mx + q.my * q.my);
           const dphi = rr > MYO_ANISO_RADIAL_EPS ? Math.abs((dhy * q.mx - dhx * q.my) / rr) : 0;
           sigma *= myoAnisoGain(dphi, dhz * dhz);
-        } else {
+        } else if (
+          !inH ||
+          (q.structure !== Structure.LaWall &&
+            q.structure !== Structure.RaWall &&
+            q.structure !== Structure.InteratrialSeptum)
+        ) {
           sigma *= MYO_ANISO_FLOOR + (1 - MYO_ANISO_FLOOR) * nd * nd;
         }
       }
