@@ -97,6 +97,12 @@ void main() {
   // complex scatterer phasor anchored in tissue coordinates (moves with the tissue); across the plane its lattice cell is
   // the slice thickness (decision 99), as in the CPU renderer
   vec3 nrm = inHeart ? vec3(dot(bN, ex), dot(bN, ey), dot(bN, ez)) : bN;
+  // a leaflet is a membrane thinner than the slice: it reads by the fraction of the slice it fills (decision 147)
+  if (s.tissue == T_VALVE) {
+    float wm = membraneWeight(dot(s.n, nrm), e);
+    sigma *= wm;
+    specular *= wm;
+  }
   vec3 q = s.m * SCATTER_FREQ - (SCATTER_FREQ - 1.0 / (2.0 * e)) * dot(s.m, nrm) * nrm;
   float zr = (lat(q, 0) + lat(q * SCATTER_FREQ_RATIO + PHASOR_RE_B, 1) - 1.0) * PHASOR_NORM;
   float zi = (lat(q + PHASOR_IM_A, 2) + lat(q * SCATTER_FREQ_RATIO + PHASOR_IM_B, 0) - 1.0) * PHASOR_NORM;
@@ -199,7 +205,8 @@ void main() {
   vec4 d = texelFetch(uPassD, ivec2(si, li), 0);
   float sigma = a.x;
   float specular = c.x;
-  if (ELEV_N > 1.0) { // three elevation samples (high tier); one otherwise
+  // a valve membrane takes no elevation average: the side planes miss it (decision 147)
+  if (ELEV_N > 1.0 && int(b.y * 255.0 + 0.5) != T_VALVE) { // three elevation samples (high tier); one otherwise
     // slice thickness: weighted mean of σ and specular over the three elevation planes (¼ ½ ¼); side samples outside
     // the body or in lung are dropped and the weights renormalised, as in the CPU renderer
     vec4 sa = texelFetch(uSideA, ivec2(si, li), 0);

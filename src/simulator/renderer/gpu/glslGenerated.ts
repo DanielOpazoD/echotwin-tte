@@ -138,6 +138,11 @@ float focusingGain(float rCm, float focusCm) {
   float we = sqrt(FOCUS_HALF_ELEVATION_MM * FOCUS_HALF_ELEVATION_MM * taper * taper + FOCUS_WAIST_ELEVATION_MM * FOCUS_WAIST_ELEVATION_MM);
   return sqrt((FOCUS_WAIST_LATERAL_MM / wl) * (FOCUS_WAIST_ELEVATION_MM / we));
 }
+// src/simulator/renderer/acoustic/acoustics.ts: membraneWeight
+float membraneWeight(float normalDotPlane, float sliceHalfWidthCm) {
+  float along = abs(normalDotPlane);
+  return MEMBRANE_CM / (MEMBRANE_CM + 2.0 * sliceHalfWidthCm * along);
+}
 // src/simulator/renderer/acoustic/psf.ts: sliceHalfWidthCm
 float sliceHalfWidthCm(float rCm, float focusCm) {
   return SLICE_HALF_BASE_CM + SLICE_HALF_SLOPE * abs(rCm - focusCm);
@@ -145,4 +150,4 @@ float sliceHalfWidthCm(float rCm, float focusCm) {
 `;
 
 /** Shader constants the generated functions read (must be #defines or constants of the including shader). */
-export const GLSL_GENERATED_FREE_IDENTIFIERS: readonly string[] = ["FOCUS_HALF_APERTURE_MM","FOCUS_HALF_ELEVATION_MM","FOCUS_WAIST_ELEVATION_MM","FOCUS_WAIST_LATERAL_MM","MYO_ANISO_FLOOR","MYO_HELIX_COS2","MYO_HELIX_ENDO_DEG","MYO_HELIX_EPI_DEG","REVERB_DECAY","REVERB_DIFFUSE","REVERB_DIFFUSE_DECAY_CM","REVERB_GAIN","REVERB_PERIOD_MIN_CM","REVERB_WIDTH_CM","SLICE_HALF_BASE_CM","SLICE_HALF_SLOPE"];
+export const GLSL_GENERATED_FREE_IDENTIFIERS: readonly string[] = ["FOCUS_HALF_APERTURE_MM","FOCUS_HALF_ELEVATION_MM","FOCUS_WAIST_ELEVATION_MM","FOCUS_WAIST_LATERAL_MM","MEMBRANE_CM","MYO_ANISO_FLOOR","MYO_HELIX_COS2","MYO_HELIX_ENDO_DEG","MYO_HELIX_EPI_DEG","REVERB_DECAY","REVERB_DIFFUSE","REVERB_DIFFUSE_DECAY_CM","REVERB_GAIN","REVERB_PERIOD_MIN_CM","REVERB_WIDTH_CM","SLICE_HALF_BASE_CM","SLICE_HALF_SLOPE"];

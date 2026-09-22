@@ -695,13 +695,14 @@ describe('aortic cusps (decision 79)', () => {
     for (let i = 0; i < av.count; i++) {
       const commissure = 0.5 + ((i + 0.5) * 2 * Math.PI) / av.count;
       const centre = 0.5 + (i * 2 * Math.PI) / av.count;
-      // along each commissure line: the pressed-together cusps as one line from the centre to 60% of the radius; toward
-      // the wall the two cusps part to attach on either side of the interleaflet triangle, ~5 mm apart at mid-height
+      // along each commissure line: the pressed-together cusps as one line from the centre to the wall. Until decision
+      // 147 the two cusps parted from 60 % of the radius to attach on either side of a 5 mm wide interleaflet triangle;
+      // with the narrow commissural posts the arm stays within 1.2 mm of the line all the way
       let covered = 0,
         n = 0;
       for (let r = 0.1 * R; r < 0.85 * R; r += 0.01) {
         n++;
-        const reach = r < 0.6 * R ? 0.12 : 0.35;
+        const reach = 0.12;
         let hit = false;
         for (let d = -reach; d <= reach && !hit; d += 0.01)
           hit = valveAt(r, commissure + d / Math.max(r, 0.1));
