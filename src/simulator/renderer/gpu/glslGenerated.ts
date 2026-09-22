@@ -101,6 +101,12 @@ float rvOutflowScale(float contraction) {
 float myoAnisoGain(float dphi, float dz2) {
   return (MYO_ANISO_FLOOR + (1.0 - MYO_ANISO_FLOOR) * (1.0 - MYO_HELIX_COS2 * dphi * dphi - (1.0 - MYO_HELIX_COS2) * dz2));
 }
+// src/simulator/renderer/acoustic/acoustics.ts: myoHelixGain
+float myoHelixGain(float dphi, float dz, float u) {
+  float alpha = ((MYO_HELIX_ENDO_DEG + (MYO_HELIX_EPI_DEG - MYO_HELIX_ENDO_DEG) * u) * PI) / 180.0;
+  float c = cos(alpha) * dphi + sin(alpha) * dz;
+  return MYO_ANISO_FLOOR + (1.0 - MYO_ANISO_FLOOR) * (1.0 - c * c);
+}
 // src/simulator/renderer/acoustic/acoustics.ts: pleuralReverberation
 float pleuralReverberation(float rCm, float entryCm, float transmission, float modulation) {
   if (rCm <= entryCm) {
@@ -117,8 +123,20 @@ float pleuralReverberation(float rCm, float entryCm, float transmission, float m
     band += decay * exp(-offset * offset);
     decay *= REVERB_DECAY;
   }
-  float diffuse = REVERB_DIFFUSE * pow(REVERB_DECAY, k + 1.0) * modulation;
+  float diffuse = REVERB_DIFFUSE * exp(-d / REVERB_DIFFUSE_DECAY_CM) * modulation;
   return transmission * (REVERB_GAIN * band + diffuse);
+}
+// src/simulator/renderer/acoustic/acoustics.ts: beamHalfWidthCm
+float beamHalfWidthCm(float rCm, float focusCm) {
+  float taper = 1.0 - rCm / max(1.0, focusCm);
+  return (sqrt(FOCUS_HALF_APERTURE_MM * FOCUS_HALF_APERTURE_MM * taper * taper + FOCUS_WAIST_LATERAL_MM * FOCUS_WAIST_LATERAL_MM) / 10.0);
+}
+// src/simulator/renderer/acoustic/acoustics.ts: focusingGain
+float focusingGain(float rCm, float focusCm) {
+  float taper = 1.0 - rCm / max(1.0, focusCm);
+  float wl = beamHalfWidthCm(rCm, focusCm) * 10.0;
+  float we = sqrt(FOCUS_HALF_ELEVATION_MM * FOCUS_HALF_ELEVATION_MM * taper * taper + FOCUS_WAIST_ELEVATION_MM * FOCUS_WAIST_ELEVATION_MM);
+  return sqrt((FOCUS_WAIST_LATERAL_MM / wl) * (FOCUS_WAIST_ELEVATION_MM / we));
 }
 // src/simulator/renderer/acoustic/psf.ts: sliceHalfWidthCm
 float sliceHalfWidthCm(float rCm, float focusCm) {
@@ -127,4 +145,4 @@ float sliceHalfWidthCm(float rCm, float focusCm) {
 `;
 
 /** Shader constants the generated functions read (must be #defines or constants of the including shader). */
-export const GLSL_GENERATED_FREE_IDENTIFIERS: readonly string[] = ["MYO_ANISO_FLOOR","MYO_HELIX_COS2","REVERB_DECAY","REVERB_DIFFUSE","REVERB_GAIN","REVERB_PERIOD_MIN_CM","REVERB_WIDTH_CM","SLICE_HALF_BASE_CM","SLICE_HALF_SLOPE"];
+export const GLSL_GENERATED_FREE_IDENTIFIERS: readonly string[] = ["FOCUS_HALF_APERTURE_MM","FOCUS_HALF_ELEVATION_MM","FOCUS_WAIST_ELEVATION_MM","FOCUS_WAIST_LATERAL_MM","MYO_ANISO_FLOOR","MYO_HELIX_COS2","MYO_HELIX_ENDO_DEG","MYO_HELIX_EPI_DEG","REVERB_DECAY","REVERB_DIFFUSE","REVERB_DIFFUSE_DECAY_CM","REVERB_GAIN","REVERB_PERIOD_MIN_CM","REVERB_WIDTH_CM","SLICE_HALF_BASE_CM","SLICE_HALF_SLOPE"];

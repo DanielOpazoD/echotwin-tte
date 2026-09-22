@@ -35,7 +35,7 @@ export interface TissueProps {
 
 export const TISSUE_PROPS: Record<number, TissueProps> = {
   [Tissue.None]: { reflect: 0.0, specular: 0, attenuation: 0.5, grain: 2, name: 'none' },
-  [Tissue.Blood]: { reflect: 0.012, specular: 0, attenuation: 0.18, grain: 7, name: 'blood' },
+  [Tissue.Blood]: { reflect: 0.018, specular: 0, attenuation: 0.18, grain: 7, name: 'blood' },
   [Tissue.Myocardium]: {
     reflect: 0.28,
     specular: 0.12,
@@ -52,7 +52,7 @@ export const TISSUE_PROPS: Record<number, TissueProps> = {
     name: 'pericardium',
   },
   [Tissue.Fat]: { reflect: 0.12, specular: 0.1, attenuation: 0.6, grain: 2.5, name: 'fat' },
-  [Tissue.Muscle]: { reflect: 0.38, specular: 0.2, attenuation: 1.0, grain: 3, name: 'muscle' },
+  [Tissue.Muscle]: { reflect: 0.2, specular: 0.2, attenuation: 1.0, grain: 3, name: 'muscle' },
   [Tissue.Bone]: { reflect: 1.0, specular: 1.0, attenuation: 20, grain: 3, name: 'bone' },
   [Tissue.Cartilage]: {
     reflect: 0.45,
@@ -101,6 +101,8 @@ export interface TissueSample {
   extraReflect: number;
   /** Structure id for landmark/visibility analysis. */
   structure: Structure;
+  /** Depth across the LV wall, 0 at the endocardium and 1 at the epicardium (fibre helix, decision 144); −1 elsewhere. */
+  transmural: number;
 }
 
 export const enum Structure {
@@ -164,5 +166,6 @@ export function makeSample(): TissueSample {
     mz: 0,
     extraReflect: 0,
     structure: Structure.None,
+    transmural: -1,
   };
 }

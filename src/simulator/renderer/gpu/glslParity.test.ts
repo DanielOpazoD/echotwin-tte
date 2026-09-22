@@ -7,6 +7,8 @@ import {
   GLSL_PASS_B_MAIN,
   GLSL_PASS_C_MAIN,
   GLSL_PASS_D_MAIN,
+  GLSL_PASS_L_MAIN,
+  GLSL_PASS_P_MAIN,
 } from './glslPasses';
 import {
   GLSL_CONSOLE_FRAG,
@@ -37,6 +39,8 @@ const CPU_SOURCES = [
 const GLSL_BODIES = [
   GLSL_PASS_A_MAIN,
   GLSL_PASS_B_MAIN,
+  GLSL_PASS_L_MAIN,
+  GLSL_PASS_P_MAIN,
   GLSL_PASS_C_MAIN,
   GLSL_PASS_D_MAIN,
   GLSL_NOISE_AXIAL_FRAG,
@@ -110,7 +114,14 @@ describe('acoustic chain: CPU ↔ GLSL parity mechanism', () => {
     // GLSL keywords/builtins in caps that are not ours
     for (const k of ['PI', 'TWO_PI']) declared.add(k);
     const undeclared = new Set<string>();
-    for (const body of [GLSL_PASS_A_MAIN, GLSL_PASS_B_MAIN, GLSL_PASS_C_MAIN, GLSL_PASS_D_MAIN]) {
+    for (const body of [
+      GLSL_PASS_A_MAIN,
+      GLSL_PASS_B_MAIN,
+      GLSL_PASS_L_MAIN,
+      GLSL_PASS_P_MAIN,
+      GLSL_PASS_C_MAIN,
+      GLSL_PASS_D_MAIN,
+    ]) {
       for (const m of stripComments(body).matchAll(/\b[A-Z][A-Z0-9_]{2,}\b/g))
         if (!declared.has(m[0])) undeclared.add(m[0]);
     }

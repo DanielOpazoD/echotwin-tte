@@ -368,7 +368,8 @@ describe('pleural reverberation continuity', () => {
           let sum = 0;
           for (let n = 0; n <= Math.ceil(d / period) + 10; n++)
             sum += 0.55 ** (n + 1) * Math.exp(-(((d - n * period) / 0.12) ** 2));
-          const expected = 0.7 * (0.9 * sum + 0.02 * 0.55 ** (d / period + 1) * 0.6);
+          // the diffuse haze decays with the distance into the lung, not with the A-line period (decision 144)
+          const expected = 0.7 * (0.9 * sum + 0.35 * Math.exp(-d / 1.5) * 0.6);
           expect(Math.abs(pleuralReverberation(r, entry, 0.7, 0.6) - expected)).toBeLessThan(1e-12);
         }
     }

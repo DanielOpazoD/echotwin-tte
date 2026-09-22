@@ -53,7 +53,7 @@ import {
   heteroDb,
   MYO_ANISO_FLOOR,
   MYO_ANISO_RADIAL_EPS,
-  myoAnisoGain,
+  myoHelixGain,
   PHASOR_IM_A,
   PHASOR_IM_B,
   PHASOR_NORM,
@@ -76,6 +76,10 @@ import {
   REVERB_PHASOR_RE_B,
   RINGDOWN_CM,
   RINGDOWN_GAIN,
+  focusingGain,
+  beamHalfWidthCm,
+  BEAM_ATTEN_MAX_LINES,
+  BEAM_ATTEN_MIN_ARC_CM,
   SCATTER_FREQ,
   SCATTER_FREQ_RATIO,
   SPECULAR_GAIN,
@@ -120,6 +124,9 @@ export class ProceduralSliceRenderer implements RendererBackend {
   private im = new Float32Array(0);
   private tmpRe = new Float32Array(0);
   private tmpIm = new Float32Array(0);
+  /** Attenuation increment of each sample (Np), for the beam-averaged march of a frame (decision 144). */
+  private atten = new Float32Array(0);
+  private prefix = new Float32Array(0);
   private lineRe = new Float32Array(0);
   private lineIm = new Float32Array(0);
   private lineTmpRe = new Float32Array(0);
@@ -161,6 +168,8 @@ export class ProceduralSliceRenderer implements RendererBackend {
       this.im = new Float32Array(n);
       this.tmpRe = new Float32Array(n);
       this.tmpIm = new Float32Array(n);
+      this.atten = new Float32Array(n);
+      this.prefix = new Float32Array((spec.lines + 1) * spec.samples);
     }
     const ctx = this.prepare(scene, beam, spec);
     for (let li = 0; li < spec.lines; li++) {
@@ -175,14 +184,28 @@ export class ProceduralSliceRenderer implements RendererBackend {
         out.structure,
         out.transmission,
         out.tissue,
+        this.atten,
       );
     }
+    const kernels = this.kernels(scene, spec);
+    // the march of the beam, not of the pencil line (decision 144): the echoes scaled by its transmission
+    beamMarch(
+      this.re,
+      this.im,
+      out.transmission,
+      out.tissue,
+      this.atten,
+      spec,
+      ctx.contact,
+      ctx.seed,
+      this.prefix,
+    );
     formEnvelope(
       this.re,
       this.im,
       spec.lines,
       spec.samples,
-      this.kernels(scene, spec),
+      kernels,
       out.amplitude,
       this.tmpRe,
       this.tmpIm,
@@ -367,6 +390,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
     st: Uint8Array,
     tr: Float32Array,
     ti: Uint8Array,
+    atten: Float32Array | null = null,
   ): void {
     const {
       beam,
@@ -441,7 +465,8 @@ export class ProceduralSliceRenderer implements RendererBackend {
       const hz =
         (px - hf.origin.x) * hf.ez.x + (py - hf.origin.y) * hf.ez.y + (pz - hf.origin.z) * hf.ez.z;
       if (classifyHeart(heart, heartPose, hx, hy, hz, q)) return 2;
-      return classifyThorax(thorax, px, py, pz, q) ? 1 : 0;
+      // on a miss q.sdf holds the distance beyond the pericardial sac: the lungs wrap the heart (decision 144)
+      return classifyThorax(thorax, px, py, pz, q, q.sdf) ? 1 : 0;
     };
     /** Incoherent backscatter σ and coherent specular echo of a classified sample, before attenuation. */
     const acoustic = (q: TissueSample, inH: boolean, a: { sigma: number; spec: number }): void => {
@@ -467,8 +492,9 @@ export class ProceduralSliceRenderer implements RendererBackend {
             q.structure === Structure.RvWall)
         ) {
           const rr = Math.sqrt(q.mx * q.mx + q.my * q.my);
-          const dphi = rr > MYO_ANISO_RADIAL_EPS ? Math.abs((dhy * q.mx - dhx * q.my) / rr) : 0;
-          sigma *= myoAnisoGain(dphi, dhz * dhz);
+          const dphi = rr > MYO_ANISO_RADIAL_EPS ? (dhy * q.mx - dhx * q.my) / rr : 0;
+          // the fibre helix across the wall (decision 144); a wall sample without a depth (the RV free wall) takes the mid-wall
+          sigma *= myoHelixGain(dphi, dhz, q.transmural >= 0 ? q.transmural : 0.5);
         } else if (
           !inH ||
           (q.structure !== Structure.LaWall &&
@@ -564,9 +590,10 @@ export class ProceduralSliceRenderer implements RendererBackend {
       if (tissue === Tissue.Lung) {
         // pleural line: a strong coherent reflector; everything behind it is reverberation
         lungEntryR = r;
-        lungEntryT = transmission;
+        // a frame's lung echoes are scaled by the beam's transmission at the entry in the beam march; a line's by its own
+        lungEntryT = line ? transmission : 1;
         re[idx] =
-          transmission *
+          lungEntryT *
           (PLEURA_BASE +
             PLEURA_AMP *
               latticeNoise3(li * PLEURA_LINE_FREQ, r * PLEURA_DEPTH_FREQ, PLEURA_Z, latA));
@@ -597,6 +624,10 @@ export class ProceduralSliceRenderer implements RendererBackend {
         sigma = accS / wsum;
         specular = accP / wsum;
       }
+      // the beam's on-axis sensitivity at this depth: wide near the face, narrowest at the focus (decision 144)
+      const fg = focusingGain(r, focus);
+      sigma *= fg;
+      specular *= fg;
       // complex scatterer phasor of the central plane, anchored in tissue coordinates (moves with the tissue). Across the
       // plane its lattice cell is the slice thickness, as for an M-mode line (decision 99): at the scatterer cell (0.4 mm)
       // a probe tilt that moved the plane by 0.31 mm at 9 cm left the myocardial speckle with a correlation of 0.71, for a
@@ -670,8 +701,11 @@ export class ProceduralSliceRenderer implements RendererBackend {
       }
       const ringDown = r < RINGDOWN_CM ? RINGDOWN_GAIN * (1 - r / RINGDOWN_CM) : 0; // transducer ring-down
       if (ringDown > 0) sRe += lk ? ringDown * lk.smooth : ringDown;
-      re[idx] = sRe * transmission;
-      im[idx] = sIm * transmission;
+      // a frame scales its echoes by the beam's transmission in the beam march; an M-mode line, with no lateral
+      // neighbours, by its own
+      const tScale = line ? transmission : 1;
+      re[idx] = sRe * tScale;
+      im[idx] = sIm * tScale;
       // two-way amplitude loss integrated over the sample's length (decision 89): 0.23 Np per dB·cm⁻¹·MHz⁻¹ of one-way
       // attenuation, so a layer loses the same whatever the sampling. Bone, calcium and spine used a fixed 1.2 Np per
       // sample, which made a rib's shadow depend on the quality tier (17 dB between low and high behind 4 mm of rib).
@@ -680,7 +714,97 @@ export class ProceduralSliceRenderer implements RendererBackend {
         attenNp += CALCIUM_ATTEN_NP * s.extraReflect * (dr / CALCIUM_ATTEN_REF_CM); // calcified tissue ≈ 10 dB/cm at 2.5 MHz
       if (!inHeart && (tissue === Tissue.Fat || tissue === Tissue.Muscle || tissue === Tissue.Skin))
         attenNp *= 1 + WINDOW_ATTEN_GAIN * ctx.windowAttenuation;
+      if (atten) atten[idx] = attenNp;
       transmission *= Math.exp(-attenNp);
+      if (transmission < TRANSMISSION_FLOOR) transmission = TRANSMISSION_FLOOR;
+    }
+  }
+}
+
+/**
+ * The march of the beam (decision 144). Each line marched its own attenuation, so a line running inside the lateral
+ * wall from the apex reached 7 cm 15 dB weaker than its neighbour in the blood, and an apical wall came out brightest
+ * at its endocardial edge and darkest at its epicardial one whatever the fibres did. A pulse is not a pencil: the
+ * energy that reaches a sample left the whole aperture and crossed, at every depth on the way, the width of the beam
+ * there — mostly blood beside a wall it grazes. So the attenuation a line pays at each depth is the mean increment over
+ * the lines within the beam's half-width at that depth (`beamHalfWidthCm`, the aperture tapering to the focus), over
+ * the body-tissue samples among them; outside-body and lung samples neither pay nor count. Prefix sums across lines make
+ * the window mean O(1). The echoes come unscaled from the line march and are scaled here by the beam's transmission,
+ * the lung echoes of a line by the transmission at its pleural entry.
+ */
+export function beamMarch(
+  re: Float32Array,
+  im: Float32Array,
+  tr: Float32Array,
+  ti: Uint8Array,
+  atten: Float32Array,
+  spec: PolarFrameSpec,
+  contact: number,
+  seed: number,
+  prefix: Float32Array,
+): void {
+  const { lines, samples } = spec;
+  const dr = spec.depthCm / samples;
+  const dTheta = spec.sectorRad / lines;
+  // prefix sums per sample across lines: `prefix` ((lines + 1) × samples) holds the increment sums, `count` the
+  // number of tissue samples
+  const count = new Int32Array(lines + 1);
+  for (let si = 0; si < samples; si++) {
+    const r = (si + 0.5) * dr;
+    const K = Math.min(
+      BEAM_ATTEN_MAX_LINES,
+      Math.round(beamHalfWidthCm(r, spec.focusCm) / Math.max(BEAM_ATTEN_MIN_ARC_CM, r * dTheta)),
+    );
+    let acc = 0;
+    let cnt = 0;
+    prefix[si] = 0;
+    count[0] = 0;
+    for (let li = 0; li < lines; li++) {
+      const i = li * samples + si;
+      const t = ti[i]!;
+      if (t !== Tissue.None && t !== Tissue.Lung) {
+        acc += atten[i]!;
+        cnt++;
+      }
+      prefix[(li + 1) * samples + si] = acc;
+      count[li + 1] = cnt;
+    }
+    // the window mean replaces the increment in place (the prefix sums above are already taken)
+    for (let li = 0; li < lines; li++) {
+      const i = li * samples + si;
+      const t = ti[i]!;
+      if (t === Tissue.None || t === Tissue.Lung) continue;
+      const a = Math.max(0, li - K),
+        b = Math.min(lines, li + K + 1);
+      const n = count[b]! - count[a]!;
+      atten[i] = n > 0 ? (prefix[b * samples + si]! - prefix[a * samples + si]!) / n : atten[i]!;
+    }
+  }
+  for (let li = 0; li < lines; li++) {
+    const base = li * samples;
+    let transmission = hash3(li, 7, 0, seed) > contact ? 0.08 : 1;
+    let lungScale = -1;
+    for (let si = 0; si < samples; si++) {
+      const i = base + si;
+      const t = ti[i]!;
+      if (t === Tissue.None) {
+        tr[i] = transmission;
+        continue;
+      }
+      if (t === Tissue.Lung) {
+        // the pleural line and the reverberation behind it, drawn at unit transmission by the line march
+        if (lungScale < 0) {
+          lungScale = transmission;
+          tr[i] = transmission;
+        } else tr[i] = 0;
+        re[i]! *= lungScale;
+        im[i]! *= lungScale;
+        continue;
+      }
+      tr[i] = transmission;
+      re[i]! *= transmission;
+      im[i]! *= transmission;
+      transmission *= Math.exp(-atten[i]!);
       if (transmission < TRANSMISSION_FLOOR) transmission = TRANSMISSION_FLOOR;
     }
   }

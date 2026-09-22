@@ -30,7 +30,7 @@ float heteroDb(int t) {
 }
 
 // incoherent backscatter σ and coherent interface echo of a classified sample, before attenuation
-void acoustic(int tissue, int structure, float sdf, float extra, float nd, vec3 m, vec3 dirH, out float sigma, out float specular) {
+void acoustic(int tissue, int structure, float sdf, float extra, float nd, vec3 m, vec3 dirH, float transmural, out float sigma, out float specular) {
   vec4 props = uTissue[tissue];
   sigma = props.x;
   if (tissue == T_BLOOD && HARM > 0.5) sigma *= BLOOD_HARMONIC_SIGMA;
@@ -40,8 +40,9 @@ void acoustic(int tissue, int structure, float sdf, float extra, float nd, vec3 
   if (tissue == T_MYO) {
     if ((structure >= S_LV_SEPT && structure <= S_LV_APEX) || structure == S_RV_WALL) {
       float rr = length(m.xy);
-      float dphi = rr > MYO_ANISO_RADIAL_EPS ? abs(dot(dirH.xy, vec2(-m.y, m.x)) / rr) : 0.0;
-      sigma *= myoAnisoGain(dphi, dirH.z * dirH.z);
+      float dphi = rr > MYO_ANISO_RADIAL_EPS ? dot(dirH.xy, vec2(-m.y, m.x)) / rr : 0.0;
+      // the fibre helix across the wall (decision 144); a wall sample without a depth (the RV free wall) takes the mid-wall
+      sigma *= myoHelixGain(dphi, dirH.z, transmural >= 0.0 ? transmural : 0.5);
     } else if (structure != S_LA_WALL && structure != S_RA_WALL && structure != S_IAS) {
       sigma *= MYO_ANISO_FLOOR + (1.0 - MYO_ANISO_FLOOR) * nd * nd;
     }
@@ -76,7 +77,7 @@ void main() {
     s.tissue = T_LUNG; s.structure = S_LUNG; s.sdf = -1.0; s.n = vec3(0.0, 0.0, 1.0); s.m = pT; s.extra = 0.0;
   } else {
     inHeart = classifyHeart(pH, s);
-    if (!inHeart) inBody = classifyThorax(pT, s);
+    if (!inHeart) { float heartDist = s.sdf; inBody = classifyThorax(pT, s, heartDist); }
   }
   if (!inBody) {
     outA = vec4(0.0);
@@ -87,7 +88,7 @@ void main() {
   vec4 props = uTissue[s.tissue];
   float nd = abs(inHeart ? dot(s.n, dirH) : dot(s.n, dirT));
   float sigma, specular;
-  acoustic(s.tissue, s.structure, s.sdf, s.extra, nd, s.m, dirH, sigma, specular);
+  acoustic(s.tissue, s.structure, s.sdf, s.extra, nd, s.m, dirH, s.transmural, sigma, specular);
   // complex scatterer phasor anchored in tissue coordinates (moves with the tissue); across the plane its lattice cell is
   // the slice thickness (decision 99), as in the CPU renderer
   vec3 nrm = inHeart ? vec3(dot(bN, ex), dot(bN, ey), dot(bN, ez)) : bN;
@@ -177,6 +178,10 @@ void main() {
     sigma = accS / wsum;
     specular = accP / wsum;
   }
+  // the beam's on-axis sensitivity at this depth: wide near the face, narrowest at the focus (decision 144)
+  float fg = focusingGain(r, FOCUS);
+  sigma *= fg;
+  specular *= fg;
   float sRe = sigma * c.y + specular;
   float sIm = sigma * c.z;
   if (r < CLUTTER_MAX_CM && CLUTTER > 0.0) {
@@ -189,6 +194,61 @@ void main() {
   if (r < RINGDOWN_CM) sRe += RINGDOWN_GAIN * (1.0 - r / RINGDOWN_CM); // transducer ring-down
   outSig = vec4(sRe * transmission, transmission, sIm * transmission, 1.0);
   outIds = b;
+}
+`;
+
+/**
+ * Beam attenuation (decision 144): the increment a line pays at a depth is the mean of the increments of the lines
+ * within the beam's half-width at that depth (`beamHalfWidthCm`, the aperture tapering to the focus), over the
+ * body-tissue samples among them; outside-body, lung and behind-the-pleura samples (pass L, which the CPU march never
+ * classifies) neither pay nor count. Pass B then marches these increments. Mirror of `beamMarch` in the CPU renderer
+ * (its prefix sums are a window loop here).
+ */
+export const GLSL_PASS_L_MAIN = /* glsl */ `
+uniform sampler2D uPassA;
+layout(location = 0) out vec4 outDead;   // 1 where the line has already entered lung before this sample
+
+void main() {
+  int si = int(gl_FragCoord.x);
+  int li = int(gl_FragCoord.y);
+  float dead = 0.0;
+  for (int k = 0; k < 1024; k++) {
+    if (k >= si) break;
+    vec4 a = texelFetch(uPassA, ivec2(k, li), 0);
+    if (a.w > 0.5 && a.z > 0.5) { dead = 1.0; break; }
+  }
+  outDead = vec4(dead, 0.0, 0.0, 1.0);
+}
+`;
+
+export const GLSL_PASS_P_MAIN = /* glsl */ `
+uniform sampler2D uPassA;
+uniform sampler2D uDead;   // pass L: samples behind a pleural entry on their own line, which the CPU march never classifies
+layout(location = 0) out vec4 outA;   // σ, beam-averaged attenuation increment, lung flag, in-body flag
+
+void main() {
+  int si = int(gl_FragCoord.x);
+  int li = int(gl_FragCoord.y);
+  vec4 a = texelFetch(uPassA, ivec2(si, li), 0);
+  if (a.w < 0.5 || a.z > 0.5 || texelFetch(uDead, ivec2(si, li), 0).x > 0.5) { outA = a; return; }
+  float dr = DEPTH / SAMPLES;
+  float r = (float(si) + 0.5) * dr;
+  float dTheta = SECTOR / LINES;
+  const int kMax = int(BEAM_ATTEN_MAX_LINES);
+  int K = min(kMax, int(floor(beamHalfWidthCm(r, FOCUS) / max(BEAM_ATTEN_MIN_ARC_CM, r * dTheta) + 0.5)));
+  int last = int(LINES) - 1;
+  float sum = 0.0;
+  float n = 0.0;
+  for (int j = -kMax; j <= kMax; j++) {
+    if (j < -K || j > K) continue;
+    int q = li + j;
+    if (q < 0 || q > last) continue;
+    vec4 b = texelFetch(uPassA, ivec2(si, q), 0);
+    if (b.w < 0.5 || b.z > 0.5 || texelFetch(uDead, ivec2(si, q), 0).x > 0.5) continue;
+    sum += b.y;
+    n += 1.0;
+  }
+  outA = vec4(a.x, n > 0.0 ? sum / n : a.y, a.z, a.w);
 }
 `;
 

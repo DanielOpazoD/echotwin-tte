@@ -1,5 +1,7 @@
 /**
  * CLI: CAMUS_DIR=/ruta/fuera/del/repo/database_nifti npx tsx tools/clinical/camus-compare.ts [--limit N] [--out stats.json]
+ *      [--reference-out ...] [--geometry-out ...] [--surroundings-out src/clinical/reference-values/camusSurroundings.ts]
+ *      [--sweep-console [--sweep-compensation 0.45,1.0] [--sweep-gray clinical] [--sweep-range 60,70] [--sweep-gain -12,-8]]
  *        [--sweep-console] [--reference-out src/clinical/reference-values/camusImageStats.ts]
  *
  * Compares the simulator's apical images with the CAMUS clinical database, region by region (LV cavity,
@@ -27,6 +29,7 @@ import {
   type RegionImage,
 } from '@/clinical/regionStats';
 import { apicalGeometry, type ApicalGeometry } from '@/clinical/apicalGeometry';
+import { surroundings, type Surroundings, type SurroundingsMetric } from '@/clinical/surroundings';
 import {
   apicalStats,
   meanStat,
@@ -45,6 +48,7 @@ const limit = Number(arg('--limit') ?? '500');
 const outFile = arg('--out');
 const referenceOut = arg('--reference-out');
 const geometryOut = arg('--geometry-out');
+const surroundingsOut = arg('--surroundings-out');
 const repoRoot = resolve(process.cwd());
 
 const camusDir = process.env['CAMUS_DIR'];
@@ -144,6 +148,8 @@ let rejected = 0,
   missing = 0;
 // apical geometry of the optimal-window images (decision 92), keyed by view and phase
 const geometry = new Map<string, ApicalGeometry[]>();
+// what the optimal-window images show around the left ventricle (decision 144), keyed by view and phase
+const surround = new Map<string, Surroundings[]>();
 const qualityCount: Record<string, number> = {};
 const patients = readdirSync(camusAbs)
   .filter((n) => /^patient\d+$/.test(n))
@@ -181,6 +187,8 @@ for (const p of patients)
         const key = `${ch}-${phase}`;
         if (!geometry.has(key)) geometry.set(key, []);
         geometry.get(key)!.push(apicalGeometry(oriented, ch));
+        if (!surround.has(key)) surround.set(key, []);
+        surround.get(key)!.push(surroundings(oriented, ch));
       }
     }
   }
@@ -259,30 +267,66 @@ if (process.argv.includes('--sweep-console')) {
   // clinical scanners apply speckle reduction filters that coarsen the texture, which the console does not model,
   // and scoring it would pick a worse console to compensate for post-processing that is not there.
   const SCORED = METRICS.filter(([k]) => !k.startsWith('speckleCell'));
+  // The surroundings score with the regions (decision 144): what the console does to the near field, the far
+  // background and the bands outside the walls counts as much as what it does to cavity and myocardium.
+  const SCORED_SURROUNDINGS: SurroundingsMetric[] = [
+    'nearFieldGrey',
+    'farBackgroundGrey',
+    'farBackgroundP99',
+    'side1BandGrey',
+    'side2BandGrey',
+  ];
   const results: { cfg: string; score: number; override: ConsoleOverride }[] = [];
   process.stdout.write(
     '\n=== console sweep against CAMUS Good: mean |sim - median| / IQR over 4 conditions (lower is better)\n',
   );
-  for (const grayMap of ['clinical', 's-curve', 'linear', 'high-contrast'] as const)
-    for (const dynamicRangeDb of [55, 60, 65, 70, 75, 80])
-      for (const gainDb of [-4, -2, 0, 2, 4]) {
-        const override: ConsoleOverride = { grayMap, dynamicRangeDb, gainDb };
-        let sum = 0,
-          n = 0;
-        for (const [ch, view] of VIEWS)
-          for (const phase of PHASES) {
-            const clin = clinical.get(`${ch}-${phase}-Good`) ?? [];
-            if (clin.length < 3) continue;
-            const sim = simStats('normal-excellent-window', view, phase, override);
-            for (const [, , get] of SCORED) {
-              const q = quantiles(clin.map(get));
-              sum += Math.abs(meanStat(sim, get) - q.median) / Math.max(1e-6, q.p75 - q.p25);
-              n++;
+  const compensations = (arg('--sweep-compensation') ?? '0.45').split(',').map(Number);
+  const grayMaps = (arg('--sweep-gray') ?? 'clinical,s-curve,linear,high-contrast').split(
+    ',',
+  ) as ConsoleOverride['grayMap'][];
+  const ranges = (arg('--sweep-range') ?? '55,60,65,70,75,80').split(',').map(Number);
+  const gains = (arg('--sweep-gain') ?? '-4,-2,0,2,4').split(',').map(Number);
+  for (const depthCompensationDbPerCmMHz of compensations)
+    for (const grayMap of grayMaps)
+      for (const dynamicRangeDb of ranges)
+        for (const gainDb of gains) {
+          const override: ConsoleOverride = {
+            grayMap,
+            dynamicRangeDb,
+            gainDb,
+            depthCompensationDbPerCmMHz,
+          };
+          let sum = 0,
+            n = 0;
+          for (const [ch, view] of VIEWS)
+            for (const phase of PHASES) {
+              const clin = clinical.get(`${ch}-${phase}-Good`) ?? [];
+              if (clin.length < 3) continue;
+              const sim = simStats('normal-excellent-window', view, phase, override);
+              for (const [, , get] of SCORED) {
+                const q = quantiles(clin.map(get));
+                sum += Math.abs(meanStat(sim, get) - q.median) / Math.max(1e-6, q.p75 - q.p25);
+                n++;
+              }
+              const clinS = surround.get(`${ch}-${phase}`) ?? [];
+              if (clinS.length >= 3) {
+                const simS = surroundings(
+                  presentApical(
+                    renders.get(`normal-excellent-window|${view}|${phase}`)![0]!,
+                    override,
+                  ),
+                  ch,
+                );
+                for (const k of SCORED_SURROUNDINGS) {
+                  const q = quantiles(clinS.map((g) => g[k]));
+                  sum += Math.abs(simS[k] - q.median) / Math.max(1e-6, q.p75 - q.p25);
+                  n++;
+                }
+              }
             }
-          }
-        const cfg = `${grayMap} DR ${dynamicRangeDb} gain ${gainDb}`;
-        results.push({ cfg, score: sum / Math.max(1, n), override });
-      }
+          const cfg = `comp ${depthCompensationDbPerCmMHz} ${grayMap} DR ${dynamicRangeDb} gain ${gainDb}`;
+          results.push({ cfg, score: sum / Math.max(1, n), override });
+        }
   results.sort((x, y) => x.score - y.score);
   for (const r of results.slice(0, 12))
     process.stdout.write(`  ${r.cfg.padEnd(30)} score ${r.score.toFixed(2)}\n`);
@@ -391,6 +435,78 @@ if (geometryOut) {
     `export const CAMUS_GOOD_GEOMETRY: Record<'4CH-ED' | '4CH-ES' | '2CH-ED' | '2CH-ES', Partial<Record<ApicalGeometryMetric, Quartiles>>> = {\n${body}};\n`;
   writeFileSync(geometryOut, module);
   process.stdout.write(`apical geometry reference written to ${geometryOut}\n`);
+}
+
+const SURROUNDINGS_METRICS: [SurroundingsMetric, string][] = [
+  ['nearFieldGrey', 'Near field grey, first 15 mm (median)'],
+  ['farBackgroundGrey', 'Far background grey, > 8 mm from LV/LA (median)'],
+  ['farBackgroundP99', 'Far background grey, 99th percentile'],
+  ['side1BandGrey', 'Band 3-9 mm outside side 1 (septal / inferior)'],
+  ['side2BandGrey', 'Band 3-9 mm outside side 2 (lateral / anterior)'],
+  ['side1EpicardialPeakGrey', 'Brightest pixel 0-4 mm outside side 1 epicardium'],
+  ['side2EpicardialPeakGrey', 'Brightest pixel 0-4 mm outside side 2 epicardium'],
+  ['side1EndoOverMid', 'Side 1 wall: endocardial over mid-wall grey'],
+  ['side1EpiOverMid', 'Side 1 wall: epicardial over mid-wall grey'],
+  ['side2EndoOverMid', 'Side 2 wall: endocardial over mid-wall grey'],
+  ['side2EpiOverMid', 'Side 2 wall: epicardial over mid-wall grey'],
+];
+{
+  process.stdout.write(
+    '\n=== surroundings of the LV: CAMUS Good vs simulator (normal-excellent-window, default console)\n',
+  );
+  for (const [ch, view] of VIEWS)
+    for (const phase of PHASES) {
+      const clin = surround.get(`${ch}-${phase}`) ?? [];
+      const sim = surroundings(
+        presentApicalFrame(renders, 'normal-excellent-window', view, phase),
+        ch,
+      );
+      for (const [k, name] of SURROUNDINGS_METRICS) {
+        const q = quantiles(clin.map((g) => g[k]));
+        if (!Number.isFinite(q.median)) continue;
+        process.stdout.write(
+          `  ${ch} ${phase} ${name.padEnd(52)} ${q.median.toFixed(2).padStart(7)} [${q.p25.toFixed(2)}–${q.p75.toFixed(2)}]  sim ${sim[k].toFixed(2).padStart(7)}\n`,
+        );
+      }
+      const prof = (v: number[][]): string =>
+        [0, 1, 2, 3, 4].map((k) => quantiles(v.map((t) => t[k]!)).median.toFixed(0)).join(' ');
+      process.stdout.write(
+        `  ${ch} ${phase} transmural side 1 (endo → epi, medians)                  ${prof(clin.map((g) => g.side1Transmural))}  sim ${sim.side1Transmural.map((x) => x.toFixed(0)).join(' ')}\n` +
+          `  ${ch} ${phase} transmural side 2 (endo → epi, medians)                  ${prof(clin.map((g) => g.side2Transmural))}  sim ${sim.side2Transmural.map((x) => x.toFixed(0)).join(' ')}\n`,
+      );
+    }
+}
+if (surroundingsOut) {
+  const f = (x: number): string => (Number.isFinite(x) ? String(Math.round(x * 100) / 100) : 'NaN');
+  let body = '';
+  for (const [ch] of VIEWS)
+    for (const phase of PHASES) {
+      const clin = surround.get(`${ch}-${phase}`) ?? [];
+      body += `  '${ch}-${phase}': {\n`;
+      for (const [k] of SURROUNDINGS_METRICS) {
+        const q = quantiles(clin.map((g) => g[k]));
+        if (Number.isFinite(q.median))
+          body += `    ${k}: { median: ${f(q.median)}, p10: ${f(q.p10)}, p25: ${f(q.p25)}, p75: ${f(q.p75)}, p90: ${f(q.p90)}, n: ${q.n} },\n`;
+      }
+      body += '  },\n';
+    }
+  const module =
+    `/**\n` +
+    ` * GENERATED by tools/clinical/camus-compare.ts --surroundings-out (decision 144). Do not edit by hand: re-run the tool.\n` +
+    ` *\n` +
+    ` * What CAMUS apical images rated Good show around the left ventricle (src/clinical/surroundings.ts): near field,\n` +
+    ` * far background, the bands outside each wall, the pericardial line and the transmural grey ratios; median,\n` +
+    ` * interquartile range and 10th/90th percentiles across images. Side 1 is the septum (4CH) or the inferior wall\n` +
+    ` * (2CH), side 2 the lateral or the anterior wall. Aggregate statistics only.\n` +
+    ` *\n` +
+    ` * Source: CAMUS — S. Leclerc et al., "Deep Learning for Segmentation Using an Open Large-Scale Dataset in 2D\n` +
+    ` * Echocardiography", IEEE TMI 38(9):2198-2210, 2019, doi:10.1109/TMI.2019.2900516.\n` +
+    ` */\n` +
+    `import type { Quartiles } from './camusImageStats';\n` +
+    `import type { SurroundingsMetric } from '../surroundings';\n\n` +
+    `export const CAMUS_GOOD_SURROUNDINGS: Record<'4CH-ED' | '4CH-ES' | '2CH-ED' | '2CH-ES', Partial<Record<SurroundingsMetric, Quartiles>>> = {\n${body}};\n`;
+  writeFileSync(surroundingsOut, module);
+  process.stdout.write(`surroundings reference written to ${surroundingsOut}\n`);
 }
 
 process.stdout.write(

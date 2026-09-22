@@ -37,7 +37,13 @@ export const TARGETS: GenTarget[] = [
   },
   {
     file: 'src/simulator/renderer/acoustic/acoustics.ts',
-    functions: ['myoAnisoGain', 'pleuralReverberation'],
+    functions: [
+      'myoAnisoGain',
+      'myoHelixGain',
+      'pleuralReverberation',
+      'beamHalfWidthCm',
+      'focusingGain',
+    ],
   },
   { file: 'src/simulator/renderer/acoustic/psf.ts', functions: ['sliceHalfWidthCm'] },
 ];

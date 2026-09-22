@@ -32,8 +32,16 @@ export interface BackendComparison {
   samples: number;
   structureAgreement: number;
   tissueAgreement: number;
-  /** mean |Δamplitude| / mean amplitude (CPU) */
+  /**
+   * Σ|a − b| / Σa over the samples both backends label alike: the parity of the acoustic chain. The boundary samples
+   * that float precision labels differently on the two sides are counted by the structure/tissue agreement and left
+   * out here — with them in, the ratio followed the composition of the frame (a bright pericardium in the near field
+   * of the tamponade PLAX took it from 0.65 % to 1.0 % at decision 111 and past 1 % once the beam had its focusing
+   * profile, decision 144) rather than any drift of the chain.
+   */
   ampRelDiff: number;
+  /** The same ratio over every sample, boundary flips included (information). */
+  ampRelDiffAll: number;
   /** mean |Δtransmission| */
   transDiff: number;
   cpuMs: number;
@@ -121,6 +129,7 @@ export function compareBackends(
     structureAgreement: 0,
     tissueAgreement: 0,
     ampRelDiff: 1,
+    ampRelDiffAll: 1,
     transDiff: 1,
     cpuMs: 0,
     gpuMs: 0,
@@ -143,6 +152,8 @@ export function compareBackends(
     tAgree = 0,
     ampDiff = 0,
     ampSum = 0,
+    ampDiffSame = 0,
+    ampSumSame = 0,
     trDiff = 0;
   const mm = new Map<string, number>();
   const per = new Map<number, { samples: number; mismatched: number }>();
@@ -182,9 +193,15 @@ export function compareBackends(
         });
       }
     }
-    if (fa.tissue[i] === fb.tissue[i]) tAgree++;
-    ampDiff += Math.abs(fa.amplitude[i]! - fb.amplitude[i]!);
+    const sameTissue = fa.tissue[i] === fb.tissue[i];
+    if (sameTissue) tAgree++;
+    const d = Math.abs(fa.amplitude[i]! - fb.amplitude[i]!);
+    ampDiff += d;
     ampSum += fa.amplitude[i]!;
+    if (sameTissue && sa === fb.structure[i]) {
+      ampDiffSame += d;
+      ampSumSame += fa.amplitude[i]!;
+    }
     trDiff += Math.abs(fa.transmission[i]! - fb.transmission[i]!);
   }
   const mismatches = Object.fromEntries([...mm.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8));
@@ -197,7 +214,8 @@ export function compareBackends(
     samples: spec.samples,
     structureAgreement: sAgree / n,
     tissueAgreement: tAgree / n,
-    ampRelDiff: ampDiff / Math.max(ampSum, 1e-6),
+    ampRelDiff: ampDiffSame / Math.max(ampSumSame, 1e-6),
+    ampRelDiffAll: ampDiff / Math.max(ampSum, 1e-6),
     transDiff: trDiff / n,
     cpuMs,
     gpuMs,

@@ -67,7 +67,7 @@ for (const id of views) {
         let col: Rgb = [0, 0, 0];
         if (classifyHeart(heart, pose, pH.x, pH.y, pH.z, s))
           col = colours[s.structure] ?? tissueFallback[s.tissue] ?? [255, 0, 255];
-        else if (classifyThorax(thorax, pT.x, pT.y, pT.z, s))
+        else if (classifyThorax(thorax, pT.x, pT.y, pT.z, s, s.sdf))
           col = tissueFallback[s.tissue] ?? [80, 80, 80];
         const o = (py * W + px) * 4;
         rgba[o] = col[0];

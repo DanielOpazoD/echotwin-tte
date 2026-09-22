@@ -51,6 +51,8 @@ import {
   TV_INFLOW_BULGE_CM,
 } from '@/simulator/anatomy/valveSkirt';
 
+import { FAR_FROM_HEART_CM } from '@/simulator/anatomy/classify';
+
 const f = (v: number): string => (Number.isInteger(v) ? `${v}.0` : `${v}`);
 
 export const GLSL_HEART = /* glsl */ `
@@ -81,6 +83,7 @@ const float PV_INF_DZ = ${f(PV_INF_DZ)};
 const float PV_RADIUS = ${f(PV_RADIUS)};
 const float SKIRT_ABOVE_CM = ${f(SKIRT_ABOVE_CM)};
 const float TV_INFLOW_BULGE_CM = ${f(TV_INFLOW_BULGE_CM)};
+const float FAR_FROM_HEART_CM = ${f(FAR_FROM_HEART_CM)};
 const float SKIRT_BELOW_CM = ${f(SKIRT_BELOW_CM)};
 const float SKIRT_RADIAL_MARGIN_CM = ${f(SKIRT_RADIAL_MARGIN_CM)};
 const float SKIRT_FIBRE_CLIP = ${f(SKIRT_FIBRE_CLIP)};
@@ -99,6 +102,7 @@ struct Sample {
   vec3 n;
   vec3 m;
   float extra;
+  float transmural; // depth across the LV wall, 0 endocardium → 1 epicardium; −1 elsewhere (decision 144)
 };
 
 void setSample(out Sample s, int tissue, float sdf, vec3 n, vec3 m, float extra, int structure) {
@@ -109,6 +113,7 @@ void setSample(out Sample s, int tissue, float sdf, vec3 n, vec3 m, float extra,
   s.m = m;
   s.extra = extra;
   s.structure = structure;
+  s.transmural = -1.0;
 }
 
 // ---- profile helpers (skirts) ----
@@ -559,7 +564,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
   vec3 p = vec3(p0.x - SWING_X, p0.y, p0.z);
   float x = p.x, y = p.y, z = p.z;
   vec3 bd = p - vec3(BOUND_CX, BOUND_CY, BOUND_CZ);
-  if (dot(bd, bd) > BOUND_R * BOUND_R) return false;
+  if (dot(bd, bd) > BOUND_R * BOUND_R) { s.sdf = FAR_FROM_HEART_CM; return false; }
   float zAnn = ZANN;
 
   // ---------- aortic root coordinates ----------
@@ -710,9 +715,12 @@ bool classifyHeart(vec3 p0, out Sample s) {
     else if (septalness > 0.7) structure = S_LV_SEPT;
     else if (sin(az) > 0.5) structure = S_LV_ANT;
     else if (sin(az) < -0.5) structure = S_LV_INF;
-    float dIn = -min(dEllR, wallT - dEllR);
-    float sg = (wallT - dEllR < dEllR) ? 1.0 : -1.0;
+    bool nearEpi = wallT - dEllR < dEllR;
+    // only the smooth epicardium reflects coherently; the trabeculated endocardium scatters (decision 144)
+    float dIn = nearEpi ? -(wallT - dEllR) : -wallT;
+    float sg = nearEpi ? 1.0 : -1.0;
     setSample(s, T_MYO, dIn, sg * n0, vec3(x / rs, y / rs, (z - LV_LEN) / ls), 0.0, structure);
+    s.transmural = clamp(dEllR / wallT, 0.0, 1.0);
     return true;
   }
   bool inAnnularRegion = dEllR < 0.0 && z < zAnn && !inRootLumen;
@@ -964,6 +972,10 @@ bool classifyHeart(vec3 p0, out Sample s) {
       setSample(s, T_PERI, 0.0, nEpi, p, 0.0, S_PERI);
       return true;
     }
+    // outside the sac: distance beyond the parietal pericardium or the wall of the ascending aorta (decision 144)
+    float dSac = dEpi - 0.12 - (eff > 0.0 ? eff + 0.12 : 0.0);
+    float dRoot = rootT > -90.0 ? rootRr - rootR - 0.2 : dSac;
+    s.sdf = min(dSac, dRoot);
   }
   return false;
 }

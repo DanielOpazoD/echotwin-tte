@@ -1,6 +1,7 @@
 import type { AcquisitionSettings, PolarFrame, PolarFrameSpec } from '../types';
 import { hash3 } from '@/core/random';
 import { buildNoiseKernels, ENVELOPE_NORM, filterComplex, type PsfKernels } from '../acoustic/psf';
+import { focusingGain } from '../acoustic/acoustics';
 
 /**
  * Console post-processing (spec 7.7): linear envelope amplitude → displayed polar intensity 0..255.
@@ -20,8 +21,17 @@ export interface ConsoleState {
   seed: number;
 }
 
-/** Mean envelope of receiver noise alone, before amplification (amplitude units). */
-export const NOISE_FLOOR = 0.0018;
+/**
+ * Mean envelope of receiver noise alone, before amplification (amplitude units). 0.0018 from decision 91 until the beam
+ * gained its focusing profile (decision 144): the walls before the focus lost 3–4 dB while the noise stayed, the deep
+ * chambers and lung read at the noise floor above the walls, and the far background rose from 76 to 93 where CAMUS Good
+ * shows 79. The floor follows the signal down: the echo levels are the model's own units, the receiver's noise their
+ * calibration against the images. 0.0004 with the compensation at 0.7 dB/cm/MHz (the sweep's choice amplifies the deep
+ * noise with the deep echoes): 0.0011 left the far background at 111 and the systolic atrium at 106 where CAMUS Good
+ * shows 79 and 60; at 0.0004 they read 85 and 77, with the blood's own backscatter raised (0.012 → 0.018) so the
+ * cavity keeps its 50 against 56 instead of falling with the noise.
+ */
+export const NOISE_FLOOR = 0.0004;
 /**
  * RMS of the white complex receiver noise before the receive response (decision 91). The response has unit energy, so it
  * keeps E|n|², and a complex Gaussian detects to a mean envelope of √π/2 times its RMS: noise alone reads NOISE_FLOOR.
@@ -142,8 +152,20 @@ function ensure(s: { buf: Float32Array }, n: number): Float32Array {
 }
 
 /**
- * Per-sample amplification of the console: default depth compensation (0.38 dB/cm/MHz) plus the TGC curve,
- * capped at 60 dB, times the overall gain. The CPU console uses it in float64, the GPU console as a texture.
+ * Default depth compensation of the (fictional) console, dB per cm and MHz of the two-way path. 0.38 until the heart was
+ * moved behind the chest wall (decision 66), then 0.45: the extra 1.2 cm of wall on the path attenuated more than the
+ * compensation returned and myocardial grey fell from 100+ to 94 at 0 dB gain. A scanner's own curve assumes the
+ * soft-tissue attenuation of ~0.5 dB/cm/MHz each way, 1.0 dB/cm/MHz two-way, whatever lies on the path; the case's
+ * `AcquisitionSettings.depthCompensationDbPerCmMHz` overrides it (the clinical console sweep varies it, decision 144).
+ * 0.7 since the beam has its focusing profile and the receiver its lower noise floor (decision 144): the sweep against
+ * CAMUS Good over cavity, myocardium, atrium, contrast and the surroundings of the ventricle scored 0.64 at 0.7 dB/cm/MHz
+ * with the clinical map at 70 dB and 0 dB gain, against 0.71 at 0.45.
+ */
+export const DEPTH_COMPENSATION_DB_PER_CM_MHZ = 0.7;
+
+/**
+ * Per-sample amplification of the console: default depth compensation plus the TGC curve, capped at 60 dB, times the
+ * overall gain. The CPU console uses it in float64, the GPU console as a texture.
  */
 export function consoleCompensation(
   settings: AcquisitionSettings,
@@ -151,14 +173,16 @@ export function consoleCompensation(
   out: Float32Array | Float64Array,
 ): void {
   const dr = spec.depthCm / spec.samples;
-  // 0.45, raised from 0.38 when the heart was moved behind the chest wall (decision 66): the extra 1.2 cm of
-  // chest wall on the path attenuate more than the old compensation returned, and myocardial grey fell from
-  // 100+ to 94 at 0 dB gain. The compensation has to cover the real path, chest wall included.
-  const baselineDbPerCm = 0.45 * settings.frequencyMHz; // default depth compensation of the (fictional) console
+  const baselineDbPerCm =
+    (settings.depthCompensationDbPerCmMHz ?? DEPTH_COMPENSATION_DB_PER_CM_MHZ) *
+    settings.frequencyMHz;
   const gainLin = Math.pow(10, settings.gainDb / 20);
   for (let si = 0; si < spec.samples; si++) {
     const r = (si + 0.5) * dr;
-    const compDb = baselineDbPerCm * r + tgcAtDepth(settings, r);
+    // diffraction correction: the default curve gives back what the beam loses by widening beyond its focus, and
+    // nothing of what it loses in front of it — a scanner's near gain leaves the chest wall to fall (decision 144)
+    const diffractionDb = -20 * Math.log10(focusingGain(Math.max(r, spec.focusCm), spec.focusCm));
+    const compDb = baselineDbPerCm * r + diffractionDb + tgcAtDepth(settings, r);
     out[si] = Math.pow(10, Math.min(compDb, 60) / 20) * gainLin;
   }
 }

@@ -219,13 +219,40 @@ export function isAnteriorLung(t: ThoraxModel, x: number, y: number, z: number):
   return false;
 }
 
-/** Classify a torso-frame point that is NOT inside the heart. Returns false for air outside the body. */
+/**
+ * The pleural cavities wrap the pericardium (decision 144). Until then lung existed only lateral to the cardiac notch
+ * border and behind z = −10.5, and everything else around the heart was one homogeneous «mediastinal fat»: in the apical
+ * images the far background measured a flat grey 76 (99th percentile 164) where CAMUS Good shows 107 with bright
+ * pleural and pericardial interfaces up to 243, and the band outside the lateral wall 65 against 122. A point outside
+ * the heart is lung when it lies beyond the pericardial fat pad, either side of the mediastinal column (great vessels,
+ * oesophagus, spine) and deeper than the corridor between chest wall and heart, where the anterior lung border rules
+ * (`isAnteriorLung`, the acoustic windows).
+ */
+export const PERICARDIAL_FAT_CM = 0.15;
+
+/**
+ * Chest wall layers (decision 144): skin, subcutaneous fat (hypoechoic), the superficial (pectoral) fascia as a thin
+ * fibrous sheet that reflects coherently, and muscle down to the thickness of the wall. In CAMUS Good images the wall
+ * reads 119–138 grey with a bright line or two; a wall of fat over muscle with no interface was one flat band.
+ */
+export const SKIN_CM = 0.15;
+export const FAT_FRACTION = 0.45;
+export const FASCIA_HALF_CM = 0.04;
+export const MEDIASTINAL_COLUMN_HALF_CM = 2.5;
+export const ANTERIOR_CORRIDOR_CM = 2.5;
+
+/**
+ * Classify a torso-frame point that is NOT inside the heart. Returns false for air outside the body. `heartDistCm` is
+ * the distance from the point to the outside of the pericardial sac (what `classifyHeart` leaves in `out.sdf` on a
+ * miss); without it the lungs keep their borders and nothing wraps the heart.
+ */
 export function classifyThorax(
   t: ThoraxModel,
   x: number,
   y: number,
   z: number,
   out: TissueSample,
+  heartDistCm = 0,
 ): boolean {
   const zs = skinZ(t, x, y);
   const depth = zs - z; // depth below skin along z
@@ -242,10 +269,10 @@ export function classifyThorax(
   out.nx = 0;
   out.ny = 0;
   out.nz = 1;
-  if (depth < 0.2) {
+  if (depth < SKIN_CM) {
     out.tissue = Tissue.Skin;
     out.structure = Structure.ChestWall;
-    out.sdf = -Math.min(depth, 0.2 - depth);
+    out.sdf = -Math.min(depth, SKIN_CM - depth);
     return true;
   }
   const T = t.chestWall;
@@ -279,9 +306,19 @@ export function classifyThorax(
     }
   }
   if (depth < T) {
-    out.tissue = depth < T * 0.5 ? Tissue.Fat : Tissue.Muscle;
+    const fasciaDepth = T * FAT_FRACTION;
+    if (Math.abs(depth - fasciaDepth) < FASCIA_HALF_CM) {
+      out.tissue = Tissue.Fibrous;
+      out.structure = Structure.ChestWall;
+      out.sdf = -(FASCIA_HALF_CM - Math.abs(depth - fasciaDepth));
+      return true;
+    }
+    out.tissue = depth < fasciaDepth ? Tissue.Fat : Tissue.Muscle;
     out.structure = Structure.ChestWall;
-    out.sdf = -Math.min(depth - 0.2, T - depth);
+    out.sdf =
+      depth < fasciaDepth
+        ? -Math.min(depth - SKIN_CM, fasciaDepth - FASCIA_HALF_CM - depth)
+        : -Math.min(depth - fasciaDepth - FASCIA_HALF_CM, T - depth);
     return true;
   }
   // Below the diaphragm: the liver dome (highest to the right of the midline, under the right heart) with the
@@ -337,7 +374,11 @@ export function classifyThorax(
   const lungR = x < rightLungBorderX(t);
   // posterior lung wrap behind the heart: only a narrow paravertebral/mediastinal column stays soft tissue
   const posteriorWrap = z < -10.5 && Math.abs(x + 0.5) > 1.5;
-  if (lungL || lungR || posteriorWrap) {
+  const aroundHeart =
+    heartDistCm > PERICARDIAL_FAT_CM &&
+    Math.abs(x + 0.5) > MEDIASTINAL_COLUMN_HALF_CM &&
+    depth > T + ANTERIOR_CORRIDOR_CM;
+  if (lungL || lungR || posteriorWrap || aroundHeart) {
     out.tissue = Tissue.Lung;
     out.structure = Structure.Lung;
     out.sdf = -1;

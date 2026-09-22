@@ -66,7 +66,7 @@ export function probeTorsoPointAt(
     q.structure = Structure.Lung;
     q.sdf = -1;
   } else if (classifyHeart(heart, pose, h.x, h.y, h.z, q)) inHeart = true;
-  else classifyThorax(thorax, p.x, p.y, p.z, q);
+  else classifyThorax(thorax, p.x, p.y, p.z, q, q.sdf);
   const nearRoot = inHeart && classifyCtx.rootT > -50;
   return {
     rCm: Math.hypot(along, lat),
