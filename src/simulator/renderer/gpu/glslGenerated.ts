@@ -4,9 +4,9 @@
 /** Pure scalar functions shared by the CPU tracer and the shaders, transpiled from their TypeScript source. */
 export const GLSL_GENERATED = /* glsl */ `
 // src/simulator/anatomy/valveSkirt.ts: annulusOffset
-float annulusOffset(float phi, float saddlePhi, float saddle) {
+float annulusOffset(float phi, float saddlePhi, float saddle, float tiltC, float tiltS, float lift) {
   float sn = sin(phi - saddlePhi);
-  return saddle * (sn * sn - 0.5);
+  return saddle * (sn * sn - 0.5) + tiltC * cos(phi) + tiltS * sin(phi) + lift;
 }
 // src/simulator/anatomy/valveSkirt.ts: tvInflowTaper
 float tvInflowTaper(float h, float close, float bulge) {

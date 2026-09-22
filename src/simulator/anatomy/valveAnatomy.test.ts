@@ -570,7 +570,7 @@ describe('tricuspid apparatus (decision 78)', () => {
                   hidden,
                   tv.cx + rho * Math.cos(ang) + pose.swingX,
                   tv.cy + rho * Math.sin(ang),
-                  tv.cz + zz + skirtOffset(tv, ang),
+                  tv.cz + zz + skirtOffset(tv, ang) * Math.min(1, rho / tv.R),
                   s,
                 ) ||
                 (s.tissue !== Tissue.Blood && s.tissue !== Tissue.Chordae)
@@ -1069,7 +1069,8 @@ describe('pulmonary root beside the aortic root (decision 112)', () => {
       for (const r of [A.tvR * 0.5, A.tvR * 0.8, A.tvR * 0.95]) {
         const x = tv.cx + r * Math.cos(phi);
         const y = tv.cy + r * Math.sin(phi);
-        const z = tv.cz + 0.01;
+        // the leaflet hangs from the annulus at its height at this azimuth (saddle and tilt, decisions 138 and 148)
+        const z = tv.cz + skirtOffset(tv, phi) * Math.min(1, r / tv.R) + 0.01;
         const t = skirtDistance(x, y, z, tv);
         if (skirtHit.d >= t) continue;
         const nLen = Math.hypot(skirtHit.nx, skirtHit.ny, skirtHit.nz);

@@ -54,6 +54,14 @@ export const TV_SYSTOLIC_SHORTENING = 0.2;
  */
 export const TV_SADDLE_CM = 0.5;
 export const TV_SADDLE_PHI = Math.PI / 4;
+/**
+ * Tilt of the tricuspid annulus (decision 148): its anterior rim lies TV_ANTERIOR_TILT_CM more atrial than the centre
+ * and its posterior rim, on the diaphragmatic surface, as much more apical, so the anterior half reaches toward the
+ * level of the aortic root, where the anteroseptal commissure meets the membranous septum. The septal and lateral
+ * points keep their height, and with them the apical offset of the septal hinge in the four-chamber view.
+ */
+export const TV_ANTERIOR_TILT_CM = 0.6;
+
 /** Closed tricuspid leaflets: depth of the central coaptation below the hinges (cm) and the profile's vertex fractions. */
 const TV_TENTING_CM = 0.3;
 const TV_CLOSED_REACH = [0.36, 0.71, 1];
@@ -294,6 +302,7 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
   // shortens in systole with its septal edge fixed (TV_SYSTOLIC_SHORTENING); leaflet lengths do not change.
   const tvOpen = state.tvOpen;
   const tvRNow = A.tvR * (1 - TV_SYSTOLIC_SHORTENING * state.contraction);
+
   const tv: SkirtDesc = {
     cx: A.tvCenter.x + (A.tvR - tvRNow),
     cy: A.tvCenter.y,
@@ -303,6 +312,10 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
     thickness: 0.09,
     saddle: TV_SADDLE_CM,
     saddlePhi: TV_SADDLE_PHI,
+    // the anterior rim toward the level of the aortic root (decision 148)
+    tiltC: 0,
+    tiltS: -TV_ANTERIOR_TILT_CM,
+    lift: 0,
     closed: 1 - tvOpen,
     zones: [],
   };
@@ -390,8 +403,11 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
               const need = Math.min(0.25, 0.4 * (Math.hypot(tvRNow - rho, zz) - 0.15));
               if (need <= 0) continue;
               if (
-                rvCavity(tv.cx + rho * ca, tv.cy + rho * sa, tv.cz + zz + skirtOffset(tv, ang)) >
-                -need
+                rvCavity(
+                  tv.cx + rho * ca,
+                  tv.cy + rho * sa,
+                  tv.cz + zz + skirtOffset(tv, ang) * Math.min(1, rho / tv.R),
+                ) > -need
               )
                 return false;
             }

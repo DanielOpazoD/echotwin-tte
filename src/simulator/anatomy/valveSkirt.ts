@@ -48,24 +48,39 @@ export interface SkirtDesc {
   /** Saddle height (cm, high to low) and the azimuth of its high points (the most atrial, decision 138). */
   saddle: number;
   saddlePhi: number;
+  /**
+   * Tilt of the annulus (decision 148): apical offset tiltC·cos φ + tiltS·sin φ + lift added to the saddle; the
+   * tricuspid annulus lifts its anterior half toward the level of the aortic root.
+   */
+  tiltC: number;
+  tiltS: number;
+  lift: number;
   /** 1 when closed (coaptation-line shaping and scallops fully applied), 0 when open. */
   closed: number;
   zones: SkirtZone[];
 }
 
 /**
- * Apical offset (cm) of the tricuspid annulus from its mean level at azimuth `phi` (decision 138): a saddle `saddle`
- * cm high whose high (most atrial) points lie at `saddlePhi` and opposite, centred on the mean level. The leaflets, the
- * ring, the inflow column and the floors of the atrium and the ventricle all hang from this surface.
+ * Apical offset (cm) of the tricuspid annulus from the level of its centre at azimuth `phi`: a saddle `saddle` cm high
+ * whose high (most atrial) points lie at `saddlePhi` and opposite, centred on that level (decision 138), plus a tilt
+ * tiltC·cos φ + tiltS·sin φ + lift (decision 148). The leaflets, the ring, the inflow column and the floors of the atrium
+ * and the ventricle all hang from this surface.
  */
-export function annulusOffset(phi: number, saddlePhi: number, saddle: number): number {
+export function annulusOffset(
+  phi: number,
+  saddlePhi: number,
+  saddle: number,
+  tiltC: number,
+  tiltS: number,
+  lift: number,
+): number {
   const sn = Math.sin(phi - saddlePhi);
-  return saddle * (sn * sn - 0.5);
+  return saddle * (sn * sn - 0.5) + tiltC * Math.cos(phi) + tiltS * Math.sin(phi) + lift;
 }
 
 /** The annulus offset of a skirt at azimuth `phi` around its centre. */
 export function skirtOffset(k: SkirtDesc, phi: number): number {
-  return annulusOffset(phi, k.saddlePhi, k.saddle);
+  return annulusOffset(phi, k.saddlePhi, k.saddle, k.tiltC, k.tiltS, k.lift);
 }
 
 /** The annulus offset above a heart-frame point, by its azimuth around the annulus centre. */
@@ -128,7 +143,10 @@ export function skirtDistance(x: number, y: number, z: number, k: SkirtDesc): nu
     return 0;
   }
   const phi = fastAtan2(dy, dx);
-  const zr = zr0 - skirtOffset(k, phi);
+  // the leaflets hang from the annulus at its height there and meet at a common coaptation point in the centre: the
+  // annulus offset weighs by the distance from the centre (decision 148; a tilted annulus otherwise shifted each leaflet
+  // whole and left their closed tips at different heights)
+  const zr = zr0 - skirtOffset(k, phi) * Math.min(1, rho / k.R);
   let best = Infinity,
     bestFrac = 0,
     bestW = 0,
@@ -229,7 +247,11 @@ export function skirtTip(k: SkirtDesc, zn: SkirtZone, param: number, out: number
       sa = Math.sin(zn.phi);
     out[0] = k.cx + ca * vTip - sa * u;
     out[1] = k.cy + sa * vTip + ca * u;
-    out[2] = k.cz + P[7]! * s + skirtOffset(k, Math.atan2(out[1] - k.cy, out[0] - k.cx));
+    out[2] =
+      k.cz +
+      P[7]! * s +
+      skirtOffset(k, Math.atan2(out[1] - k.cy, out[0] - k.cx)) *
+        Math.min(1, Math.hypot(out[0] - k.cx, out[1] - k.cy) / k.R);
   } else {
     const dphi = param;
     const q = dphi / zn.halfSpan;
@@ -238,7 +260,7 @@ export function skirtTip(k: SkirtDesc, zn: SkirtZone, param: number, out: number
     const ang = zn.phi + dphi;
     out[0] = k.cx + rTip * Math.cos(ang);
     out[1] = k.cy + rTip * Math.sin(ang);
-    out[2] = k.cz + P[7]! * s + skirtOffset(k, ang);
+    out[2] = k.cz + P[7]! * s + skirtOffset(k, ang) * Math.min(1, Math.abs(rTip) / k.R);
   }
 }
 
