@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 147 (última: 147).
+Decisiones: 148 (última: 148).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -155,3 +155,4 @@ Decisiones: 147 (última: 147).
 | [145](DECISIONS.md#L457) | 2026-09-22 | La imagen se forma con dos miradas de speckle promediadas tras la detección, el parénquima lleva granos coherentes integrados sobre el corte y el pulso axial es el del filtro armónico | vigente |
 | [146](DECISIONS.md#L461) | 2026-09-22 | El sector entero se mide sin etiquetas contra CAMUS, un clasificador puntúa cuánto delata al simulador y la prueba ciega tiene protocolo | vigente |
 | [147](DECISIONS.md#L465) | 2026-09-22 | Los postes comisurales aórticos son estrechos, los velos abiertos cuelgan del anillo y una lámina valvular se ve por la fracción del corte que ocupa | vigente |
+| [148](DECISIONS.md#L467) | 2026-09-22 | El eje corto de grandes vasos gira 12° hacia la entrada del VD y el anillo tricúspide inclina su borde anterior hacia la raíz: la aurícula derecha se abre al ventrículo por la tricúspide a las 9–10 | vigente |

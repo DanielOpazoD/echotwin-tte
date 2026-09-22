@@ -205,7 +205,9 @@ export function measureModel(
   const rvES = vol(esPose, rvStructs, [-8.5, -3.5, -8.5], [1.5, 7, 8.5]);
   const laMax = vol(esPose, [Structure.LaCavity], [-3.5, -7, -7], [4.5, 1.5, 1.5]);
   const laMin = vol(edPose, [Structure.LaCavity], [-3.5, -7, -7], [4.5, 1.5, 1.5]);
-  const raMax = vol(esPose, [Structure.RaCavity], [-9, -4.5, -6.5], [-1, 3, 1.5]);
+  // The box reaches the tricuspid annulus at end-systole: until decision 148 it stopped at z = 1.5 cm and cut off the
+  // atrium over the base the ventricle vacates in systole (decision 133), 22 mL in the normal case (45 of 67 mL counted)
+  const raMax = vol(esPose, [Structure.RaCavity], [-9, -4.5, -6.5], [-1, 3, 4.5]);
   const myoStructs = [
     Structure.LvWallSeptal,
     Structure.LvWallLateral,

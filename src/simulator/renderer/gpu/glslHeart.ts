@@ -134,7 +134,8 @@ float skirtDistance(vec3 p, vec3 c, float R, int zonesBase, int profBase, int nz
   nOut = vec3(0.0, 0.0, 1.0);
   if (zr0 > SKIRT_ABOVE_CM || zr0 < -SKIRT_BELOW_CM || rho > R + SKIRT_RADIAL_MARGIN_CM) { dOut = 1e3; fracOut = 0.0; return 0.0; }
   float phi = atan(d.y, d.x);
-  float zr = zr0 - annulusOffset(phi, TVS_SADDLE_PHI, saddle);
+  // the annulus offset weighs by the distance from the centre, where the closed leaflets meet (valveSkirt.ts, decision 148)
+  float zr = zr0 - annulusOffset(phi, TVS_SADDLE_PHI, saddle, TVS_TILTC, TVS_TILTS, TVS_LIFT) * min(1.0, rho / R);
   float best = 1e9, bestFrac = 0.0, bestW = 0.0;
   int bestZone = 0;
   float bestEx = 0.0, bestEz = 1.0, bestCa = 1.0, bestSa = 0.0, bestKind = 0.0;
@@ -536,14 +537,14 @@ vec4 rvRadii(float az, float z, float contraction, float tvZ, float rvCollapse) 
 float tvOffsetAt(vec2 q) {
   vec2 d = q - vec2(TVS_CX, TVS_CY);
   float phi = dot(d, d) > 1e-12 ? atan(d.y, d.x) : 0.0;
-  return annulusOffset(phi, TVS_SADDLE_PHI, TVS_SADDLE);
+  return annulusOffset(phi, TVS_SADDLE_PHI, TVS_SADDLE, TVS_TILTC, TVS_TILTS, TVS_LIFT);
 }
 float tvInflowSdf(vec3 p) {
   vec2 d = p.xy - vec2(TVS_CX, TVS_CY);
   float r2 = dot(d, d);
   float rho = sqrt(r2);
   float phi = r2 > 1e-12 ? atan(d.y, d.x) : 0.0;
-  float h = p.z - (TVS_CZ + annulusOffset(phi, TVS_SADDLE_PHI, TVS_SADDLE));
+  float h = p.z - (TVS_CZ + annulusOffset(phi, TVS_SADDLE_PHI, TVS_SADDLE, TVS_TILTC, TVS_TILTS, TVS_LIFT));
   float bulge = TV_INFLOW_BULGE_CM * 0.5 * (1.0 - cos(phi - P(TVS_ZONES_BASE + 6)));
   return rho - TVS_R + 0.04 + tvInflowTaper(h, 0.25 + 0.3 * TVZ, bulge);
 }

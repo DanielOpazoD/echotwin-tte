@@ -237,6 +237,9 @@ const SCALARS = [
   'TVS_T',
   'TVS_SADDLE',
   'TVS_SADDLE_PHI',
+  'TVS_TILTC',
+  'TVS_TILTS',
+  'TVS_LIFT',
   // thorax
   'TH_AW',
   'TH_BDEPTH',
@@ -551,6 +554,9 @@ export function packScene(
     set(`${prefix}_T`, k.thickness);
     set(`${prefix}_SADDLE`, k.saddle);
     set(`${prefix}_SADDLE_PHI`, k.saddlePhi);
+    set(`${prefix}_TILTC`, k.tiltC);
+    set(`${prefix}_TILTS`, k.tiltS);
+    set(`${prefix}_LIFT`, k.lift);
     const zb = PARAM_OFFSET[`${prefix}_ZONES`]!;
     const pb = PARAM_OFFSET[`${prefix}_PROF`]!;
     d.fill(0, zb, zb + 18);

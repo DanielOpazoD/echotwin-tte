@@ -166,7 +166,7 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['2CH-ED:bandDark4', 4.96],
   ['2CH-ES:bandDark4', 4.81],
   ['4CH-ED:bandDark6', 27.9],
-  ['4CH-ES:bandDark6', 2.58],
+  ['4CH-ES:bandDark6', 2.37],
   ['2CH-ED:bandDark6', 30.69],
   ['2CH-ES:bandDark6', 30.38],
   ['4CH-ED:bandDark8', 13.94],
@@ -191,6 +191,7 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['2CH-ED:ridgeFraction', 0.97],
   // more texture contrast over the whole sector: the blood pool and background are grainier than the clinical haze
   ['4CH-ED:detrendedStd', 0.5],
+  ['4CH-ED:localStd', 0.1],
   ['2CH-ED:detrendedStd', 0.47],
   // texture longer along the beam at 1 mm (0.31-0.35 against 0.20-0.23) and, in the 2CH, less coherent across it at 2-4 mm
   ['4CH-ED:radialCorr1', 1.33],
@@ -198,10 +199,10 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['2CH-ED:radialCorr1', 1.72],
   ['2CH-ES:radialCorr1', 1.17],
   ['2CH-ED:radialCorr2', 0.26],
-  ['4CH-ES:radialCorr4', -0.24],
+  ['4CH-ES:radialCorr4', -0.39],
+  ['4CH-ED:radialCorr4', -0.17],
   ['2CH-ED:radialCorr4', 0.23],
   ['2CH-ES:radialCorr4', 0.35],
-  ['4CH-ES:radialCorr8', -0.16],
   ['2CH-ED:radialCorr8', -0.34],
   ['2CH-ES:radialCorr8', -0.88],
   ['2CH-ED:tangentialCorr2', -0.2],
@@ -209,7 +210,7 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['4CH-ES:tangentialCorr4', -0.21],
   ['2CH-ED:tangentialCorr4', -1.25],
   ['2CH-ES:tangentialCorr4', -0.99],
-  ['4CH-ED:tangentialCorr8', 0.77],
+  ['4CH-ED:tangentialCorr8', 0.61],
   ['2CH-ES:tangentialCorr8', -0.35],
   // near field (0-2 cm) brighter (141-154 against 105-115) and the cavity bands (4-10 cm) darker than clinical
   ['4CH-ED:bandGrey0', 0.53],
