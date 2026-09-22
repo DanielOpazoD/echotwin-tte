@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 150 (última: 150).
+Decisiones: 151 (última: 151).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -158,3 +158,4 @@ Decisiones: 150 (última: 150).
 | [148](DECISIONS.md#L467) | 2026-09-22 | El eje corto de grandes vasos gira 12° hacia la entrada del VD y el anillo tricúspide inclina su borde anterior hacia la raíz: la aurícula derecha se abre al ventrículo por la tricúspide a las 9–10 | vigente |
 | [149](DECISIONS.md#L469) | 2026-09-22 | La aurícula derecha alcanza en sístole el volumen declarado: su techo sigue la mitad del TAPSE y la base libre es aurícula sólo sobre el orificio tricúspide | vigente |
 | [150](DECISIONS.md#L471) | 2026-09-22 | El mediastino es una columna posterior y otra superior redondeadas: a los lados del corazón el pulmón llega a la almohadilla grasa del pericardio | vigente |
+| [151](DECISIONS.md#L473) | 2026-09-22 | La tricúspide fuera del eje corto al final de la sístole es movimiento a través del plano, y la distinguibilidad no cambia con la anatomía del corazón derecho | vigente |

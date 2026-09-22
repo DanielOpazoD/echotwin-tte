@@ -230,6 +230,7 @@ Distinguibilidad automática (`tools/clinical/discriminate.ts`): regresión log�
 | Fecha | Versión | AUC | Lo que más delata (AUC de cada estadística sola) |
 |---|---|---|---|
 | 2026-09-22 | decisión 146 (`393ac87` + medición) | 1,000 (cinco pliegues 1,000; cuatro condiciones 1,000) | gradiente p50 0,999 (15,0 frente a 10,1 gris/mm), correlación radial a 1 mm 0,983 (0,33 frente a 0,21), crestas finas 0,971, negros a 4–6 cm 0,967 (4,3 % frente a 0), gradiente p95 0,946, campo cercano 0,922 (148 frente a 109), banda de 4–6 cm 0,127 (48 frente a 77), coherencia de través a 4 mm 0,151 |
+| 2026-09-22 | decisiones 147–150 (`967f8d9`) | 1,000 (cinco pliegues y cuatro condiciones 1,000) | sin cambios en lo que delata: gradiente p50 0,999, correlación radial a 1 mm 0,980, crestas finas 0,969, negros a 4–6 cm 0,967, campo cercano 0,922; las cuatro decisiones corrigieron anatomía del corazón derecho, válvulas y mediastino, no la formación de la imagen de los apicales que mide el clasificador |
 
 ## Validación externa
 El protocolo preregistrado (tres estudios: puntuación experta por vista y versión, comparación ciega con imágenes reales anonimizadas, piloto con residentes) está en `docs/VALIDATION_PROTOCOL.md`. Materiales listos: `npm run review:export` (288 imágenes + hoja CSV + guion) y la exportación anónima del progreso. **Ninguno de los tres estudios se ha ejecutado**; los resultados irán a `docs/validation/results/`.
