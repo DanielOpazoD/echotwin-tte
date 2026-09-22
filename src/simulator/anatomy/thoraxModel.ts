@@ -224,9 +224,9 @@ export function isAnteriorLung(t: ThoraxModel, x: number, y: number, z: number):
  * border and behind z = −10.5, and everything else around the heart was one homogeneous «mediastinal fat»: in the apical
  * images the far background measured a flat grey 76 (99th percentile 164) where CAMUS Good shows 107 with bright
  * pleural and pericardial interfaces up to 243, and the band outside the lateral wall 65 against 122. A point outside
- * the heart is lung when it lies beyond the pericardial fat pad, either side of the mediastinal column (great vessels,
- * oesophagus, spine) and deeper than the corridor between chest wall and heart, where the anterior lung border rules
- * (`isAnteriorLung`, the acoustic windows).
+ * the heart is lung when it lies beyond the pericardial fat pad, outside the mediastinum (`mediastinumDistance`: a rounded
+ * posterior column and a superior one above the base since decision 150, a straight slab until then) and deeper than the
+ * corridor between chest wall and heart, where the anterior lung border rules (`isAnteriorLung`, the acoustic windows).
  */
 export const PERICARDIAL_FAT_CM = 0.15;
 
@@ -238,8 +238,32 @@ export const PERICARDIAL_FAT_CM = 0.15;
 export const SKIN_CM = 0.15;
 export const FAT_FRACTION = 0.45;
 export const FASCIA_HALF_CM = 0.04;
-export const MEDIASTINAL_COLUMN_HALF_CM = 2.5;
 export const ANTERIOR_CORRIDOR_CM = 2.5;
+
+/**
+ * Signed distance-like measure of the mediastinum around the heart (decision 150): negative inside. Beside the heart
+ * the lungs meet the pericardial fat pad; the mediastinum proper is a posterior column behind the left atrium
+ * (oesophagus, descending aorta, the front of the spine: an ellipse in the transverse plane, centred 1.5 cm right of the
+ * midline and 15.5 cm deep, 1.8 cm across and 4.0 cm deep, running the whole height) and a superior one around the great
+ * vessels that widens from nothing at the heart's base (torso y = 2 cm) to 2.5 cm on either side by y = 6. Until then the
+ * mediastinum was a straight slab 5 cm wide from front to back at every height and the posterior lung began at a plane
+ * 10.5 cm deep: their faces are pleural interfaces, and they crossed the parasternal and apical sectors as straight
+ * bright lines.
+ */
+export function mediastinumDistance(x: number, y: number, z: number): number {
+  const px = (x + 0.5) / 1.8,
+    pz = (z + 15.5) / 4.0;
+  const posterior = px * px + pz * pz - 1;
+  const u = Math.min(1, Math.max(0, (y - 2) / 4));
+  const halfWidth = 2.5 * u * u * (3 - 2 * u);
+  let superior = 1;
+  if (halfWidth > 0.05) {
+    const sx = (x + 0.5) / halfWidth,
+      sz = (z + 8) / 5;
+    superior = sx * sx + sz * sz - 1;
+  }
+  return Math.min(posterior, superior);
+}
 
 /**
  * Classify a torso-frame point that is NOT inside the heart. Returns false for air outside the body. `heartDistCm` is
@@ -369,16 +393,15 @@ export function classifyThorax(
       return true;
     }
   }
-  // Lungs: lateral to the cardiac notch / medial borders, and posterior wrap
+  // Lungs: lateral to the cardiac notch borders (the acoustic windows), and everywhere beyond the pericardial fat pad and
+  // the corridor under the chest wall that is not mediastinum (decision 150)
   const lungL = x > leftLungBorderX(t, y);
   const lungR = x < rightLungBorderX(t);
-  // posterior lung wrap behind the heart: only a narrow paravertebral/mediastinal column stays soft tissue
-  const posteriorWrap = z < -10.5 && Math.abs(x + 0.5) > 1.5;
   const aroundHeart =
     heartDistCm > PERICARDIAL_FAT_CM &&
-    Math.abs(x + 0.5) > MEDIASTINAL_COLUMN_HALF_CM &&
-    depth > T + ANTERIOR_CORRIDOR_CM;
-  if (lungL || lungR || posteriorWrap || aroundHeart) {
+    depth > T + ANTERIOR_CORRIDOR_CM &&
+    mediastinumDistance(x, y, z) > 0;
+  if (lungL || lungR || aroundHeart) {
     out.tissue = Tissue.Lung;
     out.structure = Structure.Lung;
     out.sdf = -1;

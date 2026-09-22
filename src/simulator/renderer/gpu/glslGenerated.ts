@@ -77,6 +77,21 @@ float septalShiftAt(float shiftCm, float az, float levelFrac) {
 float rootBend(float t) {
   return t > 3.0 ? 0.16 * (t - 3.0) * (t - 3.0) : 0.0;
 }
+// src/simulator/anatomy/thoraxModel.ts: mediastinumDistance
+float mediastinumDistance(float x, float y, float z) {
+  float px = (x + 0.5) / 1.8;
+  float pz = (z + 15.5) / 4.0;
+  float posterior = px * px + pz * pz - 1.0;
+  float u = min(1.0, max(0.0, (y - 2.0) / 4.0));
+  float halfWidth = 2.5 * u * u * (3.0 - 2.0 * u);
+  float superior = 1.0;
+  if (halfWidth > 0.05) {
+    float sx = (x + 0.5) / halfWidth;
+    float sz = (z + 8.0) / 5.0;
+    superior = sx * sx + sz * sz - 1.0;
+  }
+  return min(posterior, superior);
+}
 // src/simulator/anatomy/classify/atria.ts: atrialScale
 float atrialScale(float booster, float reservoir, float contraction) {
   return booster * (reservoir + (1.0 - reservoir) * contraction);
