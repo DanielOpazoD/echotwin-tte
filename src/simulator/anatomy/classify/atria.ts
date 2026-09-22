@@ -6,6 +6,10 @@ import { inflowTaper } from '../mitralValve';
 import { rvFloorZ, rvRadii } from '../rv';
 import { skirtOffsetAt } from '../valveSkirt';
 import { setSample, type ClassifyCtx } from './context';
+import { PV_RADIUS, pulmonaryVeinSegment } from '../pulmonaryVeins';
+
+/** Scratch for the pulmonary vein segment of the sample being classified (no allocation per sample). */
+const PV_SEG = new Float64Array(6);
 
 /** Radial scale of the atria: reservoir/conduit/booster with the LV contraction, shrunk by the atrial kick and its hold. */
 export function atrialScale(booster: number, reservoir: number, contraction: number): number {
@@ -233,23 +237,21 @@ export function classifyAtria(c: ClassifyCtx): boolean {
       return true;
     }
   }
-  // pulmonary veins: four ostia on the flat posterior wall (two superior, two inferior), the right pair behind the septum
+  // pulmonary veins: towards the hila from the lateral wall (left) and the posteromedial corner (right); the
+  // geometry lives in pulmonaryVeins.ts, shared with the venous flow sampler (decision 143)
   for (let i = 0; i < 4; i++) {
-    const sx = i % 2 === 0 ? -1 : 1;
-    const px = la.x + sx * lr.x * 0.6;
-    const pz = czL + (i < 2 ? -0.7 : 0.6);
-    const py0 = la.y - lr.y * 0.7;
+    pulmonaryVeinSegment(i, la, lr, bo, czL, rzL, PV_SEG);
     const dPv = sdCapsule(
       x,
       y,
       z,
-      px,
-      py0,
-      pz,
-      px + sx * 1.2,
-      py0 - 2.2,
-      pz + (i < 2 ? -0.6 : 0.5),
-      0.45,
+      PV_SEG[0]!,
+      PV_SEG[1]!,
+      PV_SEG[2]!,
+      PV_SEG[3]!,
+      PV_SEG[4]!,
+      PV_SEG[5]!,
+      PV_RADIUS,
     );
     if (dPv < 0) {
       setSample(out, Tissue.Blood, dPv, 0, -1, 0, x, y, z, 0, Structure.PulmonaryVein);

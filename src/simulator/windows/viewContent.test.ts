@@ -78,6 +78,9 @@ const EXPECTED: Record<string, { needs: Requirement[]; forbids?: Forbidden[] }> 
     forbids: [
       never('inferior vena cava', Structure.Ivc),
       never('hepatic vein', Structure.HepaticVein),
+      // not a parasternal structure: veins that ran backwards from the posterior wall lay in this plane and drew
+      // two bright tubes behind the atrium (decision 143)
+      never('pulmonary veins', Structure.PulmonaryVein),
     ],
   },
   'psax-av': {
@@ -164,6 +167,7 @@ const EXPECTED: Record<string, { needs: Requirement[]; forbids?: Forbidden[] }> 
       need('aortic root', Structure.AorticRoot, 1),
       need('mitral leaflets', MITRAL_LEAFLETS, 0.1),
     ],
+    forbids: [never('pulmonary veins', Structure.PulmonaryVein)],
   },
   'subcostal-4c': {
     needs: [

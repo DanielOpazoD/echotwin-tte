@@ -98,6 +98,9 @@ e2e:
   image: mcr.microsoft.com/playwright:v1.63.0-noble
   variables:
     CI: 'true'
+    # el runner es un Mac compartido: antes de la primera prueba, e2e/globalSetup.ts espera (hasta estos minutos)
+    # a que la carga baje, porque a carga 300+ toda la suite cae en su primer cuadro sin fallo de código
+    E2E_LOAD_WAIT_MIN: '10'
   script:
     # En el runner propio (shell), un trabajo cancelado deja vivo su `vite preview` y el puerto 4173 ocupado; el
     # siguiente E2E falla sin probar nada. Solo se detienen las vistas previas lanzadas desde este checkout.

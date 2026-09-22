@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 142 (última: 142).
+Decisiones: 143 (última: 143).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -150,3 +150,4 @@ Decisiones: 142 (última: 142).
 | [140](DECISIONS.md#L439) | 2026-09-22 | La pared libre del VD toma la respuesta de fibras y las paredes auriculares dispersan sin anisotropía; la mitral del A5C queda declarada | vigente |
 | [141](DECISIONS.md#L443) | 2026-09-22 | El panel de guía de la vista queda plegado por defecto | vigente |
 | [142](DECISIONS.md#L445) | 2026-09-22 | El corte ecográfico del navegador es un mapa a color del plano de la imagen, dibujado desde el mapa de estructuras del propio cuadro | vigente |
+| [143](DECISIONS.md#L449) | 2026-09-22 | Las venas pulmonares corren hacia los hilios desde la pared lateral y la esquina posteromedial de la aurícula, y ya no hacia atrás | vigente |
