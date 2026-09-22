@@ -18,8 +18,9 @@ const BUDGETS = [
   [/^react-.*\.js$/, 40 * KB],
   [/^TorsoView-.*\.js$/, 60 * KB],
   [/^sim\.worker-.*\.js$/, 320 * KB],
-  // the WebGL2 port and its shaders: shared by the simulation worker and the lazy backend comparison
-  [/^webgl2Renderer-.*\.js$/, 120 * KB],
+  // the WebGL2 port and its shaders: shared by the simulation worker and the lazy backend comparison. 119.7 kB at
+  // decision 151; the LV segment code in GLSL and its read-back (decision 152) took it to 121.0 kB
+  [/^webgl2Renderer-.*\.js$/, 128 * KB],
   [/^heartMesh\.worker-.*\.js$/, 220 * KB],
   [/^(ReportScreen|CurriculumScreen|ProgressScreen|ReferencesScreen)-.*\.js$/, 80 * KB],
   [/\.js$/, 80 * KB], // any other chunk Rollup splits out

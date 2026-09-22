@@ -68,6 +68,11 @@ export interface PolarFrame {
   transmission: Float32Array;
   /** Per-sample tissue class. */
   tissue: Uint8Array;
+  /**
+   * Per-sample LV segment code of the tissue there (`anatomy/lvSegments.ts`, decision 152): 1–16 AHA, 17–20 the apical
+   * cap by quadrant, 0 when the sample is not LV compact myocardium. From the classifier, never from the view's name.
+   */
+  segment: Uint8Array;
 }
 
 export function allocPolarFrame(spec: PolarFrameSpec): PolarFrame {
@@ -78,6 +83,7 @@ export function allocPolarFrame(spec: PolarFrameSpec): PolarFrame {
     structure: new Uint8Array(n),
     transmission: new Float32Array(n),
     tissue: new Uint8Array(n),
+    segment: new Uint8Array(n),
   };
 }
 

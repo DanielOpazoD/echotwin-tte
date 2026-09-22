@@ -50,6 +50,14 @@ export interface UiPrefs {
   navSplit: boolean;
   /** Chamber and valve names on the cut face. */
   navLabels: boolean;
+  /** The cut map colours the LV myocardium by segment, numbered (decision 152). */
+  navSegments: boolean;
+  /** The LV segment panel (polar map and inspector) under the navigator. */
+  segmentsOpen: boolean;
+  /** Segment model shown: the anatomical AHA 17 or the 16-segment wall-motion model. */
+  segmentModel: 'LV_AHA17' | 'LV_16';
+  /** Segment selected on the cut map or the polar map, shared by both. Not persisted. */
+  selectedSegment: number | null;
   /** The view guide (score, hints, details, causes) under the navigator; hidden until asked for (decision 141). */
   guidanceOpen: boolean;
   /** Rings on the skin where each canonical view is acquired (decision 132). */
@@ -186,6 +194,14 @@ export interface SimStore {
   loadCase: (id: string) => void;
 }
 
+/**
+ * The LV segment layer (decision 152) is shown on the cut map and the 3D heart only where hints are allowed: in exam
+ * mode it is off whatever the saved preference, since its toggle lives in a panel exam mode hides.
+ */
+export function segmentLayerOn(s: Pick<SimStore, 'mode' | 'ui'>): boolean {
+  return s.ui.navSegments && modePolicy(s.mode).hintsEnabled;
+}
+
 /** HUD (per-frame light state) lives in its own store so the console does not re-render per frame. */
 export const useHudStore = create<{ hud: SimOutput | null; setHud: (h: SimOutput | null) => void }>(
   (set) => ({
@@ -222,6 +238,9 @@ function savePrefs(ui: UiPrefs): void {
       navWindows,
       navSplit,
       navLabels,
+      navSegments,
+      segmentsOpen,
+      segmentModel,
       guidanceOpen,
       reviewFreezeOnMark,
       railMini,
@@ -247,6 +266,9 @@ function savePrefs(ui: UiPrefs): void {
         navWindows,
         navSplit,
         navLabels,
+        navSegments,
+        segmentsOpen,
+        segmentModel,
         guidanceOpen,
         reviewFreezeOnMark,
         railMini,
@@ -298,6 +320,10 @@ export const useSimStore = create<SimStore>((set, get) => ({
     navWindows: true,
     navSplit: true,
     navLabels: true,
+    navSegments: false,
+    segmentsOpen: false,
+    segmentModel: 'LV_AHA17',
+    selectedSegment: null,
     guidanceOpen: false,
     showHints: true,
     showPhysics: false,

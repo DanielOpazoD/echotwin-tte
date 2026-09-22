@@ -400,6 +400,7 @@ export class StripEngine {
         structure: new Uint8Array(S),
         transmission: new Float32Array(S),
         tissue: new Uint8Array(S),
+        segment: new Uint8Array(S),
       };
     }
     const a = src.lo.amp,

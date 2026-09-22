@@ -132,6 +132,7 @@ export function estimateStructureVolume(
     extraReflect: 0,
     structure: Structure.None,
     transmural: -1,
+    segment: 0,
   };
   const R = m.boundRadius;
   const c = m.boundCenter;

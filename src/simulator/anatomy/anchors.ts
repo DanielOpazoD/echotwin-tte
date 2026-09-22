@@ -75,6 +75,15 @@ export interface Anchors {
   papR: number;
 }
 
+/**
+ * Interventricular grooves, where the right ventricle inserts on the left (heart-frame azimuth, rad; 0 = lateral,
+ * π/2 = anterior). They bound the septum and the AHA segments (decision 152): anterior | anteroseptal at the anterior
+ * insertion (92°) and inferoseptal | inferior at the inferior one (212°). Model constants shared by all cases, not
+ * individual insertions measured on an image.
+ */
+export const RV_GROOVE_ANTERIOR_RAD = 1.6;
+export const RV_GROOVE_INFERIOR_RAD = 3.7;
+
 export function anchors(m: HeartModel): Anchors {
   const a = m.anatomy;
   const L = m.lv.lengthCm;
@@ -157,8 +166,8 @@ export function anchors(m: HeartModel): Anchors {
     rvCenter: v3(-(m.lv.rMax + a.lv.ivsdCm + 1.1 * rvR), -0.1, L * 0.4),
     rvR: v3(1.1 * rvR + 0.4, 1.1 * rvR + 1.6, L * 0.46),
     rvT: a.rv.basalDiameterCm,
-    rvAzA: 1.6, // anterior interventricular groove (92°: junction of the anterior and anteroseptal segments)
-    rvAzP: 3.7, // inferior (posterior) interventricular groove (212°: junction of the inferoseptal and inferior segments)
+    rvAzA: RV_GROOVE_ANTERIOR_RAD,
+    rvAzP: RV_GROOVE_INFERIOR_RAD,
     rvApexFrac: Math.min(0.9, Math.max(0.7, (a.rv.lengthCm + 0.8) / L)),
     // tricuspid annulus: its medial edge sits on the RV side of the septum, whatever the LV size or wall thickness
     // the tricuspid annulus is ~0.7 cm more apical than the mitral (normal apical offset 0.5–1 cm)
@@ -441,6 +450,7 @@ function placePulmonaryRoot(m: HeartModel, A: AnchorsCached): void {
     extraReflect: 0,
     structure: 0,
     transmural: -1,
+    segment: 0,
   };
   const e1 = A.pvE1,
     e2 = A.pvE2,

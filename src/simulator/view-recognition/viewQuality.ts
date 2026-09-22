@@ -1,6 +1,6 @@
 import type { Vec3 } from '@/core/vec3';
 import { dot, normalize, radToDeg, sub, v3 } from '@/core/vec3';
-import type { HeartModel } from '@/simulator/anatomy/heartModel';
+import type { HeartModel, HeartPose } from '@/simulator/anatomy/heartModel';
 import {
   heartDirToTorso,
   heartLandmarks,
@@ -20,6 +20,7 @@ import {
 import type { AcquisitionSettings, PolarFrame } from '@/simulator/renderer/types';
 import { Structure, Tissue } from '@/simulator/anatomy/tissue';
 import { CAMUS_GOOD } from '@/clinical/reference-values/camusImageStats';
+import { hiddenSegmentCodes, segmentCoverage, type SegmentCoverage } from './segmentCoverage';
 
 /**
  * Gain check against clinical optimal-window images (decision 73). The reference is the median grey of the LV cavity
@@ -85,6 +86,11 @@ export interface ViewAnalysis {
   perView: { id: string; score: number }[];
   heartCoverage: number; // fraction of sector samples that hit cardiac tissue
   shadowFraction: number; // fraction of cardiac samples with poor transmission
+  /**
+   * LV segments of the drawn plane (decision 152), from the tissue the beam crosses: the anatomical AHA 17 model and
+   * the 16-segment wall-motion model, whose apical segments include the cap.
+   */
+  segments: { aha17: SegmentCoverage[]; lv16: SegmentCoverage[] };
 }
 
 const WEIGHTS: Record<keyof ViewComponentScores, number> = {
@@ -166,6 +172,8 @@ export interface AnalyzeInput {
   frame: PolarFrame;
   display: Uint8ClampedArray | null; // post-console polar intensities for gain checks
   settings: AcquisitionSettings;
+  /** Heart pose of the frame: with it, the LV segments the lung hides count as in the plane (decision 152). */
+  heartPose?: HeartPose;
 }
 
 export function analyzeView(input: AnalyzeInput): ViewAnalysis {
@@ -362,6 +370,18 @@ export function analyzeView(input: AnalyzeInput): ViewAnalysis {
   const best = perView[0];
   const view = best ? VIEW_TARGETS.find((v) => v.id === best.id)! : null;
   const hints: string[] = [];
+  // whatever the view, the segments come from the tissue in the frame; their border visibility from the displayed image
+  const shown =
+    input.display && bloodN > 0
+      ? { grey: input.display, cavityGrey: Math.round(bloodMedian * 255) }
+      : undefined;
+  const hidden = input.heartPose
+    ? hiddenSegmentCodes(frame, heart, input.heartPose, beam)
+    : undefined;
+  const segments = {
+    aha17: segmentCoverage(frame, 'LV_AHA17', shown, hidden),
+    lv16: segmentCoverage(frame, 'LV_16', shown, hidden),
+  };
   if (!best || !view) {
     hints.push(
       window === 'none'
@@ -393,6 +413,7 @@ export function analyzeView(input: AnalyzeInput): ViewAnalysis {
       perView: [],
       heartCoverage,
       shadowFraction,
+      segments,
     };
   }
   const a = best.analysis;
@@ -452,6 +473,7 @@ export function analyzeView(input: AnalyzeInput): ViewAnalysis {
     perView: perView.map((p) => ({ id: p.id, score: p.score })),
     heartCoverage,
     shadowFraction,
+    segments,
   };
 }
 

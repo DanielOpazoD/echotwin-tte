@@ -263,7 +263,10 @@ describe('pathologyImpressions', () => {
 
   it('describes the regional wall motion abnormality', () => {
     expect(
-      has(lines('inferior-rwma'), /^Alteración segmentaria en \d+ segmento\(s\) AHA: [\d, ]+\.$/),
+      has(
+        lines('inferior-rwma'),
+        /^Alteración segmentaria en \d+ segmento\(s\) del modelo de 16: [\d, ]+; índice de motilidad \d,\d\d\.$/,
+      ),
     ).toBe(true);
   });
 

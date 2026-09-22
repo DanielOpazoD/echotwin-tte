@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 151 (última: 151).
+Decisiones: 152 (última: 152).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -159,3 +159,4 @@ Decisiones: 151 (última: 151).
 | [149](DECISIONS.md#L469) | 2026-09-22 | La aurícula derecha alcanza en sístole el volumen declarado: su techo sigue la mitad del TAPSE y la base libre es aurícula sólo sobre el orificio tricúspide | vigente |
 | [150](DECISIONS.md#L471) | 2026-09-22 | El mediastino es una columna posterior y otra superior redondeadas: a los lados del corazón el pulmón llega a la almohadilla grasa del pericardio | vigente |
 | [151](DECISIONS.md#L473) | 2026-09-22 | La tricúspide fuera del eje corto al final de la sístole es movimiento a través del plano, y la distinguibilidad no cambia con la anatomía del corazón derecho | vigente |
+| [152](DECISIONS.md#L477) | 2026-09-22 | Cada muestra de miocardio compacto del VI lleva el segmento del tejido que atraviesa el haz; el 16 cubre el ápex, el 17 empieza donde acaba la cavidad y la motilidad se puntúa aparte de la amplitud | vigente |

@@ -54,6 +54,14 @@ export interface BackendComparison {
    * equivalence test bounds the disagreement of each structure separately.
    */
   perStructure?: Record<string, { samples: number; mismatched: number }>;
+  /**
+   * Per CPU LV segment code (decision 152, `lvSegments.ts`; 1–16 AHA, 17–20 the cap by quadrant): samples and how many
+   * the GPU labels with another code. The segment boundaries are surfaces, so only boundary samples may differ.
+   */
+  perSegment?: Record<string, { samples: number; mismatched: number }>;
+  /** Samples the GPU labels with a segment where the CPU has none, and the CPU's segment samples (decision 152). */
+  segmentExtra?: number;
+  segmentSamples?: number;
   /** A few mismatched samples with their heart-frame coordinates (diagnostic). */
   examples?: {
     line: number;
@@ -157,6 +165,9 @@ export function compareBackends(
     trDiff = 0;
   const mm = new Map<string, number>();
   const per = new Map<number, { samples: number; mismatched: number }>();
+  const perSeg = new Map<number, { samples: number; mismatched: number }>();
+  let segExtra = 0,
+    segSamples = 0;
   const examples: NonNullable<BackendComparison['examples']> = [];
   for (let i = 0; i < n; i++) {
     const sa = fa.structure[i]!;
@@ -193,6 +204,15 @@ export function compareBackends(
         });
       }
     }
+    const ca = fa.segment[i]!;
+    if (ca === 0 && fb.segment[i]! > 0) segExtra++;
+    if (ca > 0) {
+      segSamples++;
+      let e = perSeg.get(ca);
+      if (!e) perSeg.set(ca, (e = { samples: 0, mismatched: 0 }));
+      e.samples++;
+      if (fb.segment[i] !== ca) e.mismatched++;
+    }
     const sameTissue = fa.tissue[i] === fb.tissue[i];
     if (sameTissue) tAgree++;
     const d = Math.abs(fa.amplitude[i]! - fb.amplitude[i]!);
@@ -222,6 +242,9 @@ export function compareBackends(
     mismatches,
     examples,
     perStructure,
+    perSegment: Object.fromEntries([...perSeg.entries()].map(([k, v]) => [String(k), v])),
+    segmentExtra: segExtra,
+    segmentSamples: segSamples,
   };
 }
 
@@ -245,6 +268,9 @@ export interface ImageChainComparison {
   displayFracOver1: number[];
   /** Structure and tissue ids of the packed read-back vs the float read-back. */
   idsAgreement: number;
+  /** LV segment codes of the display path's read-back vs the float path's (decision 152); samples with a segment. */
+  segmentAgreement: number;
+  segmentSamples: number;
   /** Largest relative error of the 8-bit transmission code where the transmission is ≥ 1e-4. */
   transMaxRelErr: number;
   /** GPU present pass vs CPU scan conversion + colour overlay of the same display (RGB channels, every pixel). */
@@ -283,6 +309,8 @@ export function compareImageChain(
     displayMaxDiff: [],
     displayFracOver1: [],
     idsAgreement: 0,
+    segmentAgreement: 0,
+    segmentSamples: 0,
     transMaxRelErr: 1,
     presentMaxDiff: 255,
     presentFracOver1: 1,
@@ -341,13 +369,21 @@ export function compareImageChain(
     result.displayFracOver1.push(over / n);
   }
   let ids = 0,
-    trErr = 0;
+    trErr = 0,
+    segSame = 0,
+    segN = 0;
   for (let i = 0; i < n; i++) {
     if (fFloat.structure[i] === fGpu.structure[i] && fFloat.tissue[i] === fGpu.tissue[i]) ids++;
+    if (fFloat.segment[i]! > 0 || fGpu.segment[i]! > 0) {
+      segN++;
+      if (fFloat.segment[i] === fGpu.segment[i]) segSame++;
+    }
     const t = fFloat.transmission[i]!;
     if (t >= 1e-4) trErr = Math.max(trErr, Math.abs(fGpu.transmission[i]! - t) / t);
   }
   result.idsAgreement = ids / n;
+  result.segmentAgreement = segN ? segSame / segN : 0;
+  result.segmentSamples = segN;
   result.transMaxRelErr = trErr;
   // present: mirrored sector, synthetic colour field with aliasing and variance
   const W = 640,

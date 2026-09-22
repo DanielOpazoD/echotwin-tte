@@ -95,8 +95,14 @@ export const AnatomySchema = z.object({
     .array(
       z.object({
         segment: z.number().int().min(1).max(17),
-        amplitude: z.number().min(-0.5).max(1.2), // 1 normal, 0.5 hypokinetic, 0 akinetic, <0 dyskinetic
+        // mechanical parameter of the simulation (regional contraction), not a clinical score: 1 full, 0 none, < 0
+        // paradoxical
+        amplitude: z.number().min(-0.5).max(1.2),
         delayPhase: z.number().min(0).max(0.3).default(0),
+        // the case author's wall-motion score of the segment for the synthetic ground truth (1 normal, 2 hypokinetic,
+        // 3 akinetic, 4 dyskinetic; decision 152). Declared, never derived from the amplitude; required for segments
+        // 1–16 whose amplitude differs from 1, absent for the apex cap (17), which is not scored
+        score: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).optional(),
       }),
     )
     .default([]),
@@ -258,5 +264,15 @@ export function validateCase(input: unknown): CaseValidationResult {
     );
   if (c.anatomy.aorta.lvotDiameterCm > c.anatomy.aorta.annulusCm + 0.3)
     errors.push('LVOT diameter should not exceed the aortic annulus by more than 3 mm');
+  for (const w of c.anatomy.wallMotion) {
+    if (w.segment === 17 && w.score !== undefined)
+      errors.push('anatomy.wallMotion: the apex cap (17) is not scored');
+    if (w.segment <= 16 && w.amplitude !== 1 && w.score === undefined)
+      errors.push(
+        `anatomy.wallMotion: segment ${w.segment} changes its amplitude and needs a declared score`,
+      );
+  }
+  if (new Set(c.anatomy.wallMotion.map((w) => w.segment)).size !== c.anatomy.wallMotion.length)
+    errors.push('anatomy.wallMotion: a segment appears twice');
   return errors.length ? { ok: false, errors } : { ok: true, case: c, errors: [] };
 }

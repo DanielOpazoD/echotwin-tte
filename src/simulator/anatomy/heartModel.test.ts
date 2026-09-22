@@ -138,6 +138,8 @@ describe('heart model geometry', () => {
     expect(ahaSegment(Math.PI / 2, 0.1)).toBe(1); // basal anterior
     expect(ahaSegment(Math.PI, 0.5)).toBe(9); // mid inferoseptal
     expect(ahaSegment(-Math.PI / 2, 0.8)).toBe(15); // apical inferior
-    expect(ahaSegment(0, 0.99)).toBe(17);
+    // the apex (17) is the myocardium beyond the end of the cavity, not the last 7 % of it (decision 152)
+    expect(ahaSegment(0, 0.99)).toBe(16);
+    expect(ahaSegment(0, 1)).toBe(17);
   });
 });

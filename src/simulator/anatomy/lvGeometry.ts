@@ -1,4 +1,6 @@
 import type { AnatomyConfig } from '@/cases/schema';
+import { aha17FromCode, lvSegmentCode } from './lvSegments';
+import { RV_GROOVE_ANTERIOR_RAD, RV_GROOVE_INFERIOR_RAD } from './anchors';
 import {
   allocLvProfileTable,
   axialWallFactor,
@@ -57,33 +59,28 @@ export function segmentAmplitudes(anatomy: AnatomyConfig): SegmentAmplitudes {
   return s;
 }
 
-/** AHA 17-segment id from heart-frame azimuth (rad, 0 = lateral, π/2 = anterior) and level fraction 0 (base) → 1 (apex). */
+/**
+ * AHA 17-segment id from heart-frame azimuth (rad, 0 = lateral, π/2 = anterior) and level fraction 0 (annulus) → 1 (end
+ * of the cavity; the cap beyond it). The rules and the model choices are in `lvSegments.ts` (decision 152); until then
+ * the cap began at 93 % of the cavity length and the azimuth was shifted by a fixed 28°.
+ */
 export function ahaSegment(azimuthRad: number, levelFrac: number): number {
-  // model azimuth 0 = A4C lateral wall (anterolateral segment, centred at 30° in the AHA convention)
-  const deg = ((((azimuthRad * 180) / Math.PI + 28) % 360) + 360) % 360;
-  if (levelFrac > 0.93) return 17;
-  if (levelFrac > 0.66) {
-    // apical 4: lateral 0, anterior 90, septal 180, inferior 270 (each ±45)
-    if (deg < 45 || deg >= 315) return 16;
-    if (deg < 135) return 13;
-    if (deg < 225) return 14;
-    return 15;
-  }
-  const base = levelFrac <= 0.33 ? 0 : 6;
-  // 6 segments centred at anterolateral 30, anterior 90, anteroseptal 150, inferoseptal 210, inferior 270, inferolateral 330
-  if (deg < 60) return base + 6; // anterolateral (1-6 basal: anterior=1, anteroseptal=2, inferoseptal=3, inferior=4, inferolateral=5, anterolateral=6)
-  if (deg < 120) return base + 1;
-  if (deg < 180) return base + 2;
-  if (deg < 240) return base + 3;
-  if (deg < 300) return base + 4;
-  return base + 5;
+  return aha17FromCode(
+    lvSegmentCode(azimuthRad, levelFrac, RV_GROOVE_ANTERIOR_RAD, RV_GROOVE_INFERIOR_RAD),
+  );
 }
 
-/** Surface fractions of the AHA segments (basal/mid 1/18 each, apical 1/16 each, apex 1/12), weighted by hypokinesia. */
+/**
+ * Fraction of the cavity surface that a regional abnormality holds at its end-diastolic radius (basal and mid segments
+ * 1/18 each, apical 1/12 each), weighted by hypokinesia. The apical cap (17) is tissue beyond the end of the cavity
+ * (decision 152), so it holds no cavity surface: its amplitude only changes its own thickening, and its share of the
+ * apex belongs to the apical segment of its quadrant, as in the 16-segment model. Until decision 152 the cap was the
+ * last 7 % of the cavity and weighed 1/12, with the apical segments at 1/16.
+ */
 export function regionalMeanFraction(amp: SegmentAmplitudes): number {
   let sum = 0;
-  for (let seg = 1; seg <= 17; seg++) {
-    const frac = seg <= 12 ? 1 / 18 : seg <= 16 ? 1 / 16 : 1 / 12;
+  for (let seg = 1; seg <= 16; seg++) {
+    const frac = seg <= 12 ? 1 / 18 : 1 / 12;
     sum += (1 - Math.min(1, amp[seg] ?? 1)) * frac;
   }
   return sum;

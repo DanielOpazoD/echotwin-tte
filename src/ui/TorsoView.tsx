@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-import { useHudStore, useSimStore } from '@/app/store';
+import { segmentLayerOn, useHudStore, useSimStore } from '@/app/store';
 import {
   ribCenterY,
   ribDepth,
@@ -22,6 +22,7 @@ import type {
 } from '@/workers/heartMesh.worker';
 import { beamFrameFromPose, poseFromControl, type BeamFrame } from '@/simulator/probe/pose';
 import { CutMapView } from './CutMapView';
+import { SEGMENT_RGB, segmentIdOf, type SegmentModelChoice } from './segmentMap';
 import { RotationDial } from './RotationDial';
 import { CheckItem, MenuCap, usePopover } from './menu';
 
@@ -105,6 +106,45 @@ export function TorsoView() {
     // one geometry per cardiac phase per group: the navigator beats in step with the image instead of
     // standing still next to it (decision 68). Phases arrive one by one from the worker.
     const geomByGroup = new Map<string, THREE.BufferGeometry[]>();
+    // LV segments on the 3D heart (decision 152): per-vertex segment codes of each phase's LV myocardium, painted as
+    // vertex colours with the model and selection of the segment panel, the same as the cut map and the polar map
+    const lvSegmentsByGeom = new Map<THREE.BufferGeometry, Uint8Array>();
+    let segmentKeyShown = '';
+    const LV_BASE = new THREE.Color(0xc4534f);
+    const FADED = new THREE.Color().setRGB(58 / 255, 63 / 255, 74 / 255, THREE.SRGBColorSpace);
+    const paintSegments = (
+      geom: THREE.BufferGeometry,
+      codes: Uint8Array,
+      model: SegmentModelChoice,
+      selected: number | null,
+    ): void => {
+      // colour of each of the 21 codes once, in the renderer's linear space
+      const table = Array.from({ length: 21 }, (_, c) => {
+        const id = segmentIdOf(c, model);
+        if (id === 0) return LV_BASE;
+        const rgb = SEGMENT_RGB[id]!;
+        const col = new THREE.Color().setRGB(
+          rgb[0] / 255,
+          rgb[1] / 255,
+          rgb[2] / 255,
+          THREE.SRGBColorSpace,
+        );
+        return selected !== null && id !== selected ? col.lerp(FADED, 0.55) : col;
+      });
+      let attr = geom.getAttribute('color') as THREE.BufferAttribute | undefined;
+      if (!attr || attr.count !== codes.length) {
+        attr = new THREE.BufferAttribute(new Float32Array(codes.length * 3), 3);
+        geom.setAttribute('color', attr);
+      }
+      const a = attr.array as Float32Array;
+      for (let v = 0; v < codes.length; v++) {
+        const col = table[codes[v]!] ?? LV_BASE;
+        a[v * 3] = col.r;
+        a[v * 3 + 1] = col.g;
+        a[v * 3 + 2] = col.b;
+      }
+      attr.needsUpdate = true;
+    };
     let phasesReady = 0;
     let shownPhasesReady = -1;
     // extraction samples the implicit model hundreds of thousands of times: off the UI thread, with the
@@ -141,6 +181,10 @@ export function TorsoView() {
         geom.setAttribute('position', new THREE.BufferAttribute(g.positions, 3));
         geom.setIndex(new THREE.BufferAttribute(g.indices, 1));
         geom.setAttribute('normal', new THREE.BufferAttribute(g.normals, 3));
+        if (g.segments && g.segments.length * 3 === g.positions.length) {
+          lvSegmentsByGeom.set(geom, g.segments);
+          segmentKeyShown = ''; // paint the new phase on the next frame
+        }
         let perPhase = geomByGroup.get(g.id);
         if (!perPhase) {
           perPhase = [];
@@ -603,6 +647,22 @@ export function TorsoView() {
             const c = capByGroup.get(id);
             if (c) for (const sm of c.stencil.children) (sm as THREE.Mesh).geometry = geom;
           }
+        }
+      }
+      // segment colours on the LV myocardium: repainted only when the layer, the model or the selection change
+      const segOn = segmentLayerOn(st);
+      const segKey = `${segOn ? 1 : 0}|${st.ui.segmentModel}|${st.ui.selectedSegment ?? '-'}`;
+      if (segKey !== segmentKeyShown) {
+        const lvMesh = meshByGroup.get('lv-myocardium');
+        if (lvMesh) {
+          const mat = lvMesh.material as THREE.MeshStandardMaterial;
+          if (segOn)
+            for (const [geom, codes] of lvSegmentsByGeom)
+              paintSegments(geom, codes, st.ui.segmentModel, st.ui.selectedSegment);
+          mat.vertexColors = segOn;
+          mat.color.set(segOn ? 0xffffff : 0xc4534f);
+          mat.needsUpdate = true;
+          segmentKeyShown = segKey;
         }
       }
       axisGroup.visible = st.ui.navAxes;

@@ -89,6 +89,11 @@ export interface SimOutput {
   /** Polar geometry of the frame and its per-sample structure map (line-major), for measurement technique checks. */
   polar: { lines: number; samples: number; sectorRad: number; depthCm: number };
   structure: Uint8Array;
+  /**
+   * Per-sample LV segment code of the same frame (decision 152, `anatomy/lvSegments.ts`): 1–16 AHA, 17–20 the apical cap
+   * by quadrant, 0 elsewhere. It is the tissue the beam crosses, never inferred from the view.
+   */
+  segment: Uint8Array;
   gate: GateInfo | null;
   timeS: number;
   phase: number;

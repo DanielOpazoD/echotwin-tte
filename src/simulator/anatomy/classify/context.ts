@@ -120,5 +120,6 @@ export function setSample(
   out.mz = mz;
   out.extraReflect = extra;
   out.transmural = -1;
+  out.segment = 0;
   out.structure = structure;
 }
