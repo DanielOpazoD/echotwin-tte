@@ -1,14 +1,21 @@
 /**
- * Blind test (decision 144): a page of apical frames, half from CAMUS Good and half from the simulator, resampled to
- * the same scale and canvas, in random order, with the key kept apart. Whoever takes it marks each tile as real or
- * simulated and reveals the key at the end; the score is the fraction told apart above chance. Nothing here goes into
- * the repository: CAMUS pixels stay in the output folder, which must lie outside it.
+ * Blind test (decisions 144 and 146): a page of apical frames, half from CAMUS Good and half from the simulator,
+ * resampled to the same scale and canvas, in random order, with the key kept apart. Whoever takes it marks each tile
+ * as real or simulated; the page saves the answers as JSON and `--grade` scores them against the key: the accuracy,
+ * the binomial probability of doing at least as well by chance, and the confusion counts. Nothing here goes into the
+ * repository: CAMUS pixels stay in the output folder, which must lie outside it; only the aggregate result is recorded
+ * (docs/VALIDATION.md, «Prueba ciega»).
  *
- *   CAMUS_DIR=~/datos/CAMUS/database_nifti npx tsx tools/clinical/blind-test.ts --out ~/datos/CAMUS/blind [--n 12]
+ * Protocol (decision 146): 24 tiles (12 real, 12 simulated), a new --seed per sitting, the rater never sees the key
+ * before answering and answers every tile; one sitting per rater per simulator version. The result that counts is a
+ * rater who reads echocardiograms; the goal is an accuracy at or under 70 % (17 of 24, p ≈ 0.03 against chance).
+ *
+ *   CAMUS_DIR=~/datos/CAMUS/database_nifti npx tsx tools/clinical/blind-test.ts --out ~/datos/CAMUS/blind [--n 24]
  *     [--cases normal-excellent-window,inferior-rwma] [--seed 7] [--gain -6] [--compensation 0.7]
+ *   npx tsx tools/clinical/blind-test.ts --grade ~/datos/CAMUS/blind/answers.json [--key ~/datos/CAMUS/blind/key.json]
  */
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join, resolve, sep } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { parseNifti, type NiftiVolume } from '@/clinical/nifti';
 import { orientApical, type RegionImage } from '@/clinical/regionStats';
@@ -18,6 +25,7 @@ import {
   type ConsoleOverride,
 } from '@/simulator/renderer/clinicalImage';
 import { encodePng } from '../offline/render/png';
+import { gradeAnswers } from '@/clinical/blindTest';
 
 const arg = (name: string): string | undefined => {
   const i = process.argv.indexOf(name);
@@ -25,6 +33,19 @@ const arg = (name: string): string | undefined => {
 };
 const camusDir =
   process.env['CAMUS_DIR'] ?? join(process.env['HOME'] ?? '', 'datos/CAMUS/database_nifti');
+const gradeFile = arg('--grade');
+if (gradeFile) {
+  const answers = JSON.parse(readFileSync(gradeFile, 'utf8')) as Record<string, 'real' | 'sim'>;
+  const keyPath = arg('--key') ?? join(dirname(resolve(gradeFile)), 'key.json');
+  const key = JSON.parse(readFileSync(keyPath, 'utf8')) as { tile: number; real: boolean }[];
+  const r = gradeAnswers(key, answers);
+  process.stdout.write(
+    `${r.answered} of ${r.tiles} tiles answered · ${r.correct} correct (${(100 * r.accuracy).toFixed(0)} %) · ` +
+      `real called simulated ${r.realCalledSim}, simulated called real ${r.simCalledReal} · ` +
+      `p(at least this many by chance) = ${r.pChance.toFixed(3)}\n`,
+  );
+  process.exit(0);
+}
 const out = arg('--out');
 if (!out) {
   process.stderr.write(
@@ -40,7 +61,7 @@ if (outAbs === repoRoot || outAbs.startsWith(repoRoot + sep)) {
   );
   process.exit(2);
 }
-const n = Number(arg('--n') ?? 12);
+const n = Number(arg('--n') ?? 24);
 const cases = (arg('--cases') ?? 'normal-excellent-window').split(',');
 let seed = Number(arg('--seed') ?? 7);
 const override: ConsoleOverride = {};
@@ -196,7 +217,7 @@ const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>
 .tile{background:#000;padding:6px;border-radius:6px}.tile img{width:100%;display:block}.tile label{display:inline-block;margin:6px 8px 0 0}
 .tile .r{margin-top:4px;font-size:12px;color:#9cf;display:none}.revealed .tile .r{display:block}#score{margin:12px 0;font-size:16px}</style></head><body>
 <h1>Prueba ciega: ¿real (CAMUS) o simulada? ${tiles.length} imágenes apicales a la misma escala (${MM_PER_PX} mm/px)</h1>
-<p>Marca cada imagen y pulsa «Corregir». La clave está en key.json.</p>
+<p>Marca cada imagen (todas), guarda las respuestas y sólo después pulsa «Corregir». La clave está en key.json; la corrección oficial: <code>npx tsx tools/clinical/blind-test.ts --grade answers.json</code>.</p>
 <div class="grid">${tiles
   .map(
     (
@@ -207,8 +228,11 @@ const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>
 <div class="r">${t.real ? 'REAL' : 'SIMULADA'} · ${t.what}</div></div>`,
   )
   .join('\n')}</div>
-<div id="score"></div><button id="check">Corregir</button>
-<script>const key=${JSON.stringify(tiles.map((t) => t.real))};document.getElementById('check').onclick=()=>{let ok=0,ans=0;key.forEach((real,i)=>{const v=document.querySelector('input[name=t'+i+']:checked');if(!v)return;ans++;if((v.value==='real')===real)ok++;});document.body.classList.add('revealed');document.getElementById('score').textContent='Aciertos: '+ok+' de '+ans+' respondidas ('+key.length+' imágenes; el azar da '+(key.length/2)+')';};</script>
+<div id="score"></div><button id="save">Guardar respuestas (answers.json)</button> <button id="check">Corregir</button>
+<script>const key=${JSON.stringify(tiles.map((t) => t.real))};
+const answers=()=>{const o={};key.forEach((_,i)=>{const v=document.querySelector('input[name=t'+i+']:checked');if(v)o[String(i+1)]=v.value;});return o;};
+document.getElementById('save').onclick=()=>{const a=document.createElement('a');a.href='data:application/json,'+encodeURIComponent(JSON.stringify(answers(),null,2));a.download='answers.json';a.click();};
+document.getElementById('check').onclick=()=>{let ok=0,ans=0;key.forEach((real,i)=>{const v=document.querySelector('input[name=t'+i+']:checked');if(!v)return;ans++;if((v.value==='real')===real)ok++;});document.body.classList.add('revealed');document.getElementById('score').textContent='Aciertos: '+ok+' de '+ans+' respondidas ('+key.length+' imágenes; el azar da '+(key.length/2)+')';};</script>
 </body></html>`;
 writeFileSync(join(outAbs, 'index.html'), html);
 process.stdout.write(`${tiles.length} tiles → ${join(outAbs, 'index.html')} (clave en key.json)\n`);
