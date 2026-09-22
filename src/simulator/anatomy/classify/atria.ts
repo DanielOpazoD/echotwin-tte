@@ -12,6 +12,24 @@ import { PV_RADIUS, pulmonaryVeinSegment } from '../pulmonaryVeins';
 const PV_SEG = new Float64Array(6);
 
 /** Radial scale of the atria: reservoir/conduit/booster with the LV contraction, shrunk by the atrial kick and its hold. */
+/**
+ * Share of the tricuspid annular descent the right atrial roof follows (decision 149). With the roof fixed the atrium
+ * lengthened by the whole TAPSE of the free wall, 2.15 cm in the normal case, and measured 4.5 cm at end-diastole and
+ * 6.7 at end-systole against a normal 3.5–4 and 4.5–5.3: the annular centre descends less than its lateral hinge, the
+ * septal part being tied to the fibrous skeleton, and the atrium's upper wall follows the base a little. Half the TAPSE
+ * is the effective elongation that brings the maximal volume to the case's declared one (47 against 45 mL in the normal
+ * case) with a total emptying fraction of 38–43 % in sinus rhythm.
+ */
+export const RA_ROOF_DESCENT_SHARE = 0.5;
+/**
+ * The base the right ventricle vacates in systole becomes atrium only over the tricuspid orifice and a vestibule of
+ * this width around it (decision 149). Decision 133 gave the atrium the whole end-diastolic crescent between the
+ * floors, from groove to groove: 22 mL in the normal case, 3 of them taken from the infundibulum at end-systole, which
+ * made the right ventricle's geometric ejection fraction read 3 points high. Outside the vestibule the vacated base is
+ * right ventricular wall and the fat of the atrioventricular groove, as in a heart.
+ */
+export const RA_SLEEVE_MARGIN_CM = 0.5;
+
 export function atrialScale(booster: number, reservoir: number, contraction: number): number {
   return booster * (reservoir + (1 - reservoir) * contraction);
 }
@@ -89,7 +107,7 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   // RA: rounder, flattened against the septum and posteriorly
   const ra = A.raCenter,
     rr = A.raR;
-  const zTopR = ra.z - rr.z;
+  const zTopR = ra.z - rr.z + RA_ROOF_DESCENT_SHARE * hp.tvZ;
   // The atrium ends AT the annulus: it used to run 0.25 cm past it, with its own 0.22 cm wall sealing the
   // orifice and hiding the excess, so the cavity measured 5.60 cm (the top of the 3.5-5.6 range) while the
   // ellipsoid was really 5.82 cm long. Opening the orifice exposed that, so the ellipsoid is shortened by
@@ -119,6 +137,7 @@ export function classifyAtria(c: ClassifyCtx): boolean {
         r - (rad[2]! - m.anatomy.rv.freeWallThicknessCm),
         rvFloorZ(A.tvCenter.z, 0, 0, u, tvOff) - z,
         z - rvFloorZ(A.tvCenter.z, hp.tvZ, hp.pvZ, u, tvOff),
+        Math.hypot(x - V.tv.cx, y - V.tv.cy) - (V.tv.R + RA_SLEEVE_MARGIN_CM),
       );
     }
   }

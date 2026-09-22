@@ -19,15 +19,11 @@ const KNOWN_MODEL_LIMITATIONS: ReadonlySet<string> = new Set([
   // aortic axis (decision 59), measures 14–16° in every case: nothing flagged that exemption as stale until
   // decision 86 added the check below.
   'av-tv-distance',
-  // The right atrial long axis sits above its approximate range: 5.2-5.6 cm until decision 133, 5.6-6.8 since the
-  // atrium lengthens over the base the ventricle vacates in systole under a fixed roof (the measure takes the longest
-  // frame). It does not tell a normal atrium from a dilated one (docs/LIMITATIONS.md).
+  // The right atrial long axis sits at or above the top of its approximate range: 5.2-5.6 cm until decision 133, 5.6-6.8
+  // once the atrium lengthened over the vacated base under a fixed roof, 4.5-5.9 since its roof follows half the TAPSE
+  // (decision 149; 5.62 in the normal case, the measure takes the longest frame). It still barely tells a normal atrium
+  // from a dilated one (docs/LIMITATIONS.md).
   'ra-long',
-  // The same atrium is too large at end-systole: the right atrial volume index reads 33-46 mL/m² in ten of the twelve
-  // cases (normal ≤ 32 in men, ≤ 27 in women; 26-27 in the difficult-window and tamponade cases). Until decision 148
-  // the measure's box stopped at z = 1.5 cm and left out the atrium over the vacated base, 22 mL in the normal case, so
-  // it read 25 mL/m² there against the case's 45 mL (docs/LIMITATIONS.md).
-  'ravi',
 ]);
 
 /** Out-of-range measures per case, filled by the per-case tests and read by the staleness check. */
