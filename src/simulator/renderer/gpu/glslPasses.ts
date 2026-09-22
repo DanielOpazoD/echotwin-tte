@@ -20,7 +20,8 @@ uniform vec4 uTissue[20]; // reflect, specular, attenuation, grain per tissue id
 uniform float uElevK;     // elevation plane: -1 / 0 / +1 (slice-thickness passes)
 layout(location = 0) out vec4 outA; // backscatter σ, attenNp, lungFlag, inBody
 layout(location = 1) out vec4 outB; // structure/255, tissue/255, extra, 1
-layout(location = 2) out vec4 outC; // specular echo, scatterer phasor re, im, 0
+layout(location = 2) out vec4 outC; // specular echo, scatterer phasor re, im, grain coefficient (0–1)
+layout(location = 3) out vec4 outD; // scatterer phasor of the second compounding look re, im, 0, 0
 
 float heteroDb(int t) {
   if (t == T_MYO) return HETERO_DB_MYO;
@@ -30,6 +31,9 @@ float heteroDb(int t) {
 }
 
 // incoherent backscatter σ and coherent interface echo of a classified sample, before attenuation
+/** A grain field above its threshold, 0–1 (decision 145). */
+float grainAbove(float g) { return g > GRAIN_THRESHOLD ? (g - GRAIN_THRESHOLD) / (1.0 - GRAIN_THRESHOLD) : 0.0; }
+
 void acoustic(int tissue, int structure, float sdf, float extra, float nd, vec3 m, vec3 dirH, float transmural, out float sigma, out float specular) {
   vec4 props = uTissue[tissue];
   sigma = props.x;
@@ -83,6 +87,7 @@ void main() {
     outA = vec4(0.0);
     outB = vec4(0.0, 0.0, 0.0, 1.0);
     outC = vec4(0.0);
+    outD = vec4(0.0);
     return;
   }
   vec4 props = uTissue[s.tissue];
@@ -95,6 +100,21 @@ void main() {
   vec3 q = s.m * SCATTER_FREQ - (SCATTER_FREQ - 1.0 / (2.0 * e)) * dot(s.m, nrm) * nrm;
   float zr = (lat(q, 0) + lat(q * SCATTER_FREQ_RATIO + PHASOR_RE_B, 1) - 1.0) * PHASOR_NORM;
   float zi = (lat(q + PHASOR_IM_A, 2) + lat(q * SCATTER_FREQ_RATIO + PHASOR_IM_B, 0) - 1.0) * PHASOR_NORM;
+  // the second compounding look: the same scene on a shifted lattice (decision 145)
+  vec3 q1 = q + LOOK_SHIFT_1;
+  float zr1 = (lat(q1, 0) + lat(q * SCATTER_FREQ_RATIO + PHASOR_RE_B + LOOK_SHIFT_1, 1) - 1.0) * PHASOR_NORM;
+  float zi1 = (lat(q1 + PHASOR_IM_A, 2) + lat(q * SCATTER_FREQ_RATIO + PHASOR_IM_B + LOOK_SHIFT_1, 0) - 1.0) * PHASOR_NORM;
+  // bright grains of the parenchyma (decision 145): the coefficient (0–1) of a sparse coherent component, the same in
+  // every look, scaled by σ in pass B. Its lattice is anchored in tissue coordinates at the tissue's grain frequency;
+  // across the plane its cell is the slice thickness where that is coarser, as for the scatterer phasor
+  float gcoef = 0.0;
+  if (s.tissue == T_MYO || s.tissue == T_MUSCLE || s.tissue == T_LIVER) {
+    float gf = props.w;
+    vec3 gq = s.m * gf - (gf - min(gf, 1.0 / (2.0 * e))) * dot(s.m, nrm) * nrm + GRAIN_OFFSET;
+    // the slice holds two or three grain cells across, whose coherent echoes add: the mean (¼ ½ ¼) of three
+    // independent grain fields, as in the CPU renderer (grainCoef)
+    gcoef = 0.25 * grainAbove(lat(gq, 0)) + 0.5 * grainAbove(lat(gq, 1)) + 0.25 * grainAbove(lat(gq, 2));
+  }
   float lungFlag = s.tissue == T_LUNG ? 1.0 : 0.0;
   // two-way amplitude loss integrated over the sample's length for every tissue, bone included (decision 89)
   float attenNp = ATTEN_NP_PER_DB * props.z * F_ATTEN * dr;
@@ -102,7 +122,8 @@ void main() {
   if (!inHeart && (s.tissue == T_FAT || s.tissue == T_MUSCLE || s.tissue == T_SKIN)) attenNp *= 1.0 + WINDOW_ATTEN_GAIN * WINDOW_ATTEN;
   outA = vec4(sigma, attenNp, lungFlag, 1.0);
   outB = vec4(float(s.structure) / 255.0, float(s.tissue) / 255.0, s.extra, 1.0);
-  outC = vec4(specular, zr, zi, 0.0);
+  outC = vec4(specular, zr, zi, gcoef);
+  outD = vec4(zr1, zi1, 0.0, 0.0);
 }
 `;
 
@@ -114,8 +135,10 @@ uniform sampler2D uSideA;   // pass A (σ, …) on the elevation plane −e (sli
 uniform sampler2D uSideB;   // pass A (σ, …) on the elevation plane +e
 uniform sampler2D uSideCA;  // pass A attachment C (specular, …) on −e
 uniform sampler2D uSideCB;  // pass A attachment C (specular, …) on +e
-layout(location = 0) out vec4 outSig;   // complex signal re, transmission, im, 1
+uniform sampler2D uPassD;   // pass A attachment D: the second look's phasor
+layout(location = 0) out vec4 outSig;   // complex signal of the first look re, transmission, im, 1
 layout(location = 1) out vec4 outIds;   // structure/255, tissue/255, 0, 1
+layout(location = 2) out vec4 outSig2;  // complex signal of the second look re, im, 0, 1
 
 
 void main() {
@@ -147,34 +170,43 @@ void main() {
     float amp = pleuralReverberation(r, lungEntryR, lungEntryT, n);
     // reverberation energy is incoherent: a phasor tied to the line and the depth
     float px2 = float(li) * REVERB_PHASOR_LINE_FREQ, pr = r * SCATTER_FREQ;
-    float zr2 = (lat(vec3(px2, pr, REVERB_PHASOR_RE_A_Z), 0) + lat(vec3(px2, pr * SCATTER_FREQ_RATIO, 0.0) + REVERB_PHASOR_RE_B, 1) - 1.0) * PHASOR_NORM;
+    // one phasor per compounding look (decision 145)
+    vec3 rp = vec3(px2, pr, REVERB_PHASOR_RE_A_Z);
+    float zr2 = (lat(rp, 0) + lat(vec3(px2, pr * SCATTER_FREQ_RATIO, 0.0) + REVERB_PHASOR_RE_B, 1) - 1.0) * PHASOR_NORM;
     float zi2 = (lat(vec3(px2, pr, 0.0) + REVERB_PHASOR_IM_A, 2) + lat(vec3(px2, pr * SCATTER_FREQ_RATIO, 0.0) + REVERB_PHASOR_IM_B, 0) - 1.0) * PHASOR_NORM;
+    float zr3 = (lat(rp + LOOK_SHIFT_1, 0) + lat(vec3(px2, pr * SCATTER_FREQ_RATIO, 0.0) + REVERB_PHASOR_RE_B + LOOK_SHIFT_1, 1) - 1.0) * PHASOR_NORM;
+    float zi3 = (lat(vec3(px2, pr, 0.0) + REVERB_PHASOR_IM_A + LOOK_SHIFT_1, 2) + lat(vec3(px2, pr * SCATTER_FREQ_RATIO, 0.0) + REVERB_PHASOR_IM_B + LOOK_SHIFT_1, 0) - 1.0) * PHASOR_NORM;
     outSig = vec4(amp * zr2, 0.0, amp * zi2, 1.0);
+    outSig2 = vec4(amp * zr3, amp * zi3, 0.0, 1.0);
     outIds = vec4(float(S_LUNG) / 255.0, float(T_LUNG) / 255.0, 0.0, 1.0);
     return;
   }
   if (a.w < 0.5) {
     outSig = vec4(0.0, transmission, 0.0, 1.0);
+    outSig2 = vec4(0.0, 0.0, 0.0, 1.0);
     outIds = vec4(0.0, 0.0, 0.0, 1.0);
     return;
   }
   if (a.z > 0.5) {
-    // the pleural line itself: a strong coherent reflector
-    outSig = vec4(transmission * (PLEURA_BASE + PLEURA_AMP * lat(vec3(float(li) * PLEURA_LINE_FREQ, r * PLEURA_DEPTH_FREQ, PLEURA_Z), 0)), transmission, 0.0, 1.0);
+    // the pleural line itself: a strong coherent reflector, the same in every look
+    float pl = transmission * (PLEURA_BASE + PLEURA_AMP * lat(vec3(float(li) * PLEURA_LINE_FREQ, r * PLEURA_DEPTH_FREQ, PLEURA_Z), 0));
+    outSig = vec4(pl, transmission, 0.0, 1.0);
+    outSig2 = vec4(pl, 0.0, 0.0, 1.0);
     outIds = b;
     return;
   }
   vec4 c = texelFetch(uPassC, ivec2(si, li), 0);
+  vec4 d = texelFetch(uPassD, ivec2(si, li), 0);
   float sigma = a.x;
   float specular = c.x;
   if (ELEV_N > 1.0) { // three elevation samples (high tier); one otherwise
-    // slice thickness: weighted mean of σ and specular over the three elevation planes (¼ ½ ¼); side samples
-    // outside the body or in lung are dropped and the weights renormalised, as in the CPU renderer
+    // slice thickness: weighted mean of σ and specular over the three elevation planes (¼ ½ ¼); side samples outside
+    // the body or in lung are dropped and the weights renormalised, as in the CPU renderer
     vec4 sa = texelFetch(uSideA, ivec2(si, li), 0);
     vec4 sb = texelFetch(uSideB, ivec2(si, li), 0);
     float accS = sigma * 0.5, accP = specular * 0.5, wsum = 0.5;
-    if (sa.w > 0.5 && sa.z < 0.5) { accS += 0.25 * sa.x; accP += 0.25 * texelFetch(uSideCA, ivec2(si, li), 0).x; wsum += 0.25; }
-    if (sb.w > 0.5 && sb.z < 0.5) { accS += 0.25 * sb.x; accP += 0.25 * texelFetch(uSideCB, ivec2(si, li), 0).x; wsum += 0.25; }
+    if (sa.w > 0.5 && sa.z < 0.5) { vec4 ca = texelFetch(uSideCA, ivec2(si, li), 0); accS += 0.25 * sa.x; accP += 0.25 * ca.x; wsum += 0.25; }
+    if (sb.w > 0.5 && sb.z < 0.5) { vec4 cb = texelFetch(uSideCB, ivec2(si, li), 0); accS += 0.25 * sb.x; accP += 0.25 * cb.x; wsum += 0.25; }
     sigma = accS / wsum;
     specular = accP / wsum;
   }
@@ -182,17 +214,28 @@ void main() {
   float fg = focusingGain(r, FOCUS);
   sigma *= fg;
   specular *= fg;
-  float sRe = sigma * c.y + specular;
+  // the parenchymal grains: their coefficient from pass A over the σ of the slice (decision 145)
+  float grain = sigma * GRAIN_GAIN * c.w;
+  // near-field clutter: reverberation in the chest wall under the footprint, incoherent, fixed to the probe position
+  float cm = 0.0;
+  if (r < CLUTTER_MAX_CM && CLUTTER > 0.0) cm = CLUTTER * exp(-r / CLUTTER_DECAY_CM) * (CLUTTER_BASE + CLUTTER_AMP * lat(vec3(B_OX * CLUTTER_MOD_FREQ + float(li) * CLUTTER_MOD_LINE_FREQ, B_OY * CLUTTER_MOD_FREQ + B_OZ * CLUTTER_MOD_FREQ, r * CLUTTER_MOD_DEPTH_FREQ), 2));
+  vec3 cc = vec3(B_OX * CLUTTER_FREQ + float(li) * CLUTTER_LINE_FREQ, B_OY * CLUTTER_FREQ + B_OZ * CLUTTER_FREQ, r * SCATTER_FREQ);
+  float ringDown = r < RINGDOWN_CM ? RINGDOWN_GAIN * (1.0 - r / RINGDOWN_CM) : 0.0; // transducer ring-down
+  // one complex signal per compounding look: the scatterer and clutter phasors differ, the coherent echoes (specular,
+  // grain, ring-down) do not (decision 145)
+  float coh = specular + grain + ringDown;
+  float sRe = sigma * c.y + coh;
   float sIm = sigma * c.z;
-  if (r < CLUTTER_MAX_CM && CLUTTER > 0.0) {
-    // near-field clutter: reverberation in the chest wall under the footprint, incoherent, fixed to the probe position
-    float cm = CLUTTER * exp(-r / CLUTTER_DECAY_CM) * (CLUTTER_BASE + CLUTTER_AMP * lat(vec3(B_OX * CLUTTER_MOD_FREQ + float(li) * CLUTTER_MOD_LINE_FREQ, B_OY * CLUTTER_MOD_FREQ + B_OZ * CLUTTER_MOD_FREQ, r * CLUTTER_MOD_DEPTH_FREQ), 2));
-    float cx = B_OX * CLUTTER_FREQ + float(li) * CLUTTER_LINE_FREQ, cy = B_OY * CLUTTER_FREQ + B_OZ * CLUTTER_FREQ, cz = r * SCATTER_FREQ;
-    sRe += cm * (lat(vec3(cx + CLUTTER_RE_A_X, cy, cz), 0) + lat(vec3(cx * SCATTER_FREQ_RATIO, cy, cz * SCATTER_FREQ_RATIO) + vec3(CLUTTER_RE_B, 0.0), 1) - 1.0) * PHASOR_NORM;
-    sIm += cm * (lat(vec3(cx, cy, cz) + CLUTTER_IM_A, 2) + lat(vec3(cx * SCATTER_FREQ_RATIO, cy, cz * SCATTER_FREQ_RATIO) + CLUTTER_IM_B, 0) - 1.0) * PHASOR_NORM;
+  float sRe2 = sigma * d.x + coh;
+  float sIm2 = sigma * d.y;
+  if (cm > 0.0) {
+    sRe += cm * (lat(vec3(cc.x + CLUTTER_RE_A_X, cc.y, cc.z), 0) + lat(vec3(cc.x * SCATTER_FREQ_RATIO, cc.y, cc.z * SCATTER_FREQ_RATIO) + vec3(CLUTTER_RE_B, 0.0), 1) - 1.0) * PHASOR_NORM;
+    sIm += cm * (lat(cc + CLUTTER_IM_A, 2) + lat(vec3(cc.x * SCATTER_FREQ_RATIO, cc.y, cc.z * SCATTER_FREQ_RATIO) + CLUTTER_IM_B, 0) - 1.0) * PHASOR_NORM;
+    sRe2 += cm * (lat(vec3(cc.x + CLUTTER_RE_A_X, cc.y, cc.z) + LOOK_SHIFT_1, 0) + lat(vec3(cc.x * SCATTER_FREQ_RATIO, cc.y, cc.z * SCATTER_FREQ_RATIO) + vec3(CLUTTER_RE_B, 0.0) + LOOK_SHIFT_1, 1) - 1.0) * PHASOR_NORM;
+    sIm2 += cm * (lat(cc + CLUTTER_IM_A + LOOK_SHIFT_1, 2) + lat(vec3(cc.x * SCATTER_FREQ_RATIO, cc.y, cc.z * SCATTER_FREQ_RATIO) + CLUTTER_IM_B + LOOK_SHIFT_1, 0) - 1.0) * PHASOR_NORM;
   }
-  if (r < RINGDOWN_CM) sRe += RINGDOWN_GAIN * (1.0 - r / RINGDOWN_CM); // transducer ring-down
   outSig = vec4(sRe * transmission, transmission, sIm * transmission, 1.0);
+  outSig2 = vec4(sRe2 * transmission, sIm2 * transmission, 0.0, 1.0);
   outIds = b;
 }
 `;
@@ -255,29 +298,37 @@ void main() {
 /** Axial PSF along samples (row 0 of uPsf: taps centred on column MAX_LATERAL_RADIUS, radius in .g). */
 export const GLSL_PASS_C_MAIN = /* glsl */ `
 uniform sampler2D uSig;
+uniform sampler2D uSig2;   // the second compounding look
 uniform sampler2D uPsf;
 layout(location = 0) out vec4 outSig;
+layout(location = 1) out vec4 outSig2;
 
 void main() {
   int si = int(gl_FragCoord.x);
   int li = int(gl_FragCoord.y);
   int R = int(texelFetch(uPsf, ivec2(PSF_LATERAL_RADIUS, 0), 0).g + 0.5);
   int last = int(SAMPLES) - 1;
-  float sr = 0.0, sm = 0.0;
+  float sr = 0.0, sm = 0.0, sr2 = 0.0, sm2 = 0.0;
   for (int j = -PSF_AXIAL_RADIUS; j <= PSF_AXIAL_RADIUS; j++) {
     if (j < -R || j > R) continue;
-    vec4 v = texelFetch(uSig, ivec2(clamp(si + j, 0, last), li), 0);
+    ivec2 at = ivec2(clamp(si + j, 0, last), li);
+    vec4 v = texelFetch(uSig, at, 0);
+    vec4 v2 = texelFetch(uSig2, at, 0);
     float w = texelFetch(uPsf, ivec2(PSF_LATERAL_RADIUS + j, 0), 0).r;
     sr += w * v.x;
     sm += w * v.z;
+    sr2 += w * v2.x;
+    sm2 += w * v2.y;
   }
   outSig = vec4(sr, texelFetch(uSig, ivec2(si, li), 0).y, sm, 1.0);
+  outSig2 = vec4(sr2, sm2, 0.0, 1.0);
 }
 `;
 
 /** Lateral PSF across lines (row 1 + sample of uPsf) and envelope detection. */
 export const GLSL_PASS_D_MAIN = /* glsl */ `
 uniform sampler2D uAx;
+uniform sampler2D uAx2;   // the second compounding look
 uniform sampler2D uPsf;
 layout(location = 0) out vec4 outAmp;   // amplitude, transmission, 0, 1
 
@@ -286,14 +337,21 @@ void main() {
   int li = int(gl_FragCoord.y);
   int R = int(texelFetch(uPsf, ivec2(PSF_LATERAL_RADIUS, si + 1), 0).g + 0.5);
   int last = int(LINES) - 1;
-  float sr = 0.0, sm = 0.0;
+  float sr = 0.0, sm = 0.0, sr2 = 0.0, sm2 = 0.0;
   for (int j = -PSF_LATERAL_RADIUS; j <= PSF_LATERAL_RADIUS; j++) {
     if (j < -R || j > R) continue;
-    vec4 v = texelFetch(uAx, ivec2(si, clamp(li + j, 0, last)), 0);
+    ivec2 at = ivec2(si, clamp(li + j, 0, last));
+    vec4 v = texelFetch(uAx, at, 0);
+    vec4 v2 = texelFetch(uAx2, at, 0);
     float w = texelFetch(uPsf, ivec2(PSF_LATERAL_RADIUS + j, si + 1), 0).r;
     sr += w * v.x;
     sm += w * v.z;
+    sr2 += w * v2.x;
+    sm2 += w * v2.y;
   }
-  outAmp = vec4(sqrt(sr * sr + sm * sm) * ENVELOPE_NORM, texelFetch(uAx, ivec2(si, li), 0).y, 0.0, 1.0);
+  // the looks are detected one by one and their envelopes averaged (compounding, decision 145)
+  float env = sqrt(sr * sr + sm * sm) * ENVELOPE_NORM;
+  if (COMPOUND_LOOKS > 1.0) env = (env + sqrt(sr2 * sr2 + sm2 * sm2) * ENVELOPE_NORM) / COMPOUND_LOOKS;
+  outAmp = vec4(env, texelFetch(uAx, ivec2(si, li), 0).y, 0.0, 1.0);
 }
 `;

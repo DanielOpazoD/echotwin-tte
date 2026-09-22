@@ -37,9 +37,18 @@ import { APERTURE_MM } from '@/simulator/probe/transducer';
 export { APERTURE_MM };
 const FWHM_TO_SIGMA = 1 / (2 * Math.sqrt(2 * Math.log(2)));
 
+/**
+ * Scale of the resolution cell against the diffraction formulas below (decision 145): a clinical cardiac image is
+ * formed with a narrow-band harmonic receive filter and a line density that smooth it beyond what the aperture and
+ * the pulse alone give, and its speckle cell measures 2.1 × 1.7 mm (CAMUS Good, lateral × axial) where the formulas
+ * gave 1.5 × 1.0.
+ */
+export const PSF_AXIAL_SCALE = 1.35;
+export const PSF_LATERAL_SCALE = 1;
+
 /** Axial resolution (FWHM of the pulse envelope, mm): about two cycles; harmonic imaging trades a little axial resolution. */
 export function axialFwhmMm(frequencyMHz: number, harmonics: boolean): number {
-  return 0.77 * (2.5 / frequencyMHz) * (harmonics ? 1.15 : 1);
+  return 0.77 * (2.5 / frequencyMHz) * (harmonics ? 1.15 : 1) * PSF_AXIAL_SCALE;
 }
 
 /**
@@ -65,6 +74,7 @@ export function lateralFwhmMm(
   return (
     twoWay *
     (harmonics ? 0.8 : 1) *
+    PSF_LATERAL_SCALE *
     (1 + 1.6 * beamWidthBoost * Math.min(1, Math.abs(rCm - focusCm) / 6))
   );
 }

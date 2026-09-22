@@ -173,6 +173,8 @@ export class Webgl2Renderer implements RendererBackend {
   private texA0: WebGLTexture | null = null;
   private texA1: WebGLTexture | null = null;
   private texA2: WebGLTexture | null = null;
+  private texA3: WebGLTexture | null = null;
+  private texSD: WebGLTexture | null = null;
   /** Pass A on the side elevation planes (slice thickness) and a scratch id target for those passes. */
   private texS0: WebGLTexture | null = null;
   private texS1: WebGLTexture | null = null;
@@ -182,9 +184,11 @@ export class Webgl2Renderer implements RendererBackend {
   /** Pass B complex signal and ids; pass C axial; pass D envelope. */
   private texB0: WebGLTexture | null = null;
   private texB1: WebGLTexture | null = null;
+  private texB2: WebGLTexture | null = null;
   private texL0: WebGLTexture | null = null;
   private texP0: WebGLTexture | null = null;
   private texC0: WebGLTexture | null = null;
+  private texC1: WebGLTexture | null = null;
   private texD0: WebGLTexture | null = null;
   /** Receiver noise after the axial and after the lateral pass (re, 0, im). */
   private texNA: WebGLTexture | null = null;
@@ -270,6 +274,7 @@ export class Webgl2Renderer implements RendererBackend {
       ['uPassC', 6],
       ['uSideCA', 7],
       ['uSideCB', 8],
+      ['uPassD', 9],
     ];
     for (const [name, unit] of unitsB) gl.uniform1i(gl.getUniformLocation(this.progB, name), unit);
     gl.useProgram(this.progL);
@@ -280,9 +285,11 @@ export class Webgl2Renderer implements RendererBackend {
     gl.useProgram(this.progC);
     gl.uniform1i(gl.getUniformLocation(this.progC, 'uSig'), 2);
     gl.uniform1i(gl.getUniformLocation(this.progC, 'uPsf'), 3);
+    gl.uniform1i(gl.getUniformLocation(this.progC, 'uSig2'), 4);
     gl.useProgram(this.progD);
     gl.uniform1i(gl.getUniformLocation(this.progD, 'uAx'), 2);
     gl.uniform1i(gl.getUniformLocation(this.progD, 'uPsf'), 3);
+    gl.uniform1i(gl.getUniformLocation(this.progD, 'uAx2'), 4);
     gl.useProgram(this.progConsole);
     gl.uniform1i(this.uc.uEnv, 2);
     gl.uniform1i(this.uc.uIds, 3);
@@ -358,6 +365,8 @@ export class Webgl2Renderer implements RendererBackend {
       this.texA0,
       this.texA1,
       this.texA2,
+      this.texA3,
+      this.texSD,
       this.texS0,
       this.texS1,
       this.texSC0,
@@ -367,7 +376,9 @@ export class Webgl2Renderer implements RendererBackend {
       this.texL0,
       this.texP0,
       this.texB1,
+      this.texB2,
       this.texC0,
+      this.texC1,
       this.texD0,
       this.texNA,
       this.texNL,
@@ -397,6 +408,8 @@ export class Webgl2Renderer implements RendererBackend {
     this.texA0 =
       this.texA1 =
       this.texA2 =
+      this.texA3 =
+      this.texSD =
       this.texS0 =
       this.texS1 =
       this.texSC0 =
@@ -407,7 +420,9 @@ export class Webgl2Renderer implements RendererBackend {
       this.texP0 =
       this.texB0 =
       this.texB1 =
+      this.texB2 =
       this.texC0 =
+      this.texC1 =
       this.texD0 =
       this.texNA =
       this.texNL =
@@ -512,6 +527,8 @@ export class Webgl2Renderer implements RendererBackend {
     this.texA0 = f32();
     this.texA1 = mk(gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE);
     this.texA2 = f32();
+    this.texA3 = f32();
+    this.texSD = f32(); // the side planes' fourth attachment (their second-look phasor is never read)
     this.texS0 = f32();
     this.texS1 = f32();
     this.texSC0 = f32();
@@ -519,19 +536,21 @@ export class Webgl2Renderer implements RendererBackend {
     this.texSIds = mk(gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE);
     this.texB0 = f32();
     this.texB1 = mk(gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE);
+    this.texB2 = f32();
     this.texL0 = f32();
     this.texP0 = f32();
     this.texC0 = f32();
+    this.texC1 = f32();
     this.texD0 = f32();
     this.texNA = f32();
     this.texNL = f32();
-    this.fbA = mkFb(this.texA0, this.texA1, this.texA2);
-    this.fbS0 = mkFb(this.texS0, this.texSIds, this.texSC0);
-    this.fbS1 = mkFb(this.texS1, this.texSIds, this.texSC1);
-    this.fbB = mkFb(this.texB0, this.texB1);
+    this.fbA = mkFb(this.texA0, this.texA1, this.texA2, this.texA3);
+    this.fbS0 = mkFb(this.texS0, this.texSIds, this.texSC0, this.texSD);
+    this.fbS1 = mkFb(this.texS1, this.texSIds, this.texSC1, this.texSD);
+    this.fbB = mkFb(this.texB0, this.texB1, this.texB2);
     this.fbL = mkFb(this.texL0);
     this.fbP = mkFb(this.texP0);
-    this.fbC = mkFb(this.texC0);
+    this.fbC = mkFb(this.texC0, this.texC1);
     this.fbD = mkFb(this.texD0);
     this.fbNA = mkFb(this.texNA);
     this.fbNL = mkFb(this.texNL);
@@ -603,20 +622,23 @@ export class Webgl2Renderer implements RendererBackend {
     bindAt(6, this.texA2);
     bindAt(7, this.texSC0);
     bindAt(8, this.texSC1);
+    bindAt(9, this.texA3);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
-    // pass C: axial PSF
+    // pass C: axial PSF, both compounding looks
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbC);
     gl.useProgram(this.progC);
     bindAt(2, this.texB0);
     bindAt(3, this.psfTex);
+    bindAt(4, this.texB2);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
-    // pass D: lateral PSF and envelope
+    // pass D: lateral PSF and envelope, the looks averaged
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbD);
     gl.useProgram(this.progD);
     bindAt(2, this.texC0);
     bindAt(3, this.psfTex);
+    bindAt(4, this.texC1);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
-    for (let u = 2; u <= 8; u++) bindAt(u, null);
+    for (let u = 2; u <= 9; u++) bindAt(u, null);
   }
 
   private bindAt(unit: number, tex: WebGLTexture | null): void {
