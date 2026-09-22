@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 139 (última: 139).
+Decisiones: 140 (última: 140).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -147,3 +147,4 @@ Decisiones: 139 (última: 139).
 | [137](DECISIONS.md#L429) | 2026-09-16 | El navegador 3D se divide en dos: la sonda sobre el tórax arriba y el corte cardíaco de frente abajo | vigente |
 | [138](DECISIONS.md#L431) | 2026-09-16 | Los velos tricúspides abiertos van paralelos a las paredes y el anillo es una silla anteroseptal de 5 mm | vigente |
 | [139](DECISIONS.md#L435) | 2026-09-21 | El eje largo del VI sigue la resonancia de sanos, el ápex descansa contra la pared, todas las vistas apicales comparten la sonda sobre el eje y los haces se apuntan desde su origen | vigente |
+| [140](DECISIONS.md#L439) | 2026-09-22 | La pared libre del VD toma la respuesta de fibras y las paredes auriculares dispersan sin anisotropía; la mitral del A5C queda declarada | vigente |
