@@ -22,6 +22,8 @@ export interface AcquisitionSettings {
   grayMap: 'linear' | 's-curve' | 'high-contrast' | 'clinical';
   invertLR: boolean;
   zoom: number; // 1 = none
+  /** Default depth compensation of the console (dB/cm/MHz, two-way path); the console's own value when absent. */
+  depthCompensationDbPerCmMHz?: number;
 }
 
 export const DEFAULT_ACQUISITION: AcquisitionSettings = {

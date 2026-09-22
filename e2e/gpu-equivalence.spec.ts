@@ -40,6 +40,14 @@ test.beforeEach(async ({ page }) => {
  */
 const MIN_SAMPLES = 60;
 const MAX_STRUCTURE_DISAGREEMENT = 0.06;
+/**
+ * Amplitude bound over the samples both backends label alike. 1 % held every frame of the matrix on SwiftShader until
+ * decision 144, with the tamponade PLAX at its edge (1.004 % at decision 111, 1.04 % with the focused beam); the same
+ * frame on a real GPU (ANGLE Metal, Apple M4) reads 0.23 %, so what remains is the software renderer's float
+ * precision, not the chain: a shader that drifts disagrees by tens of percent (decision 71). 1.5 % keeps the same
+ * separation.
+ */
+const MAX_AMP_REL_DIFF = 0.015;
 
 const MATRIX: [string, string[], number[], ('low' | 'medium' | 'high')?, number?][] = [
   ['normal-excellent-window', ['plax', 'a4c', 'psax-av'], [0, 0.35]],
@@ -83,7 +91,8 @@ for (const [caseId, views, phases, tier, offsetV] of MATRIX) {
         expect(r.lines).toBeGreaterThan(60);
         expect(r.structureAgreement).toBeGreaterThan(0.995);
         expect(r.tissueAgreement).toBeGreaterThan(0.995);
-        expect(r.ampRelDiff).toBeLessThan(0.01);
+        // over the samples both backends label alike (the boundary flips are the structure/tissue bounds above)
+        expect(r.ampRelDiff).toBeLessThan(MAX_AMP_REL_DIFF);
         expect(r.transDiff).toBeLessThan(0.001);
         // per structure: the frame-wide 99.5 % let a whole atrial wall drift for a day (decision 71); every
         // structure the CPU draws with at least MIN_SAMPLES samples must agree on all but a small fraction

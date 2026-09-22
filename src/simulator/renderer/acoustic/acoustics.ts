@@ -43,6 +43,27 @@ export function myoAnisoGain(dphi: number, dz2: number): number {
     (1 - MYO_ANISO_FLOOR) * (1 - MYO_HELIX_COS2 * dphi * dphi - (1 - MYO_HELIX_COS2) * dz2)
   );
 }
+/**
+ * Fibre helix of the LV wall (decision 144): the helix angle from the circumferential direction runs from
+ * MYO_HELIX_ENDO_DEG at the endocardium to MYO_HELIX_EPI_DEG at the epicardium (Streeter's ≈ +60° → −60°), so the
+ * subendocardial and subepicardial layers are longitudinal and the mid-wall circumferential. Seen from the apex, the
+ * beam runs along the fibres of the two edges and across those of the middle, which is why a clinical apical wall is
+ * brightest in its middle (CAMUS Good: the endocardial fifth at 0.80–0.84 of the mid-wall grey) where one
+ * circumferential direction for the whole wall gave a flat band.
+ */
+export const MYO_HELIX_ENDO_DEG = 60;
+export const MYO_HELIX_EPI_DEG = -60;
+/**
+ * Angular gain of an LV wall sample: `dphi` is the beam's component along the circumferential direction at the
+ * sample (signed), `dz` its component along the long axis and `u` the depth across the wall (0 endocardium,
+ * 1 epicardium). Beam across the local fibre → 1; beam along it → the floor.
+ */
+export function myoHelixGain(dphi: number, dz: number, u: number): number {
+  const alpha =
+    ((MYO_HELIX_ENDO_DEG + (MYO_HELIX_EPI_DEG - MYO_HELIX_ENDO_DEG) * u) * Math.PI) / 180;
+  const c = Math.cos(alpha) * dphi + Math.sin(alpha) * dz;
+  return MYO_ANISO_FLOOR + (1 - MYO_ANISO_FLOOR) * (1 - c * c);
+}
 /** Backscatter heterogeneity: spatial frequency (cycles/cm) and peak-to-peak depth (dB) per tissue. */
 export const HETERO_FREQ = 1.6;
 export const HETERO_DB_MYO = 6;
@@ -59,7 +80,14 @@ export const REVERB_PERIOD_MIN_CM = 0.4;
 export const REVERB_WIDTH_CM = 0.12;
 export const REVERB_DECAY = 0.55;
 export const REVERB_GAIN = 0.9;
-export const REVERB_DIFFUSE = 0.02;
+/**
+ * Diffuse reverberation behind the pleura (decision 144): brightest right behind the pleural line and fading with the
+ * distance into the lung, as the haze of a real lung does (CAMUS Good: the band 3–9 mm outside the lateral wall at
+ * 98, the far background beyond 8 mm from the heart at 79). Until then the floor followed the A-line period, which for
+ * a pleura 8 cm deep meant a flat 0.011 for the whole far field: a black band beside the lateral wall.
+ */
+export const REVERB_DIFFUSE = 0.35;
+export const REVERB_DIFFUSE_DECAY_CM = 1.5;
 /** Noise that modulates the diffuse reverberation floor: base + amplitude · lattice(line·f, r·f, z). */
 export const REVERB_MOD_BASE = 0.4;
 export const REVERB_MOD_AMP = 0.6;
@@ -120,9 +148,48 @@ export const CLUTTER_RE_A_X = 3.1;
 export const CLUTTER_RE_B: readonly [number, number] = [8.3, 1.9];
 export const CLUTTER_IM_A: readonly [number, number, number] = [61.7, 5.5, 3.3];
 export const CLUTTER_IM_B: readonly [number, number, number] = [21.1, 44.4, 9.9];
+/**
+ * On-axis two-way sensitivity of the beam at depth r relative to its transmit focus (decision 144). The energy a
+ * pulse carries spreads over the beam's width: near the face a focused aperture is as wide as the aperture itself
+ * (lateral) and as tall as the element (elevation), and only at the focus does it narrow to its diffraction waist,
+ * so the same scatterer sends back less from the near field than from the focus; beyond the focus the beam widens
+ * again. Widths are the geometric taper of the aperture towards the focus combined in quadrature with the waist,
+ * the two-way amplitude the square root of the width ratio in each direction (energy conserved across the beam,
+ * receive focusing following transmit). A scanner's default TGC restores the far side (`consoleCompensation`) and
+ * leaves the near side to fall, as the images do: CAMUS Good shows the chest wall at 119–138 with the first 2.5 mm
+ * at 152 where the renderer, with a beam of constant sensitivity, saturated the first centimetre.
+ */
+export const FOCUS_HALF_APERTURE_MM = 7;
+export const FOCUS_HALF_ELEVATION_MM = 6.5;
+export const FOCUS_WAIST_LATERAL_MM = 2;
+export const FOCUS_WAIST_ELEVATION_MM = 2;
+/** Lateral half-width of the transmit beam at depth r (cm): the aperture tapering to the waist at the focus. */
+export function beamHalfWidthCm(rCm: number, focusCm: number): number {
+  const taper = 1 - rCm / Math.max(1, focusCm);
+  return (
+    Math.sqrt(
+      FOCUS_HALF_APERTURE_MM * FOCUS_HALF_APERTURE_MM * taper * taper +
+        FOCUS_WAIST_LATERAL_MM * FOCUS_WAIST_LATERAL_MM,
+    ) / 10
+  );
+}
+export function focusingGain(rCm: number, focusCm: number): number {
+  const taper = 1 - rCm / Math.max(1, focusCm);
+  const wl = beamHalfWidthCm(rCm, focusCm) * 10;
+  const we = Math.sqrt(
+    FOCUS_HALF_ELEVATION_MM * FOCUS_HALF_ELEVATION_MM * taper * taper +
+      FOCUS_WAIST_ELEVATION_MM * FOCUS_WAIST_ELEVATION_MM,
+  );
+  return Math.sqrt((FOCUS_WAIST_LATERAL_MM / wl) * (FOCUS_WAIST_ELEVATION_MM / we));
+}
+/** Most lines the beam-attenuation window spans on either side (near the face the beam is wider than the sector). */
+export const BEAM_ATTEN_MAX_LINES = 24;
+/** Floor of the arc one line spans (cm), so the window at the apex sample stays finite. */
+export const BEAM_ATTEN_MIN_ARC_CM = 1e-6;
+
 /** Transducer ring-down in the first samples: gain · (1 − r / extent). */
 export const RINGDOWN_CM = 0.35;
-export const RINGDOWN_GAIN = 0.6;
+export const RINGDOWN_GAIN = 0.05;
 
 export function pleuralReverberation(
   rCm: number,
@@ -142,7 +209,7 @@ export function pleuralReverberation(
     band += decay * Math.exp(-offset * offset);
     decay *= REVERB_DECAY;
   }
-  const diffuse = REVERB_DIFFUSE * Math.pow(REVERB_DECAY, k + 1) * modulation;
+  const diffuse = REVERB_DIFFUSE * Math.exp(-d / REVERB_DIFFUSE_DECAY_CM) * modulation;
   return transmission * (REVERB_GAIN * band + diffuse);
 }
 
@@ -170,6 +237,8 @@ export const ACOUSTIC_GLSL_CONSTANTS: Readonly<
   MYO_ANISO_FLOOR,
   MYO_HELIX_COS2,
   MYO_ANISO_RADIAL_EPS,
+  MYO_HELIX_ENDO_DEG,
+  MYO_HELIX_EPI_DEG,
   HETERO_FREQ,
   HETERO_DB_MYO,
   HETERO_DB_LIVER,
@@ -183,6 +252,7 @@ export const ACOUSTIC_GLSL_CONSTANTS: Readonly<
   REVERB_DECAY,
   REVERB_GAIN,
   REVERB_DIFFUSE,
+  REVERB_DIFFUSE_DECAY_CM,
   REVERB_MOD_BASE,
   REVERB_MOD_AMP,
   REVERB_MOD_LINE_FREQ,
@@ -230,6 +300,12 @@ export const ACOUSTIC_GLSL_CONSTANTS: Readonly<
   CLUTTER_IM_B,
   RINGDOWN_CM,
   RINGDOWN_GAIN,
+  FOCUS_HALF_APERTURE_MM,
+  FOCUS_HALF_ELEVATION_MM,
+  FOCUS_WAIST_LATERAL_MM,
+  FOCUS_WAIST_ELEVATION_MM,
+  BEAM_ATTEN_MAX_LINES,
+  BEAM_ATTEN_MIN_ARC_CM,
 };
 
 /** A number as a GLSL float literal (`1` → `1.0`, `1e-4` → `1e-4`). */

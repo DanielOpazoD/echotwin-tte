@@ -74,7 +74,7 @@ o avance el núcleo varios latidos lleva `// @tier slow` en su primera línea (y
 importa esos módulos pero se mantiene ligero a propósito); `src/tests/testTiers.test.ts` lo exige.
 
 Herramientas de medición (`npm run measure -- <caso>`, `slice-map.ts`, `audit-views.ts`,
-`fidelity-bench.ts`, `structure-share.ts`, `render-views.ts`, `camus-compare.ts`) y el runbook de goldens y renders: `docs/validation/README.md`
+`fidelity-bench.ts`, `structure-share.ts`, `render-views.ts`, `camus-compare.ts`, `blind-test.ts`) y el runbook de goldens y renders: `docs/validation/README.md`
 y la sección «Herramientas» del método de fidelidad. Los scripts temporales van fuera del repositorio.
 
 Los E2E locales levantan su propio `vite preview` en el puerto 4190 (`E2E_PORT` lo cambia) y nunca reutilizan un

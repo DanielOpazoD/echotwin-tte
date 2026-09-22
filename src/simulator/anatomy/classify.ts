@@ -12,6 +12,13 @@ import { classifyRightVentricle } from './classify/rightVentricle';
 import { classifyPericardium } from './classify/pericardium';
 
 /**
+ * What a miss reports in `out.sdf` when the point lies outside the heart's bounding sphere: on a miss `out.sdf` is the
+ * distance (cm) from the point to the outside of the pericardial sac, which the thorax classifier uses to wrap the lungs
+ * around the heart (decision 144).
+ */
+export const FAR_FROM_HEART_CM = 99;
+
+/**
  * Classify a heart-frame point. Writes into `out` and returns true when the point belongs to a
  * cardiac structure (including pericardium/effusion); false when outside the heart.
  *
@@ -34,7 +41,10 @@ export function classifyHeart(
   const bdx = x - bc.x,
     bdy = y - bc.y,
     bdz = z - bc.z;
-  if (bdx * bdx + bdy * bdy + bdz * bdz > m.boundRadius * m.boundRadius) return false;
+  if (bdx * bdx + bdy * bdy + bdz * bdz > m.boundRadius * m.boundRadius) {
+    out.sdf = FAR_FROM_HEART_CM;
+    return false;
+  }
 
   const c = ctx;
   c.m = m;

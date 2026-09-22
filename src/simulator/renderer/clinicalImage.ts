@@ -40,7 +40,7 @@ export interface ApicalRender {
 
 /** The console controls a clinical comparison may vary; anything else would change the render itself. */
 export type ConsoleOverride = Partial<
-  Pick<AcquisitionSettings, 'grayMap' | 'dynamicRangeDb' | 'gainDb'>
+  Pick<AcquisitionSettings, 'grayMap' | 'dynamicRangeDb' | 'gainDb' | 'depthCompensationDbPerCmMHz'>
 >;
 
 /**

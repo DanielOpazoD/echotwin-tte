@@ -121,7 +121,7 @@ describe('view quality engine', () => {
   // console. Measured through the simulator core, as the app shows it: the static analysis above, with other seeds,
   // phase and no frame history, did not reproduce the regression (the old check passed there).
   it(
-    'gain hints follow clinical optimal-window images: none at the default console, overgain at +12 dB, undergain at −18 dB in apical views',
+    'gain hints follow clinical optimal-window images: none at the default console, overgain at +18 dB, undergain at −18 dB in apical views',
     { timeout: 240_000 },
     () => {
       const c0 = loadCaseById('normal-excellent-window');
@@ -142,7 +142,10 @@ describe('view quality engine', () => {
       };
       const ids = VIEW_TARGETS.map((v) => v.id);
       expect(ids.map((id) => `${id}:${gainHint(id, 0)}`)).toEqual(ids.map((id) => `${id}:none`));
-      expect(ids.map((id) => `${id}:${gainHint(id, 12)}`)).toEqual(ids.map((id) => `${id}:over`));
+      // +18 dB since the receiver's noise floor follows the focused beam (decision 144): the apical cavity reads 50 at the
+      // default console and 81–87 at +12 dB, at the clinical fence (p90 84–89) rather than beyond it, and the shallow
+      // short-axis cavities, darker still, cross it between +15 and +18 dB (gain component 0.72 → 0.52)
+      expect(ids.map((id) => `${id}:${gainHint(id, 18)}`)).toEqual(ids.map((id) => `${id}:over`));
       const apical = ['a4c', 'a5c', 'a2c', 'a3c'];
       expect(apical.map((id) => `${id}:${gainHint(id, -18)}`)).toEqual(
         apical.map((id) => `${id}:under`),

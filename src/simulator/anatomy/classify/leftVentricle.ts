@@ -124,8 +124,12 @@ export function classifyLeftVentricle(c: ClassifyCtx): boolean {
     else if (septalness > 0.7) structure = Structure.LvWallSeptal;
     else if (Math.sin(az) > 0.5) structure = Structure.LvWallAnterior;
     else if (Math.sin(az) < -0.5) structure = Structure.LvWallInferior;
-    const dIn = -Math.min(dEllR, wallT - dEllR);
     const nearEpi = wallT - dEllR < dEllR;
+    // The only coherent interface of the wall is its smooth epicardium: the trabeculated endocardium is rough at the
+    // wavelength and scatters, it does not reflect. Until decision 144 the sample distance reached the endocardium too
+    // and the renderer drew a specular line along it, so the wall read brightest at its inner edge (1.24-1.32 of the
+    // mid-wall grey against 0.80-0.84 in CAMUS Good, whose edge pixels mix with blood).
+    const dIn = nearEpi ? -(wallT - dEllR) : -wallT;
     const sign = nearEpi ? 1 : -1;
     setSample(
       out,
@@ -140,6 +144,8 @@ export function classifyLeftVentricle(c: ClassifyCtx): boolean {
       0,
       structure,
     );
+    // where across the wall the sample lies, for the fibre helix of the renderer (decision 144)
+    out.transmural = Math.min(1, Math.max(0, dEllR / wallT));
     return true;
   }
   // Annular plane region (inside the ellipsoid but basal to the annulus): mitral orifice is blood

@@ -18,6 +18,8 @@ import {
   GLSL_PASS_A_MAIN,
   GLSL_PASS_B_MAIN,
   GLSL_PASS_C_MAIN,
+  GLSL_PASS_L_MAIN,
+  GLSL_PASS_P_MAIN,
   GLSL_PASS_D_MAIN,
   GLSL_VERT,
 } from './glslPasses';
@@ -120,6 +122,8 @@ export class Webgl2Renderer implements RendererBackend {
   private gl: WebGL2RenderingContext;
   private progA: WebGLProgram;
   private progB: WebGLProgram;
+  private progL: WebGLProgram;
+  private progP: WebGLProgram;
   private progC: WebGLProgram;
   private progD: WebGLProgram;
   private progConsole: WebGLProgram;
@@ -178,6 +182,8 @@ export class Webgl2Renderer implements RendererBackend {
   /** Pass B complex signal and ids; pass C axial; pass D envelope. */
   private texB0: WebGLTexture | null = null;
   private texB1: WebGLTexture | null = null;
+  private texL0: WebGLTexture | null = null;
+  private texP0: WebGLTexture | null = null;
   private texC0: WebGLTexture | null = null;
   private texD0: WebGLTexture | null = null;
   /** Receiver noise after the axial and after the lateral pass (re, 0, im). */
@@ -187,6 +193,8 @@ export class Webgl2Renderer implements RendererBackend {
   private fbS0: WebGLFramebuffer | null = null;
   private fbS1: WebGLFramebuffer | null = null;
   private fbB: WebGLFramebuffer | null = null;
+  private fbL: WebGLFramebuffer | null = null;
+  private fbP: WebGLFramebuffer | null = null;
   private fbC: WebGLFramebuffer | null = null;
   private fbD: WebGLFramebuffer | null = null;
   private fbNA: WebGLFramebuffer | null = null;
@@ -214,6 +222,8 @@ export class Webgl2Renderer implements RendererBackend {
       `${common}${GLSL_HEART}${GLSL_THORAX}${GLSL_PASS_A_MAIN}`,
     );
     this.progB = buildProgram(gl, GLSL_VERT, `${common}${GLSL_PASS_B_MAIN}`);
+    this.progL = buildProgram(gl, GLSL_VERT, `${common}${GLSL_PASS_L_MAIN}`);
+    this.progP = buildProgram(gl, GLSL_VERT, `${common}${GLSL_PASS_P_MAIN}`);
     this.progC = buildProgram(gl, GLSL_VERT, `${common}${GLSL_PASS_C_MAIN}`);
     this.progD = buildProgram(gl, GLSL_VERT, `${common}${GLSL_PASS_D_MAIN}`);
     this.progConsole = buildProgram(gl, GLSL_VERT, GLSL_CONSOLE_FRAG);
@@ -246,7 +256,7 @@ export class Webgl2Renderer implements RendererBackend {
       tp[t * 4 + 3] = p.grain;
     }
     gl.uniform4fv(gl.getUniformLocation(this.progA, 'uTissue'), tp);
-    for (const prog of [this.progA, this.progB, this.progC, this.progD]) {
+    for (const prog of [this.progA, this.progL, this.progP, this.progB, this.progC, this.progD]) {
       gl.useProgram(prog);
       gl.uniform1i(gl.getUniformLocation(prog, 'uParams'), 0);
       gl.uniform1i(gl.getUniformLocation(prog, 'uNoise'), 1);
@@ -262,6 +272,11 @@ export class Webgl2Renderer implements RendererBackend {
       ['uSideCB', 8],
     ];
     for (const [name, unit] of unitsB) gl.uniform1i(gl.getUniformLocation(this.progB, name), unit);
+    gl.useProgram(this.progL);
+    gl.uniform1i(gl.getUniformLocation(this.progL, 'uPassA'), 2);
+    gl.useProgram(this.progP);
+    gl.uniform1i(gl.getUniformLocation(this.progP, 'uPassA'), 2);
+    gl.uniform1i(gl.getUniformLocation(this.progP, 'uDead'), 3);
     gl.useProgram(this.progC);
     gl.uniform1i(gl.getUniformLocation(this.progC, 'uSig'), 2);
     gl.uniform1i(gl.getUniformLocation(this.progC, 'uPsf'), 3);
@@ -309,6 +324,8 @@ export class Webgl2Renderer implements RendererBackend {
     const gl = this.gl;
     for (const p of [
       this.progA,
+      this.progL,
+      this.progP,
       this.progB,
       this.progC,
       this.progD,
@@ -347,6 +364,8 @@ export class Webgl2Renderer implements RendererBackend {
       this.texSC1,
       this.texSIds,
       this.texB0,
+      this.texL0,
+      this.texP0,
       this.texB1,
       this.texC0,
       this.texD0,
@@ -360,6 +379,8 @@ export class Webgl2Renderer implements RendererBackend {
       this.fbA,
       this.fbS0,
       this.fbS1,
+      this.fbL,
+      this.fbP,
       this.fbB,
       this.fbC,
       this.fbD,
@@ -382,10 +403,20 @@ export class Webgl2Renderer implements RendererBackend {
       this.texSC1 =
       this.texSIds =
         null;
-    this.texB0 = this.texB1 = this.texC0 = this.texD0 = this.texNA = this.texNL = null;
+    this.texL0 =
+      this.texP0 =
+      this.texB0 =
+      this.texB1 =
+      this.texC0 =
+      this.texD0 =
+      this.texNA =
+      this.texNL =
+        null;
     this.fbA =
       this.fbS0 =
       this.fbS1 =
+      this.fbL =
+      this.fbP =
       this.fbB =
       this.fbC =
       this.fbD =
@@ -488,6 +519,8 @@ export class Webgl2Renderer implements RendererBackend {
     this.texSIds = mk(gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE);
     this.texB0 = f32();
     this.texB1 = mk(gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE);
+    this.texL0 = f32();
+    this.texP0 = f32();
     this.texC0 = f32();
     this.texD0 = f32();
     this.texNA = f32();
@@ -496,6 +529,8 @@ export class Webgl2Renderer implements RendererBackend {
     this.fbS0 = mkFb(this.texS0, this.texSIds, this.texSC0);
     this.fbS1 = mkFb(this.texS1, this.texSIds, this.texSC1);
     this.fbB = mkFb(this.texB0, this.texB1);
+    this.fbL = mkFb(this.texL0);
+    this.fbP = mkFb(this.texP0);
     this.fbC = mkFb(this.texC0);
     this.fbD = mkFb(this.texD0);
     this.fbNA = mkFb(this.texNA);
@@ -546,11 +581,22 @@ export class Webgl2Renderer implements RendererBackend {
     gl.uniform1f(this.uElevK, 0);
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbA);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
-    // pass B: transmission march → complex signal
+    const bindAt = (unit: number, tex: WebGLTexture | null): void => this.bindAt(unit, tex);
+    // pass L: which samples lie behind a pleural entry on their own line (the CPU march never classifies them)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbL);
+    gl.useProgram(this.progL);
+    bindAt(2, this.texA0);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    // pass P: the attenuation increments averaged over the beam's width at each depth (decision 144)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbP);
+    gl.useProgram(this.progP);
+    bindAt(2, this.texA0);
+    bindAt(3, this.texL0);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    // pass B: transmission march → complex signal (σ and flags of pass A come through pass P)
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbB);
     gl.useProgram(this.progB);
-    const bindAt = (unit: number, tex: WebGLTexture | null): void => this.bindAt(unit, tex);
-    bindAt(2, this.texA0);
+    bindAt(2, this.texP0);
     bindAt(3, this.texA1);
     bindAt(4, this.texS0);
     bindAt(5, this.texS1);

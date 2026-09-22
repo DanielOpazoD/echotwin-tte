@@ -35,6 +35,12 @@ En el código, cada referencia vive en `src/clinical/guidelines/references.ts` c
 | `wickline-aniso-1992` | Three-dimensional characterization of human ventricular myofiber architecture by ultrasonic backscatter | Wickline SA, Verdonk ED, Wong AK, Shepard RK, Miller JG. J Clin Invest 1992;89(2):572-580 | VERIFIED por búsqueda (texto en JCI): retrodispersión integrada 14,5 ± 0,6 dB mayor con insonación perpendicular que paralela a las fibras en miocardio ventricular humano |
 | `leclerc-camus-2019` | Deep Learning for Segmentation Using an Open Large-Scale Dataset in 2D Echocardiography (CAMUS) | Leclerc S, Smistad E, Jodoin PM, et al. IEEE TMI 2019;38(9):2198-2210 | VERIFIED: 505 secuencias de calidad Good medidas con `tools/clinical/camus-compare.ts`; geometría apical de referencia en `camusApicalGeometry.ts` (ápex del 4C a 0 mm de la línea central, RIC −3,9 a 3,2; profundidad 27 mm; eje 6°) |
 
+### Física del haz y fibras del miocardio (decisión 144)
+| Id en código | Documento | Cita | Estado |
+|---|---|---|---|
+| `streeter-fibre-1969` | Fiber orientation in the canine left ventricle during diastole and systole | Streeter DD Jr, Spotnitz HM, Patel DP, Ross J Jr, Sonnenblick EH. Circ Res 1969;24(3):339-347. DOI 10.1161/01.RES.24.3.339 | VERIFIED (resumen en AHA Journals): 18 corazones caninos fijados en sístole, diástole y diástole dilatada; el ángulo de las fibras varía de ≈ +60° (endocardio) a ≈ −60° (epicardio) respecto de la dirección circunferencial y no cambia de diástole a sístole (28 % de engrosamiento) |
+| `kato-pv-2003` | Pulmonary vein anatomy in patients undergoing catheter ablation of atrial fibrillation: lessons learned by use of magnetic resonance imaging | Kato R, Lickfett L, Meininger G, et al. Circulation 2003;107(15):2004-2010. PMID 12681994 | VERIFIED (resumen en PubMed): 28 pacientes y 27 controles por RM; los ostios de las venas pulmonares son ovalados, con el diámetro anteroposterior menor que el superoinferior (el modelo los deja redondos, LIMITATIONS) |
+
 ## Mapeo a `src/clinical/reference-values` y discrepancias
 | Regla en código | Valor en código | Valor verificado | Acción |
 |---|---|---|---|

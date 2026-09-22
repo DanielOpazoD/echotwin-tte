@@ -119,5 +119,6 @@ export function setSample(
   out.my = my;
   out.mz = mz;
   out.extraReflect = extra;
+  out.transmural = -1;
   out.structure = structure;
 }
