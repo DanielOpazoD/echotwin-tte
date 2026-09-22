@@ -292,7 +292,24 @@ export function measureModel(
     [A.laCenter.x + 0.7, A.laCenter.y, A.laCenter.z],
     2,
   ); // lateral of the leaflet coaptation
-  const raTr = runAt(esPose, [Structure.RaCavity], [A.raCenter.x, A.raCenter.y, A.raCenter.z], 0);
+  // the minor axis is taken at mid-atrium, halfway along the end-systolic long axis through the atrial centre (ASE): at the
+  // fixed height of the atrial anchor it read the atrium near its roof once the roof follows the annulus (decision 149)
+  const raMidZ = ((): number => {
+    const step = 0.02;
+    const inRa = (z: number) =>
+      classifyHeart(heart, esPose, A.raCenter.x, A.raCenter.y, z, s) &&
+      s.structure === Structure.RaCavity;
+    let z0 = A.raCenter.z;
+    for (let t = 0; t <= 4 && !inRa(z0); t += step)
+      z0 = inRa(A.raCenter.z + t) ? A.raCenter.z + t : A.raCenter.z - t;
+    if (!inRa(z0)) return A.raCenter.z;
+    let top = z0,
+      bottom = z0;
+    while (inRa(top - step)) top -= step;
+    while (inRa(bottom + step)) bottom += step;
+    return (top + bottom) / 2;
+  })();
+  const raTr = runAt(esPose, [Structure.RaCavity], [A.raCenter.x, A.raCenter.y, raMidZ], 0);
   const raLong = runAt(esPose, [Structure.RaCavity], [A.raCenter.x, A.raCenter.y, A.raCenter.z], 2);
   // interatrial septum: thinnest run along x found on a small grid behind the annulus (its position depends on the atrial sizes)
   const iasT = ((): number => {

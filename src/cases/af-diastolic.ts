@@ -104,5 +104,9 @@ export const afDiastolicCase: CaseDefinitionInput = {
     'ravi',
     'ra-long',
     'la-ao',
+    // without atrial contraction the right ventricle fills less by end-diastole with the same systole: its geometric
+    // ejection fraction reads 44.8 % against 48.9 in the sinus-rhythm normal heart it shares its physiology with, once
+    // the infundibulum is no longer counted as atrium at end-systole (decision 149)
+    'rv-ef',
   ],
 };

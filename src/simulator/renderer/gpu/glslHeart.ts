@@ -55,6 +55,7 @@ import {
 } from '@/simulator/anatomy/valveSkirt';
 
 import { FAR_FROM_HEART_CM } from '@/simulator/anatomy/classify';
+import { RA_ROOF_DESCENT_SHARE, RA_SLEEVE_MARGIN_CM } from '@/simulator/anatomy/classify/atria';
 
 const f = (v: number): string => (Number.isInteger(v) ? `${v}.0` : `${v}`);
 
@@ -71,6 +72,8 @@ const float AV_LATERAL_PROFILE_RADIUS = ${f(AV_LATERAL_PROFILE_RADIUS)};
 const float AV_CROWN_EXPONENT = ${f(AV_CROWN_EXPONENT)};
 const float AV_OPEN_EDGE_FRACTION = ${f(AV_OPEN_EDGE_FRACTION)};
 const float AV_OPEN_WALL_GAP = ${f(AV_OPEN_WALL_GAP)};
+const float RA_ROOF_DESCENT_SHARE = ${f(RA_ROOF_DESCENT_SHARE)};
+const float RA_SLEEVE_MARGIN_CM = ${f(RA_SLEEVE_MARGIN_CM)};
 const int MV_BINS = ${MV_BINS};
 const float AML_ARC_EXTENSION = ${f(AML_ARC_EXTENSION)};
 const float MV_CLOSED_REACH[3] = float[3](${CLOSED_REACH.map(f).join(', ')});
@@ -787,7 +790,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
       setSample(s, T_MYO, -min(dFreeLa, 0.25 - dFreeLa), vec3((x - la.x) / lr.x, (y - la.y) / lr.y, (z - czL) / rzL), p, 0.0, S_LA_WALL);
       return true;
     }
-    float zTopR = ra.z - rar.z;
+    float zTopR = ra.z - rar.z + RA_ROOF_DESCENT_SHARE * TVZ;
     // the atrium ends at the annulus (decision 64): mirrors classifyHeart
     float tvOff = tvOffsetAt(p.xy);
     float zBotR = TV_CZ + TVZ + tvOff + 0.03;
@@ -801,7 +804,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
       float u0 = rr0.y;
       if (u0 > 0.0 && u0 < 1.0) {
         float r0 = length(p.xy);
-        raSleeve = max(max(rr0.x + 0.1 - r0, r0 - (rr0.z - RV_FW)), max(rvFloorZ(TV_CZ, 0.0, 0.0, u0, tvOff) - z, z - rvFloorZ(TV_CZ, TVZ, PV_Z, u0, tvOff)));
+        raSleeve = max(max(max(rr0.x + 0.1 - r0, r0 - (rr0.z - RV_FW)), max(rvFloorZ(TV_CZ, 0.0, 0.0, u0, tvOff) - z, z - rvFloorZ(TV_CZ, TVZ, PV_Z, u0, tvOff))), length(vec2(x - TVS_CX, y - TVS_CY)) - (TVS_R + RA_SLEEVE_MARGIN_CM));
       }
     }
     dFreeRa = min(dFreeRa, raSleeve);
