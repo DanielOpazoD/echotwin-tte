@@ -817,3 +817,23 @@ Las tres referencias salen de `KNOWN_UNREACHABLE_LANDMARKS`.
 **Guarda**
 
 `flowTurbulence.test.ts` cambia la turbulencia declarada de la IT del caso normal y de la IM del prolapso y lee la dispersión en el eje de cada chorro. Con el campo anterior falla (0,25 donde el caso declara 0,2).
+
+
+172. **2026-09-23 — Un caso se carga una vez y su núcleo se desecha al cambiar**: quinto punto de la tanda 4. El panel contó dos `loadCase` al arrancar y ningún `dispose`.
+
+**La carga doble**
+
+El efecto de montaje de `useSimulation` cargaba el caso, y el efecto que sigue a `caseId` se ejecutaba justo después y lo cargaba otra vez. El worker construía así el primer núcleo dos veces. Ahora el hook recuerda el caso que cargó, y el segundo efecto sólo recarga un caso distinto.
+
+**El núcleo sin desechar**
+
+Cada `SimulatorCore` crea su propio contexto WebGL2. El worker y el cliente en línea sustituían el núcleo al cambiar de caso sin liberarlo, y un navegador mantiene pocos contextos: pasado el límite pierde los más antiguos.
+
+`SimulatorCore.dispose()` libera el contexto (el `dispose` del renderizador GPU, que ya existía) y los cuadros del atlas. Un núcleo desechado ya no produce cuadros, y desecharlo dos veces no hace nada. Lo llaman el worker antes de crear el núcleo del caso nuevo y el cliente en línea al reemplazarlo y al desecharse.
+
+**Guardas**
+
+- `useSimulation.test.tsx` (jsdom, con el cliente sustituido por uno que anota): una carga al montar, otra sólo con otro caso, ninguna al repetir el mismo, y un `dispose` al desmontar.
+- `client.test.ts`: el núcleo del caso anterior se desecha al cargar otro, y el último al desechar el cliente.
+
+Con el código anterior fallan las dos: dos cargas al montar y ningún `dispose`. El worker no tiene prueba en Node, que no tiene `Worker`; su cambio es la misma línea que la del cliente.

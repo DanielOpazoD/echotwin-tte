@@ -364,8 +364,29 @@ export class SimulatorCore {
     if (buffer.byteLength > 0 && this.rgbaPool.length < 3) this.rgbaPool.push(buffer);
   }
 
+  private disposed = false;
+
+  /**
+   * Release what the core holds outside the JavaScript heap (decision 172): its WebGL2 context, which every core creates
+   * and a browser keeps only a handful of (the oldest are lost past the limit), and the atlas' cached frames. A disposed
+   * core produces no more frames; disposing twice is harmless.
+   */
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.gpu?.dispose();
+    this.gpu = null;
+    this.atlas.invalidate();
+    this.rgbaPool.length = 0;
+  }
+
+  get isDisposed(): boolean {
+    return this.disposed;
+  }
+
   /** Advance simulation by dt seconds. Returns an output when a new composite frame is ready. */
   step(dtS: number): SimOutput | null {
+    if (this.disposed) return null;
     const inp = this.input;
     const dt = Math.min(0.1, Math.max(0, dtS));
     if (inp.frozen) return this.frozenOutput();

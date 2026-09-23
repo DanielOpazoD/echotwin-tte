@@ -140,6 +140,7 @@ export class SimClient {
   private disposed = false;
 
   private startInline(core: SimulatorCore, caseId: string): void {
+    this.inline?.dispose();
     this.inline = core;
     this.handlers.onReady(core.truth, caseId, core.phaseMarks(), core.lvLengthCm());
     if (this.inlineTimer) clearInterval(this.inlineTimer);
@@ -177,6 +178,7 @@ export class SimClient {
     this.worker?.terminate();
     this.worker = null;
     if (this.inlineTimer) clearInterval(this.inlineTimer);
+    this.inline?.dispose();
     this.inline = null;
   }
 }

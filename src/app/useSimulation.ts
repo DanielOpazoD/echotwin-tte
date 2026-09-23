@@ -17,6 +17,9 @@ export function useSimulation(
   const sizeRef = useRef(displaySize);
   const onFrameRef = useRef(onFrame);
   const caseId = useSimStore((s) => s.caseId);
+  // the case the client last loaded: the mount loads it, and the case effect only reloads a different one (decision
+  // 172; both loaded it at start, and the worker built the first core twice)
+  const loadedCaseRef = useRef<string | null>(null);
   useEffect(() => {
     sizeRef.current = displaySize;
     clientRef.current?.send(buildInput(displaySize));
@@ -42,6 +45,7 @@ export function useSimulation(
     frameBus.recycle = (b) => client.recycle(b);
     frameBus.request = (req) => client.request(req);
     const caseDef = loadCaseById(store.caseId);
+    loadedCaseRef.current = store.caseId;
     void client.loadCase(caseDef, buildInput(sizeRef.current));
     // Inputs are pushed on store changes (independent of rAF, which browsers pause in hidden tabs).
     const push = () => client.send(buildInput(sizeRef.current));
@@ -67,14 +71,15 @@ export function useSimulation(
       unsub();
       client.dispose();
       clientRef.current = null;
+      loadedCaseRef.current = null;
     };
   }, []);
 
   useEffect(() => {
     const client = clientRef.current;
-    if (!client) return;
-    const caseDef = loadCaseById(caseId);
-    void client.loadCase(caseDef, buildInput(sizeRef.current));
+    if (!client || loadedCaseRef.current === caseId) return;
+    loadedCaseRef.current = caseId;
+    void client.loadCase(loadCaseById(caseId), buildInput(sizeRef.current));
   }, [caseId]);
 }
 

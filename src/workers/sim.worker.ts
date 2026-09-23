@@ -93,6 +93,8 @@ self.onmessage = (ev: MessageEvent<MainToWorker>) => {
   const msg = ev.data;
   try {
     if (msg.type === 'init' || msg.type === 'loadCase') {
+      // the previous case's core gives back its WebGL2 context before the new one takes one (decision 172)
+      core?.dispose();
       core = new SimulatorCore(msg.caseDef, msg.input);
       input = msg.input;
       lastTick = 0;
