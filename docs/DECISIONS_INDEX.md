@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 163 (última: 163).
+Decisiones: 164 (última: 164).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -171,3 +171,4 @@ Decisiones: 163 (última: 163).
 | [161](DECISIONS.md#L503) | 2026-09-23 | La verdad que puntúa una medición es la que dibuja el corazón: TSVI, aurícula izquierda y AVA coherentes | vigente |
 | [162](DECISIONS.md#L511) | 2026-09-23 | La sístole empieza a su hora y el corazón derecho tiene tiempos propios: pre-eyección de Weissler, P2 tras A2, tricúspide antes que la mitral y a′ normal | vigente |
 | [163](DECISIONS.md#L519) | 2026-09-23 | La sangre que fluye cambia de speckle en cada cuadro y el tejido conserva el suyo | vigente |
+| [164](DECISIONS.md#L580) | 2026-09-23 | El eje corto mitral pide las referencias de su propio nivel, y cada vista pide sólo lo que su plano alcanza | vigente |

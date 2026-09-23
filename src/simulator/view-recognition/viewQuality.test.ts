@@ -66,7 +66,9 @@ describe('view quality engine', () => {
     const psax = canonicalControl(getViewTarget('psax-mv'), heart, thorax);
     const end = analyze(psax);
     expect(end.bestViewId).toBe('psax-mv');
-    expect(end.score).toBeGreaterThan(60);
+    // the landmarks of its own level (decision 164): with those of the mid ventricle it saw only the mitral valve (69)
+    expect(end.score).toBeGreaterThan(85);
+    expect(end.visibleLandmarks).toEqual(expect.arrayContaining(['mv', 'rv-basal']));
     const pm = analyze(canonicalControl(getViewTarget('psax-pm'), heart, thorax));
     expect(pm.bestViewId).toBe('psax-pm');
     const ap = analyze(canonicalControl(getViewTarget('psax-apex'), heart, thorax));

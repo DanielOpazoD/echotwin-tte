@@ -575,3 +575,51 @@ La copia local de CAMUS sólo trae los cuadros telediastólico y telesistólico,
 **Simplificación declarada**
 
 La sangre se renueva por igual en toda la cavidad. No se advecta con el flujo, así que falta el «humo» de la sangre lenta junto al ápex, que conserva su patrón algunos cuadros.
+
+
+164. **2026-09-23 — El eje corto mitral pide las referencias de su propio nivel, y cada vista pide sólo lo que su plano alcanza**: tercer punto de la tanda 3 («PSAX mitral»). El panel midió el preajuste puntuando 69 en su propia vista, 24,7° fuera del eje corto, sin velos en telediástole y con vena cava inferior en el plano.
+
+**La causa de la puntuación**
+
+La puntuación no venía de la oblicuidad: el motor de vistas mide el plano contra el preajuste, a 0°. Venía de las referencias. La vista pedía la entrada del VD (a 0,35 de la longitud del VI), el septo inferoseptal y la pared inferolateral (a 0,45), es decir, a 3,0 y 3,9 cm del anillo en el caso normal. Su plano, a `MITRAL_SHORT_AXIS_CM` = 1,4 cm, las dejaba a 1,61 y 2,47 cm, cuando el motor las cuenta vistas hasta 1,17 y 0,95 cm. Sólo veía la mitral, y ninguna sonda podía hacerlo mejor sin salir de la vista.
+
+**El cambio**
+
+Tres referencias nuevas a la altura del eje corto mitral, con el radio de pared medio de ese nivel: `rv-basal`, `ivs-inferoseptal-basal` y `wall-inferolateral-basal`. La vista las pide en lugar de las de nivel medio, y su objetivo usa la misma constante.
+
+Puntuación del preajuste en su propia vista, en la cadena de la app a lo largo de un latido:
+
+- Caso normal: de 69 a 92.
+- Los otros nueve casos con buena ventana: 86–96.
+- La ventana difícil (27) y el caso de artefactos (45) siguen bajos por sombra y pulmón, como antes.
+
+Queda sin ver la pared inferolateral basal en ocho casos y el VD basal en cinco. La oblicuidad de la ventana (24–28°) hace que el fondo del plano pase cerca del anillo y el campo cercano a nivel medio: la pared inferolateral queda a 1,00 cm del plano en el caso normal, justo fuera de su alcance.
+
+**La oblicuidad**
+
+El eje corto verdadero a nivel mitral corta la piel a la derecha del esternón (u = −1,67, v = 4,74), así que desde la ventana izquierda sólo se alcanza inclinando la sonda. Medí tres ventanas:
+
+| Ventana | Oblicuidad | Puntuación (normal) | Por qué no |
+|---|---|---|---|
+| Espacio del PLAX | 24–28° | 92 | — |
+| Espacio superior (el del eje corto aórtico, como sugiere la pista de la vista) | 13–18° | 88 | Con el haz tan angulado, la costilla sombrea el corazón (artefactos 0,41), y pierde el VD basal y el septo en siete casos (77–83) |
+| Segundo espacio | 5° | 79 | Menos puntuación; en la MCD, 29 |
+
+El preajuste se queda en el espacio del PLAX. El criterio del panel de ≤ 12° no se alcanza en este tórax sin subir al segundo espacio.
+
+**La vena cava**
+
+No es la oblicuidad: sigue en el plano desde las tres ventanas (1,7–2,0 % del cuadro en el caso normal). La unión de la cava con la aurícula derecha queda a 8–10 cm de profundidad en el borde izquierdo de la imagen, a z ≈ 1,0 cm del anillo en el eje del corazón. La limitación declarada sigue, con este diagnóstico.
+
+Los velos ocupan el 0,53 % del cuadro de media en la diástole (fases 0,5–0,7) y un 0,17 % en su mínimo, en diástasis. En telediástole están cerrados junto al anillo, por encima del plano, como en un eje corto a la altura de sus puntas.
+
+**La guarda**
+
+`viewLandmarks.test.ts` exige que cada referencia que pide cada vista esté, en los doce casos, al alcance del motor desde el plano que define la vista. Con las referencias antiguas del eje corto mitral falla: el VD a 1,61 cm y las paredes a 2,47.
+
+La guarda destapó catorce referencias más fuera de su plano, que quedan declaradas en `KNOWN_UNREACHABLE_LANDMARKS`:
+
+- Tres exigidas que el VI dilatado de la MCD (9,8 cm) deja fuera: los papilares del eje corto papilar a 1,0 cm y la cavidad apical del eje corto apical a 1,2 cm. Esas vistas apuntan a una altura fija en cm y sus referencias siguen la longitud del VI.
+- Once opcionales, fuera en todos los casos o casi, que restan puntos a cualquier sonda (el detalle está en `LIMITATIONS.md`).
+
+Corregirlas cambia los preajustes de esas vistas y sus goldens, y queda como trabajo siguiente.

@@ -24,6 +24,7 @@ function declaredIds(source: string, name: string): string[] {
 const SETS: [string, string][] = [
   ['src/simulator/anatomy/proportions.test.ts', 'KNOWN_MODEL_LIMITATIONS'],
   ['src/simulator/windows/viewContent.test.ts', 'KNOWN_VIEW_LIMITATIONS'],
+  ['src/simulator/windows/viewLandmarks.test.ts', 'KNOWN_UNREACHABLE_LANDMARKS'],
 ];
 
 describe('declared model limitations are named in docs/LIMITATIONS.md', () => {
