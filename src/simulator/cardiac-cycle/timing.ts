@@ -7,8 +7,13 @@ import type { PhysiologyConfig, RhythmConfig } from '@/cases/schema';
  */
 export interface CycleTimings {
   rrS: number;
-  ejectionStartS: number; // aortic valve opening (after electromechanical delay + IVC)
+  ejectionStartS: number; // aortic valve opening: the pre-ejection period after QRS onset
   ejectionEndS: number; // aortic valve closure
+  /** Pulmonary valve opening and closure (decision 162): before the aortic valve opens, after it closes. */
+  pulmonaryOpenS: number;
+  pulmonaryCloseS: number;
+  /** Tricuspid valve opening (decision 162): before the mitral one, the right ventricle relaxing in a shorter time. */
+  tricuspidOpenS: number;
   mitralOpenS: number; // end of IVRT
   eAccelS: number; // E-wave acceleration time
   eDecelS: number; // E-wave deceleration time
@@ -19,7 +24,27 @@ export interface CycleTimings {
   hasAWave: boolean;
 }
 
-export const ELECTROMECHANICAL_DELAY_S = 0.06; // QRS onset → AV opening (includes IVC)
+/**
+ * Pre-ejection period (s), QRS onset to aortic valve opening, at a heart rate (decision 162): Weissler's regression for
+ * men, 131 − 0.4·HR ms, the companion of the ejection time `ejectionTimeS` uses (413 − 1.7·HR ms), so the electromechanical
+ * systole QS2 comes out at its own regression, 546 − 2.1·HR ms. It was a fixed 60 ms, 40–50 ms short at rest: the
+ * aortic valve opened at 60 ms and the whole of systole ran early against the ECG.
+ */
+export function preEjectionPeriodS(heartRateBpm: number): number {
+  return Math.min(0.13, Math.max(0.07, 0.131 - 0.0004 * heartRateBpm));
+}
+/**
+ * Right-sided valve events against the left-sided ones (decision 162). The right ventricle contracts and relaxes
+ * against a fifth of the left one's pressure: its isovolumic periods are shorter, so the pulmonary valve opens before the
+ * aortic one and closes after it (the physiological splitting of the second heart sound, P2 after A2 by 20–40 ms), the
+ * tricuspid valve opens before the mitral one and closes after it (T1 after M1). They used to follow the left side one
+ * hundredth of the beat apart in the same direction for every event, which closed the pulmonary valve before the aortic
+ * one and opened the tricuspid after the mitral.
+ */
+export const PULMONARY_LEAD_S = 0.015;
+export const PULMONARY_SPLIT_S = 0.025;
+export const TRICUSPID_LEAD_S = 0.02;
+export const TRICUSPID_LAG_S = 0.02;
 export const PR_INTERVAL_S = 0.16;
 export const A_WAVE_DURATION_S = 0.13;
 
@@ -40,7 +65,7 @@ export function computeCycleTimings(
   ejectionRrS = rrS,
 ): CycleTimings {
   const et = Math.min(ejectionTimeS(60 / ejectionRrS, physiology.contractility), rrS * 0.55);
-  const ejectionStartS = ELECTROMECHANICAL_DELAY_S;
+  const ejectionStartS = preEjectionPeriodS(60 / rrS);
   const ejectionEndS = ejectionStartS + et;
   const ivrt = physiology.ivrtMs / 1000;
   const mitralOpenS = Math.min(ejectionEndS + ivrt, rrS - 0.05);
@@ -55,6 +80,9 @@ export function computeCycleTimings(
     rrS,
     ejectionStartS,
     ejectionEndS,
+    pulmonaryOpenS: ejectionStartS - PULMONARY_LEAD_S,
+    pulmonaryCloseS: Math.min(ejectionEndS + PULMONARY_SPLIT_S, mitralOpenS - TRICUSPID_LEAD_S),
+    tricuspidOpenS: mitralOpenS - TRICUSPID_LEAD_S,
     mitralOpenS,
     eAccelS,
     eDecelS,

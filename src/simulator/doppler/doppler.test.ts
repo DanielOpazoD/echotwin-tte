@@ -943,7 +943,9 @@ describe('the right ventricle ejects with the acceleration time of its pulmonary
         const control = controlAimingAt(m.thorax, skin.u, skin.v, plane.target, plane.right, 0.6);
         const beam = beamFrameFromPose(poseFromControl(m.thorax, control));
         const d = sub(heartToTorso(m.heart.frame, gate), beam.origin);
-        const s = { ...DEFAULT_SPECTRAL, scaleMps: 1.2 };
+        // a low wall filter, as for any slow outflow: the HFrEF outflow peaks at 0.26 m/s across the beam, and the default
+        // filter hid its first 0.1 m/s, a third of the rise (decision 162)
+        const s = { ...DEFAULT_SPECTRAL, scaleMps: 1.2, wallFilterMps: 0.03 };
         const core = new SimulatorCore(
           k,
           baseInput({
@@ -973,13 +975,15 @@ describe('the right ventricle ejects with the acceleration time of its pulmonary
           times.push(t + beats * rr);
         }
         const speed = order.map((x) => Math.abs(vel[x] ?? 0));
-        // each ejection: from the first column above a tenth of its peak to the centre of the columns within 3% of it
+        // each ejection: from the first column above a tenth of its peak to the centre of the columns within 3% of it. A
+        // run opens with any flow (the trace reads 0 between ejections): an absolute 0.1 m/s cut the rise of the HFrEF
+        // outflow, whose peak reads 0.26 m/s across the beam (decision 162), and a run the recording starts in is partial
         const ats: number[] = [];
         for (let j = 0, c0 = -1; j <= n; j++) {
-          const on = j < n && speed[j]! > 0.1;
+          const on = j < n && speed[j]! > 0.02;
           if (on && c0 < 0) c0 = j;
           if (!on && c0 >= 0) {
-            if (times[j - 1]! - times[c0]! > 0.12) {
+            if (c0 > 0 && times[j - 1]! - times[c0]! > 0.12) {
               let pk = c0;
               for (let q = c0; q < j; q++) if (speed[q]! > speed[pk]!) pk = q;
               let onset = c0;

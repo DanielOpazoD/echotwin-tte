@@ -104,9 +104,9 @@ export const aorticStenosisSevereCase: CaseDefinitionInput = {
   expectedDeviations: [
     'ivsd', // concentric hypertrophy
     'lvpwd',
-    'la-ap', // enlarged left atrium (chronic pressure overload, diastolic dysfunction)
+    // enlarged left atrium (chronic pressure overload, diastolic dysfunction): by volume and across it; its AP and long
+    // axes fell inside their ranges once the atrium was drawn at its declared volume (decision 161)
     'la-transverse',
-    'la-long', // measured to the mitral annular plane since decisions 76-77
     'lavi',
     'lv-mass', // increased mass from the thick walls
     'apex-thickness', // the hypertrophy reaches the apex

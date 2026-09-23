@@ -44,7 +44,11 @@ const heart = createHeartModel(
 );
 const tables = buildBeatTables(60 / c.rhythm.heartRateBpm, c.physiology, c.rhythm, c.hemodynamics);
 const settings = { ...DEFAULT_ACQUISITION };
-const PHASE = 0.35;
+// late systole, 87 % into ejection (phase 0.35 until decision 162 gave systole its Weissler pre-ejection period)
+const PHASE =
+  (tables.timings.ejectionStartS +
+    0.87 * (tables.timings.ejectionEndS - tables.timings.ejectionStartS)) /
+  tables.rrS;
 const spec = polarSpecFor(settings, 'medium');
 const renderer = new ProceduralSliceRenderer();
 
@@ -191,7 +195,10 @@ function myocardialBands(
         break;
       }
   const at = (from: number): [number, number] => [lead + from, lead + from + 2];
-  return [at(2.6), at(6.6), at(10.6)];
+  // the three walls the parasternal beam crosses face-on: the RV free wall, the septum and the posterior LV wall. A band
+  // 10.6 cm below the first wall read the left atrial wall, thin and oblique, whose share of the band fell with the atrium
+  // to its declared volume (decision 161): the estimator then read the structure, not the beam
+  return [at(0), at(2.6), at(6.6)];
 }
 
 describe('acoustic image formation', () => {
@@ -212,10 +219,10 @@ describe('acoustic image formation', () => {
     const latNear = cellMm(plax, spec, near[0], near[1], true);
     const latMid = cellMm(plax, spec, mid[0], mid[1], true);
     const latFar = cellMm(plax, spec, far[0], far[1], true);
-    const axMid = cellMm(plax, spec, mid[0], mid[1], false);
+    const axFar = cellMm(plax, spec, far[0], far[1], false);
     expect(latMid).toBeGreaterThan(latNear);
     expect(latFar).toBeGreaterThan(latMid);
-    expect(latMid).toBeGreaterThan(2 * axMid);
+    expect(latFar).toBeGreaterThan(2 * axFar);
   });
 
   it('tissue is 25–40 dB above blood away from the walls, and the septum stays lit with the beam across its fibres', () => {

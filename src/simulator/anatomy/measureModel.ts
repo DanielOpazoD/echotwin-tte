@@ -14,6 +14,7 @@ import {
   type HeartPose,
 } from './heartModel';
 import { cross, dot, normalize, sub, type Vec3 } from '@/core/vec3';
+import { LVOT_TAPER_CM } from './aorticValve';
 import { createThoraxModel, type PatientState } from './thoraxModel';
 import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { makeSample, Structure, Tissue } from './tissue';
@@ -330,12 +331,17 @@ export function measureModel(
     const cz = A.avCenter.z + pose.zAnn * ROOT_EXCURSION;
     return runAlong(
       pose,
-      [Structure.AorticRoot, Structure.Lvot, Structure.AorticValve],
+      // below the annulus the lumen between the septum and the anterior leaflet is labelled LV cavity where a dilated
+      // ventricle reaches the base (the HFrEF case at 0.5 cm): it is the same tract, bounded by the same walls
+      t < 0
+        ? [Structure.AorticRoot, Structure.Lvot, Structure.AorticValve, Structure.LvCavity]
+        : [Structure.AorticRoot, Structure.Lvot, Structure.AorticValve],
       [A.avCenter.x + ax.x * t, A.avCenter.y + ax.y * t, cz + ax.z * t],
       [e1.x, e1.y, e1.z],
     );
   };
-  const lvotD = rootAt(-0.2, esPose);
+  // at the protocol's level, 0.5 cm proximal to the annulus, where the tract reaches its own diameter (decision 161)
+  const lvotD = rootAt(-LVOT_TAPER_CM, esPose);
   const annulusD = rootAt(0.05, esPose);
   // the sinus at its widest and the sinotubular junction at its waist, searched along the root rather than read at
   // fixed levels: the levels move with the root profile (ROOT_SINUS_T, ROOT_STJ_T), the landmarks do not

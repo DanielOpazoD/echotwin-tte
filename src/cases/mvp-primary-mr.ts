@@ -105,7 +105,6 @@ export const mvpPrimaryMrCase: CaseDefinitionInput = {
     'lv-ids',
     'la-ap',
     'la-transverse',
-    'la-long',
     'lavi',
     'la-ao',
     'mv-annulus',

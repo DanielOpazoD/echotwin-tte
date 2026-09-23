@@ -144,6 +144,9 @@ describe('free breathing through the core (decision 108)', () => {
         spectral,
       }),
     );
+    const tm = models.tables.timings;
+    const eFrom = ((tricuspid ? tm.tricuspidOpenS : tm.mitralOpenS) - 0.02) / tm.rrS;
+    const eTo = (tm.hasAWave ? tm.aEndS : tm.rrS) / tm.rrS;
     const cols: { t: number; ph: number; v: number }[] = [];
     let now = 0;
     for (let snap = 0; snap < 4; snap++) {
@@ -167,8 +170,12 @@ describe('free breathing through the core (decision 108)', () => {
     for (let i = 1; i < cols.length; i++) {
       if (cols[i]!.t - cols[i - 1]!.t < 1e-6 || cols[i]!.ph > cols[i - 1]!.ph - 0.5) continue;
       if (start >= 0) {
+        // the filling: from the valve's opening to the end of atrial contraction (fused with the E wave in tamponade). Over the
+        // whole beat the tricuspid gate, 1.5 cm below the annulus, also caught the regurgitant convergence of systole as
+        // TAPSE brought the annulus down to it (decision 162)
         let pk = 0;
-        for (let k = start; k < i; k++) pk = Math.max(pk, cols[k]!.v);
+        for (let k = start; k < i; k++)
+          if (cols[k]!.ph > eFrom && cols[k]!.ph < eTo) pk = Math.max(pk, cols[k]!.v);
         if (pk > 0.1) out.push(pk);
       }
       start = i;

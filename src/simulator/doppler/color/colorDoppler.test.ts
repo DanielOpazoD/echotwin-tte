@@ -349,7 +349,8 @@ describe('colour persistence through SimulatorCore (decisions 56 and 94)', () =>
       let timeS = 0;
       let updateTimeS = NaN;
       const weights = new Set<number>();
-      for (let i = 0; i < 40 && updates < 6; i++) {
+      // ten updates: six caught too little changing flow once systole moved to its Weissler time (decision 162)
+      for (let i = 0; i < 60 && updates < 10; i++) {
         const outRaw = raw.step(0.1);
         const out = kept.step(0.1);
         timeS += 0.1;
@@ -404,7 +405,7 @@ describe('colour persistence through SimulatorCore (decisions 56 and 94)', () =>
         }
         prev = copyField(k.field!);
       }
-      expect(updates).toBe(6);
+      expect(updates).toBe(10);
       // the first blend comes one frame after the first field, half the colour interval: its weight (about p^0.5) is far from
       // the setting, so a weight per update would not pass the blend check
       expect(Math.max(...[...weights].map((x) => Math.abs(x - p)))).toBeGreaterThan(0.1);
