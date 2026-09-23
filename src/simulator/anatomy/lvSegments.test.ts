@@ -1,13 +1,25 @@
 // @tier slow
 import { describe, expect, it } from 'vitest';
-import { aha17FromCode, lv16FromCode, lv18Segment, lvSegmentCode } from './lvSegments';
+import { aha17FromCode, lv16FromCode, lv18Segment, lvSegmentCode, lvWallKind } from './lvSegments';
 import { RV_GROOVE_ANTERIOR_RAD, RV_GROOVE_INFERIOR_RAD } from './anchors';
-import { classifyHeart, computeHeartPose, createHeartModel, lvCavityRadiusAt } from './heartModel';
+import {
+  classifyHeart,
+  computeHeartPose,
+  createHeartModel,
+  lvCavityRadiusAt,
+  torsoToHeart,
+} from './heartModel';
 import { makeSample, Structure, Tissue } from './tissue';
 import { normalExcellentCase } from '@/cases/normal-excellent';
 import { validateCase } from '@/cases/schema';
+import { loadCaseById } from '@/cases';
 import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { LV_18 } from '@/clinical/segmentation/catalog';
+import { buildCaseModels } from './caseModels';
+import { getViewTarget } from '@/simulator/windows/viewTargets';
+import { canonicalControl } from '@/simulator/windows/viewTargets';
+import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
+import { add, scale } from '@/core/vec3';
 
 /**
  * LV myocardial segments of the model (decision 152): boundaries, orientation, the 17 / 16 / 18 models and the
@@ -250,4 +262,80 @@ describe('LV segments on the classifier', () => {
     }
     expect(cap).toBeGreaterThan(5);
   });
+});
+
+describe('LV wall labels of the structure map', () => {
+  const WALL: Record<number, Structure> = {
+    0: Structure.LvWallLateral,
+    1: Structure.LvWallSeptal,
+    2: Structure.LvWallAnterior,
+    3: Structure.LvWallInferior,
+  };
+
+  it('groups the AHA walls in four labels bounded by the RV insertions', () => {
+    const at = (d: number, lf: number) => lvWallKind(code(d, lf));
+    // basal and mid: anterior 60–120°, septum 120–240°, inferior and inferolateral 240–360°, anterolateral 0–60°
+    for (const lf of [0.1, 0.5]) {
+      expect([90, 150, 210, 270, 330, 30].map((d) => at(d, lf))).toEqual([2, 1, 1, 3, 3, 0]);
+      expect(at(120 - EPS, lf)).toBe(2);
+      expect(at(120 + EPS, lf)).toBe(1);
+      expect(at(240 - EPS, lf)).toBe(1);
+      expect(at(240 + EPS, lf)).toBe(3);
+    }
+    // apical quadrants, and the cap by its quadrant
+    expect([90, 180, 270, 0].map((d) => at(d, 0.8))).toEqual([2, 1, 3, 0]);
+    expect([90, 180, 270, 0].map((d) => at(d, 1))).toEqual([2, 1, 3, 0]);
+  });
+
+  it('labels every LV wall sample with the wall of its segment, and no septum in the A2C', () => {
+    const c = loadCaseById('normal-excellent-window');
+    const { thorax, heart, tables } = buildCaseModels(c, {
+      position: 'left-lateral',
+      respiration: 'expiration',
+      headElevationDeg: 0,
+    });
+    const pose = computeHeartPose(heart, cycleStateAt(tables, 0));
+    const s = makeSample();
+    const L = heart.lv.lengthCm;
+    let n = 0;
+    for (let x = -5; x <= 5; x += 0.2)
+      for (let y = -5; y <= 5; y += 0.2)
+        for (let z = 0.5; z < L - 0.7; z += 0.5) {
+          if (!classifyHeart(heart, pose, x, y, z, s) || s.segment === 0) continue;
+          n++;
+          expect(s.structure, `${x},${y},${z} segment ${s.segment}`).toBe(
+            WALL[lvWallKind(s.segment)],
+          );
+        }
+    expect(n).toBeGreaterThan(1000);
+    // the two-chamber plane cuts the anterior and inferior walls, not the septum: until decision 154, 2.6–2.8 % of it
+    // read «septum», the label being centred 28° off the septum. What «septum» remains there is the fibrous tissue
+    // under the aortic root (aorticRoot.ts labels it so), not LV myocardium
+    const wallShare = (viewId: string) => {
+      const beam = beamFrameFromPose(
+        poseFromControl(thorax, canonicalControl(getViewTarget(viewId), heart, thorax)),
+        1,
+      );
+      const count = new Map<number, number>();
+      let total = 0;
+      for (let dep = 0.05; dep < 16; dep += 0.1)
+        for (let lat = -8 + 0.05; lat < 8; lat += 0.1) {
+          total++;
+          const p = torsoToHeart(
+            heart.frame,
+            add(beam.origin, add(scale(beam.forward, dep), scale(beam.lateral, lat))),
+          );
+          if (!classifyHeart(heart, pose, p.x, p.y, p.z, s) || s.tissue !== Tissue.Myocardium)
+            continue;
+          count.set(s.structure, (count.get(s.structure) ?? 0) + 1);
+        }
+      return (st: Structure) => (count.get(st) ?? 0) / total;
+    };
+    const a2c = wallShare('a2c');
+    expect(a2c(Structure.LvWallSeptal)).toBe(0);
+    expect(a2c(Structure.LvWallAnterior)).toBeGreaterThan(0.005);
+    expect(a2c(Structure.LvWallInferior)).toBeGreaterThan(0.005);
+    // and the four-chamber plane cuts the septum
+    expect(wallShare('a4c')(Structure.LvWallSeptal)).toBeGreaterThan(0.005);
+  }, 120_000);
 });

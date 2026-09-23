@@ -99,7 +99,7 @@ export const STRUCTURE_LABELS: Record<number, string> = {
   [Structure.LvWallSeptal]: 'pared septal del VI',
   [Structure.LvWallLateral]: 'pared lateral del VI',
   [Structure.LvWallAnterior]: 'pared anterior del VI',
-  [Structure.LvWallInferior]: 'pared inferior del VI',
+  [Structure.LvWallInferior]: 'pared inferior o inferolateral del VI',
   [Structure.LvApex]: 'ápex del VI',
   [Structure.RvCavity]: 'cavidad del VD',
   [Structure.RvWall]: 'pared libre del VD',
