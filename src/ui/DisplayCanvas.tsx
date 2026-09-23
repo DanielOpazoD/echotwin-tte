@@ -4,6 +4,7 @@ import {
   imageSegmentsOn,
   useHudStore,
   useSegmentHover,
+  useSegmentOrientation,
   useSimStore,
   type SimStore,
 } from '@/app/store';
@@ -24,7 +25,7 @@ import {
   type CaptureExtras,
 } from '@/app/measurementCapture';
 import { markerLabel, structureLabel, type ReviewMarker } from '@/app/review';
-import { nearestSampleLut, placeLabels, type CutMapLabel } from './cutMap';
+import { nearestSampleLut, placeLabels } from './cutMap';
 import {
   paintSegmentOverlay,
   sampleIndexAt,
@@ -34,6 +35,12 @@ import {
   segmentNames,
 } from './segmentMap';
 import { SegmentImageToggle } from './SegmentImageToggle';
+import {
+  imageUpOnPolarMap,
+  rvInsertionPoints,
+  SegmentAnchors,
+  type RvInsertions,
+} from './segmentAnchors';
 import { coverageText } from './SegmentPanel';
 
 /**
@@ -764,6 +771,7 @@ function drawOverlay(
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, W, H);
   if (imageSegmentsOn(st)) drawSegmentLayer(ctx, hud, st);
+  else useSegmentOrientation.getState().set(null, false);
   const m = hud.sector;
   ctx.font = '11px system-ui, sans-serif';
   ctx.textBaseline = 'middle';
@@ -1162,19 +1170,61 @@ const segLayer: {
   canvas: HTMLCanvasElement | null;
   img: ImageData | null;
   ids: Uint8Array | undefined;
-  labels: CutMapLabel[];
-  labelsAt: number;
-  labelsKey: string;
+  anchors: SegmentAnchors;
 } = {
   key: '',
   lut: null,
   canvas: null,
   img: null,
   ids: undefined,
-  labels: [],
-  labelsAt: 0,
-  labelsKey: '',
+  anchors: new SegmentAnchors(),
 };
+
+/**
+ * The RV insertions of a short-axis cut (decision 181): an amber pointer outside each, aimed at it from the side away
+ * from the centre of the numbered myocardium. The septum (2, 3, 8, 9) lies between them, whatever the clock position.
+ */
+function drawRvInsertions(
+  ctx: CanvasRenderingContext2D,
+  m: { x: number; y: number },
+  stats: readonly { id: number; count: number; cx: number; cy: number }[],
+  ins: RvInsertions,
+): void {
+  let n = 0,
+    cx = 0,
+    cy = 0;
+  for (const s of stats)
+    if (s.id >= 1 && s.id <= 12) {
+      cx += s.cx * s.count;
+      cy += s.cy * s.count;
+      n += s.count;
+    }
+  if (!n) return;
+  cx /= n;
+  cy /= n;
+  ctx.save();
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
+  ctx.fillStyle = '#ffb020';
+  for (const p of [ins.anterior, ins.inferior]) {
+    const dx = p.x - cx,
+      dy = p.y - cy;
+    const d = Math.hypot(dx, dy) || 1;
+    const ux = dx / d,
+      uy = dy / d;
+    // tip on the insertion, body 11 px outward, 8 px wide
+    const tx = m.x + p.x,
+      ty = m.y + p.y;
+    ctx.beginPath();
+    ctx.moveTo(tx, ty);
+    ctx.lineTo(tx + ux * 11 - uy * 4, ty + uy * 11 + ux * 4);
+    ctx.lineTo(tx + ux * 11 + uy * 4, ty + uy * 11 - ux * 4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.restore();
+}
 
 function drawSegmentLayer(ctx: CanvasRenderingContext2D, hud: SimOutput, st: SimStore): void {
   const m = hud.sector;
@@ -1190,7 +1240,6 @@ function drawSegmentLayer(ctx: CanvasRenderingContext2D, hud: SimOutput, st: Sim
     segLayer.canvas.height = h;
     segLayer.img = new ImageData(w, h);
     segLayer.key = key;
-    segLayer.labels = [];
   }
   const model = st.ui.segmentModel;
   segLayer.ids = segmentIds(hud.segment, model, segLayer.ids);
@@ -1209,30 +1258,45 @@ function drawSegmentLayer(ctx: CanvasRenderingContext2D, hud: SimOutput, st: Sim
   ctx.save();
   ctx.imageSmoothingEnabled = true;
   ctx.drawImage(segLayer.canvas, m.x, m.y);
-  // numbers on each segment, re-placed a few times a second so they do not jump with the beat
+  // numbers on each segment and the RV insertions: the mean of their places over one beat of an unchanged probe,
+  // geometry and model, then still (decision 181)
   ctx.font = '700 12px system-ui, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  const now = performance.now();
-  const labelsKey = `${key}|${model}`;
-  if (now - segLayer.labelsAt > 300 || labelsKey !== segLayer.labelsKey) {
-    if (labelsKey !== segLayer.labelsKey) segLayer.labels = [];
-    segLayer.labels = placeLabels(
+  const pr = st.probe;
+  const layoutKey = `${key}|${model}|${st.caseId}|${[pr.u, pr.v, pr.rotationDeg, pr.tiltDeg, pr.rockDeg, pr.pressure].map((v) => v.toFixed(3)).join(',')}`;
+  const anchors = segLayer.anchors;
+  if (anchors.wants(layoutKey, hud.frameId)) {
+    const shown = new Set(anchors.view().labels.map((l) => l.id));
+    const labels = placeLabels(
       stats,
       segLayer.lut,
       segLayer.ids,
       w,
       Math.max(30, 0.0005 * w * h),
       (t) => ({ w: ctx.measureText(t).width + 6, h: 16 }),
-      new Set(segLayer.labels.map((l) => l.id)),
+      shown,
       (id) => String(id),
     );
-    segLayer.labelsAt = now;
-    segLayer.labelsKey = labelsKey;
+    anchors.add(layoutKey, hud, labels, rvInsertionPoints(segLayer.lut, segLayer.ids, w, stats));
   }
+  const view = anchors.view();
+  useSegmentOrientation.getState().set(imageUpOnPolarMap(view.labels), view.insertions !== null);
+  // where the numbers and the insertions were drawn, rounded to the pixel, for the E2E that checks they hold still
+  const placed = JSON.stringify({
+    labels: view.labels.map((l) => [l.id, Math.round(l.x), Math.round(l.y)]),
+    insertions:
+      view.insertions &&
+      [view.insertions.anterior, view.insertions.inferior].map((q) => [
+        Math.round(q.x),
+        Math.round(q.y),
+      ]),
+  });
+  if (ctx.canvas.dataset.segmentLabels !== placed) ctx.canvas.dataset.segmentLabels = placed;
+  if (view.insertions) drawRvInsertions(ctx, m, stats, view.insertions);
   ctx.lineJoin = 'round';
   ctx.lineWidth = 3;
-  for (const l of segLayer.labels) {
+  for (const l of view.labels) {
     const x = m.x + l.x,
       y = m.y + l.y;
     ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';

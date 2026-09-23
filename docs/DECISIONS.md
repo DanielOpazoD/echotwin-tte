@@ -1127,3 +1127,45 @@ Mi primera medición se equivocó de cuadro. La tolerancia de fase era más estr
   - `technique.test.ts` cubre el hallazgo de profundidad.
   - `simpson.test.ts` cubre `cutBySectorDepth`.
   - `laVolume.test.ts` (lenta) recorre la cadena de la app: los doce casos dentro de la tolerancia a 20 cm, y la MCD recortada y marcada a 16 cm.
+
+
+181. **2026-09-23 — Revisión de la numeración de los segmentos: los números siguen a las inserciones del VD y ya no se mueven con el latido**: Daniel revisó el PSAX papilar con la capa de segmentos y escribió «me da la sensación que los segmentos están mal etiquetados»: arriba estaba el 8 y no el 7. Pidió además que los números, que se movían en cada latido, quedaran fijos.
+
+**Revisión**
+
+- **Regla**: el acimut del segmento se ancla al centro del tabique, a mitad de los surcos interventriculares, en segmentos de 60° en el orden anatómico (`lvSegments.ts`). La media luna del VD se extiende exactamente entre esos surcos (`rv.ts`).
+- **Catálogo**: nombres, vistas de referencia y territorios coronarios coinciden con la AHA/ASE.
+- **Imágenes de la app, caso normal**: posición horaria de cada segmento sobre las vistas canónicas.
+
+  | Vista | Resultado |
+  |---|---|
+  | PLAX | anteroseptal junto a la sonda, inferolateral lejos |
+  | A4C | inferoseptal a la izquierda, anterolateral a la derecha, VD a la izquierda |
+  | A2C | inferior a la izquierda, anterior a la derecha |
+  | A3C | inferolateral a la izquierda, anteroseptal y aorta a la derecha |
+  | PSAX papilar | 7 a las 2,3; 8 a las 12,2; 9 a las 10,2; 10 a las 8,1; 11 a las 6,2; 12 a las 4,3 |
+
+  Los ejes largos son los de la convención. El PSAX mitral y el apical tienen el mismo giro que el papilar.
+- **Los doce casos**: en el PSAX papilar, el VD toca al VI de las 9,1 a la 1,3 (126°), y el tabique numerado (8 y 9) va de las 9,1 a la 1,2–1,3. Los números siguen a las inserciones con un error de 2–4°. Los papilares quedan a las 5,3 y a las 8,6–8,9.
+
+**Conclusión**
+
+No hay segmentos mal etiquetados: el eje corto está girado respecto del mapa polar. El esquema dibuja el anterior arriba y el VD a la izquierda. En el modelo el VD queda arriba, porque la ventana paraesternal mira a la pared anteroseptal, la misma que el PLAX muestra junto a la sonda. echocardiographer.org advierte que suponer que las 12 son la pared anterior «no siempre es correcto», y que los segmentos se identifican por las inserciones del VD.
+
+Las descripciones clínicas dan el VD «arriba a la izquierda» (PragueICU) y los papilares en 3–6 y 6–9. El modelo cae en el extremo horario de esos rangos, así que el corte puede estar unos 30° más girado que en una imagen típica. Queda en `LIMITATIONS.md`: no encontré una medida publicada de la posición de las inserciones en el eje corto ecográfico con la que calibrarlo. La anatomía no cambia.
+
+**Cambios**
+
+- **Números fijos**: en la imagen y en el mapa del corte, cada número es la media de sus posiciones durante un latido, mientras no cambien la postura de la sonda, la geometría del sector ni el modelo (`SegmentAnchors`). Después queda quieto, y una imagen congelada se fija enseguida. Antes se recolocaba tres veces por segundo sobre la pared en movimiento. Los rótulos de estructura del mapa del corte hacen lo mismo.
+- **Inserciones del VD**: en un eje corto, la imagen marca con triángulos ámbar el extremo epicárdico de las fronteras 8|7 y 9|10 (o 2|1 y 3|4), que son las referencias con que se reconoce la numeración (`rvInsertionPoints`).
+- **Marca en el mapa polar**: señala qué parte del mapa muestra la imagen arriba (`imageUpOnPolarMap`: el giro que mejor ajusta los números al mapa, o nada si el ajuste deja más de 25° o el corte no es un eje corto). Un texto lo explica.
+
+**Guardas**
+
+- `segmentOrientation.test.ts` (lenta, cadena de la app, doce casos) exige:
+  - en el PSAX mitral y el papilar, que el tabique numerado coincida con el arco que toca el VD con menos de 20° de diferencia, que el VD abarque 100–150° y que el anillo esté numerado en sentido antihorario, como el mapa;
+  - en el PLAX, el A4C, el A2C y el A3C, cada pared en su lado, y el VD a la izquierda en el A4C.
+
+  Falla con los segmentos girados 60°, y también en espejo (8 y 9 cambiados).
+- `segmentAnchors.test.ts`: la media de un latido y la fijación, el reinicio al mover la sonda, las inserciones y el giro respecto del mapa. Fallan sin la fijación, con la inserción en el extremo interno y con el signo del giro cambiado.
+- `e2e/segments.spec.ts` lee en el canvas dónde se dibujaron los números y las inserciones, y comprueba que no cambian en dos latidos. Con la disposición recalculada en cada cuadro falla: los números se movían 3–5 px.

@@ -4,7 +4,8 @@ import { STRUCTURE_LABELS } from '@/app/review';
 import { segmentLayerOn, useSegmentHover, useSimStore } from '@/app/store';
 import type { SimOutput } from '@/simulator/core/protocol';
 import { computeSectorMapping, type SectorMapping } from '@/simulator/renderer/scanConvert';
-import { nearestSampleLut, paintCutMap, placeLabels, type CutMapLabel } from './cutMap';
+import { nearestSampleLut, paintCutMap, placeLabels } from './cutMap';
+import { SegmentAnchors } from './segmentAnchors';
 import { paintSegmentMap, segmentIds, segmentNames } from './segmentMap';
 
 /**
@@ -41,11 +42,16 @@ export function CutMapView() {
     let raf = 0;
     let cssW = 0,
       cssH = 0;
-    // labels are re-placed a few times a second, not per frame: regions breathe with the beat and labels
-    // that jumped or blinked at 30 Hz were noise, not information
-    let labelsAt = 0;
-    let labelsKey = '';
-    let labelsShown: CutMapLabel[] = [];
+    // labels hold still while the probe rests: the mean of their places over one beat (decision 181); they used to be
+    // re-placed a few times a second and followed the wall through the beat
+    const segAnchors = new SegmentAnchors();
+    const structAnchors = new SegmentAnchors();
+    const restKey = (): string => {
+      const pr = useSimStore.getState().probe;
+      return [pr.u, pr.v, pr.rotationDeg, pr.tiltDeg, pr.rockDeg, pr.pressure]
+        .map((v) => v.toFixed(3))
+        .join(',');
+    };
     // per-sample segment ids of the latest frame in the model shown (recomputed per frame and model)
     let ids: Uint8Array | null = null;
     let idsOf: SimOutput | null = null;
@@ -106,28 +112,28 @@ export function CutMapView() {
       // with the segments numbered, the depth numbers carry their unit so they are not read as segments
       drawRuler(ctx, mapping, p.depthCm, segIds !== null);
       if (segIds) {
-        // segment numbers: every segment in the plane gets its number, re-placed a few times a second
+        // segment numbers: every segment in the plane gets its number, still while the probe rests (decision 181)
         ctx.font = '700 12px system-ui, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        const now = performance.now();
-        const segKey = `${key}|seg|${st.ui.segmentModel}`;
-        if (now - labelsAt > 400 || segKey !== labelsKey) {
-          // structure ids and segment ids share numbers: a label kept across a switch of layer would be wrong
-          if (labelsKey !== segKey) labelsShown = [];
-          labelsShown = placeLabels(
-            stats,
-            lut,
-            segIds,
-            cssW,
-            Math.max(12, 0.0008 * cssW * cssH),
-            (t) => ({ w: ctx.measureText(t).width, h: 13 }),
-            new Set(labelsShown.map((l) => l.id)),
-            (id) => String(id),
+        const segKey = `${key}|seg|${st.ui.segmentModel}|${st.caseId}|${restKey()}`;
+        if (segAnchors.wants(segKey, out.frameId))
+          segAnchors.add(
+            segKey,
+            out,
+            placeLabels(
+              stats,
+              lut,
+              segIds,
+              cssW,
+              Math.max(12, 0.0008 * cssW * cssH),
+              (t) => ({ w: ctx.measureText(t).width, h: 13 }),
+              new Set(segAnchors.view().labels.map((l) => l.id)),
+              (id) => String(id),
+            ),
+            null,
           );
-          labelsAt = now;
-          labelsKey = segKey;
-        }
+        const labelsShown = segAnchors.view().labels;
         ctx.lineJoin = 'round';
         ctx.lineWidth = 3;
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
@@ -140,22 +146,23 @@ export function CutMapView() {
         ctx.font = '600 11px system-ui, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        const now = performance.now();
-        if (now - labelsAt > 400 || key !== labelsKey) {
-          const minPixels = Math.max(60, 0.004 * cssW * cssH);
-          if (labelsKey !== key) labelsShown = [];
-          labelsShown = placeLabels(
-            stats,
-            lut,
-            out.structure,
-            cssW,
-            minPixels,
-            (t) => ({ w: ctx.measureText(t).width, h: 12 }),
-            new Set(labelsShown.map((l) => l.id)),
+        const structKey = `${key}|${st.caseId}|${restKey()}`;
+        if (structAnchors.wants(structKey, out.frameId))
+          structAnchors.add(
+            structKey,
+            out,
+            placeLabels(
+              stats,
+              lut,
+              out.structure,
+              cssW,
+              Math.max(60, 0.004 * cssW * cssH),
+              (t) => ({ w: ctx.measureText(t).width, h: 12 }),
+              new Set(structAnchors.view().labels.map((l) => l.id)),
+            ),
+            null,
           );
-          labelsAt = now;
-          labelsKey = key;
-        }
+        const labelsShown = structAnchors.view().labels;
         ctx.lineJoin = 'round';
         ctx.lineWidth = 3;
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.75)';
