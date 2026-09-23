@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 169 (última: 169).
+Decisiones: 170 (última: 170).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -177,3 +177,4 @@ Decisiones: 169 (última: 169).
 | [167](DECISIONS.md#L706) | 2026-09-23 | El subcostal de cuatro cámaras se resuelve desde su ventana y su geometría se lee como un eje largo | vigente |
 | [168](DECISIONS.md#L751) | 2026-09-23 | Una sola atenuación por adquisición, y fuera el código muerto | vigente |
 | [169](DECISIONS.md#L774) | 2026-09-23 | Una potencia entera se transpila como producto | vigente |
+| [170](DECISIONS.md#L792) | 2026-09-23 | Los ejes cortos papilar y apical apuntan a un nivel del ventrículo, no a una altura fija | vigente |

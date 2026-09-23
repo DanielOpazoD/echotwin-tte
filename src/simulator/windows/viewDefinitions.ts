@@ -28,6 +28,12 @@ export interface ViewTarget {
   planeRight: Vec3;
   planeDown: Vec3;
   target: Vec3;
+  /**
+   * The target's long-axis coordinate scales with the LV's length, `target.z` being the level in the reference
+   * ventricle (`REFERENCE_LV_LENGTH_CM`, decision 170): the short axes below the mitral level aim at a level of the
+   * ventricle, as their landmarks do.
+   */
+  scalesWithLvLength?: boolean;
   /** Skin location of the canonical window (torso cm). */
   skin: { u: number; v: number };
   requiredLandmarks: LandmarkRequirement[];
@@ -39,6 +45,12 @@ export interface ViewTarget {
   /** Pose tolerances used for the geometric similarity component. */
   tolerance: { planeAngleDeg: number; inPlaneRotationDeg: number; offsetCm: number };
 }
+
+/**
+ * LV length (cm) of the normal case, the ventricle whose levels the short axes' targets are written for; a view whose
+ * target scales with the LV's length aims at the same fraction of any other (decision 170).
+ */
+export const REFERENCE_LV_LENGTH_CM = 8.6;
 
 const R = (v: Vec3): Vec3 => normalize(v);
 
@@ -176,6 +188,9 @@ export function buildViewTargets(): ViewTarget[] {
       planeRight: R(v3(0.866, 0.5, 0)),
       planeDown: R(v3(0.5, -0.866, 0)),
       target: v3(0, 0, 4.6),
+      // where the papillary muscles are in the reference ventricle; a fixed height left the dilated HFrEF ventricle
+      // (9.8 cm) cut 1 cm above its papillary landmarks
+      scalesWithLvLength: true,
       skin: { u: 2.6, v: 1.6 },
       requiredLandmarks: [
         { landmarkId: 'pap-al', weight: 1.2, required: true },
@@ -203,6 +218,8 @@ export function buildViewTargets(): ViewTarget[] {
       planeRight: R(v3(0.866, 0.5, 0)),
       planeDown: R(v3(0.5, -0.866, 0)),
       target: v3(0, 0, 6.6),
+      // a fixed height left the dilated HFrEF ventricle cut 1.2 cm above its apical cavity landmark
+      scalesWithLvLength: true,
       skin: { u: 3.4, v: -1.0 },
       requiredLandmarks: [
         { landmarkId: 'lv-apical-cavity', weight: 1.5, required: true },

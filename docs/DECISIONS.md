@@ -787,3 +787,20 @@ El dispositivo fue un navegador del escritorio con ANGLE Metal sobre Apple M4. E
 **Guarda**
 
 `glslGenerated.test.ts` fija la traducción de una base negativa al cuadrado y al cubo, y exige que ninguna función generada use `pow` con un exponente entero de 2 a 4.
+
+
+170. **2026-09-23 — Los ejes cortos papilar y apical apuntan a un nivel del ventrículo, no a una altura fija**: tercer punto de la tanda 4, pendiente de la decisión 164. La guarda de referencias encontró tres referencias exigidas fuera de su plano en el VI dilatado de la MCD (9,8 cm): el eje corto papilar pasaba 1,0 cm por encima de los papilares y el apical 1,2 cm por encima de la cavidad apical. Las vistas apuntaban a 4,6 y 6,6 cm del anillo; las referencias siguen la longitud del VI.
+
+**El cambio**
+
+Los objetivos de esas dos vistas escalan ahora con la longitud del VI (`scalesWithLvLength`). Sus alturas son las del ventrículo de referencia, el del caso normal (`REFERENCE_LV_LENGTH_CM` = 8,6 cm), de modo que en ese caso la razón vale exactamente 1 y su preajuste no se mueve.
+
+**Resultado**
+
+| Caso | Vista | Antes | Después |
+|---|---|---|---|
+| MCD | Papilar | 84, sin ver los papilares | 95, con los dos |
+| MCD | Apical | 60, sin la cavidad apical | 89 |
+| EA moderada (8,0 cm) | Papilar / apical | 79 / 90 | 82 / 91 |
+
+Las tres referencias salen de `KNOWN_UNREACHABLE_LANDMARKS`.
