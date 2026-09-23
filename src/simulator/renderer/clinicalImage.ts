@@ -17,6 +17,7 @@ import { applyConsole, createConsoleState } from './postprocess/consolePipeline'
 import { buildScanLut, computeSectorMapping, scanConvertLut } from './scanConvert';
 import {
   allocPolarFrame,
+  CALIBRATED_TIER,
   DEFAULT_ACQUISITION,
   polarSpecFor,
   type AcquisitionSettings,
@@ -25,8 +26,9 @@ import {
 } from './types';
 
 /**
- * The simulator's apical images as the clinical comparison measures them (decisions 69-70): the high tier the
- * GPU shows live, through the console, scan-converted to 640 × 640 and labelled with the CAMUS convention
+ * The simulator's apical images as the clinical comparison measures them (decisions 69-70): the calibrated tier, the
+ * one the app shows by default when the GPU forms the image (decision 154; until then it opened on the medium tier),
+ * through the console, scan-converted to 640 × 640 and labelled with the CAMUS convention
  * (1 LV cavity, 2 LV myocardium, 3 left atrium) from the structure map. tools/clinical/camus-compare.ts and the
  * console test both use it, so the test measures the very image the clinical comparison did.
  *
@@ -61,7 +63,7 @@ export function renderApical(
   });
   const phase = ed ? 0 : tables.timings.ejectionEndS / tables.rrS;
   const settings = DEFAULT_ACQUISITION;
-  const spec = polarSpecFor(settings, 'high');
+  const spec = polarSpecFor(settings, CALIBRATED_TIER);
   const beam = beamFrameFromPose(
     poseFromControl(thorax, canonicalControl(getViewTarget(viewId), heart, thorax)),
     1,

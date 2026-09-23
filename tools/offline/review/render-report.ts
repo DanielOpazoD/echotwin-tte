@@ -26,6 +26,7 @@ import { applyConsole, createConsoleState } from '@/simulator/renderer/postproce
 import { computeSectorMapping, polarToPixel, scanConvert } from '@/simulator/renderer/scanConvert';
 import { beamFrameFromPose, contactQuality, poseFromControl } from '@/simulator/probe/pose';
 import { probePointAt, probeTorsoPointAt } from '@/simulator/core/probePoint';
+import { resolveQualityTier } from '@/simulator/core/quality';
 
 /** 3×5 pixel digits for the marker numbers drawn into the raw RGBA buffer. */
 const FONT: Record<string, string[]> = {
@@ -64,7 +65,8 @@ const c = loadCaseById(report.caseId);
 const input = report.input;
 const { heart, thorax, tables } = buildCaseModels(c, input.patient);
 const settings = input.settings;
-const spec = polarSpecFor(settings, input.quality);
+// the tier the frame was drawn with; an older report or one without it: «auto» as the GPU would draw it
+const spec = polarSpecFor(settings, report.frame?.tier ?? resolveQualityTier(input.quality, true));
 const W = input.display.width,
   H = input.display.height;
 const mapping = computeSectorMapping(spec, W, H, settings.invertLR, settings.zoom);

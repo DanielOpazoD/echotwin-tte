@@ -172,6 +172,13 @@ export interface RendererBackend {
   dispose(): void;
 }
 
+/**
+ * The tier the clinical comparison calibrates the image on (`clinicalImage.ts`, decisions 69–70 and 144–146): three
+ * elevation samples and the densest line and sample grid. The app shows it by default whenever the GPU forms the
+ * image (`resolveQualityTier`, decision 154).
+ */
+export const CALIBRATED_TIER = 'high' as const;
+
 export function polarSpecFor(
   settings: AcquisitionSettings,
   tier: 'low' | 'medium' | 'high',

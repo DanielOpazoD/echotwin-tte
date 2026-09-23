@@ -77,12 +77,14 @@ import { computeGroundTruth, type StructuredEchoTruth } from '@/simulator/hemody
 import type {
   EcgPoint,
   PhaseMarks,
+  QualityTier,
   SimInput,
   SimOutput,
   SimRequest,
   SimResponse,
   StripInfo,
 } from './protocol';
+import { resolveQualityTier } from './quality';
 import { MMODE_TRACE_SHARE } from './mmodeStrip';
 import { StripEngine, type StripCtx } from './stripEngine';
 
@@ -127,6 +129,8 @@ export class SimulatorCore {
   /** WebGL2 port of the procedural renderer; null when unavailable (reason in `gpuReason`). */
   private gpu: Webgl2Renderer | null;
   private gpuReason: string;
+  /** Tier the last step rendered with (the quality choice resolved against the GPU, decision 154). */
+  private tier: QualityTier = 'medium';
   private consoleState: ConsoleState;
   private artifacts: ArtifactSettings = { sideLobe: 0, mirror: 0, beamWidth: 0 };
   private clutterBoost = 0;
@@ -365,7 +369,9 @@ export class SimulatorCore {
     const inp = this.input;
     const dt = Math.min(0.1, Math.max(0, dtS));
     if (inp.frozen) return this.frozenOutput();
-    const spec = polarSpecFor(inp.settings, inp.quality);
+    const tier = resolveQualityTier(inp.quality, this.gpu !== null);
+    this.tier = tier;
+    const spec = polarSpecFor(inp.settings, tier);
     const isStrip = isStripModality(inp.modality);
     const colorLines =
       inp.modality === 'color'
@@ -878,6 +884,7 @@ export class SimulatorCore {
         ...this.backend.stats(),
         backend: this.backend.id,
         gpu: this.gpuReason,
+        tier: this.tier,
         lines: spec.lines,
         samples: spec.samples,
         renderFrameMs: Number(this.timing.renderFrameMs.toFixed(1)),

@@ -1,4 +1,4 @@
-import type { ProbePointInfo, SimInput, SimOutput } from '@/simulator/core/protocol';
+import type { ProbePointInfo, QualityTier, SimInput, SimOutput } from '@/simulator/core/protocol';
 import type { ImagingModality } from '@/simulator/renderer/types';
 import type { SectorMapping } from '@/simulator/renderer/scanConvert';
 import { Structure, Tissue } from '@/simulator/anatomy/tissue';
@@ -73,6 +73,8 @@ export interface ReviewReport {
     heartRateBpm: number;
     view: SimOutput['view'];
     backend: string;
+    /** Tier the frame was drawn with: the input's quality choice resolved by the core (decision 154). */
+    tier?: QualityTier;
   } | null;
   note: string;
   markers: ReviewMarker[];
@@ -289,6 +291,7 @@ export function buildReviewReport(s: ReviewSnapshot): ReviewReport {
           heartRateBpm: hud.heartRateBpm,
           view: hud.view,
           backend: String(hud.stats['backend'] ?? ''),
+          ...(hud.stats['tier'] ? { tier: hud.stats['tier'] as QualityTier } : {}),
         }
       : null,
     note: s.note,
@@ -336,7 +339,7 @@ export function reportToMarkdown(r: ReviewReport): string {
       `Vista reconocida: ${v.bestViewName} (${v.bestViewId ?? '—'}, puntaje ${Math.round(v.score)}, acortamiento ${v.foreshorteningDeg.toFixed(0)}°, plano ${v.planeAngleDeg.toFixed(0)}°, desplazamiento ${v.offsetCm.toFixed(1)} cm)`,
     );
   lines.push(
-    `Modalidad ${i.modality.toUpperCase()} · profundidad ${s.depthCm} cm · sector ${s.sectorDeg}° · ganancia ${s.gainDb} dB · ${s.frequencyMHz} MHz${s.harmonics ? ' THI' : ''} · foco ${s.focusCm} cm · zoom ${s.zoom} · rango ${s.dynamicRangeDb} dB · mapa ${s.grayMap} · persistencia ${s.persistence} · calidad ${i.quality} · backend ${i.rendererBackend}${r.frame?.backend ? ` (${r.frame.backend})` : ''}${s.invertLR ? ' · izq/der invertido' : ''}`,
+    `Modalidad ${i.modality.toUpperCase()} · profundidad ${s.depthCm} cm · sector ${s.sectorDeg}° · ganancia ${s.gainDb} dB · ${s.frequencyMHz} MHz${s.harmonics ? ' THI' : ''} · foco ${s.focusCm} cm · zoom ${s.zoom} · rango ${s.dynamicRangeDb} dB · mapa ${s.grayMap} · persistencia ${s.persistence} · calidad ${i.quality}${r.frame?.tier && r.frame.tier !== i.quality ? ` (${r.frame.tier})` : ''} · backend ${i.rendererBackend}${r.frame?.backend ? ` (${r.frame.backend})` : ''}${s.invertLR ? ' · izq/der invertido' : ''}`,
   );
   if (i.modality === 'color')
     lines.push(
