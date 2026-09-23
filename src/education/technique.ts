@@ -343,7 +343,7 @@ export function structureName(id: number): string {
     [Structure.LvWallSeptal]: 'septo',
     [Structure.LvWallLateral]: 'pared lateral del VI',
     [Structure.LvWallAnterior]: 'pared anterior del VI',
-    [Structure.LvWallInferior]: 'pared inferior del VI',
+    [Structure.LvWallInferior]: 'pared inferior o inferolateral del VI',
     [Structure.LvApex]: 'ápex del VI',
     [Structure.PapillaryMuscle]: 'músculo papilar',
     [Structure.RvCavity]: 'cavidad del VD',

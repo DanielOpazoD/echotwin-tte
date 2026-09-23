@@ -8,6 +8,7 @@ import { ConsolePanel } from '@/ui/ConsolePanel';
 import { TopBar } from '@/ui/TopBar';
 import { ModeBar } from '@/ui/ModeBar';
 import { ExamNotice, GuidancePanel } from '@/ui/GuidancePanel';
+import { ErrorBoundary, firstLine } from '@/ui/ErrorBoundary';
 import { SegmentPanel } from '@/ui/SegmentPanel';
 import { evaluateTasks, type LearnerSnapshot } from '@/education/curriculum';
 import { expectedFindings, scoreImpression } from '@/education/impression';
@@ -128,22 +129,32 @@ export function App() {
       className={`app ${railVisible ? '' : 'no-torso'} ${railVisible && ui.railMini ? 'rail-mini' : ''}`}
     >
       <TopBar />
+      {/* one key per screen: the same boundary type in the same place would otherwise carry one screen's error
+          into the next (decision 154) */}
       {ui.screen === 'references' ? (
-        <Suspense fallback={screenFallback}>
-          <ReferencesScreen />
-        </Suspense>
+        <ErrorBoundary key="references" label="La pantalla de referencias">
+          <Suspense fallback={screenFallback}>
+            <ReferencesScreen />
+          </Suspense>
+        </ErrorBoundary>
       ) : ui.screen === 'report' ? (
-        <Suspense fallback={screenFallback}>
-          <ReportScreen />
-        </Suspense>
+        <ErrorBoundary key="report" label="El informe">
+          <Suspense fallback={screenFallback}>
+            <ReportScreen />
+          </Suspense>
+        </ErrorBoundary>
       ) : ui.screen === 'curriculum' ? (
-        <Suspense fallback={screenFallback}>
-          <CurriculumScreen />
-        </Suspense>
+        <ErrorBoundary key="curriculum" label="El currículo">
+          <Suspense fallback={screenFallback}>
+            <CurriculumScreen />
+          </Suspense>
+        </ErrorBoundary>
       ) : ui.screen === 'progress' ? (
-        <Suspense fallback={screenFallback}>
-          <ProgressScreen />
-        </Suspense>
+        <ErrorBoundary key="progress" label="El progreso">
+          <Suspense fallback={screenFallback}>
+            <ProgressScreen />
+          </Suspense>
+        </ErrorBoundary>
       ) : (
         <>
           <div className="left" style={{ display: railVisible ? 'flex' : 'none' }}>
@@ -165,9 +176,11 @@ export function App() {
             {/* the torso stays mounted while mini so its mesh worker is not rebuilt on expand */}
             <div className="rail-main" style={{ display: ui.railMini ? 'none' : 'flex' }}>
               {railVisible && (
-                <Suspense fallback={<div className="torso small">Cargando torso 3D…</div>}>
-                  <TorsoView />
-                </Suspense>
+                <ErrorBoundary label="El navegador 3D">
+                  <Suspense fallback={<div className="torso small">Cargando torso 3D…</div>}>
+                    <TorsoView />
+                  </Suspense>
+                </ErrorBoundary>
               )}
               {/* the view guide stays hidden until asked for: the learner reads the image first (decision 141) */}
               {railVisible && (
@@ -212,7 +225,7 @@ export function App() {
             {minimal && mode === 'exam' && <ExamNotice />}
             {error && (
               <div className="error" role="alert">
-                {error}
+                {firstLine(error)}
                 <div>
                   <button onClick={() => useSimStore.getState().setError(null)}>cerrar</button>
                 </div>

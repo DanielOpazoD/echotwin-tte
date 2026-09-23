@@ -78,7 +78,7 @@ export const CUT_MAP_LABELS: Partial<Record<Structure, string>> = {
   [Structure.LvWallSeptal]: 'septo',
   [Structure.LvWallLateral]: 'pared lateral',
   [Structure.LvWallAnterior]: 'pared anterior',
-  [Structure.LvWallInferior]: 'pared inferior',
+  [Structure.LvWallInferior]: 'pared inferior e inferolateral',
   [Structure.LvApex]: 'ápex',
   [Structure.RvCavity]: 'VD',
   [Structure.RvWall]: 'pared VD',

@@ -74,11 +74,13 @@ function tick(): void {
     schedule(Math.max(1, nextDue - performance.now()));
   } catch (e) {
     tickFailures++;
-    const detail = e instanceof Error ? e.message + '\n' + (e.stack ?? '') : String(e);
+    // the learner reads the message; the stack goes to the console (decision 154)
+    const detail = e instanceof Error ? e.message : String(e);
+    console.error('sim.worker: fallo del paso de simulación', e);
     if (tickFailures >= MAX_TICK_FAILURES) {
       post({
         type: 'error',
-        message: `simulación detenida tras ${tickFailures} errores consecutivos; recarga el caso.\n${detail}`,
+        message: `Simulación detenida tras ${tickFailures} errores consecutivos; recarga el caso. (${detail})`,
       });
       return;
     }
@@ -123,9 +125,8 @@ self.onmessage = (ev: MessageEvent<MainToWorker>) => {
       post({ type: 'response', id: msg.id, res: core.request(msg.req) });
     }
   } catch (e) {
-    post({
-      type: 'error',
-      message: e instanceof Error ? e.message + '\n' + (e.stack ?? '') : String(e),
-    });
+    // the message reaches the screen; the stack only the console (decision 154)
+    console.error('sim worker:', e);
+    post({ type: 'error', message: e instanceof Error ? e.message : String(e) });
   }
 };

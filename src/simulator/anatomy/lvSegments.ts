@@ -73,3 +73,19 @@ export function lv18Segment(
   const level = levelFrac < 1 / 3 ? 0 : levelFrac < 2 / 3 ? 1 : 2;
   return level * 6 + wall;
 }
+
+/**
+ * The wall label of the structure map for a segment code (decision 154): 0 lateral, 1 septal, 2 anterior, 3 inferior.
+ * The map has four wall labels for the six AHA walls: the septum is the anteroseptal and inferoseptal walls and the
+ * apical septum; the inferior label takes the inferior and inferolateral walls (the PLAX posterior wall, as it always
+ * has); the lateral one the anterolateral wall and the apical lateral segment. The cap belongs to its quadrant. Until
+ * decision 154 the label came from the cosine of the azimuth centred on 180°, 28° off the septum the RV insertions
+ * bound, and wrote «septum» over the inferior wall of the A2C. Translated to GLSL (`npm run glsl:gen`).
+ */
+export function lvWallKind(code: number): number {
+  const c = code >= 17 ? code - 4 : code;
+  if (c === 2 || c === 3 || c === 8 || c === 9 || c === 14) return 1;
+  if (c === 1 || c === 7 || c === 13) return 2;
+  if (c === 4 || c === 5 || c === 10 || c === 11 || c === 15) return 3;
+  return 0;
+}

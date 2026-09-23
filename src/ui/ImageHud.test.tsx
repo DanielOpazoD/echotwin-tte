@@ -43,10 +43,30 @@ describe('ImageHud', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('still shows the live view score in exam', () => {
-    // Pinned current defect: the score IS visible in exam; a later clinical PR hides it.
+  it('warns on the image when the CPU tracer forms it, and only then', () => {
+    seed('sandbox');
+    const hud = useHudStore.getState().hud as unknown as Record<string, unknown>;
+    useHudStore.setState({
+      hud: { ...hud, stats: { gpu: 'WebGL context lost: CPU tracer', tier: 'medium' } } as never,
+    });
+    const lost = render(<ImageHud />);
+    expect(lost.container.querySelector('.hud-warn')?.textContent).toBe(
+      'Sin GPU · trazador CPU, calidad media',
+    );
+    // not a live region: the console already owns the page's role=status (e2e/measurements)
+    expect(screen.queryByRole('status')).toBeNull();
+    cleanup();
+    useHudStore.setState({ hud: { ...hud, stats: { gpu: 'ok', tier: 'high' } } as never });
+    const ok = render(<ImageHud />);
+    expect(ok.container.querySelector('.hud-warn')).toBeNull();
+  });
+
+  it('hides the recognised view and its score in exam, keeping the acquisition data', () => {
+    // the exam asks the learner to recognise the view (decision 154)
     seed('exam');
     render(<ImageHud />);
-    expect(screen.getByText(/PLAX 91/)).toBeTruthy();
+    expect(screen.queryByText(/PLAX/)).toBeNull();
+    expect(screen.queryByText(/Vista/)).toBeNull();
+    expect(screen.getByText(/FR 30 Hz/)).toBeTruthy();
   });
 });

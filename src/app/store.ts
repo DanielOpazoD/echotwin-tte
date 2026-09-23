@@ -8,7 +8,12 @@ import {
 } from '@/simulator/renderer/types';
 import { DEFAULT_COLOR, type ColorSettings } from '@/simulator/doppler/color/colorDoppler';
 import { DEFAULT_SPECTRAL, type SpectralSettings } from '@/simulator/doppler/spectral/spectrum';
-import type { SimOutput, QualityTier, RendererBackendChoice } from '@/simulator/core/protocol';
+import {
+  DEFAULT_QUALITY,
+  type QualityChoice,
+  type RendererBackendChoice,
+  type SimOutput,
+} from '@/simulator/core/protocol';
 import type { StructuredEchoTruth } from '@/simulator/hemodynamics/groundTruth';
 import type { Measurement } from '@/simulator/measurements/types';
 import { getMeasurementSpec } from '@/simulator/measurements/protocol';
@@ -95,7 +100,7 @@ export interface SimStore {
   spectral: SpectralSettings;
   cursorThetaRad: number;
   gateDepthCm: number;
-  quality: QualityTier;
+  quality: QualityChoice;
   rendererBackend: RendererBackendChoice;
   mode: ProductMode;
   targetViewId: string | null;
@@ -168,7 +173,7 @@ export interface SimStore {
   setColor: (c: Partial<ColorSettings>) => void;
   setSpectral: (s: Partial<SpectralSettings>) => void;
   setCursor: (theta: number, depth?: number) => void;
-  setQuality: (q: QualityTier) => void;
+  setQuality: (q: QualityChoice) => void;
   setBackend: (b: RendererBackendChoice) => void;
   setMode: (m: ProductMode) => void;
   setTargetView: (id: string | null) => void;
@@ -332,7 +337,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
   spectral: { ...DEFAULT_SPECTRAL },
   cursorThetaRad: 0.05,
   gateDepthCm: 9,
-  quality: 'medium',
+  quality: DEFAULT_QUALITY,
   rendererBackend: 'atlas',
   mode: 'sandbox',
   targetViewId: null,

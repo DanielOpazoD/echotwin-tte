@@ -3,6 +3,53 @@ import tseslint from 'typescript-eslint';
 import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 
+/** The engine, the clinical layer, the cases, education and the math core (docs/ARCHITECTURE.md). */
+const ENGINE_FILES = [
+  'src/simulator/**/*.ts',
+  'src/clinical/**/*.ts',
+  'src/education/**/*.ts',
+  'src/cases/**/*.ts',
+  'src/core/**/*.ts',
+];
+/** None of them depends on the React application, the UI, the workers or the store (audit A9, 2026-09-16). */
+const ENGINE_FENCE = [
+  {
+    group: ['@/app', '@/app/*', '**/app/*'],
+    message: 'the engine must not import the application layer',
+  },
+  { group: ['@/ui', '@/ui/*', '**/ui/*'], message: 'the engine must not import the UI' },
+  { group: ['@/workers/*', '**/workers/*'], message: 'the engine must not import workers' },
+  { group: ['zustand', 'react', 'react-dom'], message: 'the engine is framework-free' },
+];
+/** The clinical layer (formulas, guidelines, reference values) is leaf data any layer may read. */
+const CLINICAL_LEAF = [
+  {
+    group: ['@/simulator/*', '@/education/*', '@/cases', '@/cases/*'],
+    message: 'src/clinical is a leaf layer: it must not import the engine, the cases or education',
+  },
+];
+/** The engine below education never depends on education (technique result types live in measurements/types). */
+const NO_EDUCATION = [
+  { group: ['@/education', '@/education/*'], message: 'the engine must not import education' },
+];
+/** The renderer forms images; the Doppler engine consumes its frames, never the other way round. */
+const RENDERER_NO_DOPPLER = [
+  {
+    group: ['@/simulator/doppler/*', '**/doppler/*'],
+    message: 'the renderer must not import the Doppler engine',
+  },
+];
+/** The math core depends on nothing inside src/ (ARCHITECTURE.md: «Importa de: —»). */
+const CORE_LEAF = [
+  { group: ['@/*', '../*'], message: 'src/core must not import from other layers' },
+];
+/** A layer block: every pattern set that applies to these files, merged, since a later block would replace them. */
+const fence = (files, ...sets) => ({
+  files,
+  ignores: ['**/*.test.ts', '**/*.test.tsx'],
+  rules: { 'no-restricted-imports': ['error', { patterns: sets.flat() }] },
+});
+
 export default tseslint.config(
   { ignores: ['dist', 'coverage', 'playwright-report', 'test-results', 'node_modules', 'public'] },
   js.configs.recommended,
@@ -70,115 +117,14 @@ export default tseslint.config(
       ],
     },
   },
-  {
-    // Layer boundary (docs/ARCHITECTURE.md): the engine, the clinical layer, the cases, education
-    // and the math core never depend on the React application, the UI, the workers or the store.
-    // This held on 2026-09-16 (docs/AUDITORIA_INGENIERIA.md, A9); the rule keeps it that way. The blocks below
-    // add the finer boundaries, and src/tests/layers.test.ts proves the whole layer graph is acyclic.
-    files: [
-      'src/simulator/**/*.ts',
-      'src/clinical/**/*.ts',
-      'src/education/**/*.ts',
-      'src/cases/**/*.ts',
-      'src/core/**/*.ts',
-    ],
-    ignores: ['**/*.test.ts', '**/*.test.tsx'],
-    rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            {
-              group: ['@/app', '@/app/*', '**/app/*'],
-              message: 'the engine must not import the application layer',
-            },
-            { group: ['@/ui', '@/ui/*', '**/ui/*'], message: 'the engine must not import the UI' },
-            {
-              group: ['@/workers/*', '**/workers/*'],
-              message: 'the engine must not import workers',
-            },
-            { group: ['zustand', 'react', 'react-dom'], message: 'the engine is framework-free' },
-          ],
-        },
-      ],
-    },
-  },
-  {
-    // The clinical layer (formulas, guidelines, reference values) is leaf data any layer may read; it must not
-    // reach back into the engine, the cases or the education layer (the report that did moved to education).
-    files: ['src/clinical/**/*.ts'],
-    ignores: ['**/*.test.ts'],
-    rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            {
-              group: [
-                '@/simulator/*',
-                '@/education/*',
-                '@/cases',
-                '@/cases/*',
-                '@/app/*',
-                '@/ui/*',
-              ],
-              message:
-                'src/clinical is a leaf layer: it must not import the engine, the cases or education',
-            },
-          ],
-        },
-      ],
-    },
-  },
-  {
-    // The engine below education never depends on education (technique result types live in measurements/types).
-    files: ['src/simulator/**/*.ts', 'src/cases/**/*.ts'],
-    ignores: ['**/*.test.ts'],
-    rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            {
-              group: ['@/education', '@/education/*'],
-              message: 'the engine must not import education',
-            },
-          ],
-        },
-      ],
-    },
-  },
-  {
-    // The renderer forms images; the Doppler engine consumes its frames, never the other way round.
-    files: ['src/simulator/renderer/**/*.ts'],
-    ignores: ['**/*.test.ts'],
-    rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            {
-              group: ['@/simulator/doppler/*', '**/doppler/*'],
-              message: 'the renderer must not import the Doppler engine',
-            },
-          ],
-        },
-      ],
-    },
-  },
-  {
-    // The math core depends on nothing inside src/ (ARCHITECTURE.md: «Importa de: —»).
-    files: ['src/core/**/*.ts'],
-    ignores: ['**/*.test.ts'],
-    rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            { group: ['@/*', '../*'], message: 'src/core must not import from other layers' },
-          ],
-        },
-      ],
-    },
-  },
+  // Layer boundaries (docs/ARCHITECTURE.md), one block per set of files, each carrying every pattern that applies to
+  // them. In a flat config the last block that matches a file REPLACES the options of `no-restricted-imports`: the
+  // finer blocks of commit fb267c2 silently erased the engine fence of commit 8ca5af9, both of 2026-09-16, and React,
+  // zustand or the store could be imported into the engine with no error (decision 154).
+  // src/tests/layerLint.test.ts checks the resolved rule of a file of every layer.
+  fence(ENGINE_FILES, ENGINE_FENCE),
+  fence(['src/clinical/**/*.ts'], ENGINE_FENCE, CLINICAL_LEAF),
+  fence(['src/simulator/**/*.ts', 'src/cases/**/*.ts'], ENGINE_FENCE, NO_EDUCATION),
+  fence(['src/simulator/renderer/**/*.ts'], ENGINE_FENCE, NO_EDUCATION, RENDERER_NO_DOPPLER),
+  fence(['src/core/**/*.ts'], ENGINE_FENCE, CORE_LEAF),
 );

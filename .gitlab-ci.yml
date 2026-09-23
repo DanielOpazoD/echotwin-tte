@@ -6,7 +6,9 @@
 # ~4 + 11 + 12 min, build 1 min, cobertura 1 min, E2E ~15 min: unos 43 minutos de runner por
 # pipeline. Con un pipeline por MR y otro por merge a main se agotaron los 400 minutos mensuales del
 # plan gratuito en una tarde. Por eso hay dos perfiles:
-#   - MR: lint + tipos + formato, suite rápida, build y presupuesto de bundle (~5 min).
+#   - MR: lint + tipos + formato, suite rápida, build y presupuesto de bundle (~5 min), y la equivalencia
+#     CPU/GPU del caso normal sobre ese build (13 pruebas, ~3 min en el runner propio), porque el espejo GLSL del
+#     clasificador está escrito a mano y ninguna prueba unitaria compara sus números con los de la CPU (decisión 154).
 #   - main (y tags): lo anterior más la suite completa con cobertura en shards y los E2E sobre dist/.
 # Con un runner propio (gitlab-runner en una máquina del equipo) los dos perfiles pueden igualarse.
 # Los E2E corren sobre `dist/` con SwiftShader; `gpu-live.spec.ts` se salta sin GPU por hardware.
@@ -106,6 +108,25 @@ e2e:
     # siguiente E2E falla sin probar nada. Solo se detienen las vistas previas lanzadas desde este checkout.
     - pkill -f "$CI_PROJECT_DIR/node_modules/.bin/vite preview" || true
     - npm run test:e2e
+  artifacts:
+    when: on_failure
+    paths: [playwright-report/, test-results/]
+    expire_in: 1 week
+
+# La equivalencia CPU/GPU del caso normal, antes del merge (decisión 154): hasta entonces solo corría en main, después
+# del merge, y una diferencia entre el clasificador de CPU y su espejo GLSL escrito a mano llegaba a main sin aviso.
+e2e-gpu:
+  stage: e2e
+  needs: [build]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  image: mcr.microsoft.com/playwright:v1.63.0-noble
+  variables:
+    CI: 'true'
+    E2E_LOAD_WAIT_MIN: '10'
+  script:
+    - pkill -f "$CI_PROJECT_DIR/node_modules/.bin/vite preview" || true
+    - npx playwright test e2e/gpu-equivalence.spec.ts --grep normal-excellent-window
   artifacts:
     when: on_failure
     paths: [playwright-report/, test-results/]

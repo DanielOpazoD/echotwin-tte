@@ -692,7 +692,6 @@ bool classifyHeart(vec3 p0, out Sample s) {
   float rs = RADIAL_SCALE, ls = LONG_SCALE;
   float trab = levelFrac > 0.45 ? 0.2 * min(1.0, (levelFrac - 0.45) / 0.35) * (lat(vec3((x / rs) * 2.6 + 11.3, (y / rs) * 2.6 + 2.9, ((z - LV_LEN) / ls) * 1.1 + 6.1), 3) - 0.5) : 0.0;
   float dCavR = dCav - regional + trab;
-  float septalness = 0.5 - 0.5 * cos(az);
   float tNow = wallThicknessAt(az, levelFrac, amp);
   // mitral inflow: cavity and wall are the smooth union of the profile with the narrowing annular outline
   bool inRootTube = rootT > -1.6 && rootRr < rootR + 0.2;
@@ -713,18 +712,18 @@ bool classifyHeart(vec3 p0, out Sample s) {
   float wallT = tNow;
   float dEllR = smin(dProf, dInflow, 0.3) - regional;
   if (dEllR + trab >= 0.0 && dEllR < wallT && z >= zAnn - 0.25 && !inOutflowLumen) {
-    int structure = S_LV_LAT;
+    // the wall label follows the AHA wall of the segment, bounded by the RV insertions (lvSegments.ts, decision 154)
+    float segCode = lvSegmentCode(az, levelFrac, RV_AZA, RV_AZP);
+    int wall = int(lvWallKind(segCode) + 0.5);
+    int structure = wall == 1 ? S_LV_SEPT : wall == 2 ? S_LV_ANT : wall == 3 ? S_LV_INF : S_LV_LAT;
     if (z > LV_LEN - 0.6) structure = S_LV_APEX;
-    else if (septalness > 0.7) structure = S_LV_SEPT;
-    else if (sin(az) > 0.5) structure = S_LV_ANT;
-    else if (sin(az) < -0.5) structure = S_LV_INF;
     bool nearEpi = wallT - dEllR < dEllR;
     // only the smooth epicardium reflects coherently; the trabeculated endocardium scatters (decision 144)
     float dIn = nearEpi ? -(wallT - dEllR) : -wallT;
     float sg = nearEpi ? 1.0 : -1.0;
     setSample(s, T_MYO, dIn, sg * n0, vec3(x / rs, y / rs, (z - LV_LEN) / ls), 0.0, structure);
     s.transmural = clamp(dEllR / wallT, 0.0, 1.0);
-    s.segment = int(lvSegmentCode(az, levelFrac, RV_AZA, RV_AZP) + 0.5);
+    s.segment = int(segCode + 0.5);
     return true;
   }
   bool inAnnularRegion = dEllR < 0.0 && z < zAnn && !inRootLumen;

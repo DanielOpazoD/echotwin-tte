@@ -568,6 +568,30 @@ select:focus-visible {
   right: 10px;
   align-items: flex-end;
 }
+.hud-box > .hud-warn {
+  color: #1a1206;
+  background: rgba(255, 179, 71, 0.9);
+  font-weight: 600;
+}
+.panel-error {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+  margin: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 107, 107, 0.5);
+  border-radius: 8px;
+  background: rgba(40, 12, 14, 0.85);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.torso-3d > .panel-error {
+  position: absolute;
+  inset: 8px 8px auto 8px;
+  z-index: 2;
+}
 .hud-br {
   bottom: 8px;
   right: 10px;

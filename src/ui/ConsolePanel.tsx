@@ -707,6 +707,7 @@ function MeasureTab() {
       activeMeasurementId: st.activeMeasurementId,
       activeTool: st.activeTool,
       measurements: st.measurements,
+      mode: st.mode,
       removeMeasurement: st.removeMeasurement,
       setActiveMeasurement: st.setActiveMeasurement,
       setActiveTool: st.setActiveTool,
@@ -758,7 +759,7 @@ function MeasureTab() {
           </button>
         </Section>
         <Section title={`Mediciones (${s.measurements.length})`}>
-          <MeasureList s={s} />
+          <MeasureList s={s} showView={modePolicy(s.mode).showViewFeedback} />
         </Section>
       </>
     );
@@ -784,13 +785,20 @@ function MeasureTab() {
             </button>
           ))}
         </div>
-        <MeasureList s={s} />
+        <MeasureList s={s} showView={modePolicy(s.mode).showViewFeedback} />
       </Section>
     </>
   );
 }
 
-function MeasureList({ s }: { s: Pick<SimStore, 'measurements' | 'removeMeasurement'> }) {
+/** `showView` false (exam) leaves out the view each measurement was taken in: it names the view (decision 154). */
+function MeasureList({
+  s,
+  showView,
+}: {
+  s: Pick<SimStore, 'measurements' | 'removeMeasurement'>;
+  showView: boolean;
+}) {
   return (
     <div className="measure-list">
       {s.measurements.length === 0 && (
@@ -800,7 +808,7 @@ function MeasureList({ s }: { s: Pick<SimStore, 'measurements' | 'removeMeasurem
         <div key={m.id}>
           <span>
             {m.label} ({m.modality}
-            {m.sourceViewId ? `, ${m.sourceViewId}` : ''})
+            {showView && m.sourceViewId ? `, ${m.sourceViewId}` : ''})
           </span>
           <span>
             {m.value.toFixed(m.kind === 'time' || m.kind === 'volume' ? 0 : 2)} {m.units}

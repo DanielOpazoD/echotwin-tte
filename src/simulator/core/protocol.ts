@@ -17,6 +17,12 @@ export const RENDERER_BACKEND_CHOICES = ['atlas', 'procedural', 'webgl2'] as con
 export type RendererBackendChoice = (typeof RENDERER_BACKEND_CHOICES)[number];
 
 export type QualityTier = 'low' | 'medium' | 'high';
+/**
+ * What the learner picks: a fixed tier, or «auto», the default, which the core resolves to the calibrated tier when the
+ * GPU forms the image and to medium on the CPU tracer, ten times slower (`quality.ts`, decision 154).
+ */
+export type QualityChoice = QualityTier | 'auto';
+export const DEFAULT_QUALITY: QualityChoice = 'auto';
 
 /** Everything the UI can change, sent to the simulator every animation frame. */
 export interface SimInput {
@@ -32,7 +38,7 @@ export interface SimInput {
   /** Doppler / M-mode cursor: angle within the sector (rad) and gate depth (cm, PW/TDI). */
   cursorThetaRad: number;
   gateDepthCm: number;
-  quality: QualityTier;
+  quality: QualityChoice;
   display: { width: number; height: number };
   rendererBackend: RendererBackendChoice;
   /** Artifact laboratory: live overrides of the case artifacts (0..1 each); null = as defined by the case. */

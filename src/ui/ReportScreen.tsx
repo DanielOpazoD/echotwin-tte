@@ -73,8 +73,9 @@ export function ReportScreen() {
           <tr>
             <th>Vista</th>
             <th>Mínimo</th>
-            <th>Mejor score alcanzado</th>
-            <th>Estado</th>
+            {/* the best score of each view would say which view the image showed (decision 154) */}
+            {!hideTruth && <th>Mejor score alcanzado</th>}
+            {!hideTruth && <th>Estado</th>}
           </tr>
         </thead>
         <tbody>
@@ -82,12 +83,14 @@ export function ReportScreen() {
             <tr key={v.viewId}>
               <td>{v.viewId.toUpperCase()}</td>
               <td>{v.required}</td>
-              <td>{v.achieved}</td>
-              <td>
-                <span className={`pill ${v.ok ? 'ok' : 'warn'}`}>
-                  {v.ok ? 'ok' : v.achieved ? 'incompleta' : 'no adquirida'}
-                </span>
-              </td>
+              {!hideTruth && <td>{v.achieved}</td>}
+              {!hideTruth && (
+                <td>
+                  <span className={`pill ${v.ok ? 'ok' : 'warn'}`}>
+                    {v.ok ? 'ok' : v.achieved ? 'incompleta' : 'no adquirida'}
+                  </span>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
@@ -177,9 +180,9 @@ export function ReportScreen() {
           <tr>
             <th>Medición</th>
             <th>Valor</th>
-            <th>Modalidad / vista</th>
-            <th>Calidad vista</th>
-            <th>Técnica</th>
+            <th>{hideTruth ? 'Modalidad' : 'Modalidad / vista'}</th>
+            {!hideTruth && <th>Calidad vista</th>}
+            {!hideTruth && <th>Técnica</th>}
             {s.mode !== 'exam' && <th>Modelo (verdad)</th>}
             {s.mode !== 'exam' && <th>Desviación</th>}
           </tr>
@@ -193,27 +196,29 @@ export function ReportScreen() {
                 {r.modality}
                 {r.view ? ` / ${r.view}` : ''}
               </td>
-              <td>{r.viewScore ?? '—'}</td>
-              <td>
-                {r.technique ? (
-                  <>
-                    <span
-                      className={`pill ${r.technique.level === 'ok' ? 'ok' : r.technique.level === 'warn' ? 'warn' : 'bad'}`}
-                    >
-                      {r.technique.score}/100
-                    </span>
-                    {r.technique.notes.length > 0 && (
-                      <ul className="small technique-notes">
-                        {r.technique.notes.map((n, i) => (
-                          <li key={i}>{n}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </>
-                ) : (
-                  <span className="small">libre</span>
-                )}
-              </td>
+              {!hideTruth && <td>{r.viewScore ?? '—'}</td>}
+              {!hideTruth && (
+                <td>
+                  {r.technique ? (
+                    <>
+                      <span
+                        className={`pill ${r.technique.level === 'ok' ? 'ok' : r.technique.level === 'warn' ? 'warn' : 'bad'}`}
+                      >
+                        {r.technique.score}/100
+                      </span>
+                      {r.technique.notes.length > 0 && (
+                        <ul className="small technique-notes">
+                          {r.technique.notes.map((n, i) => (
+                            <li key={i}>{n}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </>
+                  ) : (
+                    <span className="small">libre</span>
+                  )}
+                </td>
+              )}
               {s.mode !== 'exam' && <td>{r.truth ?? '—'}</td>}
               {s.mode !== 'exam' && <td>{r.deviation ?? '—'}</td>}
             </tr>

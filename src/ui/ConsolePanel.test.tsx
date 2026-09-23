@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { ConsolePanel } from './ConsolePanel';
 import { useSimStore } from '@/app/store';
+import type { Measurement } from '@/simulator/measurements/types';
 
 const initialSim = useSimStore.getState();
 
@@ -115,5 +116,42 @@ describe('ConsolePanel tabs', () => {
     act(() => screen.getByRole('button', { name: /Cancelar/ }).click());
     expect(useSimStore.getState().activeTool).toBe('none');
     expect(screen.getByRole('group', { name: 'Herramienta de medición' })).toBeTruthy();
+  });
+
+  it('names no view and grades no technique in the Medir tab during an exam (decision 154)', () => {
+    const taken: Measurement = {
+      id: 'm1',
+      kind: 'linear',
+      measurementId: 'lvot-diameter',
+      technique: {
+        score: 0.2,
+        findings: [{ code: 'view', level: 'invalid', message: 'Vista A4C: se mide en PLAX.' }],
+      },
+      label: 'Diámetro del TSVI',
+      value: 2,
+      units: 'cm',
+      modality: '2d',
+      sourceViewId: 'a4c',
+      viewScore: 35,
+      frameId: 1,
+      phase: 0.1,
+      timeS: 1,
+      geometry: [],
+      imageQualityScore: 90,
+      userAssisted: false,
+      referenceGuidelineIds: [],
+      createdAt: '2026-09-23T00:00:00Z',
+    };
+    for (const mode of ['sandbox', 'exam'] as const) {
+      cleanup();
+      act(() => useSimStore.setState({ mode, measurements: [taken] }));
+      const { container } = render(<ConsolePanel />);
+      act(() => screen.getByRole('tab', { name: 'Medir' }).click());
+      const shown = container.textContent ?? '';
+      const learning = mode === 'sandbox';
+      expect(shown.includes('2d, a4c'), `${mode}: view in the list`).toBe(learning);
+      expect(shown.includes('inválida'), `${mode}: technique grade`).toBe(learning);
+      expect(shown.includes('2.00 cm'), `${mode}: the value itself`).toBe(true);
+    }
   });
 });

@@ -4,7 +4,7 @@ import { lvCavitySdf, lvProfileG } from '../lvShape';
 import { fastAtan2, latticeNoise3 } from '@/core/noise';
 import { insideMitralOutline, mitralHingeZ, mitralInflowSdf } from '../mitralValve';
 import { septalShiftAt, wallThicknessAt } from '../lvWall';
-import { aha17FromCode, lvSegmentCode } from '../lvSegments';
+import { aha17FromCode, lvSegmentCode, lvWallKind } from '../lvSegments';
 import { setSample, type ClassifyCtx } from './context';
 
 /**
@@ -58,8 +58,6 @@ export function classifyLeftVentricle(c: ClassifyCtx): boolean {
           0.5)
       : 0;
   const dCavR = dCav - regional + trab;
-  // wall thickness: interpolate septal (az≈π, i.e. x<0) vs free wall
-  const septalness = 0.5 - 0.5 * Math.cos(az); // 1 at septum (az=π), 0 at lateral
   const tNow = wallThicknessAt(m, hp.thickK, az, levelFrac, amp);
 
   // Mitral inflow: the ventricle opens onto the whole annulus. The bullet profile is centred on the long axis and the
@@ -120,11 +118,18 @@ export function classifyLeftVentricle(c: ClassifyCtx): boolean {
   // the annulus. The annular plane itself is not a wall: it holds the mitral orifice, the LVOT and fibrous tissue.
   // the trabeculated inner surface belongs to the wall: from the rough endocardium to the smooth epicardium
   if (dEllR + trab >= 0 && dEllR < wallT && z >= zAnn - 0.25 && !inOutflowLumen) {
-    let structure = Structure.LvWallLateral;
-    if (z > lv.lengthCm - 0.6) structure = Structure.LvApex;
-    else if (septalness > 0.7) structure = Structure.LvWallSeptal;
-    else if (Math.sin(az) > 0.5) structure = Structure.LvWallAnterior;
-    else if (Math.sin(az) < -0.5) structure = Structure.LvWallInferior;
+    // the wall label follows the AHA wall of the segment, bounded by the RV insertions (decision 154)
+    const wall = lvWallKind(segCode);
+    const structure =
+      z > lv.lengthCm - 0.6
+        ? Structure.LvApex
+        : wall === 1
+          ? Structure.LvWallSeptal
+          : wall === 2
+            ? Structure.LvWallAnterior
+            : wall === 3
+              ? Structure.LvWallInferior
+              : Structure.LvWallLateral;
     const nearEpi = wallT - dEllR < dEllR;
     // The only coherent interface of the wall is its smooth epicardium: the trabeculated endocardium is rough at the
     // wavelength and scatters, it does not reflect. Until decision 144 the sample distance reached the endocardium too

@@ -117,6 +117,20 @@ float lvSegmentCode(float azimuthRad, float levelFrac, float rvAzA, float rvAzP)
   }
   return base + 5.0;
 }
+// src/simulator/anatomy/lvSegments.ts: lvWallKind
+float lvWallKind(float code) {
+  float c = code >= 17.0 ? code - 4.0 : code;
+  if (c == 2.0 || c == 3.0 || c == 8.0 || c == 9.0 || c == 14.0) {
+    return 1.0;
+  }
+  if (c == 1.0 || c == 7.0 || c == 13.0) {
+    return 2.0;
+  }
+  if (c == 4.0 || c == 5.0 || c == 10.0 || c == 11.0 || c == 15.0) {
+    return 3.0;
+  }
+  return 0.0;
+}
 // src/simulator/anatomy/classify/root.ts: rootBend
 float rootBend(float t) {
   return t > 3.0 ? 0.16 * (t - 3.0) * (t - 3.0) : 0.0;

@@ -111,6 +111,9 @@ test.describe('EchoTwin TTE core flow', () => {
   test('exam mode hides hints, physics and dev panel', async ({ page }) => {
     await page.getByRole('combobox', { name: 'Modo del producto' }).selectOption('exam');
     await expect(page.getByText('Modo examen: sin ayudas', { exact: false })).toBeVisible();
+    // the image does not name the view the learner has to recognise (decision 154)
+    await expect(page.locator('.img-hud')).not.toContainText('Vista');
+    await expect(page.getByRole('button', { name: /Segmentos VI/ })).toHaveCount(0);
     await page.getByRole('button', { name: 'Más opciones' }).click();
     await expect(page.getByRole('menuitemcheckbox', { name: 'Panel Dev' })).toBeDisabled();
     await expect(
