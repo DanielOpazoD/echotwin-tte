@@ -106,6 +106,8 @@ void main() {
     specular *= wm;
   }
   vec3 q = s.m * SCATTER_FREQ - (SCATTER_FREQ - 1.0 / (2.0 * e)) * dot(s.m, nrm) * nrm;
+  // flowing blood is a new realization in every frame (decision 163)
+  if (s.tissue == T_BLOOD) q.x += BLOOD_SHIFT;
   float zr = (lat(q, 0) + lat(q * SCATTER_FREQ_RATIO + PHASOR_RE_B, 1) - 1.0) * PHASOR_NORM;
   float zi = (lat(q + PHASOR_IM_A, 2) + lat(q * SCATTER_FREQ_RATIO + PHASOR_IM_B, 0) - 1.0) * PHASOR_NORM;
   // the second compounding look: the same scene on a shifted lattice (decision 145)

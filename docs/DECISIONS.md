@@ -514,3 +514,64 @@ Formato: fecha · decisión · motivo · consecuencias. Índice generado en `DEC
 - **a′**: la contracción auricular desplazaba el anillo lo que el llenado auricular añade al ventrículo, a lo largo de la curva de volumen, y el Doppler tisular leía 3,9 cm/s donde un adulto sano muestra 8–10. El anillo se adelanta a ese llenado (como ya se adelanta al llenado precoz para e′) hasta un a′ = A·e′/E, el supuesto de que tejido y sangre guardan una misma razón en las dos ondas de llenado: 7,6 cm/s en los dos casos normales. En la isquemia inferior y la estenosis aórtica severa el desplazamiento auricular no alcanza su objetivo (4,6 frente a 6,4 y 7,2 cm/s).
 
 Al alargarse la pre-eyección la diástole se acortó y destapó un error de medida: el pico de e′ se leía con una diferencia central en el borde de su ventana, que ya lee la onda A (MCD con IM: 6,2 cm/s frente a 4) o el latido siguiente (FA: 8,3 frente a 5,5), y el solucionador lo creía; ahora las dos vecinas de la muestra deben caer dentro de la ventana, en el solucionador y en la prueba, y e′ vuelve a su objetivo en los doce casos. También la apertura tricuspídea sin onda A (FA) se cerraba de golpe en el QRS por un reloj de cierre envuelto; en el tramo retrasado conserva el estado del final del latido. Pruebas nuevas (`cycle.test.ts`): pre-eyección de 80–110 ms en los doce casos y QS2 a 15 ms de Weissler donde la contractilidad es normal; en los doce casos la pulmonar abre antes y cierra 20–40 ms después que la aórtica, la tricúspide abre antes que la mitral y después del cierre pulmonar, y cierra después de la mitral, y el flujo pulmonar cae entre sus eventos; a′ ≥ 6 cm/s en el corazón normal y a 5 % de A·e′/E. Mutaciones que fallan: la pre-eyección de 60 ms, la pulmonar cerrando antes que la aórtica, el anillo sin adelantarse en la contracción auricular. Las pruebas que suponían la tricúspide igual a la mitral una centésima después se reescriben con la fisiología nueva (mismo volumen de llenado, pico E 20 ms antes). Pruebas que leían una fase absoluta del latido y la leen ahora respecto de la eyección, porque la misma fase cae en otro momento de la sístole: la formación de imagen (87 % de la eyección, la fase 0,35 de antes) y el A5C (35 %). El E tricuspídeo de la respiración se lee en la diástole de llenado: en todo el latido la compuerta, 1,5 cm bajo el anillo, recogía en sístole la convergencia de la insuficiencia tricuspídea al bajar el anillo con el TAPSE. La persistencia del color se prueba en diez actualizaciones (en seis pocas columnas cambiaban). El tiempo de aceleración del TSVD se mide con el filtro de pared bajo de cualquier flujo lento, porque en la MCD el pico es de 0,26 m/s y el filtro por defecto ocultaba el primer tercio de la subida, y un tramo que el registro empieza a medias ya no cuenta como latido.
+
+
+163. **2026-09-23 — La sangre que fluye cambia de speckle en cada cuadro y el tejido conserva el suyo**: segundo punto de la tanda 3. La sangre viaja con el flujo, de 1 a 20 mm entre dos cuadros cuando la celda de speckle mide 0,4 mm de fondo. En un ecógrafo el speckle de la cavidad no se conserva de un cuadro al siguiente y el del tejido sí. El simulador anclaba los dos al corazón: el patrón de la cavidad quedaba quieto con las paredes y se estiraba con el ventrículo. Sólo el modo M renovaba la sangre en cada pulso (decisión 84).
+
+Medido en la cadena de la app sobre dos cuadros consecutivos del A4C normal en plena diástasis, cuando las paredes apenas se mueven. Es la correlación del logaritmo de la amplitud en la cavidad y las paredes del VI erosionadas:
+
+- **Antes**: cavidad 1,000 en el nivel bajo y 0,987 en el alto, igual que el miocardio (1,000 y 0,995).
+
+Ahora cada cuadro desplaza el retículo de dispersores de la sangre `BLOOD_DECORRELATION_CELLS` = 2,7 celdas (`bloodShiftCells`). Es la misma constante que ya usaba el pulso del modo M, porque el ruido de valor no correlaciona más allá de dos celdas. El índice del cuadro es el de la consola (`ScenePhysics.bloodFrame`) y llega a la GPU como `BLOOD_SHIFT`, con el mismo desplazamiento en las dos miradas.
+
+- **Ahora**: cavidad 0,67 en el nivel bajo y 0,75 en el alto; las paredes siguen en 1,000 y 0,995.
+
+La cavidad conserva una parte correlada que no viaja con la sangre: el clutter, la reverberación y los ecos de las paredes extendidos por el haz. En un mismo cuadro, dos realizaciones de la sangre correlacionan 0,54 en la cavidad erosionada.
+
+**Efecto sobre la imagen**
+
+La persistencia de la consola (0,35 por defecto) promedia ahora la sangre y no el tejido. Medido con el A4C telediastólico del caso normal, seis cuadros a la cadencia del nivel alto y tres semillas:
+
+- La fracción de negros de la banda de 2–4 cm baja de 0,0024 a 0,0011 y la de 4–6 cm de 0,0195 a 0,0166.
+- La desviación detrendida de la cavidad baja de 10,1 a 9,6.
+- El p10 de la cavidad sube de 33 a 34.
+
+Los negros son sobre todo de la cavidad del VD (48 %) y del VI (42 %), y la mezcla de dos cuadros no basta para rellenar sus nulos.
+
+**Lo que destapó la medición**
+
+La comparación clínica y `discriminate` miden un cuadro único sin persistencia (`presentApical`), pero la app muestra la persistencia 0,35 por defecto. Con el mismo cuadro final, la persistencia por sí sola mueve varias estadísticas; la sangre renovada cambia estas cifras en centésimas:
+
+| Estadística | Cuadro único | Con persistencia | CAMUS Good (mediana) |
+|---|---|---|---|
+| Gradiente p50 del sector | 15,2 | 12,2 | 10,2 |
+| Desviación detrendida | 19,3 | 15,8 | 15,8 |
+| Desviación local | 8,6 | 6,8 | 7,9 |
+| Miocardio detrendido | 17,7 | 16,0 | 21,6 |
+| Cavidad detrendida | 12,6 | 10,1 | 13,3 |
+| Fracción de negros | 0,0088 | 0,0036 | 0 |
+
+La persistencia suaviza a la vez la nitidez del sector y la textura del miocardio, que ya estaba por debajo de la clínica, porque el tejido se mueve entre cuadros y el ruido del receptor se renueva.
+
+`discriminate` sobre la imagen que muestra la app (cuatro cuadros con persistencia, 24 semillas por condición) sigue en AUC 1,000, igual que a cuadro único, pero cambia lo que delata:
+
+- La correlación radial a 1 mm pasa al primer lugar, con AUC 1,000 (0,379 frente a 0,214 clínico; 0,330 a cuadro único). En las apicales el corazón se mueve a lo largo del haz, y promediar cuadros desplazados alarga la textura en esa dirección.
+- El gradiente p50 baja de 0,999 a 0,886 de AUC (11,8 frente a 10,1).
+- Los negros a 4–6 cm bajan de 4,2 % a 2,1 %, con AUC 0,951.
+- La coherencia de través a 4 mm empeora: 0,039 frente a 0,145.
+
+Con la sangre congelada, el resultado es casi el mismo: negros 2,3 %, gradiente 12,0, radial 0,379. La sangre renovada es un cambio físico que se ve en movimiento, pero no lo que separa las imágenes quietas.
+
+**Por qué la calibración sigue a cuadro único**
+
+La copia local de CAMUS sólo trae los cuadros telediastólico y telesistólico, sin las secuencias. No se puede saber qué promedio temporal llevan sus exportaciones. Comparar la imagen persistida contra cuadros que quizá no la llevan movería la calibración hacia una imagen cruda más nítida. La calibración sigue midiendo el cuadro que forma el ecógrafo, y la persistencia queda como ajuste de presentación con su efecto medido.
+
+**Guardas y mutación**
+
+- `bloodSpeckle.test.ts` (lento) recorre la cadena de la app en el nivel bajo y exige correlación > 0,98 en las paredes y < 0,85 en la cavidad. Sin el desplazamiento falla (cavidad 1,000).
+- La comparación CPU/GPU de `debugCompare` rinde el cuadro 7, para que el desplazamiento llegue al sombreador en toda la matriz de `e2e/gpu-equivalence`.
+- Los goldens y la comparación clínica rinden el cuadro 0 y no cambian.
+
+**Simplificación declarada**
+
+La sangre se renueva por igual en toda la cavidad. No se advecta con el flujo, así que falta el «humo» de la sangre lenta junto al ápex, que conserva su patrón algunos cuadros.

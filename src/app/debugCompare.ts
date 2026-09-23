@@ -106,6 +106,8 @@ function canonicalSetup(
       clutterLevel: c.acousticWindow.clutterLevel,
       windowAttenuation: c.acousticWindow.chestWallAttenuation,
       seed: c.seed,
+      // a frame other than the first, so the flowing blood's lattice shift reaches the comparison (decision 163)
+      bloodFrame: 7,
     },
   });
   return { c, heart, beam, spec, scene: sceneAt(phase), sceneAt };

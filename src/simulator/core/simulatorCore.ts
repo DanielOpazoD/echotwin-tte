@@ -467,6 +467,8 @@ export class SimulatorCore {
       seed: this.caseDef.seed,
       beamWidth: this.artifacts.beamWidth,
       sideLobe: this.artifacts.sideLobe,
+      // the frame the console is about to form: the flowing blood's speckle changes with it (decision 163)
+      bloodFrame: this.consoleState.frameIndex,
     };
   }
 

@@ -97,6 +97,11 @@ export interface ScenePhysics {
   beamWidth?: number;
   /** Case "side-lobe" artifact 0..1: raises the side lobes of the lateral response (renderer PSF, decision 155). */
   sideLobe?: number;
+  /**
+   * Index of the frame being formed: the flowing blood's speckle is a new realization in every frame (decision 163).
+   * 0 when omitted.
+   */
+  bloodFrame?: number;
 }
 
 export interface Scene {

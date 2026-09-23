@@ -27,7 +27,9 @@ import {
 } from '../acoustic/psf';
 import {
   ATTEN_NP_PER_DB,
+  BLOOD_DECORRELATION_CELLS,
   BLOOD_HARMONIC_SIGMA,
+  bloodShiftCells,
   CALCIUM_AMP,
   CALCIUM_ATTEN_NP,
   CALCIUM_ATTEN_REF_CM,
@@ -318,8 +320,8 @@ export class ProceduralSliceRenderer implements RendererBackend {
         beam.normal.z,
       ],
       heartAxes: [fH.x, fH.y, fH.z, lH.x, lH.y, lH.z, nH.x, nH.y, nH.z],
-      // 2.7 cells per pulse: value noise is uncorrelated beyond two cells
-      bloodCells: (pulse % 4096) * 2.7,
+      // a new realization of the flowing blood in every pulse (decision 163)
+      bloodCells: (pulse % 4096) * BLOOD_DECORRELATION_CELLS,
       sigma: this.lineSigma,
       across: this.lineAcross,
       elevation: this.lineElevation,
@@ -420,6 +422,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
       latH: torsoToHeartDir(hf, beam.lateral),
       nrmH: torsoToHeartDir(hf, beam.normal),
       windowAttenuation: physics.windowAttenuation,
+      bloodShift: bloodShiftCells(physics.bloodFrame ?? 0),
       thorax,
       latA: noiseLattice(physics.seed),
       latB: noiseLattice(physics.seed ^ 0x2545f491),
@@ -716,7 +719,9 @@ export class ProceduralSliceRenderer implements RendererBackend {
       const across =
         (SCATTER_FREQ - 1 / (2 * sliceHalfWidthCm(r, focus))) *
         (s.mx * nhx + s.my * nhy + s.mz * nhz);
-      const qx = s.mx * SCATTER_FREQ - across * nhx,
+      // flowing blood is a new realization in every frame (decision 163)
+      const qx =
+          s.mx * SCATTER_FREQ - across * nhx + (tissue === Tissue.Blood ? ctx.bloodShift : 0),
         qy = s.my * SCATTER_FREQ - across * nhy,
         qz = s.mz * SCATTER_FREQ - across * nhz;
       // bright grains of the parenchyma: a sparse coherent component over the diffuse scatterers, the same in every look
@@ -962,6 +967,8 @@ interface LineContext {
   latH: { x: number; y: number; z: number };
   nrmH: { x: number; y: number; z: number };
   windowAttenuation: number;
+  /** Lattice shift of the flowing blood's scatterers in this frame (decision 163). */
+  bloodShift: number;
   thorax: Scene['thorax'];
   latA: Uint8Array;
   latB: Uint8Array;
