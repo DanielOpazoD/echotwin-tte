@@ -1367,12 +1367,39 @@ select:hover {
 }
 .guidance .score {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
+  align-items: center;
+  gap: 10px;
 }
 .guidance .score b {
-  font-size: 22px;
+  font-size: 20px;
   font-family: var(--mono);
+  font-weight: 700;
+}
+.score-ring {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.score-ring svg {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+}
+.score-ring circle {
+  fill: none;
+  stroke-width: 3.5;
+}
+.score-ring .track {
+  stroke: var(--panel-3);
+}
+.score-ring .fill {
+  stroke: currentColor;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.35s ease;
 }
 .guidance ul {
   margin: 6px 0 0;
@@ -1528,14 +1555,25 @@ select:hover {
   color: var(--accent);
 }
 .pill {
-  display: inline-block;
-  padding: 2px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px 2px 7px;
   border-radius: 10px;
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.03em;
-  background: #1f2a36;
+  background: var(--panel-3);
   color: var(--muted);
+  white-space: nowrap;
+}
+.pill::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.8;
 }
 .pill.ok {
   color: var(--ok);
@@ -1602,22 +1640,58 @@ select {
 .tutorial {
   position: absolute;
   left: 50%;
-  top: 12px;
+  top: 14px;
   transform: translateX(-50%);
   width: min(560px, 90%);
-  background: rgba(12, 16, 22, 0.95);
-  border: 1px solid var(--accent);
-  border-radius: 10px;
-  padding: 12px 14px;
+  background: rgba(14, 18, 24, 0.96);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  padding: 14px 16px 12px;
   z-index: 7;
+  box-shadow: var(--shadow-2);
+  backdrop-filter: blur(6px);
 }
 .tutorial h4 {
   margin: 0 0 6px;
-  color: var(--accent);
+  font-size: 14px;
+  color: var(--text);
 }
 .tutorial p {
-  margin: 0 0 10px;
-  line-height: 1.4;
+  margin: 0 0 12px;
+  line-height: 1.5;
+  color: #c9d1dc;
+}
+.tut-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.tut-kicker {
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.tut-steps {
+  display: flex;
+  gap: 5px;
+}
+.tut-steps i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border-strong);
+}
+.tut-steps i.done {
+  background: var(--accent-line);
+}
+.tut-steps i.now {
+  background: var(--accent);
+  width: 16px;
+  border-radius: 3px;
 }
 
 .preset-grid {
@@ -2072,4 +2146,96 @@ canvas.overlay.review {
 }
 .torso-wrap.split .torso-help.cut {
   bottom: 6px;
+}
+
+/* ---- interface, second round: the simulator screen (decision 184) ---- */
+/* a row whose control needs the whole width: the label above it */
+.row.stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+.row.stack select {
+  width: 100%;
+  flex: none;
+}
+.row label .kbd {
+  margin-left: 6px;
+  vertical-align: 1px;
+}
+/* the navigator's tools: one column of icon buttons under the dial */
+.torso-tools {
+  gap: 4px;
+}
+.torso-buttons {
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 9px;
+  background: rgba(10, 14, 20, 0.8);
+  border: 1px solid var(--border);
+}
+.torso-buttons button {
+  padding: 0;
+  font-size: 11px;
+}
+.torso-buttons button.icon-btn {
+  width: 26px;
+  height: 26px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+}
+.torso-buttons button.icon-btn:hover,
+.torso-buttons button.icon-btn.active {
+  color: var(--text);
+  background: var(--panel-3);
+}
+.dial {
+  border-radius: 10px;
+}
+/* the score of the recognised view as a small ring beside its name */
+.mini-ring {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 6px;
+  vertical-align: -2px;
+  border-radius: 50%;
+  background: conic-gradient(currentColor var(--p, 0%), rgba(255, 255, 255, 0.14) 0);
+  -webkit-mask: radial-gradient(circle, transparent 0 3.5px, #000 4px);
+  mask: radial-gradient(circle, transparent 0 3.5px, #000 4px);
+}
+/* a frozen image wears a thin amber frame, like the FREEZE pill */
+.display-wrap.frozen::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 2px rgba(255, 200, 87, 0.55);
+  z-index: 2;
+}
+/* while a preset moves the probe, its status reads as a live notice */
+.preset-status {
+  margin-top: 4px;
+  line-height: 1.45;
+}
+.preset-status.moving {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 9px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  color: var(--text);
+}
+.preset-status.moving::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 1.2s ease-in-out infinite;
 }

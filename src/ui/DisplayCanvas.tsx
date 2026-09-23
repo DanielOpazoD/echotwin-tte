@@ -77,6 +77,7 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
     moved?: boolean;
   }>({ kind: 'none', startX: 0, startY: 0 });
   const reviewMode = useSimStore((s) => s.ui.reviewMode);
+  const frozen = useSimStore((s) => s.frozen);
   const segTipRef = useRef<HTMLDivElement>(null);
   const onSize = props.onSize;
 
@@ -706,7 +707,7 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
   };
 
   return (
-    <div className="display-wrap" ref={wrapRef}>
+    <div className={`display-wrap${frozen ? ' frozen' : ''}`} ref={wrapRef}>
       <canvas
         ref={imgRef}
         width={size.width}

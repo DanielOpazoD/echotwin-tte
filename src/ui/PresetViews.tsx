@@ -74,7 +74,7 @@ export function PresetViews() {
           <PresetButton key={p.id} {...p} />
         ))}
       </div>
-      <div className="small" aria-live="polite">
+      <div className={`small preset-status${anim ? ' moving' : ''}`} aria-live="polite">
         {disabled
           ? 'Deshabilitadas en examen: la vista debe obtenerse manipulando la sonda.'
           : anim

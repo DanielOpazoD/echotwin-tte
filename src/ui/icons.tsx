@@ -119,3 +119,42 @@ export function IconChevronRight({ size }: { size?: number }) {
     </I>
   );
 }
+
+/** Plus sign: zoom in. */
+export function IconPlus({ size }: { size?: number }) {
+  return (
+    <I size={size}>
+      <path d="M12 5v14M5 12h14" />
+    </I>
+  );
+}
+
+/** Minus sign: zoom out. */
+export function IconMinus({ size }: { size?: number }) {
+  return (
+    <I size={size}>
+      <path d="M5 12h14" />
+    </I>
+  );
+}
+
+/** Crosshair: centre the camera on the probe. */
+export function IconCrosshair({ size }: { size?: number }) {
+  return (
+    <I size={size}>
+      <circle cx="12" cy="12" r="6" />
+      <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+    </I>
+  );
+}
+
+/** Stacked sheets: the layers of the 3D navigator. */
+export function IconLayers({ size }: { size?: number }) {
+  return (
+    <I size={size}>
+      <path d="m12 3 9 5-9 5-9-5 9-5Z" />
+      <path d="m3 13 9 5 9-5" />
+      <path d="m3 17.5 9 5 9-5" />
+    </I>
+  );
+}

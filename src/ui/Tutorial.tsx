@@ -49,6 +49,16 @@ export function Tutorial() {
   const s = STEPS[step]!;
   return (
     <div className="tutorial" role="dialog" aria-label="Tutorial de controles">
+      <div className="tut-head">
+        <span className="tut-kicker">
+          Tutorial · paso {step + 1} de {STEPS.length}
+        </span>
+        <span className="tut-steps" aria-hidden="true">
+          {STEPS.map((_, i) => (
+            <i key={i} className={i === step ? 'now' : i < step ? 'done' : ''} />
+          ))}
+        </span>
+      </div>
       <h4>{s.title}</h4>
       <p>{s.body}</p>
       <div className="row">
@@ -56,12 +66,12 @@ export function Tutorial() {
           Anterior
         </button>
         {step < STEPS.length - 1 ? (
-          <button className="active" onClick={() => setStep(step + 1)}>
+          <button className="primary" onClick={() => setStep(step + 1)}>
             Siguiente
           </button>
         ) : (
           <button
-            className="active"
+            className="primary"
             onClick={() => {
               setUi({ tutorialDone: true });
               setOpen(false);
@@ -72,6 +82,7 @@ export function Tutorial() {
         )}
         <span className="spacer" style={{ flex: 1 }} />
         <button
+          className="ghost"
           onClick={() => {
             setUi({ tutorialDone: true });
             setOpen(false);

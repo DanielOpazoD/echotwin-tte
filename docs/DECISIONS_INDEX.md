@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 183 (última: 183).
+Decisiones: 184 (última: 184).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -191,3 +191,4 @@ Decisiones: 183 (última: 183).
 | [181](DECISIONS.md#L1133) | 2026-09-23 | Revisión de la numeración de los segmentos: los números siguen a las inserciones del VD y ya no se mueven con el latido | vigente |
 | [182](DECISIONS.md#L1174) | 2026-09-23 | El eje corto papilar se toma 2 cm más lejos del esternón y se acerca al de un paciente promedio | vigente |
 | [183](DECISIONS.md#L1245) | 2026-09-23 | Interfaz limpia, primera tanda: cimientos y armazón | vigente |
+| [184](DECISIONS.md#L1268) | 2026-09-23 | Interfaz limpia, segunda tanda: la pantalla del simulador | vigente |

@@ -32,6 +32,7 @@ import {
 import { coverageText } from './SegmentPanel';
 import { RotationDial } from './RotationDial';
 import { CheckItem, MenuCap, usePopover } from './menu';
+import { IconCrosshair, IconLayers, IconMinus, IconPlus } from './icons';
 
 /**
  * 3D torso + probe trainer (spec 4.3, 58, 76). Clean clinical torso: wrap-around superellipse chest
@@ -834,17 +835,28 @@ export function TorsoView() {
         <RotationDial />
         <div className="torso-buttons">
           <button
+            className="icon-btn"
             onClick={() => zoomRef.current?.zoomBy(0.85)}
             title="Acercar (Ctrl/⌘ + rueda)"
             aria-label="Acercar"
           >
-            +
+            <IconPlus size={14} />
           </button>
-          <button onClick={() => zoomRef.current?.zoomBy(1.18)} title="Alejar" aria-label="Alejar">
-            −
+          <button
+            className="icon-btn"
+            onClick={() => zoomRef.current?.zoomBy(1.18)}
+            title="Alejar"
+            aria-label="Alejar"
+          >
+            <IconMinus size={14} />
           </button>
-          <button onClick={() => zoomRef.current?.center()} title="Centrar la cámara en la sonda">
-            Sonda
+          <button
+            className="icon-btn"
+            onClick={() => zoomRef.current?.center()}
+            title="Centrar la cámara en la sonda"
+            aria-label="Centrar la cámara en la sonda"
+          >
+            <IconCrosshair size={14} />
           </button>
           <LayerMenu />
         </div>
@@ -889,13 +901,14 @@ function LayerMenu() {
   return (
     <div className="menu-wrap" ref={wrap}>
       <button
-        className={open ? 'active' : ''}
+        className={`icon-btn${open ? ' active' : ''}`}
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-label="Capas del navegador 3D"
         title="Capas del navegador 3D"
         onClick={() => setOpen(!open)}
       >
-        Capas
+        <IconLayers size={14} />
       </button>
       {open && (
         <div className="menu down" role="menu" aria-label="Capas del navegador 3D">

@@ -1264,3 +1264,14 @@ La prueba falla:
 
 - Sin cambios en los nombres accesibles: `TopBar`, `ModeBar`, `ImageHud`, `PresetViews`, `keyboardAccess` y el resto de pruebas de `src/ui` y `src/app` pasan sin tocarlas.
 - Revisado en el navegador a 1440 × 900: simulador con el carril abierto y colapsado, las pestañas Adquirir, Imagen, Doppler y Medir, el menú ⋯ y las pantallas secundarias.
+
+184. **2026-09-23 — Interfaz limpia, segunda tanda: la pantalla del simulador**: Daniel pidió concentrar el esfuerzo en la pantalla principal y no en Informe, Currículo ni Progreso. Sigue sin cambiar ningún nombre accesible.
+
+- **Consola**: los deslizadores aceptan una pista de teclado (`Slider.hint`, un `kbd` oculto al lector de pantalla) y la muestran junto a la etiqueta: rotación Q/E, tilt ⌥↑↓, rock ⌥←→, presión W/S, profundidad [ ], ganancia − +. El selector de caso ocupa todo el ancho (`.row.stack`): recortaba el título del caso.
+- **Navegador del torso**: las herramientas son botones de icono con nombre accesible (acercar, alejar, centrar en la sonda, capas) en una tira bajo el dial.
+- **Imagen**: la vista reconocida lleva un anillo pequeño con su puntuación, del color de la guía; la imagen congelada se enmarca en ámbar, como la píldora FREEZE.
+- **Guía de la vista**: la puntuación es un anillo con el número dentro.
+- **Tutorial**: tarjeta con paso «n de 8», puntos de progreso, acción principal rellena y «Saltar» sin borde.
+- **Presets**: mientras un preset mueve la sonda, su estado se lee como aviso vivo con punto pulsante.
+
+Probado en el navegador a 1440 × 900: simulador en vivo y congelado, guía abierta y tutorial. Las pruebas de `src/ui` y `src/app` pasan sin tocarlas.
