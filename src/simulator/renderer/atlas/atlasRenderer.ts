@@ -101,6 +101,9 @@ export class AtlasRenderer implements RendererBackend {
   constructor(
     private source: RendererBackend,
     seed: number,
+    /** Clock of the frame timings, ms: the contention tests pass one their source advances, so the machine's load
+     * cannot lengthen a frame they declare fast. */
+    private readonly now: () => number = () => performance.now(),
   ) {
     this.seed = seed;
   }
@@ -191,11 +194,11 @@ export class AtlasRenderer implements RendererBackend {
   ): boolean {
     const budget = hints?.budgetMs ?? Infinity;
     if (!this.source.renderDisplay || this.nextMode(budget) !== 'direct') return false;
-    const t0 = performance.now();
+    const t0 = this.now();
     this.advanceMode(budget);
     if (!this.source.renderDisplay(scene, beam, spec, phase, out, hints, con, display))
       return false;
-    this.measureSource(performance.now() - t0);
+    this.measureSource(this.now() - t0);
     this.composeStats('direct', Infinity, null, t0, hints);
     return true;
   }
@@ -208,7 +211,7 @@ export class AtlasRenderer implements RendererBackend {
     out: PolarFrame,
     hints?: RenderHints,
   ): void {
-    const t0 = performance.now();
+    const t0 = this.now();
     const n = spec.lines * spec.samples;
     this.advanceMode(hints?.budgetMs ?? Infinity);
 
@@ -249,17 +252,17 @@ export class AtlasRenderer implements RendererBackend {
         this.servedSinceMeasure++;
       } else {
         const slotPhase = slot / ATLAS_PHASES;
-        const ts = performance.now();
+        const ts = this.now();
         this.source.render(hints.sceneAtPhase(slotPhase), beam, spec, slotPhase, out);
-        this.measureSource(performance.now() - ts);
+        this.measureSource(this.now() - ts);
         if (!cine.amp[slot]) cine.filled++;
         this.store(cine, slot, out, n);
       }
       cine.lastUse = ++this.useCounter;
     } else {
-      const ts = performance.now();
+      const ts = this.now();
       this.source.render(scene, beam, spec, phase, out);
-      this.measureSource(performance.now() - ts);
+      this.measureSource(this.now() - ts);
       // without a scene for arbitrary phases, keep frames that happen to fall on their slot (±¼ slot)
       if (
         this.mode === 'cache' &&
@@ -297,7 +300,7 @@ export class AtlasRenderer implements RendererBackend {
       nearestAnchorDist: Number.isFinite(nearest) ? Number(nearest.toFixed(3)) : -1,
       cineFill: cine ? `${cine.filled}/${ATLAS_PHASES}` : '-',
       sourceMs: Number(this.sourceMs.toFixed(2)),
-      renderMs: Number((performance.now() - t0).toFixed(2)),
+      renderMs: Number((this.now() - t0).toFixed(2)),
       building:
         this.mode === 'direct'
           ? 'direct'

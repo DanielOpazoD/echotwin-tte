@@ -211,11 +211,14 @@ class TimedDisplaySource implements RendererBackend {
   private i = 0;
   /** When set, every frame costs this much instead of following `costs`. */
   costMs: number | null = null;
+  /**
+   * The clock the atlas reads (ms): a frame advances it by its cost. Spent in busy waits on the real clock, a 2 ms frame
+   * measured tens of ms when the CI runner was loaded (40-60) and the source never got the display back.
+   */
+  clock = 0;
   constructor(private costs: number[]) {}
   private spend(): void {
-    const ms = this.costMs ?? this.costs[Math.min(this.i++, this.costs.length - 1)]!;
-    const t = performance.now();
-    while (performance.now() - t < ms);
+    this.clock += this.costMs ?? this.costs[Math.min(this.i++, this.costs.length - 1)]!;
   }
   render(): void {
     this.spend();
@@ -236,7 +239,8 @@ describe('atlas mode under contention (decision 179)', () => {
   const display = new Uint8ClampedArray(spec.lines * spec.samples);
   const con = { settings: DEFAULT_ACQUISITION, state: {} } as never;
   const run = (costs: number[]) => {
-    const atlas = new AtlasRenderer(new TimedDisplaySource(costs), 1);
+    const src = new TimedDisplaySource(costs);
+    const atlas = new AtlasRenderer(src, 1, () => src.clock);
     return costs.map(() =>
       atlas.renderDisplay(
         scene(0.3),
@@ -259,7 +263,7 @@ describe('atlas mode under contention (decision 179)', () => {
 
   it('gives the display back to a source that is fast again while the probe rests', () => {
     const src = new TimedDisplaySource([]);
-    const atlas = new AtlasRenderer(src, 1);
+    const atlas = new AtlasRenderer(src, 1, () => src.clock);
     // one frame as the simulator forms it: the display from the source, or the cache (with the CPU console)
     const frame = (k: number) => {
       const ph = (k % (2 * ATLAS_PHASES)) / (2 * ATLAS_PHASES);
