@@ -25,7 +25,8 @@ function frame(): { core: SimulatorCore; out: SimOutput } {
 describe('a frame travels mostly transferred (decision 173)', () => {
   it(
     'clones less than 40 KiB besides the buffers it transfers, which are its own',
-    { timeout: 120_000 },
+    // 166 s with coverage on the loaded CI runner (pipeline of main a7048aa)
+    { timeout: 300_000 },
     () => {
       const { core, out } = frame();
       const transferred = new Set<unknown>(frameTransferList(out));

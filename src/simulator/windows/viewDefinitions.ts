@@ -191,7 +191,11 @@ export function buildViewTargets(): ViewTarget[] {
       // where the papillary muscles are in the reference ventricle; a fixed height left the dilated HFrEF ventricle
       // (9.8 cm) cut 1 cm above its papillary landmarks
       scalesWithLvLength: true,
-      skin: { u: 2.6, v: 1.6 },
+      // 2 cm lateral to the sternal-edge point of the other short axes, in the same space (decision 182): the probe lands
+      // at u 4.2 once it slides back toward the plane. From the sternal edge the cut showed the RV at 11.1-11.2 o'clock,
+      // its insertions at 1.1-1.3 and 9.1-9.2 and the papillary muscles at 5.3-5.5 and 8.6-8.8, 1.07-1.14 h clockwise of
+      // an average patient's; from here 0.69-0.80 h, the section 10-20° off the short axis instead of 1-13°.
+      skin: { u: 5.0, v: 1.6 },
       requiredLandmarks: [
         { landmarkId: 'pap-al', weight: 1.2, required: true },
         { landmarkId: 'pap-pm', weight: 1.2, required: true },
