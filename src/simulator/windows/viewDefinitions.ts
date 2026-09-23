@@ -359,12 +359,9 @@ export function buildViewTargets(): ViewTarget[] {
       id: 'subcostal-4c',
       name: 'Subcostal cuatro cámaras',
       window: 'subcostal',
-      // the plane through the subxiphoid window, the crux and the midpoint between the atria: from this window
-      // the atrial centres cannot both lie in one plane with the probe, so the view cuts each atrium off-centre
-      // and the LV obliquely (foreshortened), as real subcostal four-chamber images do
-      // plane through the subxiphoid window, the crux and the midpoint between the RV and LA centres: from this
-      // window the four chamber centres cannot share a plane with the probe, so the view cuts the RV inflow and
-      // the LA off-centre and the LV obliquely (foreshortened), as real subcostal four-chamber images do
+      // the drawn plane is solved from the window and the landmarks below (`subcostalFourChamber`, decision 167); this
+      // declared plane through the subxiphoid window, the crux and a point between the RV and LA centres stands in
+      // where no thorax is at hand, and gives the screen's orientation
       planeRight: R(v3(0.66, 0.36, 0.66)), // screen right ⊥ beam, apex to the upper right, atria to the lower left
       planeDown: R(v3(0.57, 0.34, -0.75)), // screen down = the beam from the subxiphoid window toward the crux
       target: v3(-2.2, -0.5, 1.5), // the crux: both AV valves and the interatrial septum

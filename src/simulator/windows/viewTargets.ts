@@ -3,7 +3,12 @@ import { add, cross, dot, normalize, scale, sub, v3 } from '@/core/vec3';
 import type { HeartModel } from '@/simulator/anatomy/heartModel';
 import { lvProfileG } from '@/simulator/anatomy/lvShape';
 import { AV_COAPTATION_HEIGHT } from '@/simulator/anatomy/aorticValve';
-import { anchorsCached, heartDirToTorso, heartToTorso } from '@/simulator/anatomy/heartModel';
+import {
+  anchorsCached,
+  heartDirToTorso,
+  heartLandmarks,
+  heartToTorso,
+} from '@/simulator/anatomy/heartModel';
 import {
   clampToIntercostal,
   isAnteriorLung,
@@ -206,12 +211,120 @@ export function apicalSkinPoint(heart: HeartModel, thorax: ThoraxModel): { u: nu
   return skin;
 }
 
+/**
+ * Distance from the image plane within which the view engine counts a landmark as seen (`testLandmark`): 0.45 cm plus
+ * 0.55 of the landmark's radius.
+ */
+export function landmarkReachCm(radius: number): number {
+  return 0.45 + 0.55 * radius;
+}
+
+/**
+ * How much nearer the plane the solved subcostal view keeps a required landmark than an optional one: the smallest weight
+ * of those tried (1, 1.15, 1.25, 1.3, 1.35) that keeps every required landmark and the mitral valve within reach in the
+ * twelve cases. Without it the interatrial septum, which the view requires, fell 13 % beyond.
+ */
+const REQUIRED_LANDMARK_WEIGHT = 1.35;
+/** The subcostal window never climbs above the costal margin (cm, skin coordinate v). */
+const COSTAL_MARGIN_V = -8.5;
+
+type Plane = { target: Vec3; right: Vec3; down: Vec3; normal: Vec3 };
+const subcostalCache = new WeakMap<
+  HeartModel,
+  Map<string, { u: number; v: number; plane: Plane }>
+>();
+
+/**
+ * The subcostal four-chamber view (decision 167). The four-chamber plane of the heart is close to transverse (its normal
+ * 0.86 cranial in the normal case) and meets the front of the body 6-8 cm below the sternal notch, above the costal
+ * margin: from below the xiphoid it can only be seen tilted. The declared plane through the subxiphoid window, the crux
+ * and a point between the RV and the LA stood 30° from it and left the left atrium, the interatrial septum and both
+ * atrioventricular valves 1.3-1.9 reaches out of the plane (33-38 points in its own view, the expert panel). A
+ * sonographer slides the probe up to the costal margin and tilts it until the four chambers, the septum and both valves
+ * show together: the window is where the four-chamber plane leaves the skin, held at or below the costal margin, and
+ * the plane through it is the one that keeps the view's landmarks nearest (the largest distance in units of the view
+ * engine's reach, minimised), 6-11° from the four-chamber plane in the twelve cases. The beam aims at the crux projected
+ * onto it.
+ */
+export function subcostalFourChamber(
+  heart: HeartModel,
+  thorax: ThoraxModel,
+): { u: number; v: number; plane: Plane } {
+  let cache = subcostalCache.get(heart);
+  if (!cache) {
+    cache = new Map();
+    subcostalCache.set(heart, cache);
+  }
+  const key = `${thorax.lungShiftCm}|${thorax.chestWall}|${thorax.aw}|${thorax.bDepth}|${thorax.heartOffset.x},${thorax.heartOffset.y},${thorax.heartOffset.z}`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+  const view = getViewTarget('subcostal-4c');
+  const fourChamber = canonicalPlane(getViewTarget('a4c'), heart);
+  const onPlane = skinPointOnPlane(thorax, fourChamber, view.skin, 3.0);
+  const u = onPlane.u,
+    v = Math.min(COSTAL_MARGIN_V, onPlane.v);
+  // the beam leaves the origin the probe pressure pushes under the skin, as controlAimingAt aims it (decision 139)
+  const w = add(
+    v3(u, v, skinZ(thorax, u, v)),
+    scale(skinNormal(thorax, u, v), -probeCompressionCm(0.6)),
+  );
+  const all = new Map(heartLandmarks(heart).map((l) => [l.id, l]));
+  // a landmark the view requires weighs more than an optional one: it is kept nearer the plane when not all can be
+  const marks = view.requiredLandmarks.map((r) => {
+    const l = all.get(r.landmarkId)!;
+    return {
+      d: sub(heartToTorso(heart.frame, l.p), w),
+      reach: landmarkReachCm(l.radius) / (r.required ? REQUIRED_LANDMARK_WEIGHT : 1),
+    };
+  });
+  const worstAt = (theta: number, phi: number, bound: number): number => {
+    const n = v3(Math.sin(theta) * Math.cos(phi), Math.sin(theta) * Math.sin(phi), Math.cos(theta));
+    let worst = 0;
+    for (const m of marks) {
+      worst = Math.max(worst, Math.abs(dot(m.d, n)) / m.reach);
+      if (worst >= bound) break;
+    }
+    return worst;
+  };
+  const deg = Math.PI / 180;
+  let best = { worst: Infinity, theta: 0, phi: 0 };
+  for (let t = 0; t <= 180; t += 2)
+    for (let f = 0; f < 360; f += 2) {
+      const e = worstAt(t * deg, f * deg, best.worst);
+      if (e < best.worst) best = { worst: e, theta: t * deg, phi: f * deg };
+    }
+  const coarse = { ...best };
+  for (let dt = -2; dt <= 2; dt += 0.25)
+    for (let df = -2; df <= 2; df += 0.25) {
+      const e = worstAt(coarse.theta + dt * deg, coarse.phi + df * deg, best.worst);
+      if (e < best.worst)
+        best = { worst: e, theta: coarse.theta + dt * deg, phi: coarse.phi + df * deg };
+    }
+  const normal = v3(
+    Math.sin(best.theta) * Math.cos(best.phi),
+    Math.sin(best.theta) * Math.sin(best.phi),
+    Math.cos(best.theta),
+  );
+  const crux = heartToTorso(heart.frame, view.target);
+  const target = sub(crux, scale(normal, dot(sub(crux, w), normal)));
+  const down = normalize(sub(target, w));
+  const r = cross(down, normal);
+  const right = dot(r, heartDirToTorso(heart.frame, view.planeRight)) < 0 ? scale(r, -1) : r;
+  const out = { u, v, plane: { target, right, down, normal: normalize(cross(right, down)) } };
+  cache.set(key, out);
+  return out;
+}
+
 /** Canonical probe control for a view target, computed from the case anatomy (for scoring/ghost only). */
 export function canonicalControl(
   view: ViewTarget,
   heart: HeartModel,
   thorax: ThoraxModel,
 ): ProbeControl {
+  if (view.id === 'subcostal-4c') {
+    const sub4 = subcostalFourChamber(heart, thorax);
+    return controlAimingAt(thorax, sub4.u, sub4.v, sub4.plane.target, sub4.plane.right, 0.6);
+  }
   const plane = canonicalPlane(view, heart);
   const preferred = view.skin;
   let skin = preferred;
@@ -240,7 +353,7 @@ export function canonicalControl(
   } else if (view.window === 'subcostal') {
     // slide along the costal margin (never above it) until the plane passes through the window
     const p = skinPointOnPlane(thorax, plane, preferred, 2.0);
-    skin = { u: p.u, v: Math.min(-8.5, p.v) };
+    skin = { u: p.u, v: Math.min(COSTAL_MARGIN_V, p.v) };
   }
   // a sonographer always sits in an intercostal space, never on a rib (the subcostal window has none; the apical point
   // is already inside the rib-free band of its space)
@@ -281,7 +394,11 @@ export const PSAX_AV_INFLOW_TILT_DEG = 12;
 export function canonicalPlane(
   view: ViewTarget,
   heart: HeartModel,
+  thorax?: ThoraxModel,
 ): { target: Vec3; right: Vec3; down: Vec3; normal: Vec3 } {
+  // the subcostal four-chamber plane is solved through its window, which needs the thorax (decision 167); without it
+  // the declared plane stands in
+  if (view.id === 'subcostal-4c' && thorax) return subcostalFourChamber(heart, thorax).plane;
   let targetH = view.target;
   let rightH = view.planeRight;
   let downH = view.planeDown;

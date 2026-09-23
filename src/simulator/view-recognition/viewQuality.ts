@@ -2,6 +2,7 @@ import type { Vec3 } from '@/core/vec3';
 import { dot, normalize, radToDeg, sub, v3 } from '@/core/vec3';
 import type { HeartModel, HeartPose } from '@/simulator/anatomy/heartModel';
 import {
+  anchorsCached,
   heartDirToTorso,
   heartLandmarks,
   heartRootAxis,
@@ -16,6 +17,7 @@ import {
   VIEW_TARGETS,
   type ViewTarget,
   type WindowId,
+  landmarkReachCm,
 } from '@/simulator/windows/viewTargets';
 import type { AcquisitionSettings, PolarFrame } from '@/simulator/renderer/types';
 import { Structure, Tissue } from '@/simulator/anatomy/tissue';
@@ -149,7 +151,7 @@ function testLandmark(
     transmission = frame.transmission[li * samples + si] ?? 0;
   }
   const planeDist = Math.abs(elev);
-  const tol = 0.45 + radius * 0.55;
+  const tol = landmarkReachCm(radius);
   // shadow test is relative to the expected soft-tissue attenuation at this depth
   const expected = expectedTransmission(r, frequencyMHz);
   const lit = transmission > 0.2 * expected;
@@ -261,7 +263,7 @@ export function analyzeView(input: AnalyzeInput): ViewAnalysis {
     analysis: Partial<ViewAnalysis> & { components: ViewComponentScores };
   }[] = [];
   for (const view of candidates) {
-    const plane = canonicalPlane(view, heart);
+    const plane = canonicalPlane(view, heart, input.thorax);
     // similarity is measured against the pose an expert can actually reach from this window in this
     // synthetic thorax (canonical beam); obliquity vs the ideal anatomical plane is reported separately
     const canon = canonicalBeam(view, heart, input.thorax);
@@ -315,8 +317,17 @@ export function analyzeView(input: AnalyzeInput): ViewAnalysis {
       const apexDist = apexT ? apexT.planeDistCm : 5;
       foreshorteningDeg = axisPlaneAngle + apexDist * 12;
       geometryScore = clamp01(1 - foreshorteningDeg / 40);
-    } else if (view.id === 'plax') {
+    } else if (view.id === 'plax' || view.id === 'subcostal-4c') {
+      // long-axis views: the plane should hold the LV long axis. The subcostal four-chamber view fell in the short-axis
+      // branch, which read a plane holding the axis as 90° oblique and scored its geometry 0 (decision 167)
       geometryScore = clamp01(1 - axisPlaneAngle / 35);
+    } else if (view.id === 'subcostal-ivc') {
+      // the long axis of the cava is what this view holds (decision 131)
+      const A = anchorsCached(heart);
+      const ivcAxis = heartDirToTorso(heart.frame, normalize(sub(A.ivcB, A.ivcA)));
+      const ivcPlaneAngle = radToDeg(Math.asin(Math.min(1, Math.abs(dot(ivcAxis, beam.normal)))));
+      geometryScore = clamp01(1 - ivcPlaneAngle / 35);
+      foreshorteningDeg = ivcPlaneAngle;
     } else {
       // short axis: obliquity = deviation from perpendicular to the reference axis (LV long axis, or the
       // aortic root axis for the AV level); mild penalty because some obliquity is normal
@@ -489,7 +500,7 @@ function poseError(
   thorax: ThoraxModel,
   c: ProbeControl,
 ): number {
-  const plane = canonicalPlane(view, heart);
+  const plane = canonicalPlane(view, heart, thorax);
   const canon = canonicalBeam(view, heart, thorax);
   const beam = beamFrameFromPose(poseFromControl(thorax, c));
   const e1 = Math.acos(Math.min(1, Math.abs(dot(canon.normal, beam.normal))));
