@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { computeSectorMapping } from '@/simulator/renderer/scanConvert';
 import { nearestSampleLut, placeLabels, type PolarGeometry } from './cutMap';
-import { paintSegmentMap, SEGMENT_RGB, segmentIdOf, segmentIds, segmentNames } from './segmentMap';
+import {
+  paintSegmentMap,
+  paintSegmentOverlay,
+  sampleIndexAt,
+  SEGMENT_RGB,
+  segmentIdOf,
+  segmentIds,
+  segmentNames,
+} from './segmentMap';
 
 /** Segment layer of the cut map (decision 152). */
 describe('segment map', () => {
@@ -80,6 +88,73 @@ describe('segment map', () => {
     for (const l of labels) {
       const k = lut[Math.round(l.y) * 200 + Math.round(l.x)]!;
       expect(ids[k]).toBe(Number(l.text));
+    }
+  });
+
+  it('washes the segments over the image, lines their boundaries and leaves the rest of the echo untouched', () => {
+    const polar: PolarGeometry = { lines: 64, samples: 128, sectorRad: Math.PI / 2, depthCm: 16 };
+    const m = computeSectorMapping({ ...polar, elevationSamples: 1, focusCm: 8 }, 200, 200, false);
+    const lut = nearestSampleLut(polar, m);
+    const ids = new Uint8Array(polar.lines * polar.samples);
+    for (let l = 0; l < polar.lines; l++)
+      for (let s = 48; s < 80; s++) ids[l * polar.samples + s] = l < 32 ? 9 : 12;
+    const rgba = new Uint8ClampedArray(200 * 200 * 4);
+    const alphaOf = (id: number, pick: 'inner' | 'boundary') => {
+      for (let i = 0; i < lut.length; i++) {
+        const k = lut[i]!;
+        if (k < 0 || ids[k] !== id) continue;
+        const nb = [lut[i - 1], lut[i + 1], lut[i - 200], lut[i + 200]].map((q) =>
+          q !== undefined && q >= 0 ? ids[q]! : 0,
+        );
+        const isBoundary = nb.some((x) => x > 0 && x !== id);
+        const inner = nb.every((x) => x === id);
+        if ((pick === 'inner' && inner) || (pick === 'boundary' && isBoundary))
+          return rgba[i * 4 + 3]!;
+      }
+      return -1;
+    };
+    paintSegmentOverlay(rgba, lut, ids, 200, null, null);
+    const wash = alphaOf(9, 'inner');
+    expect(wash).toBeGreaterThan(40);
+    expect(wash).toBeLessThan(130); // translucent: the echo shows through
+    expect(alphaOf(9, 'boundary')).toBeGreaterThan(wash);
+    // outside the myocardium nothing is painted
+    let clear = 0;
+    for (let i = 0; i < lut.length; i++) {
+      const k = lut[i]!;
+      if (k >= 0 && ids[k] === 0 && rgba[i * 4 + 3] === 0) clear++;
+    }
+    expect(clear).toBeGreaterThan(1000);
+    // the hovered segment washes stronger and gets a white outline; with one selected the others fade
+    paintSegmentOverlay(rgba, lut, ids, 200, null, 9);
+    expect(alphaOf(9, 'inner')).toBeGreaterThan(wash);
+    let white = 0;
+    for (let i = 0; i < lut.length; i++)
+      if (rgba[i * 4] === 255 && rgba[i * 4 + 1] === 255 && rgba[i * 4 + 2] === 255) white++;
+    expect(white).toBeGreaterThan(50);
+    paintSegmentOverlay(rgba, lut, ids, 200, 9, null);
+    expect(alphaOf(12, 'inner')).toBeLessThan(wash);
+  });
+
+  it('finds the polar sample under a pixel, mirrored images included, and nothing outside the sector', () => {
+    const polar: PolarGeometry = { lines: 64, samples: 128, sectorRad: Math.PI / 2, depthCm: 16 };
+    for (const invert of [false, true]) {
+      const m = computeSectorMapping(
+        { ...polar, elevationSamples: 1, focusCm: 8 },
+        200,
+        200,
+        invert,
+      );
+      const lut = nearestSampleLut(polar, m);
+      for (const [x, y] of [
+        [100, 120],
+        [60, 150],
+        [150, 90],
+      ] as const)
+        expect(sampleIndexAt(polar, m, x + 0.5, y + 0.5), `${x},${y} ${invert}`).toBe(
+          lut[y * 200 + x],
+        );
+      expect(sampleIndexAt(polar, m, 0, 0)).toBe(-1);
     }
   });
 });

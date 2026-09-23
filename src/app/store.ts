@@ -52,6 +52,8 @@ export interface UiPrefs {
   navLabels: boolean;
   /** The cut map colours the LV myocardium by segment, numbered (decision 152). */
   navSegments: boolean;
+  /** The ultrasound image shows the LV segments of the tissue in it, translucent and numbered (decision 153). */
+  imageSegments: boolean;
   /** The LV segment panel (polar map and inspector) under the navigator. */
   segmentsOpen: boolean;
   /** Segment model shown: the anatomical AHA 17 or the 16-segment wall-motion model. */
@@ -202,6 +204,31 @@ export function segmentLayerOn(s: Pick<SimStore, 'mode' | 'ui'>): boolean {
   return s.ui.navSegments && modePolicy(s.mode).hintsEnabled;
 }
 
+/** The segment layer of the ultrasound image (decision 153), off in exam mode like the others. */
+export function imageSegmentsOn(s: Pick<SimStore, 'mode' | 'ui'>): boolean {
+  return s.ui.imageSegments && modePolicy(s.mode).hintsEnabled;
+}
+
+/**
+ * The LV segment under the pointer, wherever it is — the image, the cut map, the 3D heart or the polar map — so the
+ * others highlight it too (decision 153). Its own store: it changes as the mouse moves and is never persisted.
+ */
+export const useSegmentHover = create<{
+  id: number | null;
+  source: 'image' | 'cut' | 'heart' | 'polar' | null;
+  setHover: (id: number | null, source: 'image' | 'cut' | 'heart' | 'polar' | null) => void;
+}>((set, get) => ({
+  id: null,
+  source: null,
+  setHover: (id, source) => {
+    const cur = get();
+    // leaving one view clears only that view's hover, so a late mouseleave does not undo another view's
+    if (id === null && cur.source !== null && cur.source !== source) return;
+    if (cur.id !== id || cur.source !== (id === null ? null : source))
+      set({ id, source: id === null ? null : source });
+  },
+}));
+
 /** HUD (per-frame light state) lives in its own store so the console does not re-render per frame. */
 export const useHudStore = create<{ hud: SimOutput | null; setHud: (h: SimOutput | null) => void }>(
   (set) => ({
@@ -239,6 +266,7 @@ function savePrefs(ui: UiPrefs): void {
       navSplit,
       navLabels,
       navSegments,
+      imageSegments,
       segmentsOpen,
       segmentModel,
       guidanceOpen,
@@ -267,6 +295,7 @@ function savePrefs(ui: UiPrefs): void {
         navSplit,
         navLabels,
         navSegments,
+        imageSegments,
         segmentsOpen,
         segmentModel,
         guidanceOpen,
@@ -321,6 +350,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
     navSplit: true,
     navLabels: true,
     navSegments: false,
+    imageSegments: false,
     segmentsOpen: false,
     segmentModel: 'LV_AHA17',
     selectedSegment: null,

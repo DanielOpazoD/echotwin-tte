@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-import { segmentLayerOn, useHudStore, useSimStore } from '@/app/store';
+import { segmentLayerOn, useHudStore, useSegmentHover, useSimStore } from '@/app/store';
 import {
   ribCenterY,
   ribDepth,
@@ -22,7 +22,14 @@ import type {
 } from '@/workers/heartMesh.worker';
 import { beamFrameFromPose, poseFromControl, type BeamFrame } from '@/simulator/probe/pose';
 import { CutMapView } from './CutMapView';
-import { SEGMENT_RGB, segmentIdOf, type SegmentModelChoice } from './segmentMap';
+import {
+  SEGMENT_RGB,
+  segmentCss,
+  segmentIdOf,
+  segmentNames,
+  type SegmentModelChoice,
+} from './segmentMap';
+import { coverageText } from './SegmentPanel';
 import { RotationDial } from './RotationDial';
 import { CheckItem, MenuCap, usePopover } from './menu';
 
@@ -112,11 +119,13 @@ export function TorsoView() {
     let segmentKeyShown = '';
     const LV_BASE = new THREE.Color(0xc4534f);
     const FADED = new THREE.Color().setRGB(58 / 255, 63 / 255, 74 / 255, THREE.SRGBColorSpace);
+    const HOVER_LIFT = new THREE.Color(1, 1, 1);
     const paintSegments = (
       geom: THREE.BufferGeometry,
       codes: Uint8Array,
       model: SegmentModelChoice,
       selected: number | null,
+      hovered: number | null,
     ): void => {
       // colour of each of the 21 codes once, in the renderer's linear space
       const table = Array.from({ length: 21 }, (_, c) => {
@@ -129,6 +138,8 @@ export function TorsoView() {
           rgb[2] / 255,
           THREE.SRGBColorSpace,
         );
+        // the segment under the pointer (in any view) lightens; with one selected, the others fade
+        if (id === hovered) return col.lerp(HOVER_LIFT, 0.35);
         return selected !== null && id !== selected ? col.lerp(FADED, 0.55) : col;
       });
       let attr = geom.getAttribute('color') as THREE.BufferAttribute | undefined;
@@ -555,6 +566,84 @@ export function TorsoView() {
     dom.addEventListener('wheel', onWheel, { passive: false });
     const noCtx = (e: Event) => e.preventDefault();
     dom.addEventListener('contextmenu', noCtx);
+    // the name of the LV segment under the pointer on the 3D heart (decision 153), with the segment layer on: a ray
+    // against the opaque heart meshes (the translucent chambers do not hide what is seen through them), the first hit
+    // on the visible side of the cut, and the codes of the face's vertices at the phase on screen
+    const tipEl = document.createElement('div');
+    tipEl.className = 'seg-tip heart';
+    tipEl.setAttribute('role', 'status');
+    tipEl.append(
+      document.createElement('i'),
+      document.createElement('b'),
+      document.createElement('span'),
+    );
+    (tipEl.children[0] as HTMLElement).className = 'seg-tip-swatch';
+    el.appendChild(tipEl);
+    let hoverEvent: MouseEvent | null = null;
+    let hoverRaf = 0;
+    const hideTip = () => {
+      tipEl.style.display = 'none';
+      useSegmentHover.getState().setHover(null, 'heart');
+    };
+    const hoverHeart = () => {
+      hoverRaf = 0;
+      const e = hoverEvent;
+      const st = useSimStore.getState();
+      const lvMesh = meshByGroup.get('lv-myocardium');
+      if (!e || drag.mode || !segmentLayerOn(st) || !lvMesh || !lvMesh.visible) return hideTip();
+      const r = toNdc(e);
+      raycaster.setFromCamera(mouse, camera);
+      const opaque = [...meshByGroup.values()].filter(
+        (m) => m.visible && (m.material as THREE.MeshStandardMaterial).opacity >= 1,
+      );
+      const hit = raycaster
+        .intersectObjects(opaque, false)
+        .find((h) => !st.ui.navCut || cutPlane.distanceToPoint(h.point) >= 0);
+      const codes = hit ? lvSegmentsByGeom.get(lvMesh.geometry) : undefined;
+      if (!hit || hit.object !== lvMesh || !hit.face || !codes) return hideTip();
+      // the nearest vertex of the face that carries a segment (papillary vertices carry none)
+      const f = hit.face;
+      let code = 0,
+        best = Infinity;
+      const pos = lvMesh.geometry.getAttribute('position');
+      const local = lvMesh.worldToLocal(hit.point.clone());
+      for (const v of [f.a, f.b, f.c]) {
+        const c = codes[v] ?? 0;
+        if (c <= 0) continue;
+        const d = local.distanceToSquared(new THREE.Vector3().fromBufferAttribute(pos, v));
+        if (d < best) {
+          best = d;
+          code = c;
+        }
+      }
+      const id = segmentIdOf(code, st.ui.segmentModel);
+      if (id <= 0) return hideTip();
+      const names = segmentNames(id, st.ui.segmentModel);
+      const view = useHudStore.getState().hud?.view?.segments;
+      const cov = (st.ui.segmentModel === 'LV_AHA17' ? view?.aha17 : view?.lv16)?.find(
+        (c) => c.segmentId === id,
+      );
+      (tipEl.children[0] as HTMLElement).style.background = segmentCss(id);
+      tipEl.children[1]!.textContent = `${id} · ${names.es}`;
+      tipEl.children[2]!.textContent = `${names.en} · ${coverageText(cov)}`;
+      const x = e.clientX - r.left,
+        y = e.clientY - r.top;
+      tipEl.style.display = 'grid';
+      const left = x + 14 + tipEl.offsetWidth > r.width ? x - 14 - tipEl.offsetWidth : x + 14;
+      tipEl.style.left = `${Math.max(4, left)}px`;
+      tipEl.style.top = `${Math.max(4, Math.min(r.height - tipEl.offsetHeight - 4, y + 12))}px`;
+      useSegmentHover.getState().setHover(id, 'heart');
+    };
+    const onHoverMove = (e: MouseEvent) => {
+      hoverEvent = e;
+      if (!hoverRaf) hoverRaf = requestAnimationFrame(hoverHeart);
+    };
+    const onHoverLeave = () => {
+      hoverEvent = null;
+      hideTip();
+    };
+    dom.addEventListener('mousemove', onHoverMove);
+    dom.addEventListener('mouseleave', onHoverLeave);
 
     const resize = () => {
       const w = el.clientWidth || 300,
@@ -572,6 +661,9 @@ export function TorsoView() {
     // The navigator renders when something it shows has changed, and no faster than its own cost allows: the
     // stencil caps are cheap on a GPU but not on a software renderer (the E2E browser), where a navigator
     // drawn at 60 Hz starved the main thread of the simulator's frames.
+    const unsubHover = useSegmentHover.subscribe(() => {
+      dirty = true;
+    });
     const unsubDirty = useSimStore.subscribe(() => {
       dirty = true;
     });
@@ -651,14 +743,15 @@ export function TorsoView() {
       }
       // segment colours on the LV myocardium: repainted only when the layer, the model or the selection change
       const segOn = segmentLayerOn(st);
-      const segKey = `${segOn ? 1 : 0}|${st.ui.segmentModel}|${st.ui.selectedSegment ?? '-'}`;
+      const hoveredSeg = useSegmentHover.getState().id;
+      const segKey = `${segOn ? 1 : 0}|${st.ui.segmentModel}|${st.ui.selectedSegment ?? '-'}|${hoveredSeg ?? '-'}`;
       if (segKey !== segmentKeyShown) {
         const lvMesh = meshByGroup.get('lv-myocardium');
         if (lvMesh) {
           const mat = lvMesh.material as THREE.MeshStandardMaterial;
           if (segOn)
             for (const [geom, codes] of lvSegmentsByGeom)
-              paintSegments(geom, codes, st.ui.segmentModel, st.ui.selectedSegment);
+              paintSegments(geom, codes, st.ui.segmentModel, st.ui.selectedSegment, hoveredSeg);
           mat.vertexColors = segOn;
           mat.color.set(segOn ? 0xffffff : 0xc4534f);
           mat.needsUpdate = true;
@@ -701,6 +794,11 @@ export function TorsoView() {
     return () => {
       cancelAnimationFrame(raf);
       unsubDirty();
+      unsubHover();
+      if (hoverRaf) cancelAnimationFrame(hoverRaf);
+      dom.removeEventListener('mousemove', onHoverMove);
+      dom.removeEventListener('mouseleave', onHoverLeave);
+      el.removeChild(tipEl);
       meshWorker.terminate();
       ro.disconnect();
       dom.removeEventListener('mousedown', onDown);
@@ -778,6 +876,11 @@ function LayerMenu() {
           {layer('Miocardio', 'navHeart', 'Paredes del modelo 3D')}
           {layer('Cavidades', 'navChambers', 'Ventrículos y aurículas')}
           {layer('Válvulas', 'navValves', 'Válvulas y cuerdas')}
+          {layer(
+            'Segmentos del VI',
+            'navSegments',
+            'Colorea el miocardio del VI por segmento (también el corte); pasar el ratón: nombre',
+          )}
           {layer('Vasos', 'navVessels', 'Raíz aórtica, pulmonar y cavas')}
           <MenuCap>Vistas</MenuCap>
           {layer(

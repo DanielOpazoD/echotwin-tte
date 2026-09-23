@@ -1,6 +1,12 @@
 import { hasGate, isStripModality, MODALITIES } from '@/simulator/renderer/modality';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useHudStore, useSimStore, type SimStore } from '@/app/store';
+import {
+  imageSegmentsOn,
+  useHudStore,
+  useSegmentHover,
+  useSimStore,
+  type SimStore,
+} from '@/app/store';
 import type { SimOutput } from '@/simulator/core/protocol';
 import { ecgTracePoints, type EcgLayout } from './ecgTrace';
 import { pixelToPolar, polarToPixel, type SectorMapping } from '@/simulator/renderer/scanConvert';
@@ -18,6 +24,17 @@ import {
   type CaptureExtras,
 } from '@/app/measurementCapture';
 import { markerLabel, structureLabel, type ReviewMarker } from '@/app/review';
+import { nearestSampleLut, placeLabels, type CutMapLabel } from './cutMap';
+import {
+  paintSegmentOverlay,
+  sampleIndexAt,
+  segmentCss,
+  segmentIdOf,
+  segmentIds,
+  segmentNames,
+} from './segmentMap';
+import { SegmentImageToggle } from './SegmentImageToggle';
+import { coverageText } from './SegmentPanel';
 
 /**
  * Ultrasound display: draws the composite frame from the simulator and the overlays (depth scale,
@@ -53,6 +70,7 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
     moved?: boolean;
   }>({ kind: 'none', startX: 0, startY: 0 });
   const reviewMode = useSimStore((s) => s.ui.reviewMode);
+  const segTipRef = useRef<HTMLDivElement>(null);
   const onSize = props.onSize;
 
   useEffect(() => {
@@ -129,9 +147,12 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
     });
     redrawOverlayRef.current = redrawOverlay;
     const unsubStore = useSimStore.subscribe(redrawOverlay);
+    // the segment under the pointer in another view (cut map, 3D heart, polar map) is highlighted here too
+    const unsubHover = useSegmentHover.subscribe(redrawOverlay);
     return () => {
       unsubFrame();
       unsubStore();
+      unsubHover();
     };
   }, []);
 
@@ -210,9 +231,51 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
       dragRef.current = { kind: 'cursor', startX: p.x, startY: p.y };
     }
   };
+  /** Name of the LV segment under the pointer, when the image shows the segments (decision 153). */
+  const updateSegmentTip = (e: React.MouseEvent | null) => {
+    const tip = segTipRef.current;
+    const hud = lastOutRef.current;
+    const st = useSimStore.getState();
+    const hide = () => {
+      if (tip) tip.style.display = 'none';
+      useSegmentHover.getState().setHover(null, 'image');
+    };
+    if (!e || !tip || !hud || !imageSegmentsOn(st)) return hide();
+    const p = toLocal(e);
+    const m = hud.sector;
+    const p0 = hud.polar;
+    if (p.y >= m.height || hud.segment.length !== p0.lines * p0.samples) return hide();
+    const k = sampleIndexAt(p0, m, p.x, p.y);
+    const id = k >= 0 ? segmentIdOf(hud.segment[k] ?? 0, st.ui.segmentModel) : 0;
+    if (id <= 0) return hide();
+    const names = segmentNames(id, st.ui.segmentModel);
+    const view = hud.view?.segments;
+    const cov = (st.ui.segmentModel === 'LV_AHA17' ? view?.aha17 : view?.lv16)?.find(
+      (c) => c.segmentId === id,
+    );
+    const swatch = tip.children[0] as HTMLElement;
+    const title = tip.children[1] as HTMLElement;
+    const sub = tip.children[2] as HTMLElement;
+    swatch.style.background = segmentCss(id);
+    title.textContent = `${id} · ${names.es}`;
+    sub.textContent = `${names.en} · ${coverageText(cov)}`;
+    const wrap = wrapRef.current!.getBoundingClientRect();
+    const x = e.clientX - wrap.left,
+      y = e.clientY - wrap.top;
+    tip.style.display = 'grid';
+    // beside the pointer, flipped to its left near the right edge of the image
+    const left = x + 16 + 260 > wrap.width ? x - 16 - tip.offsetWidth : x + 16;
+    tip.style.left = `${Math.max(4, left)}px`;
+    tip.style.top = `${Math.max(4, y + 14)}px`;
+    useSegmentHover.getState().setHover(id, 'image');
+  };
   const onMouseMove = (e: React.MouseEvent) => {
     const hud = lastOutRef.current;
-    if (!hud || dragRef.current.kind === 'none') return;
+    if (dragRef.current.kind === 'none') {
+      updateSegmentTip(e);
+      return;
+    }
+    if (!hud) return;
     const p = toLocal(e);
     const st = useSimStore.getState();
     const m = hud.sector;
@@ -649,10 +712,19 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
         onMouseUp={onMouseUp}
-        onMouseLeave={onMouseUp}
+        onMouseLeave={() => {
+          onMouseUp();
+          updateSegmentTip(null);
+        }}
         aria-label="Superposiciones y herramientas de medición"
       />
       <ImageHud />
+      <SegmentImageToggle />
+      <div className="seg-tip" ref={segTipRef} role="status" aria-live="polite">
+        <i className="seg-tip-swatch" />
+        <b />
+        <span />
+      </div>
       <div className="disclaimer">
         Simulador educacional con pacientes sintéticos. No utilizar para diagnóstico ni toma de
         decisiones clínicas reales.
@@ -690,6 +762,7 @@ function drawOverlay(
   if (!ctx) return;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, W, H);
+  if (imageSegmentsOn(st)) drawSegmentLayer(ctx, hud, st);
   const m = hud.sector;
   ctx.font = '11px system-ui, sans-serif';
   ctx.textBaseline = 'middle';
@@ -1076,4 +1149,95 @@ function drawGeometry(
     if (kind === 'volume') ctx.closePath();
     ctx.stroke();
   }
+}
+
+/**
+ * The LV segment layer of the image (decision 153): the frame's segment codes read in the chosen model, painted
+ * translucent over the echo and numbered. The pixel-to-sample table is kept while the sector geometry stays.
+ */
+const segLayer: {
+  key: string;
+  lut: Int32Array | null;
+  canvas: HTMLCanvasElement | null;
+  img: ImageData | null;
+  ids: Uint8Array | undefined;
+  labels: CutMapLabel[];
+  labelsAt: number;
+  labelsKey: string;
+} = {
+  key: '',
+  lut: null,
+  canvas: null,
+  img: null,
+  ids: undefined,
+  labels: [],
+  labelsAt: 0,
+  labelsKey: '',
+};
+
+function drawSegmentLayer(ctx: CanvasRenderingContext2D, hud: SimOutput, st: SimStore): void {
+  const m = hud.sector;
+  const p = hud.polar;
+  if (hud.segment.length !== p.lines * p.samples || m.width < 8 || m.height < 8) return;
+  const w = Math.round(m.width),
+    h = Math.round(m.height);
+  const key = `${p.lines}x${p.samples}|${p.sectorRad.toFixed(4)}|${p.depthCm}|${w}x${h}|${m.apexX.toFixed(1)},${m.apexY.toFixed(1)}|${m.pxPerCm.toFixed(3)}|${m.invertLR ? 1 : 0}`;
+  if (key !== segLayer.key || !segLayer.lut || !segLayer.canvas || !segLayer.img) {
+    segLayer.lut = nearestSampleLut(p, { ...m, width: w, height: h });
+    segLayer.canvas = document.createElement('canvas');
+    segLayer.canvas.width = w;
+    segLayer.canvas.height = h;
+    segLayer.img = new ImageData(w, h);
+    segLayer.key = key;
+    segLayer.labels = [];
+  }
+  const model = st.ui.segmentModel;
+  segLayer.ids = segmentIds(hud.segment, model, segLayer.ids);
+  const hovered = useSegmentHover.getState().id;
+  const stats = paintSegmentOverlay(
+    segLayer.img.data,
+    segLayer.lut,
+    segLayer.ids,
+    w,
+    st.ui.selectedSegment,
+    hovered,
+  );
+  const off = segLayer.canvas.getContext('2d');
+  if (!off) return;
+  off.putImageData(segLayer.img, 0, 0);
+  ctx.save();
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(segLayer.canvas, m.x, m.y);
+  // numbers on each segment, re-placed a few times a second so they do not jump with the beat
+  ctx.font = '700 12px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const now = performance.now();
+  const labelsKey = `${key}|${model}`;
+  if (now - segLayer.labelsAt > 300 || labelsKey !== segLayer.labelsKey) {
+    if (labelsKey !== segLayer.labelsKey) segLayer.labels = [];
+    segLayer.labels = placeLabels(
+      stats,
+      segLayer.lut,
+      segLayer.ids,
+      w,
+      Math.max(30, 0.0005 * w * h),
+      (t) => ({ w: ctx.measureText(t).width + 6, h: 16 }),
+      new Set(segLayer.labels.map((l) => l.id)),
+      (id) => String(id),
+    );
+    segLayer.labelsAt = now;
+    segLayer.labelsKey = labelsKey;
+  }
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = 3;
+  for (const l of segLayer.labels) {
+    const x = m.x + l.x,
+      y = m.y + l.y;
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
+    ctx.strokeText(l.text, x, y);
+    ctx.fillStyle = Number(l.text) === hovered ? '#5cc8ff' : '#ffffff';
+    ctx.fillText(l.text, x, y);
+  }
+  ctx.restore();
 }

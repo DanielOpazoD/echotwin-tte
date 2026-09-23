@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { frameBus } from '@/app/frameBus';
 import { STRUCTURE_LABELS } from '@/app/review';
-import { segmentLayerOn, useSimStore } from '@/app/store';
+import { segmentLayerOn, useSegmentHover, useSimStore } from '@/app/store';
 import type { SimOutput } from '@/simulator/core/protocol';
 import { computeSectorMapping, type SectorMapping } from '@/simulator/renderer/scanConvert';
 import { nearestSampleLut, paintCutMap, placeLabels, type CutMapLabel } from './cutMap';
@@ -86,7 +86,15 @@ export function CutMapView() {
       const img = backCtx.createImageData(cssW, cssH);
       const segIds = segmentLayerOn(st) ? segmentIdsNow(out) : null;
       const stats = segIds
-        ? paintSegmentMap(img.data, lut, out.structure, segIds, cssW, st.ui.selectedSegment)
+        ? paintSegmentMap(
+            img.data,
+            lut,
+            out.structure,
+            segIds,
+            cssW,
+            st.ui.selectedSegment,
+            useSegmentHover.getState().id,
+          )
         : paintCutMap(img.data, lut, out.structure, cssW);
       backCtx.putImageData(img, 0, 0);
       const dpr = canvas.width / cssW;
@@ -169,6 +177,7 @@ export function CutMapView() {
       }
     });
     const unsubStore = useSimStore.subscribe(schedule);
+    const unsubHover = useSegmentHover.subscribe(schedule);
     const resize = () => {
       cssW = el.clientWidth || 0;
       cssH = el.clientHeight || 0;
@@ -204,6 +213,7 @@ export function CutMapView() {
       }
       const k = sampleAt(e);
       const seg = segmentAt(k);
+      useSegmentHover.getState().setHover(seg > 0 ? seg : null, 'cut');
       if (seg > 0) {
         const n = segmentNames(seg, useSimStore.getState().ui.segmentModel);
         hover.textContent = `${seg} · ${n.es} (${n.en})`;
@@ -219,6 +229,7 @@ export function CutMapView() {
       st.setUi({ selectedSegment: seg > 0 && seg !== st.ui.selectedSegment ? seg : null });
     };
     const onLeave = () => {
+      useSegmentHover.getState().setHover(null, 'cut');
       if (hoverRef.current) hoverRef.current.textContent = '';
     };
     canvas.addEventListener('mousemove', onMove);
@@ -228,6 +239,7 @@ export function CutMapView() {
       if (raf) cancelAnimationFrame(raf);
       unsubFrames();
       unsubStore();
+      unsubHover();
       ro.disconnect();
       canvas.removeEventListener('mousemove', onMove);
       canvas.removeEventListener('mouseleave', onLeave);

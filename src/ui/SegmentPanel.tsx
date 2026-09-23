@@ -1,4 +1,4 @@
-import { useHudStore, useSimStore } from '@/app/store';
+import { useHudStore, useSegmentHover, useSimStore } from '@/app/store';
 import { modePolicy } from '@/app/modePolicy';
 import { aha17Info, LV_AHA17, type LvSegmentInfo } from '@/clinical/segmentation/catalog';
 import type { SegmentCoverage } from '@/simulator/view-recognition/segmentCoverage';
@@ -78,6 +78,8 @@ export function SegmentPanel() {
   const model = useSimStore((s) => s.ui.segmentModel);
   const selected = useSimStore((s) => s.ui.selectedSegment);
   const navSegments = useSimStore((s) => s.ui.navSegments);
+  const hovered = useSegmentHover((h) => h.id);
+  const setHover = useSegmentHover((h) => h.setHover);
   const setUi = useSimStore((s) => s.setUi);
   if (!modePolicy(mode).hintsEnabled) return null;
   const coverage = view ? (model === 'LV_AHA17' ? view.segments.aha17 : view.segments.lv16) : [];
@@ -151,8 +153,12 @@ export function SegmentPanel() {
               tabIndex={0}
               aria-pressed={isSel}
               aria-label={label}
-              className={`bullseye-seg ${state}${isSel ? ' selected' : ''}`}
+              className={`bullseye-seg ${state}${isSel ? ' selected' : ''}${hovered === s.id ? ' hovered' : ''}`}
               onClick={() => select(s.id)}
+              onMouseEnter={() => setHover(s.id, 'polar')}
+              onMouseLeave={() => setHover(null, 'polar')}
+              onFocus={() => setHover(s.id, 'polar')}
+              onBlur={() => setHover(null, 'polar')}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();

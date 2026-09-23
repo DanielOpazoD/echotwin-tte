@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 152 (última: 152).
+Decisiones: 153 (última: 153).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -160,3 +160,4 @@ Decisiones: 152 (última: 152).
 | [150](DECISIONS.md#L471) | 2026-09-22 | El mediastino es una columna posterior y otra superior redondeadas: a los lados del corazón el pulmón llega a la almohadilla grasa del pericardio | vigente |
 | [151](DECISIONS.md#L473) | 2026-09-22 | La tricúspide fuera del eje corto al final de la sístole es movimiento a través del plano, y la distinguibilidad no cambia con la anatomía del corazón derecho | vigente |
 | [152](DECISIONS.md#L477) | 2026-09-22 | Cada muestra de miocardio compacto del VI lleva el segmento del tejido que atraviesa el haz; el 16 cubre el ápex, el 17 empieza donde acaba la cavidad y la motilidad se puntúa aparte de la amplitud | vigente |
+| [153](DECISIONS.md#L481) | 2026-09-22 | La imagen ecográfica tiene un botón que colorea los segmentos del VI y nombra el que está bajo el ratón, el corazón 3D también los nombra, y el segmento señalado se resalta en las cuatro vistas | vigente |
