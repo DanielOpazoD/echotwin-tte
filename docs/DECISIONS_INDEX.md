@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 155 (última: 155).
+Decisiones: 157 (última: 157).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -163,3 +163,5 @@ Decisiones: 155 (última: 155).
 | [153](DECISIONS.md#L481) | 2026-09-22 | La imagen ecográfica tiene un botón que colorea los segmentos del VI y nombra el que está bajo el ratón, el corazón 3D también los nombra, y el segmento señalado se resalta en las cuatro vistas | vigente |
 | [154](DECISIONS.md#L485) | 2026-09-23 | La app abre en el nivel calibrado, el examen no nombra la vista, las etiquetas de pared siguen a los segmentos, la app sobrevive sin WebGL y dos guardas vuelven a funcionar | vigente |
 | [155](DECISIONS.md#L489) | 2026-09-23 | La respuesta lateral tiene lóbulos laterales a −35 dB, y no son lo que ennegrece las cavidades | vigente |
+| [156](DECISIONS.md#L491) | 2026-09-23 | El músculo de la pared torácica baja a su gris clínico y el campo cercano entra en el rango de CAMUS | vigente |
+| [157](DECISIONS.md#L493) | 2026-09-23 | La reducción de speckle y un rango dinámico mayor, medidos contra el VI y el sector a la vez, no se adoptan | vigente |
