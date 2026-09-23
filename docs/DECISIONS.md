@@ -575,3 +575,84 @@ La copia local de CAMUS sólo trae los cuadros telediastólico y telesistólico,
 **Simplificación declarada**
 
 La sangre se renueva por igual en toda la cavidad. No se advecta con el flujo, así que falta el «humo» de la sangre lenta junto al ápex, que conserva su patrón algunos cuadros.
+
+
+164. **2026-09-23 — El eje corto mitral pide las referencias de su propio nivel, y cada vista pide sólo lo que su plano alcanza**: tercer punto de la tanda 3 («PSAX mitral»). El panel midió el preajuste puntuando 69 en su propia vista, 24,7° fuera del eje corto, sin velos en telediástole y con vena cava inferior en el plano.
+
+**La causa de la puntuación**
+
+La puntuación no venía de la oblicuidad: el motor de vistas mide el plano contra el preajuste, a 0°. Venía de las referencias. La vista pedía la entrada del VD (a 0,35 de la longitud del VI), el septo inferoseptal y la pared inferolateral (a 0,45), es decir, a 3,0 y 3,9 cm del anillo en el caso normal. Su plano, a `MITRAL_SHORT_AXIS_CM` = 1,4 cm, las dejaba a 1,61 y 2,47 cm, cuando el motor las cuenta vistas hasta 1,17 y 0,95 cm. Sólo veía la mitral, y ninguna sonda podía hacerlo mejor sin salir de la vista.
+
+**El cambio**
+
+Tres referencias nuevas a la altura del eje corto mitral, con el radio de pared medio de ese nivel: `rv-basal`, `ivs-inferoseptal-basal` y `wall-inferolateral-basal`. La vista las pide en lugar de las de nivel medio, y su objetivo usa la misma constante.
+
+Puntuación del preajuste en su propia vista, en la cadena de la app a lo largo de un latido:
+
+- Caso normal: de 69 a 92.
+- Los otros nueve casos con buena ventana: 86–96.
+- La ventana difícil (27) y el caso de artefactos (45) siguen bajos por sombra y pulmón, como antes.
+
+Queda sin ver la pared inferolateral basal en ocho casos y el VD basal en cinco. La oblicuidad de la ventana (24–28°) hace que el fondo del plano pase cerca del anillo y el campo cercano a nivel medio: la pared inferolateral queda a 1,00 cm del plano en el caso normal, justo fuera de su alcance.
+
+**La oblicuidad**
+
+El eje corto verdadero a nivel mitral corta la piel a la derecha del esternón (u = −1,67, v = 4,74), así que desde la ventana izquierda sólo se alcanza inclinando la sonda. Medí tres ventanas:
+
+| Ventana | Oblicuidad | Puntuación (normal) | Por qué no |
+|---|---|---|---|
+| Espacio del PLAX | 24–28° | 92 | — |
+| Espacio superior (el del eje corto aórtico, como sugiere la pista de la vista) | 13–18° | 88 | Con el haz tan angulado, la costilla sombrea el corazón (artefactos 0,41), y pierde el VD basal y el septo en siete casos (77–83) |
+| Segundo espacio | 5° | 79 | Menos puntuación; en la MCD, 29 |
+
+El preajuste se queda en el espacio del PLAX. El criterio del panel de ≤ 12° no se alcanza en este tórax sin subir al segundo espacio.
+
+**La vena cava**
+
+No es la oblicuidad: sigue en el plano desde las tres ventanas (1,7–2,0 % del cuadro en el caso normal). La unión de la cava con la aurícula derecha queda a 8–10 cm de profundidad en el borde izquierdo de la imagen, a z ≈ 1,0 cm del anillo en el eje del corazón. La limitación declarada sigue, con este diagnóstico.
+
+Los velos ocupan el 0,53 % del cuadro de media en la diástole (fases 0,5–0,7) y un 0,17 % en su mínimo, en diástasis. En telediástole están cerrados junto al anillo, por encima del plano, como en un eje corto a la altura de sus puntas.
+
+**La guarda**
+
+`viewLandmarks.test.ts` exige que cada referencia que pide cada vista esté, en los doce casos, al alcance del motor desde el plano que define la vista. Con las referencias antiguas del eje corto mitral falla: el VD a 1,61 cm y las paredes a 2,47.
+
+La guarda destapó catorce referencias más fuera de su plano, que quedan declaradas en `KNOWN_UNREACHABLE_LANDMARKS`:
+
+- Tres exigidas que el VI dilatado de la MCD (9,8 cm) deja fuera: los papilares del eje corto papilar a 1,0 cm y la cavidad apical del eje corto apical a 1,2 cm. Esas vistas apuntan a una altura fija en cm y sus referencias siguen la longitud del VI.
+- Once opcionales, fuera en todos los casos o casi, que restan puntos a cualquier sonda (el detalle está en `LIMITATIONS.md`).
+
+Corregirlas cambia los preajustes de esas vistas y sus goldens, y queda como trabajo siguiente.
+
+
+165. **2026-09-23 — El campo lejano del A3C: la aurícula clara es clínica y la pared anteroseptal se apaga por una costilla, no por el miocardio**: cuarto punto de la tanda 3 («campo lejano del A3C y el A4C»). El panel pedía la AI y la raíz del A3C al menos 20 niveles bajo el entorno (medía 85–89 frente a 91) y los segmentos 8 y 14 evaluables. Medido antes de cambiar nada, las dos cosas tienen otra explicación.
+
+**La aurícula clara**
+
+La referencia clínica no respalda el criterio. En CAMUS Good 4CH telediastólico, la AI tiene una mediana de 91 (RIC 70–117) y el fondo lejano 79 (62–95): la aurícula es más clara que el entorno, no 20 niveles más oscura. El A4C del simulador da 83 a la AI. CAMUS no trae el A3C, así que su raíz y su aurícula no tienen referencia propia. No se cambia.
+
+**La pared anteroseptal apagada**
+
+En el A3C del caso normal en telediástole, el segmento 8 muestra 45 de gris y el 14 muestra 27, con la cavidad en 49. La explicación declarada hasta ahora («el haz recorre unos 6 cm dentro de la pared y la atenuación del miocardio la apaga») no es la que miden las muestras:
+
+- La ganancia de la hélice de fibras en esos segmentos (0,81) es la de los demás (0,80–0,83), así que tampoco es la anisotropía.
+- La transmisión a la pared sí es distinta: 0,002 y 0,001, frente a 0,026–0,19 en el resto.
+- A lo largo de una línea del segmento 14, la transmisión cae de 0,73 a 0,008 entre 1,9 y 2,5 cm, en el músculo intercostal, antes de llegar al corazón. Dentro de la pared sólo cae un factor 3 más.
+
+Las líneas vecinas cruzan una costilla: el 16 % de los rayos del sector la atraviesan antes de 4 cm, todos en el borde derecho. La marcha del haz (decisión 144) reparte su atenuación sobre la anchura del haz.
+
+Al girar la sonda 120° desde el A4C, el sector deja de correr a lo largo del espacio intercostal y lo cruza. El A4C y el A5C no tocan hueso; el A2C cruza la costilla con el 15 % de sus rayos, del lado de la pared anterior.
+
+**Mutación**
+
+Con las costillas convertidas en músculo, el segmento 8 sube a 83 y el 14 a 88, y los dos quedan evaluables.
+
+**Deslizar la sonda no lo evita**
+
+Deslizar la sonda dentro de su espacio (±1 cm a lo largo, hasta el margen de la cara de la sonda de través) deja entre el 11 y el 26 % de los rayos sobre la costilla. El punto apical es común a las cuatro vistas y está calibrado contra CAMUS con el A4C y el A2C, así que no se mueve.
+
+En la clínica, la caída de la pared anterior en las apicales rotadas es la indicación clásica de contraste. En CAMUS 2CH, el pico epicárdico de la pared anterior tiene un p10 de 0, frente a 88 en la inferior.
+
+**Qué queda declarado**
+
+La limitación `a3c` 8 y 14 sigue declarada en `KNOWN_NOT_ASSESSABLE`, con la causa medida.

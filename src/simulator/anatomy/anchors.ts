@@ -2,7 +2,7 @@ import type { CycleState } from '@/simulator/cardiac-cycle/cycleModel';
 import { Structure } from './tissue';
 import type { TissueSample } from './tissue';
 import { lvCavityRadius, lvProfileG } from './lvShape';
-import { AV_AXIS } from './heartFrame';
+import { AV_AXIS, MITRAL_SHORT_AXIS_CM } from './heartFrame';
 import { computeHeartPose } from './heartPose';
 import { classifyHeart } from './classify';
 import type { HeartModel } from './heartModel';
@@ -258,6 +258,10 @@ export function heartLandmarks(m: HeartModel): Landmark[] {
   const L = m.lv.lengthCm;
   const a = m.lv.rMax * lvProfileG(m.lv.shape, 0.45) + 0.45, // mid-wall radius at the mid level
     b = a * m.lv.shape.ratio;
+  // the same at the level of the mitral short axis
+  const zB = MITRAL_SHORT_AXIS_CM;
+  const aB = m.lv.rMax * lvProfileG(m.lv.shape, zB / L) + 0.45,
+    bB = aB * m.lv.shape.ratio;
   const rvc = A.rvCenter;
   const papAt = (az: number): Vec3 => {
     const z = L * 0.57;
@@ -322,6 +326,20 @@ export function heartLandmarks(m: HeartModel): Landmark[] {
       p: v3(a * 0.5, -b * 0.87, L * 0.45),
       radius: 0.9,
     },
+    // the basal walls and the RV inflow the mitral short axis cuts; the mid-level ones lie 1.6-2.5 cm toward the apex
+    {
+      id: 'ivs-inferoseptal-basal',
+      label: 'Septum inferoseptal basal',
+      p: v3(-aB * 1.0, -bB * 0.1, zB),
+      radius: 0.9,
+    },
+    {
+      id: 'wall-inferolateral-basal',
+      label: 'Pared inferolateral basal',
+      p: v3(aB * 0.5, -bB * 0.87, zB),
+      radius: 0.9,
+    },
+    { id: 'rv-basal', label: 'Ventrículo derecho (basal)', p: v3(rvc.x, -0.35, zB), radius: 1.3 },
     {
       id: 'wall-anterolateral',
       label: 'Pared anterolateral',

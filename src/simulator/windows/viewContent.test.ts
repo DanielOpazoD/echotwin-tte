@@ -202,9 +202,10 @@ const EXPECTED: Record<string, { needs: Requirement[]; forbids?: Forbidden[] }> 
  * removed once fixed — the same contract as KNOWN_MODEL_LIMITATIONS in proportions.test.ts.
  */
 const KNOWN_VIEW_LIMITATIONS: ReadonlySet<string> = new Set([
-  // The mitral short axis cuts the inferior vena cava, which cannot be in that plane; the parasternal window
-  // solver puts the beam 24.3° away from the requested short axis (decision 59). The hepatic vein left this
-  // plane when it took its real course, in front of the cava (decision 131).
+  // The mitral short axis cuts the junction of the inferior vena cava with the right atrium, 8-10 cm deep at the left
+  // edge of the image, which a real mitral short axis does not show. It is not the obliquity of the window: the cava
+  // stays in the plane from the PLAX space (24.7°), the space above (13.6°) and the second space (5.2°) (decision 164).
+  // The hepatic vein left this plane when it took its real course, in front of the cava (decision 131).
   'psax-mv/inferior vena cava',
   // The two-chamber plane clips the pulmonary trunk beside the left atrial appendage, 12-14 cm deep at the anterior edge
   // of the sector. The lung hid it until the A2C preset stopped sliding under the lingula (decisions 72 and 83).

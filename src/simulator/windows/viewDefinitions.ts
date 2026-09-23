@@ -1,6 +1,6 @@
 import type { Vec3 } from '@/core/vec3';
 import { normalize, scale, v3 } from '@/core/vec3';
-import { AV_AXIS } from '@/simulator/anatomy/heartFrame';
+import { AV_AXIS, MITRAL_SHORT_AXIS_CM } from '@/simulator/anatomy/heartFrame';
 
 /**
  * The canonical views as data: plane in the heart frame, skin window, landmarks, hints and tolerances.
@@ -146,13 +146,15 @@ export function buildViewTargets(): ViewTarget[] {
       window: 'parasternal',
       planeRight: R(v3(0.866, 0.5, 0)),
       planeDown: R(v3(0.5, -0.866, 0)),
-      target: v3(0, -0.2, 1.4),
+      target: v3(0, -0.2, MITRAL_SHORT_AXIS_CM),
       skin: { u: 2.6, v: 1.6 },
+      // the basal walls and RV this level cuts (decision 164); the mid-level ones lie 1.6-2.5 cm toward the apex, beyond
+      // the reach of any mitral short axis
       requiredLandmarks: [
         { landmarkId: 'mv', weight: 1.5, required: true },
-        { landmarkId: 'rv', weight: 0.8, required: true },
-        { landmarkId: 'ivs-inferoseptal', weight: 0.8, required: false },
-        { landmarkId: 'wall-inferolateral', weight: 0.8, required: false },
+        { landmarkId: 'rv-basal', weight: 0.8, required: true },
+        { landmarkId: 'ivs-inferoseptal-basal', weight: 0.8, required: false },
+        { landmarkId: 'wall-inferolateral-basal', weight: 0.8, required: false },
       ],
       penaltyLandmarks: [
         { landmarkId: 'av', weight: 1, required: false },

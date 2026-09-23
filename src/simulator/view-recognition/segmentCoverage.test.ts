@@ -85,8 +85,11 @@ const REFERENCE: Record<string, number[]> = {
 
 /**
  * Reference segments the model's view crosses but does not show well enough to judge (model debt, docs/LIMITATIONS.md,
- * «Segmentos no evaluables en vistas de referencia»): in the A3C the beam runs within the anteroseptal wall for several
- * centimetres and leaves its mid and apical parts at the grey of the cavity.
+ * «Segmentos no evaluables en vistas de referencia»): the A3C sector, turned 120° from the four-chamber view on the same
+ * apical probe, crosses the intercostal space instead of running along it, and 16 % of its rays meet a rib before 4 cm;
+ * the beam march spreads the rib's attenuation over the beam width and leaves the mid and apical anteroseptal wall at a
+ * transmission of 0.001–0.002 against 0.03–0.19 elsewhere (decision 165). With the ribs made muscle both segments light
+ * up (83 and 88 against a cavity of 49); the fibre helix gain there is that of the other walls.
  */
 const KNOWN_NOT_ASSESSABLE: Record<string, number[]> = {
   a3c: [8, 14],
