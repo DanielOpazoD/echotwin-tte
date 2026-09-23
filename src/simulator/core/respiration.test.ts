@@ -108,6 +108,8 @@ describe('rendered respiratory anatomy', () => {
         schedule.mockRestore();
       }
     },
+    // 96 frames through the CPU tracer: 7-22 s here, 71-88 s in CI under coverage, past the 60 s default (decision 179)
+    300_000,
   );
 });
 

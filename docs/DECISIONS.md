@@ -1069,7 +1069,7 @@ Ahora entra en la caché sólo cuando la fuente ha pasado el umbral en cuatro cu
 
 Con la sonda quieta y el cine completo, la caché no renderizaba nada, así que el coste medido quedaba congelado. Con carga 30, la GPU midió 32–39 ms, entró en la caché y no volvió mientras la sonda estuviera quieta: 0 bitmaps.
 
-Ahora, cada 16 cuadros servidos desde la caché, uno se renderiza con la fuente y se mide (`REMEASURE_EVERY`). Esa medida sustituye a la media vieja. Con la sonda quieta, el cuadro que mide es el de su ranura y se vuelve a guardar, así que todo cuadro del modo caché conserva la fase de su ranura. La primera versión lo renderizaba en la fase exacta, y `respiration.test.ts`, que compara la VCI del cuadro con la de su fase, lo detectó.
+Ahora, cada 16 cuadros servidos desde la caché, uno se renderiza con la fuente y se mide (`REMEASURE_EVERY`). Esa medida sustituye a la media vieja. Con la sonda quieta, el cuadro que mide es el de su ranura y se vuelve a guardar, así que todo cuadro del modo caché conserva la fase de su ranura. La primera versión lo renderizaba en la fase exacta, y `respiration.test.ts`, que compara la VCI del cuadro con la de su fase, lo detectó. Esa misma prueba, que recorre 96 cuadros con el trazador de CPU, tardó 71–88 s en el pipeline de `main` con cobertura y superó el plazo por defecto de 60 s (en local tarda 7–22 s, igual antes y después de este cambio); ahora declara su plazo, como las demás pruebas del archivo.
 
 **La E2E**
 
