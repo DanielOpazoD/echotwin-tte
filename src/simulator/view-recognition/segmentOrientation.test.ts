@@ -20,7 +20,11 @@ import { aha17FromCode } from '@/simulator/anatomy/lvSegments';
  *
  * Measured when the learner found the numbering of the short axis wrong: the RV touched the LV from 9.1 to 1.3 o'clock
  * in every case and the numbered septum ran from 9.1 to 1.2–1.3, so the numbers followed the insertions; the cut was
- * turned, the RV at the top where the schematic polar map draws it on the left.
+ * turned, the RV at the top where the schematic polar map draws it on the left. Decision 182 took the papillary short
+ * axis 2 cm further from the sternum, which turns the cut toward what an average patient's shows (the RV at the upper
+ * left near 10 o'clock, its insertions near 12 and 8, the papillary muscles near 4 and 8): 0.69-0.80 h clockwise of it
+ * in the twelve cases, where it stood 1.07-1.14 h. Turning the heart about its long axis instead moved the pulmonary
+ * valve, the long axis and the apical images out of their validated ranges.
  */
 
 interface Frame {
@@ -164,6 +168,76 @@ function counterClockwise(f: Frame, ring: readonly number[]): boolean {
   });
 }
 
+/** Circular mean of clock hours. */
+function meanHour(hours: readonly number[]): number {
+  let sx = 0,
+    sy = 0;
+  for (const h of hours) {
+    sx += Math.cos((h / 12) * 2 * Math.PI);
+    sy += Math.sin((h / 12) * 2 * Math.PI);
+  }
+  const m = ((Math.atan2(sy, sx) / (2 * Math.PI)) * 12 + 12) % 12;
+  return m < 0.5 ? m + 12 : m;
+}
+
+/**
+ * Where the parasternal short axis at the papillary level puts the RV, its insertions and the papillary muscles, in
+ * clock hours: the RV at the mean of the rays it touches, the insertions at the ends of the longest run of them once
+ * gaps of up to three rays are closed (rays that miss the RV inside the arc split it in two in one case, and the ends of
+ * the longer piece read an insertion an hour off), each papillary muscle at the mean of its samples on its side of their
+ * common mean.
+ */
+function shortAxisClock(f: Frame): {
+  rv: number;
+  insertions: [number, number];
+  papillary: [number, number];
+} {
+  const { rv } = arcs(f);
+  const hourOf = (i: number) => (i * 2) / 30;
+  const rvHours = rv.flatMap((v, i) => (v ? [hourOf(i)] : []));
+  // the longest circular run of rays that touch the RV, with gaps of up to three rays closed: going clockwise it starts
+  // at the inferior insertion and ends at the anterior one
+  const n = rv.length;
+  const touched = rv.map((v, i) => {
+    if (v) return true;
+    // a ray inside a gap of at most three rays between two that touch the RV
+    for (let back = 1; back <= 3; back++)
+      if (rv[(i - back + n) % n])
+        for (let ahead = 1; ahead <= 4 - back; ahead++) if (rv[(i + ahead) % n]) return true;
+    return false;
+  });
+  let best = { start: 0, length: 0 };
+  for (let i = 0; i < n; i++) {
+    if (!touched[i] || touched[(i - 1 + n) % n]) continue;
+    let length = 0;
+    while (length < n && touched[(i + length) % n]) length++;
+    if (length > best.length) best = { start: i, length };
+  }
+  const p = f.out.polar;
+  const pap: number[] = [];
+  for (let li = 0; li < p.lines; li++)
+    for (let si = 0; si < p.samples; si++) {
+      if (f.out.structure[li * p.samples + si] !== Structure.PapillaryMuscle) continue;
+      const th = -p.sectorRad / 2 + (p.sectorRad * (li + 0.5)) / p.lines;
+      const r = (p.depthCm * (si + 0.5)) / p.samples;
+      let a = Math.atan2(r * Math.sin(th) - f.cx, -(r * Math.cos(th) - f.cy));
+      if (a < 0) a += 2 * Math.PI;
+      pap.push((a / (2 * Math.PI)) * 12);
+    }
+  const mid = meanHour(pap);
+  const side = (h: number) => ((h - mid + 18) % 12) - 6;
+  return {
+    rv: meanHour(rvHours),
+    insertions: best.length
+      ? [hourOf((best.start + best.length - 1) % n), hourOf(best.start)]
+      : [Number.NaN, Number.NaN],
+    papillary: [
+      meanHour(pap.filter((h) => side(h) < 0)),
+      meanHour(pap.filter((h) => side(h) >= 0)),
+    ],
+  };
+}
+
 describe('the LV segments on the images of the app (decision 181)', () => {
   it(
     'number as septum the arc of a short-axis cut the RV touches, counter-clockwise, in every case',
@@ -183,6 +257,29 @@ describe('the LV segments on the images of the app (decision 181)', () => {
           if (miss > 20 || rvDeg < 100 || rvDeg > 150)
             off.push(`${input.id} ${view}: RV over ${rvDeg}°, septum and RV differ over ${miss}°`);
         }
+      expect(off).toEqual([]);
+    },
+  );
+
+  it(
+    "turn the papillary short axis toward the average patient's: RV near 10, insertions near 12 and 8, papillary muscles near 4 and 8 (decision 182)",
+    { timeout: 600_000 },
+    () => {
+      const off: string[] = [];
+      for (const input of CASE_INPUTS) {
+        const c = shortAxisClock(frameOf(input.id, 'psax-pm'));
+        const [ant, inf] = c.insertions;
+        const [al, pm] = c.papillary;
+        // hours clockwise of where an average patient's image puts each landmark
+        const turn = [c.rv - 10, ant - 12, inf - 8, al - 4, pm - 8].map((d) => ((d + 18) % 12) - 6);
+        const mean = turn.reduce((a, d) => a + d, 0) / turn.length;
+        // 0.69-0.80 h in the twelve cases; 1.07-1.14 from the sternal edge, 0.83-0.95 from 1.2 cm and 0.77-0.90 from
+        // 1.6 cm. A landmark 1.5 h off would be another cut, not a turned one.
+        if (Math.abs(mean) > 0.85 || turn.some((d) => Math.abs(d) > 1.5))
+          off.push(
+            `${input.id}: turned ${mean.toFixed(2)} h; RV ${c.rv.toFixed(1)}, insertions ${ant.toFixed(1)} and ${inf.toFixed(1)}, papillary ${al.toFixed(1)} and ${pm.toFixed(1)} o'clock`,
+          );
+      }
       expect(off).toEqual([]);
     },
   );

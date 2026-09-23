@@ -1087,6 +1087,7 @@ La E2E pedía que todos los cuadros fueran bitmaps, algo que el diseño no garan
   - una fuente que vuelve a 2 ms con el cine completo recupera la pantalla en menos de 19 cuadros.
 
   Con la media sola fallan las dos primeras, y sin la nueva medida falla la tercera. Las pruebas de la caché con presupuesto cero cuentan los cuatro cuadros directos de la entrada.
+- Añadido con la decisión 182: la fuente de coste controlado ya no gasta su coste en una espera activa sobre el reloj real. Ahora adelanta un reloj que recibe el atlas (`AtlasRenderer(source, seed, now)`). Con el runner del CI a carga 40–60, un cuadro de 2 ms medía decenas de ms, y la tercera prueba falló en el pipeline de `main` a7048aa. Sin la remedición sigue fallando.
 
 
 180. **2026-09-23 — Volumen de la AI por discos y Simpson biplano en el informe**: último punto de la tanda 4. La decisión 175 añadió las medidas del panel salvo la AI biplano, y la herramienta Simpson era monoplano, así que la AI sólo se medía por su diámetro anteroposterior.
@@ -1169,3 +1170,74 @@ Las descripciones clínicas dan el VD «arriba a la izquierda» (PragueICU) y lo
   Falla con los segmentos girados 60°, y también en espejo (8 y 9 cambiados).
 - `segmentAnchors.test.ts`: la media de un latido y la fijación, el reinicio al mover la sonda, las inserciones y el giro respecto del mapa. Fallan sin la fijación, con la inserción en el extremo interno y con el signo del giro cambiado.
 - `e2e/segments.spec.ts` lee en el canvas dónde se dibujaron los números y las inserciones, y comprueba que no cambian en dos latidos. Con la disposición recalculada en cada cuadro falla: los números se movían 3–5 px.
+
+182. **2026-09-23 — El eje corto papilar se toma 2 cm más lejos del esternón y se acerca al de un paciente promedio**: tras la revisión de los segmentos (decisión 181), Daniel pidió ver el eje corto como en un paciente promedio.
+
+**Objetivo y punto de partida**
+
+En un paciente promedio, el PSAX papilar muestra:
+- el VD arriba a la izquierda, cerca de las 10;
+- sus inserciones cerca de las 12 y de las 8;
+- los papilares cerca de las 4 y de las 8, dentro de las 3–6 y 6–9 que citó la decisión 181.
+
+El modelo daba, en los doce casos:
+- el VD a las 11,1–11,2;
+- las inserciones a la 1,1–1,3 y a las 9,1–9,2;
+- los papilares a las 5,3–5,5 y a las 8,6–8,8.
+
+Contando el VD, las dos inserciones y los dos papilares, la imagen quedaba de media 1,07–1,14 h (32–34°) en sentido horario de la típica. El lado del VI que mira a la sonda era el anteroseptal (127° de acimut), no el anterior (90–100°).
+
+**Opciones medidas en los doce casos**
+
+- **Opción 1, girar el corazón 15° sobre su eje largo**, con la ventana papilar 1,2 cm más fuera: deja la imagen a unos 0,4 h de la típica. Lo probé en una rama con la batería lenta y rompe relaciones validadas:
+   - el anillo pulmonar queda 2,43–2,93 cm por delante del aórtico (rango ≤2,6);
+   - el PLAX tiene que bajar al 4.º espacio, y desde ahí el modo M mitral da un cociente E/A de excursión de 1,78 (publicado ≤1,5);
+   - el A2C recibe más pulmón;
+   - el haz del PSAX llega al tracto de salida del VD a 79–85°, y la ICFEr lee un tiempo de aceleración de 60 ms para 100;
+   - la AD sale del alcance del plano de la cava;
+   - 22 pruebas lentas quedan en rojo.
+- **Opción 2, girarlo 5° y abrir la ventana papilar 1,2 cm**: deja la imagen a 0,69–0,79 h. Aun así rompe 13 pruebas lentas:
+   - el segmento medio anterior del A2C del caso normal deja de ser evaluable;
+   - el PSAX-AV corta menos cúspides a mitad de la diástole;
+   - los velos mitrales del PSAX-MV caen bajo su mínimo;
+   - el ápex del A4C sale del rango de CAMUS;
+   - las bandas oscuras del A2C empeoran;
+   - aparece un borde de color recto de 7 mm en el A3C del caso de artefactos.
+
+   Al ofrecérsela a Daniel le dije que no cambiaban el PLAX ni CAMUS sin haberlo medido. Lo corregí con las cifras y volvió a elegir.
+- **Opción 3, abrir sólo la ventana papilar**: con el corazón como está, sólo cambia esa vista.
+   - A 2 cm del punto del borde esternal la imagen queda como con la opción 2, y su corte a 10–20° del eje corto (antes 1–13°).
+   - A 3 cm llegaría a 0,47–0,55 h, pero con el corte a 14–24°.
+
+Daniel eligió la opción 3 con 2 cm.
+
+**Cambio**
+
+La piel preferida del PSAX papilar pasa de (2,6; 1,6) a (5,0; 1,6), en el mismo espacio intercostal. Tras deslizarse 0,8 cm hacia el plano, la sonda queda en u 4,2, 2 cm por fuera del punto del borde esternal (u 2,2) que usan los otros ejes cortos.
+
+**Resultado en los doce casos**
+
+| PSAX papilar | Antes | Ahora |
+|---|---|---|
+| VD | 11,1–11,2 | 10,8–10,9 |
+| Inserciones | 1,1–1,3 y 9,1–9,2 | 0,7–0,9 y 8,7–8,9 |
+| Papilares | 5,3–5,5 y 8,6–8,8 | 5,0–5,2 y 8,2–8,4 |
+| Giro respecto de la imagen promedio | 1,07–1,14 h | 0,69–0,80 h |
+| Corte respecto del eje corto | 1–13° | 10–20° |
+
+El reconocimiento de vistas compara con la pose que se alcanza desde la ventana, así que el preset puntúa como antes. Queda más oblicuo respecto del eje corto ideal. El resto de vistas no cambia.
+
+**Guarda**
+
+`segmentOrientation.test.ts` mide cuántas horas en sentido horario de la imagen promedio queda cada referencia: el VD, las dos inserciones y los dos papilares.
+- Exige una media ≤ 0,85 h en los doce casos, con ninguna referencia a más de 1,5 h.
+- Las inserciones se leen en el tramo continuo más largo del arco del VD, con los huecos de hasta tres rayos cerrados. En la ICFEr girada 5°, unos rayos sin VD partían el arco y el tramo más largo daba la inserción inferior una hora tarde.
+
+La prueba falla:
+- desde el borde esternal, en los doce casos (1,07–1,14 h);
+- desde 1,2 cm, en once (0,83–0,95 h);
+- desde 1,6 cm, en uno (0,77–0,90 h).
+
+**Lo que queda**
+
+`LIMITATIONS.md` sustituye «Eje corto girado respecto del mapa polar» por el giro que queda y por qué no se corrige del todo.

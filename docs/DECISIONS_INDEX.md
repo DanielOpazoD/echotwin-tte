@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 181 (última: 181).
+Decisiones: 182 (última: 182).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -187,5 +187,6 @@ Decisiones: 181 (última: 181).
 | [177](DECISIONS.md#L980) | 2026-09-23 | La documentación de estructura se genera desde el código y una prueba la vigila | vigente |
 | [178](DECISIONS.md#L1028) | 2026-09-23 | La frecuencia de cuadro es la del equipo, y el nivel de calidad sólo decide cuántos cuadros se calculan | vigente |
 | [179](DECISIONS.md#L1056) | 2026-09-23 | El atlas sólo toma la imagen de una GPU que sigue lenta, y se la devuelve cuando vuelve a ser rápida | vigente |
-| [180](DECISIONS.md#L1092) | 2026-09-23 | Volumen de la AI por discos y Simpson biplano en el informe | vigente |
-| [181](DECISIONS.md#L1132) | 2026-09-23 | Revisión de la numeración de los segmentos: los números siguen a las inserciones del VD y ya no se mueven con el latido | vigente |
+| [180](DECISIONS.md#L1093) | 2026-09-23 | Volumen de la AI por discos y Simpson biplano en el informe | vigente |
+| [181](DECISIONS.md#L1133) | 2026-09-23 | Revisión de la numeración de los segmentos: los números siguen a las inserciones del VD y ya no se mueven con el latido | vigente |
+| [182](DECISIONS.md#L1174) | 2026-09-23 | El eje corto papilar se toma 2 cm más lejos del esternón y se acerca al de un paciente promedio | vigente |
