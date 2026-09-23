@@ -1,4 +1,4 @@
-import { useHudStore, useSegmentHover, useSimStore } from '@/app/store';
+import { useHudStore, useSegmentHover, useSegmentOrientation, useSimStore } from '@/app/store';
 import { modePolicy } from '@/app/modePolicy';
 import { aha17Info, LV_AHA17, type LvSegmentInfo } from '@/clinical/segmentation/catalog';
 import type { SegmentCoverage } from '@/simulator/view-recognition/segmentCoverage';
@@ -67,6 +67,24 @@ function ringOf(level: LvSegmentInfo['level'], model: SegmentModelChoice): [numb
   return [0, 0.2];
 }
 
+/**
+ * The wall of the polar map nearest an angle of the map (degrees from anterior, counter-clockwise toward the septum),
+ * read on the mid ring: where the top of a short-axis image falls on the map (decision 181).
+ */
+export function wallAtPolarAngle(deg: number): string {
+  let best = 7,
+    bestD = Infinity;
+  for (let id = 7; id <= 12; id++) {
+    const c = aha17Info(id)!.polarCentreDeg!;
+    const d = Math.abs(((((deg - c + 180) % 360) + 360) % 360) - 180);
+    if (d < bestD) {
+      bestD = d;
+      best = id;
+    }
+  }
+  return aha17Info(best)!.wall;
+}
+
 const textOn = (id: number): string => {
   const c = SEGMENT_RGB[id] ?? [0, 0, 0];
   return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2] > 140 ? '#0b0e12' : '#ffffff';
@@ -80,6 +98,8 @@ export function SegmentPanel() {
   const navSegments = useSimStore((s) => s.ui.navSegments);
   const hovered = useSegmentHover((h) => h.id);
   const setHover = useSegmentHover((h) => h.setHover);
+  const upDeg = useSegmentOrientation((o) => o.upDeg);
+  const insertions = useSegmentOrientation((o) => o.insertions);
   const setUi = useSimStore((s) => s.setUi);
   if (!modePolicy(mode).hintsEnabled) return null;
   const coverage = view ? (model === 'LV_AHA17' ? view.segments.aha17 : view.segments.lv16) : [];
@@ -199,6 +219,22 @@ export function SegmentPanel() {
             </g>
           );
         })}
+        {upDeg !== null && (
+          <path
+            className="bullseye-up"
+            d={(() => {
+              const [x0, y0] = polar(R + 2, upDeg);
+              const [x1, y1] = polar(R + 12, upDeg - 5);
+              const [x2, y2] = polar(R + 12, upDeg + 5);
+              return `M${x0},${y0} L${x1},${y1} L${x2},${y2} Z`;
+            })()}
+            fill="#ffffff"
+            stroke="#0b0e12"
+            strokeWidth={1}
+          >
+            <title>Arriba en la imagen (hacia la sonda)</title>
+          </path>
+        )}
         <text x={C} y={10} className="bullseye-dir" textAnchor="middle">
           anterior
         </text>
@@ -235,6 +271,15 @@ export function SegmentPanel() {
           <i className="sw out" /> fuera del plano
         </li>
       </ul>
+      {upDeg !== null && (
+        <div className="small segment-orientation">
+          ▲ Arriba en la imagen, hacia la sonda, queda la pared {wallAtPolarAngle(upDeg)} del mapa:
+          en un eje corto la posición horaria depende de la ventana, y los segmentos se reconocen
+          por las inserciones del VD.
+          {insertions &&
+            ' Los triángulos ámbar de la imagen marcan esas inserciones: el tabique (2, 3, 8 y 9) queda entre ellas.'}
+        </div>
+      )}
       <div className="small segment-summary" aria-live="polite">
         {view ? (
           <>

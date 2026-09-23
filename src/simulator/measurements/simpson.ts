@@ -72,3 +72,19 @@ export function discProfileFromContour(
 export function volumeFromProfileMl(profile: DiscProfile): number {
   return simpsonSinglePlaneVolume(profile.diametersCm, profile.longAxisCm);
 }
+
+/**
+ * Whether a structure reaches the deepest samples of the frame, so the sector cuts it (decision 180): a dilated atrium
+ * lies past 16 cm in the apical views, and a trace of what shows underestimates its volume by a quarter to a third.
+ */
+export function cutBySectorDepth(
+  hud: { structure: Uint8Array; polar: { lines: number; samples: number } },
+  structures: readonly number[],
+): boolean {
+  const p = hud.polar;
+  if (hud.structure.length < p.lines * p.samples) return false;
+  for (let li = 0; li < p.lines; li++)
+    for (let si = p.samples - 2; si < p.samples; si++)
+      if (structures.includes(hud.structure[li * p.samples + si]!)) return true;
+  return false;
+}

@@ -58,6 +58,18 @@ const measuredOk =
     );
 const measuredAny = (measurementId: string) => (s: LearnerSnapshot) =>
   s.measurements.some((m) => m.measurementId === measurementId);
+/** A trace in both apical planes, each with adequate technique: what the biplane method of discs needs (decision 180). */
+const measuredBiplane =
+  (measurementId: string, minTechnique = 0.75) =>
+  (s: LearnerSnapshot) =>
+    ['a4c', 'a2c'].every((view) =>
+      s.measurements.some(
+        (m) =>
+          m.measurementId === measurementId &&
+          m.sourceViewId === view &&
+          (m.technique?.score ?? 0) >= minTechnique,
+      ),
+    );
 
 export const CURRICULUM: Module[] = [
   {
@@ -299,6 +311,18 @@ export const CURRICULUM: Module[] = [
             title: 'VTS por Simpson en telesístole',
             why: 'La FE deriva de dos trazados: el cuadro telesistólico es el de cavidad mínima antes de abrirse la mitral.',
             check: measuredAny('lv-esv-simpson'),
+          },
+          {
+            id: 'simpson-biplane',
+            title: 'VTD biplano: Simpson en A4C y en A2C con técnica ≥ 0,75',
+            why: 'Un solo plano supone un VI circular en su eje corto; el segundo plano, a 60°, corrige esa forma y es el método recomendado.',
+            check: measuredBiplane('lv-edv-simpson'),
+          },
+          {
+            id: 'la-volume-biplane',
+            title: 'Volumen de la AI en A4C y A2C con técnica ≥ 0,75',
+            why: 'El volumen indexado de la AI resume la presión de llenado crónica; una AI dilatada puede salirse del sector a 16 cm y hay que ganar profundidad.',
+            check: measuredBiplane('la-volume'),
           },
           {
             id: 'mitral-e-ok',

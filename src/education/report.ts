@@ -3,6 +3,8 @@ import type { Measurement } from '@/simulator/measurements/types';
 import type { StructuredEchoTruth } from '@/simulator/hemodynamics/groundTruth';
 import { AORTIC_STENOSIS_RULES, formatClinical } from '@/clinical/reference-values';
 import { getMeasurementSpec } from '@/simulator/measurements/protocol';
+import { discProfileFromContour } from '@/simulator/measurements/simpson';
+import { simpsonBiplaneVolume } from '@/clinical/formulas';
 
 /**
  * Educational report assembly (spec 26). Deterministic; compares user measurements with the model
@@ -99,7 +101,7 @@ export function buildEducationalReport(
         : lowQuality
           ? `${lowQuality} de ${measurements.length} mediciones tienen problemas de técnica que invalidan el valor (vista, fase, posición o alineación); su validez es limitada.`
           : 'Mediciones obtenidas con técnica adecuada.';
-  const derived = deriveCalculations(measurements);
+  const derived = deriveCalculations(measurements, truth?.bsaM2 ?? null);
   const impression: string[] = [];
   if (hideTruth)
     impression.push(
@@ -137,8 +139,50 @@ function latest(ms: Measurement[], id: string): Measurement | null {
   return null;
 }
 
-/** Composite calculations from the user's measurements (spec 26.3): each row states its formula and inputs. */
-export function deriveCalculations(ms: Measurement[]): DerivedRow[] {
+/**
+ * The biplane method of discs (decision 180): the latest trace of a measurement in the four-chamber view and the latest
+ * in the two-chamber view, each cut into 20 discs from its contour at the scale it was captured with, combined as
+ * elliptical discs over the longer of the two long axes (ASE/EACVI 2015). Null without a trace in both views.
+ */
+export function biplaneVolume(
+  ms: Measurement[],
+  id: string,
+): { volumeMl: number; a4cLongAxisCm: number; a2cLongAxisCm: number } | null {
+  const trace = (view: string) => {
+    for (let i = ms.length - 1; i >= 0; i--) {
+      const m = ms[i]!;
+      if (
+        m.measurementId === id &&
+        m.sourceViewId === view &&
+        m.captureSector &&
+        m.geometry.length >= 5
+      )
+        return discProfileFromContour(m.geometry, m.captureSector.pxPerCm);
+    }
+    return null;
+  };
+  const a4c = trace('a4c'),
+    a2c = trace('a2c');
+  if (!a4c || !a2c) return null;
+  return {
+    volumeMl: simpsonBiplaneVolume(
+      a4c.diametersCm,
+      a2c.diametersCm,
+      Math.max(a4c.longAxisCm, a2c.longAxisCm),
+    ),
+    a4cLongAxisCm: a4c.longAxisCm,
+    a2cLongAxisCm: a2c.longAxisCm,
+  };
+}
+
+/** Upper limit of the normal LA volume index, both sexes (mL/m², ASE/EACVI 2015). */
+const LA_VOLUME_INDEX_MAX = 34;
+
+/**
+ * Composite calculations from the user's measurements (spec 26.3): each row states its formula and inputs. The body
+ * surface area is a demographic of the patient, like the sex, and indexes the atrial volume.
+ */
+export function deriveCalculations(ms: Measurement[], bsaM2: number | null = null): DerivedRow[] {
   const rows: DerivedRow[] = [];
   const v = (id: string) => latest(ms, id)?.value ?? null;
   const edv = v('lv-edv-simpson'),
@@ -157,6 +201,57 @@ export function deriveCalculations(ms: Measurement[]): DerivedRow[] {
       value: `${(edv - esv).toFixed(0)} mL`,
       formula: 'VTD − VTS',
       inputs: `VTD ${edv.toFixed(0)} mL, VTS ${esv.toFixed(0)} mL`,
+    });
+  }
+  // decision 180: the two apical planes combined, and the lengths they were traced with
+  const lengths = (b: { a4cLongAxisCm: number; a2cLongAxisCm: number }, maxGapCm: number) =>
+    `L A4C ${b.a4cLongAxisCm.toFixed(1)} cm, A2C ${b.a2cLongAxisCm.toFixed(1)} cm` +
+    (Math.abs(b.a4cLongAxisCm - b.a2cLongAxisCm) > maxGapCm
+      ? ' — longitudes dispares: revisa el acortamiento'
+      : '');
+  const lvGap = (b: { a4cLongAxisCm: number; a2cLongAxisCm: number }) =>
+    0.1 * Math.max(b.a4cLongAxisCm, b.a2cLongAxisCm);
+  const edvBi = biplaneVolume(ms, 'lv-edv-simpson'),
+    esvBi = biplaneVolume(ms, 'lv-esv-simpson');
+  for (const [id, label, b] of [
+    ['lv-edv-biplane', 'VTD biplano', edvBi],
+    ['lv-esv-biplane', 'VTS biplano', esvBi],
+  ] as const)
+    if (b)
+      rows.push({
+        id,
+        label,
+        value: `${b.volumeMl.toFixed(0)} mL`,
+        formula: 'Σ π/4 · a·b · L/20 (discos elípticos A4C × A2C, L la mayor)',
+        inputs: lengths(b, lvGap(b)),
+      });
+  if (edvBi && esvBi && edvBi.volumeMl > 0)
+    rows.push({
+      id: 'ef-biplane',
+      label: 'FEVI (Simpson biplano)',
+      value: `${(((edvBi.volumeMl - esvBi.volumeMl) / edvBi.volumeMl) * 100).toFixed(0)} %`,
+      formula: '(VTD − VTS) / VTD, biplanos',
+      inputs: `VTD ${edvBi.volumeMl.toFixed(0)} mL, VTS ${esvBi.volumeMl.toFixed(0)} mL`,
+    });
+  const laBi = biplaneVolume(ms, 'la-volume');
+  if (laBi)
+    rows.push({
+      id: 'la-volume-biplane',
+      label: 'Volumen de la AI (biplano)',
+      value: `${laBi.volumeMl.toFixed(0)} mL`,
+      formula: 'Σ π/4 · a·b · L/20 (discos elípticos A4C × A2C, L la mayor)',
+      // the two atrial lengths should agree within 5 mm (ASE/EACVI 2015)
+      inputs: lengths(laBi, 0.5),
+    });
+  const laVolume = laBi?.volumeMl ?? v('la-volume');
+  if (laVolume !== null && bsaM2 !== null && bsaM2 > 0) {
+    const index = laVolume / bsaM2;
+    rows.push({
+      id: 'la-volume-index',
+      label: 'Índice de volumen de la AI',
+      value: `${index.toFixed(0)} mL/m²${index > LA_VOLUME_INDEX_MAX ? ' (dilatada)' : ''}`,
+      formula: `V / SC (normal ≤ ${LA_VOLUME_INDEX_MAX} mL/m²)`,
+      inputs: `${laBi ? 'biplano' : 'monoplano'} ${laVolume.toFixed(0)} mL / ${bsaM2.toFixed(2)} m²`,
     });
   }
   const lvotD = v('lvot-diameter'),

@@ -88,3 +88,48 @@ test('the image button shows the LV segments and the pointer names the one under
   await page.mouse.move(img!.x + 8, img!.y + img!.height - 8);
   await expect(tip).toBeHidden();
 });
+
+/**
+ * The numbers hold still (decision 181): on the short axis, once a beat has passed with the probe at rest, the numbers
+ * and the RV insertions the overlay draws stay on the same pixels through the following beats, while the heart beats.
+ * They used to be re-placed three times a second on the moving wall.
+ */
+test('the segment numbers and the RV insertions hold still through the beat', async ({ page }) => {
+  await page.goto('/');
+  await waitForFrames(page, 3);
+  await page.getByTitle(/^Paraesternal eje corto, nivel papilar: mueve la sonda/).click();
+  await page.waitForFunction(
+    () => {
+      const hud = (window as unknown as EchoWindow).__echotwin.useHudStore.getState().hud;
+      const view = hud?.['view'] as { bestViewId?: string; score?: number } | undefined;
+      return view?.bestViewId === 'psax-pm' && (view.score ?? 0) > 80;
+    },
+    undefined,
+    { timeout: 60_000 },
+  );
+  await page.getByRole('button', { name: /Segmentos VI/ }).click();
+  const placed = () =>
+    page.evaluate(
+      () =>
+        document.querySelector<HTMLCanvasElement>('canvas.overlay')?.dataset.segmentLabels ?? '',
+    );
+  // a beat to settle (the probe reaches its pose first), then two more beats
+  await page.waitForTimeout(2500);
+  const first = await placed();
+  const parsed = JSON.parse(first) as {
+    labels: [number, number, number][];
+    insertions: [number, number][] | null;
+  };
+  expect(parsed.labels.map((l) => l[0]).sort((a, b) => a - b)).toEqual([7, 8, 9, 10, 11, 12]);
+  expect(parsed.insertions).not.toBeNull();
+  const frames = await page.evaluate(
+    () => (window as unknown as EchoWindow).__echotwin.useHudStore.getState().hud?.['frameId'],
+  );
+  await page.waitForTimeout(2000);
+  expect(
+    await page.evaluate(
+      () => (window as unknown as EchoWindow).__echotwin.useHudStore.getState().hud?.['frameId'],
+    ),
+  ).not.toBe(frames);
+  expect(await placed()).toBe(first);
+});

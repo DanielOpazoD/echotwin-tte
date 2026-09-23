@@ -241,6 +241,25 @@ export const useSegmentHover = create<{
   },
 }));
 
+/**
+ * How the short-axis cut on the image sits against the polar map (decision 181): the angle of the map (degrees from
+ * anterior, counter-clockwise toward the septum) that the top of the image shows, and whether the RV insertions are
+ * marked on the image. Null and false when the segment layer is off or the cut is not a short axis.
+ */
+export const useSegmentOrientation = create<{
+  upDeg: number | null;
+  insertions: boolean;
+  set: (upDeg: number | null, insertions: boolean) => void;
+}>((set, get) => ({
+  upDeg: null,
+  insertions: false,
+  set: (upDeg, insertions) => {
+    const cur = get();
+    const up = upDeg === null ? null : Math.round(upDeg);
+    if (cur.upDeg !== up || cur.insertions !== insertions) set({ upDeg: up, insertions });
+  },
+}));
+
 /** HUD (per-frame light state) lives in its own store so the console does not re-render per frame. */
 export const useHudStore = create<{ hud: SimOutput | null; setHud: (h: SimOutput | null) => void }>(
   (set) => ({

@@ -1069,7 +1069,7 @@ Ahora entra en la caché sólo cuando la fuente ha pasado el umbral en cuatro cu
 
 Con la sonda quieta y el cine completo, la caché no renderizaba nada, así que el coste medido quedaba congelado. Con carga 30, la GPU midió 32–39 ms, entró en la caché y no volvió mientras la sonda estuviera quieta: 0 bitmaps.
 
-Ahora, cada 16 cuadros servidos desde la caché, uno se renderiza con la fuente y se mide (`REMEASURE_EVERY`). Esa medida sustituye a la media vieja. Con la sonda quieta, el cuadro que mide es el de su ranura y se vuelve a guardar, así que todo cuadro del modo caché conserva la fase de su ranura. La primera versión lo renderizaba en la fase exacta, y `respiration.test.ts`, que compara la VCI del cuadro con la de su fase, lo detectó.
+Ahora, cada 16 cuadros servidos desde la caché, uno se renderiza con la fuente y se mide (`REMEASURE_EVERY`). Esa medida sustituye a la media vieja. Con la sonda quieta, el cuadro que mide es el de su ranura y se vuelve a guardar, así que todo cuadro del modo caché conserva la fase de su ranura. La primera versión lo renderizaba en la fase exacta, y `respiration.test.ts`, que compara la VCI del cuadro con la de su fase, lo detectó. Esa misma prueba, que recorre 96 cuadros con el trazador de CPU, tardó 71–88 s en el pipeline de `main` con cobertura y superó el plazo por defecto de 60 s (en local tarda 7–22 s, igual antes y después de este cambio); ahora declara su plazo, como las demás pruebas del archivo.
 
 **La E2E**
 
@@ -1087,3 +1087,85 @@ La E2E pedía que todos los cuadros fueran bitmaps, algo que el diseño no garan
   - una fuente que vuelve a 2 ms con el cine completo recupera la pantalla en menos de 19 cuadros.
 
   Con la media sola fallan las dos primeras, y sin la nueva medida falla la tercera. Las pruebas de la caché con presupuesto cero cuentan los cuatro cuadros directos de la entrada.
+
+
+180. **2026-09-23 — Volumen de la AI por discos y Simpson biplano en el informe**: último punto de la tanda 4. La decisión 175 añadió las medidas del panel salvo la AI biplano, y la herramienta Simpson era monoplano, así que la AI sólo se medía por su diámetro anteroposterior.
+
+**Medida y cálculo**
+
+- **`la-volume`**: el trazado de la AI de anillo a anillo en A4C o A2C, en telesístole, sin orejuela ni venas pulmonares. La herramienta es la de Simpson, y la verdad es el volumen declarado del caso, con una tolerancia del 18 %.
+- **Biplano en el informe** (`biplaneVolume`): con un trazado de la misma medida en A4C y otro en A2C, se recortan los dos contornos en 20 discos a la escala con que se capturaron y se combinan como discos elípticos sobre el mayor de los dos ejes largos (ASE/EACVI 2015).
+  - Da el VTD, el VTS y la FEVI biplanos, y el volumen biplano de la AI.
+  - Su índice usa la superficie corporal del paciente, con el límite de 34 mL/m²; sin biplano, usa el monoplano y lo dice.
+  - La fila da las dos longitudes y avisa si difieren más de un 10 % en el VI o de 5 mm en la AI.
+
+**Medido en las imágenes de la app**
+
+En los doce casos, a 20 cm y al final de la sístole, la AI del mapa de estructuras de los A4C y A2C canónicos, recortada en discos:
+
+| Método | Fracción del volumen declarado |
+|---|---|
+| Biplano | 0,88–1,02 |
+| Monoplano A4C | 1,00–1,19 |
+| Monoplano A2C | 0,64–0,87 |
+
+La AI del modelo es más ancha en el plano de cuatro cámaras, y sólo el biplano la mide. El 0,88 es la MCD, cuya AI se dibuja un 11 % por debajo de su declaración (`KNOWN_TRUTH_DEVIATIONS`).
+
+**Profundidad**
+
+A la profundidad por defecto, 16 cm, una AI dilatada llega al fondo del sector: la de la MCD mide un 17 % menos que a 20 cm. El motor de técnica gana el hallazgo `depth`, inválido cuando la cavidad trazada toca las dos últimas muestras de alguna línea del cuadro (`cutBySectorDepth`). El VI y la AI no toman el uno las palabras del otro, y el trazado de la AI no pasa por la comprobación de acortamiento del VI.
+
+Mi primera medición se equivocó de cuadro. La tolerancia de fase era más estrecha que lo que avanza la fase entre dos cuadros, y en el caso de artefactos midió en plena sístole: 36 frente a 57 mL. La prueba ahora acepta el cuadro dentro de 0,6 de ese avance y comprueba que lo alcanzó. Con ella corregí también la cifra que había escrito para la FA recortada (se pierde un 8 %, no un 27–32 %).
+
+**Currículo, documentación y guardas**
+
+- El currículo gana las tareas `simpson-biplane` y `la-volume-biplane`: un trazado con técnica ≥ 0,75 en cada plano.
+- `MEASUREMENTS.md` describía las herramientas de antes de la decisión 30: etiquetas genéricas, emparejamiento por cercanía, sin Simpson ni cálculos derivados. Se reescribe, y su tabla del protocolo se genera desde `MEASUREMENT_SPECS` (`tools/docs/measurements-table.ts`, en `npm run docs:gen`). `docsConsistency.test.ts` exige esa tabla y que nombre cada herramienta del panel y cada cálculo derivado del informe.
+- `LIMITATIONS.md` ya no da un recuento del protocolo que había quedado en 18.
+- Pruebas:
+  - `report.test.ts` usa semielipses de radios distintos, cuyo volumen es (2/3)·π·r₁·r₂·L. El biplano cae dentro del 2 % en el VI y del 5 % en la AI; con los discos de un solo plano falla.
+  - `technique.test.ts` cubre el hallazgo de profundidad.
+  - `simpson.test.ts` cubre `cutBySectorDepth`.
+  - `laVolume.test.ts` (lenta) recorre la cadena de la app: los doce casos dentro de la tolerancia a 20 cm, y la MCD recortada y marcada a 16 cm.
+
+
+181. **2026-09-23 — Revisión de la numeración de los segmentos: los números siguen a las inserciones del VD y ya no se mueven con el latido**: Daniel revisó el PSAX papilar con la capa de segmentos y escribió «me da la sensación que los segmentos están mal etiquetados»: arriba estaba el 8 y no el 7. Pidió además que los números, que se movían en cada latido, quedaran fijos.
+
+**Revisión**
+
+- **Regla**: el acimut del segmento se ancla al centro del tabique, a mitad de los surcos interventriculares, en segmentos de 60° en el orden anatómico (`lvSegments.ts`). La media luna del VD se extiende exactamente entre esos surcos (`rv.ts`).
+- **Catálogo**: nombres, vistas de referencia y territorios coronarios coinciden con la AHA/ASE.
+- **Imágenes de la app, caso normal**: posición horaria de cada segmento sobre las vistas canónicas.
+
+  | Vista | Resultado |
+  |---|---|
+  | PLAX | anteroseptal junto a la sonda, inferolateral lejos |
+  | A4C | inferoseptal a la izquierda, anterolateral a la derecha, VD a la izquierda |
+  | A2C | inferior a la izquierda, anterior a la derecha |
+  | A3C | inferolateral a la izquierda, anteroseptal y aorta a la derecha |
+  | PSAX papilar | 7 a las 2,3; 8 a las 12,2; 9 a las 10,2; 10 a las 8,1; 11 a las 6,2; 12 a las 4,3 |
+
+  Los ejes largos son los de la convención. El PSAX mitral y el apical tienen el mismo giro que el papilar.
+- **Los doce casos**: en el PSAX papilar, el VD toca al VI de las 9,1 a la 1,3 (126°), y el tabique numerado (8 y 9) va de las 9,1 a la 1,2–1,3. Los números siguen a las inserciones con un error de 2–4°. Los papilares quedan a las 5,3 y a las 8,6–8,9.
+
+**Conclusión**
+
+No hay segmentos mal etiquetados: el eje corto está girado respecto del mapa polar. El esquema dibuja el anterior arriba y el VD a la izquierda. En el modelo el VD queda arriba, porque la ventana paraesternal mira a la pared anteroseptal, la misma que el PLAX muestra junto a la sonda. echocardiographer.org advierte que suponer que las 12 son la pared anterior «no siempre es correcto», y que los segmentos se identifican por las inserciones del VD.
+
+Las descripciones clínicas dan el VD «arriba a la izquierda» (PragueICU) y los papilares en 3–6 y 6–9. El modelo cae en el extremo horario de esos rangos, así que el corte puede estar unos 30° más girado que en una imagen típica. Queda en `LIMITATIONS.md`: no encontré una medida publicada de la posición de las inserciones en el eje corto ecográfico con la que calibrarlo. La anatomía no cambia.
+
+**Cambios**
+
+- **Números fijos**: en la imagen y en el mapa del corte, cada número es la media de sus posiciones durante un latido, mientras no cambien la postura de la sonda, la geometría del sector ni el modelo (`SegmentAnchors`). Después queda quieto, y una imagen congelada se fija enseguida. Antes se recolocaba tres veces por segundo sobre la pared en movimiento. Los rótulos de estructura del mapa del corte hacen lo mismo.
+- **Inserciones del VD**: en un eje corto, la imagen marca con triángulos ámbar el extremo epicárdico de las fronteras 8|7 y 9|10 (o 2|1 y 3|4), que son las referencias con que se reconoce la numeración (`rvInsertionPoints`).
+- **Marca en el mapa polar**: señala qué parte del mapa muestra la imagen arriba (`imageUpOnPolarMap`: el giro que mejor ajusta los números al mapa, o nada si el ajuste deja más de 25° o el corte no es un eje corto). Un texto lo explica.
+
+**Guardas**
+
+- `segmentOrientation.test.ts` (lenta, cadena de la app, doce casos) exige:
+  - en el PSAX mitral y el papilar, que el tabique numerado coincida con el arco que toca el VD con menos de 20° de diferencia, que el VD abarque 100–150° y que el anillo esté numerado en sentido antihorario, como el mapa;
+  - en el PLAX, el A4C, el A2C y el A3C, cada pared en su lado, y el VD a la izquierda en el A4C.
+
+  Falla con los segmentos girados 60°, y también en espejo (8 y 9 cambiados).
+- `segmentAnchors.test.ts`: la media de un latido y la fijación, el reinicio al mover la sonda, las inserciones y el giro respecto del mapa. Fallan sin la fijación, con la inserción en el extremo interno y con el signo del giro cambiado.
+- `e2e/segments.spec.ts` lee en el canvas dónde se dibujaron los números y las inserciones, y comprueba que no cambian en dos latidos. Con la disposición recalculada en cada cuadro falla: los números se movían 3–5 px.
