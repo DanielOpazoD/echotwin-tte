@@ -67,6 +67,8 @@ export interface UiPrefs {
   selectedSegment: number | null;
   /** The view guide (score, hints, details, causes) under the navigator; hidden until asked for (decision 141). */
   guidanceOpen: boolean;
+  /** The keyboard shortcuts sheet over the simulator («?» or the ⋯ menu, decision 185). Not persisted. */
+  shortcutsOpen: boolean;
   /** Rings on the skin where each canonical view is acquired (decision 132). */
   navWindows: boolean;
   showHints: boolean;
@@ -386,6 +388,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
     segmentModel: 'LV_AHA17',
     selectedSegment: null,
     guidanceOpen: false,
+    shortcutsOpen: false,
     showHints: true,
     showPhysics: false,
     devPanel: false,

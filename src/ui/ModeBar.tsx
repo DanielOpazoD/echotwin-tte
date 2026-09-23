@@ -215,6 +215,13 @@ function OverflowMenu() {
             }}
           />
           <ActionItem
+            label="Atajos de teclado"
+            onClick={() => {
+              s.setUi({ shortcutsOpen: true });
+              setOpen(false);
+            }}
+          />
+          <ActionItem
             label="Reiniciar tutorial"
             onClick={() => {
               restartTutorial();

@@ -78,6 +78,7 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
   }>({ kind: 'none', startX: 0, startY: 0 });
   const reviewMode = useSimStore((s) => s.ui.reviewMode);
   const frozen = useSimStore((s) => s.frozen);
+  const armed = useSimStore((s) => s.activeTool !== 'none');
   const segTipRef = useRef<HTMLDivElement>(null);
   const onSize = props.onSize;
 
@@ -716,7 +717,7 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
       />
       <canvas
         ref={ovRef}
-        className={reviewMode ? 'overlay review' : 'overlay'}
+        className={`overlay${reviewMode ? ' review' : ''}${armed ? ' armed' : ''}`}
         style={{ width: '100%', height: '100%' }}
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}

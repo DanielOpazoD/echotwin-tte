@@ -2114,7 +2114,8 @@ details.adv > summary:hover::before {
   color: #ffc857;
   margin-top: 4px;
 }
-canvas.overlay.review {
+canvas.overlay.review,
+canvas.overlay.armed {
   cursor: crosshair;
 }
 .review-children {
@@ -2262,4 +2263,69 @@ canvas.overlay.review {
   border-radius: 50%;
   background: var(--accent);
   animation: pulse 1.2s ease-in-out infinite;
+}
+
+/* ---- sheets over the simulator (decision 185): the keyboard shortcuts ---- */
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(4, 6, 9, 0.6);
+  backdrop-filter: blur(3px);
+  animation: app-in 0.15s ease-out;
+}
+.sheet {
+  width: min(560px, 100%);
+  max-height: 100%;
+  overflow: auto;
+  padding: 16px 18px 18px;
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-2);
+}
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.sheet-head h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+}
+.sheet table {
+  width: 100%;
+  margin-top: 10px;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.sheet td {
+  padding: 6px 4px;
+  border-top: 1px solid var(--border);
+  vertical-align: top;
+}
+.sheet td:first-child {
+  width: 46%;
+  white-space: nowrap;
+}
+.sheet .kbd {
+  font-size: 11px;
+  line-height: 20px;
+  min-width: 22px;
+  padding: 0 6px;
+  color: var(--text);
+  background: var(--panel-3);
+  border-color: var(--border-strong);
+}
+.sheet-sep {
+  display: inline-block;
+  margin: 0 5px;
+  color: var(--faint);
 }

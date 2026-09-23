@@ -24,6 +24,7 @@ export const SHORTCUTS: { keys: string; action: string }[] = [
   },
   { keys: '. / ,', action: 'Cine: cuadro siguiente/anterior (en freeze)' },
   { keys: 'Esc', action: 'Cancelar la medición en curso' },
+  { keys: '?', action: 'Mostrar u ocultar esta lista de atajos' },
 ];
 
 /** Roles whose widgets move with the arrow keys and act with Space (WAI-ARIA composite widgets and the slider). */
@@ -169,8 +170,12 @@ export function useShortcuts(): void {
         case ',':
           if (s.frozen) s.setCineOffset(s.cineOffset - 1);
           break;
+        case '?':
+          s.setUi({ shortcutsOpen: !s.ui.shortcutsOpen });
+          break;
         case 'Escape':
-          if (s.activeMeasurementId) s.setActiveMeasurement(null);
+          if (s.ui.shortcutsOpen) s.setUi({ shortcutsOpen: false });
+          else if (s.activeMeasurementId) s.setActiveMeasurement(null);
           else if (s.activeTool !== 'none') s.setActiveTool('none');
           else if (s.reviewLinkParentId) s.armReviewLink(null);
           else if (s.reviewSelectedId) s.selectReviewMarker(null);

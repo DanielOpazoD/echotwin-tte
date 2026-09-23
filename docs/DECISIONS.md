@@ -1276,3 +1276,10 @@ La prueba falla:
 - **Ventanas estrechas** (≤ 1040 px): el carril se pliega a su tira, la consola baja a 236 px y las barras sueltan los extras (subtítulo de la marca, teclas, estado técnico). A 800 px la barra superior se recortaba y la leyenda del torso pisaba el modelo.
 
 Probado en el navegador a 1440 × 900 y a 1000 × 700: simulador en vivo y congelado, guía abierta y tutorial. Las pruebas de `src/ui` y `src/app` pasan sin tocarlas.
+
+185. **2026-09-23 — Interfaz limpia, tercera tanda: los atajos a una tecla y el cursor de medir**: dos detalles de la pantalla del simulador que un ecografista echa de menos enseguida.
+
+- **Hoja de atajos**: «?» abre sobre el simulador la misma tabla de atajos que vive en Referencias, con cada tecla como `kbd`; Escape, el fondo o su botón la cierran, y el menú ⋯ la ofrece como acción. Con el foco en un campo, «?» sigue siendo texto. El estado (`ui.shortcutsOpen`) no se persiste.
+- **Cursor**: con una herramienta de medición armada, el puntero sobre la imagen es una cruz, como en el modo revisión; antes nada indicaba que el siguiente clic mediría.
+
+`ShortcutsDialog.test.tsx` cubre la apertura con la tecla fuera y dentro de un campo, el cierre por Escape y por botón, el contenido y la acción del menú.
