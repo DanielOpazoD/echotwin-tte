@@ -1051,3 +1051,39 @@ Con la consola por defecto la cadencia coincide con la de antes en los tres nive
 **Limitación declarada**
 
 La persistencia sigue decayendo por intervalos de la cadencia, así que su constante de tiempo cambia con el nivel. Hacerla del equipo cambiaría la imagen de la app, y queda en `LIMITATIONS.md`.
+
+
+179. **2026-09-23 — El atlas sólo toma la imagen de una GPU que sigue lenta, y se la devuelve cuando vuelve a ser rápida**: el pipeline de `main` de la decisión 168 falló dos veces en la E2E «GPU frames keep arriving after visiting another screen»: 19 de 41 y 37 de 42 cuadros llegaron sin bitmap de GPU.
+
+**No era una regresión**
+
+En una comparación aislada, la misma prueba falló 1 de 6 veces sobre el `main` anterior, que había pasado en CI, y pasó 6 de 6 sobre el nuevo. Las estadísticas de cada cuadro mostraron dos defectos del atlas.
+
+**Entrada por ráfagas**
+
+La GPU cuesta 9–18 ms por cuadro. Dos o tres cuadros lentos por contención (al volver de otra pantalla, con la máquina cargada) subían la media móvil por encima de 1,25 veces el presupuesto, y el atlas pasaba a la caché. Esos cuadros salían por la consola de CPU aunque la GPU no fuera lenta.
+
+Ahora entra en la caché sólo cuando la fuente ha pasado el umbral en cuatro cuadros seguidos, cada uno con su propio coste (`ENTER_AFTER_FRAMES`). Un trazador de CPU (40–300 ms) lo pasa en todos y entra cuatro cuadros más tarde.
+
+**Caché sin salida**
+
+Con la sonda quieta y el cine completo, la caché no renderizaba nada, así que el coste medido quedaba congelado. Con carga 30, la GPU midió 32–39 ms, entró en la caché y no volvió mientras la sonda estuviera quieta: 0 bitmaps.
+
+Ahora, cada 16 cuadros servidos desde la caché, uno se renderiza con la fuente y se mide (`REMEASURE_EVERY`). Esa medida sustituye a la media vieja. Con la sonda quieta, el cuadro que mide es el de su ranura y se vuelve a guardar, así que todo cuadro del modo caché conserva la fase de su ranura. La primera versión lo renderizaba en la fase exacta, y `respiration.test.ts`, que compara la VCI del cuadro con la de su fase, lo detectó.
+
+**La E2E**
+
+La E2E pedía que todos los cuadros fueran bitmaps, algo que el diseño no garantiza con la máquina cargada: con la GPU por encima del presupuesto, la caché es la respuesta prevista. Ahora exige lo que sí garantiza:
+
+- llegan cuadros;
+- ningún cuadro formado directamente llega sin bitmap.
+
+**Verificación y guardas**
+
+- Con los dos arreglos, la suite de `gpu-live` pasó 4 de 4 veces con carga 16–20.
+- `atlas.test.ts` recibe tres pruebas con una fuente de coste controlado:
+  - una ráfaga de tres cuadros de 40 ms con un presupuesto de 10 ms no la saca de la pantalla;
+  - una fuente que sigue a 20 ms entra en la caché tras cuatro cuadros;
+  - una fuente que vuelve a 2 ms con el cine completo recupera la pantalla en menos de 19 cuadros.
+
+  Con la media sola fallan las dos primeras, y sin la nueva medida falla la tercera. Las pruebas de la caché con presupuesto cero cuentan los cuatro cuadros directos de la entrada.

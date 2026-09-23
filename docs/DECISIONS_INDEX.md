@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 178 (última: 178).
+Decisiones: 179 (última: 179).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -186,3 +186,4 @@ Decisiones: 178 (última: 178).
 | [176](DECISIONS.md#L948) | 2026-09-23 | El teclado llega primero al control con foco, y el dial de rotación se maneja con él | vigente |
 | [177](DECISIONS.md#L980) | 2026-09-23 | La documentación de estructura se genera desde el código y una prueba la vigila | vigente |
 | [178](DECISIONS.md#L1028) | 2026-09-23 | La frecuencia de cuadro es la del equipo, y el nivel de calidad sólo decide cuántos cuadros se calculan | vigente |
+| [179](DECISIONS.md#L1056) | 2026-09-23 | El atlas sólo toma la imagen de una GPU que sigue lenta, y se la devuelve cuando vuelve a ser rápida | vigente |

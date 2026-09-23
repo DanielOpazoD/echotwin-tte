@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   ATLAS_PHASES,
   AtlasRenderer,
+  ENTER_AFTER_FRAMES,
+  REMEASURE_EVERY,
   decodeTransmission,
   encodeTransmission,
 } from './atlasRenderer';
@@ -122,9 +124,10 @@ describe('atlas render cache: the image is always the image of the current pose'
       const out = allocPolarFrame(spec);
       const frames = fillCine(atlas, beam, out);
       expect(atlas.stats()['cineFill']).toBe(FULL);
-      // the phase advances half a slot per frame: each slot is rendered once (plus the first, unmeasured frame)
-      expect(frames).toBeLessThanOrEqual(2 * ATLAS_PHASES + 1);
-      expect(src.calls).toBeLessThanOrEqual(ATLAS_PHASES + 1);
+      // the phase advances half a slot per frame: each slot is rendered once, plus the direct frames before the
+      // source has been over the budget ENTER_AFTER_FRAMES times (decision 179)
+      expect(frames).toBeLessThanOrEqual(2 * ATLAS_PHASES + ENTER_AFTER_FRAMES);
+      expect(src.calls).toBeLessThanOrEqual(ATLAS_PHASES + ENTER_AFTER_FRAMES);
       const callsWhenFull = src.calls;
       atlas.render(scene(0.27), beam, spec, 0.27, out, {
         stationary: true,
@@ -200,8 +203,92 @@ describe('atlas render cache: the image is always the image of the current pose'
   );
 });
 
+/**
+ * A source whose frames cost `costs[i]` ms (busy wait) and that forms the display itself, as the WebGL2 renderer does.
+ */
+class TimedDisplaySource implements RendererBackend {
+  readonly id = 'webgl2-procedural' as const;
+  private i = 0;
+  /** When set, every frame costs this much instead of following `costs`. */
+  costMs: number | null = null;
+  constructor(private costs: number[]) {}
+  private spend(): void {
+    const ms = this.costMs ?? this.costs[Math.min(this.i++, this.costs.length - 1)]!;
+    const t = performance.now();
+    while (performance.now() - t < ms);
+  }
+  render(): void {
+    this.spend();
+  }
+  renderDisplay(): boolean {
+    this.spend();
+    return true;
+  }
+  stats(): Record<string, number | string> {
+    return {};
+  }
+  dispose(): void {}
+}
+
+describe('atlas mode under contention (decision 179)', () => {
+  const beam = beamOf(plax);
+  const out = allocPolarFrame(spec);
+  const display = new Uint8ClampedArray(spec.lines * spec.samples);
+  const con = { settings: DEFAULT_ACQUISITION, state: {} } as never;
+  const run = (costs: number[]) => {
+    const atlas = new AtlasRenderer(new TimedDisplaySource(costs), 1);
+    return costs.map(() =>
+      atlas.renderDisplay(
+        scene(0.3),
+        beam,
+        spec,
+        0.3,
+        out,
+        { stationary: true, budgetMs: 10 },
+        con,
+        display,
+      ),
+    );
+  };
+
+  it('keeps a fast source direct through a burst of slow frames', () => {
+    // 2 ms frames with three of 40 ms: the moving average passes 1.25 × the 10 ms budget, the source is not slow
+    const onDisplay = run([2, 2, 2, 2, 40, 40, 40, 2, 2, 2, 2, 2, 2, 2]);
+    expect(onDisplay.every(Boolean)).toBe(true);
+  });
+
+  it('gives the display back to a source that is fast again while the probe rests', () => {
+    const src = new TimedDisplaySource([]);
+    const atlas = new AtlasRenderer(src, 1);
+    // one frame as the simulator forms it: the display from the source, or the cache (with the CPU console)
+    const frame = (k: number) => {
+      const ph = (k % (2 * ATLAS_PHASES)) / (2 * ATLAS_PHASES);
+      const hints = { stationary: true, budgetMs: 10, sceneAtPhase: scene };
+      if (atlas.renderDisplay(scene(ph), beam, spec, ph, out, hints, con, display)) return true;
+      atlas.render(scene(ph), beam, spec, ph, out, hints);
+      return false;
+    };
+    src.costMs = 20;
+    let k = 0;
+    while (atlas.stats()['cineFill'] !== `${ATLAS_PHASES}/${ATLAS_PHASES}` && k < 200) frame(k++);
+    expect(frame(k++)).toBe(false);
+    src.costMs = 2;
+    const after: boolean[] = [];
+    for (let i = 0; i < REMEASURE_EVERY + 3; i++) after.push(frame(k++));
+    expect(after.at(-1)).toBe(true);
+  });
+
+  it('hands a source that stays over the budget to the cache', () => {
+    const onDisplay = run(Array<number>(ENTER_AFTER_FRAMES + 3).fill(20));
+    expect(onDisplay.slice(0, ENTER_AFTER_FRAMES).every(Boolean)).toBe(true);
+    expect(onDisplay.at(-1)).toBe(false);
+  });
+});
+
 describe('atlas acquisition identity', () => {
   const phase = 0.25;
+  // frames until a slow source serves from the cache: ENTER_AFTER_FRAMES direct ones, then the slot is rendered and kept
+  const SETTLE = ENTER_AFTER_FRAMES + 2;
   const hints = { stationary: true, budgetMs: 0, sceneAtPhase: scene };
   const changes: [string, Partial<Scene['physics']>][] = [
     ['frequency', { frequencyMHz: 4 }],
@@ -217,7 +304,7 @@ describe('atlas acquisition identity', () => {
     const atlas = new AtlasRenderer(src, 1);
     const beam = beamOf(plax);
     const out = allocPolarFrame(spec);
-    for (let i = 0; i < 3; i++) atlas.render(scene(phase), beam, spec, phase, out, hints);
+    for (let i = 0; i < SETTLE; i++) atlas.render(scene(phase), beam, spec, phase, out, hints);
     expect(atlas.stats()['served']).toBe('cache');
     const before = src.calls;
     const changed = (ph: number): Scene => {
@@ -264,7 +351,7 @@ describe('atlas acquisition identity', () => {
     const atlas = new AtlasRenderer(src, 1);
     const beam = beamOf(plax);
     const out = allocPolarFrame(spec);
-    for (let i = 0; i < 3; i++) atlas.render(scene(phase), beam, spec, phase, out, hints);
+    for (let i = 0; i < SETTLE; i++) atlas.render(scene(phase), beam, spec, phase, out, hints);
     expect(atlas.stats()['served']).toBe('cache');
     const before = src.calls;
     const changedBeam = { ...beam, contact: 0.2 };
@@ -285,7 +372,7 @@ describe('atlas acquisition identity', () => {
     const out = allocPolarFrame(spec);
     const sc = scene(phase);
     const sameScene = { ...hints, sceneAtPhase: () => sc };
-    for (let i = 0; i < 3; i++) atlas.render(sc, beam, spec, phase, out, sameScene);
+    for (let i = 0; i < SETTLE; i++) atlas.render(sc, beam, spec, phase, out, sameScene);
     expect(atlas.stats()['served']).toBe('cache');
     const before = src.calls;
     sc.physics.frequencyMHz = 4;
