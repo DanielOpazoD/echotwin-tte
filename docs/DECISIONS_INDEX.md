@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 154 (última: 154).
+Decisiones: 155 (última: 155).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -162,3 +162,4 @@ Decisiones: 154 (última: 154).
 | [152](DECISIONS.md#L477) | 2026-09-22 | Cada muestra de miocardio compacto del VI lleva el segmento del tejido que atraviesa el haz; el 16 cubre el ápex, el 17 empieza donde acaba la cavidad y la motilidad se puntúa aparte de la amplitud | vigente |
 | [153](DECISIONS.md#L481) | 2026-09-22 | La imagen ecográfica tiene un botón que colorea los segmentos del VI y nombra el que está bajo el ratón, el corazón 3D también los nombra, y el segmento señalado se resalta en las cuatro vistas | vigente |
 | [154](DECISIONS.md#L485) | 2026-09-23 | La app abre en el nivel calibrado, el examen no nombra la vista, las etiquetas de pared siguen a los segmentos, la app sobrevive sin WebGL y dos guardas vuelven a funcionar | vigente |
+| [155](DECISIONS.md#L489) | 2026-09-23 | La respuesta lateral tiene lóbulos laterales a −35 dB, y no son lo que ennegrece las cavidades | vigente |

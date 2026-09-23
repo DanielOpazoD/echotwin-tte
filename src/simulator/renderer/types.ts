@@ -95,6 +95,8 @@ export interface ScenePhysics {
   seed: number;
   /** Case "beam-width" artifact 0..1: widens the lateral beam away from the focus (renderer PSF). */
   beamWidth?: number;
+  /** Case "side-lobe" artifact 0..1: raises the side lobes of the lateral response (renderer PSF, decision 155). */
+  sideLobe?: number;
 }
 
 export interface Scene {

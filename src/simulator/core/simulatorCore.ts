@@ -466,6 +466,7 @@ export class SimulatorCore {
       windowAttenuation: this.caseDef.acousticWindow.chestWallAttenuation,
       seed: this.caseDef.seed,
       beamWidth: this.artifacts.beamWidth,
+      sideLobe: this.artifacts.sideLobe,
     };
   }
 
@@ -592,8 +593,8 @@ export class SimulatorCore {
     const frame = this.frame!;
     const display = this.display!;
     if (
+      // the side lobes are in the PSF both renderers share (decision 155); the mirror artifact stays on the CPU console
       this.artifacts.mirror <= 0 &&
-      this.artifacts.sideLobe <= 0 &&
       this.backend.renderDisplay?.(
         scene,
         beam,

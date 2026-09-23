@@ -10,7 +10,12 @@ import {
   axialFwhmMm,
   LATERAL_TAPS,
   LINE_LATTICE_PATH,
+  MAIN_LOBE_MAX_RADIUS,
   MAX_LATERAL_RADIUS,
+  SIDE_LOBE_ARTIFACT_DB,
+  SIDE_LOBE_DB,
+  sideLobeLevelDb,
+  type PsfKernels,
 } from './psf';
 import { SPECULAR_WINDOW_MIN } from './acoustics';
 import { PHASOR_NORM, SCATTER_FREQ, SCATTER_FREQ_RATIO } from './acoustics';
@@ -313,5 +318,120 @@ describe('point spread function and envelope', () => {
         expect(Math.abs(interfaceDb)).toBeLessThan(0.3);
       }
     });
+  });
+});
+
+/** The lateral taps of one sample's kernel, −R..R. */
+const tapsAt = (k: PsfKernels, si: number): number[] => {
+  const R = k.lateralRadius[si]!;
+  const c = si * LATERAL_TAPS + MAX_LATERAL_RADIUS;
+  return Array.from({ length: 2 * R + 1 }, (_, i) => k.lateral[c - R + i]!);
+};
+const db = (x: number) => 20 * Math.log10(Math.max(1e-12, Math.abs(x)));
+
+/** Side lobes of the lateral response (decision 155). */
+describe('side lobes of the lateral response', () => {
+  const tiers = (['low', 'medium', 'high'] as const).map((t) =>
+    polarSpecFor({ ...DEFAULT_ACQUISITION }, t),
+  );
+
+  it('a point target shows its first side lobe 35 ± 3 dB under the main lobe, beyond it, with alternating lobes', () => {
+    for (const spec of tiers)
+      for (const depthCm of [4, 9, 14]) {
+        const si = Math.floor((depthCm / spec.depthCm) * spec.samples);
+        const bare = tapsAt(buildPsfKernels(spec, 2.5, true, 0, null), si);
+        const w = tapsAt(buildPsfKernels(spec, 2.5, true), si);
+        const R = (w.length - 1) / 2;
+        const mainR = (bare.length - 1) / 2;
+        expect(R, `${spec.lines} lines at ${depthCm} cm`).toBeGreaterThan(mainR);
+        // the envelope of a point target across the lines is |w|: the strongest tap beyond the main lobe is the first lobe
+        const lobes = w.slice(R + mainR + 1);
+        const peak = Math.max(...lobes.map(Math.abs));
+        expect(db(peak) - db(w[R]!), `${spec.lines} lines at ${depthCm} cm`).toBeGreaterThan(
+          SIDE_LOBE_DB - 3,
+        );
+        expect(db(peak) - db(w[R]!), `${spec.lines} lines at ${depthCm} cm`).toBeLessThan(
+          SIDE_LOBE_DB + 3,
+        );
+        // lobes of both signs: a laterally uniform coherent echo sums them nearly to nothing
+        expect(lobes.some((x) => x > 0) && lobes.some((x) => x < 0)).toBe(true);
+        // the main lobe keeps its shape and its level (the lobes hold a fraction of a per cent of the energy)
+        const scale = w[R]! / bare[mainR]!;
+        expect(scale).toBeGreaterThan(0.995);
+        for (let j = -mainR; j <= mainR; j++)
+          expect(w[R + j]! / bare[mainR + j]!).toBeCloseTo(scale, 5);
+        expect(w.reduce((a, x) => a + x * x, 0)).toBeCloseTo(1, 5);
+        expect(R).toBeLessThanOrEqual(MAX_LATERAL_RADIUS);
+        expect(mainR).toBeLessThanOrEqual(MAIN_LOBE_MAX_RADIUS);
+      }
+  });
+
+  it('speckle beside a bright wall leaks into the dark side as a haze, a uniform coherent echo does not spread', () => {
+    const spec = tiers[2]!;
+    const { lines, samples } = spec;
+    const n = lines * samples;
+    const run = (
+      k: PsfKernels,
+      fill: (li: number, si: number, rng: () => number) => [number, number],
+    ) => {
+      const re = new Float32Array(n),
+        im = new Float32Array(n);
+      const rng = mulberry32(5);
+      for (let li = 0; li < lines; li++)
+        for (let si = 0; si < samples; si++)
+          [re[li * samples + si], im[li * samples + si]] = fill(li, si, rng);
+      const amp = new Float32Array(n);
+      formEnvelope(re, im, lines, samples, k, amp, new Float32Array(n), new Float32Array(n));
+      return amp;
+    };
+    const withLobes = buildPsfKernels(spec, 2.5, true);
+    const without = buildPsfKernels(spec, 2.5, true, 0, null);
+    // incoherent: a wall of unit backscatter on the left half, blood 60 dB weaker on the right
+    const half = lines >> 1;
+    const wall = (li: number, _si: number, rng: () => number): [number, number] => {
+      const [a, b] = gaussPair(rng);
+      const g = (li < half ? 1 : 0.001) * Math.SQRT1_2;
+      return [a * g, b * g];
+    };
+    const si = Math.floor((9 / spec.depthCm) * samples);
+    const meanBeyond = (amp: Float32Array) => {
+      let s = 0;
+      for (let li = half + 8; li < half + 16; li++)
+        for (let q = si - 10; q < si + 10; q++) s += amp[li * samples + q]!;
+      return s / (8 * 20);
+    };
+    const hazeDb = db(meanBeyond(run(withLobes, wall)));
+    const bareDb = db(meanBeyond(run(without, wall)));
+    // 4–8° into the cavity: the blood's own −60 dB without lobes, a haze some 35–50 dB under the wall with them
+    expect(bareDb).toBeLessThan(-55);
+    expect(hazeDb).toBeGreaterThan(-50);
+    expect(hazeDb).toBeLessThan(-30);
+    // coherent: the same echo on every line (a flat interface facing the probe) keeps its level within 0.5 dB
+    const flat = (): [number, number] => [1, 0];
+    const centre = half * samples + si;
+    expect(
+      Math.abs(db(run(withLobes, flat)[centre]!) - db(run(without, flat)[centre]!)),
+    ).toBeLessThan(0.5);
+  });
+
+  it('the side-lobe artifact raises the lobes by up to 20 dB (the console patch it replaces drew −15 dB)', () => {
+    expect(sideLobeLevelDb(0)).toBe(SIDE_LOBE_DB);
+    expect(sideLobeLevelDb(1)).toBe(SIDE_LOBE_DB + SIDE_LOBE_ARTIFACT_DB);
+    expect(sideLobeLevelDb(3)).toBe(sideLobeLevelDb(1));
+    const spec = tiers[1]!;
+    const si = Math.floor((9 / spec.depthCm) * spec.samples);
+    const mainR = (tapsAt(buildPsfKernels(spec, 2.5, true, 0, null), si).length - 1) / 2;
+    const lobe = (level: number) => {
+      const w = tapsAt(buildPsfKernels(spec, 2.5, true, 0, level), si);
+      const R = (w.length - 1) / 2;
+      return db(Math.max(...w.slice(R + mainR + 1).map(Math.abs))) - db(w[R]!);
+    };
+    expect(lobe(sideLobeLevelDb(1)) - lobe(sideLobeLevelDb(0))).toBeCloseTo(
+      SIDE_LOBE_ARTIFACT_DB,
+      0,
+    );
+    expect(buildPsfKernels(spec, 2.5, true, 0, sideLobeLevelDb(1)).key).not.toBe(
+      buildPsfKernels(spec, 2.5, true).key,
+    );
   });
 });
