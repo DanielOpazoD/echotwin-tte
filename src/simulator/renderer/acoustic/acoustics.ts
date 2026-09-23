@@ -136,6 +136,17 @@ export const LOOK_SHIFT: readonly (readonly [number, number, number])[] = [
   [83.9, 41.3, 67.9],
 ];
 /**
+ * Flowing blood (decision 163): its scatterers travel with the flow, 1–20 mm between two frames at 50 Hz where the
+ * speckle cell is 0.4 mm deep, so its speckle does not persist from one frame (or M-mode pulse) to the next while the
+ * tissue's does, and the scanner's persistence averages it. Each frame shifts the blood's scatterer lattice by
+ * BLOOD_DECORRELATION_CELLS lattice units: value noise is uncorrelated beyond two cells.
+ */
+export const BLOOD_DECORRELATION_CELLS = 2.7;
+/** Lattice shift of the blood's scatterers in frame `frame` (the lattice repeats every 128 units, `core/noise.ts`). */
+export function bloodShiftCells(frame: number): number {
+  return (frame * BLOOD_DECORRELATION_CELLS) % 128;
+}
+/**
  * Bright grains (decision 145): a sparse coherent component of the parenchyma — bundles and sheets that reflect as a
  * unit — on top of the diffuse scatterers. A fully developed speckle is a Rayleigh envelope whose log-residuals skew
  * negative (dark nulls); the clinical myocardium skews positive (+0.1…+0.3 in CAMUS Good) with bright grains over a

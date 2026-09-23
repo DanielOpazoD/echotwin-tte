@@ -7,6 +7,7 @@ import type { BeamFrame } from '@/simulator/probe/pose';
 import { contactQuality } from '@/simulator/probe/pose';
 import type { PolarFrameSpec, Scene } from '../types';
 import { hash3 } from '@/core/random';
+import { bloodShiftCells } from '../acoustic/acoustics';
 
 /**
  * Single source of truth for the scene parameters shared by the CPU classifier and the GLSL port:
@@ -55,6 +56,7 @@ const SCALARS = [
   'ELEV_OFFSET',
   'ELEV_N',
   'FOCUS',
+  'BLOOD_SHIFT',
   // LV geometry & pose
   'BOUND_CX',
   'BOUND_CY',
@@ -361,6 +363,7 @@ export function packScene(
   set('ELEV_OFFSET', elevationOffsetCm);
   set('ELEV_N', spec.elevationSamples);
   set('FOCUS', spec.focusCm);
+  set('BLOOD_SHIFT', bloodShiftCells(physics.bloodFrame ?? 0));
   const lv = heart.lv;
   set('BOUND_CX', heart.boundCenter.x);
   set('BOUND_CY', heart.boundCenter.y);
