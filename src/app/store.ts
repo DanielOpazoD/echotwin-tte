@@ -150,6 +150,13 @@ export interface SimStore {
   lvLengthCm: number | null;
   /** Best view-quality score reached per view id during this case (drives acquisition scoring). */
   viewProgress: Record<string, number>;
+  /**
+   * Best score of each view reached by moving the probe (decision 174): a view whose preset the learner used in this case
+   * keeps its score in `viewProgress` but adds nothing here until the case is loaded again. The curriculum reads this.
+   */
+  handViewProgress: Record<string, number>;
+  /** Views whose preset was used since the case was loaded. */
+  presetViews: string[];
   /** Preset view in progress: the probe is moved continuously to the canonical pose (never teleported). */
   presetAnim: {
     from: ProbeControl;
@@ -390,6 +397,8 @@ export const useSimStore = create<SimStore>((set, get) => ({
   phaseMarks: null,
   lvLengthCm: null,
   viewProgress: {},
+  handViewProgress: {},
+  presetViews: [],
   presetAnim: null,
   examFinished: false,
   error: null,
@@ -429,6 +438,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
         mode: m,
         examFinished: false,
         viewProgress: m === 'exam' ? {} : s.viewProgress,
+        handViewProgress: m === 'exam' ? {} : s.handViewProgress,
         measurements: m === 'exam' ? [] : s.measurements,
         ui: {
           ...s.ui,
@@ -591,6 +601,9 @@ export const useSimStore = create<SimStore>((set, get) => ({
     }),
   startPresetView: (viewId) => {
     if (get().mode === 'exam') return;
+    // from now on this view's score is the preset's, not the learner's (decision 174)
+    if (!get().presetViews.includes(viewId))
+      set((s) => ({ presetViews: [...s.presetViews, viewId] }));
     const begin = (to: ProbeControl) =>
       set((s) => {
         const from = { ...s.probe };
@@ -636,12 +649,17 @@ export const useSimStore = create<SimStore>((set, get) => ({
       return t >= 1 ? { probe: a.to, presetAnim: null } : { probe };
     }),
   recordViewScore: (viewId, score) =>
-    set((s) =>
+    set((s) => {
       // the same state when nothing changes: a new one, even empty, notifies every subscriber (decision 173)
-      (s.viewProgress[viewId] ?? 0) >= score
-        ? s
-        : { viewProgress: { ...s.viewProgress, [viewId]: score } },
-    ),
+      const overall = (s.viewProgress[viewId] ?? 0) < score;
+      // a view reached with its preset does not count as acquired by hand (decision 174)
+      const byHand = !s.presetViews.includes(viewId) && (s.handViewProgress[viewId] ?? 0) < score;
+      if (!overall && !byHand) return s;
+      return {
+        viewProgress: overall ? { ...s.viewProgress, [viewId]: score } : s.viewProgress,
+        handViewProgress: byHand ? { ...s.handViewProgress, [viewId]: score } : s.handViewProgress,
+      };
+    }),
   finishExam: () =>
     set((s) => {
       let progress = s.progress;
@@ -668,7 +686,14 @@ export const useSimStore = create<SimStore>((set, get) => ({
       }
       return { examFinished: true, frozen: true, progress, ui: { ...s.ui, screen: 'report' } };
     }),
-  resetProgress: () => set({ viewProgress: {}, examFinished: false, measurements: [] }),
+  resetProgress: () =>
+    set({
+      viewProgress: {},
+      handViewProgress: {},
+      presetViews: [],
+      examFinished: false,
+      measurements: [],
+    }),
   setError: (e) => set({ error: e }),
   setWorkerMode: (m) => set({ workerMode: m }),
   setFpsUi: (f) => set({ fpsUi: f }),
@@ -684,6 +709,8 @@ export const useSimStore = create<SimStore>((set, get) => ({
         cineOffset: 0,
         probe: { ...START_PROBE },
         viewProgress: {},
+        handViewProgress: {},
+        presetViews: [],
         examFinished: false,
         presetAnim: null,
         impressionSelection: [],

@@ -200,3 +200,25 @@ describe('actions that change nothing do not notify', () => {
     unsub();
   });
 });
+
+/**
+ * The curriculum counts views acquired by hand (decision 174): a view whose preset the learner used keeps its score for
+ * the exam summary but adds nothing to the hand-acquired progress until the case is loaded again.
+ */
+describe('views reached with their preset are not acquired by hand', () => {
+  it('until the case is reloaded; other views still count', async () => {
+    const useSimStore = await freshStore();
+    const s = useSimStore.getState();
+    s.startPresetView('a4c');
+    s.recordViewScore('a4c', 85);
+    s.recordViewScore('a2c', 64);
+    let st = useSimStore.getState();
+    expect(st.viewProgress).toEqual({ a4c: 85, a2c: 64 });
+    expect(st.handViewProgress).toEqual({ a2c: 64 });
+    st.loadCase(st.caseId);
+    st = useSimStore.getState();
+    expect(st.presetViews).toEqual([]);
+    st.recordViewScore('a4c', 70);
+    expect(useSimStore.getState().handViewProgress).toEqual({ a4c: 70 });
+  });
+});

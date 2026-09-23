@@ -860,3 +860,31 @@ El ECG viaja ahora como `Float64Array` de pares intercalados (tiempo, amplitud).
 
 - `store.test.ts`: cuatro acciones sin cambios no avisan, y una puntuación que sube sí. Con el store anterior se cuentan 6 avisos donde debe haber 1.
 - `frameTransfer.test.ts` (lento): lo que se clona de un cuadro real queda por debajo de 40 KiB, y escribir en los mapas transferidos deja intacto el cuadro del núcleo.
+
+
+174. **2026-09-23 — El currículo pide el corazón normal completo y adquirido a mano**: séptimo punto de la tanda 4 (docencia). El panel encontró que una puntuación alcanzada con el botón del preajuste completaba la tarea de su vista: pulsarlo enseñaba a pulsarlo. Además, el currículo no pedía A3C, VD, subcostal, VCI, TAPSE, e′ ni los segmentos.
+
+**Adquirido a mano**
+
+El store recuerda las vistas cuyo preajuste se usó desde que se cargó el caso (`presetViews`), y lleva aparte la mejor puntuación de cada vista alcanzada sin él (`handViewProgress`). Las tareas de vistas leen esta última. La vista conserva su puntuación en `viewProgress`, que sigue alimentando el resumen del examen.
+
+Una pequeña corrección tras el preajuste no basta: la vista vuelve a contar a mano al recargar el caso. Otra vista a la que se llega girando desde el preajuste, sin el suyo, sí cuenta. El objetivo de la lección paraesternal lo dice al alumno.
+
+**Tareas nuevas**
+
+- Ventana apical:
+  - A3C ≥ 60.
+  - Los tres apicales ≥ 60, que juntos cubren los 17 segmentos.
+  - Vista enfocada en el VD ≥ 55.
+- Ventana subcostal (lección nueva):
+  - Cuatro cámaras ≥ 60 (alcanzable desde la decisión 167).
+  - VCI en su eje largo ≥ 60.
+- Volúmenes y función:
+  - e′ septal con técnica ≥ 0,75.
+  - TAPSE con técnica ≥ 0,75.
+
+**Guardas**
+
+- `curriculum.test.ts`: las tareas nuevas se cumplen con puntuaciones a mano y no con las del preajuste, y los tres apicales sólo juntos.
+- `store.test.ts`: la vista del preajuste no suma a mano hasta recargar, y las demás sí.
+- `e2e/learning.spec.ts`: el preajuste de PLAX ya no completa su tarea; la misma pose alcanzada por la vía manual, tras recargar el caso, sí la completa.

@@ -10,6 +10,8 @@ export interface LearnerSnapshot {
   caseId: string;
   mode: 'sandbox' | 'guided' | 'exam';
   viewProgress: Record<string, number>;
+  /** Best score of each view reached by moving the probe, without its preset (decision 174). */
+  handViewProgress: Record<string, number>;
   bestView: { id: string; score: number } | null;
   modality: ImagingModality;
   colorScaleMps: number;
@@ -42,8 +44,12 @@ export interface Module {
   lessons: Lesson[];
 }
 
+/**
+ * A view reached by hand (decision 174): a score reached with the view's preset does not complete a task, or pressing the
+ * button would teach nothing; after using it the learner reloads the case to try again.
+ */
 const viewAtLeast = (viewId: string, score: number) => (s: LearnerSnapshot) =>
-  (s.viewProgress[viewId] ?? 0) >= score;
+  (s.handViewProgress[viewId] ?? 0) >= score;
 const measuredOk =
   (measurementId: string, minTechnique = 0.75) =>
   (s: LearnerSnapshot) =>
@@ -61,7 +67,7 @@ export const CURRICULUM: Module[] = [
       {
         id: 'parasternal',
         title: 'Ventana paraesternal',
-        goal: 'Obtener PLAX y los tres niveles de PSAX moviendo la sonda, no con botones.',
+        goal: 'Obtener PLAX y los tres niveles de PSAX moviendo la sonda, no con botones: una vista cuyo preajuste usaste no cuenta hasta que recargues el caso.',
         tasks: [
           {
             id: 'plax-70',
@@ -118,6 +124,48 @@ export const CURRICULUM: Module[] = [
             why: 'Abrir el TSVI desde el ápex es la única forma de alinear el Doppler con el flujo aórtico.',
             caseId: 'normal-excellent-window',
             check: viewAtLeast('a5c', 60),
+          },
+          {
+            id: 'a3c-60',
+            title: 'A3C ≥ 60 rotando ~60° más desde el A2C',
+            why: 'El eje largo apical muestra el TSVI, la raíz y las paredes anteroseptal e inferolateral: completa los segmentos que el A4C y el A2C no ven.',
+            caseId: 'normal-excellent-window',
+            check: viewAtLeast('a3c', 60),
+          },
+          {
+            id: 'apical-segments',
+            title: 'Los tres apicales (A4C, A2C y A3C) ≥ 60',
+            why: 'Juntos cubren los 17 segmentos del VI; una pared que no se ve en ninguno queda sin evaluar.',
+            caseId: 'normal-excellent-window',
+            check: (s) => ['a4c', 'a2c', 'a3c'].every((v) => viewAtLeast(v, 60)(s)),
+          },
+          {
+            id: 'rv-focused-55',
+            title: 'Apical enfocada en VD ≥ 55',
+            why: 'Desplazar la sonda hacia lateral centra el VD: su diámetro basal y su pared libre sólo se miden bien aquí.',
+            caseId: 'normal-excellent-window',
+            check: viewAtLeast('rv-focused', 55),
+          },
+        ],
+      },
+      {
+        id: 'subcostal',
+        title: 'Ventana subcostal',
+        goal: 'Bajo el xifoides: cuatro cámaras con el septo interauricular y la vena cava inferior.',
+        tasks: [
+          {
+            id: 'subcostal-4c-60',
+            title: 'Subcostal cuatro cámaras ≥ 60',
+            why: 'Es la ventana de rescate cuando el tórax no deja ver, y la que pone el septo interauricular perpendicular al haz.',
+            caseId: 'normal-excellent-window',
+            check: viewAtLeast('subcostal-4c', 60),
+          },
+          {
+            id: 'subcostal-ivc-60',
+            title: 'Vena cava inferior en su eje largo ≥ 60',
+            why: 'Su calibre y su colapso inspiratorio estiman la presión de la aurícula derecha.',
+            caseId: 'normal-excellent-window',
+            check: viewAtLeast('subcostal-ivc', 60),
           },
         ],
       },
@@ -257,6 +305,18 @@ export const CURRICULUM: Module[] = [
             title: 'Onda E con el gate en las puntas mitrales',
             why: 'Un gate en el anillo o en la aurícula cambia la forma y la velocidad de la onda E.',
             check: measuredOk('mitral-e'),
+          },
+          {
+            id: 'e-prime-septal-ok',
+            title: 'e′ septal por Doppler tisular con técnica ≥ 0,75',
+            why: 'La relajación del VI se lee en el anillo, no en la sangre: E/e′ estima la presión de llenado.',
+            check: measuredOk('e-prime-septal'),
+          },
+          {
+            id: 'tapse-ok',
+            title: 'TAPSE en modo M con técnica ≥ 0,75',
+            why: 'El desplazamiento del anillo tricuspídeo hacia el ápex es la medida más reproducible de la función del VD.',
+            check: measuredOk('tapse'),
           },
         ],
       },
