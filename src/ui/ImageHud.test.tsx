@@ -43,6 +43,20 @@ describe('ImageHud', () => {
     expect(container.firstChild).toBeNull();
   });
 
+  it('warns on the image when the CPU tracer forms it, and only then', () => {
+    seed('sandbox');
+    const hud = useHudStore.getState().hud as unknown as Record<string, unknown>;
+    useHudStore.setState({
+      hud: { ...hud, stats: { gpu: 'WebGL context lost: CPU tracer', tier: 'medium' } } as never,
+    });
+    render(<ImageHud />);
+    expect(screen.getByRole('status').textContent).toBe('Sin GPU · trazador CPU, calidad media');
+    cleanup();
+    useHudStore.setState({ hud: { ...hud, stats: { gpu: 'ok', tier: 'high' } } as never });
+    render(<ImageHud />);
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
   it('hides the recognised view and its score in exam, keeping the acquisition data', () => {
     // the exam asks the learner to recognise the view (decision 154)
     seed('exam');

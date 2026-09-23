@@ -73,6 +73,9 @@ describe('sim.worker pacing and failure policy', () => {
     const errors = posted().filter((m) => m.type === 'error');
     expect(errors).toHaveLength(mod.MAX_TICK_FAILURES);
     expect(errors.at(-1)?.type === 'error' && errors.at(-1)?.message).toMatch(/detenida/);
+    // the learner reads the message; the stack trace stays in the console (decision 154)
+    for (const m of errors) expect(m.type === 'error' && m.message).not.toMatch(/\n\s+at /);
+    expect(errors[0]?.type === 'error' && errors[0].message).toBe('render exploded');
     const before = posted().length;
     vi.advanceTimersByTime(mod.TICK_RETRY_MS * 4);
     expect(posted().length).toBe(before);

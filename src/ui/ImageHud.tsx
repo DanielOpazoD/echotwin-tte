@@ -2,6 +2,8 @@ import { useHudStore, useSimStore } from '@/app/store';
 import { modePolicy } from '@/app/modePolicy';
 import { listCases } from '@/cases';
 
+const TIER_LABEL: Record<string, string> = { low: 'baja', medium: 'media', high: 'alta' };
+
 const RHYTHM_LABEL: Record<string, string> = {
   sinus: 'Sinusal',
   'sinus-tachycardia': 'Taquicardia sinusal',
@@ -25,6 +27,8 @@ export function ImageHud() {
   const frozen = useSimStore((s) => s.frozen);
   const hud = useHudStore((h) => h.hud);
   if (!show) return null;
+  const gpuReason = typeof hud?.stats?.['gpu'] === 'string' ? hud.stats['gpu'] : null;
+  const tier = typeof hud?.stats?.['tier'] === 'string' ? hud.stats['tier'] : null;
   const title = listCases().find((c) => c.id === caseId)?.title ?? caseId;
   return (
     <div className="img-hud">
@@ -40,6 +44,12 @@ export function ImageHud() {
         <span>
           {depthCm} cm · {frequencyMHz.toFixed(1)} MHz{harmonics ? ' THI' : ''}
         </span>
+        {gpuReason && gpuReason !== 'ok' ? (
+          // the image is formed by the CPU tracer (no WebGL2, or the context was lost): slower and, on «auto», coarser
+          <span className="hud-warn" title={gpuReason} role="status">
+            Sin GPU · trazador CPU{tier ? `, calidad ${TIER_LABEL[tier] ?? tier}` : ''}
+          </span>
+        ) : null}
       </div>
       <div className="hud-box hud-br">
         <span>

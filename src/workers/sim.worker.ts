@@ -74,11 +74,13 @@ function tick(): void {
     schedule(Math.max(1, nextDue - performance.now()));
   } catch (e) {
     tickFailures++;
-    const detail = e instanceof Error ? e.message + '\n' + (e.stack ?? '') : String(e);
+    // the learner reads the message; the stack goes to the console (decision 154)
+    const detail = e instanceof Error ? e.message : String(e);
+    console.error('sim.worker: fallo del paso de simulación', e);
     if (tickFailures >= MAX_TICK_FAILURES) {
       post({
         type: 'error',
-        message: `simulación detenida tras ${tickFailures} errores consecutivos; recarga el caso.\n${detail}`,
+        message: `Simulación detenida tras ${tickFailures} errores consecutivos; recarga el caso. (${detail})`,
       });
       return;
     }

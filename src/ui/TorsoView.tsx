@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { segmentLayerOn, useHudStore, useSegmentHover, useSimStore } from '@/app/store';
@@ -46,6 +46,9 @@ export function TorsoView() {
   const split = useSimStore((s) => s.ui.navSplit);
   const patient = useSimStore((s) => s.patient);
   const zoomRef = useRef<{ zoomBy: (f: number) => void; center: () => void } | null>(null);
+  // a browser without WebGL keeps the image and the cut map; only the 3D view gives way to a notice (decision 154).
+  // Probed once on mounting; if the renderer still failed, the ErrorBoundary around the navigator would contain it
+  const [webglError] = useState(probeWebgl);
 
   useEffect(() => {
     const el = ref.current;
@@ -54,6 +57,7 @@ export function TorsoView() {
     // probe, the fan and the lights, and the pose-dependent parts wait
     let thorax: ThoraxModel | null = null;
     let heartFrame: HeartFrame | null = null;
+    if (webglError) return;
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, stencil: true });
     renderer.localClippingEnabled = true; // the heart is cut by the imaging plane (decision 57)
     renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
@@ -809,11 +813,21 @@ export function TorsoView() {
       renderer.dispose();
       el.removeChild(renderer.domElement);
     };
-  }, [caseId, patient]);
+  }, [caseId, patient, webglError]);
 
   return (
     <div className={`torso-wrap${split ? ' split' : ''}`}>
-      <div className="torso-3d" ref={ref} aria-label="Torso 3D y sonda virtual" />
+      <div className="torso-3d" ref={ref} aria-label="Torso 3D y sonda virtual">
+        {webglError && (
+          <div className="panel-error" role="alert">
+            <b>El navegador 3D necesita WebGL, y este navegador no lo ofrece.</b>
+            <span className="small">
+              La imagen ecográfica, el mapa del corte y los controles de la sonda siguen
+              funcionando.
+            </span>
+          </div>
+        )}
+      </div>
       {split && <div className="torso-caption top">Sonda y tórax</div>}
       {split && <CutMapView />}
       <div className="torso-tools">
@@ -841,6 +855,19 @@ export function TorsoView() {
       </div>
     </div>
   );
+}
+
+/** Why this browser cannot draw the 3D navigator, or null when it offers a WebGL context (released at once). */
+function probeWebgl(): string | null {
+  try {
+    const canvas = document.createElement('canvas');
+    const gl = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
+    if (!gl) return 'este navegador no ofrece un contexto WebGL';
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
+    return null;
+  } catch (e) {
+    return e instanceof Error ? e.message : String(e);
+  }
 }
 
 /** 3D navigator layers as a checkable popover: keeps the torso overlay to camera controls only. */
