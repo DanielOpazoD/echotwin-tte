@@ -623,3 +623,36 @@ La guarda destapó catorce referencias más fuera de su plano, que quedan declar
 - Once opcionales, fuera en todos los casos o casi, que restan puntos a cualquier sonda (el detalle está en `LIMITATIONS.md`).
 
 Corregirlas cambia los preajustes de esas vistas y sus goldens, y queda como trabajo siguiente.
+
+
+165. **2026-09-23 — El campo lejano del A3C: la aurícula clara es clínica y la pared anteroseptal se apaga por una costilla, no por el miocardio**: cuarto punto de la tanda 3 («campo lejano del A3C y el A4C»). El panel pedía la AI y la raíz del A3C al menos 20 niveles bajo el entorno (medía 85–89 frente a 91) y los segmentos 8 y 14 evaluables. Medido antes de cambiar nada, las dos cosas tienen otra explicación.
+
+**La aurícula clara**
+
+La referencia clínica no respalda el criterio. En CAMUS Good 4CH telediastólico, la AI tiene una mediana de 91 (RIC 70–117) y el fondo lejano 79 (62–95): la aurícula es más clara que el entorno, no 20 niveles más oscura. El A4C del simulador da 83 a la AI. CAMUS no trae el A3C, así que su raíz y su aurícula no tienen referencia propia. No se cambia.
+
+**La pared anteroseptal apagada**
+
+En el A3C del caso normal en telediástole, el segmento 8 muestra 45 de gris y el 14 muestra 27, con la cavidad en 49. La explicación declarada hasta ahora («el haz recorre unos 6 cm dentro de la pared y la atenuación del miocardio la apaga») no es la que miden las muestras:
+
+- La ganancia de la hélice de fibras en esos segmentos (0,81) es la de los demás (0,80–0,83), así que tampoco es la anisotropía.
+- La transmisión a la pared sí es distinta: 0,002 y 0,001, frente a 0,026–0,19 en el resto.
+- A lo largo de una línea del segmento 14, la transmisión cae de 0,73 a 0,008 entre 1,9 y 2,5 cm, en el músculo intercostal, antes de llegar al corazón. Dentro de la pared sólo cae un factor 3 más.
+
+Las líneas vecinas cruzan una costilla: el 16 % de los rayos del sector la atraviesan antes de 4 cm, todos en el borde derecho. La marcha del haz (decisión 144) reparte su atenuación sobre la anchura del haz.
+
+Al girar la sonda 120° desde el A4C, el sector deja de correr a lo largo del espacio intercostal y lo cruza. El A4C y el A5C no tocan hueso; el A2C cruza la costilla con el 15 % de sus rayos, del lado de la pared anterior.
+
+**Mutación**
+
+Con las costillas convertidas en músculo, el segmento 8 sube a 83 y el 14 a 88, y los dos quedan evaluables.
+
+**Deslizar la sonda no lo evita**
+
+Deslizar la sonda dentro de su espacio (±1 cm a lo largo, hasta el margen de la cara de la sonda de través) deja entre el 11 y el 26 % de los rayos sobre la costilla. El punto apical es común a las cuatro vistas y está calibrado contra CAMUS con el A4C y el A2C, así que no se mueve.
+
+En la clínica, la caída de la pared anterior en las apicales rotadas es la indicación clásica de contraste. En CAMUS 2CH, el pico epicárdico de la pared anterior tiene un p10 de 0, frente a 88 en la inferior.
+
+**Qué queda declarado**
+
+La limitación `a3c` 8 y 14 sigue declarada en `KNOWN_NOT_ASSESSABLE`, con la causa medida.
