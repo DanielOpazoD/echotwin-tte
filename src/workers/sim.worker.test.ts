@@ -53,16 +53,22 @@ describe('sim.worker pacing and failure policy', () => {
     expect(posted().filter((m) => m.type === 'error')).toEqual([]);
   });
 
-  it('keeps at most two frames outstanding until the main thread recycles', () => {
-    load();
-    vi.advanceTimersByTime(1000);
-    expect(posted().filter((m) => m.type === 'frame')).toHaveLength(2);
-    const frame = posted().find((m) => m.type === 'frame');
-    if (frame?.type !== 'frame') throw new Error('no frame');
-    fakeSelf.onmessage!({ data: { type: 'recycle', buffer: frame.output.rgba } });
-    vi.advanceTimersByTime(200);
-    expect(posted().filter((m) => m.type === 'frame')).toHaveLength(3);
-  });
+  // Its own deadline: it renders real frames, and with coverage on the CI runner loaded by other applications it took
+  // 60.5 and 87 s against the default 60 s in the pipelines of main a7048aa (a few seconds on a quiet machine).
+  it(
+    'keeps at most two frames outstanding until the main thread recycles',
+    { timeout: 300_000 },
+    () => {
+      load();
+      vi.advanceTimersByTime(1000);
+      expect(posted().filter((m) => m.type === 'frame')).toHaveLength(2);
+      const frame = posted().find((m) => m.type === 'frame');
+      if (frame?.type !== 'frame') throw new Error('no frame');
+      fakeSelf.onmessage!({ data: { type: 'recycle', buffer: frame.output.rgba } });
+      vi.advanceTimersByTime(200);
+      expect(posted().filter((m) => m.type === 'frame')).toHaveLength(3);
+    },
+  );
 
   it('reports a failing tick, retries, and stops after MAX_TICK_FAILURES in a row', () => {
     load();
