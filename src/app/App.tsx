@@ -129,26 +129,28 @@ export function App() {
       className={`app ${railVisible ? '' : 'no-torso'} ${railVisible && ui.railMini ? 'rail-mini' : ''}`}
     >
       <TopBar />
+      {/* one key per screen: the same boundary type in the same place would otherwise carry one screen's error
+          into the next (decision 154) */}
       {ui.screen === 'references' ? (
-        <ErrorBoundary label="La pantalla de referencias">
+        <ErrorBoundary key="references" label="La pantalla de referencias">
           <Suspense fallback={screenFallback}>
             <ReferencesScreen />
           </Suspense>
         </ErrorBoundary>
       ) : ui.screen === 'report' ? (
-        <ErrorBoundary label="El informe">
+        <ErrorBoundary key="report" label="El informe">
           <Suspense fallback={screenFallback}>
             <ReportScreen />
           </Suspense>
         </ErrorBoundary>
       ) : ui.screen === 'curriculum' ? (
-        <ErrorBoundary label="El currículo">
+        <ErrorBoundary key="curriculum" label="El currículo">
           <Suspense fallback={screenFallback}>
             <CurriculumScreen />
           </Suspense>
         </ErrorBoundary>
       ) : ui.screen === 'progress' ? (
-        <ErrorBoundary label="El progreso">
+        <ErrorBoundary key="progress" label="El progreso">
           <Suspense fallback={screenFallback}>
             <ProgressScreen />
           </Suspense>

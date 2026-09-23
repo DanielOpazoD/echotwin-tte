@@ -24,9 +24,18 @@ describe('TorsoView without WebGL', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     expect(() => render(<TorsoView />)).not.toThrow();
     const alert = screen.getByRole('alert');
-    expect(alert.textContent).toContain('El navegador 3D necesita WebGL');
+    expect(alert.textContent).toContain('La vista 3D necesita WebGL 2');
     expect(alert.textContent).toContain('La imagen ecográfica');
     // the rest of the navigator (tools, cut map caption) is still there
     expect(screen.getByRole('button', { name: 'Acercar' })).toBeTruthy();
+  });
+
+  it('asks for WebGL2, the only context three.js creates, and not WebGL1', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const webgl1 = { getExtension: () => null } as unknown as RenderingContext;
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(((kind: string) =>
+      kind === 'webgl' ? webgl1 : null) as never);
+    expect(() => render(<TorsoView />)).not.toThrow();
+    expect(screen.getByRole('alert').textContent).toContain('La vista 3D necesita WebGL 2');
   });
 });

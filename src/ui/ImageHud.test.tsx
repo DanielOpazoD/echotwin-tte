@@ -49,12 +49,16 @@ describe('ImageHud', () => {
     useHudStore.setState({
       hud: { ...hud, stats: { gpu: 'WebGL context lost: CPU tracer', tier: 'medium' } } as never,
     });
-    render(<ImageHud />);
-    expect(screen.getByRole('status').textContent).toBe('Sin GPU · trazador CPU, calidad media');
+    const lost = render(<ImageHud />);
+    expect(lost.container.querySelector('.hud-warn')?.textContent).toBe(
+      'Sin GPU · trazador CPU, calidad media',
+    );
+    // not a live region: the console already owns the page's role=status (e2e/measurements)
+    expect(screen.queryByRole('status')).toBeNull();
     cleanup();
     useHudStore.setState({ hud: { ...hud, stats: { gpu: 'ok', tier: 'high' } } as never });
-    render(<ImageHud />);
-    expect(screen.queryByRole('status')).toBeNull();
+    const ok = render(<ImageHud />);
+    expect(ok.container.querySelector('.hud-warn')).toBeNull();
   });
 
   it('hides the recognised view and its score in exam, keeping the acquisition data', () => {

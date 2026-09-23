@@ -1,7 +1,7 @@
 export type ProductMode = 'sandbox' | 'guided' | 'exam';
 
 export interface ModePolicy {
-  /** Live view id + score in the top bar and view hints in the guidance panel. */
+  /** The recognised view and its score: image HUD, measurement list and technique grade (hidden in exam). */
   showViewFeedback: boolean;
   /** Preset probe poses ("PLAX", "A4C"… buttons). */
   presetsEnabled: boolean;

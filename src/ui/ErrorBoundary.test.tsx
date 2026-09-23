@@ -38,6 +38,19 @@ describe('ErrorBoundary', () => {
     expect(screen.getByText('recuperado')).toBeTruthy();
   });
 
+  it('contains a thrown value that is not an Error', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const Throws = () => {
+      throw 'sin contexto'; // eslint-disable-line @typescript-eslint/only-throw-error
+    };
+    render(
+      <ErrorBoundary label="El informe">
+        <Throws />
+      </ErrorBoundary>,
+    );
+    expect(screen.getByRole('alert').textContent).toContain('sin contexto');
+  });
+
   it('keeps only the first line of a message, and not too long', () => {
     expect(firstLine('uno\ndos')).toBe('uno');
     expect(firstLine('x'.repeat(400)).length).toBe(178);

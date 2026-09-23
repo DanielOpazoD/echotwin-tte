@@ -820,7 +820,7 @@ export function TorsoView() {
       <div className="torso-3d" ref={ref} aria-label="Torso 3D y sonda virtual">
         {webglError && (
           <div className="panel-error" role="alert">
-            <b>El navegador 3D necesita WebGL, y este navegador no lo ofrece.</b>
+            <b>La vista 3D necesita WebGL 2, que este navegador no ofrece.</b>
             <span className="small">
               La imagen ecográfica, el mapa del corte y los controles de la sonda siguen
               funcionando.
@@ -857,12 +857,15 @@ export function TorsoView() {
   );
 }
 
-/** Why this browser cannot draw the 3D navigator, or null when it offers a WebGL context (released at once). */
+/**
+ * Why this browser cannot draw the 3D navigator, or null when it offers a WebGL2 context (released at once). three.js
+ * creates only WebGL2 contexts: a browser with WebGL1 alone would pass a looser probe and fail inside the effect.
+ */
 function probeWebgl(): string | null {
   try {
     const canvas = document.createElement('canvas');
-    const gl = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
-    if (!gl) return 'este navegador no ofrece un contexto WebGL';
+    const gl = canvas.getContext('webgl2');
+    if (!gl) return 'este navegador no ofrece un contexto WebGL2';
     gl.getExtension('WEBGL_lose_context')?.loseContext();
     return null;
   } catch (e) {

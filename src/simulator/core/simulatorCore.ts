@@ -369,7 +369,11 @@ export class SimulatorCore {
     const inp = this.input;
     const dt = Math.min(0.1, Math.max(0, dtS));
     if (inp.frozen) return this.frozenOutput();
-    const tier = resolveQualityTier(inp.quality, this.gpu !== null);
+    // «auto» follows who forms the image: the procedural backend of the Dev panel is the CPU tracer even with a GPU
+    const tier = resolveQualityTier(
+      inp.quality,
+      this.gpu !== null && this.backend !== this.procedural,
+    );
     this.tier = tier;
     const spec = polarSpecFor(inp.settings, tier);
     const isStrip = isStripModality(inp.modality);

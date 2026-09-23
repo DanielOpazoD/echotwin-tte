@@ -46,7 +46,7 @@ export function ImageHud() {
         </span>
         {gpuReason && gpuReason !== 'ok' ? (
           // the image is formed by the CPU tracer (no WebGL2, or the context was lost): slower and, on «auto», coarser
-          <span className="hud-warn" title={gpuReason} role="status">
+          <span className="hud-warn" title={gpuReason}>
             Sin GPU · trazador CPU{tier ? `, calidad ${TIER_LABEL[tier] ?? tier}` : ''}
           </span>
         ) : null}

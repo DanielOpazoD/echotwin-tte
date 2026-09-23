@@ -100,6 +100,25 @@ describe('buildEducationalReport', () => {
     expect(r.impression[0]).toMatch(/^Redacta tu impresión/);
   });
 
+  it('names no view and grades no technique until the exam is finished', () => {
+    const graded = protocol('lvot-diameter', 2, {
+      sourceViewId: 'a4c',
+      viewScore: 35,
+      technique: { score: 0.2, findings: [finding('invalid', 'Vista A4C: se mide en PLAX.')] },
+    });
+    const exam = buildEducationalReport([graded], normal, true);
+    expect(exam.rows[0]!.view).toBeNull();
+    expect(exam.rows[0]!.viewScore).toBeNull();
+    expect(exam.rows[0]!.technique).toBeNull();
+    expect(exam.studyQuality).toBe(
+      '1 medición registrada; la técnica se evalúa al finalizar el examen.',
+    );
+    expect(JSON.stringify(exam)).not.toMatch(/a4c|A4C/);
+    const finished = buildEducationalReport([graded], normal, false);
+    expect(finished.rows[0]!.view).toBe('a4c');
+    expect(finished.rows[0]!.technique?.level).toBe('invalid');
+  });
+
   it('gives no impression without truth and none hidden', () => {
     const r = buildEducationalReport([protocol('lvot-diameter', 2)], null, false);
     expect(r.rows[0]!.truth).toBeNull();

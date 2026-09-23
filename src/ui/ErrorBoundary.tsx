@@ -12,8 +12,9 @@ export class ErrorBoundary extends Component<
 > {
   override state: { error: Error | null } = { error: null };
 
-  static getDerivedStateFromError(error: Error): { error: Error } {
-    return { error };
+  static getDerivedStateFromError(error: unknown): { error: Error } {
+    // anything may be thrown; a string or null must not break the boundary itself
+    return { error: error instanceof Error ? error : new Error(String(error)) };
   }
 
   override componentDidCatch(error: Error, info: ErrorInfo): void {

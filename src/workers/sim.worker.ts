@@ -125,9 +125,8 @@ self.onmessage = (ev: MessageEvent<MainToWorker>) => {
       post({ type: 'response', id: msg.id, res: core.request(msg.req) });
     }
   } catch (e) {
-    post({
-      type: 'error',
-      message: e instanceof Error ? e.message + '\n' + (e.stack ?? '') : String(e),
-    });
+    // the message reaches the screen; the stack only the console (decision 154)
+    console.error('sim worker:', e);
+    post({ type: 'error', message: e instanceof Error ? e.message : String(e) });
   }
 };

@@ -19,7 +19,7 @@ describe('sim.worker pacing and failure policy', () => {
   let fakeSelf: FakeSelf;
   let mod: { MAX_TICK_FAILURES: number; TICK_RETRY_MS: number };
   /** The worker's own copy of the core (vi.resetModules gives it a fresh module graph), so spies reach it. */
-  let core: { prototype: { step: (dt: number) => unknown } };
+  let core: { prototype: { step: (dt: number) => unknown; request: (req: never) => unknown } };
   beforeEach(async () => {
     vi.useFakeTimers();
     fakeSelf = { onmessage: null, postMessage: vi.fn() };
@@ -96,6 +96,20 @@ describe('sim.worker pacing and failure policy', () => {
     );
     // the apical window lies caudal and lateral to the parasternal start pose
     expect(c.v).toBeLessThan(0);
+  });
+
+  it('reports a failing message by its text, with the stack only in the console', () => {
+    load();
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(core.prototype, 'request').mockImplementation(() => {
+      throw new Error('bad request');
+    });
+    fakeSelf.onmessage!({
+      data: { type: 'request', id: 8, req: { kind: 'canonicalControl', viewId: 'a4c' } },
+    });
+    const error = posted().find((m) => m.type === 'error');
+    expect(error?.type === 'error' && error.message).toBe('bad request');
+    expect(logged).toHaveBeenCalled();
   });
 
   it('a new case resets the failure count and the clock', () => {

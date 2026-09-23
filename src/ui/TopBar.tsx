@@ -37,7 +37,7 @@ export function TopBar() {
         aria-label="Calidad"
         value={s.quality}
         onChange={(e) => s.setQuality(e.target.value as typeof s.quality)}
-        title="Nivel de calidad (solo resolución/rendimiento; no altera fisiología). Automática: la calibrada contra imágenes clínicas cuando la GPU forma la imagen, media con el trazador de CPU"
+        title="Nivel de calidad: resolución del trazado y, en alta, el grosor del corte (tres planos de elevación); no altera la fisiología. Automática: la calibrada contra imágenes clínicas cuando la GPU forma la imagen, media con el trazador de CPU"
       >
         <option value="auto">Calidad automática</option>
         <option value="low">Calidad baja</option>

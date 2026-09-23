@@ -1,4 +1,5 @@
 import { useSimStore } from '@/app/store';
+import { modePolicy } from '@/app/modePolicy';
 import { useShallow } from 'zustand/shallow';
 import { loadCaseById } from '@/cases';
 import { MEASUREMENT_SPECS, type MeasurementSpec } from '@/simulator/measurements/protocol';
@@ -22,6 +23,7 @@ export function MeasurementPanel() {
       activeMeasurementId: st.activeMeasurementId,
       caseId: st.caseId,
       measurements: st.measurements,
+      mode: st.mode,
       setActiveMeasurement: st.setActiveMeasurement,
     })),
   );
@@ -32,15 +34,18 @@ export function MeasurementPanel() {
       if (s.measurements[i]!.measurementId === id) return s.measurements[i]!;
     return null;
   };
+  // the technique grade names the view the image shows («Vista A2C: … se mide en A4C»): not during an exam (decision 154)
+  const gradeTechnique = modePolicy(s.mode).showViewFeedback;
   const row = (spec: MeasurementSpec) => {
     const m = latestOf(spec.id);
-    const level = m?.technique
-      ? m.technique.findings.some((f) => f.level === 'invalid')
-        ? 'invalid'
-        : m.technique.findings.some((f) => f.level === 'warn')
-          ? 'warn'
-          : 'ok'
-      : null;
+    const level =
+      m?.technique && gradeTechnique
+        ? m.technique.findings.some((f) => f.level === 'invalid')
+          ? 'invalid'
+          : m.technique.findings.some((f) => f.level === 'warn')
+            ? 'warn'
+            : 'ok'
+        : null;
     const isActive = s.activeMeasurementId === spec.id;
     return (
       <div

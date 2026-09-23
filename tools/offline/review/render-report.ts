@@ -66,7 +66,8 @@ const input = report.input;
 const { heart, thorax, tables } = buildCaseModels(c, input.patient);
 const settings = input.settings;
 // the tier the frame was drawn with; an older report or one without it: «auto» as the GPU would draw it
-const spec = polarSpecFor(settings, report.frame?.tier ?? resolveQualityTier(input.quality, true));
+const tier = report.frame?.tier ?? resolveQualityTier(input.quality, true);
+const spec = polarSpecFor(settings, tier);
 const W = input.display.width,
   H = input.display.height;
 const mapping = computeSectorMapping(spec, W, H, settings.invertLR, settings.zoom);
@@ -81,7 +82,7 @@ const p = input.probe;
 const lines: string[] = [
   `# Reproducción de ${basename(file)}`,
   '',
-  `Caso ${report.caseId} · ${report.author} · fase ${phase0.toFixed(2)} · ${input.modality} · sonda u ${p.u.toFixed(1)} v ${p.v.toFixed(1)} cm, rotación ${p.rotationDeg}°, tilt ${p.tiltDeg}°, rock ${p.rockDeg}°, presión ${p.pressure} · paciente ${input.patient.position}, ${input.patient.respiration} · calidad ${input.quality} · ${W}×${H}`,
+  `Caso ${report.caseId} · ${report.author} · fase ${phase0.toFixed(2)} · ${input.modality} · sonda u ${p.u.toFixed(1)} v ${p.v.toFixed(1)} cm, rotación ${p.rotationDeg}°, tilt ${p.tiltDeg}°, rock ${p.rockDeg}°, presión ${p.pressure} · paciente ${input.patient.position}, ${input.patient.respiration} · calidad ${tier} · ${W}×${H}`,
   '',
 ];
 if (report.note.trim()) lines.push(`Nota general: ${report.note.trim()}`, '');

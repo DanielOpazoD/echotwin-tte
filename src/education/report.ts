@@ -52,24 +52,27 @@ export function buildEducationalReport(
         dev = `${d >= 0 ? '+' : ''}${d.toFixed(0)} %`;
       }
     }
-    const tq = m.technique
-      ? {
-          score: Math.round(m.technique.score * 100),
-          level: m.technique.findings.some((f) => f.level === 'invalid')
-            ? ('invalid' as const)
-            : m.technique.findings.some((f) => f.level === 'warn')
-              ? ('warn' as const)
-              : ('ok' as const),
-          notes: m.technique.findings.filter((f) => f.level !== 'ok').map((f) => f.message),
-        }
-      : null;
+    // until the exam is finished the report names no view and grades no technique: both say which view the image
+    // shows, which is part of what the exam asks (decision 154)
+    const tq =
+      m.technique && !hideTruth
+        ? {
+            score: Math.round(m.technique.score * 100),
+            level: m.technique.findings.some((f) => f.level === 'invalid')
+              ? ('invalid' as const)
+              : m.technique.findings.some((f) => f.level === 'warn')
+                ? ('warn' as const)
+                : ('ok' as const),
+            notes: m.technique.findings.filter((f) => f.level !== 'ok').map((f) => f.message),
+          }
+        : null;
     return {
       id: m.id,
       label: m.label,
       value: `${m.value.toFixed(m.kind === 'time' || m.kind === 'volume' ? 0 : 2)} ${m.units}`,
       modality: m.modality,
-      view: m.sourceViewId,
-      viewScore: m.viewScore,
+      view: hideTruth ? null : m.sourceViewId,
+      viewScore: hideTruth ? null : m.viewScore,
       truth: truthVal,
       deviation: dev,
       technique: tq,
@@ -83,9 +86,11 @@ export function buildEducationalReport(
   const studyQuality =
     measurements.length === 0
       ? 'Sin mediciones registradas.'
-      : lowQuality
-        ? `${lowQuality} de ${measurements.length} mediciones tienen problemas de técnica que invalidan el valor (vista, fase, posición o alineación); su validez es limitada.`
-        : 'Mediciones obtenidas con técnica adecuada.';
+      : hideTruth
+        ? `${measurements.length} ${measurements.length === 1 ? 'medición registrada' : 'mediciones registradas'}; la técnica se evalúa al finalizar el examen.`
+        : lowQuality
+          ? `${lowQuality} de ${measurements.length} mediciones tienen problemas de técnica que invalidan el valor (vista, fase, posición o alineación); su validez es limitada.`
+          : 'Mediciones obtenidas con técnica adecuada.';
   const derived = deriveCalculations(measurements);
   const impression: string[] = [];
   if (hideTruth)
