@@ -14,9 +14,8 @@ const EXPECTED: Record<ProductMode, ModePolicy> = {
   sandbox: ALL_ON,
   guided: ALL_ON,
   exam: {
-    // Pinned current defect: the view score IS still shown in exam (the top bar displays it).
-    // A later clinical PR will flip this to false; update this row then.
-    showViewFeedback: true,
+    // the exam asks the learner to recognise the view: its name and score stay hidden (decision 154)
+    showViewFeedback: false,
     presetsEnabled: false,
     hintsEnabled: false,
     learningScreensEnabled: false,

@@ -43,10 +43,12 @@ describe('ImageHud', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('still shows the live view score in exam', () => {
-    // Pinned current defect: the score IS visible in exam; a later clinical PR hides it.
+  it('hides the recognised view and its score in exam, keeping the acquisition data', () => {
+    // the exam asks the learner to recognise the view (decision 154)
     seed('exam');
     render(<ImageHud />);
-    expect(screen.getByText(/PLAX 91/)).toBeTruthy();
+    expect(screen.queryByText(/PLAX/)).toBeNull();
+    expect(screen.queryByText(/Vista/)).toBeNull();
+    expect(screen.getByText(/FR 30 Hz/)).toBeTruthy();
   });
 });

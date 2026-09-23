@@ -19,9 +19,8 @@ export interface ModePolicy {
 export function modePolicy(mode: ProductMode): ModePolicy {
   const exam = mode === 'exam';
   return {
-    // Today the top bar still shows the view score in exam mode — a known defect a later
-    // clinical PR will fix; kept true here to pin current behavior.
-    showViewFeedback: true,
+    // the recognised view and its score would tell the learner what the exam asks them to recognise (decision 154)
+    showViewFeedback: !exam,
     presetsEnabled: !exam,
     hintsEnabled: !exam,
     learningScreensEnabled: !exam,
