@@ -1241,3 +1241,26 @@ La prueba falla:
 **Lo que queda**
 
 `LIMITATIONS.md` sustituye «Eje corto girado respecto del mapa polar» por el giro que queda y por qué no se corrige del todo.
+
+183. **2026-09-23 — Interfaz limpia, primera tanda: cimientos y armazón**: Daniel pidió una experiencia visual más limpia e intuitiva a todo nivel, «como si Claude hubiera hecho un simulador clínico», con libertad creativa. Esta tanda toca lo que rodea a la imagen sin cambiar ningún control ni ningún nombre accesible: las pruebas unitarias y E2E que fijan el marcado siguen iguales.
+
+**Principios**
+
+- La imagen es la protagonista: escenario negro, telemetría discreta en las esquinas y nada que la pise.
+- Una sola jerarquía de botones: relleno sólo para la acción principal, borde para las demás, sin borde dentro de tarjetas.
+- El estado se lee de un vistazo: LIVE/FREEZE como píldora con punto, la puntuación de la vista junto a la cabecera de su sección.
+- Los atajos se ven donde se usan.
+
+**Cambios**
+
+- **Fichas de diseño** (`styles.css`): paleta de grafito con el escenario más oscuro, línea fina al 7 %, `--accent-soft`/`--accent-line` para los estados activos, radios 6/10/14, sombras, `.kbd`, variantes `primary`, `ghost` e `icon-btn`, y `select` con chevrón propio.
+- **Barra superior**: marca con glifo de sector, píldora de estado en vivo/congelada, las cinco pantallas como un control segmentado centrado (`aria-current`), y los selectores de modo y calidad discretos a la derecha.
+- **Barra de modos**: las modalidades como barra segmentada con su tecla en un `kbd` oculto al lector de pantalla (los nombres accesibles no cambian), el botón de congelar con punto de estado, y el estado técnico atenuado.
+- **Imagen**: el HUD deja de ser una caja por línea; cada esquina es un grupo con veladura y sombra de texto, el título del caso en fuente de interfaz. La banda del ECG sube 18 px y el aviso educativo pasa a una línea centrada bajo ella: antes se pisaban.
+- **Carril izquierdo**: la leyenda de gestos del torso sólo aparece al pasar el puntero (tapaba el torso); los dos botones «Guía de la vista / Ocultar…» y «Segmentos del VI / Ocultar…» son cabeceras plegables con chevrón y etiqueta fija, y la guía muestra su puntuación al lado; el botón de colapsar usa un icono.
+- **Consola**: las secciones pasan de cajas con borde a bloques separados por una línea; las vistas predeterminadas llevan el nivel bajo la sigla (`aria-hidden`, en el orden de un estudio: paraesternales, apicales, subcostales); valores tabulares en los deslizadores.
+
+**Verificación**
+
+- Sin cambios en los nombres accesibles: `TopBar`, `ModeBar`, `ImageHud`, `PresetViews`, `keyboardAccess` y el resto de pruebas de `src/ui` y `src/app` pasan sin tocarlas.
+- Revisado en el navegador a 1440 × 900: simulador con el carril abierto y colapsado, las pestañas Adquirir, Imagen, Doppler y Medir, el menú ⋯ y las pantallas secundarias.

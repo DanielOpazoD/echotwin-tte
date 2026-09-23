@@ -7,29 +7,32 @@ import { modePolicy } from '@/app/modePolicy';
  * demonstration aid (an instructor guiding the hand), disabled in exam mode; the probe stays fully
  * manipulable and any manual action cancels the movement.
  */
-const PRIMARY: { id: string; label: string; title: string }[] = [
-  { id: 'plax', label: 'PLAX', title: 'Paraesternal eje largo' },
+type Preset = { id: string; label: string; sub: string; title: string };
+/** The parasternal window first, then the apical and subcostal ones: the order of a study. */
+const PRIMARY: Preset[] = [
+  { id: 'plax', label: 'PLAX', sub: 'eje largo', title: 'Paraesternal eje largo' },
   {
     id: 'psax-av',
-    label: 'PSAX GV',
+    label: 'PSAX',
+    sub: 'aórtica',
     title: 'Paraesternal eje corto, grandes vasos / válvula aórtica',
   },
-  { id: 'psax-mv', label: 'PSAX MV', title: 'Paraesternal eje corto, nivel mitral' },
-  { id: 'psax-apex', label: 'PSAX ápex', title: 'Paraesternal eje corto, nivel apical' },
-  { id: 'a4c', label: 'A4C', title: 'Apical cuatro cámaras' },
-  { id: 'a5c', label: 'A5C', title: 'Apical cinco cámaras' },
+  { id: 'psax-mv', label: 'PSAX', sub: 'mitral', title: 'Paraesternal eje corto, nivel mitral' },
+  { id: 'psax-pm', label: 'PSAX', sub: 'papilar', title: 'Paraesternal eje corto, nivel papilar' },
+  { id: 'psax-apex', label: 'PSAX', sub: 'ápex', title: 'Paraesternal eje corto, nivel apical' },
+  { id: 'a4c', label: 'A4C', sub: '4 cámaras', title: 'Apical cuatro cámaras' },
 ];
-const SECONDARY: { id: string; label: string; title: string }[] = [
-  { id: 'psax-pm', label: 'PSAX PM', title: 'Paraesternal eje corto, nivel papilar' },
-  { id: 'a2c', label: 'A2C', title: 'Apical dos cámaras' },
-  { id: 'a3c', label: 'A3C', title: 'Apical tres cámaras' },
-  { id: 'rv-focused', label: 'VD', title: 'Apical enfocada en VD' },
-  { id: 'subcostal-4c', label: 'SC 4C', title: 'Subcostal cuatro cámaras' },
-  { id: 'subcostal-ivc', label: 'SC VCI', title: 'Subcostal vena cava inferior' },
+const SECONDARY: Preset[] = [
+  { id: 'a5c', label: 'A5C', sub: '5 cámaras', title: 'Apical cinco cámaras' },
+  { id: 'a2c', label: 'A2C', sub: '2 cámaras', title: 'Apical dos cámaras' },
+  { id: 'a3c', label: 'A3C', sub: 'eje largo', title: 'Apical tres cámaras' },
+  { id: 'rv-focused', label: 'VD', sub: 'apical', title: 'Apical enfocada en VD' },
+  { id: 'subcostal-4c', label: 'SC', sub: '4 cámaras', title: 'Subcostal cuatro cámaras' },
+  { id: 'subcostal-ivc', label: 'SC', sub: 'VCI', title: 'Subcostal vena cava inferior' },
 ];
 
 /** Module-level component: a stable element type so re-renders never remount the buttons. */
-function PresetButton({ id, label, title }: { id: string; label: string; title: string }) {
+function PresetButton({ id, label, sub, title }: Preset) {
   const disabled = useSimStore((s) => !modePolicy(s.mode).presetsEnabled);
   const active = useSimStore((s) => s.targetViewId === id);
   const start = useSimStore((s) => s.startPresetView);
@@ -46,6 +49,9 @@ function PresetButton({ id, label, title }: { id: string; label: string; title: 
       aria-pressed={active}
     >
       {label}
+      <span className="preset-sub" aria-hidden="true">
+        {sub}
+      </span>
     </button>
   );
 }

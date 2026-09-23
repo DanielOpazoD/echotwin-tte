@@ -3,9 +3,21 @@ import { useShallow } from 'zustand/shallow';
 import { modePolicy } from '@/app/modePolicy';
 
 /**
- * Slim top bar: brand, run state, product mode, quality and screen navigation. Case, vitals and
- * acquisition telemetry live in the on-image HUD (ImageHud) so this row never truncates.
+ * Slim top bar: brand and run state on the left, the screens as one segmented control in the middle, product mode
+ * and quality on the right. Case, vitals and acquisition telemetry live in the on-image HUD (ImageHud) so this row
+ * never truncates.
  */
+const SCREENS: {
+  id: 'simulator' | 'report' | 'curriculum' | 'progress' | 'references';
+  label: string;
+}[] = [
+  { id: 'simulator', label: 'Simulador' },
+  { id: 'report', label: 'Informe' },
+  { id: 'curriculum', label: 'Currículo' },
+  { id: 'progress', label: 'Progreso' },
+  { id: 'references', label: 'Referencias' },
+];
+
 export function TopBar() {
   const s = useSimStore(
     useShallow((st) => ({
@@ -21,13 +33,37 @@ export function TopBar() {
   const policy = modePolicy(s.mode);
   return (
     <div className="topbar" role="banner">
-      <span className="brand">EchoTwin TTE</span>
-      <span className={s.frozen ? 'frozen' : 'live'}>{s.frozen ? 'FREEZE' : 'LIVE'}</span>
-      <span className="spacer" />
+      <span className="brand">
+        <i className="brand-mark" aria-hidden="true" />
+        EchoTwin <span className="brand-sub">TTE</span>
+      </span>
+      <span
+        className={`run-state ${s.frozen ? 'frozen' : 'live'}`}
+        title={
+          s.frozen ? 'Imagen congelada (Espacio reanuda)' : 'Adquisición en vivo (Espacio congela)'
+        }
+      >
+        <i className="run-dot" aria-hidden="true" />
+        {s.frozen ? 'FREEZE' : 'LIVE'}
+      </span>
+      <nav className="nav-seg" aria-label="Pantallas">
+        {SCREENS.map((sc) => (
+          <button
+            key={sc.id}
+            className={s.ui.screen === sc.id ? 'active' : ''}
+            aria-current={s.ui.screen === sc.id ? 'page' : undefined}
+            onClick={() => s.setUi({ screen: sc.id })}
+            disabled={sc.id !== 'simulator' && sc.id !== 'report' && !policy.learningScreensEnabled}
+          >
+            {sc.label}
+          </button>
+        ))}
+      </nav>
       <select
         aria-label="Modo del producto"
         value={s.mode}
         onChange={(e) => s.setMode(e.target.value as typeof s.mode)}
+        title="Sandbox: todo abierto. Guiada: una vista objetivo con ayudas. Examen: sin ayudas ni presets"
       >
         <option value="sandbox">Sandbox</option>
         <option value="guided">Adquisición guiada</option>
@@ -44,39 +80,6 @@ export function TopBar() {
         <option value="medium">Calidad media</option>
         <option value="high">Calidad alta</option>
       </select>
-      <button
-        className={s.ui.screen === 'simulator' ? 'active' : ''}
-        onClick={() => s.setUi({ screen: 'simulator' })}
-      >
-        Simulador
-      </button>
-      <button
-        className={s.ui.screen === 'report' ? 'active' : ''}
-        onClick={() => s.setUi({ screen: 'report' })}
-      >
-        Informe
-      </button>
-      <button
-        className={s.ui.screen === 'curriculum' ? 'active' : ''}
-        onClick={() => s.setUi({ screen: 'curriculum' })}
-        disabled={!policy.learningScreensEnabled}
-      >
-        Currículo
-      </button>
-      <button
-        className={s.ui.screen === 'progress' ? 'active' : ''}
-        onClick={() => s.setUi({ screen: 'progress' })}
-        disabled={!policy.learningScreensEnabled}
-      >
-        Progreso
-      </button>
-      <button
-        className={s.ui.screen === 'references' ? 'active' : ''}
-        onClick={() => s.setUi({ screen: 'references' })}
-        disabled={!policy.learningScreensEnabled}
-      >
-        Referencias
-      </button>
     </div>
   );
 }

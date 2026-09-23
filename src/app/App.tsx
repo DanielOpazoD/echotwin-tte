@@ -13,6 +13,7 @@ import { SegmentPanel } from '@/ui/SegmentPanel';
 import { evaluateTasks, type LearnerSnapshot } from '@/education/curriculum';
 import { expectedFindings, scoreImpression } from '@/education/impression';
 import { DevPanel } from '@/ui/DevPanel';
+import { IconChevronRight } from '@/ui/icons';
 import { Tutorial } from '@/ui/Tutorial';
 import type { SimOutput } from '@/simulator/core/protocol';
 import { DopplerAudio } from '@/simulator/doppler/audio/dopplerAudio';
@@ -172,7 +173,15 @@ export function App() {
                   : 'Colapsar a una tira con la puntuación'
               }
             >
-              {ui.railMini ? '»' : '«'}
+              <span
+                aria-hidden="true"
+                style={{
+                  display: 'inline-flex',
+                  transform: ui.railMini ? 'none' : 'rotate(180deg)',
+                }}
+              >
+                <IconChevronRight size={14} />
+              </span>
             </button>
             {/* the torso stays mounted while mini so its mesh worker is not rebuilt on expand */}
             <div className="rail-main" style={{ display: ui.railMini ? 'none' : 'flex' }}>
@@ -186,13 +195,17 @@ export function App() {
               {/* the view guide stays hidden until asked for: the learner reads the image first (decision 141) */}
               {railVisible && (
                 <button
-                  className="guidance-toggle"
+                  className="rail-head"
                   onClick={() => useSimStore.getState().setUi({ guidanceOpen: !ui.guidanceOpen })}
                   aria-expanded={ui.guidanceOpen}
                   aria-controls="view-guidance"
                   title="Puntuación de la vista, referencias que faltan y explicaciones"
                 >
-                  {ui.guidanceOpen ? 'Ocultar guía de la vista' : 'Guía de la vista'}
+                  <span className="chev" aria-hidden="true">
+                    <IconChevronRight size={13} />
+                  </span>
+                  Guía de la vista
+                  <RailScore />
                 </button>
               )}
               {railVisible && ui.guidanceOpen && (
@@ -203,13 +216,16 @@ export function App() {
               {/* LV segments of the plane (decision 152): a learning aid, hidden like the guide until asked for */}
               {railVisible && modePolicy(mode).hintsEnabled && (
                 <button
-                  className="guidance-toggle"
+                  className="rail-head"
                   onClick={() => useSimStore.getState().setUi({ segmentsOpen: !ui.segmentsOpen })}
                   aria-expanded={ui.segmentsOpen}
                   aria-controls="lv-segments"
                   title="Mapa polar de los segmentos del VI, qué muestra el corte y ficha de cada segmento"
                 >
-                  {ui.segmentsOpen ? 'Ocultar segmentos del VI' : 'Segmentos del VI'}
+                  <span className="chev" aria-hidden="true">
+                    <IconChevronRight size={13} />
+                  </span>
+                  Segmentos del VI
                 </button>
               )}
               {railVisible && ui.segmentsOpen && (
@@ -243,6 +259,20 @@ export function App() {
       )}
       <ModeBar />
     </div>
+  );
+}
+
+/** The view score beside the guide's header, so it is glanceable while the guide is closed. */
+function RailScore() {
+  const hud = useHudStore((h) => h.hud);
+  const mode = useSimStore((s) => s.mode);
+  const v = hud?.view;
+  if (!modePolicy(mode).hintsEnabled || !v) return null;
+  const color = v.score >= 75 ? 'var(--ok)' : v.score >= 50 ? 'var(--warn)' : 'var(--bad)';
+  return (
+    <span className="rail-head-score" style={{ color }} aria-hidden="true">
+      {v.score}
+    </span>
   );
 }
 

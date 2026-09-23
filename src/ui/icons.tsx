@@ -110,3 +110,12 @@ export function IconCheck({ size }: { size?: number }) {
     </I>
   );
 }
+
+/** Chevron pointing right: a collapsible section's header turns it down when open. */
+export function IconChevronRight({ size }: { size?: number }) {
+  return (
+    <I size={size}>
+      <path d="m9 6 6 6-6 6" />
+    </I>
+  );
+}
