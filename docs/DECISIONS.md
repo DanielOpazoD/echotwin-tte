@@ -888,3 +888,58 @@ Una pequeña corrección tras el preajuste no basta: la vista vuelve a contar a 
 - `curriculum.test.ts`: las tareas nuevas se cumplen con puntuaciones a mano y no con las del preajuste, y los tres apicales sólo juntos.
 - `store.test.ts`: la vista del preajuste no suma a mano hasta recargar, y las demás sí.
 - `e2e/learning.spec.ts`: el preajuste de PLAX ya no completa su tarea; la misma pose alcanzada por la vía manual, tras recargar el caso, sí la completa.
+
+
+175. **2026-09-23 — Rangos normales por sexo en el informe y la impresión, y tres medidas nuevas**: octavo punto de la tanda 4 (docencia). El panel encontró que el informe no daba rangos, que la dilatación del VI usaba los límites de varón para todos (un VTDi de 65 mL/m² es normal en él y dilatado en una mujer) y que un E/A por encima de 2, por sí solo, marcaba disfunción diastólica, cuando es el llenado de un corazón joven normal. Faltaban también el diámetro basal del VD, la VCI y la raíz aórtica.
+
+**Rangos**
+
+`clinical/guidelines/normalRanges.ts` reúne los rangos de las medidas del protocolo por sexo. Salen de las recomendaciones de cuantificación de cámaras (`ase-eacvi-chamber-2015`) y de las de función diastólica y corazón derecho:
+
+| Medida | Varón | Mujer |
+|---|---|---|
+| DTDVI (cm) | 4,2–5,8 | 3,8–5,2 |
+| DTSVI (cm) | 2,5–4,0 | 2,2–3,5 |
+| Septo y pared posterior (cm) | 0,6–1,0 | 0,6–0,9 |
+| AI anteroposterior (cm) | 3,0–4,0 | 2,7–3,8 |
+| VTD biplano (mL) | 62–150 | 46–106 |
+| VTS biplano (mL) | 21–61 | 14–42 |
+| Senos de Valsalva (cm) | ≤ 4,0 | ≤ 3,6 |
+
+Iguales para los dos sexos:
+
+- VD basal ≤ 4,1 cm.
+- TAPSE ≥ 1,7 cm.
+- VCI ≤ 2,1 cm.
+- e′ septal ≥ 7 y lateral ≥ 10 cm/s.
+- IT ≤ 2,8 m/s.
+
+**Informe**
+
+La verdad estructurada lleva el sexo de referencia del caso. El informe imprime el rango del sexo del paciente junto a cada medida, marcada como normal, alta o baja. Se ve también en el examen, porque el sexo es un dato demográfico y no la verdad del modelo.
+
+**Impresión**
+
+- La dilatación del VI usa los límites de su sexo: VTDi de 74 o 61 mL/m², DTD de 5,8 o 5,2 cm.
+- Un E/A por encima de 2 marca disfunción sólo con otro signo de presión de llenado elevada: e′ reducido, IT por encima de 2,8 m/s o AI dilatada.
+
+Los doce casos conservan sus hallazgos esperados. La única mujer con el VI grande, la del prolapso, ya estaba marcada por su volumen, y el E/A alto de la MCD y del prolapso va con una AI dilatada.
+
+**Medidas nuevas**
+
+- Raíz aórtica en los senos de Valsalva: PLAX, telediástole.
+- Diámetro basal del VD: apical enfocada en el VD, telediástole.
+- Diámetro de la VCI: subcostal.
+
+Cada una con su verdad, su tolerancia y sus referencias. El volumen biplano de la AI, que necesita trazar en dos vistas, queda pendiente.
+
+**Guardas**
+
+`normalRanges.test.ts` comprueba:
+
+- que los rangos pertenecen a medidas del protocolo, con referencias registradas y límites ordenados;
+- las banderas por sexo;
+- que el VTDi de 65 sea dilatado en una mujer y normal en un varón;
+- que un E/A de 2,3 solo no sea disfunción, y sí lo sea con una AI de 40 mL/m².
+
+Con la impresión anterior fallan las dos últimas.

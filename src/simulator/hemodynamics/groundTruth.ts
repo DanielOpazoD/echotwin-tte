@@ -30,6 +30,8 @@ import {
  * from the same beat tables + anatomy that drive rendering and Doppler (spec 15, 32, 67).
  */
 export interface StructuredEchoTruth {
+  /** The sex the reference ranges are read for (decision 175). */
+  sex: 'male' | 'female';
   bsaM2: number;
   heartRateBpm: number;
   rhythm: string;
@@ -210,6 +212,7 @@ export function computeGroundTruth(c: CaseDefinition, tables?: BeatTables): Stru
       : null;
   const ePrimeAvg = (c.physiology.ePrimeSeptalCmps + c.physiology.ePrimeLateralCmps) / 2;
   return {
+    sex: c.demographics.sexForReference,
     bsaM2: bsa,
     heartRateBpm: c.rhythm.heartRateBpm,
     rhythm: c.rhythm.type,
