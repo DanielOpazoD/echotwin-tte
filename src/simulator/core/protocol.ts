@@ -106,7 +106,13 @@ export interface SimOutput {
   beatIndex: number;
   heartRateBpm: number;
   rrS: number;
+  /** The scanner's frame rate for the console (decision 178): the same in the three quality tiers. */
   simulatedFps: number;
+  /**
+   * How often the simulator forms a frame (Hz): at most `simulatedFps`, and bounded by the work of the tier. The worker
+   * paces itself at it.
+   */
+  cadenceHz: number;
   /**
    * The ECG of the last seconds as interleaved (time s, amplitude) pairs: a typed array travels to the main thread
    * transferred, where 1200 point objects were cloned in every frame (decision 173).

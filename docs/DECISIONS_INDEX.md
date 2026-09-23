@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 177 (última: 177).
+Decisiones: 178 (última: 178).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -185,3 +185,4 @@ Decisiones: 177 (última: 177).
 | [175](DECISIONS.md#L893) | 2026-09-23 | Rangos normales por sexo en el informe y la impresión, y tres medidas nuevas | vigente |
 | [176](DECISIONS.md#L948) | 2026-09-23 | El teclado llega primero al control con foco, y el dial de rotación se maneja con él | vigente |
 | [177](DECISIONS.md#L980) | 2026-09-23 | La documentación de estructura se genera desde el código y una prueba la vigila | vigente |
+| [178](DECISIONS.md#L1028) | 2026-09-23 | La frecuencia de cuadro es la del equipo, y el nivel de calidad sólo decide cuántos cuadros se calculan | vigente |

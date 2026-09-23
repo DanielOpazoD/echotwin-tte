@@ -1023,3 +1023,31 @@ Con los archivos anteriores fallan las dos pruebas.
 - Un script inexistente en el README.
 
 VALIDATION ya no da recuentos sin fecha: remite a la sección «Verificación» de cada MR y a `vitest list` y `playwright test --list`.
+
+
+178. **2026-09-23 — La frecuencia de cuadro es la del equipo, y el nivel de calidad sólo decide cuántos cuadros se calculan**: undécimo punto de la tanda 4. El HUD mostraba la frecuencia de cuadro calculada con las líneas del cuadro polar de cada nivel de calidad, que es una elección de cálculo y no un ajuste del equipo. Con la misma consola (16 cm, 80°) daba 48,8, 36,9 y 27,3 Hz en los niveles bajo, medio y alto. Con la caja de color por defecto daba 7,9 Hz en el nivel medio. El 2D convencional corre a unos 40–80 cuadros/s (Fujikura et al., J Clin Med 2021;10:2095), y el color focalizado a 10–30 a 12 cm con 20–60 líneas y un paquete de 8 (Puig et al., IEEE TUFFC 2024, arXiv:2404.00067).
+
+**Dos números**
+
+- **Frecuencia de adquisición** (`acquisitionFrameRate`): la del equipo, la que muestra el HUD. Sólo lee la consola.
+  - Las líneas de recepción son 1,0, 1,6 o 2,4 por grado de sector, según la densidad. Es un supuesto declarado: la densidad media pone 128 líneas en 80°.
+  - Cada disparo forma dos líneas en paralelo (MLA 2, el extremo prudente de los 2–4 habituales).
+  - El color suma una línea por grado de la caja, con 8 pulsos hasta el fondo de la caja.
+  - Con la consola por defecto da 68,6 Hz en 2D y 14,2 Hz con la caja de color. A 24 cm y 90° da 41,9 Hz.
+- **Cadencia** (`cadenceHz`): cada cuánto forma el simulador un cuadro. Es el mínimo entre la adquisición y lo que permite el nivel, con la fórmula anterior. Marca el paso del worker, el presupuesto de cuadro, la traza del modo M y el intervalo de la persistencia. Viaja en `SimOutput.cadenceHz`, y el worker se marca el paso con ella.
+
+Con la consola por defecto la cadencia coincide con la de antes en los tres niveles, así que ninguna imagen ni cadencia cambia: sólo el número del HUD y el de la columna nueva del panel Dev.
+
+**Guardas**
+
+- `frameRateTiers.test.ts` recorre la cadena de la app en los tres niveles, en 2D y en color. Exige que la frecuencia del HUD sea una sola y que haya tres cadencias, cada una por debajo de la frecuencia del HUD. Si el HUD vuelve a mostrar la cadencia, falla con 48,8, 36,9 y 27,3.
+- `frameRate.test.ts` exige:
+  - 45–70 Hz con la consola por defecto;
+  - 10–30 Hz con la caja de color;
+  - que la frecuencia caiga con la profundidad, el sector, la densidad y la anchura y el fondo de la caja;
+  - que la cadencia no pase de la adquisición y conserve la anterior de cada nivel.
+- `DOPPLER_ENGINE.md` gana la tabla verificada de la adquisición por densidad, y la de los niveles pasa a ser la de la cadencia.
+
+**Limitación declarada**
+
+La persistencia sigue decayendo por intervalos de la cadencia, así que su constante de tiempo cambia con el nivel. Hacerla del equipo cambiaría la imagen de la app, y queda en `LIMITATIONS.md`.

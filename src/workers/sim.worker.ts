@@ -70,10 +70,10 @@ function tick(): void {
       core.recycle(out.rgba);
       dropped++;
     }
-    // pace at the simulated frame rate (or 30 Hz for strips) against an absolute schedule: a timer that fires
+    // pace at the cadence the core forms frames at (or 30 Hz for strips) against an absolute schedule: a timer that fires
     // late shortens the next wait instead of lowering the frame rate (worker timers ran ~5 ms late under load,
     // 31.5 instead of 36.9 frames/s); after a stall longer than one interval the schedule restarts from now
-    if (out) lastFps = out.simulatedFps;
+    if (out) lastFps = out.cadenceHz;
     const targetMs = input.frozen ? 80 : Math.max(12, Math.min(50, 1000 / lastFps));
     nextDue = nextDue > 0 && tStart - nextDue < targetMs ? nextDue + targetMs : tStart + targetMs;
     schedule(Math.max(1, nextDue - performance.now()));

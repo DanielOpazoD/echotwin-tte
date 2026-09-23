@@ -50,7 +50,7 @@ import {
   type ScanLut,
   type SectorMapping,
 } from '@/simulator/renderer/scanConvert';
-import { simulatedFrameRate } from '@/simulator/renderer/frameRate';
+import { acquisitionFrameRate, cadenceHz } from '@/simulator/renderer/frameRate';
 import {
   beamFrameFromPose,
   contactQuality,
@@ -404,8 +404,13 @@ export class SimulatorCore {
             ((inp.color.boxThetaMaxRad - inp.color.boxThetaMinRad) / spec.sectorRad) * spec.lines,
           )
         : 0;
-    const fps = simulatedFrameRate(spec, { colorLines, packetSize: 8 });
-    this.colorFps = inp.modality === 'color' ? fps : 0;
+    // the scanner's frame rate depends on the console alone; the cadence also on the work of the tier (decision 178)
+    const acquisitionFps = acquisitionFrameRate(
+      inp.settings,
+      inp.modality === 'color' ? inp.color : undefined,
+    );
+    const fps = cadenceHz(spec, acquisitionFps, colorLines);
+    this.colorFps = inp.modality === 'color' ? acquisitionFps : 0;
     const beam = beamFrameFromPose(
       poseFromControl(this.thorax, inp.probe),
       contactQuality(inp.probe.pressure),
@@ -874,12 +879,6 @@ export class SimulatorCore {
     const sector = { ...mapping, x: 0, y: 0 };
     this.lastSector = sector;
     this.lastStrip = strip;
-    const colorLines =
-      inp.modality === 'color'
-        ? Math.round(
-            ((inp.color.boxThetaMaxRad - inp.color.boxThetaMinRad) / spec.sectorRad) * spec.lines,
-          )
-        : 0;
     this.lastPhase = cf ? cf.phase : c.phase;
     return {
       frameId: this.frameId,
@@ -903,7 +902,11 @@ export class SimulatorCore {
       beatIndex: c.beatIndex,
       heartRateBpm: 60 / c.rrS,
       rrS: c.rrS,
-      simulatedFps: simulatedFrameRate(spec, { colorLines, packetSize: 8 }),
+      simulatedFps: acquisitionFrameRate(
+        inp.settings,
+        inp.modality === 'color' ? inp.color : undefined,
+      ),
+      cadenceHz: 1 / this.frameIntervalS,
       ecg: ecgTail,
       ecgHead: this.timeS,
       view,

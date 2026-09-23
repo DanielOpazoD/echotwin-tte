@@ -364,8 +364,8 @@ describe('colour persistence through SimulatorCore (decisions 56 and 94)', () =>
         expect(k.version).toBe(version + 1); // the GPU present pass uploads the field when the version changes
         version = k.version;
         updates++;
-        // the field updates every other frame: the history weight is p per two simulated frame intervals of elapsed time
-        const w = persistenceOverTime(p, timeS - updateTimeS, 2 / out.simulatedFps);
+        // the field updates every other frame: the history weight is p per two frame intervals of the cadence, of elapsed time
+        const w = persistenceOverTime(p, timeS - updateTimeS, 2 / out.cadenceHz);
         if (prev) weights.add(Number(w.toFixed(6)));
         updateTimeS = timeS;
         const { vel: rv, variance: rs, power: rp } = r.field!;

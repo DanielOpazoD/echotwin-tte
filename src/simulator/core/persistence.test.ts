@@ -30,7 +30,7 @@ function stepResponse(k: number): { fractions: number[]; reported: number; inter
     persistence: P,
     gainDb,
   });
-  const interval = 1 / setup.step(1 / 30)!.simulatedFps;
+  const interval = 1 / setup.step(1 / 30)!.cadenceHz;
   const dt = k * interval;
   const withStep = new SimulatorCore(c, baseInput({ probe, settings: settings(-6) }));
   const without = new SimulatorCore(c, baseInput({ probe, settings: settings(-6) }));

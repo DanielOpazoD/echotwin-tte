@@ -55,17 +55,35 @@ Calculados con `computeGroundTruth`; son los números contra los que se compara 
 
 El caso de ventana difícil tiene un TSVI de 1,9 cm (2,84 cm²) y un AVA efectiva de 2,5 cm², la proporción del caso normal (decisión 161; heredaba 3,0 cm², mayor que su propio TSVI, y la válvula leía más lenta que el tracto). Con la escala PW máxima de la UI (2,5 m/s) el chorro de la EA aliasea siempre en PW; sólo CW (escala hasta 7 m/s) lo recorre entero, que es la lección del caso.
 
-## Coste de la caja de color en el frame rate simulado
-`simulatedFrameRate` con los ajustes por defecto (16 cm, 80°, densidad media) y la caja de color por defecto (±0,32 rad). La calidad automática, la de arranque, es la alta cuando la GPU forma la imagen (decisión 154).
+## Frecuencia de cuadro: la del equipo y la cadencia del simulador (decisión 178)
+Hay dos números.
+
+- **La frecuencia de adquisición** es la del equipo simulado, la que muestra el HUD (`acquisitionFrameRate`). Depende sólo de la consola y es la misma en los tres niveles de calidad:
+  - la profundidad fija el tiempo de ida y vuelta de cada disparo, más 20 µs de tiempo muerto;
+  - el sector y la densidad de líneas dan las líneas de recepción: 1,0, 1,6 o 2,4 por grado, un supuesto del modelo;
+  - cada disparo en 2D forma dos líneas de recepción en paralelo (MLA 2);
+  - con color, cada grado de la caja lleva una línea de color con un paquete de 8 pulsos hasta el fondo de la caja.
+
+  El 2D convencional corre a unos 40–80 cuadros/s (Fujikura et al., J Clin Med 2021), y el color focalizado a 10–30 a 12 cm con 20–60 líneas y un paquete de 8 (Puig et al., IEEE TUFFC 2024).
+- **La cadencia** es cada cuánto forma el simulador un cuadro (`cadenceHz`). Nunca supera la adquisición y la acota además el trabajo del nivel, con las líneas de su cuadro polar y un tope de 90 Hz. Marca el paso del worker (acotado a 12–50 ms por paso), el presupuesto de cuadro, la traza del modo M y el intervalo sobre el que decae la persistencia. Antes de la decisión 178 era también el número del HUD, y cambiaba con el nivel de cálculo.
+
+Con los ajustes por defecto (16 cm, 80°) y la caja de color por defecto (±0,32 rad, hasta 13 cm):
+
+<!-- verificada: frame-rate-acquisition -->
+| Densidad de líneas | Disparos 2D | 2D (Hz) | 2D + caja de color (Hz) |
+|---|---|---|---|
+| `low` | 40 | 109,7 | 15,4 |
+| `medium` | 64 | 68,6 | 14,2 |
+| `high` | 96 | 45,7 | 12,9 |
 
 <!-- verificada: frame-rate -->
-| Calidad | Cuadro polar | 2D (Hz) | 2D + caja de color (Hz) | Líneas de color |
+| Calidad | Cuadro polar | Cadencia 2D (Hz) | Cadencia con color (Hz) | Líneas de color del nivel |
 |---|---|---|---|---|
 | `low` | 90 × 160 | 48,8 | 10,5 | 41 |
 | `medium` | 119 × 224 | 36,9 | 7,9 | 55 |
 | `high` | 161 × 320 | 27,3 | 5,8 | 74 |
 
-A 30 cm de profundidad (calidad media): 20,5 Hz; a 8 cm y 40° de sector: tope de 90 Hz. Estos valores fijan la cadencia del worker (acotada a 12–50 ms por paso) y el número que muestra el HUD sobre la imagen. El coste real del paso del worker es de 5–18 ms cuando la GPU forma la imagen (decisión 54), unos 40 ms con el trazador de CPU en calidad media y unos 300 ms en alta.
+La calidad automática, la de arranque, es la alta cuando la GPU forma la imagen (decisión 154). El coste real del paso del worker es de 5–18 ms cuando la GPU forma la imagen (decisión 54), unos 40 ms con el trazador de CPU en calidad media y unos 300 ms en alta.
 
 ## Contrato de datos
 - Entrada (`SimInput`): `modality`, `quality`, `color` (`ColorSettings`), `spectral` (`SpectralSettings`), `cursorThetaRad`, `gateDepthCm`, `artifactOverrides`.

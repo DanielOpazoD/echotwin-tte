@@ -33,6 +33,8 @@ export function DevPanel() {
       ['beat', String(hud.beatIndex)],
       ['RR', `${(hud.rrS * 1000).toFixed(0)} ms`],
       ['sim fps', hud.simulatedFps.toFixed(1)],
+      // the cadence the simulator forms frames at, bounded by the tier (decision 178)
+      ['cadence', hud.cadenceHz.toFixed(1)],
     );
     for (const [k, v] of Object.entries(hud.stats)) rows.push([k, String(v)]);
     rows.push(
