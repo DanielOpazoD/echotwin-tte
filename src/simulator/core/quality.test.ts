@@ -1,3 +1,4 @@
+// @tier slow
 import { describe, expect, it } from 'vitest';
 import { loadCaseById } from '@/cases';
 import { CALIBRATED_TIER, polarSpecFor } from '@/simulator/renderer/types';
