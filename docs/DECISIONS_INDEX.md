@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 157 (última: 157).
+Decisiones: 158 (última: 158).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -165,3 +165,4 @@ Decisiones: 157 (última: 157).
 | [155](DECISIONS.md#L489) | 2026-09-23 | La respuesta lateral tiene lóbulos laterales a −35 dB, y no son lo que ennegrece las cavidades | vigente |
 | [156](DECISIONS.md#L491) | 2026-09-23 | El músculo de la pared torácica baja a su gris clínico y el campo cercano entra en el rango de CAMUS | vigente |
 | [157](DECISIONS.md#L493) | 2026-09-23 | La reducción de speckle y un rango dinámico mayor, medidos contra el VI y el sector a la vez, no se adoptan | vigente |
+| [158](DECISIONS.md#L495) | 2026-09-23 | La fase de los ecos de interfaz no quita las crestas finas: son las líneas A de la pleura y el pericardio | vigente |
