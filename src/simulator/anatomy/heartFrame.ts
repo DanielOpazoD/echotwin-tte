@@ -20,6 +20,13 @@ export interface HeartFrame {
 /** Aortic root axis in the heart frame: ~33° from the LV long axis toward anterior-septal (adults 25–35°). */
 export const AV_AXIS: Vec3 = normalize(v3(-0.15, 0.53, -0.85));
 /**
+ * Level of the mitral short axis, in cm from the end-diastolic annulus toward the apex (decision 164): the leaflets open
+ * across it in diastole, and it cuts the basal segments of the ventricle. The `psax-mv` view aims there and its basal
+ * landmarks sit there. It lives here, with the other frame constants the view definitions read, so that importing it
+ * does not pull the anatomy into the main bundle.
+ */
+export const MITRAL_SHORT_AXIS_CM = 1.4;
+/**
  * Share of the ventricular base's systolic descent that the aortic root follows. The fibrous skeleton moves as one:
  * the aortic annular plane systolic excursion of healthy adults is 1.16 ± 0.30 cm by 3D speckle tracking (MAGYAR-
  * Healthy, n = 111) and 14 ± 3 mm by cardiac magnetic resonance, against a mitral annular excursion of ~1.4-1.6 cm.

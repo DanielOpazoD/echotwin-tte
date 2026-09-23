@@ -1,7 +1,6 @@
 import type { Vec3 } from '@/core/vec3';
 import { normalize, scale, v3 } from '@/core/vec3';
-import { AV_AXIS } from '@/simulator/anatomy/heartFrame';
-import { MITRAL_SHORT_AXIS_CM } from '@/simulator/anatomy/anchors';
+import { AV_AXIS, MITRAL_SHORT_AXIS_CM } from '@/simulator/anatomy/heartFrame';
 
 /**
  * The canonical views as data: plane in the heart frame, skin window, landmarks, hints and tolerances.

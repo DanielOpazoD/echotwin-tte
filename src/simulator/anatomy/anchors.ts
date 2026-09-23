@@ -2,7 +2,7 @@ import type { CycleState } from '@/simulator/cardiac-cycle/cycleModel';
 import { Structure } from './tissue';
 import type { TissueSample } from './tissue';
 import { lvCavityRadius, lvProfileG } from './lvShape';
-import { AV_AXIS } from './heartFrame';
+import { AV_AXIS, MITRAL_SHORT_AXIS_CM } from './heartFrame';
 import { computeHeartPose } from './heartPose';
 import { classifyHeart } from './classify';
 import type { HeartModel } from './heartModel';
@@ -252,13 +252,6 @@ export interface Landmark {
   p: Vec3; // heart frame
   radius: number; // tolerance radius for "in plane" tests (cm)
 }
-
-/**
- * Level of the mitral short axis, in cm from the end-diastolic annulus toward the apex (decision 164): the leaflets open
- * across it in diastole, and it cuts the basal segments of the ventricle. The `psax-mv` view aims there and its basal
- * landmarks sit there.
- */
-export const MITRAL_SHORT_AXIS_CM = 1.4;
 
 export function heartLandmarks(m: HeartModel): Landmark[] {
   const A = anchors(m);
