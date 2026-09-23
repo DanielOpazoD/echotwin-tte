@@ -94,6 +94,7 @@ export function paintSegmentMap(
   ids: Uint8Array,
   width: number,
   selected: number | null,
+  hovered: number | null = null,
 ): RegionStat[] {
   const n = lut.length;
   const count = new Float64Array(18);
@@ -125,23 +126,108 @@ export function paintSegmentMap(
     rgba[o + 2] = c[2];
     rgba[o + 3] = 255;
   }
-  if (selected !== null && count[selected]! > 0) {
-    // outline: pixels of the selected segment with a neighbour outside it
+  // outlines: pixels of the selected segment (white) or of the one under the pointer (accent) with a neighbour outside it
+  const outline = (target: number, rgb: Rgb): void => {
+    if (count[target]! <= 0) return;
     const h = n / width;
-    const isSel = (x: number, y: number): boolean => {
+    const isIn = (x: number, y: number): boolean => {
       if (x < 0 || y < 0 || x >= width || y >= h) return false;
       const k = lut[y * width + x]!;
-      return k >= 0 && ids[k] === selected;
+      return k >= 0 && ids[k] === target;
     };
     for (let y = 0; y < h; y++)
       for (let x = 0; x < width; x++) {
-        if (!isSel(x, y)) continue;
-        if (isSel(x - 1, y) && isSel(x + 1, y) && isSel(x, y - 1) && isSel(x, y + 1)) continue;
+        if (!isIn(x, y)) continue;
+        if (isIn(x - 1, y) && isIn(x + 1, y) && isIn(x, y - 1) && isIn(x, y + 1)) continue;
         const o = (y * width + x) * 4;
-        rgba[o] = 255;
-        rgba[o + 1] = 255;
-        rgba[o + 2] = 255;
+        rgba[o] = rgb[0];
+        rgba[o + 1] = rgb[1];
+        rgba[o + 2] = rgb[2];
       }
+  };
+  if (hovered !== null && hovered !== selected) outline(hovered, [92, 200, 255]);
+  if (selected !== null) outline(selected, [255, 255, 255]);
+  const stats: RegionStat[] = [];
+  for (let id = 1; id <= 17; id++) {
+    const c = count[id]!;
+    if (c > 0)
+      stats.push({
+        id,
+        count: c,
+        cx: sx[id]! / c,
+        cy: sy[id]! / c,
+        minY: minY[id]!,
+        maxY: maxY[id]!,
+      });
+  }
+  return stats;
+}
+
+/**
+ * Translucent segment layer over the ultrasound image (decision 153). The myocardium keeps its echo: each segment is a
+ * light wash of its colour, the boundaries between two segments a stronger line, and the selected or hovered segment
+ * a stronger wash with a white outline. The border of the myocardium itself is left to the image, since reading it is
+ * the learner's task. Returns the region of each segment for its number.
+ */
+export function paintSegmentOverlay(
+  rgba: Uint8ClampedArray,
+  lut: Int32Array,
+  ids: Uint8Array,
+  width: number,
+  selected: number | null,
+  hovered: number | null,
+): RegionStat[] {
+  const n = lut.length;
+  const h = n / width;
+  const idAt = (i: number): number => {
+    const k = lut[i]!;
+    return k >= 0 ? (ids[k] ?? 0) : 0;
+  };
+  const count = new Float64Array(18);
+  const sx = new Float64Array(18);
+  const sy = new Float64Array(18);
+  const minY = new Int32Array(18).fill(0x7fffffff);
+  const maxY = new Int32Array(18).fill(-1);
+  const focus = selected ?? hovered;
+  for (let i = 0; i < n; i++) {
+    const o = i * 4;
+    const id = idAt(i);
+    if (id <= 0 || id > 17) {
+      rgba[o + 3] = 0;
+      continue;
+    }
+    const x = i % width,
+      y = (i / width) | 0;
+    count[id]! += 1;
+    sx[id]! += x;
+    sy[id]! += y;
+    if (y < minY[id]!) minY[id] = y;
+    if (y > maxY[id]!) maxY[id] = y;
+    const c = SEGMENT_RGB[id]!;
+    // neighbours: a different segment is a segment boundary; the edge of the emphasised segment is its outline
+    // the four neighbours (a pixel at the image edge counts its missing neighbour as itself)
+    const l = x > 0 ? idAt(i - 1) : id,
+      r = x < width - 1 ? idAt(i + 1) : id,
+      u = y > 0 ? idAt(i - width) : id,
+      d = y < h - 1 ? idAt(i + width) : id;
+    const differs = l !== id || r !== id || u !== id || d !== id;
+    const boundary =
+      differs &&
+      ((l !== id && l > 0) || (r !== id && r > 0) || (u !== id && u > 0) || (d !== id && d > 0));
+    const edge = differs && (id === focus || id === hovered);
+    if (edge) {
+      rgba[o] = 255;
+      rgba[o + 1] = 255;
+      rgba[o + 2] = 255;
+      rgba[o + 3] = 230;
+      continue;
+    }
+    rgba[o] = c[0];
+    rgba[o + 1] = c[1];
+    rgba[o + 2] = c[2];
+    const strong = id === hovered || id === selected;
+    const faded = selected !== null && id !== selected && id !== hovered;
+    rgba[o + 3] = boundary ? 200 : strong ? 120 : faded ? 34 : 78;
   }
   const stats: RegionStat[] = [];
   for (let id = 1; id <= 17; id++) {
@@ -157,4 +243,30 @@ export function paintSegmentMap(
       });
   }
   return stats;
+}
+
+/** Polar sample index (line-major) under a pixel of a sector mapping, or −1 outside the sector. */
+export function sampleIndexAt(
+  polar: { lines: number; samples: number; sectorRad: number; depthCm: number },
+  m: { apexX: number; apexY: number; pxPerCm: number; invertLR: boolean },
+  px: number,
+  py: number,
+): number {
+  let dx = px - m.apexX;
+  if (m.invertLR) dx = -dx;
+  const dy = py - m.apexY;
+  if (dy < 0) return -1;
+  const r = Math.hypot(dx, dy) / m.pxPerCm;
+  const th = Math.atan2(dx, dy);
+  const half = polar.sectorRad / 2;
+  if (r > polar.depthCm || th < -half || th > half) return -1;
+  const li = Math.min(
+    polar.lines - 1,
+    Math.max(0, Math.round(((th + half) / polar.sectorRad) * polar.lines - 0.5)),
+  );
+  const si = Math.min(
+    polar.samples - 1,
+    Math.max(0, Math.round((r / polar.depthCm) * polar.samples - 0.5)),
+  );
+  return li * polar.samples + si;
 }

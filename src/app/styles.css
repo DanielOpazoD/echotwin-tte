@@ -445,6 +445,97 @@ select:focus-visible {
   border-radius: 4px;
   pointer-events: none;
 }
+/* LV segments on the ultrasound image (decision 153): the toggle under the case title and the name beside the pointer */
+.img-seg {
+  position: absolute;
+  top: 32px;
+  left: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 3;
+}
+.img-seg-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px 3px 6px;
+  font-size: 11.5px;
+  background: rgba(8, 11, 16, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  color: #cfd6e0;
+}
+.img-seg-toggle.on {
+  border-color: var(--accent);
+  color: #ffffff;
+  background: rgba(20, 44, 62, 0.85);
+}
+.img-seg-icon {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, #f0f0f0 0 22%, transparent 23%),
+    conic-gradient(
+      rgb(58, 108, 184) 0 60deg,
+      rgb(56, 164, 158) 60deg 120deg,
+      rgb(62, 160, 80) 120deg 180deg,
+      rgb(184, 132, 58) 180deg 240deg,
+      rgb(186, 82, 50) 240deg 300deg,
+      rgb(140, 72, 180) 300deg 360deg
+    );
+  opacity: 0.55;
+}
+.img-seg-toggle.on .img-seg-icon {
+  opacity: 1;
+}
+.img-seg-model {
+  display: inline-flex;
+  background: rgba(8, 11, 16, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.img-seg-model button {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 2px 9px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.img-seg-model button.active {
+  background: #23455e;
+  color: #ffffff;
+}
+.seg-tip {
+  position: absolute;
+  display: none;
+  grid-template-columns: auto 1fr;
+  column-gap: 7px;
+  align-items: center;
+  max-width: 260px;
+  padding: 5px 9px;
+  background: rgba(8, 11, 16, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+  font-size: 12px;
+  color: #f4f6fa;
+  pointer-events: none;
+  z-index: 4;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+}
+.seg-tip-swatch {
+  grid-row: span 2;
+  width: 12px;
+  height: 28px;
+  border-radius: 3px;
+}
+.seg-tip span {
+  color: var(--muted);
+  font-size: 11px;
+}
 .img-hud {
   position: absolute;
   inset: 0;
@@ -879,6 +970,12 @@ select:focus-visible {
 .bullseye-seg:focus-visible circle {
   stroke: var(--accent);
   stroke-width: 3;
+  stroke-dasharray: none;
+}
+.bullseye-seg.hovered path,
+.bullseye-seg.hovered circle {
+  stroke: var(--accent);
+  stroke-width: 2.5;
   stroke-dasharray: none;
 }
 .bullseye-seg.selected path,
