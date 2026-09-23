@@ -34,30 +34,6 @@ export function valueNoise3(x: number, y: number, z: number, seed: number): numb
 }
 
 /**
- * Speckle factor ~ multiplicative, approximately Rayleigh-like: product of two independent value
- * noises squared gives a heavy-tailed positive factor with mean ≈ 1.
- * `freq` in cycles/cm; anisotropy: axial (z) grain finer than lateral (x,y) as in real speckle.
- */
-export function speckle(
-  x: number,
-  y: number,
-  z: number,
-  freqLateral: number,
-  freqAxial: number,
-  seed: number,
-): number {
-  const n1 = valueNoise3(x * freqLateral, y * freqLateral, z * freqAxial, seed);
-  const n2 = valueNoise3(
-    x * freqLateral * 1.93 + 17.3,
-    y * freqLateral * 1.93 + 5.1,
-    z * freqAxial * 1.93 + 9.7,
-    seed ^ 0x5bd1e995,
-  );
-  const v = (n1 * 0.65 + n2 * 0.35) * 2; // mean ≈ 1
-  return v * v * 0.75 + 0.25; // keep positive, mean ≈ 1, heavy tail
-}
-
-/**
  * Lattice value noise: the integer lattice values are precomputed once per seed (128³ bytes) so a
  * sample costs 8 array reads instead of 8 hashes. Periodic every 128 units; combined with a second
  * octave at 2.1× the period is not perceptible at speckle scale. Deterministic per seed.

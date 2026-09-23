@@ -7,7 +7,7 @@ import type { BeamFrame } from '@/simulator/probe/pose';
 import { contactQuality } from '@/simulator/probe/pose';
 import type { PolarFrameSpec, Scene } from '../types';
 import { hash3 } from '@/core/random';
-import { bloodShiftCells } from '../acoustic/acoustics';
+import { attenuationFrequencyMHz, bloodShiftCells } from '../acoustic/acoustics';
 
 /**
  * Single source of truth for the scene parameters shared by the CPU classifier and the GLSL port:
@@ -348,7 +348,7 @@ export function packScene(
   set('SAMPLES', spec.samples);
   set('SECTOR', spec.sectorRad);
   set('DEPTH', spec.depthCm);
-  set('F_ATTEN', f * (harm ? 1.2 : 1));
+  set('F_ATTEN', attenuationFrequencyMHz(f, harm));
   set('GRAIN_LAT', Math.sqrt(f / 2.5));
   set('GRAIN_AX', (f / 2.5) * 2.2 * (harm ? 1.25 : 1));
   set('HARM', harm ? 1 : 0);

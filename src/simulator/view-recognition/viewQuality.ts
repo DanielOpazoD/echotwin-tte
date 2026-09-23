@@ -2,6 +2,7 @@ import type { Vec3 } from '@/core/vec3';
 import { dot, normalize, radToDeg, sub, v3 } from '@/core/vec3';
 import type { HeartModel, HeartPose } from '@/simulator/anatomy/heartModel';
 import {
+  anchorsCached,
   heartDirToTorso,
   heartLandmarks,
   heartRootAxis,
@@ -16,10 +17,12 @@ import {
   VIEW_TARGETS,
   type ViewTarget,
   type WindowId,
+  landmarkReachCm,
 } from '@/simulator/windows/viewTargets';
 import type { AcquisitionSettings, PolarFrame } from '@/simulator/renderer/types';
 import { Structure, Tissue } from '@/simulator/anatomy/tissue';
 import { CAMUS_GOOD } from '@/clinical/reference-values/camusImageStats';
+import { softTissueTransmission } from '@/simulator/renderer/acoustic/acoustics';
 import { hiddenSegmentCodes, segmentCoverage, type SegmentCoverage } from './segmentCoverage';
 
 /**
@@ -119,9 +122,17 @@ interface LandmarkTest {
   transmission: number;
 }
 
-/** Two-way transmission expected through average soft tissue (≈0.5 dB/cm/MHz) at depth r. */
-export function expectedTransmission(rCm: number, frequencyMHz: number): number {
-  return Math.exp(-0.23 * 0.5 * frequencyMHz * 1.2 * rCm);
+/**
+ * Two-way transmission expected through average soft tissue at depth r for the acquisition: the harmonic factor only
+ * with harmonics on. It applied the harmonic factor always, and with harmonics off it expected 1.2 times the soft tissue
+ * loss, so a sample had to lose that much more before it counted as shadowed.
+ */
+export function expectedTransmission(
+  rCm: number,
+  frequencyMHz: number,
+  harmonics: boolean,
+): number {
+  return softTissueTransmission(rCm, frequencyMHz, harmonics);
 }
 
 function testLandmark(
@@ -130,6 +141,7 @@ function testLandmark(
   beam: BeamFrame,
   frame: PolarFrame,
   frequencyMHz: number,
+  harmonics: boolean,
 ): LandmarkTest & { thetaRad: number; rCm: number } {
   const d = sub(p, beam.origin);
   const depth = dot(d, beam.forward);
@@ -149,9 +161,9 @@ function testLandmark(
     transmission = frame.transmission[li * samples + si] ?? 0;
   }
   const planeDist = Math.abs(elev);
-  const tol = 0.45 + radius * 0.55;
+  const tol = landmarkReachCm(radius);
   // shadow test is relative to the expected soft-tissue attenuation at this depth
-  const expected = expectedTransmission(r, frequencyMHz);
+  const expected = expectedTransmission(r, frequencyMHz, harmonics);
   const lit = transmission > 0.2 * expected;
   return {
     id: '',
@@ -185,7 +197,7 @@ export function analyzeView(input: AnalyzeInput): ViewAnalysis {
     lmTorso.set(l.id, { p: heartToTorso(heart.frame, l.p), radius: l.radius });
   const lmTests = new Map<string, ReturnType<typeof testLandmark>>();
   for (const [id, l] of lmTorso) {
-    const t = testLandmark(l.p, l.radius, beam, frame, settings.frequencyMHz);
+    const t = testLandmark(l.p, l.radius, beam, frame, settings.frequencyMHz, settings.harmonics);
     t.id = id;
     lmTests.set(id, t);
   }
@@ -209,7 +221,10 @@ export function analyzeView(input: AnalyzeInput): ViewAnalysis {
     if (st !== 0 && st < 25) {
       cardiac++;
       const r = ((i % samples) + 0.5) * dr;
-      if ((frame.transmission[i] ?? 0) < 0.2 * expectedTransmission(r, settings.frequencyMHz))
+      if (
+        (frame.transmission[i] ?? 0) <
+        0.2 * expectedTransmission(r, settings.frequencyMHz, settings.harmonics)
+      )
         shadowed++;
       if (input.display) {
         const g = input.display[i] ?? 0;
@@ -261,7 +276,7 @@ export function analyzeView(input: AnalyzeInput): ViewAnalysis {
     analysis: Partial<ViewAnalysis> & { components: ViewComponentScores };
   }[] = [];
   for (const view of candidates) {
-    const plane = canonicalPlane(view, heart);
+    const plane = canonicalPlane(view, heart, input.thorax);
     // similarity is measured against the pose an expert can actually reach from this window in this
     // synthetic thorax (canonical beam); obliquity vs the ideal anatomical plane is reported separately
     const canon = canonicalBeam(view, heart, input.thorax);
@@ -315,8 +330,17 @@ export function analyzeView(input: AnalyzeInput): ViewAnalysis {
       const apexDist = apexT ? apexT.planeDistCm : 5;
       foreshorteningDeg = axisPlaneAngle + apexDist * 12;
       geometryScore = clamp01(1 - foreshorteningDeg / 40);
-    } else if (view.id === 'plax') {
+    } else if (view.id === 'plax' || view.id === 'subcostal-4c') {
+      // long-axis views: the plane should hold the LV long axis. The subcostal four-chamber view fell in the short-axis
+      // branch, which read a plane holding the axis as 90° oblique and scored its geometry 0 (decision 167)
       geometryScore = clamp01(1 - axisPlaneAngle / 35);
+    } else if (view.id === 'subcostal-ivc') {
+      // the long axis of the cava is what this view holds (decision 131)
+      const A = anchorsCached(heart);
+      const ivcAxis = heartDirToTorso(heart.frame, normalize(sub(A.ivcB, A.ivcA)));
+      const ivcPlaneAngle = radToDeg(Math.asin(Math.min(1, Math.abs(dot(ivcAxis, beam.normal)))));
+      geometryScore = clamp01(1 - ivcPlaneAngle / 35);
+      foreshorteningDeg = ivcPlaneAngle;
     } else {
       // short axis: obliquity = deviation from perpendicular to the reference axis (LV long axis, or the
       // aortic root axis for the AV level); mild penalty because some obliquity is normal
@@ -489,7 +513,7 @@ function poseError(
   thorax: ThoraxModel,
   c: ProbeControl,
 ): number {
-  const plane = canonicalPlane(view, heart);
+  const plane = canonicalPlane(view, heart, thorax);
   const canon = canonicalBeam(view, heart, thorax);
   const beam = beamFrameFromPose(poseFromControl(thorax, c));
   const e1 = Math.acos(Math.min(1, Math.abs(dot(canon.normal, beam.normal))));

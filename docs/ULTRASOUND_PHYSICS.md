@@ -72,6 +72,8 @@ Las costillas son cartílago a menos de 5 cm del esternón y hueso más allá; s
 | `GRAIN_GAIN` | 4,8 | ganancia de los granos coherentes |
 | `GRAIN_THRESHOLD` | 0,72 | umbral del retículo de granos |
 | `MYO_ANISO_FLOOR` | 0,15 | piso de la anisotropía miocárdica |
+| `HARMONIC_ATTEN_FACTOR` | 1,2 | factor de la atenuación con armónicos |
+| `SOFT_TISSUE_ATTEN_DB` | 0,5 | atenuación del tejido blando de referencia para sombras (dB/cm/MHz) |
 | `BLOOD_HARMONIC_SIGMA` | 0,6 | retrodispersión de la sangre con armónicos |
 | `SPECULAR_HARMONIC` | 1,1 | eco especular con armónicos |
 | `ATTEN_NP_PER_DB` | 0,23 | nepers de amplitud de ida y vuelta por dB/cm/MHz |

@@ -92,6 +92,15 @@ describe('view quality engine', () => {
     expect(scores[0]).toBeGreaterThan(70);
     expect(scores[scores.length - 1]).toBeGreaterThan(60);
   });
+  it('canonical subcostal four-chamber: atria, septum and LV in view, its geometry read as a long axis (decision 167)', () => {
+    // it scored 35 with the LV the only landmark it saw: the declared plane missed the atria and the septum, and the
+    // short-axis branch read a plane holding the LV axis as 90° oblique
+    const a = analyze(canonicalControl(getViewTarget('subcostal-4c'), heart, thorax));
+    expect(a.bestViewId).toBe('subcostal-4c');
+    expect(a.score).toBeGreaterThan(75);
+    expect(a.visibleLandmarks).toEqual(expect.arrayContaining(['ias', 'la', 'lv-mid', 'mv']));
+    expect(a.components.geometry).toBeGreaterThan(0.9);
+  });
   it('canonical A4C: apex visible, low foreshortening; a lifted probe foreshortens', () => {
     const a4c = canonicalControl(getViewTarget('a4c'), heart, thorax);
     const a = analyze(a4c);

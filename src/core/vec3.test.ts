@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { cross, dot, normalize, orthonormalBasis, v3 } from './vec3';
 import { qFromAxisAngle, qFromBasis, qMul, qRotate, qAngleBetween } from './quat';
 import { createRng, hash3 } from './random';
-import { valueNoise3, speckle } from './noise';
+import { valueNoise3 } from './noise';
 
 describe('vec3/quat', () => {
   it('orthonormal basis is orthogonal and unit', () => {
@@ -59,17 +59,5 @@ describe('random/noise determinism', () => {
     const a = valueNoise3(1.5, 2.5, 3.5, 7);
     const b = valueNoise3(1.5001, 2.5, 3.5, 7);
     expect(Math.abs(a - b)).toBeLessThan(1e-3);
-  });
-  it('speckle has mean near 1 and is positive', () => {
-    let sum = 0;
-    const n = 20000;
-    const rng = createRng(3);
-    for (let i = 0; i < n; i++) {
-      const s = speckle(rng.range(0, 50), rng.range(0, 50), rng.range(0, 50), 3, 6, 11);
-      expect(s).toBeGreaterThan(0);
-      sum += s;
-    }
-    expect(sum / n).toBeGreaterThan(0.6);
-    expect(sum / n).toBeLessThan(1.4);
   });
 });

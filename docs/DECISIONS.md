@@ -701,3 +701,71 @@ Con el campo anterior fallan 225 condiciones.
 La captura de la cadena de la app en el A4C normal muestra la convergencia auricular como un embudo redondeado. La salida sistólica del VI es un disco con su línea negra de cambio de signo, y la IT trivial vuelve a ser una llama estrecha. Los bordes rectos que quedan son las paredes y la caja de color.
 
 Las pruebas de Doppler (PW, CW, color, modo M color, venas pulmonares, regurgitación) no cambian.
+
+
+167. **2026-09-23 — El subcostal de cuatro cámaras se resuelve desde su ventana y su geometría se lee como un eje largo**: sexto punto de la tanda 3 («subcostal 4C y VCI»). El panel midió el preajuste en 33–38 puntos, con 87° de escorzo y sin AI, septo interauricular ni válvulas. Había dos causas.
+
+**El plano**
+
+El plano de cuatro cámaras del corazón es casi transversal: su normal apunta 0,86 en dirección craneal en el caso normal. Corta la piel anterior 6–8 cm por debajo de la escotadura, por encima del reborde costal. Desde debajo del xifoides sólo puede verse inclinado.
+
+El plano declarado pasaba por la ventana subxifoidea (v = −9,5), el crux y un punto entre el VD y la AI. Quedaba a 30° del cuatro cámaras, con la AI, la tricúspide y la mitral a 1,4–1,9 veces su alcance, y el septo interauricular al límite. El preajuste, a v = −10,4, sólo veía el VI medio.
+
+Ningún giro del plano alrededor del haz declarado las reunía: la peor quedaba siempre a 1,74 veces su alcance o más.
+
+Ahora se hace lo que haría un ecografista (`subcostalFourChamber`):
+
+- **Ventana.** La sonda sube hasta el reborde costal: la ventana es donde el cuatro cámaras sale de la piel, sin pasar de v = −8,5.
+- **Plano.** Desde ese origen del haz, el plano es el que mantiene más cerca las referencias de la vista. Minimiza la mayor distancia en unidades del alcance del motor de vistas. Una búsqueda de 2° seguida de un refinado de 0,25° da un plano a 6–11° del cuatro cámaras.
+- **Peso de las exigidas.** Las referencias exigidas pesan 1,35 veces más. Es el menor de los pesos probados que deja todas las exigidas y la mitral dentro de su alcance en los doce casos; sin él, el septo quedaba un 13 % fuera.
+- **Haz.** Apunta al crux proyectado sobre el plano.
+
+`canonicalPlane` devuelve este plano cuando recibe el tórax, y el motor de vistas se lo pasa. La AI y la tricúspide, opcionales, quedan hasta 1,11 y 1,32 veces su alcance en algunos casos (declaradas en `KNOWN_UNREACHABLE_LANDMARKS`). La mitral sale de esa lista.
+
+**La geometría**
+
+El subcostal de cuatro cámaras y el de la VCI caían en la rama de eje corto de la puntuación geométrica. Esa rama mide la oblicuidad respecto del eje largo del VI, y un plano que contiene ese eje salía 90° oblicuo, con geometría 0: los «87° de escorzo» del panel.
+
+Ahora el subcostal 4C se mide como un eje largo (como el PLAX: el ángulo del eje del VI con el plano) y el de la VCI respecto del eje de la cava (decisión 131).
+
+**Resultado en la cadena de la app, a lo largo de un latido**
+
+| Caso | Antes | Después | Detalle |
+|---|---|---|---|
+| Normal | 34 | 88 | 6 de 7 referencias (falta la tricúspide); el septo ocupa el 0,8 % del cuadro, la AI el 2,9 % y las válvulas el 0,6 % en diástole |
+| MCD | 20 | 76 | |
+| Hipertensión pulmonar | 54 | 80 | |
+| Ventana difícil | 19 | 27 | la tapa el pulmón |
+| Subcostal de la VCI | geometría 0 | geometría 1 | puntúa 89 en el caso normal |
+
+`viewQuality.test.ts` exige, para el subcostal 4C del caso normal:
+
+- que se reconozca como tal;
+- que puntúe más de 75;
+- que vea el septo, la AI, el VI y la mitral;
+- que su geometría pase de 0,9.
+
+Con el plano y la rama anteriores puntúa 35. En el caso normal, el criterio del panel (AI, tricúspide y mitral a menos de 1 cm del plano) se cumple para la mitral (0,98 cm) y para el septo (0,88 cm). La AI queda a 1,26 cm y la tricúspide a 1,33 cm; antes estaban a 1,9 y 1,7. El contraste del VI no se midió en esta decisión.
+
+
+168. **2026-09-23 — Una sola atenuación por adquisición, y fuera el código muerto**: primer punto de la tanda 4, los hallazgos colaterales de la decisión 160.
+
+**Atenuación**
+
+El producto «frecuencia × 1,2 con armónicos» estaba escrito cuatro veces: en el trazador, en los parámetros de la GPU, en la sombra del color y en la sombra del motor de vistas. La última aplicaba el 1,2 siempre, así que con los armónicos apagados esperaba 1,2 veces la pérdida del tejido blando de la imagen que juzgaba: una muestra tenía que perder eso de más antes de contar como sombra.
+
+Ahora `attenuationFrequencyMHz` y `softTissueTransmission` (`acoustics.ts`, con `HARMONIC_ATTEN_FACTOR` = 1,2 y `SOFT_TISSUE_ATTEN_DB` = 0,5 en la tabla verificada de `ULTRASOUND_PHYSICS.md`) son la única definición. El motor de vistas recibe los armónicos de la adquisición. Con los armónicos encendidos, que es lo que usan todas las pruebas y los goldens, no cambia ningún número.
+
+**Código muerto**
+
+Se retiran tres piezas sin uso:
+
+- `myoAnisoGain`, la dirección circunferencial única de la decisión 123, que la hélice de fibras de la decisión 144 dejó sin llamadas en la CPU y en la GPU; también se generaba a GLSL.
+- `MYO_HELIX_COS2`, que sólo usaba esa función.
+- `speckle()` de `core/noise.ts`, que sólo llamaba su propia prueba.
+
+El GLSL generado se regenera (`npm run glsl:gen`).
+
+**Guarda**
+
+`attenuation.test.ts` fija las dos funciones con y sin armónicos.

@@ -264,8 +264,9 @@ describe('acoustic image formation', () => {
   // model puts the beam along the circumferential fibres there. Samples are bucketed by the beam's alignment with
   // the circumferential fibre direction at each of them (|beam · φ̂| below 0.3 against above 0.85), not by which sector
   // line holds them: line buckets read the window's obliquity, and the 2° the papillary short axis moved in decision
-  // 139 took their ratio from 0.50 to 0.552. myoAnisoGain gives 0.45/0.92 ≈ 0.49 at the bucket edges (beam across the
-  // long axis) and 0.24 at full alignment; measured 0.36 (line buckets: 0.57 → 0.50 before decision 123).
+  // 139 took their ratio from 0.50 to 0.552. The single circumferential direction of decision 123 gave 0.45/0.92 ≈ 0.49
+  // at the bucket edges and 0.24 at full alignment; the fibre helix of decision 144 sets it now, measured 0.36 (line
+  // buckets: 0.57 → 0.50 before decision 123).
   it('the PSAX ring drops out where the beam runs along the fibres', () => {
     const { lines: L, samples: N, sectorRad } = spec;
     const dr = spec.depthCm / N;

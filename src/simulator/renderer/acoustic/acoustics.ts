@@ -23,26 +23,9 @@ export const PHASOR_NORM = Math.sqrt(0.5 / (2 * 0.03443));
  * fibres lie out of the image plane.
  */
 export const MYO_ANISO_FLOOR = 0.15;
-/**
- * E[cos²α] over the transmural fibre helix: the fibre pitch rotates through the wall (≈ ±40–60° about
- * the circumferential direction), so a PSF volume averages a spread of orientations — 0.9 ≈ fibres
- * dominated by the circumferential component, the rest weighted onto the long axis.
- */
-export const MYO_HELIX_COS2 = 0.9;
 /** Below this radius from the long axis the circumferential direction is undefined: no fibre response. */
 export const MYO_ANISO_RADIAL_EPS = 1e-3;
 
-/**
- * Angular gain of a myocardial sample from the beam direction in heart frame: `dphi` is the beam's
- * component along the circumferential direction at the sample and `dz2` its squared component along
- * the long axis. Beam across the fibres → 1; beam along the fibres → the floor.
- */
-export function myoAnisoGain(dphi: number, dz2: number): number {
-  return (
-    MYO_ANISO_FLOOR +
-    (1 - MYO_ANISO_FLOOR) * (1 - MYO_HELIX_COS2 * dphi * dphi - (1 - MYO_HELIX_COS2) * dz2)
-  );
-}
 /**
  * Fibre helix of the LV wall (decision 144): the helix angle from the circumferential direction runs from
  * MYO_HELIX_ENDO_DEG at the endocardium to MYO_HELIX_EPI_DEG at the epicardium (Streeter's ≈ +60° → −60°), so the
@@ -163,6 +146,33 @@ export const PHASOR_IM_A: readonly [number, number, number] = [71.1, 53.5, 5.3];
 export const PHASOR_IM_B: readonly [number, number, number] = [17.9, 91.1, 43.3];
 /** Two-way amplitude loss: 0.23 Np per dB·cm⁻¹·MHz⁻¹ of one-way attenuation, integrated over the sample (decision 89). */
 export const ATTEN_NP_PER_DB = 0.23;
+/**
+ * Harmonic imaging raises the attenuation along the path by this factor: the echo returns at twice the frequency over
+ * part of it (a declared value, as the other harmonic factors).
+ */
+export const HARMONIC_ATTEN_FACTOR = 1.2;
+/** The attenuation of average soft tissue (dB/cm/MHz, one way) against which shadows and depth are judged. */
+export const SOFT_TISSUE_ATTEN_DB = 0.5;
+/** Frequency (MHz) the attenuation of an acquisition scales with: the transmit frequency, ×1.2 with harmonics. */
+export function attenuationFrequencyMHz(frequencyMHz: number, harmonics: boolean): number {
+  return frequencyMHz * (harmonics ? HARMONIC_ATTEN_FACTOR : 1);
+}
+/**
+ * Two-way transmission (amplitude) that average soft tissue leaves at a depth for an acquisition: what depth alone does,
+ * against which a sample is judged shadowed (decisions 87 and 96).
+ */
+export function softTissueTransmission(
+  depthCm: number,
+  frequencyMHz: number,
+  harmonics: boolean,
+): number {
+  return Math.exp(
+    -ATTEN_NP_PER_DB *
+      SOFT_TISSUE_ATTEN_DB *
+      attenuationFrequencyMHz(frequencyMHz, harmonics) *
+      depthCm,
+  );
+}
 /** Calcified tissue (extraReflect above the threshold) adds ≈ 10 dB/cm at 2.5 MHz: NP per 0.07 cm of sample. */
 export const CALCIUM_ATTEN_THRESHOLD = 0.4;
 export const CALCIUM_ATTEN_NP = 0.09;
@@ -295,7 +305,6 @@ export const ACOUSTIC_GLSL_CONSTANTS: Readonly<
   GRAIN_OFFSET,
   MEMBRANE_CM,
   MYO_ANISO_FLOOR,
-  MYO_HELIX_COS2,
   MYO_ANISO_RADIAL_EPS,
   MYO_HELIX_ENDO_DEG,
   MYO_HELIX_EPI_DEG,
