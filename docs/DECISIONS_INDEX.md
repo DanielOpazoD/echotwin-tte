@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 165 (última: 165).
+Decisiones: 166 (última: 166).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -173,3 +173,4 @@ Decisiones: 165 (última: 165).
 | [163](DECISIONS.md#L519) | 2026-09-23 | La sangre que fluye cambia de speckle en cada cuadro y el tejido conserva el suyo | vigente |
 | [164](DECISIONS.md#L580) | 2026-09-23 | El eje corto mitral pide las referencias de su propio nivel, y cada vista pide sólo lo que su plano alcanza | vigente |
 | [165](DECISIONS.md#L628) | 2026-09-23 | El campo lejano del A3C: la aurícula clara es clínica y la pared anteroseptal se apaga por una costilla, no por el miocardio | vigente |
+| [166](DECISIONS.md#L661) | 2026-09-23 | El color de los flujos normales termina en curvas y no en las superficies de sus primitivas, y el llenado pasa por el orificio el caudal de su tabla | vigente |

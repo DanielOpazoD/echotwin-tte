@@ -102,6 +102,156 @@ function inflowAxial(zr: number, lengthNow: number): number {
 }
 
 /**
+ * Continuous flow primitives (decision 166). The colour map shows flow only where a primitive is present, so a primitive
+ * whose velocity stopped on a cylinder, a cone or a plane drew that surface as a straight colour border: the mitral
+ * inflow of the normal four-chamber view was a rectangle, with straight borders of 7-13 mm in the normal case and 29 mm
+ * in the HFrEF one. Every primitive now falls to nothing at its own boundary: a jet keeps its core and loses its velocity
+ * across a shear layer that thickens with the distance from its orifice, a convergence zone is a hemisphere that fades
+ * out, and every jet ends by fading. The radius where a jet keeps half its velocity is the one its old profile had, so
+ * its flux and its colour area at half velocity stay where they were.
+ */
+/**
+ * Width (cm) of a jet's shear layer at its orifice, and its growth per cm along the jet: the velocity falls across it as a
+ * logistic of scale width / 3, from 95 % to 5 % of the core over one width on either side of the half-velocity radius.
+ * A smoothstep flattened near zero, and a 1 m/s jet went from 5 to 16 cm/s within a tenth of the layer.
+ */
+const SHEAR_ORIFICE_CM = 0.25;
+const SHEAR_GROWTH = 0.25;
+/**
+ * Shear layer of a regurgitant or stenotic jet: 1 mm wide at its orifice, growing 0.05 cm per cm. A 2-5 m/s jet shows its
+ * colour down to a few per cent of its core, and with the layer of the slow flows its visible edge reached 2.5 cm from the
+ * axis 3 cm along the trace tricuspid jet of the normal case, which filled the atrium with a wedge; with this one the
+ * edge stays where the old profile ended it.
+ */
+const FAST_JET_SHEAR = { orifice: 0.1, growth: 0.05 } as const;
+const SLOW_SHEAR = { orifice: SHEAR_ORIFICE_CM, growth: SHEAR_GROWTH } as const;
+type Shear = { orifice: number; growth: number };
+/** Logistic fall of a jet's velocity at `rho` from its axis, with ½ at `rHalf` over a layer `w` wide. */
+function logisticFall(rho: number, rHalf: number, w: number): number {
+  return 1 / (1 + Math.exp((3 * (rho - rHalf)) / w));
+}
+/**
+ * Velocity across a jet at `rho` from its axis, `s` cm from its orifice: the core velocity on the axis (a narrow jet keeps
+ * its peak, which a CW or PW measurement reads), ½ near `rHalf`, and nothing beyond `jetReach`.
+ */
+function jetProfile(rho: number, rHalf: number, s: number, shear: Shear = SLOW_SHEAR): number {
+  const w = shear.orifice + shear.growth * Math.max(0, s);
+  if (rho >= rHalf + 3 * w) return 0;
+  return logisticFall(rho, rHalf, w) / logisticFall(0, rHalf, w);
+}
+/** Distance from the axis beyond which a jet carries no velocity (0.01 % of its core). */
+function jetReach(rHalf: number, s: number, shear: Shear = SLOW_SHEAR): number {
+  return rHalf + 3 * (shear.orifice + shear.growth * Math.max(0, s));
+}
+/** 1 before `from`, 0 after `to`: the end of a jet or of a convergence zone. */
+function fadeOut(s: number, from: number, to: number): number {
+  return 1 - smoothstep(from, to, s);
+}
+/**
+ * Atrial convergence toward an atrioventricular orifice: the velocity of a hemispheric sink, Q / (2π d²), capped at the
+ * orifice velocity, fading out between these distances (cm) from the orifice centre, where it has fallen to 7-16 cm/s at
+ * the E peak of the normal case. It used to fill a cylinder of the orifice radius up to 2.5 cm into the atrium.
+ */
+const FUNNEL_FADE_FROM_CM = 2;
+const FUNNEL_FADE_TO_CM = 3;
+/**
+ * The convergence fills the atrial side of the orifice: seen from the nearest point of the orifice's rim, nothing beyond
+ * 72° from the axis (cosine 0.3) and all of it within 53° (0.6), so it is whole over the orifice and fades beside the
+ * annulus. A full hemisphere reached the outflow tract beside the anterior leaflet, at the level of the annulus, and
+ * drew a 6 mm border there.
+ */
+/**
+ * The ventricle's outflow converges on the entrance of the outflow tract, this far below the aortic valve along its axis
+ * (cm), where the old tube began to widen into the cavity; the sink fades out between these distances from the entrance.
+ */
+const LVOT_ENTRANCE_T = -0.8;
+const LVOT_SINK_FADE_FROM_CM = 3;
+const LVOT_SINK_FADE_TO_CM = 4.5;
+/**
+ * The sink draws from the cavity along the tract's axis: all within 37° of it (cosine 0.8), nothing beyond 57° (0.55).
+ * The wider cone of the atrioventricular convergence reached, behind the closed mitral leaflets, the left atrium, which
+ * the ventricle's outflow cannot drain.
+ */
+const LVOT_SINK_COS_FROM = 0.55;
+const LVOT_SINK_COS_TO = 0.8;
+const FUNNEL_COS_FROM = 0.3;
+const FUNNEL_COS_TO = 0.6;
+/**
+ * Weight of a convergence zone at `rho` from the axis and `upstream` cm before an orifice of radius `r`: whole over the
+ * orifice, fading beside it toward the plane of the orifice, where the jet it feeds does not reach (decision 166).
+ */
+function convergenceWeight(
+  rho: number,
+  upstream: number,
+  r: number,
+  cosFrom = FUNNEL_COS_FROM,
+  cosTo = FUNNEL_COS_TO,
+): number {
+  if (upstream <= 0) return 0;
+  return smoothstep(cosFrom, cosTo, upstream / Math.hypot(Math.max(0, rho - r), upstream));
+}
+
+/**
+ * Filling through an atrioventricular valve (decision 166): the atrial convergence toward the orifice and the jet beyond it.
+ * `zr` is the distance beyond the annulus, `r` the orifice radius. The filling wave reaches a point of the jet after the
+ * distance from the orifice centre, so its front is a hemisphere around the orifice rather than a plane across the jet.
+ */
+function inflowJet(
+  tables: BeatTables,
+  table: Float32Array,
+  phase: number,
+  waveCmps: number,
+  dx: number,
+  dy: number,
+  zr: number,
+  r: number,
+  areaCm2: number,
+  axial: (zr: number) => number,
+  turbulence: number,
+  out: FlowSample,
+): void {
+  const rho = Math.hypot(dx, dy);
+  // the effective orifice: the velocity of the case's E wave times its area is the transmitral flow, so the convergence
+  // and the jet up to the tips carry that flow and no more; with the anatomical radius (1.58 cm against 1.26 in the
+  // normal case) the orifice section carried 1.7-1.9 times the inflow
+  const re = Math.sqrt(areaCm2 / Math.PI);
+  if (zr < 0) {
+    const d = Math.hypot(rho, zr);
+    if (d >= FUNNEL_FADE_TO_CM) return;
+    const q = inflowFlow(tables, phase, 0, waveCmps, table);
+    if (q <= 1) return;
+    // a hemispheric sink carries π·re²·v0 through every hemisphere; only on the atrial side of the orifice: beside the
+    // annulus, at its level, lie the outflow tract and the walls
+    const mag =
+      (q / areaCm2 / 100) *
+      Math.min(1, (re * re) / (2 * d * d)) *
+      fadeOut(d, FUNNEL_FADE_FROM_CM, FUNNEL_FADE_TO_CM) *
+      convergenceWeight(rho, -zr, r);
+    // toward a sink one orifice radius beyond the annulus: along the axis at the orifice, converging from the sides
+    const sx = -dx,
+      sy = -dy,
+      sz = r - zr;
+    const n = Math.hypot(sx, sy, sz);
+    out.vx += (sx / n) * mag;
+    out.vy += (sy / n) * mag;
+    out.vz += (sz / n) * mag;
+    out.dispersion = Math.max(out.dispersion, turbulence);
+    out.present = 1;
+    return;
+  }
+  // the jet keeps the effective orifice up to the leaflet tips, then widens for 4 cm and fills the cavity it reaches (it
+  // entrains the blood around it: beyond the tips it carries more than the inflow, whose return is not modelled)
+  const rHalf = re + Math.min(4, Math.max(0, zr - INFLOW_CORE_CM)) * 0.35;
+  if (rho >= jetReach(rHalf, zr)) return;
+  const q = inflowFlow(tables, phase, Math.hypot(zr, rho), waveCmps, table);
+  if (q <= 1) return;
+  // jet core with plug profile, slowing beyond the tips
+  out.vz += (q / areaCm2 / 100) * jetProfile(rho, rHalf, zr) * axial(zr);
+  out.dispersion = Math.max(out.dispersion, turbulence + 0.15 * Math.min(1, rho / r));
+  out.present = 1;
+}
+
+/**
  * Inflow (mL/s) that left the leaflet tips when the filling wave now `zr` cm beyond an atrioventricular annulus was there
  * (decision 102): the wave takes (zr − INFLOW_CORE_CM)/speed to arrive. Zero for a wave that would have left before the
  * beat began, when the ventricle already contracts.
@@ -340,38 +490,25 @@ export function sampleFlow(
 
   // ---- Mitral inflow: from the LA through the annulus into the LV toward the apex ----
   const zrMv = z - zAnn; // distance beyond the annulus into the LV
-  const qmv =
-    p.enabled['mitral-inflow'] !== false && zrMv > -2.5 && zrMv < hp.lengthNow - 0.2
-      ? inflowFlow(tables, phase, zrMv, p.inflowWaveCmps)
-      : 0; // mL/s
-  if (qmv > 1) {
-    const dx = x - p.mvCenter.x,
-      dy = y - p.mvCenter.y;
-    const rho = Math.hypot(dx, dy);
-    const zr = zrMv;
-    const R = p.mvR * 1.05;
-    // the jet widens for 4 cm and then fills the cavity it reaches
-    const Rj = R + Math.min(4, Math.max(0, zr)) * 0.35;
-    if (rho < Rj) {
-      const v0 = qmv / p.mvAreaCm2 / 100; // m/s at the orifice when this part of the filling wave left it
-      let mag: number;
-      if (zr < 0) {
-        // LA side: convergence toward the annulus (hemispheric-ish), slower
-        const d = Math.max(0.6, -zr);
-        mag = v0 * Math.min(1, (R * R) / (2 * d * d)) * 0.9;
-      } else {
-        // jet core with plug profile, slowing beyond the tips and fading before the apex
-        const prof = 1 - Math.pow(Math.min(1, rho / Rj), 6);
-        mag = v0 * prof * inflowAxial(zr, hp.lengthNow);
-      }
-      out.vz += mag; // toward the apex
-      out.dispersion = Math.max(
-        out.dispersion,
-        (p.turbulence['mitral-inflow'] ?? 0.04) + 0.15 * Math.min(1, rho / R),
-      );
-      out.present = 1;
-    }
-  }
+  if (
+    p.enabled['mitral-inflow'] !== false &&
+    zrMv > -FUNNEL_FADE_TO_CM &&
+    zrMv < hp.lengthNow - 0.2
+  )
+    inflowJet(
+      tables,
+      tables.mitralFlowMlps,
+      phase,
+      p.inflowWaveCmps,
+      x - p.mvCenter.x,
+      y - p.mvCenter.y,
+      zrMv,
+      p.mvR * 1.05,
+      p.mvAreaCm2,
+      (zr) => inflowAxial(zr, hp.lengthNow),
+      p.turbulence['mitral-inflow'] ?? 0.04,
+      out,
+    );
   // ---- LVOT → aortic valve → ascending aorta ----
   if ((p.enabled['lvot'] !== false || p.enabled['aortic-valve'] !== false) && qao > 1) {
     const ax = p.avAxis;
@@ -380,27 +517,48 @@ export function sampleFlow(
       dy = y - p.avCenter.y,
       dz = z - cz;
     const t = dx * ax.x + dy * ax.y + dz * ax.z;
-    if (t > -3.5 && t < 5) {
-      const qx = dx - ax.x * t,
-        qy = dy - ax.y * t,
-        qz = dz - ax.z * t;
-      const rho = Math.sqrt(qx * qx + qy * qy + qz * qz);
+    const qx = dx - ax.x * t,
+      qy = dy - ax.y * t,
+      qz = dz - ax.z * t;
+    const rho = Math.sqrt(qx * qx + qy * qy + qz * qz);
+    const rLvot = Math.sqrt(p.lvotAreaCm2 / Math.PI);
+    // a subaortic/dynamic obstruction narrows the effective area around the septal contact point (t ≈ −0.6)
+    const narrowAt = (tt: number): number => {
+      if (!p.lvotObstruction) return 0;
+      const tm = tables.timings;
+      const u = (phase * tables.rrS - tm.ejectionStartS) / (tm.ejectionEndS - tm.ejectionStartS);
+      const w = Math.exp(-((tt + 0.6) * (tt + 0.6)) / (2 * 0.45 * 0.45));
+      return lvotNarrowing(p.lvotObstruction.fMax, p.lvotObstruction.dynamic, u) * w;
+    };
+    if (t < LVOT_ENTRANCE_T) {
+      // the cavity converges on the entrance of the outflow tract (decision 166): a hemispheric sink carries the aortic
+      // flow through every hemisphere around the entrance, capped at the tract's velocity, so its colour ends on a curve
+      // where it falls under the wall filter. A widening cone cut 3.5 cm below the valve drew a straight edge there.
+      const up = LVOT_ENTRANCE_T - t;
+      const d = Math.hypot(rho, up);
+      if (d < LVOT_SINK_FADE_TO_CM) {
+        const vEntrance = qao / (p.lvotAreaCm2 * (1 - narrowAt(LVOT_ENTRANCE_T))) / 100;
+        const v =
+          Math.min(vEntrance, qao / (2 * Math.PI * d * d) / 100) *
+          fadeOut(d, LVOT_SINK_FADE_FROM_CM, LVOT_SINK_FADE_TO_CM) *
+          convergenceWeight(rho, up, rLvot, LVOT_SINK_COS_FROM, LVOT_SINK_COS_TO);
+        if (v > 0) {
+          // toward the entrance point, on the axis LVOT_ENTRANCE_T from the valve
+          out.vx += ((-qx + ax.x * up) / d) * v;
+          out.vy += ((-qy + ax.y * up) / d) * v;
+          out.vz += ((-qz + ax.z * up) / d) * v;
+          out.dispersion = Math.max(out.dispersion, p.turbulence['lvot'] ?? 0.04);
+          out.present = 1;
+        }
+      }
+    } else if (t < 5.5) {
       let area: number;
       let R: number;
-      const rLvot = Math.sqrt(p.lvotAreaCm2 / Math.PI);
       if (t < 0) {
-        // LVOT: converging from the LV cavity (wider) to the LVOT diameter, and widening again over the last
-        // LVOT_TAPER_CM to the annulus as the drawn lumen does (decision 161); a subaortic/dynamic obstruction
-        // narrows the effective area around the septal contact point (t ≈ −0.6)
-        const widen = (1 + Math.max(0, -t - 0.8) * 0.6) * (lvotRadiusAt(p.avR, rLvot, t) / rLvot);
-        let narrow = 0;
-        if (p.lvotObstruction) {
-          const tm = tables.timings;
-          const u =
-            (phase * tables.rrS - tm.ejectionStartS) / (tm.ejectionEndS - tm.ejectionStartS);
-          const w = Math.exp(-((t + 0.6) * (t + 0.6)) / (2 * 0.45 * 0.45));
-          narrow = lvotNarrowing(p.lvotObstruction.fMax, p.lvotObstruction.dynamic, u) * w;
-        }
+        // LVOT: the tract's diameter, widening over the last LVOT_TAPER_CM to the annulus as the drawn lumen does
+        // (decision 161), narrowed by an obstruction
+        const widen = lvotRadiusAt(p.avR, rLvot, t) / rLvot;
+        const narrow = narrowAt(t);
         R = rLvot * widen * Math.sqrt(1 - narrow);
         area = p.lvotAreaCm2 * widen * widen * (1 - narrow);
       } else if (t < 1.0) {
@@ -413,9 +571,14 @@ export function sampleFlow(
         R = Math.sqrt(p.avAreaCm2 / Math.PI) * 1.15 * spread;
         area = p.avAreaCm2 * spread * spread;
       }
-      if (rho < R) {
+      // ½ velocity where the old plug profile had it; beyond the vena contracta a stenotic jet keeps the thin shear layer
+      // of a fast jet and the normal outflow the one of the slow flows, and the jet fades out at its end
+      const rHalf = 0.917 * R;
+      const sShear = Math.max(0, t - 1);
+      const shear = p.avAreaCm2 < 2.0 ? FAST_JET_SHEAR : SLOW_SHEAR;
+      if (rho < jetReach(rHalf, sShear, shear)) {
         const v = qao / area / 100;
-        const prof = 1 - Math.pow(rho / R, 8);
+        const prof = jetProfile(rho, rHalf, sShear, shear) * fadeOut(t, 4, 5.5);
         out.vx += ax.x * v * prof;
         out.vy += ax.y * v * prof;
         out.vz += ax.z * v * prof;
@@ -429,38 +592,30 @@ export function sampleFlow(
           out.dispersion,
           (p.turbulence['lvot'] ?? 0.04) +
             stenotic * (t > 0 ? 1 : 0.3) +
-            0.1 * Math.pow(rho / R, 4),
+            0.1 * Math.pow(Math.min(1, rho / R), 4),
         );
         out.present = 1;
       }
     }
   }
-  // ---- Tricuspid inflow (mirrors mitral, larger area, slight delay) ----
-  if (p.enabled['tricuspid-inflow'] !== false) {
-    const zr = z - (p.tvCenter.z + hp.tvZ);
-    const qtv =
-      zr > -2.2 && zr < 5
-        ? inflowFlow(tables, phase - 0.01, zr, p.inflowWaveCmps, tables.tricuspidFlowMlps)
-        : 0;
-    if (qtv > 1) {
-      const dx = x - p.tvCenter.x,
-        dy = y - p.tvCenter.y;
-      const rho = Math.hypot(dx, dy);
-      const R = p.tvR * 1.05;
-      if (rho < R + Math.max(0, zr) * 0.35) {
-        const v0 = qtv / p.tvAreaCm2 / 100;
-        const mag =
-          zr < 0
-            ? v0 * Math.min(1, (R * R) / (2 * Math.max(0.6, -zr) ** 2)) * 0.9
-            : v0 *
-              (1 - Math.pow(Math.min(1, rho / (R + zr * 0.35)), 6)) *
-              (zr < 1.2 ? 1 : 1 / (1 + (zr - 1.2) / 2.2));
-        out.vz += mag;
-        out.dispersion = Math.max(out.dispersion, p.turbulence['tricuspid-inflow'] ?? 0.04);
-        out.present = 1;
-      }
-    }
-  }
+  // ---- Tricuspid inflow (mirrors mitral, larger area): its table carries its own timing (decision 162) ----
+  const zrTv = z - (p.tvCenter.z + hp.tvZ);
+  if (p.enabled['tricuspid-inflow'] !== false && zrTv > -FUNNEL_FADE_TO_CM && zrTv < 5)
+    inflowJet(
+      tables,
+      tables.tricuspidFlowMlps,
+      phase,
+      p.inflowWaveCmps,
+      x - p.tvCenter.x,
+      y - p.tvCenter.y,
+      zrTv,
+      p.tvR * 1.05,
+      p.tvAreaCm2,
+      // slowing beyond the tips and fading out over the last centimetre it reaches
+      (zr) => (zr < 1.2 ? 1 : 1 / (1 + (zr - 1.2) / 2.2)) * fadeOut(zr, 4, 5),
+      p.turbulence['tricuspid-inflow'] ?? 0.04,
+      out,
+    );
   // ---- RVOT / pulmonary ----
   if (p.enabled['rvot'] !== false) {
     const qpv = sampleTable(tables.pulmonaryFlowMlps, phase);
@@ -482,9 +637,11 @@ export function sampleFlow(
           qy = dy - uy * t,
           qz = dz - uz * t;
         const rho = Math.sqrt(qx * qx + qy * qy + qz * qz);
-        if (rho < 1.05) {
+        // ½ velocity where the old plug profile had it; the tube fades in below the tract and out beyond the trunk
+        if (rho < jetReach(0.89 * 1.05, 0)) {
           const v = qpv / p.rvotAreaCm2 / 100;
-          const prof = 1 - Math.pow(rho / 1.05, 6);
+          const prof =
+            jetProfile(rho, 0.89 * 1.05, 0) * smoothstep(-1, 0, t) * fadeOut(t, L, L + 1);
           out.vx += ux * v * prof;
           out.vy += uy * v * prof;
           out.vz += uz * v * prof;
@@ -508,23 +665,30 @@ export function sampleFlow(
         dy = y - oy,
         dzj = oz - z; // distance along −z (toward RA)
       const rho = Math.hypot(dx, dy);
-      if (dzj > -0.6 && dzj < 4.5) {
+      if (dzj > -1.4 && dzj < 4.5) {
         const r0 = p.trEroCm2 ? Math.sqrt(p.trEroCm2 / Math.PI) * 1.1 : 0.25;
         const Rj = r0 + Math.max(0, dzj) * 0.28; // jet spreading
         const vmax = p.trVmaxMps * s;
-        if (dzj >= 0 && rho < Rj) {
-          const prof = 1 - Math.pow(rho / Rj, 4);
-          const decay = dzj < 1.0 ? 1 : 1 / (1 + (dzj - 1.0) / 1.6);
+        // ½ velocity where the old profile had it; the jet fades out over its last centimetre
+        const rHalf = 0.84 * Rj;
+        if (dzj >= 0 && rho < jetReach(rHalf, dzj, FAST_JET_SHEAR)) {
+          const prof = jetProfile(rho, rHalf, dzj, FAST_JET_SHEAR);
+          const decay = (dzj < 1.0 ? 1 : 1 / (1 + (dzj - 1.0) / 1.6)) * fadeOut(dzj, 3.5, 4.5);
           out.vz -= vmax * prof * decay; // toward the RA (−z)
-          out.dispersion = Math.max(out.dispersion, 0.25 + 0.2 * (rho / Rj));
+          out.dispersion = Math.max(out.dispersion, 0.25 + 0.2 * Math.min(1, rho / Rj));
           out.present = 1;
-        } else if (dzj < 0 && rho < 1.2) {
-          // PISA-like convergence on the RV side
+        } else if (dzj < 0) {
+          // PISA-like convergence on the RV side, fading out where it used to stop
           const d = Math.hypot(rho, -dzj) + 0.2;
-          const conv = Math.min(vmax * 0.5, (vmax * r0 * r0) / (2 * d * d));
-          out.vz -= conv;
-          out.present = 1;
-          out.dispersion = Math.max(out.dispersion, 0.1);
+          if (d < 1.4) {
+            const conv =
+              Math.min(vmax * 0.5, (vmax * r0 * r0) / (2 * d * d)) *
+              fadeOut(d, 0.8, 1.4) *
+              convergenceWeight(rho, -dzj, r0);
+            out.vz -= conv;
+            out.present = 1;
+            out.dispersion = Math.max(out.dispersion, 0.1);
+          }
         }
       }
     }
@@ -589,15 +753,21 @@ export function samplePulmonaryVeins(
       dy = y - ey,
       dz = z - ez;
     const along = dx * ux + dy * uy + dz * uz;
-    if (along < 0 || along > L + 0.8) continue;
+    if (along < 0 || along > L + 1.1) continue;
     const qx = dx - ux * along,
       qy = dy - uy * along,
       qz = dz - uz * along;
     const rho = Math.sqrt(qx * qx + qy * qy + qz * qz);
     const R = along <= L ? PV_RADIUS - 0.03 : PV_RADIUS - 0.03 + (along - L) * 0.6; // spreads into the atrium
-    if (rho >= R) continue;
-    const prof = 1 - Math.pow(rho / R, 4);
-    const decay = along <= L ? 1 : 1 / (1 + (along - L) / 0.6);
+    // ½ velocity where the old profile had it; beyond the ostium the stream thickens its shear layer and fades out
+    const sOut = Math.max(0, along - L);
+    if (rho >= jetReach(0.84 * R, sOut)) continue;
+    const prof = jetProfile(rho, 0.84 * R, sOut);
+    // the stream fades in from the distal end of the drawn vein and out into the atrium
+    const decay =
+      (along <= L ? 1 : 1 / (1 + (along - L) / 0.6)) *
+      smoothstep(0, 0.5, along) *
+      fadeOut(along, L + 0.4, L + 1.1);
     const v = vAlong * prof * decay;
     out.vx += ux * v;
     out.vy += uy * v;
@@ -640,21 +810,25 @@ export function sampleRegurgitantJets(
         pz = dz - dirZ * along;
       const rho = Math.hypot(px, dy, pz);
       if (along >= 0 && along < 5.5) {
-        const Rj = r0 + along * 0.3;
-        if (rho < Rj) {
-          const prof = 1 - Math.pow(rho / Rj, 4);
-          const decay = along < 1.2 ? 1 : 1 / (1 + (along - 1.2) / 1.8);
+        // ½ velocity where the old profile had it; the jet fades out over its last 1.5 cm (decision 166)
+        const rHalf = 0.84 * (r0 + along * 0.3);
+        if (rho < jetReach(rHalf, along, FAST_JET_SHEAR)) {
+          const prof = jetProfile(rho, rHalf, along, FAST_JET_SHEAR);
+          const decay = (along < 1.2 ? 1 : 1 / (1 + (along - 1.2) / 1.8)) * fadeOut(along, 4, 5.5);
           const v = vj * prof * decay;
           out.vx += dirX * v;
           out.vz += dirZ * v;
-          out.dispersion = Math.max(out.dispersion, 0.3 + 0.2 * (rho / Rj));
+          out.dispersion = Math.max(out.dispersion, 0.3 + 0.2 * Math.min(1, rho / (rHalf / 0.84)));
           out.present = 1;
         }
-      } else if (along < 0 && along > -1.8) {
-        // PISA: hemispheric convergence on the LV side, v = Q / (2π r²)
+      } else if (along < 0) {
+        // PISA: hemispheric convergence on the LV side, v = Q / (2π r²), fading out where it used to stop
         const d = Math.hypot(dx, dy, dz);
         if (d < 1.8 && d > 0.05) {
-          const v = Math.min(vj * 0.6, q / (2 * Math.PI * d * d) / 100);
+          const v =
+            Math.min(vj * 0.6, q / (2 * Math.PI * d * d) / 100) *
+            fadeOut(d, 1.2, 1.8) *
+            convergenceWeight(rho, -along, r0);
           if (v > 0.03) {
             out.vx += (-dx / d) * v;
             out.vy += (-dy / d) * v;
@@ -684,21 +858,26 @@ export function sampleRegurgitantJets(
       const rho = Math.sqrt(qx * qx + qy * qy + qz * qz);
       const along = -t;
       if (along >= 0 && along < 6) {
-        const Rj = r0 + along * 0.35;
-        if (rho < Rj) {
-          const prof = 1 - Math.pow(rho / Rj, 4);
-          const decay = along < 1.5 ? 1 : 1 / (1 + (along - 1.5) / 2.0);
+        // ½ velocity where the old profile had it; the jet fades out over its last 1.5 cm (decision 166)
+        const rHalf = 0.84 * (r0 + along * 0.35);
+        if (rho < jetReach(rHalf, along, FAST_JET_SHEAR)) {
+          const prof = jetProfile(rho, rHalf, along, FAST_JET_SHEAR);
+          const decay = (along < 1.5 ? 1 : 1 / (1 + (along - 1.5) / 2.0)) * fadeOut(along, 4.5, 6);
           const v = vj * prof * decay;
           out.vx -= ax.x * v;
           out.vy -= ax.y * v;
           out.vz -= ax.z * v;
-          out.dispersion = Math.max(out.dispersion, 0.3 + 0.2 * (rho / Rj));
+          out.dispersion = Math.max(out.dispersion, 0.3 + 0.2 * Math.min(1, rho / (rHalf / 0.84)));
           out.present = 1;
         }
-      } else if (along < 0 && along > -1.5 && rho < 1.5) {
+      } else if (along < 0) {
+        // convergence in the root, fading out where it used to stop
         const d = Math.hypot(dx, dy, dz);
-        if (d > 0.05) {
-          const v = Math.min(vj * 0.6, q / (2 * Math.PI * d * d) / 100);
+        if (d > 0.05 && d < 1.5) {
+          const v =
+            Math.min(vj * 0.6, q / (2 * Math.PI * d * d) / 100) *
+            fadeOut(d, 1.0, 1.5) *
+            convergenceWeight(rho, -along, r0);
           if (v > 0.03) {
             out.vx += (-dx / d) * v;
             out.vy += (-dy / d) * v;
