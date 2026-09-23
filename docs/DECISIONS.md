@@ -656,3 +656,48 @@ En la clínica, la caída de la pared anterior en las apicales rotadas es la ind
 **Qué queda declarado**
 
 La limitación `a3c` 8 y 14 sigue declarada en `KNOWN_NOT_ASSESSABLE`, con la causa medida.
+
+
+166. **2026-09-23 — El color de los flujos normales termina en curvas y no en las superficies de sus primitivas, y el llenado pasa por el orificio el caudal de su tabla**: quinto punto de la tanda 3 («flujo de color continuo»). El panel vio el llenado mitral del A4C normal como un bloque rectangular. El color sólo aparece donde hay una primitiva presente, y cada primitiva se cortaba en seco:
+
+- La convergencia auricular llenaba un cilindro del radio del anillo hasta 2,5 cm dentro de la AI.
+- El chorro era un cono con perfil `1 − (ρ/R)⁶`.
+- El frente de la onda de llenado era un plano.
+- El TSVI se cortaba 3,5 cm dentro de la cavidad.
+- La IT terminaba a 4,5 cm con un 31 % de su velocidad.
+- Las venas pulmonares terminaban en su extremo distal y a 0,8 cm dentro de la AI.
+
+**La medida**
+
+En el plano de cada vista, sobre una rejilla de 1 mm de muestras de sangre, un borde de color es un par de vecinas a 1 mm en el que una se mueve a menos de 5 cm/s (bajo un filtro de pared) y la otra muestra más de 15 cm/s a lo largo del haz; un borde recto es una fila, columna o diagonal de ellos. Donde el flujo gira perpendicular al haz su proyección cae a cero mientras sigue moviéndose; esa línea negra entre rojo y azul no cuenta. El caso normal dibujaba bordes rectos de 7–13 mm en el A4C y la MCD 29 mm.
+
+**Qué cambia**
+
+- **Chorros.** Conservan su núcleo y pierden la velocidad a través de una capa de cizalla logística. Su ½ velocidad está donde la tenía el perfil anterior. El ancho de la capa es 0,25 + 0,25·d cm en los flujos lentos y 0,1 + 0,05·d cm en los chorros rápidos (regurgitantes y la estenosis aórtica), que así conservan su ancho visible.
+- **Colas del perfil.** Primero probé un smoothstep. Se aplanaba cerca de cero y un chorro de 1 m/s pasaba de 5 a 16 cm/s en una décima de la capa.
+- **Fin de los chorros.** Todos terminan desvaneciéndose: la IT entre 3,5 y 4,5 cm, la IM entre 4 y 5,5, la IA entre 4,5 y 6, el chorro aórtico entre 4 y 5,5, el TSVD en el centímetro siguiente a su extremo y las venas entre 0,4 y 1,1 cm dentro de la AI.
+- **Convergencias.** Las auriculares son sumideros hemisféricos hacia un punto un radio del anillo más allá del orificio. Se apagan entre 2 y 3 cm y a los lados del anillo: el peso angular se mide desde el borde del orificio, entero sobre él, cero a más de 72° del eje. Un hemisferio completo entraba en el TSVI junto al velo anterior. Las PISA de la IM, la IA y la IT siguen el mismo peso.
+- **Salida del VI.** En la cavidad es un sumidero hacia la entrada del TSVI, 0,8 cm bajo la válvula, en un cono de 37–57° alrededor del eje del tracto, que se apaga entre 3 y 4,5 cm. El cono ancho de las convergencias auriculares llegaba, detrás de la mitral cerrada, a la AI.
+- **Frente de la onda de llenado.** Es un hemisferio alrededor del orificio.
+- **Tricúspide.** Pierde el retraso de 0,01 del latido que aún se le sumaba: desde la decisión 162 su tabla lleva sus propios tiempos.
+
+**La masa**
+
+Medida con las demás primitivas apagadas, integrando la velocidad sobre la sección 0,3 cm más allá del anillo en el pico E, la sección del orificio llevaba entre 1,3 y 1,6 veces el caudal transmitral, y 1,9–2,2 en las puntas. La convergencia y el chorro usaban el radio anatómico del anillo (1,58 cm en el caso normal) con la velocidad del área efectiva (radio 1,26).
+
+Ahora el chorro mantiene el radio efectivo hasta las puntas y se ensancha después. Lleva 1,01–1,03 veces el caudal por el orificio y 0,95–1,07 por las puntas. Más allá, el chorro arrastra la sangre que lo rodea (1,0–1,5 veces a 2,5 cm): el retorno del vórtice de llenado no se modela. En el eje, la E del PW no cambia.
+
+**Guardas**
+
+`flowContinuity.test.ts` (lento) comprueba dos cosas:
+
+- **Bordes rectos.** En cinco vistas (A4C, A3C, A2C, PLAX, PSAX-AV) de los doce casos, en E, A, mitad de la diástole y sístole, los flujos de las válvulas y las venas no dibujan bordes rectos de más de 5 mm. Los chorros regurgitantes quedan fuera: con su capa fina, su color se corta en un milímetro al costado del cono.
+- **Masa.** El llenado mitral y el tricuspídeo llevan su caudal por el orificio (±5 %) y por las puntas (±15 %: el frente hemisférico llega al borde de la sección después que al eje).
+
+Con el campo anterior fallan 225 condiciones.
+
+**Lo que muestra la imagen**
+
+La captura de la cadena de la app en el A4C normal muestra la convergencia auricular como un embudo redondeado. La salida sistólica del VI es un disco con su línea negra de cambio de signo, y la IT trivial vuelve a ser una llama estrecha. Los bordes rectos que quedan son las paredes y la caja de color.
+
+Las pruebas de Doppler (PW, CW, color, modo M color, venas pulmonares, regurgitación) no cambian.
