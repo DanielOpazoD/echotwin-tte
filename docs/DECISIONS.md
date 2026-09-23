@@ -943,3 +943,35 @@ Cada una con su verdad, su tolerancia y sus referencias. El volumen biplano de l
 - que un E/A de 2,3 solo no sea disfunción, y sí lo sea con una AI de 40 mL/m².
 
 Con la impresión anterior fallan las dos últimas.
+
+
+176. **2026-09-23 — El teclado llega primero al control con foco, y el dial de rotación se maneja con él**: noveno punto de la tanda 4 (accesibilidad). El panel encontró que los atajos globales secuestraban el teclado: con el foco en una pestaña, Flecha derecha movía la sonda y cancelaba la navegación entre pestañas, y Espacio congelaba la imagen a la vez que pulsaba el botón con foco. Además, el dial de rotación se anunciaba como deslizador, pero no podía recibir foco ni moverse con el teclado.
+
+**Atajos**
+
+`focusOwnsKey` decide cuándo cede el atajo:
+
+- cualquier tecla en un campo de formulario o un elemento editable;
+- las flechas, Inicio, Fin y Espacio en una pestaña, un deslizador u otro widget compuesto de WAI-ARIA;
+- Espacio e Intro en un botón, un enlace o un `summary`.
+
+Las letras siguen siendo atajos en cualquier otro sitio, porque no son lo que hace un botón.
+
+**Dial de rotación**
+
+Recibe foco y sigue el patrón del deslizador:
+
+- Flechas: 3°, o 15° con Mayúsculas.
+- RePág y AvPág: 15°.
+- Inicio y Fin: los límites.
+
+Anuncia el ángulo con `aria-valuetext`.
+
+**Guarda**
+
+`keyboardAccess.test.tsx` (jsdom) comprueba:
+
+- que las flechas y Espacio pertenecen a la pestaña o al botón con foco y actúan como atajos fuera de ellos;
+- que el dial toma el foco y gira sin que la sonda se deslice.
+
+Con los archivos anteriores fallan las dos pruebas.

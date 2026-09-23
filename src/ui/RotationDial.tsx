@@ -41,10 +41,30 @@ export function RotationDial() {
         width={88}
         height={88}
         role="slider"
+        tabIndex={0}
         aria-label="Rotación de la sonda (marcador)"
         aria-valuenow={Math.round(rotation)}
+        aria-valuetext={`${Math.round(rotation)}°`}
         aria-valuemin={-180}
         aria-valuemax={180}
+        aria-keyshortcuts="ArrowLeft ArrowRight PageUp PageDown Home End"
+        onKeyDown={(e) => {
+          // the slider pattern (decision 176): arrows 3° (Shift 15°), Page Up/Down 15°, Home/End to its limits
+          const step = e.shiftKey ? 15 : 3;
+          const byKey: Record<string, number> = {
+            ArrowRight: step,
+            ArrowUp: step,
+            ArrowLeft: -step,
+            ArrowDown: -step,
+            PageUp: 15,
+            PageDown: -15,
+          };
+          if (e.key in byKey) nudge({ rotationDeg: byKey[e.key]! });
+          else if (e.key === 'Home') setProbe({ rotationDeg: -180 });
+          else if (e.key === 'End') setProbe({ rotationDeg: 180 });
+          else return;
+          e.preventDefault();
+        }}
         onPointerDown={(e) => {
           dragging.current = true;
           e.currentTarget.setPointerCapture(e.pointerId);
