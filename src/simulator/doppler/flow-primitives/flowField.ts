@@ -10,6 +10,7 @@ import type { CaseDefinition } from '@/cases/schema';
 import { circularArea } from '@/clinical/formulas';
 import { smoothstep } from '@/core/vec3';
 import { Structure } from '@/simulator/anatomy/tissue';
+import { lvotRadiusAt } from '@/simulator/anatomy/aorticValve';
 import { atrialScale } from '@/simulator/anatomy/classify/atria';
 import { PV_LEFT_DX, PV_RADIUS, pulmonaryVeinSegment } from '@/simulator/anatomy/pulmonaryVeins';
 
@@ -34,6 +35,8 @@ export interface FlowSample {
 
 export interface FlowFieldParams {
   lvotAreaCm2: number;
+  /** Annulus radius (cm): the outflow tract widens to it over its last LVOT_TAPER_CM (decision 161). */
+  avR: number;
   avAreaCm2: number;
   mvAreaCm2: number;
   tvAreaCm2: number;
@@ -270,6 +273,7 @@ export function buildFlowParams(
     : null;
   return {
     lvotAreaCm2: circularArea(c.anatomy.aorta.lvotDiameterCm),
+    avR: A.avR,
     avAreaCm2: c.hemodynamics.avEffectiveAreaCm2,
     mvAreaCm2: tables.mvEffectiveAreaCm2,
     tvAreaCm2: tables.mvEffectiveAreaCm2 * 1.35,
@@ -385,9 +389,10 @@ export function sampleFlow(
       let R: number;
       const rLvot = Math.sqrt(p.lvotAreaCm2 / Math.PI);
       if (t < 0) {
-        // LVOT: converging from the LV cavity (wider) to the LVOT diameter; a subaortic/dynamic obstruction
+        // LVOT: converging from the LV cavity (wider) to the LVOT diameter, and widening again over the last
+        // LVOT_TAPER_CM to the annulus as the drawn lumen does (decision 161); a subaortic/dynamic obstruction
         // narrows the effective area around the septal contact point (t ≈ −0.6)
-        const widen = 1 + Math.max(0, -t - 0.8) * 0.6;
+        const widen = (1 + Math.max(0, -t - 0.8) * 0.6) * (lvotRadiusAt(p.avR, rLvot, t) / rLvot);
         let narrow = 0;
         if (p.lvotObstruction) {
           const tm = tables.timings;

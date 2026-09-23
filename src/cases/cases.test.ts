@@ -57,6 +57,14 @@ describe('case library', () => {
     ).toMatch(/not scored/);
     expect(validateCase(withWall([{ segment: 17, amplitude: 0.5 }])).ok).toBe(true);
   });
+  it('opens every aortic valve less than its outflow tract: the valve is never slower than the LVOT (decision 161)', () => {
+    for (const input of CASE_INPUTS) {
+      const t = computeGroundTruth(loadCaseById(input.id));
+      expect(t.aorticValve.effectiveAreaCm2, input.id).toBeLessThan(t.lvot.areaCm2);
+      expect(t.aorticValve.velocityRatio, input.id).toBeLessThan(1);
+    }
+  });
+
   it('ground truth matches the intent of each pathological case', () => {
     const gt = (id: string) => computeGroundTruth(loadCaseById(id));
     const hf = gt('hfref-severe-mr');

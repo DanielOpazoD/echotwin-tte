@@ -35,6 +35,9 @@ export const normalDifficultWindowCase: CaseDefinitionInput = {
     mapseCm: 1.3,
     tapseCm: 2.1,
   },
+  // the aortic valve opens in proportion to the smaller root: the 3.0 cm² inherited from case 1 exceeded this LVOT's own
+  // 2.84 cm², so the valve read slower than the tract below it (velocity ratio 1.06, decision 161)
+  hemodynamics: { ...normalExcellentCase.hemodynamics, avEffectiveAreaCm2: 2.5 },
   bodyHabitus: {
     chestWallThicknessCm: 3.4,
     chestWidthCm: 36,

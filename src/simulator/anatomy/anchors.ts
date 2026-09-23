@@ -84,12 +84,18 @@ export interface Anchors {
 export const RV_GROOVE_ANTERIOR_RAD = 1.6;
 export const RV_GROOVE_INFERIOR_RAD = 3.7;
 
+/** Case LA volume (mL) whose clipped, stretched ellipsoid measures what the case declares (decision 161). */
+export const LA_VOLUME_REF = 55;
+
 export function anchors(m: HeartModel): Anchors {
   const a = m.anatomy;
   const L = m.lv.lengthCm;
   // Atria: ellipsoids scaled from the case volume (maximal volume, end-systole) with the proportions of a
   // normal LA (AP < transverse < long) and RA; the long axis follows the annulus (reservoir stretch).
-  const laK = Math.cbrt(a.la.volumeMl / 48);
+  // LA_VOLUME_REF: the case volume whose ellipsoid measures as the case declares once clipped by the septum and
+  // stretched by the annulus (decision 161; 48 until then, when the LA's maximum measured 13–19 % above its
+  // declaration in ten of the twelve cases).
+  const laK = Math.cbrt(a.la.volumeMl / LA_VOLUME_REF);
   const laRx = 2.5 * laK,
     laRy = 2.08 * laK,
     laRz = 2.65 * laK;

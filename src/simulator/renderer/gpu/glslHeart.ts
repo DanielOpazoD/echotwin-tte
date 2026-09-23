@@ -26,6 +26,7 @@ import {
 } from '@/simulator/anatomy/heartModel';
 import {
   AV_PHI0,
+  LVOT_TAPER_CM,
   AV_LATERAL_COAPTATION_HEIGHT,
   AV_LATERAL_PROFILE_RADIUS,
   AV_CROWN_EXPONENT,
@@ -62,6 +63,7 @@ const f = (v: number): string => (Number.isInteger(v) ? `${v}.0` : `${v}`);
 export const GLSL_HEART = /* glsl */ `
 const int LV_PROF_BINS = ${LV_PROF_BINS};
 const float ROOT_SINUS_T = ${f(ROOT_SINUS_T)};
+const float LVOT_TAPER_CM = ${f(LVOT_TAPER_CM)};
 const float ROOT_STJ_T = ${f(ROOT_STJ_T)};
 const float ROOT_ASC_T = ${f(ROOT_ASC_T)};
 const float AV_COAPT_HALF = ${f(AV_COAPT_HALF)};
@@ -326,7 +328,7 @@ float mitralDistance(vec3 p, out float dOut, out float fracOut, out int leafletO
 float rootRadiusAt(float t, float phi) {
   float sinusMax = SINUS_R * (1.0 + 0.06 * cos(CUSP_COUNT * (phi - AV_PHI0)) * ((t > 0.0 && t < ROOT_STJ_T) ? sin(PI * t / ROOT_STJ_T) : 0.0));
   float stjR = min(ASC_R, SINUS_R * 0.88);
-  if (t < 0.0) return AV_R * 0.95 + (LVOT_D / 2.0 - AV_R * 0.95) * min(1.0, -t / 1.2);
+  if (t < 0.0) { float u = min(1.0, -t / LVOT_TAPER_CM); return AV_R * 0.95 + (LVOT_D / 2.0 - AV_R * 0.95) * u * u * (3.0 - 2.0 * u); }
   if (t < ROOT_SINUS_T) return AV_R + (sinusMax - AV_R) * sin((PI / 2.0) * (t / ROOT_SINUS_T));
   if (t < ROOT_STJ_T) return stjR + (sinusMax - stjR) * 0.5 * (1.0 + cos(PI * (t - ROOT_SINUS_T) / (ROOT_STJ_T - ROOT_SINUS_T)));
   if (t < ROOT_ASC_T) return stjR + (ASC_R - stjR) * 0.5 * (1.0 - cos(PI * (t - ROOT_STJ_T) / (ROOT_ASC_T - ROOT_STJ_T)));

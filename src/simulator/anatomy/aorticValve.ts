@@ -18,6 +18,13 @@
 
 /** Aortic root levels along its axis from the annulus (cm): widest sinus, sinotubular waist, start of the tubular ascending aorta. */
 export const ROOT_SINUS_T = 0.95;
+/**
+ * Height (cm) below the annulus at which the outflow tract has narrowed to its own diameter (decision 161): the level at
+ * which the measurement protocol takes the LVOT diameter, 0.5 cm proximal to the annulus. The tract used to reach it
+ * 1.2 cm below, so at the protocol's level it measured 2.20–2.24 cm against the 2.1 cm of the case, whose flow and
+ * stroke volume use the declared diameter: a well-placed caliper overestimated the stroke volume by 13 %.
+ */
+export const LVOT_TAPER_CM = 0.5;
 export const ROOT_STJ_T = 2.0;
 export const ROOT_ASC_T = 3.0;
 /** Half thickness of the coaptation surfaces of the closed valve (cm). */
@@ -51,6 +58,16 @@ export const AV_OPEN_WALL_GAP = 0.05;
 /** Azimuth (rad, e1/e2 basis) of the centre of cusp 0; the sinus bulges share it. */
 export const AV_PHI0 = 0.5;
 
+/**
+ * Lumen radius of the outflow tract at height t < 0 below the annulus: from 0.95 of the annulus radius to the tract's
+ * own radius over LVOT_TAPER_CM, with zero slope at both ends. The flow field uses it too (decision 161), so the colour
+ * and the PW gate see the lumen that is drawn.
+ */
+export function lvotRadiusAt(avR: number, lvotR: number, t: number): number {
+  const u = Math.min(1, Math.max(0, -t / LVOT_TAPER_CM));
+  return avR * 0.95 + (lvotR - avR * 0.95) * u * u * (3 - 2 * u);
+}
+
 export interface RootProfile {
   avR: number;
   sinusR: number;
@@ -72,7 +89,7 @@ export function rootRadiusAt(p: RootProfile, t: number, phi: number): number {
         Math.cos(p.count * (phi - AV_PHI0)) *
         (t > 0 && t < ROOT_STJ_T ? Math.sin((Math.PI * t) / ROOT_STJ_T) : 0));
   const stjR = Math.min(p.ascR, p.sinusR * 0.88);
-  if (t < 0) return p.avR * 0.95 + (p.lvotR - p.avR * 0.95) * Math.min(1, -t / 1.2);
+  if (t < 0) return lvotRadiusAt(p.avR, p.lvotR, t);
   if (t < ROOT_SINUS_T)
     return p.avR + (sinusMax - p.avR) * Math.sin((Math.PI / 2) * (t / ROOT_SINUS_T));
   if (t < ROOT_STJ_T)
