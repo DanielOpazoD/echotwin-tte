@@ -1273,5 +1273,6 @@ La prueba falla:
 - **Guía de la vista**: la puntuación es un anillo con el número dentro.
 - **Tutorial**: tarjeta con paso «n de 8», puntos de progreso, acción principal rellena y «Saltar» sin borde.
 - **Presets**: mientras un preset mueve la sonda, su estado se lee como aviso vivo con punto pulsante.
+- **Ventanas estrechas** (≤ 1040 px): el carril se pliega a su tira, la consola baja a 236 px y las barras sueltan los extras (subtítulo de la marca, teclas, estado técnico). A 800 px la barra superior se recortaba y la leyenda del torso pisaba el modelo.
 
-Probado en el navegador a 1440 × 900: simulador en vivo y congelado, guía abierta y tutorial. Las pruebas de `src/ui` y `src/app` pasan sin tocarlas.
+Probado en el navegador a 1440 × 900 y a 1000 × 700: simulador en vivo y congelado, guía abierta y tutorial. Las pruebas de `src/ui` y `src/app` pasan sin tocarlas.

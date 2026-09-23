@@ -1628,6 +1628,30 @@ select {
     grid-template-columns: 240px 1fr 252px;
   }
 }
+/* a narrow window keeps the image: the rail folds to its strip and the bars drop their extras */
+@media (max-width: 1040px) {
+  .app,
+  .app.rail-mini {
+    grid-template-columns: 56px 1fr 236px;
+  }
+  .rail-main {
+    display: none !important;
+  }
+  .brand-sub,
+  .modebar-status,
+  .seg-bar .kbd {
+    display: none;
+  }
+  .nav-seg button {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+  .topbar select {
+    padding-right: 20px;
+    max-width: 120px;
+    text-overflow: ellipsis;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
