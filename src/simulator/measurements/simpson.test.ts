@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { discProfileFromContour } from './simpson';
+import { cutBySectorDepth, discProfileFromContour } from './simpson';
+import { Structure } from '@/simulator/anatomy/tissue';
 import { simpsonBiplaneVolume, simpsonSinglePlaneVolume } from '@/clinical/formulas';
 
 describe('method of discs from a traced contour', () => {
@@ -50,5 +51,21 @@ describe('method of discs from a traced contour', () => {
     const v0 = simpsonSinglePlaneVolume(discProfileFromContour(mk(0), pxPerCm)!.diametersCm, L);
     const v1 = simpsonSinglePlaneVolume(discProfileFromContour(mk(1.1), pxPerCm)!.diametersCm, L);
     expect(Math.abs(v0 - v1) / v0).toBeLessThan(0.02);
+  });
+});
+
+describe('cutBySectorDepth (decision 180)', () => {
+  const frame = (deepest: number) => {
+    const lines = 4,
+      samples = 10;
+    const structure = new Uint8Array(lines * samples);
+    for (let si = 3; si <= deepest; si++) structure[2 * samples + si] = Structure.LaCavity;
+    return { structure, polar: { lines, samples } };
+  };
+  it('is true only when the chamber reaches the last two samples of a line', () => {
+    expect(cutBySectorDepth(frame(9), [Structure.LaCavity])).toBe(true);
+    expect(cutBySectorDepth(frame(8), [Structure.LaCavity])).toBe(true);
+    expect(cutBySectorDepth(frame(7), [Structure.LaCavity])).toBe(false);
+    expect(cutBySectorDepth(frame(9), [Structure.LvCavity])).toBe(false);
   });
 });

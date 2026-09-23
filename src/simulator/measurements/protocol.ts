@@ -176,6 +176,28 @@ export const MEASUREMENT_SPECS: MeasurementSpec[] = [
     group: 'atria',
   },
   {
+    // decision 180: the AP diameter underestimates an atrium that grows along its long axis; the volume is the measure
+    id: 'la-volume',
+    label: 'Volumen máximo de la AI (discos)',
+    shortLabel: 'Vol AI',
+    kind: 'volume',
+    units: 'mL',
+    tool: 'simpson',
+    modalities: ['2d'],
+    views: ['a4c', 'a2c'],
+    phase: 'es',
+    placement: {
+      structures: [Structure.LaCavity],
+      label: 'trazado del borde de la AI de anillo a anillo, sin orejuela ni venas pulmonares',
+    },
+    instruction:
+      'A4C y A2C centrados en la AI, en telesístole (AI máxima, justo antes de abrirse la mitral): traza el borde interno de la AI desde un lado del anillo mitral hasta el otro, excluyendo la orejuela y las venas pulmonares; doble clic para cerrar. Con los dos planos el informe da el volumen biplano y su índice.',
+    truth: (t) => t.la.volumeMl,
+    tolerancePct: 18,
+    referenceIds: ['ase-eacvi-chamber-2015'],
+    group: 'atria',
+  },
+  {
     // decision 175
     id: 'aortic-root',
     label: 'Raíz aórtica (senos de Valsalva)',

@@ -1087,3 +1087,43 @@ La E2E pedía que todos los cuadros fueran bitmaps, algo que el diseño no garan
   - una fuente que vuelve a 2 ms con el cine completo recupera la pantalla en menos de 19 cuadros.
 
   Con la media sola fallan las dos primeras, y sin la nueva medida falla la tercera. Las pruebas de la caché con presupuesto cero cuentan los cuatro cuadros directos de la entrada.
+
+
+180. **2026-09-23 — Volumen de la AI por discos y Simpson biplano en el informe**: último punto de la tanda 4. La decisión 175 añadió las medidas del panel salvo la AI biplano, y la herramienta Simpson era monoplano, así que la AI sólo se medía por su diámetro anteroposterior.
+
+**Medida y cálculo**
+
+- **`la-volume`**: el trazado de la AI de anillo a anillo en A4C o A2C, en telesístole, sin orejuela ni venas pulmonares. La herramienta es la de Simpson, y la verdad es el volumen declarado del caso, con una tolerancia del 18 %.
+- **Biplano en el informe** (`biplaneVolume`): con un trazado de la misma medida en A4C y otro en A2C, se recortan los dos contornos en 20 discos a la escala con que se capturaron y se combinan como discos elípticos sobre el mayor de los dos ejes largos (ASE/EACVI 2015).
+  - Da el VTD, el VTS y la FEVI biplanos, y el volumen biplano de la AI.
+  - Su índice usa la superficie corporal del paciente, con el límite de 34 mL/m²; sin biplano, usa el monoplano y lo dice.
+  - La fila da las dos longitudes y avisa si difieren más de un 10 % en el VI o de 5 mm en la AI.
+
+**Medido en las imágenes de la app**
+
+En los doce casos, a 20 cm y al final de la sístole, la AI del mapa de estructuras de los A4C y A2C canónicos, recortada en discos:
+
+| Método | Fracción del volumen declarado |
+|---|---|
+| Biplano | 0,88–1,02 |
+| Monoplano A4C | 1,00–1,19 |
+| Monoplano A2C | 0,64–0,87 |
+
+La AI del modelo es más ancha en el plano de cuatro cámaras, y sólo el biplano la mide. El 0,88 es la MCD, cuya AI se dibuja un 11 % por debajo de su declaración (`KNOWN_TRUTH_DEVIATIONS`).
+
+**Profundidad**
+
+A la profundidad por defecto, 16 cm, una AI dilatada llega al fondo del sector: la de la MCD mide un 17 % menos que a 20 cm. El motor de técnica gana el hallazgo `depth`, inválido cuando la cavidad trazada toca las dos últimas muestras de alguna línea del cuadro (`cutBySectorDepth`). El VI y la AI no toman el uno las palabras del otro, y el trazado de la AI no pasa por la comprobación de acortamiento del VI.
+
+Mi primera medición se equivocó de cuadro. La tolerancia de fase era más estrecha que lo que avanza la fase entre dos cuadros, y en el caso de artefactos midió en plena sístole: 36 frente a 57 mL. La prueba ahora acepta el cuadro dentro de 0,6 de ese avance y comprueba que lo alcanzó. Con ella corregí también la cifra que había escrito para la FA recortada (se pierde un 8 %, no un 27–32 %).
+
+**Currículo, documentación y guardas**
+
+- El currículo gana las tareas `simpson-biplane` y `la-volume-biplane`: un trazado con técnica ≥ 0,75 en cada plano.
+- `MEASUREMENTS.md` describía las herramientas de antes de la decisión 30: etiquetas genéricas, emparejamiento por cercanía, sin Simpson ni cálculos derivados. Se reescribe, y su tabla del protocolo se genera desde `MEASUREMENT_SPECS` (`tools/docs/measurements-table.ts`, en `npm run docs:gen`). `docsConsistency.test.ts` exige esa tabla y que nombre cada herramienta del panel y cada cálculo derivado del informe.
+- `LIMITATIONS.md` ya no da un recuento del protocolo que había quedado en 18.
+- Pruebas:
+  - `report.test.ts` usa semielipses de radios distintos, cuyo volumen es (2/3)·π·r₁·r₂·L. El biplano cae dentro del 2 % en el VI y del 5 % en la AI; con los discos de un solo plano falla.
+  - `technique.test.ts` cubre el hallazgo de profundidad.
+  - `simpson.test.ts` cubre `cutBySectorDepth`.
+  - `laVolume.test.ts` (lenta) recorre la cadena de la app: los doce casos dentro de la tolerancia a 20 cm, y la MCD recortada y marcada a 16 cm.

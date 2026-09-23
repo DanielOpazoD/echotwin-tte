@@ -52,6 +52,8 @@ export interface MeasurementContext {
   /** for caliper segments: structure ids sampled along the segment (inside → both ends), and just beyond each end */
   segmentStructures?: number[];
   segmentEndsOutside?: [number, number];
+  /** for Simpson traces: the traced chamber reaches the bottom of the sector (decision 180) */
+  cutByDepth?: boolean;
   /** for Simpson traces: traced long axis vs the model's LV length (foreshortening) */
   longAxisCm?: number;
   trueLongAxisCm?: number;
@@ -265,15 +267,16 @@ export function evaluateTechnique(spec: MeasurementSpec, ctx: MeasurementContext
         ctx.segmentStructures.filter(
           (s) => pl.structures.includes(s) || s === Structure.PapillaryMuscle,
         ).length / ctx.segmentStructures.length;
+      const chamber = pl.structures.includes(Structure.LaCavity) ? 'de la AI' : 'del VI';
       if (inside < 0.7)
         add(
           'placement',
           'invalid',
-          `El trazado no sigue el endocardio del VI (${(inside * 100).toFixed(0)} % del área dentro de la cavidad).`,
+          `El trazado no sigue el borde ${chamber} (${(inside * 100).toFixed(0)} % del área dentro de la cavidad).`,
         );
       else if (inside < 0.85)
-        add('placement', 'warn', 'El trazado se aleja del endocardio en parte del contorno.');
-      else add('placement', 'ok', 'Trazado sobre el endocardio del VI.');
+        add('placement', 'warn', `El trazado se aleja del borde ${chamber} en parte del contorno.`);
+      else add('placement', 'ok', `Trazado sobre el borde ${chamber}.`);
     }
   }
 
@@ -300,6 +303,16 @@ export function evaluateTechnique(spec: MeasurementSpec, ctx: MeasurementContext
         'invalid',
         `Ángulo haz–flujo ${a.toFixed(0)}°: subestimación del ${((1 - Math.cos((a * Math.PI) / 180)) * 100).toFixed(0)} %; realinea la sonda con el chorro.`,
       );
+  }
+
+  // the chamber cut by the depth of the sector (Simpson, decision 180)
+  if (spec.tool === 'simpson' && ctx.cutByDepth) {
+    const chamber = spec.placement?.structures.includes(Structure.LaCavity) ? 'La AI' : 'El VI';
+    add(
+      'depth',
+      'invalid',
+      `${chamber} se sale del sector por abajo: aumenta la profundidad hasta ver entero su borde profundo; el volumen trazado se subestima.`,
+    );
   }
 
   // foreshortening (Simpson)

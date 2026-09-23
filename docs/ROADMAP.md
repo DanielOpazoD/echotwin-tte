@@ -65,7 +65,8 @@ Estado real según el código el 2026-09-10. Los hitos M0–M6 siguen la especif
 | Informe educativo con verdad, desviación, técnica y cálculos derivados; modo examen que oculta la verdad hasta finalizar | hecho | `clinical/reporting/report.ts`, `ReportScreen.tsx`; el puntuador empareja por id y pondera por técnica |
 | Los 12 casos de la especificación (normal ×2, ICFEr con IM funcional, ASM inferior, EA moderada y severa, MCH obstructiva con SAM, prolapso con IM primaria, hipertensión pulmonar con VD, derrame con taponamiento, FA, desafío de artefactos) | hecho | `src/cases/*.ts`, `cases.test.ts`, `proportions.test.ts` (desviaciones declaradas por caso), `regurgitation.test.ts`, `artifacts.test.ts` |
 | Exportación PNG con marca de agua sintética | hecho | `src/app/exportImage.ts` (sin prueba) |
-| Simpson biplano, FAC, áreas, PHT, IVRT | pendiente | monoplano y TD existen; el resto no |
+| Simpson biplano y volumen de la AI | hecho | decisión 180: `report.ts` (`biplaneVolume`), `laVolume.test.ts` |
+| FAC, áreas, PHT | pendiente | TD e IVRT existen; el resto no |
 | Puntuación de examen (`requiredViews`, `requiredMeasurements`, impresión estructurada 40/40/20) | hecho | `src/education/scoring` + `scoring.test.ts`, `impression.ts` + `impression.test.ts`; `impressionTruth` (texto) sigue sin comparación automática: la impresión se evalúa por catálogo de hallazgos |
 | Currículo por etapas con tareas verificadas automáticamente, explicaciones causales, progreso local exportable | hecho | `education/{curriculum,causes,progress}.ts`, `CurriculumScreen`, `ProgressScreen`, `e2e/learning.spec.ts` |
 | Casos con bicúspide, estenosis mitral, prótesis, congénitas | pendiente | el esquema admite `bicuspid`; el resto no está modelado |

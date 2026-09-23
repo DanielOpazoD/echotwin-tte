@@ -254,6 +254,33 @@ describe('technique evaluation', () => {
     );
     expect(ok.score).toBe(1);
   });
+  it('LA volume: a trace of the atrium at end-systole in A4C scores 1, and an atrium the sector cuts is invalid (decision 180)', () => {
+    const spec = getMeasurementSpec('la-volume')!;
+    // end-systole of the phase marks: the LA at its largest, just before the mitral valve opens
+    const ctx = base({
+      viewId: 'a4c',
+      phase: 0.45,
+      segmentStructures: Array(50).fill(Structure.LaCavity) as number[],
+      cutByDepth: false,
+    });
+    const good = evaluateTechnique(spec, ctx);
+    expect(good.findings.filter((f) => f.level !== 'ok')).toEqual([]);
+    const cut = evaluateTechnique(spec, { ...ctx, cutByDepth: true });
+    const depth = cut.findings.find((f) => f.code === 'depth');
+    expect(depth?.level).toBe('invalid');
+    expect(depth?.message).toMatch(/^La AI se sale del sector/);
+    // the LV trace does not borrow the atrial wording, nor the atrial trace the LV foreshortening check
+    const lv = evaluateTechnique(getMeasurementSpec('lv-esv-simpson')!, {
+      ...ctx,
+      segmentStructures: Array(50).fill(Structure.LvCavity) as number[],
+      cutByDepth: true,
+    });
+    expect(lv.findings.find((f) => f.code === 'depth')?.message).toMatch(/^El VI se sale/);
+    expect(good.findings.find((f) => f.code === 'foreshortening')).toBeUndefined();
+    expect(good.findings.find((f) => f.code === 'placement')?.message).toBe(
+      'Trazado sobre el borde de la AI.',
+    );
+  });
   it('every required measurement of every case has a spec with a truth value', () => {
     for (const input of CASE_INPUTS) {
       const c = loadCaseById(input.id);

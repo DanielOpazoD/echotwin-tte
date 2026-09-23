@@ -66,6 +66,20 @@ describe('curriculum', () => {
     expect(evaluateTasks(snap({ measurements: [measured('e-prime-septal', 0.9)] }))).toContain(
       'e-prime-septal-ok',
     );
+    // the biplane tasks need a good trace in each apical plane (decision 180)
+    const traced = (id: string, view: string, score: number): Measurement =>
+      ({ measurementId: id, sourceViewId: view, technique: { score } }) as unknown as Measurement;
+    const la = (a2cScore: number) =>
+      evaluateTasks(
+        snap({
+          measurements: [traced('la-volume', 'a4c', 0.9), traced('la-volume', 'a2c', a2cScore)],
+        }),
+      );
+    expect(la(0.8)).toContain('la-volume-biplane');
+    expect(la(0.3)).not.toContain('la-volume-biplane');
+    expect(
+      evaluateTasks(snap({ measurements: [traced('lv-edv-simpson', 'a4c', 1)] })),
+    ).not.toContain('simpson-biplane');
   });
   it('has unique task ids, non-empty rationale and only known case ids', () => {
     const tasks = allTasks();

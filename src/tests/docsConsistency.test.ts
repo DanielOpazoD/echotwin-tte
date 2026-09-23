@@ -6,6 +6,10 @@ import { VIEW_TARGETS } from '@/simulator/windows/viewTargets';
 import { parseDecisions, renderIndex } from '../../tools/docs/decisions-index';
 import { generatedBlock } from '../../tools/docs/generated';
 import { LAYER_GRAPH_TOOL, layerEdges, renderLayerTable } from '../../tools/docs/layer-graph';
+import {
+  MEASUREMENTS_TABLE_TOOL,
+  renderMeasurementsTable,
+} from '../../tools/docs/measurements-table';
 
 /**
  * Documentation drift guard: CLINICAL_SCOPE.md is the human-readable inventory of cases and views;
@@ -105,6 +109,35 @@ describe('ARCHITECTURE.md stays in sync with the code', () => {
     }
     expect([...layers].filter((l) => !folders.includes(l))).toEqual([]);
     expect(folders.filter((f) => !existsSync(join(ROOT, 'src', f)))).toEqual([]);
+  });
+});
+
+describe('MEASUREMENTS.md describes the measurements as they are (decision 180)', () => {
+  const doc = read('docs/MEASUREMENTS.md');
+
+  it('lists the protocol as the code declares it (run npm run docs:gen)', () => {
+    expect(generatedBlock(doc, MEASUREMENTS_TABLE_TOOL)).toBe(renderMeasurementsTable());
+  });
+
+  it('names every tool of the measurement panel', () => {
+    const panel = read('src/ui/ConsolePanel.tsx');
+    const list = panel.slice(
+      panel.indexOf('const tools:'),
+      panel.indexOf('];', panel.indexOf('const tools:')),
+    );
+    const tools = [...list.matchAll(/id: '([a-z-]+)'/g)]
+      .map((m) => m[1]!)
+      .filter((t) => t !== 'none');
+    expect(tools.length).toBeGreaterThan(5);
+    expect(tools.filter((t) => !doc.includes(`(\`${t}\`)`))).toEqual([]);
+  });
+
+  it('names every derived calculation of the report', () => {
+    const src = read('src/education/report.ts');
+    const body = src.slice(src.indexOf('export function deriveCalculations'));
+    const ids = [...body.matchAll(/(?:id: |\[)'([a-z-]+)'/g)].map((m) => m[1]!);
+    expect(ids.length).toBeGreaterThan(10);
+    expect(ids.filter((id) => !doc.includes(`\`${id}\``))).toEqual([]);
   });
 });
 

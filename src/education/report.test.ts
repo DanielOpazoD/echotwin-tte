@@ -350,3 +350,88 @@ describe('pathologyImpressions', () => {
     expect(ls).toContain('Derrame pericárdico leve (0.6 cm).');
   });
 });
+
+/**
+ * The biplane method of discs (decision 180). A trace from one side of the annulus to the other through the apex of a
+ * half-ellipse of base radius r and length L outlines half an ellipsoid; two perpendicular planes with radii r₁ and r₂
+ * outline half an ellipsoid of volume (2/3)·π·r₁·r₂·L, which a single plane misses by the ratio of the radii.
+ */
+describe('biplane volumes', () => {
+  const PX_PER_CM = 30;
+  const sector = {
+    apexX: 300,
+    apexY: 20,
+    pxPerCm: PX_PER_CM,
+    width: 600,
+    height: 520,
+    sectorRad: 1.4,
+    depthCm: 16,
+    invertLR: false,
+  };
+  const halfEllipse = (rCm: number, lCm: number) =>
+    Array.from({ length: 61 }, (_, i) => {
+      const th = Math.PI * (1 - i / 60);
+      return { x: 300 + rCm * Math.cos(th) * PX_PER_CM, y: 400 - lCm * Math.sin(th) * PX_PER_CM };
+    });
+  const trace = (id: string, view: string, rCm: number, lCm: number) =>
+    protocol(id, (2 / 3) * Math.PI * rCm * rCm * lCm, {
+      kind: 'volume',
+      units: 'mL',
+      sourceViewId: view,
+      geometry: halfEllipse(rCm, lCm),
+      captureSector: sector,
+    });
+  const half = (r1: number, r2: number, l: number) => (2 / 3) * Math.PI * r1 * r2 * l;
+  const row = (rows: ReturnType<typeof deriveCalculations>, id: string) =>
+    rows.find((r) => r.id === id);
+
+  it('combines the four- and two-chamber traces of the LV into biplane volumes and EF', () => {
+    const rows = deriveCalculations([
+      trace('lv-edv-simpson', 'a4c', 2.5, 8),
+      trace('lv-edv-simpson', 'a2c', 2.0, 8),
+      trace('lv-esv-simpson', 'a4c', 1.8, 7),
+      trace('lv-esv-simpson', 'a2c', 1.5, 7),
+    ]);
+    const edv = Number.parseFloat(row(rows, 'lv-edv-biplane')!.value);
+    const esv = Number.parseFloat(row(rows, 'lv-esv-biplane')!.value);
+    expect(Math.abs(edv / half(2.5, 2.0, 8) - 1)).toBeLessThan(0.02);
+    expect(Math.abs(esv / half(1.8, 1.5, 7) - 1)).toBeLessThan(0.02);
+    // the single planes miss it by the ratio of the radii: 105 and 67 mL against 84
+    const ef = 100 * (1 - half(1.8, 1.5, 7) / half(2.5, 2.0, 8));
+    expect(Math.abs(Number.parseFloat(row(rows, 'ef-biplane')!.value) - ef)).toBeLessThan(1.5);
+    expect(row(rows, 'lv-edv-biplane')!.inputs).toBe('L A4C 8.0 cm, A2C 8.0 cm');
+  });
+
+  it('gives the biplane LA volume and its index, and flags lengths more than 5 mm apart', () => {
+    const rows = deriveCalculations(
+      [trace('la-volume', 'a4c', 2.0, 5.0), trace('la-volume', 'a2c', 1.8, 4.8)],
+      1.9,
+    );
+    const v = Number.parseFloat(row(rows, 'la-volume-biplane')!.value);
+    expect(Math.abs(v / half(2.0, 1.8, 5.0) - 1)).toBeLessThan(0.05);
+    expect(row(rows, 'la-volume-biplane')!.inputs).toBe('L A4C 5.0 cm, A2C 4.8 cm');
+    expect(row(rows, 'la-volume-index')!.value).toBe(`${(v / 1.9).toFixed(0)} mL/m²`);
+    expect(row(rows, 'la-volume-index')!.inputs).toMatch(/^biplano /);
+    const foreshortened = deriveCalculations(
+      [trace('la-volume', 'a4c', 2.0, 5.0), trace('la-volume', 'a2c', 1.8, 4.2)],
+      1.9,
+    );
+    expect(row(foreshortened, 'la-volume-biplane')!.inputs).toMatch(/longitudes dispares/);
+  });
+
+  it('needs both views and the same measurement; the index falls back to one plane and flags a dilated atrium', () => {
+    const one = deriveCalculations([trace('la-volume', 'a4c', 2.6, 6.2)], 1.8);
+    expect(row(one, 'la-volume-biplane')).toBeUndefined();
+    expect(row(one, 'la-volume-index')!.inputs).toMatch(/^monoplano /);
+    expect(row(one, 'la-volume-index')!.value).toMatch(/\(dilatada\)$/);
+    const mixed = deriveCalculations([
+      trace('lv-edv-simpson', 'a4c', 2.5, 8),
+      trace('lv-esv-simpson', 'a2c', 1.5, 7),
+    ]);
+    expect(row(mixed, 'lv-edv-biplane')).toBeUndefined();
+    expect(row(mixed, 'lv-esv-biplane')).toBeUndefined();
+    expect(row(deriveCalculations([trace('la-volume', 'a4c', 2.0, 5.0)]), 'la-volume-index')).toBe(
+      undefined,
+    );
+  });
+});

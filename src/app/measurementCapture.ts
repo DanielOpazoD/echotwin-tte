@@ -1,6 +1,7 @@
 import type { SimOutput } from '@/simulator/core/protocol';
 import type { Measurement } from '@/simulator/measurements/types';
 import { getMeasurementSpec, type MeasurementSpec } from '@/simulator/measurements/protocol';
+import { cutBySectorDepth } from '@/simulator/measurements/simpson';
 import { evaluateTechnique, type MeasurementContext } from '@/education/technique';
 import { pixelToPolar } from '@/simulator/renderer/scanConvert';
 import type { PhaseMarks } from '@/simulator/core/protocol';
@@ -118,6 +119,8 @@ export function evaluateCapture(
     ctx.segmentEndsOutside = s.ends;
   }
   if (extras.contour) ctx.segmentStructures = contourStructures(hud, extras.contour);
+  if (spec.tool === 'simpson' && spec.placement)
+    ctx.cutByDepth = cutBySectorDepth(hud, spec.placement.structures);
   if (extras.longAxisCm !== undefined) ctx.longAxisCm = extras.longAxisCm;
   if (extras.trueLongAxisCm) ctx.trueLongAxisCm = extras.trueLongAxisCm;
   return evaluateTechnique(spec, ctx);

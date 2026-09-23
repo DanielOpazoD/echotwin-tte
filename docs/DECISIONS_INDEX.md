@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 179 (última: 179).
+Decisiones: 180 (última: 180).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -187,3 +187,4 @@ Decisiones: 179 (última: 179).
 | [177](DECISIONS.md#L980) | 2026-09-23 | La documentación de estructura se genera desde el código y una prueba la vigila | vigente |
 | [178](DECISIONS.md#L1028) | 2026-09-23 | La frecuencia de cuadro es la del equipo, y el nivel de calidad sólo decide cuántos cuadros se calculan | vigente |
 | [179](DECISIONS.md#L1056) | 2026-09-23 | El atlas sólo toma la imagen de una GPU que sigue lenta, y se la devuelve cuando vuelve a ser rápida | vigente |
+| [180](DECISIONS.md#L1092) | 2026-09-23 | Volumen de la AI por discos y Simpson biplano en el informe | vigente |

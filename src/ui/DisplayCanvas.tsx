@@ -584,8 +584,9 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
         const prof = discProfileFromContour(pts, m.pxPerCm);
         if (prof) {
           const vol = volumeFromProfileMl(prof);
+          // the foreshortening check compares against the LV length: an atrial trace has none (decision 180)
           const trueL =
-            st.lvLengthCm !== null
+            st.lvLengthCm !== null && spec?.id !== 'la-volume'
               ? spec?.phase === 'es'
                 ? st.lvLengthCm - 1.2
                 : st.lvLengthCm

@@ -64,7 +64,7 @@ La ventana supraesternal no existe: la aorta termina a 6,5 cm sin arco. Las vent
 | Strain, 3D/4D, modo M anatómico, contraste ecocardiográfico | No existen |
 | Extrasístoles | `pvcProbability` se valida en el esquema y se ignora |
 | Bicúspide | El esquema admite `aorticValve.bicuspid`; ningún caso lo usa |
-| Simpson biplano, FAC, áreas, PHT, IVRT como herramientas | Simpson monoplano y TD por pendiente existen; el resto no |
+| FAC, áreas planimetradas y PHT como herramientas | Simpson (monoplano por trazado y biplano en el informe), volumen de la AI por discos, TD por pendiente e IVRT por intervalo existen; el resto no |
 | Graduación diastólica y del VD en el informe | Cortes presentes en `reference-values`; el informe sólo gradúa EA automáticamente |
 | PRF ligada a profundidad/frecuencia, PRF alta, comportamiento dúplex | Fórmulas presentes en `clinical/formulas`, no conectadas |
 | Flujo Doppler de cavas y venas hepáticas | Geometría existe; sin flujo propio |
