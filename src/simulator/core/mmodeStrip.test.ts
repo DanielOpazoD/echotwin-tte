@@ -528,8 +528,9 @@ describe('M-mode strip through the simulator (decision 84)', () => {
       expect(followed.has(id), `structure ${id} texture follows it`).toBe(true);
     for (const id of KNOWN_TEXTURE_LIMITATIONS)
       expect(followed.has(id), `known limitation ${id} is stale`).toBe(false);
-    // left-chamber blood: its speckle 4 ms later, at the best shift, correlates 0.15–0.32 (0.92–1.00 if it stood still)
-    expect(bloodPersistence.length).toBeGreaterThan(40);
+    // left-chamber blood: its speckle 4 ms later, at the best shift, correlates 0.15–0.32 (0.92–1.00 if it stood still);
+    // at least 30 runs for the median (40 exactly once the LA shrank to its declared volume, decision 161)
+    expect(bloodPersistence.length).toBeGreaterThanOrEqual(30);
     expect([...bloodPersistence].sort((a, b) => a - b)[bloodPersistence.length >> 1]!).toBeLessThan(
       0.5,
     );

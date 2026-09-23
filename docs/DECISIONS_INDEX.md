@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 160 (última: 160).
+Decisiones: 162 (última: 162).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -168,3 +168,5 @@ Decisiones: 160 (última: 160).
 | [158](DECISIONS.md#L495) | 2026-09-23 | La fase de los ecos de interfaz no quita las crestas finas: son las líneas A de la pleura y el pericardio | vigente |
 | [159](DECISIONS.md#L497) | 2026-09-23 | La imagen no se convierte a la densidad del dispositivo: la rejilla polar es más gruesa que el píxel | vigente |
 | [160](DECISIONS.md#L499) | 2026-09-23 | La documentación de física dice lo que hace el código, y sus tablas están protegidas | vigente |
+| [161](DECISIONS.md#L503) | 2026-09-23 | La verdad que puntúa una medición es la que dibuja el corazón: TSVI, aurícula izquierda y AVA coherentes | vigente |
+| [162](DECISIONS.md#L511) | 2026-09-23 | La sístole empieza a su hora y el corazón derecho tiene tiempos propios: pre-eyección de Weissler, P2 tras A2, tricúspide antes que la mitral y a′ normal | vigente |

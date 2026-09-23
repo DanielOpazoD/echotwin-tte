@@ -395,7 +395,15 @@ describe('apical five-chamber view (decision 85)', () => {
           poseFromControl(thorax, canonicalControl(getViewTarget('a5c'), heart, thorax)),
           1,
         );
-        const pose = computeHeartPose(heart, cycleStateAt(tables, 0.25));
+        // a third into ejection, whatever the pre-ejection period (phase 0.25 before decision 162 moved systole later)
+        const tm = tables.timings;
+        const pose = computeHeartPose(
+          heart,
+          cycleStateAt(
+            tables,
+            (tm.ejectionStartS + 0.35 * (tm.ejectionEndS - tm.ejectionStartS)) / tables.rrS,
+          ),
+        );
         const s = makeSample();
         const mean = { root: [0, 0], septum: [0, 0], cavity: [0, 0], valve: 0, ra: 0, la: 0 };
         for (let dep = 0.2; dep < 17; dep += 0.1)

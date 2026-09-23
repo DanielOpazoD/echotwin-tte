@@ -28,7 +28,9 @@ export const aorticStenosisModerateCase: CaseDefinitionInput = {
       sphericity: 0.5,
       apexWallThicknessCm: 0.7,
     },
-    la: { apDiameterCm: 3.6, volumeMl: 54 },
+    // the mildly enlarged atrium of the case is drawn at 62 mL; declared 54 until the atrium was drawn at its declared
+    // volume (decision 161), when it measured 62 and the truth said 54
+    la: { apDiameterCm: 3.6, volumeMl: 62 },
     rv: { basalDiameterCm: 3.1, lengthCm: 7.2, freeWallThicknessCm: 0.35, septalFlattening: 0 },
     ra: { volumeMl: 38 },
     aorta: { lvotDiameterCm: 1.9, annulusCm: 2.2, sinusCm: 3.0, ascendingCm: 3.1 },

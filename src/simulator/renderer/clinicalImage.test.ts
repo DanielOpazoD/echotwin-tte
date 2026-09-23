@@ -104,6 +104,9 @@ const KNOWN_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // at end-diastole; at end-systole both are inside.
   ['4CH-ED:contrast', 0.73],
   ['2CH-ED:contrast', 0.16],
+  // the horizontal speckle cell of the 4CH end-diastolic myocardium sits at the edge of the clinical range since the
+  // atrium was drawn at its declared volume (decision 161): 2.30 against 1.98–2.27 mm
+  ['4CH-ED:speckleCellHorizontalMm', 0.11],
 ]);
 
 /**
@@ -165,9 +168,9 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['4CH-ES:bandDark4', 3.23],
   ['2CH-ED:bandDark4', 4.96],
   ['2CH-ES:bandDark4', 4.81],
-  ['4CH-ED:bandDark6', 28.09],
+  ['4CH-ED:bandDark6', 27.56],
   ['4CH-ES:bandDark6', 2.37],
-  ['2CH-ED:bandDark6', 30.69],
+  ['2CH-ED:bandDark6', 31.05],
   ['2CH-ES:bandDark6', 30.38],
   ['4CH-ED:bandDark8', 14.16],
   ['4CH-ES:bandDark8', 1.63],
@@ -186,7 +189,7 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['4CH-ES:gradientP95', 0.66],
   ['2CH-ED:gradientP95', 1.11],
   ['2CH-ES:gradientP95', 0.76],
-  ['4CH-ED:ridgeFraction', 1.81],
+  ['4CH-ED:ridgeFraction', 1.98],
   ['4CH-ES:ridgeFraction', 1.46],
   ['2CH-ES:ridgeFraction', 0.23],
   ['2CH-ED:ridgeFraction', 0.97],
@@ -195,7 +198,11 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['2CH-ED:detrendedStd', 0.47],
   // texture longer along the beam at 1 mm (0.31-0.35 against 0.20-0.23) and, in the 2CH, less coherent across it at 2-4 mm
   ['4CH-ED:radialCorr1', 1.33],
-  ['4CH-ES:radialCorr1', 0.59],
+  ['4CH-ES:radialCorr1', 0.8],
+  // at end-systole since the atrium shrank to its declared volume (decision 161): a little more texture against the
+  // ±4 mm mean and a slightly negative correlation along the beam at 8 mm
+  ['4CH-ES:detrendedStd', 0.13],
+  ['4CH-ES:radialCorr8', -0.13],
   ['2CH-ED:radialCorr1', 1.54],
   ['2CH-ES:radialCorr1', 1.17],
   ['2CH-ED:radialCorr2', 0.26],
@@ -206,12 +213,11 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['2CH-ED:radialCorr8', -0.34],
   ['2CH-ES:radialCorr8', -0.88],
   ['2CH-ED:tangentialCorr2', -0.2],
-  ['2CH-ES:tangentialCorr2', -0.11],
-  ['4CH-ES:tangentialCorr4', -0.38],
+  ['4CH-ES:tangentialCorr4', -0.22],
   ['2CH-ED:tangentialCorr4', -1.07],
   ['2CH-ES:tangentialCorr4', -0.99],
-  ['4CH-ED:tangentialCorr8', 0.61],
-  ['2CH-ES:tangentialCorr8', -0.35],
+  ['4CH-ED:tangentialCorr8', 0.82],
+  ['2CH-ES:tangentialCorr8', -0.2],
   // the cavity bands (4-10 cm) darker than clinical; the near field (0-2 cm), 141-154 against 105-115 until the
   // chest-wall muscle came down to its clinical grey (decision 156), is inside
   ['4CH-ED:bandGrey4', -0.27],

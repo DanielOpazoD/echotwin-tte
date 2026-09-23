@@ -96,6 +96,9 @@ export const afDiastolicCase: CaseDefinitionInput = {
   expectedDeviations: [
     'ivsd',
     'lvpwd',
+    // the annulus recoils at the case's e′ of 5.5 cm/s, and at 92 bpm without atrial contraction it has not returned by
+    // the next beat: the long axis shortens 0.8 cm between end-diastole and end-systole (decision 162)
+    'lv-shortening',
     'la-ap',
     'la-transverse',
     'la-long',

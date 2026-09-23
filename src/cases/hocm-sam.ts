@@ -94,10 +94,9 @@ export const hocmSamCase: CaseDefinitionInput = {
     'ivs-thickening',
     'apex-thickness',
     'lv-mass',
-    'la-ap',
+    // enlarged by volume and across it; its AP and long axes and the LA/Ao ratio fell inside their ranges once the
+    // atrium was drawn at its declared volume (decision 161)
     'la-transverse',
-    'la-long',
     'lavi',
-    'la-ao',
   ],
 };
