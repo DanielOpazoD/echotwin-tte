@@ -975,3 +975,51 @@ Anuncia el ángulo con `aria-valuetext`.
 - que el dial toma el foco y gira sin que la sonda se deslice.
 
 Con los archivos anteriores fallan las dos pruebas.
+
+
+177. **2026-09-23 — La documentación de estructura se genera desde el código y una prueba la vigila**: décimo punto de la tanda 4. El panel encontró documentos que describían otro repositorio.
+
+**Lo que no se ajustaba al código**
+
+- El README pedía Node 20+; `.nvmrc`, `engines` y el pipeline exigen 22.
+- `.github/workflows/ci.yml` era un pipeline de GitHub Actions en un repositorio de GitLab que nadie ejecutaba.
+- La columna «Importa de» de `ARCHITECTURE.md` estaba escrita a mano y no coincidía con el código. Por ejemplo, decía que el Doppler importa el ciclo y las fórmulas, cuando importa además la anatomía, la sonda, el renderer, los casos y el núcleo. Faltaba la capa de mediciones.
+- `LIMITATIONS.md` sólo nombraba las entradas de tres de los once conjuntos `KNOWN_*`. Las 110 de los otros ocho no aparecían:
+  - imagen clínica, sector y geometría;
+  - verdad del modelo;
+  - pared torácica;
+  - segmentos no evaluables y evaluables de más;
+  - textura.
+- CONTRIBUTING contaba 18 reglas en el método de fidelidad, que tiene 20, y estimaba los E2E en unos 28 min, cuando tardan 7–12.
+- VALIDATION presentaba como estado actual un recuento del 2026-09-16.
+
+**Tablas generadas**
+
+- `tools/docs/layer-graph.ts` calcula las aristas entre capas a partir de los imports reales, las mismas que usa `layers.test.ts` para prohibir ciclos, y escribe en `ARCHITECTURE.md` la tabla de lo que importa cada capa. La tabla de responsabilidades pierde su columna «Importa de».
+- `tools/docs/known-sets.ts` lee los conjuntos `KNOWN_*` de las fuentes de las pruebas y escribe al final de `LIMITATIONS.md` la tabla de sus entradas. Las lee de las fuentes porque importar una prueba la ejecutaría.
+- Las dos tablas van entre marcadores (`tools/docs/generated.ts`), y `npm run docs:gen` las regenera junto con el índice de decisiones.
+
+**Guardas**
+
+- `docsConsistency.test.ts` comprueba que:
+  - la tabla de capas coincide con el grafo;
+  - cada capa del grafo tiene carpeta en la tabla de responsabilidades, y cada carpeta nombrada existe;
+  - README, CONTRIBUTING, `engines` y la imagen del pipeline dicen la versión de `.nvmrc`;
+  - README y CONTRIBUTING sólo nombran scripts de npm que existen;
+  - CONTRIBUTING da el número real de reglas del método.
+- `limitationsConsistency.test.ts` comprueba que:
+  - la tabla de `LIMITATIONS.md` coincide con los conjuntos;
+  - cada constante `KNOWN_*` de las pruebas es un conjunto de la tabla o está excluida con su motivo. Hoy sólo se excluye `KNOWN_SHARED_CLASSIFIER_LITERALS`: son recuentos de paridad, no una limitación.
+
+**Mutaciones que fallan**
+
+- Una arista nueva de `core` a `cases`.
+- Node 20 en el README.
+- Borrar la fila de mediciones.
+- Una entrada más en `KNOWN_SECTOR_DEVIATIONS`.
+- Un segmento menos en `KNOWN_NOT_ASSESSABLE`.
+- Un conjunto `KNOWN_*` nuevo sin declarar.
+- 18 reglas en CONTRIBUTING.
+- Un script inexistente en el README.
+
+VALIDATION ya no da recuentos sin fecha: remite a la sección «Verificación» de cada MR y a `vitest list` y `playwright test --list`.

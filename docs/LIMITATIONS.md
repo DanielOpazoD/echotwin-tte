@@ -159,3 +159,23 @@ La referencia son 505 secuencias apicales de calidad Good de CAMUS (Leclerc et a
 - El tutorial de 8 pasos aparece en perfiles sin `tutorialDone`; «Reiniciar tutorial» en el menú ⋯ de la barra inferior lo reinicia recargando la página. «Guardar imagen PNG», en el mismo menú, descarga imagen + overlays con marca de agua.
 - El backend por defecto es `atlas` (render directo con caché de pose idéntica para fuentes lentas); en el panel Dev se puede elegir `procedural` o `webgl2` para comparar.
 - La verdad de terreno del panel Dev y del informe es la del modelo, no lo que «vería» un observador: por ejemplo el DTS se deriva de VTS/VTD con un factor fijo 0,93.
+
+## Desviaciones declaradas en las pruebas (decisión 177)
+
+Cada prueba del modelo que tolera una desviación la declara en un conjunto `KNOWN_*`. Una entrada que deja de fallar hace fallar la prueba (la declaración obsoleta desactivaría un requisito que ya se cumple), y en los conjuntos con línea base también falla la que se mueve de ella. La tabla siguiente se genera desde las fuentes de las pruebas con `npx tsx tools/docs/known-sets.ts`, y `limitationsConsistency.test.ts` falla si no coincide: una entrada nueva o retirada cambia este documento en la misma revisión. El porqué de cada una está en las secciones anteriores y en el comentario del conjunto.
+
+<!-- generado por tools/docs/known-sets.ts: no editar a mano -->
+| Conjunto | Prueba | Entradas | Qué declara |
+|---|---|---|---|
+| `KNOWN_MODEL_LIMITATIONS` | `simulator/anatomy/proportions.test.ts` | 2 | `av-tv-distance`, `ra-long` |
+| `KNOWN_VIEW_LIMITATIONS` | `simulator/windows/viewContent.test.ts` | 2 | `psax-mv/inferior vena cava`, `a2c/pulmonary artery` |
+| `KNOWN_UNREACHABLE_LANDMARKS` | `simulator/windows/viewLandmarks.test.ts` | 10 | `plax/desc-aorta`, `psax-pm/rv`, `psax-apex/lv-apex`, `a4c/ias`, `a5c/mv`, `a5c/rv`, `subcostal-4c/la`, `subcostal-4c/tv`, `rv-focused/lv-apex`, `psax-av/tv` |
+| `KNOWN_TRUTH_DEVIATIONS` | `simulator/anatomy/truthCoherence.test.ts` | 3 | `hfref-severe-mr` (lvot, laMax); `pulmonary-hypertension-rv` (edv) |
+| `KNOWN_INTRUSION_CM` | `simulator/anatomy/chestWall.test.ts` | 12 | `normal-excellent-window`, `normal-difficult-window`, `hfref-severe-mr`, `inferior-rwma`, `aortic-stenosis-moderate`, `aortic-stenosis-severe`, `hocm-sam`, `mvp-primary-mr`, `pulmonary-hypertension-rv`, `pericardial-effusion-tamponade`, `af-diastolic`, `artifact-challenge` |
+| `KNOWN_NOT_ASSESSABLE` | `simulator/view-recognition/segmentCoverage.test.ts` | 2 | `a3c` (8, 14) |
+| `KNOWN_EXTRA_ASSESSABLE` | `simulator/view-recognition/segmentCoverage.test.ts` | 3 | `a3c` (13); `plax` (16); `psax-mv` (8) |
+| `KNOWN_TEXTURE_LIMITATIONS` | `simulator/core/mmodeStrip.test.ts` | 1 | `RvWall` |
+| `KNOWN_DEVIATIONS` | `simulator/renderer/clinicalImage.test.ts` | 12 | `myocardialLocalStd` (4CH-ES, 2CH-ES); `myocardialDetrendedStd` (4CH-ED, 4CH-ES, 2CH-ED, 2CH-ES); `levelStdSlope` (4CH-ED, 4CH-ES, 2CH-ES); `contrast` (4CH-ED, 2CH-ED); `speckleCellHorizontalMm` (4CH-ED) |
+| `KNOWN_GEOMETRY_DEVIATIONS` | `simulator/renderer/clinicalImage.test.ts` | 4 | `septalMinusLateralGrey` (4CH-ED); `axisTiltDeg` (4CH-ES, 2CH-ED); `septalRayAngleDeg` (4CH-ES) |
+| `KNOWN_SECTOR_DEVIATIONS` | `simulator/renderer/clinicalImage.test.ts` | 73 | `darkFraction` (4CH-ED, 4CH-ES, 2CH-ED, 2CH-ES); `bandDark0` (2CH-ED, 2CH-ES); `bandDark2` (4CH-ED, 4CH-ES, 2CH-ED, 2CH-ES); `bandDark4` (4CH-ED, 4CH-ES, 2CH-ED, 2CH-ES); `bandDark6` (4CH-ED, 4CH-ES, 2CH-ED, 2CH-ES); `bandDark8` (4CH-ED, 4CH-ES, 2CH-ED, 2CH-ES); `bandDark10` (4CH-ED, 4CH-ES, 2CH-ED, 2CH-ES); `gradientP50` (4CH-ED, 4CH-ES, 2CH-ED, 2CH-ES); `gradientP95` (4CH-ED, 4CH-ES, 2CH-ED, 2CH-ES); `ridgeFraction` (4CH-ED, 4CH-ES, 2CH-ES, 2CH-ED); `detrendedStd` (4CH-ED, 2CH-ED, 4CH-ES); `radialCorr1` (4CH-ED, 4CH-ES, 2CH-ED, 2CH-ES); `radialCorr8` (4CH-ES, 2CH-ED, 2CH-ES); `radialCorr2` (2CH-ED); `radialCorr4` (4CH-ES, 4CH-ED, 2CH-ED, 2CH-ES); `tangentialCorr2` (2CH-ED); `tangentialCorr4` (4CH-ES, 2CH-ED, 2CH-ES); `tangentialCorr8` (4CH-ED, 2CH-ES); `bandGrey4` (4CH-ED, 4CH-ES, 2CH-ED, 2CH-ES); `bandGrey6` (4CH-ES, 2CH-ED, 2CH-ES); `bandGrey8` (4CH-ES, 2CH-ED, 2CH-ES); `greyP95` (4CH-ES, 2CH-ES); `edgeRollOff` (2CH-ED, 2CH-ES) |
+<!-- /generado -->

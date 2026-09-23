@@ -47,11 +47,11 @@ npm run dev
 | `npm run test:slow` | sólo las pruebas lentas (minutos; núcleo a lo largo de varios latidos) |
 | `npm run test:all` | la suite unitaria completa |
 | `npm run coverage` | suite completa con cobertura y umbrales por área (informe en `coverage/`) |
-| `npm run check` | lint + tipos + suite completa + build |
+| `npm run check` | lint + formato + tipos + suite completa + build + presupuesto del bundle |
 | `npm run test:e2e` | pruebas de extremo a extremo (Playwright) |
 | `npm run measure -- <caseId>` | 44 medidas del modelo contra rangos de referencia |
 
-Necesita Node 20+. El navegador debe soportar WebGL2 para la cadena en GPU; sin él todo sigue
+Necesita Node 22 (`.nvmrc`). El navegador debe soportar WebGL2 para la cadena en GPU; sin él todo sigue
 funcionando en CPU, más despacio.
 
 ## Documentación

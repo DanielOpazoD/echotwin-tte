@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 176 (última: 176).
+Decisiones: 177 (última: 177).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -184,3 +184,4 @@ Decisiones: 176 (última: 176).
 | [174](DECISIONS.md#L865) | 2026-09-23 | El currículo pide el corazón normal completo y adquirido a mano | vigente |
 | [175](DECISIONS.md#L893) | 2026-09-23 | Rangos normales por sexo en el informe y la impresión, y tres medidas nuevas | vigente |
 | [176](DECISIONS.md#L948) | 2026-09-23 | El teclado llega primero al control con foco, y el dial de rotación se maneja con él | vigente |
+| [177](DECISIONS.md#L980) | 2026-09-23 | La documentación de estructura se genera desde el código y una prueba la vigila | vigente |
