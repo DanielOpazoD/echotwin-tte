@@ -22,6 +22,7 @@ import {
 import type { AcquisitionSettings, PolarFrame } from '@/simulator/renderer/types';
 import { Structure, Tissue } from '@/simulator/anatomy/tissue';
 import { CAMUS_GOOD } from '@/clinical/reference-values/camusImageStats';
+import { softTissueTransmission } from '@/simulator/renderer/acoustic/acoustics';
 import { hiddenSegmentCodes, segmentCoverage, type SegmentCoverage } from './segmentCoverage';
 
 /**
@@ -121,9 +122,17 @@ interface LandmarkTest {
   transmission: number;
 }
 
-/** Two-way transmission expected through average soft tissue (≈0.5 dB/cm/MHz) at depth r. */
-export function expectedTransmission(rCm: number, frequencyMHz: number): number {
-  return Math.exp(-0.23 * 0.5 * frequencyMHz * 1.2 * rCm);
+/**
+ * Two-way transmission expected through average soft tissue at depth r for the acquisition: the harmonic factor only
+ * with harmonics on. It applied the harmonic factor always, and with harmonics off it expected 1.2 times the soft tissue
+ * loss, so a sample had to lose that much more before it counted as shadowed.
+ */
+export function expectedTransmission(
+  rCm: number,
+  frequencyMHz: number,
+  harmonics: boolean,
+): number {
+  return softTissueTransmission(rCm, frequencyMHz, harmonics);
 }
 
 function testLandmark(
@@ -132,6 +141,7 @@ function testLandmark(
   beam: BeamFrame,
   frame: PolarFrame,
   frequencyMHz: number,
+  harmonics: boolean,
 ): LandmarkTest & { thetaRad: number; rCm: number } {
   const d = sub(p, beam.origin);
   const depth = dot(d, beam.forward);
@@ -153,7 +163,7 @@ function testLandmark(
   const planeDist = Math.abs(elev);
   const tol = landmarkReachCm(radius);
   // shadow test is relative to the expected soft-tissue attenuation at this depth
-  const expected = expectedTransmission(r, frequencyMHz);
+  const expected = expectedTransmission(r, frequencyMHz, harmonics);
   const lit = transmission > 0.2 * expected;
   return {
     id: '',
@@ -187,7 +197,7 @@ export function analyzeView(input: AnalyzeInput): ViewAnalysis {
     lmTorso.set(l.id, { p: heartToTorso(heart.frame, l.p), radius: l.radius });
   const lmTests = new Map<string, ReturnType<typeof testLandmark>>();
   for (const [id, l] of lmTorso) {
-    const t = testLandmark(l.p, l.radius, beam, frame, settings.frequencyMHz);
+    const t = testLandmark(l.p, l.radius, beam, frame, settings.frequencyMHz, settings.harmonics);
     t.id = id;
     lmTests.set(id, t);
   }
@@ -211,7 +221,10 @@ export function analyzeView(input: AnalyzeInput): ViewAnalysis {
     if (st !== 0 && st < 25) {
       cardiac++;
       const r = ((i % samples) + 0.5) * dr;
-      if ((frame.transmission[i] ?? 0) < 0.2 * expectedTransmission(r, settings.frequencyMHz))
+      if (
+        (frame.transmission[i] ?? 0) <
+        0.2 * expectedTransmission(r, settings.frequencyMHz, settings.harmonics)
+      )
         shadowed++;
       if (input.display) {
         const g = input.display[i] ?? 0;

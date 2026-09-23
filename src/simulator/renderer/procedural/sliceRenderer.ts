@@ -27,6 +27,7 @@ import {
 } from '../acoustic/psf';
 import {
   ATTEN_NP_PER_DB,
+  attenuationFrequencyMHz,
   BLOOD_DECORRELATION_CELLS,
   BLOOD_HARMONIC_SIGMA,
   bloodShiftCells,
@@ -410,7 +411,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
       beam,
       spec,
       dr: spec.depthCm / spec.samples,
-      fAtten: f * (harm ? 1.2 : 1),
+      fAtten: attenuationFrequencyMHz(f, harm),
       seed: physics.seed,
       harm,
       clutter:

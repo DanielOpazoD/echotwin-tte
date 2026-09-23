@@ -1,3 +1,4 @@
+import { softTissueTransmission } from '@/simulator/renderer/acoustic/acoustics';
 import { aliasVelocity } from '@/clinical/formulas';
 import { hash3 } from '@/core/random';
 import { Tissue } from '@/simulator/anatomy/tissue';
@@ -51,8 +52,9 @@ export function relativeTransmission(
   depthCm: number,
   acquisition: ColorAcquisition,
 ): number {
-  const fAtten = acquisition.frequencyMHz * (acquisition.harmonics ? 1.2 : 1);
-  return transmission / Math.exp(-0.23 * 0.5 * fAtten * depthCm);
+  return (
+    transmission / softTissueTransmission(depthCm, acquisition.frequencyMHz, acquisition.harmonics)
+  );
 }
 
 /** Second-order wall-filter magnitude at |v| over the cutoff: −3 dB at the cutoff, flat from about twice it. */

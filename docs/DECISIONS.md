@@ -746,3 +746,26 @@ Ahora el subcostal 4C se mide como un eje largo (como el PLAX: el ángulo del ej
 - que su geometría pase de 0,9.
 
 Con el plano y la rama anteriores puntúa 35. En el caso normal, el criterio del panel (AI, tricúspide y mitral a menos de 1 cm del plano) se cumple para la mitral (0,98 cm) y para el septo (0,88 cm). La AI queda a 1,26 cm y la tricúspide a 1,33 cm; antes estaban a 1,9 y 1,7. El contraste del VI no se midió en esta decisión.
+
+
+168. **2026-09-23 — Una sola atenuación por adquisición, y fuera el código muerto**: primer punto de la tanda 4, los hallazgos colaterales de la decisión 160.
+
+**Atenuación**
+
+El producto «frecuencia × 1,2 con armónicos» estaba escrito cuatro veces: en el trazador, en los parámetros de la GPU, en la sombra del color y en la sombra del motor de vistas. La última aplicaba el 1,2 siempre, así que con los armónicos apagados esperaba 1,2 veces la pérdida del tejido blando de la imagen que juzgaba: una muestra tenía que perder eso de más antes de contar como sombra.
+
+Ahora `attenuationFrequencyMHz` y `softTissueTransmission` (`acoustics.ts`, con `HARMONIC_ATTEN_FACTOR` = 1,2 y `SOFT_TISSUE_ATTEN_DB` = 0,5 en la tabla verificada de `ULTRASOUND_PHYSICS.md`) son la única definición. El motor de vistas recibe los armónicos de la adquisición. Con los armónicos encendidos, que es lo que usan todas las pruebas y los goldens, no cambia ningún número.
+
+**Código muerto**
+
+Se retiran tres piezas sin uso:
+
+- `myoAnisoGain`, la dirección circunferencial única de la decisión 123, que la hélice de fibras de la decisión 144 dejó sin llamadas en la CPU y en la GPU; también se generaba a GLSL.
+- `MYO_HELIX_COS2`, que sólo usaba esa función.
+- `speckle()` de `core/noise.ts`, que sólo llamaba su propia prueba.
+
+El GLSL generado se regenera (`npm run glsl:gen`).
+
+**Guarda**
+
+`attenuation.test.ts` fija las dos funciones con y sin armónicos.
