@@ -21,6 +21,11 @@ interface Comparison {
   samples: number;
 }
 
+// Each comparison renders the CPU reference of a frame; the high tier and the rib case take the longest. This machine is
+// also the CI runner and a desktop: at the load of other applications (18–44) three of them took 54 s–1.8 min alone and
+// 2 min in the full run, past the 2-minute default, while their frames matched.
+test.describe.configure({ timeout: 300_000 });
+
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() =>
     localStorage.setItem('echotwin.prefs.v1', JSON.stringify({ tutorialDone: true })),
