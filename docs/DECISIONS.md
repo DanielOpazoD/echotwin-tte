@@ -837,3 +837,26 @@ Cada `SimulatorCore` crea su propio contexto WebGL2. El worker y el cliente en l
 - `client.test.ts`: el núcleo del caso anterior se desecha al cargar otro, y el último al desechar el cliente.
 
 Con el código anterior fallan las dos: dos cargas al montar y ningún `dispose`. El worker no tiene prueba en Node, que no tiene `Worker`; su cambio es la misma línea que la del cliente.
+
+
+173. **2026-09-23 — Un cuadro viaja transferido y el store no avisa sin cambios**: sexto punto de la tanda 4. El panel contó 10 de 10 notificaciones vacías del store y 66 KiB clonados por cuadro.
+
+**Notificaciones vacías**
+
+El HUD registra la puntuación de la vista cada 120 ms. `recordViewScore` devolvía `{}` cuando no subía, y Zustand trata cualquier objeto nuevo, aunque esté vacío, como un cambio de estado: despertaba a todos los suscriptores. Entre ellos está el hook de simulación, que serializa su entrada entera en cada aviso. Lo mismo hacían `completeTasks` sin tareas nuevas, `tickPresetAnimation` sin animación y `undoReviewRemove` sin nada que deshacer. Ahora devuelven el mismo estado, y Zustand no avisa.
+
+**Lo que se clona**
+
+La salida de cada cuadro transfería la imagen y el bitmap, pero clonaba:
+
+- los mapas de estructura y de segmentos, 26 KiB cada uno a calidad media;
+- el ECG, 1200 objetos `{t, v}`, 14 KiB.
+
+En total, 73 KiB por cuadro.
+
+El ECG viaja ahora como `Float64Array` de pares intercalados (tiempo, amplitud). `frameTransferList` (`protocol.ts`) nombra lo que el worker transfiere: imagen, bitmap, los dos mapas y el ECG, que son copias propias de cada salida. Lo que se clona baja a unos 7 KiB, casi todo el análisis de la vista.
+
+**Guardas**
+
+- `store.test.ts`: cuatro acciones sin cambios no avisan, y una puntuación que sube sí. Con el store anterior se cuentan 6 avisos donde debe haber 1.
+- `frameTransfer.test.ts` (lento): lo que se clona de un cuadro real queda por debajo de 40 KiB, y escribir en los mapas transferidos deja intacto el cuadro del núcleo.

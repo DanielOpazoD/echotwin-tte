@@ -508,7 +508,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
   undoReviewRemove: () =>
     set((s) => {
       const batch = s.reviewUndo[s.reviewUndo.length - 1];
-      if (!batch) return {};
+      if (!batch) return s;
       const present = new Set([...s.reviewMarkers, ...batch].map((m) => m.id));
       // a secondary whose primary is gone for good comes back as a primary
       const restored = batch.map((m) =>
@@ -569,7 +569,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
       let progress = s.progress;
       const now = Date.now();
       for (const id of ids) progress = completeTask(progress, id, now);
-      if (progress === s.progress) return {};
+      if (progress === s.progress) return s;
       saveProgress(typeof localStorage !== 'undefined' ? localStorage : null, progress);
       return { progress };
     }),
@@ -630,15 +630,16 @@ export const useSimStore = create<SimStore>((set, get) => ({
   tickPresetAnimation: (nowMs) =>
     set((s) => {
       const a = s.presetAnim;
-      if (!a) return {};
+      if (!a) return s;
       const t = (nowMs - a.startMs) / a.durationMs;
       const probe = lerpControl(a.from, a.to, easeInOut(t));
       return t >= 1 ? { probe: a.to, presetAnim: null } : { probe };
     }),
   recordViewScore: (viewId, score) =>
     set((s) =>
+      // the same state when nothing changes: a new one, even empty, notifies every subscriber (decision 173)
       (s.viewProgress[viewId] ?? 0) >= score
-        ? {}
+        ? s
         : { viewProgress: { ...s.viewProgress, [viewId]: score } },
     ),
   finishExam: () =>

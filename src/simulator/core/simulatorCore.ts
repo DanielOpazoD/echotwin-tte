@@ -864,7 +864,12 @@ export class SimulatorCore {
     const gate = isStrip
       ? this.strips.gateInfo(beam, fspec, cf ? cf.phase : c.phase, structure, this.stripCtx())
       : null;
-    const ecgTail = this.ecg.slice(Math.max(0, this.ecg.length - 1200));
+    const from = Math.max(0, this.ecg.length - 1200);
+    const ecgTail = new Float64Array(2 * (this.ecg.length - from));
+    for (let i = from, k = 0; i < this.ecg.length; i++, k += 2) {
+      ecgTail[k] = this.ecg[i]!.t;
+      ecgTail[k + 1] = this.ecg[i]!.v;
+    }
     this.lastOutputBeam = beam;
     const sector = { ...mapping, x: 0, y: 0 };
     this.lastSector = sector;

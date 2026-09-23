@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 172 (última: 172).
+Decisiones: 173 (última: 173).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -180,3 +180,4 @@ Decisiones: 172 (última: 172).
 | [170](DECISIONS.md#L792) | 2026-09-23 | Los ejes cortos papilar y apical apuntan a un nivel del ventrículo, no a una altura fija | vigente |
 | [171](DECISIONS.md#L809) | 2026-09-23 | La turbulencia que declara cada caso llega a su flujo | vigente |
 | [172](DECISIONS.md#L822) | 2026-09-23 | Un caso se carga una vez y su núcleo se desecha al cambiar | vigente |
+| [173](DECISIONS.md#L842) | 2026-09-23 | Un cuadro viaja transferido y el store no avisa sin cambios | vigente |

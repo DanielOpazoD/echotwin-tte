@@ -175,3 +175,28 @@ describe('useSimStore', () => {
     expect(s.ui.screen).toBe('report');
   });
 });
+
+/**
+ * An action that changes nothing notifies nobody (decision 173): `set` with a new object, even an empty one, wakes every
+ * subscriber, and the HUD recorded the view score every 120 ms whether it rose or not, so every one of those
+ * notifications was empty and the simulation hook serialised its whole input for each.
+ */
+describe('actions that change nothing do not notify', () => {
+  it('the view score when it does not rise, tasks already done, a missing preset animation or undo', async () => {
+    const useSimStore = await freshStore();
+    let notified = 0;
+    const unsub = useSimStore.subscribe(() => notified++);
+    const s = useSimStore.getState();
+    s.recordViewScore('a4c', 60);
+    expect(notified).toBe(1);
+    s.recordViewScore('a4c', 50);
+    s.recordViewScore('a4c', 60);
+    s.completeTasks([]);
+    s.tickPresetAnimation(0);
+    s.undoReviewRemove();
+    expect(notified).toBe(1);
+    s.recordViewScore('a4c', 70);
+    expect(notified).toBe(2);
+    unsub();
+  });
+});

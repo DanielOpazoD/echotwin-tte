@@ -107,7 +107,11 @@ export interface SimOutput {
   heartRateBpm: number;
   rrS: number;
   simulatedFps: number;
-  ecg: EcgPoint[];
+  /**
+   * The ECG of the last seconds as interleaved (time s, amplitude) pairs: a typed array travels to the main thread
+   * transferred, where 1200 point objects were cloned in every frame (decision 173).
+   */
+  ecg: Float64Array;
   ecgHead: number;
   view: ViewAnalysis | null;
   spectrumColumn: Float32Array | null;
@@ -203,3 +207,14 @@ export type WorkerToMain =
   | { type: 'frame'; output: SimOutput }
   | { type: 'response'; id: number; res: SimResponse | null }
   | { type: 'error'; message: string };
+
+/**
+ * The buffers of a frame that travel to the main thread transferred rather than cloned (decision 173): the image, the
+ * bitmap the GPU drew, the per-sample structure and segment maps and the ECG. Each is the frame's own copy. With the
+ * two maps and the ECG cloned, 73 KiB were copied per frame at medium quality.
+ */
+export function frameTransferList(out: SimOutput): Transferable[] {
+  const list: Transferable[] = [out.rgba, out.structure.buffer, out.segment.buffer, out.ecg.buffer];
+  if (out.bitmap) list.push(out.bitmap);
+  return list;
+}

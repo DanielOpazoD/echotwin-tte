@@ -20,12 +20,8 @@ describe('ecgTrace', () => {
   });
 
   it('returns points in input order, skipping dropped samples', () => {
-    const ecg = [
-      { t: 6.5, v: 0 },
-      { t: 8, v: 0.2 },
-      { t: 9, v: 0.8 },
-      { t: 10, v: 0.4 },
-    ];
+    // interleaved (time, amplitude) pairs, as the simulator sends them
+    const ecg = Float64Array.of(6.5, 0, 8, 0.2, 9, 0.8, 10, 0.4);
     const pts = ecgTracePoints(ecg, layout);
     expect(pts).toHaveLength(3);
     expect(pts.map((p) => p.x)).toEqual([...pts.map((p) => p.x)].sort((a, b) => a - b));

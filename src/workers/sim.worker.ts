@@ -1,5 +1,10 @@
 import { SimulatorCore } from '@/simulator/core/simulatorCore';
-import type { MainToWorker, SimInput, WorkerToMain } from '@/simulator/core/protocol';
+import {
+  frameTransferList,
+  type MainToWorker,
+  type SimInput,
+  type WorkerToMain,
+} from '@/simulator/core/protocol';
 
 /**
  * Web Worker entry. The worker drives its own clock (setTimeout at the simulated frame interval)
@@ -58,7 +63,7 @@ function tick(): void {
       };
       outstanding++;
       const tp = performance.now();
-      post({ type: 'frame', output: out }, out.bitmap ? [out.rgba, out.bitmap] : [out.rgba]);
+      post({ type: 'frame', output: out }, frameTransferList(out));
       lastPostMs = performance.now() - tp;
     } else if (out) {
       out.bitmap?.close(); // main thread is behind: drop the frame, keep simulating
