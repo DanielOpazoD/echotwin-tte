@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { buildBeatTables, cycleStateAt, sampleTable } from './cycleModel';
+import { buildBeatTables, cycleStateAt, sampleTable, valveEventTimes } from './cycleModel';
 import { CardiacClock } from './clock';
 import { ecgSample } from './ecg';
-import { eWaveShape } from './timing';
+import { eWaveShape, TRICUSPID_LAG_S, TRICUSPID_LEAD_S } from './timing';
 import { normalExcellentCase } from '@/cases/normal-excellent';
 import { validateCase } from '@/cases/schema';
 
@@ -138,7 +138,8 @@ describe('annular recoil (decision 80)', () => {
       let peak = 0;
       for (let i = 0; i < tb.n; i++) {
         const ti = (i + 0.5) * dt;
-        if (ti > t.mitralOpenS && ti < earlyEnd)
+        // the central difference at the window's edge reads the next phase
+        if (ti - dt > t.mitralOpenS && ti + dt < earlyEnd)
           peak = Math.max(peak, -(tb.longitudinalVelocity[i] ?? 0) * k.physiology.mapseCm);
       }
       if (Math.abs(peak - k.physiology.ePrimeSeptalCmps) > 0.1 * k.physiology.ePrimeSeptalCmps)
@@ -288,8 +289,6 @@ describe('the atrioventricular leaflets float half-open between the filling wave
       );
       const t = tb.timings;
       const at = (ts: number) => cycleStateAt(tb, ts / tb.rrS);
-      // the tricuspid valve follows the mitral one 1% of the beat later
-      const lag = 0.01 * tb.rrS;
       const floatStart = t.mitralOpenS + t.eAccelS;
       // without atrial contraction the float lasts to the end of the beat and the valve closes early in systole
       const floatEnd = t.hasAWave ? (t.aStartS + t.aEndS) / 2 : tb.rrS;
@@ -300,11 +299,17 @@ describe('the atrioventricular leaflets float half-open between the filling wave
           problems.push(
             `${input.id} @${(ts * 1000).toFixed(0)} ms: mitral opening ${s.mvOpen.toFixed(2)}`,
           );
-        if (ts > floatStart + lag && at(ts + lag).tvOpen < 0.9 * DIASTASIS_OPENING)
-          problems.push(
-            `${input.id} @${((ts + lag) * 1000).toFixed(0)} ms: tricuspid opening ${at(ts + lag).tvOpen.toFixed(2)}`,
-          );
       }
+      // the tricuspid valve opens before the mitral one and closes after it (decision 162): its float spans its own times
+      for (
+        let ts = t.tricuspidOpenS + t.eAccelS + 0.001;
+        ts < floatEnd + TRICUSPID_LAG_S;
+        ts += 0.002
+      )
+        if (at(ts).tvOpen < 0.9 * DIASTASIS_OPENING)
+          problems.push(
+            `${input.id} @${(ts * 1000).toFixed(0)} ms: tricuspid opening ${at(ts).tvOpen.toFixed(2)}`,
+          );
       const jumps = (from: number, to: number): void => {
         let prev = at(from).mvOpen;
         for (let ts = from + 0.002; ts <= to; ts += 0.002) {
@@ -538,8 +543,19 @@ describe('chained beats carry the respiratory factors of their inflows (decision
       k.rhythm,
       k.hemodynamics,
     );
-    // without a chain the tricuspid inflow is the mitral one
-    expect(Array.from(nominal.tricuspidFlowMlps)).toEqual(Array.from(nominal.mitralFlowMlps));
+    // without a chain the tricuspid inflow fills as much as the mitral one, its early wave TRICUSPID_LEAD_S earlier
+    // (decision 162)
+    const sum = (table: Float32Array) => table.reduce((a, b) => a + b, 0);
+    expect(sum(nominal.tricuspidFlowMlps) / sum(nominal.mitralFlowMlps)).toBeCloseTo(1, 2);
+    const peakAt = (table: Float32Array) => {
+      let best = 0;
+      for (let i = 0; i < nominal.n; i++) if (table[i]! > table[best]!) best = i;
+      return ((best + 0.5) / nominal.n) * nominal.rrS;
+    };
+    expect(peakAt(nominal.mitralFlowMlps) - peakAt(nominal.tricuspidFlowMlps)).toBeCloseTo(
+      TRICUSPID_LEAD_S,
+      2,
+    );
     const tb = buildBeatTables(nominal.rrS, k.physiology, k.rhythm, k.hemodynamics, {
       chain: {
         ejectMl: 70,
@@ -565,7 +581,7 @@ describe('chained beats carry the respiratory factors of their inflows (decision
       0.8 * k.physiology.ePeakMps,
       2,
     );
-    expect(peakIn(tb.tricuspidFlowMlps, t.mitralOpenS, t.aStartS)).toBeCloseTo(
+    expect(peakIn(tb.tricuspidFlowMlps, t.tricuspidOpenS, t.aStartS)).toBeCloseTo(
       1.3 * k.physiology.ePeakMps,
       2,
     );
@@ -575,5 +591,84 @@ describe('chained beats carry the respiratory factors of their inflows (decision
     let rv = 0;
     for (let i = 0; i < tb.n; i++) rv += tb.pulmonaryFlowMlps[i]! * (tb.rrS / tb.n);
     expect(rv).toBeCloseTo(82, 0);
+  });
+});
+
+/**
+ * Systolic and valvular timing of the normal heart (decision 162): the aortic valve opened 60 ms after QRS onset and the
+ * right-sided valves followed the left ones one hundredth of the beat apart in the same direction, which closed the
+ * pulmonary valve before the aortic one and opened the tricuspid after the mitral; atrial contraction moved the mitral
+ * annulus at 3.9 cm/s in the normal heart.
+ */
+describe('the timing of systole and of the right-sided valves', () => {
+  it('opens the aortic valve after a pre-ejection period of 80–110 ms and closes it at the QS2 of the heart rate', async () => {
+    const { CASE_INPUTS, loadCaseById } = await import('@/cases');
+    for (const input of CASE_INPUTS) {
+      const k = loadCaseById(input.id);
+      const hr = k.rhythm.heartRateBpm;
+      const t = buildBeatTables(60 / hr, k.physiology, k.rhythm, k.hemodynamics).timings;
+      expect(t.ejectionStartS * 1000, input.id).toBeGreaterThanOrEqual(80);
+      expect(t.ejectionStartS * 1000, input.id).toBeLessThanOrEqual(110);
+      // Weissler's QS2 for men, 546 − 2.1·HR ms, where the case's contractility leaves the ejection time alone
+      if (k.physiology.contractility === 1)
+        expect(Math.abs(t.ejectionEndS * 1000 - (546 - 2.1 * hr)), input.id).toBeLessThan(15);
+    }
+  });
+
+  it('opens the pulmonary valve before the aortic one and closes it 20–40 ms after, and the tricuspid before and after the mitral, in every case', async () => {
+    const { CASE_INPUTS, loadCaseById } = await import('@/cases');
+    for (const input of CASE_INPUTS) {
+      const k = loadCaseById(input.id);
+      const tb = buildBeatTables(
+        60 / k.rhythm.heartRateBpm,
+        k.physiology,
+        k.rhythm,
+        k.hemodynamics,
+      );
+      const ev = valveEventTimes(tb);
+      expect(ev.pulmonary[0], input.id).toBeLessThan(ev.aortic[0]);
+      const split = (ev.pulmonary[1] - ev.aortic[1]) * 1000;
+      expect(split, input.id).toBeGreaterThanOrEqual(20);
+      expect(split, input.id).toBeLessThanOrEqual(40);
+      expect(ev.tricuspid[0], input.id).toBeLessThan(ev.mitral[0]);
+      // the right ventricle relaxes before the tricuspid valve opens
+      expect(ev.tricuspid[0], input.id).toBeGreaterThan(ev.pulmonary[1]);
+      const close = (x: number) => (x < 0.2 ? x + tb.rrS : x);
+      expect(close(ev.tricuspid[1]), input.id).toBeGreaterThan(close(ev.mitral[1]));
+      // the pulmonary flow runs between its own valve events
+      const dt = tb.rrS / tb.n;
+      for (let i = 0; i < tb.n; i++) {
+        const ti = (i + 0.5) * dt;
+        if ((tb.pulmonaryFlowMlps[i] ?? 0) > 0)
+          expect(ti > ev.pulmonary[0] - dt && ti < ev.pulmonary[1] + dt, `${input.id} @${ti}`).toBe(
+            true,
+          );
+      }
+    }
+  });
+
+  it('moves the mitral annulus towards the atrium at a′ of at least 6 cm/s in the normal heart, A·e′/E', async () => {
+    const { loadCaseById } = await import('@/cases');
+    for (const id of ['normal-excellent-window', 'normal-difficult-window']) {
+      const k = loadCaseById(id);
+      const tb = buildBeatTables(
+        60 / k.rhythm.heartRateBpm,
+        k.physiology,
+        k.rhythm,
+        k.hemodynamics,
+      );
+      const t = tb.timings;
+      const dt = tb.rrS / tb.n;
+      let aPrime = 0;
+      for (let i = 0; i < tb.n; i++) {
+        const ti = (i + 0.5) * dt;
+        if (ti - dt > t.aStartS && ti + dt < t.aEndS)
+          aPrime = Math.max(aPrime, -(tb.longitudinalVelocity[i] ?? 0) * k.physiology.mapseCm);
+      }
+      const target =
+        (k.physiology.aPeakMps * k.physiology.ePrimeSeptalCmps) / k.physiology.ePeakMps;
+      expect(aPrime, id).toBeGreaterThanOrEqual(6);
+      expect(Math.abs(aPrime / target - 1), id).toBeLessThan(0.05);
+    }
   });
 });

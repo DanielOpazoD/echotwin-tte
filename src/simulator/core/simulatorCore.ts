@@ -16,7 +16,7 @@ import {
   inflowRespiratoryVariation,
   respiratoryDepth,
 } from '@/simulator/cardiac-cycle/respiration';
-import { ejectionTimeS, ELECTROMECHANICAL_DELAY_S } from '@/simulator/cardiac-cycle/timing';
+import { ejectionTimeS, preEjectionPeriodS } from '@/simulator/cardiac-cycle/timing';
 import { CardiacClock } from '@/simulator/cardiac-cycle/clock';
 import { ecgSample } from '@/simulator/cardiac-cycle/ecg';
 import { isStripModality } from '@/simulator/renderer/modality';
@@ -273,7 +273,7 @@ export class SimulatorCore {
       const opening =
         this.timeS -
         c.timeInBeatS +
-        ELECTROMECHANICAL_DELAY_S +
+        preEjectionPeriodS(60 / c.rrS) +
         ejectionTimeS(60 / c.previousRrS, phys.contractility) +
         phys.ivrtMs / 1000;
       const depth = respiratoryDepth(opening);
