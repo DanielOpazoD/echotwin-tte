@@ -588,11 +588,14 @@ export function sampleFlow(
             : p.lvotObstruction && t < 0
               ? 0.4 * (1 - area / p.lvotAreaCm2)
               : 0;
+        // beyond the valve the case's own turbulence for it, when larger than what the tract and the stenosis give
+        // (decision 171): the two describe the same jet and are not added
         out.dispersion = Math.max(
           out.dispersion,
           (p.turbulence['lvot'] ?? 0.04) +
             stenotic * (t > 0 ? 1 : 0.3) +
             0.1 * Math.pow(Math.min(1, rho / R), 4),
+          t > 0 ? (p.turbulence['aortic-valve'] ?? 0) : 0,
         );
         out.present = 1;
       }
@@ -675,7 +678,11 @@ export function sampleFlow(
           const prof = jetProfile(rho, rHalf, dzj, FAST_JET_SHEAR);
           const decay = (dzj < 1.0 ? 1 : 1 / (1 + (dzj - 1.0) / 1.6)) * fadeOut(dzj, 3.5, 4.5);
           out.vz -= vmax * prof * decay; // toward the RA (−z)
-          out.dispersion = Math.max(out.dispersion, 0.25 + 0.2 * Math.min(1, rho / Rj));
+          // the case's turbulence for the jet, 0.25 when it declares none (decision 171)
+          out.dispersion = Math.max(
+            out.dispersion,
+            (p.turbulence['tr-jet'] ?? 0.25) + 0.2 * Math.min(1, rho / Rj),
+          );
           out.present = 1;
         } else if (dzj < 0) {
           // PISA-like convergence on the RV side, fading out where it used to stop
@@ -772,7 +779,7 @@ export function samplePulmonaryVeins(
     out.vx += ux * v;
     out.vy += uy * v;
     out.vz += uz * v;
-    out.dispersion = Math.max(out.dispersion, 0.06);
+    out.dispersion = Math.max(out.dispersion, p.turbulence['pulmonary-vein'] ?? 0.06);
     out.present = 1;
     return;
   }
@@ -818,7 +825,11 @@ export function sampleRegurgitantJets(
           const v = vj * prof * decay;
           out.vx += dirX * v;
           out.vz += dirZ * v;
-          out.dispersion = Math.max(out.dispersion, 0.3 + 0.2 * Math.min(1, rho / (rHalf / 0.84)));
+          // the case's turbulence for the jet, 0.3 when it declares none (decision 171)
+          out.dispersion = Math.max(
+            out.dispersion,
+            (p.turbulence['mr-jet'] ?? 0.3) + 0.2 * Math.min(1, rho / (rHalf / 0.84)),
+          );
           out.present = 1;
         }
       } else if (along < 0) {
@@ -867,7 +878,10 @@ export function sampleRegurgitantJets(
           out.vx -= ax.x * v;
           out.vy -= ax.y * v;
           out.vz -= ax.z * v;
-          out.dispersion = Math.max(out.dispersion, 0.3 + 0.2 * Math.min(1, rho / (rHalf / 0.84)));
+          out.dispersion = Math.max(
+            out.dispersion,
+            (p.turbulence['ar-jet'] ?? 0.3) + 0.2 * Math.min(1, rho / (rHalf / 0.84)),
+          );
           out.present = 1;
         }
       } else if (along < 0) {

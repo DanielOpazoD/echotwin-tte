@@ -804,3 +804,16 @@ Los objetivos de esas dos vistas escalan ahora con la longitud del VI (`scalesWi
 | EA moderada (8,0 cm) | Papilar / apical | 79 / 90 | 82 / 91 |
 
 Las tres referencias salen de `KNOWN_UNREACHABLE_LANDMARKS`.
+
+
+171. **2026-09-23 — La turbulencia que declara cada caso llega a su flujo**: cuarto punto de la tanda 4. Los casos declaran una turbulencia para cada sitio Doppler, que ensancha la mitad inferior del espectro y sube la varianza del color. El campo de flujo sólo la leía en el llenado, el TSVI y el TSVD. Los chorros regurgitantes y las venas pulmonares tomaban valores fijos (0,3 la IM y la IA, 0,25 la IT, 0,06 las venas), y la válvula aórtica la del tracto, aunque el caso dijera otra cosa: la IM de la MCD, la MCH y el prolapso declara 0,35–0,4, la IT del caso normal 0,2 y la válvula de la EA severa 0,45.
+
+**El cambio**
+
+- **Chorros y venas.** Toman la turbulencia declarada, y los valores fijos quedan como respaldo si el caso no declara ninguna.
+- **Válvula aórtica.** Más allá de la válvula toma la declarada cuando es mayor que la del tracto más el término estenótico, que ya describe el mismo chorro. Por eso se toma el máximo y no la suma. En la EA severa manda el término estenótico (0,62 en el eje frente a 0,45) y no cambia nada.
+- **Velocidades máximas.** La mitad superior del espectro no depende de la dispersión, así que no cambia ninguna.
+
+**Guarda**
+
+`flowTurbulence.test.ts` cambia la turbulencia declarada de la IT del caso normal y de la IM del prolapso y lee la dispersión en el eje de cada chorro. Con el campo anterior falla (0,25 donde el caso declara 0,2).
