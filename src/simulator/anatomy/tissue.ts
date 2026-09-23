@@ -52,7 +52,13 @@ export const TISSUE_PROPS: Record<number, TissueProps> = {
     name: 'pericardium',
   },
   [Tissue.Fat]: { reflect: 0.12, specular: 0.1, attenuation: 0.6, grain: 2.5, name: 'fat' },
-  [Tissue.Muscle]: { reflect: 0.2, specular: 0.2, attenuation: 1.0, grain: 3, name: 'muscle' },
+  // 0.2 until decision 156: under the apical probe the chest-wall muscle read grey 145 at 1–2 cm against 119 for the
+  // myocardium below it, and the 0–2 cm band of the sector 148 against 105 [84–124] in CAMUS Good. At 0.05 — the
+  // myocardium's own backscatter spans 0.21 × MYO_ANISO_FLOOR (0.03) to 0.21 with the fibre angle — the band reads 112.
+  // What keeps the muscle's mean grey above the myocardium's (101 against 94, medium tier at end-systole) is the skin
+  // and fascia echoes the PSF spreads into it and the near-field clutter, not its backscatter. The subcutaneous fat
+  // stays: it is also the epicardial fat of the heart.
+  [Tissue.Muscle]: { reflect: 0.05, specular: 0.2, attenuation: 1.0, grain: 3, name: 'muscle' },
   [Tissue.Bone]: { reflect: 1.0, specular: 1.0, attenuation: 20, grain: 3, name: 'bone' },
   [Tissue.Cartilage]: {
     reflect: 0.45,

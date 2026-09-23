@@ -20,6 +20,7 @@ import {
   LINE_LATTICE_PATH,
   lineKernelKey,
   psfKey,
+  sideLobeLevelDb,
   sliceHalfWidthCm,
   type LineKernels,
   type PsfKernels,
@@ -159,8 +160,9 @@ export class ProceduralSliceRenderer implements RendererBackend {
   kernels(scene: Scene, spec: PolarFrameSpec): PsfKernels {
     const { frequencyMHz, harmonics } = scene.physics;
     const bw = scene.physics.beamWidth ?? 0;
-    if (!this.psf || this.psf.key !== psfKey(spec, frequencyMHz, harmonics, bw))
-      this.psf = buildPsfKernels(spec, frequencyMHz, harmonics, bw);
+    const lobes = sideLobeLevelDb(scene.physics.sideLobe);
+    if (!this.psf || this.psf.key !== psfKey(spec, frequencyMHz, harmonics, bw, lobes))
+      this.psf = buildPsfKernels(spec, frequencyMHz, harmonics, bw, lobes);
     return this.psf;
   }
 

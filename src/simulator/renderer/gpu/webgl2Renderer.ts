@@ -30,6 +30,7 @@ import {
   LATERAL_TAPS,
   MAX_LATERAL_RADIUS,
   psfKey,
+  sideLobeLevelDb,
   type PsfKernels,
 } from '../acoustic/psf';
 import {
@@ -102,7 +103,7 @@ const UPLOAD_UNIT = 9;
 let noiseKernelMemo: PsfKernels | null = null;
 /** The noise response of a frame geometry, rebuilt only when the geometry or the probe settings change. */
 function buildNoiseKernelsCached(spec: PolarFrameSpec, settings: AcquisitionSettings): PsfKernels {
-  const key = `noise|${psfKey(spec, settings.frequencyMHz, settings.harmonics, 0)}`;
+  const key = `noise|${psfKey(spec, settings.frequencyMHz, settings.harmonics, 0, null)}`;
   if (noiseKernelMemo?.key !== key)
     noiseKernelMemo = buildNoiseKernels(spec, settings.frequencyMHz, settings.harmonics);
   return noiseKernelMemo;
@@ -470,9 +471,14 @@ export class Webgl2Renderer implements RendererBackend {
   private ensurePsf(scene: Scene, spec: PolarFrameSpec): void {
     const { frequencyMHz, harmonics } = scene.physics;
     const bw = scene.physics.beamWidth ?? 0;
-    const key = psfKey(spec, frequencyMHz, harmonics, bw);
+    const lobes = sideLobeLevelDb(scene.physics.sideLobe);
+    const key = psfKey(spec, frequencyMHz, harmonics, bw, lobes);
     if (this.psfKeyUploaded === key) return;
-    this.uploadKernels(this.psfTex, buildPsfKernels(spec, frequencyMHz, harmonics, bw), spec);
+    this.uploadKernels(
+      this.psfTex,
+      buildPsfKernels(spec, frequencyMHz, harmonics, bw, lobes),
+      spec,
+    );
     this.psfKeyUploaded = key;
   }
 

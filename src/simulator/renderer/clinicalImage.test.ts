@@ -145,9 +145,9 @@ const KNOWN_GEOMETRY_DEVIATIONS: ReadonlyMap<string, number> = new Map([
  * These are the statistics that told twelve blind-test tiles apart when the LV statistics could not, so each entry is a
  * named visual defect: the sector holds black pixels where a clinical image never does (its cavities and background
  * keep a haze above grey 20), it is sharper (gradients 1.5× the clinical median) and drawn with thin bright lines, its
- * texture is longer along the beam at 1 mm and more coherent across it at 8 mm, its near field (0–2 cm) is brighter and
- * its cavity band (4–6 cm) darker, and the outer sector is brighter against the centre. Filled in at decision 146 from
- * the first measurement; each is a target of phases 1–3 of the fidelity plan.
+ * texture is longer along the beam at 1 mm and more coherent across it at 8 mm, its cavity band (4–6 cm) is darker, and
+ * the outer sector darker against the centre. Filled in at decision 146 from the first measurement; each is a target of
+ * phases 1–3 of the fidelity plan. The near field came inside at decision 156.
  */
 const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // black pixels where a clinical image has none (its cavities and background keep a haze above grey 20)
@@ -155,21 +155,21 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['4CH-ES:darkFraction', 0.77],
   ['2CH-ED:darkFraction', 1.78],
   ['2CH-ES:darkFraction', 1.27],
-  ['2CH-ED:bandDark0', 0.22],
-  ['2CH-ES:bandDark0', 0.22],
+  ['2CH-ED:bandDark0', 0.61],
+  ['2CH-ES:bandDark0', 0.6],
   ['4CH-ED:bandDark2', 0.44],
   ['4CH-ES:bandDark2', 0.44],
-  ['2CH-ED:bandDark2', 0.67],
-  ['2CH-ES:bandDark2', 1.22],
+  ['2CH-ED:bandDark2', 0.89],
+  ['2CH-ES:bandDark2', 1.59],
   ['4CH-ED:bandDark4', 3.9],
   ['4CH-ES:bandDark4', 3.23],
   ['2CH-ED:bandDark4', 4.96],
   ['2CH-ES:bandDark4', 4.81],
-  ['4CH-ED:bandDark6', 27.9],
+  ['4CH-ED:bandDark6', 28.09],
   ['4CH-ES:bandDark6', 2.37],
   ['2CH-ED:bandDark6', 30.69],
   ['2CH-ES:bandDark6', 30.38],
-  ['4CH-ED:bandDark8', 13.94],
+  ['4CH-ED:bandDark8', 14.16],
   ['4CH-ES:bandDark8', 1.63],
   ['2CH-ED:bandDark8', 12.78],
   ['2CH-ES:bandDark8', 1.47],
@@ -186,8 +186,8 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['4CH-ES:gradientP95', 0.66],
   ['2CH-ED:gradientP95', 1.11],
   ['2CH-ES:gradientP95', 0.76],
-  ['4CH-ED:ridgeFraction', 1.97],
-  ['4CH-ES:ridgeFraction', 1.25],
+  ['4CH-ED:ridgeFraction', 1.81],
+  ['4CH-ES:ridgeFraction', 1.46],
   ['2CH-ES:ridgeFraction', 0.23],
   ['2CH-ED:ridgeFraction', 0.97],
   // more texture contrast over the whole sector: the blood pool and background are grainier than the clinical haze
@@ -200,26 +200,22 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['2CH-ES:radialCorr1', 1.17],
   ['2CH-ED:radialCorr2', 0.26],
   ['4CH-ES:radialCorr4', -0.23],
-  ['4CH-ES:radialCorr8', -0.11],
   ['4CH-ED:radialCorr4', -0.17],
   ['2CH-ED:radialCorr4', 0.23],
-  ['2CH-ES:radialCorr4', 0.35],
+  ['2CH-ES:radialCorr4', 0.15],
   ['2CH-ED:radialCorr8', -0.34],
   ['2CH-ES:radialCorr8', -0.88],
   ['2CH-ED:tangentialCorr2', -0.2],
   ['2CH-ES:tangentialCorr2', -0.11],
   ['4CH-ES:tangentialCorr4', -0.38],
-  ['2CH-ED:tangentialCorr4', -1.25],
+  ['2CH-ED:tangentialCorr4', -1.07],
   ['2CH-ES:tangentialCorr4', -0.99],
   ['4CH-ED:tangentialCorr8', 0.61],
   ['2CH-ES:tangentialCorr8', -0.35],
-  // near field (0-2 cm) brighter (141-154 against 105-115) and the cavity bands (4-10 cm) darker than clinical
-  ['4CH-ED:bandGrey0', 0.53],
-  ['4CH-ES:bandGrey0', 0.76],
-  ['2CH-ED:bandGrey0', 0.24],
-  ['2CH-ES:bandGrey0', 0.55],
+  // the cavity bands (4-10 cm) darker than clinical; the near field (0-2 cm), 141-154 against 105-115 until the
+  // chest-wall muscle came down to its clinical grey (decision 156), is inside
   ['4CH-ED:bandGrey4', -0.27],
-  ['4CH-ES:bandGrey4', -0.2],
+  ['4CH-ES:bandGrey4', -0.39],
   ['2CH-ED:bandGrey4', -0.5],
   ['2CH-ES:bandGrey4', -0.83],
   ['4CH-ES:bandGrey6', -0.25],
@@ -228,10 +224,9 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['4CH-ES:bandGrey8', -0.29],
   ['2CH-ED:bandGrey8', -0.15],
   ['2CH-ES:bandGrey8', -0.31],
-  // a duller bright end at end-systole and, in the 4CH, an outer sector brighter against the centre
+  // a duller bright end at end-systole and, in the 2CH, an outer sector darker against the centre
   ['4CH-ES:greyP95', -0.14],
   ['2CH-ES:greyP95', -0.15],
-  ['4CH-ED:edgeRollOff', 0.12],
   ['2CH-ED:edgeRollOff', -0.27],
   ['2CH-ES:edgeRollOff', -0.43],
 ]);

@@ -22,7 +22,10 @@ import {
  * the same Float32 kernel table, so CPU and GPU agree to float precision.
  */
 export const MAX_AXIAL_RADIUS = 4;
-export const MAX_LATERAL_RADIUS = 8;
+/** Radius cap (lines) of the Gaussian main lobe, as before the side lobes (decision 155). */
+export const MAIN_LOBE_MAX_RADIUS = 8;
+/** Radius cap (lines) of the whole lateral kernel: main lobe and side lobes (decision 155). */
+export const MAX_LATERAL_RADIUS = 32;
 export const LATERAL_TAPS = 2 * MAX_LATERAL_RADIUS + 1;
 /** The PSF and noise passes loop over ±radius taps centred on column MAX_LATERAL_RADIUS of the kernel table. */
 export function psfDefinesGlsl(): string {
@@ -79,6 +82,35 @@ export function lateralFwhmMm(
   );
 }
 
+/**
+ * Side lobes of the two-way lateral response (decision 155). The Gaussian main lobe alone left the cavities beside a wall
+ * as dark as their own blood and receiver noise: the model's sector held 3–5 % of black pixels at 4–6 cm where no CAMUS
+ * Good image has any, because a real array also hears, much weaker, what lies off its axis. An apodized phased array
+ * keeps its two-way side lobes some 35 dB under the main lobe; they repeat every λ/D in angle (the aperture's diffraction
+ * period, narrowed like the main lobe by harmonic imaging) with alternating sign and fade away from the axis. The model
+ * keeps the main lobe as it was and adds SIDE_LOBE_COUNT lobes beyond it, the first at SIDE_LOBE_DB under the main-lobe
+ * peak, tapered by a quarter cosine: incoherent speckle beside a bright wall leaks into the cavity as a haze, while a
+ * laterally uniform coherent echo sums the alternating lobes nearly to nothing, as it does in a real beam.
+ */
+export const SIDE_LOBE_DB = -35;
+export const SIDE_LOBE_COUNT = 4;
+/**
+ * The case and laboratory artifact «side lobes» (0–1) raises the lobes by up to this many dB: at 1 the first lobe sits
+ * 15 dB under the main lobe, the leak the console patch drew until decision 155 (18 % of a strong reflector's amplitude
+ * into ±3 lines), now on the GPU as well because both renderers read the same kernel table.
+ */
+export const SIDE_LOBE_ARTIFACT_DB = 20;
+
+/** Level (dB under the main-lobe peak) of the first side lobe for the case artifact `sideLobe` (0–1). */
+export function sideLobeLevelDb(sideLobe = 0): number {
+  return SIDE_LOBE_DB + SIDE_LOBE_ARTIFACT_DB * Math.min(1, Math.max(0, sideLobe));
+}
+
+/** Angular period (rad) of the side lobes: λ/D of the aperture, narrowed by harmonic imaging like the main lobe. */
+export function sideLobePeriodRad(frequencyMHz: number, harmonics: boolean): number {
+  return (1.54 / frequencyMHz / APERTURE_MM) * (harmonics ? 0.8 : 1);
+}
+
 export interface PsfKernels {
   key: string;
   axialRadius: number;
@@ -105,13 +137,43 @@ function gaussianTaps(sigma: number, maxRadius: number, out: Float32Array, centr
   return R;
 }
 
+/**
+ * Cache key of a kernel table. `sideLobeDb` is the level of the first side lobe, or null for a response without side
+ * lobes (the receiver noise's, `buildNoiseKernels`).
+ */
 export function psfKey(
   spec: PolarFrameSpec,
   frequencyMHz: number,
   harmonics: boolean,
   beamWidthBoost: number,
+  sideLobeDb: number | null = SIDE_LOBE_DB,
 ): string {
-  return `${spec.lines}x${spec.samples}|${spec.depthCm}|${spec.sectorRad.toFixed(5)}|${spec.focusCm}|${frequencyMHz}|${harmonics ? 1 : 0}|${beamWidthBoost.toFixed(3)}`;
+  return `${spec.lines}x${spec.samples}|${spec.depthCm}|${spec.sectorRad.toFixed(5)}|${spec.focusCm}|${frequencyMHz}|${harmonics ? 1 : 0}|${beamWidthBoost.toFixed(3)}|${sideLobeDb === null ? 'none' : sideLobeDb.toFixed(2)}`;
+}
+
+/**
+ * Side lobes of one lateral kernel, written after its main lobe (decision 155): SIDE_LOBE_COUNT lobes of `periodLines`
+ * each from the main lobe's edge, alternating in sign, the first peaking `levelDb` under the main-lobe centre tap and
+ * all tapered by a quarter cosine to zero at the last. Returns the kernel's new radius (capped at MAX_LATERAL_RADIUS).
+ */
+function addSideLobes(
+  out: Float32Array,
+  centre: number,
+  mainRadius: number,
+  periodLines: number,
+  levelDb: number,
+): number {
+  const span = SIDE_LOBE_COUNT * periodLines;
+  const R = Math.min(MAX_LATERAL_RADIUS, mainRadius + Math.ceil(span));
+  const a = out[centre]! * Math.pow(10, levelDb / 20);
+  for (let j = mainRadius + 1; j <= R; j++) {
+    const u = j - mainRadius;
+    if (u >= span) break;
+    const w = a * Math.sin((Math.PI * u) / periodLines) * Math.cos((Math.PI / 2) * (u / span));
+    out[centre + j] = w;
+    out[centre - j] = w;
+  }
+  return R;
 }
 
 export function buildPsfKernels(
@@ -119,6 +181,7 @@ export function buildPsfKernels(
   frequencyMHz: number,
   harmonics: boolean,
   beamWidthBoost = 0,
+  sideLobeDb: number | null = SIDE_LOBE_DB,
 ): PsfKernels {
   const dr = spec.depthCm / spec.samples;
   const dTheta = spec.sectorRad / spec.lines;
@@ -127,6 +190,7 @@ export function buildPsfKernels(
   const axialRadius = gaussianTaps(axialSigma, MAX_AXIAL_RADIUS, axial, MAX_AXIAL_RADIUS);
   const lateral = new Float32Array(spec.samples * LATERAL_TAPS);
   const lateralRadius = new Uint8Array(spec.samples);
+  const lobePeriod = sideLobePeriodRad(frequencyMHz, harmonics) / dTheta;
   for (let si = 0; si < spec.samples; si++) {
     const r = (si + 0.5) * dr;
     const sigmaLines =
@@ -134,17 +198,24 @@ export function buildPsfKernels(
         10 /
         (r * dTheta)) *
       FWHM_TO_SIGMA;
-    lateralRadius[si] = gaussianTaps(
-      sigmaLines,
-      MAX_LATERAL_RADIUS,
-      lateral,
-      si * LATERAL_TAPS + MAX_LATERAL_RADIUS,
-    );
+    const centre = si * LATERAL_TAPS + MAX_LATERAL_RADIUS;
+    const mainRadius = gaussianTaps(sigmaLines, MAIN_LOBE_MAX_RADIUS, lateral, centre);
+    if (sideLobeDb === null) {
+      lateralRadius[si] = mainRadius;
+      continue;
+    }
+    const R = addSideLobes(lateral, centre, mainRadius, lobePeriod, sideLobeDb);
+    // back to unit energy: the lobes hold a fraction of a per cent of it, so the main lobe keeps its level
+    let e = 0;
+    for (let j = -R; j <= R; j++) e += lateral[centre + j]! ** 2;
+    const k = 1 / Math.sqrt(e);
+    for (let j = -R; j <= R; j++) lateral[centre + j] = lateral[centre + j]! * k;
+    lateralRadius[si] = R;
   }
   // shift the axial taps so index 0 is offset −R (compact)
   const compact = axial.slice(MAX_AXIAL_RADIUS - axialRadius, MAX_AXIAL_RADIUS + axialRadius + 1);
   return {
-    key: psfKey(spec, frequencyMHz, harmonics, beamWidthBoost),
+    key: psfKey(spec, frequencyMHz, harmonics, beamWidthBoost, sideLobeDb),
     axialRadius,
     axial: compact,
     lateralRadius,
@@ -196,17 +267,20 @@ export function formEnvelope(
   for (let si = 0; si < samples; si++) {
     const R = k.lateralRadius[si]!;
     const centre = si * LATERAL_TAPS + MAX_LATERAL_RADIUS;
+    const w0 = k.lateral[centre]!;
     for (let li = 0; li < lines; li++) {
-      let sr = 0,
-        sm = 0;
-      for (let j = -R; j <= R; j++) {
-        const q = li + j;
-        const idx = (q < 0 ? 0 : q > lastLine ? lastLine : q) * samples + si;
+      const at = li * samples + si;
+      let sr = w0 * tmpRe[at]!,
+        sm = w0 * tmpIm[at]!;
+      // the taps are symmetric: one product per pair of lines at ±j (the side lobes made the kernel up to 65 taps wide)
+      for (let j = 1; j <= R; j++) {
+        const lo = (li - j < 0 ? 0 : li - j) * samples + si,
+          hi = (li + j > lastLine ? lastLine : li + j) * samples + si;
         const wj = k.lateral[centre + j]!;
-        sr += wj * tmpRe[idx]!;
-        sm += wj * tmpIm[idx]!;
+        sr += wj * (tmpRe[lo]! + tmpRe[hi]!);
+        sm += wj * (tmpIm[lo]! + tmpIm[hi]!);
       }
-      outAmp[li * samples + si] = Math.sqrt(sr * sr + sm * sm) * ENVELOPE_NORM;
+      outAmp[at] = Math.sqrt(sr * sr + sm * sm) * ENVELOPE_NORM;
     }
   }
 }
@@ -397,10 +471,11 @@ export function buildNoiseKernels(
   frequencyMHz: number,
   harmonics: boolean,
 ): PsfKernels {
+  // the receive response without side lobes (decision 155): the noise's lateral correlation is the main lobe's
   if (spec.lines > 1)
     return {
-      ...buildPsfKernels(spec, frequencyMHz, harmonics, 0),
-      key: `noise|${psfKey(spec, frequencyMHz, harmonics, 0)}`,
+      ...buildPsfKernels(spec, frequencyMHz, harmonics, 0, null),
+      key: `noise|${psfKey(spec, frequencyMHz, harmonics, 0, null)}`,
     };
   const dr = spec.depthCm / spec.samples;
   const taps = new Float32Array(2 * MAX_LINE_AXIAL_RADIUS + 1);
@@ -411,7 +486,7 @@ export function buildNoiseKernels(
     MAX_LINE_AXIAL_RADIUS,
   );
   return {
-    key: `noise|${psfKey(spec, frequencyMHz, harmonics, 0)}`,
+    key: `noise|${psfKey(spec, frequencyMHz, harmonics, 0, null)}`,
     axialRadius,
     axial: taps.slice(MAX_LINE_AXIAL_RADIUS - axialRadius, MAX_LINE_AXIAL_RADIUS + axialRadius + 1),
     lateralRadius: new Uint8Array(0),

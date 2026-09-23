@@ -3,7 +3,7 @@ import { applyConsole, createConsoleState, NO_ARTIFACTS } from './consolePipelin
 import { allocPolarFrame, DEFAULT_ACQUISITION } from '../types';
 import { Tissue } from '@/simulator/anatomy/tissue';
 
-/** Case-configurable artifacts (spec 12): side lobes and mirror image act on the polar frame (beam width: psf.test.ts). */
+/** Case-configurable artifacts (spec 12): the mirror image acts on the polar frame (beam width and side lobes: psf.test.ts). */
 function frameWithReflector(): ReturnType<typeof allocPolarFrame> {
   const spec = {
     lines: 41,
@@ -27,16 +27,6 @@ function frameWithReflector(): ReturnType<typeof allocPolarFrame> {
 const settings = { ...DEFAULT_ACQUISITION, persistence: 0, edgeEnhance: 0 };
 
 describe('console artifacts', () => {
-  it('side lobes leak a strong reflector into neighbouring lines', () => {
-    const f = frameWithReflector();
-    const out0 = new Uint8ClampedArray(41 * 160);
-    applyConsole(f, settings, createConsoleState(1), out0, NO_ARTIFACTS);
-    const out1 = new Uint8ClampedArray(41 * 160);
-    applyConsole(f, settings, createConsoleState(1), out1, { ...NO_ARTIFACTS, sideLobe: 1 });
-    const neighbour = 23 * 160 + 60; // 3 lines away, same depth
-    expect(out1[neighbour]!).toBeGreaterThan(out0[neighbour]! + 20);
-    expect(out1[20 * 160 + 60]!).toBeGreaterThanOrEqual(out0[20 * 160 + 60]! - 1);
-  });
   it('mirror artifact repeats the shallower image beyond the pericardial interface', () => {
     const f = frameWithReflector();
     const out0 = new Uint8ClampedArray(41 * 160);

@@ -21,7 +21,7 @@ import { TRANS_K } from '../transmissionCode';
  *  - console pass (postprocess/consolePipeline.ts): |envelope + receiver noise| × compensation table → log
  *    compression → edge enhancement along the beam → persistence against a history texture → grey map. It writes the new history (float) and a
  *    packed RGBA8 frame: grey, structure id, tissue id and the 8-bit log transmission code. Only that packed
- *    frame is read back. The mirror and side-lobe artifacts stay on the CPU console.
+ *    frame is read back. The mirror artifact stays on the CPU console; the side lobes are in the PSF (decision 155).
  *  - present pass (scanConvert.ts `scanConvertLut` + colorDoppler.ts `overlayColorField`): per pixel, the
  *    integer bilinear gather of the scan-conversion LUT uploaded as RGBA16UI texels, then the colour map blended
  *    inside the colour box, tested against the LUT's polar coordinates (uploaded as a float texture). It draws into the canvas, which is transferred as an ImageBitmap.

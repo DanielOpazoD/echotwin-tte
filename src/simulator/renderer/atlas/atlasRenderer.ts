@@ -124,7 +124,8 @@ export class AtlasRenderer implements RendererBackend {
       a.clutterLevel === b.clutterLevel &&
       a.windowAttenuation === b.windowAttenuation &&
       a.seed === b.seed &&
-      (a.beamWidth ?? 0) === (b.beamWidth ?? 0)
+      (a.beamWidth ?? 0) === (b.beamWidth ?? 0) &&
+      (a.sideLobe ?? 0) === (b.sideLobe ?? 0)
     );
   }
 

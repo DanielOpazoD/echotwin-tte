@@ -10,8 +10,8 @@ import { COMPOUND_LOOKS, focusingGain } from '../acoustic/acoustics';
  * noise rises with depth and gain → log compression / dynamic range → edge enhancement → persistence → gray
  * map. Axial and lateral resolution are not console effects: the renderer forms them with the PSF before
  * envelope detection (decision 52). Pure CPU, deterministic per (frameIndex, seed). The GPU console
- * (gpu/glslImage.ts, decision 54) evaluates the same steps except the mirror and side-lobe artifacts, with the
- * same compensation table, noise hashes, kernels and constants.
+ * (gpu/glslImage.ts, decision 54) evaluates the same steps except the mirror artifact, with the same compensation
+ * table, noise hashes, kernels and constants.
  */
 export interface ConsoleState {
   prev: Float32Array | null; // persistence buffer of the CPU console (0..1)
@@ -199,10 +199,10 @@ export function tgcAtDepth(settings: AcquisitionSettings, r: number): number {
 }
 
 /**
- * Case-configurable artifacts applied in the polar domain (spec 12, case 12): intensities 0..1.
- * side-lobe: strong reflectors leak into neighbouring lines; mirror: the image beyond a strong
- * specular interface (pericardium/lung) repeats the shallower image; beam-width is applied by the renderer
- * PSF (it widens the lateral beam away from the focus) and is carried here only for completeness.
+ * Case-configurable artifacts (spec 12, case 12): intensities 0..1. The console applies only the mirror: the image beyond
+ * a strong specular interface (pericardium/lung) repeats the shallower image. Beam width and side lobes belong to the
+ * renderer PSF (the first widens the lateral beam away from the focus, the second raises its side lobes, decision 155)
+ * and are carried here only for completeness.
  */
 export interface ArtifactSettings {
   sideLobe: number;
@@ -285,26 +285,6 @@ export function applyConsole(
           (a[base + si] ?? 0) + (a[base + src] ?? 0) * gain * Math.exp(-(si - s0) * dr * 0.12);
       }
     }
-  }
-  // 1c) side lobes: strong reflectors leak into neighbouring lines (±3), decaying with distance
-  if (artifacts.sideLobe > 0) {
-    const thr = 1.2;
-    const leak = 0.18 * artifacts.sideLobe;
-    b.set(a);
-    for (let li = 0; li < lines; li++) {
-      for (let si = 0; si < samples; si++) {
-        const v = a[li * samples + si] ?? 0;
-        if (v < thr) continue;
-        for (let j = -3; j <= 3; j++) {
-          if (j === 0) continue;
-          const q = li + j;
-          if (q < 0 || q >= lines) continue;
-          const idx = q * samples + si;
-          b[idx] = Math.max(b[idx] ?? 0, v * leak * (1 - Math.abs(j) / 4));
-        }
-      }
-    }
-    a.set(b);
   }
   // 2) axial resolution is formed by the renderer PSF (decision 52)
   b.set(a);
