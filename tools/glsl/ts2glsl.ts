@@ -11,7 +11,8 @@ import { join } from 'node:path';
  * Subset: functions of `number` parameters returning `number`; `const`/`let` of numbers; `if`/`else`;
  * `return`; `for (let i = a; i < b; i++)` with integer bounds; assignments and compound assignments;
  * `+ - * / < <= > >= === !== && || ! -`; the conditional operator; parentheses; numeric literals;
- * `Math.{abs,min,max,sqrt,pow,exp,log,floor,ceil,cos,sin,tan,atan2,PI}`; calls to other target functions;
+ * `Math.{abs,min,max,sqrt,pow,exp,log,floor,ceil,cos,sin,tan,atan2,PI}` (`Math.pow` with a whole exponent of 2-4 becomes a
+ * product: GLSL leaves `pow` undefined for a negative base); calls to other target functions;
  * free identifiers in ALL_CAPS, which must be `#define`s or constants of the shader that includes the
  * output (glslHeart.test.ts and glslParity.test.ts check that). Anything else throws with the node kind, so
  * a target that grows past the subset is noticed at generation time, not in the browser.
@@ -142,6 +143,23 @@ function expr(n: ts.Expression, c: Ctx, wantInt = false): string {
   if (ts.isConditionalExpression(n))
     return `${expr(n.condition, c)} ? ${expr(n.whenTrue, c, wantInt)} : ${expr(n.whenFalse, c, wantInt)}`;
   if (ts.isCallExpression(n)) {
+    // Math.pow with a small whole exponent becomes a product: GLSL leaves pow(x, y) undefined for x < 0, and Metal and
+    // ANGLE compute it as exp2(y·log2 x), NaN there, where JavaScript squares a negative base (decision 169). Any other
+    // exponent keeps pow, whose base must then be non-negative on both sides.
+    if (
+      ts.isPropertyAccessExpression(n.expression) &&
+      ts.isIdentifier(n.expression.expression) &&
+      n.expression.expression.text === 'Math' &&
+      n.expression.name.text === 'pow' &&
+      n.arguments.length === 2 &&
+      ts.isNumericLiteral(n.arguments[1]!)
+    ) {
+      const k = Number(n.arguments[1].text);
+      if (Number.isInteger(k) && k >= 2 && k <= 4) {
+        const base = `(${expr(n.arguments[0]!, c)})`;
+        return `(${Array.from({ length: k }, () => base).join(' * ')})`;
+      }
+    }
     const args = n.arguments.map((a) => expr(a, c)).join(', ');
     if (
       ts.isPropertyAccessExpression(n.expression) &&

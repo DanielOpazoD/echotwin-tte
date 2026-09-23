@@ -769,3 +769,21 @@ El GLSL generado se regenera (`npm run glsl:gen`).
 **Guarda**
 
 `attenuation.test.ts` fija las dos funciones con y sin armónicos.
+
+
+169. **2026-09-23 — Una potencia entera se transpila como producto**: segundo punto de la tanda 4. `tools/glsl/ts2glsl.ts` traducía `Math.pow(x, 2)` a `pow(x, 2.0)`. GLSL ES deja `pow(x, y)` indefinido para x < 0; la especificación permite calcularlo como `exp2(y·log2 x)`, que ahí da NaN. JavaScript, en cambio, eleva al cuadrado una base negativa.
+
+De las funciones generadas, `septalShiftAt` (el aplanamiento del septo de la decisión 32) calculaba `pow((levelFrac − 0,45)/0,45, 2.0)`, con base negativa bajo el nivel medio del VI. Los `pow` escritos a mano en los sombreadores tienen todos la base acotada a ≥ 0 (`clamp`, `abs`, ramas que la fijan). El generador emite ahora el producto para un exponente literal entero de 2 a 4, y deja `pow` para los demás, cuya base debe ser no negativa en los dos lados.
+
+**Medido en la GPU real antes del cambio**
+
+La comparación CPU/GPU dio acuerdo de estructuras 1,0000 y diferencia de amplitud 0,0000 en:
+
+- el PSAX papilar y el A4C de la hipertensión pulmonar;
+- el PSAX papilar del caso normal.
+
+El dispositivo fue un navegador del escritorio con ANGLE Metal sobre Apple M4. Ese controlador resolvía bien la potencia, así que no había un defecto visible; el cambio quita una dependencia de un comportamiento que la especificación no garantiza.
+
+**Guarda**
+
+`glslGenerated.test.ts` fija la traducción de una base negativa al cuadrado y al cubo, y exige que ninguna función generada use `pow` con un exponente entero de 2 a 4.

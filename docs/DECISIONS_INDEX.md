@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 168 (última: 168).
+Decisiones: 169 (última: 169).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -176,3 +176,4 @@ Decisiones: 168 (última: 168).
 | [166](DECISIONS.md#L661) | 2026-09-23 | El color de los flujos normales termina en curvas y no en las superficies de sus primitivas, y el llenado pasa por el orificio el caudal de su tabla | vigente |
 | [167](DECISIONS.md#L706) | 2026-09-23 | El subcostal de cuatro cámaras se resuelve desde su ventana y su geometría se lee como un eje largo | vigente |
 | [168](DECISIONS.md#L751) | 2026-09-23 | Una sola atenuación por adquisición, y fuera el código muerto | vigente |
+| [169](DECISIONS.md#L774) | 2026-09-23 | Una potencia entera se transpila como producto | vigente |
