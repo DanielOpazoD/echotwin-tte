@@ -769,3 +769,321 @@ El GLSL generado se regenera (`npm run glsl:gen`).
 **Guarda**
 
 `attenuation.test.ts` fija las dos funciones con y sin armónicos.
+
+
+169. **2026-09-23 — Una potencia entera se transpila como producto**: segundo punto de la tanda 4. `tools/glsl/ts2glsl.ts` traducía `Math.pow(x, 2)` a `pow(x, 2.0)`. GLSL ES deja `pow(x, y)` indefinido para x < 0; la especificación permite calcularlo como `exp2(y·log2 x)`, que ahí da NaN. JavaScript, en cambio, eleva al cuadrado una base negativa.
+
+De las funciones generadas, `septalShiftAt` (el aplanamiento del septo de la decisión 32) calculaba `pow((levelFrac − 0,45)/0,45, 2.0)`, con base negativa bajo el nivel medio del VI. Los `pow` escritos a mano en los sombreadores tienen todos la base acotada a ≥ 0 (`clamp`, `abs`, ramas que la fijan). El generador emite ahora el producto para un exponente literal entero de 2 a 4, y deja `pow` para los demás, cuya base debe ser no negativa en los dos lados.
+
+**Medido en la GPU real antes del cambio**
+
+La comparación CPU/GPU dio acuerdo de estructuras 1,0000 y diferencia de amplitud 0,0000 en:
+
+- el PSAX papilar y el A4C de la hipertensión pulmonar;
+- el PSAX papilar del caso normal.
+
+El dispositivo fue un navegador del escritorio con ANGLE Metal sobre Apple M4. Ese controlador resolvía bien la potencia, así que no había un defecto visible; el cambio quita una dependencia de un comportamiento que la especificación no garantiza.
+
+**Guarda**
+
+`glslGenerated.test.ts` fija la traducción de una base negativa al cuadrado y al cubo, y exige que ninguna función generada use `pow` con un exponente entero de 2 a 4.
+
+
+170. **2026-09-23 — Los ejes cortos papilar y apical apuntan a un nivel del ventrículo, no a una altura fija**: tercer punto de la tanda 4, pendiente de la decisión 164. La guarda de referencias encontró tres referencias exigidas fuera de su plano en el VI dilatado de la MCD (9,8 cm): el eje corto papilar pasaba 1,0 cm por encima de los papilares y el apical 1,2 cm por encima de la cavidad apical. Las vistas apuntaban a 4,6 y 6,6 cm del anillo; las referencias siguen la longitud del VI.
+
+**El cambio**
+
+Los objetivos de esas dos vistas escalan ahora con la longitud del VI (`scalesWithLvLength`). Sus alturas son las del ventrículo de referencia, el del caso normal (`REFERENCE_LV_LENGTH_CM` = 8,6 cm), de modo que en ese caso la razón vale exactamente 1 y su preajuste no se mueve.
+
+**Resultado**
+
+| Caso | Vista | Antes | Después |
+|---|---|---|---|
+| MCD | Papilar | 84, sin ver los papilares | 95, con los dos |
+| MCD | Apical | 60, sin la cavidad apical | 89 |
+| EA moderada (8,0 cm) | Papilar / apical | 79 / 90 | 82 / 91 |
+
+Las tres referencias salen de `KNOWN_UNREACHABLE_LANDMARKS`.
+
+
+171. **2026-09-23 — La turbulencia que declara cada caso llega a su flujo**: cuarto punto de la tanda 4. Los casos declaran una turbulencia para cada sitio Doppler, que ensancha la mitad inferior del espectro y sube la varianza del color. El campo de flujo sólo la leía en el llenado, el TSVI y el TSVD. Los chorros regurgitantes y las venas pulmonares tomaban valores fijos (0,3 la IM y la IA, 0,25 la IT, 0,06 las venas), y la válvula aórtica la del tracto, aunque el caso dijera otra cosa: la IM de la MCD, la MCH y el prolapso declara 0,35–0,4, la IT del caso normal 0,2 y la válvula de la EA severa 0,45.
+
+**El cambio**
+
+- **Chorros y venas.** Toman la turbulencia declarada, y los valores fijos quedan como respaldo si el caso no declara ninguna.
+- **Válvula aórtica.** Más allá de la válvula toma la declarada cuando es mayor que la del tracto más el término estenótico, que ya describe el mismo chorro. Por eso se toma el máximo y no la suma. En la EA severa manda el término estenótico (0,62 en el eje frente a 0,45) y no cambia nada.
+- **Velocidades máximas.** La mitad superior del espectro no depende de la dispersión, así que no cambia ninguna.
+
+**Guarda**
+
+`flowTurbulence.test.ts` cambia la turbulencia declarada de la IT del caso normal y de la IM del prolapso y lee la dispersión en el eje de cada chorro. Con el campo anterior falla (0,25 donde el caso declara 0,2).
+
+
+172. **2026-09-23 — Un caso se carga una vez y su núcleo se desecha al cambiar**: quinto punto de la tanda 4. El panel contó dos `loadCase` al arrancar y ningún `dispose`.
+
+**La carga doble**
+
+El efecto de montaje de `useSimulation` cargaba el caso, y el efecto que sigue a `caseId` se ejecutaba justo después y lo cargaba otra vez. El worker construía así el primer núcleo dos veces. Ahora el hook recuerda el caso que cargó, y el segundo efecto sólo recarga un caso distinto.
+
+**El núcleo sin desechar**
+
+Cada `SimulatorCore` crea su propio contexto WebGL2. El worker y el cliente en línea sustituían el núcleo al cambiar de caso sin liberarlo, y un navegador mantiene pocos contextos: pasado el límite pierde los más antiguos.
+
+`SimulatorCore.dispose()` libera el contexto (el `dispose` del renderizador GPU, que ya existía) y los cuadros del atlas. Un núcleo desechado ya no produce cuadros, y desecharlo dos veces no hace nada. Lo llaman el worker antes de crear el núcleo del caso nuevo y el cliente en línea al reemplazarlo y al desecharse.
+
+**Guardas**
+
+- `useSimulation.test.tsx` (jsdom, con el cliente sustituido por uno que anota): una carga al montar, otra sólo con otro caso, ninguna al repetir el mismo, y un `dispose` al desmontar.
+- `client.test.ts`: el núcleo del caso anterior se desecha al cargar otro, y el último al desechar el cliente.
+
+Con el código anterior fallan las dos: dos cargas al montar y ningún `dispose`. El worker no tiene prueba en Node, que no tiene `Worker`; su cambio es la misma línea que la del cliente.
+
+
+173. **2026-09-23 — Un cuadro viaja transferido y el store no avisa sin cambios**: sexto punto de la tanda 4. El panel contó 10 de 10 notificaciones vacías del store y 66 KiB clonados por cuadro.
+
+**Notificaciones vacías**
+
+El HUD registra la puntuación de la vista cada 120 ms. `recordViewScore` devolvía `{}` cuando no subía, y Zustand trata cualquier objeto nuevo, aunque esté vacío, como un cambio de estado: despertaba a todos los suscriptores. Entre ellos está el hook de simulación, que serializa su entrada entera en cada aviso. Lo mismo hacían `completeTasks` sin tareas nuevas, `tickPresetAnimation` sin animación y `undoReviewRemove` sin nada que deshacer. Ahora devuelven el mismo estado, y Zustand no avisa.
+
+**Lo que se clona**
+
+La salida de cada cuadro transfería la imagen y el bitmap, pero clonaba:
+
+- los mapas de estructura y de segmentos, 26 KiB cada uno a calidad media;
+- el ECG, 1200 objetos `{t, v}`, 14 KiB.
+
+En total, 73 KiB por cuadro.
+
+El ECG viaja ahora como `Float64Array` de pares intercalados (tiempo, amplitud). `frameTransferList` (`protocol.ts`) nombra lo que el worker transfiere: imagen, bitmap, los dos mapas y el ECG, que son copias propias de cada salida. Lo que se clona baja a unos 7 KiB, casi todo el análisis de la vista.
+
+**Guardas**
+
+- `store.test.ts`: cuatro acciones sin cambios no avisan, y una puntuación que sube sí. Con el store anterior se cuentan 6 avisos donde debe haber 1.
+- `frameTransfer.test.ts` (lento): lo que se clona de un cuadro real queda por debajo de 40 KiB, y escribir en los mapas transferidos deja intacto el cuadro del núcleo.
+
+
+174. **2026-09-23 — El currículo pide el corazón normal completo y adquirido a mano**: séptimo punto de la tanda 4 (docencia). El panel encontró que una puntuación alcanzada con el botón del preajuste completaba la tarea de su vista: pulsarlo enseñaba a pulsarlo. Además, el currículo no pedía A3C, VD, subcostal, VCI, TAPSE, e′ ni los segmentos.
+
+**Adquirido a mano**
+
+El store recuerda las vistas cuyo preajuste se usó desde que se cargó el caso (`presetViews`), y lleva aparte la mejor puntuación de cada vista alcanzada sin él (`handViewProgress`). Las tareas de vistas leen esta última. La vista conserva su puntuación en `viewProgress`, que sigue alimentando el resumen del examen.
+
+Una pequeña corrección tras el preajuste no basta: la vista vuelve a contar a mano al recargar el caso. Otra vista a la que se llega girando desde el preajuste, sin el suyo, sí cuenta. El objetivo de la lección paraesternal lo dice al alumno.
+
+**Tareas nuevas**
+
+- Ventana apical:
+  - A3C ≥ 60.
+  - Los tres apicales ≥ 60, que juntos cubren los 17 segmentos.
+  - Vista enfocada en el VD ≥ 55.
+- Ventana subcostal (lección nueva):
+  - Cuatro cámaras ≥ 60 (alcanzable desde la decisión 167).
+  - VCI en su eje largo ≥ 60.
+- Volúmenes y función:
+  - e′ septal con técnica ≥ 0,75.
+  - TAPSE con técnica ≥ 0,75.
+
+**Guardas**
+
+- `curriculum.test.ts`: las tareas nuevas se cumplen con puntuaciones a mano y no con las del preajuste, y los tres apicales sólo juntos.
+- `store.test.ts`: la vista del preajuste no suma a mano hasta recargar, y las demás sí.
+- `e2e/learning.spec.ts`: el preajuste de PLAX ya no completa su tarea; la misma pose alcanzada por la vía manual, tras recargar el caso, sí la completa.
+
+
+175. **2026-09-23 — Rangos normales por sexo en el informe y la impresión, y tres medidas nuevas**: octavo punto de la tanda 4 (docencia). El panel encontró que el informe no daba rangos, que la dilatación del VI usaba los límites de varón para todos (un VTDi de 65 mL/m² es normal en él y dilatado en una mujer) y que un E/A por encima de 2, por sí solo, marcaba disfunción diastólica, cuando es el llenado de un corazón joven normal. Faltaban también el diámetro basal del VD, la VCI y la raíz aórtica.
+
+**Rangos**
+
+`clinical/guidelines/normalRanges.ts` reúne los rangos de las medidas del protocolo por sexo. Salen de las recomendaciones de cuantificación de cámaras (`ase-eacvi-chamber-2015`) y de las de función diastólica y corazón derecho:
+
+| Medida | Varón | Mujer |
+|---|---|---|
+| DTDVI (cm) | 4,2–5,8 | 3,8–5,2 |
+| DTSVI (cm) | 2,5–4,0 | 2,2–3,5 |
+| Septo y pared posterior (cm) | 0,6–1,0 | 0,6–0,9 |
+| AI anteroposterior (cm) | 3,0–4,0 | 2,7–3,8 |
+| VTD biplano (mL) | 62–150 | 46–106 |
+| VTS biplano (mL) | 21–61 | 14–42 |
+| Senos de Valsalva (cm) | ≤ 4,0 | ≤ 3,6 |
+
+Iguales para los dos sexos:
+
+- VD basal ≤ 4,1 cm.
+- TAPSE ≥ 1,7 cm.
+- VCI ≤ 2,1 cm.
+- e′ septal ≥ 7 y lateral ≥ 10 cm/s.
+- IT ≤ 2,8 m/s.
+
+**Informe**
+
+La verdad estructurada lleva el sexo de referencia del caso. El informe imprime el rango del sexo del paciente junto a cada medida, marcada como normal, alta o baja. Se ve también en el examen, porque el sexo es un dato demográfico y no la verdad del modelo.
+
+**Impresión**
+
+- La dilatación del VI usa los límites de su sexo: VTDi de 74 o 61 mL/m², DTD de 5,8 o 5,2 cm.
+- Un E/A por encima de 2 marca disfunción sólo con otro signo de presión de llenado elevada: e′ reducido, IT por encima de 2,8 m/s o AI dilatada.
+
+Los doce casos conservan sus hallazgos esperados. La única mujer con el VI grande, la del prolapso, ya estaba marcada por su volumen, y el E/A alto de la MCD y del prolapso va con una AI dilatada.
+
+**Medidas nuevas**
+
+- Raíz aórtica en los senos de Valsalva: PLAX, telediástole.
+- Diámetro basal del VD: apical enfocada en el VD, telediástole.
+- Diámetro de la VCI: subcostal.
+
+Cada una con su verdad, su tolerancia y sus referencias. El volumen biplano de la AI, que necesita trazar en dos vistas, queda pendiente.
+
+**Guardas**
+
+`normalRanges.test.ts` comprueba:
+
+- que los rangos pertenecen a medidas del protocolo, con referencias registradas y límites ordenados;
+- las banderas por sexo;
+- que el VTDi de 65 sea dilatado en una mujer y normal en un varón;
+- que un E/A de 2,3 solo no sea disfunción, y sí lo sea con una AI de 40 mL/m².
+
+Con la impresión anterior fallan las dos últimas.
+
+
+176. **2026-09-23 — El teclado llega primero al control con foco, y el dial de rotación se maneja con él**: noveno punto de la tanda 4 (accesibilidad). El panel encontró que los atajos globales secuestraban el teclado: con el foco en una pestaña, Flecha derecha movía la sonda y cancelaba la navegación entre pestañas, y Espacio congelaba la imagen a la vez que pulsaba el botón con foco. Además, el dial de rotación se anunciaba como deslizador, pero no podía recibir foco ni moverse con el teclado.
+
+**Atajos**
+
+`focusOwnsKey` decide cuándo cede el atajo:
+
+- cualquier tecla en un campo de formulario o un elemento editable;
+- las flechas, Inicio, Fin y Espacio en una pestaña, un deslizador u otro widget compuesto de WAI-ARIA;
+- Espacio e Intro en un botón, un enlace o un `summary`.
+
+Las letras siguen siendo atajos en cualquier otro sitio, porque no son lo que hace un botón.
+
+**Dial de rotación**
+
+Recibe foco y sigue el patrón del deslizador:
+
+- Flechas: 3°, o 15° con Mayúsculas.
+- RePág y AvPág: 15°.
+- Inicio y Fin: los límites.
+
+Anuncia el ángulo con `aria-valuetext`.
+
+**Guarda**
+
+`keyboardAccess.test.tsx` (jsdom) comprueba:
+
+- que las flechas y Espacio pertenecen a la pestaña o al botón con foco y actúan como atajos fuera de ellos;
+- que el dial toma el foco y gira sin que la sonda se deslice.
+
+Con los archivos anteriores fallan las dos pruebas.
+
+
+177. **2026-09-23 — La documentación de estructura se genera desde el código y una prueba la vigila**: décimo punto de la tanda 4. El panel encontró documentos que describían otro repositorio.
+
+**Lo que no se ajustaba al código**
+
+- El README pedía Node 20+; `.nvmrc`, `engines` y el pipeline exigen 22.
+- `.github/workflows/ci.yml` era un pipeline de GitHub Actions en un repositorio de GitLab que nadie ejecutaba.
+- La columna «Importa de» de `ARCHITECTURE.md` estaba escrita a mano y no coincidía con el código. Por ejemplo, decía que el Doppler importa el ciclo y las fórmulas, cuando importa además la anatomía, la sonda, el renderer, los casos y el núcleo. Faltaba la capa de mediciones.
+- `LIMITATIONS.md` sólo nombraba las entradas de tres de los once conjuntos `KNOWN_*`. Las 110 de los otros ocho no aparecían:
+  - imagen clínica, sector y geometría;
+  - verdad del modelo;
+  - pared torácica;
+  - segmentos no evaluables y evaluables de más;
+  - textura.
+- CONTRIBUTING contaba 18 reglas en el método de fidelidad, que tiene 20, y estimaba los E2E en unos 28 min, cuando tardan 7–12.
+- VALIDATION presentaba como estado actual un recuento del 2026-09-16.
+
+**Tablas generadas**
+
+- `tools/docs/layer-graph.ts` calcula las aristas entre capas a partir de los imports reales, las mismas que usa `layers.test.ts` para prohibir ciclos, y escribe en `ARCHITECTURE.md` la tabla de lo que importa cada capa. La tabla de responsabilidades pierde su columna «Importa de».
+- `tools/docs/known-sets.ts` lee los conjuntos `KNOWN_*` de las fuentes de las pruebas y escribe al final de `LIMITATIONS.md` la tabla de sus entradas. Las lee de las fuentes porque importar una prueba la ejecutaría.
+- Las dos tablas van entre marcadores (`tools/docs/generated.ts`), y `npm run docs:gen` las regenera junto con el índice de decisiones.
+
+**Guardas**
+
+- `docsConsistency.test.ts` comprueba que:
+  - la tabla de capas coincide con el grafo;
+  - cada capa del grafo tiene carpeta en la tabla de responsabilidades, y cada carpeta nombrada existe;
+  - README, CONTRIBUTING, `engines` y la imagen del pipeline dicen la versión de `.nvmrc`;
+  - README y CONTRIBUTING sólo nombran scripts de npm que existen;
+  - CONTRIBUTING da el número real de reglas del método.
+- `limitationsConsistency.test.ts` comprueba que:
+  - la tabla de `LIMITATIONS.md` coincide con los conjuntos;
+  - cada constante `KNOWN_*` de las pruebas es un conjunto de la tabla o está excluida con su motivo. Hoy sólo se excluye `KNOWN_SHARED_CLASSIFIER_LITERALS`: son recuentos de paridad, no una limitación.
+
+**Mutaciones que fallan**
+
+- Una arista nueva de `core` a `cases`.
+- Node 20 en el README.
+- Borrar la fila de mediciones.
+- Una entrada más en `KNOWN_SECTOR_DEVIATIONS`.
+- Un segmento menos en `KNOWN_NOT_ASSESSABLE`.
+- Un conjunto `KNOWN_*` nuevo sin declarar.
+- 18 reglas en CONTRIBUTING.
+- Un script inexistente en el README.
+
+VALIDATION ya no da recuentos sin fecha: remite a la sección «Verificación» de cada MR y a `vitest list` y `playwright test --list`.
+
+
+178. **2026-09-23 — La frecuencia de cuadro es la del equipo, y el nivel de calidad sólo decide cuántos cuadros se calculan**: undécimo punto de la tanda 4. El HUD mostraba la frecuencia de cuadro calculada con las líneas del cuadro polar de cada nivel de calidad, que es una elección de cálculo y no un ajuste del equipo. Con la misma consola (16 cm, 80°) daba 48,8, 36,9 y 27,3 Hz en los niveles bajo, medio y alto. Con la caja de color por defecto daba 7,9 Hz en el nivel medio. El 2D convencional corre a unos 40–80 cuadros/s (Fujikura et al., J Clin Med 2021;10:2095), y el color focalizado a 10–30 a 12 cm con 20–60 líneas y un paquete de 8 (Puig et al., IEEE TUFFC 2024, arXiv:2404.00067).
+
+**Dos números**
+
+- **Frecuencia de adquisición** (`acquisitionFrameRate`): la del equipo, la que muestra el HUD. Sólo lee la consola.
+  - Las líneas de recepción son 1,0, 1,6 o 2,4 por grado de sector, según la densidad. Es un supuesto declarado: la densidad media pone 128 líneas en 80°.
+  - Cada disparo forma dos líneas en paralelo (MLA 2, el extremo prudente de los 2–4 habituales).
+  - El color suma una línea por grado de la caja, con 8 pulsos hasta el fondo de la caja.
+  - Con la consola por defecto da 68,6 Hz en 2D y 14,2 Hz con la caja de color. A 24 cm y 90° da 41,9 Hz.
+- **Cadencia** (`cadenceHz`): cada cuánto forma el simulador un cuadro. Es el mínimo entre la adquisición y lo que permite el nivel, con la fórmula anterior. Marca el paso del worker, el presupuesto de cuadro, la traza del modo M y el intervalo de la persistencia. Viaja en `SimOutput.cadenceHz`, y el worker se marca el paso con ella.
+
+Con la consola por defecto la cadencia coincide con la de antes en los tres niveles, así que ninguna imagen ni cadencia cambia: sólo el número del HUD y el de la columna nueva del panel Dev.
+
+**Guardas**
+
+- `frameRateTiers.test.ts` recorre la cadena de la app en los tres niveles, en 2D y en color. Exige que la frecuencia del HUD sea una sola y que haya tres cadencias, cada una por debajo de la frecuencia del HUD. Si el HUD vuelve a mostrar la cadencia, falla con 48,8, 36,9 y 27,3.
+- `frameRate.test.ts` exige:
+  - 45–70 Hz con la consola por defecto;
+  - 10–30 Hz con la caja de color;
+  - que la frecuencia caiga con la profundidad, el sector, la densidad y la anchura y el fondo de la caja;
+  - que la cadencia no pase de la adquisición y conserve la anterior de cada nivel.
+- `DOPPLER_ENGINE.md` gana la tabla verificada de la adquisición por densidad, y la de los niveles pasa a ser la de la cadencia.
+
+**Limitación declarada**
+
+La persistencia sigue decayendo por intervalos de la cadencia, así que su constante de tiempo cambia con el nivel. Hacerla del equipo cambiaría la imagen de la app, y queda en `LIMITATIONS.md`.
+
+
+179. **2026-09-23 — El atlas sólo toma la imagen de una GPU que sigue lenta, y se la devuelve cuando vuelve a ser rápida**: el pipeline de `main` de la decisión 168 falló dos veces en la E2E «GPU frames keep arriving after visiting another screen»: 19 de 41 y 37 de 42 cuadros llegaron sin bitmap de GPU.
+
+**No era una regresión**
+
+En una comparación aislada, la misma prueba falló 1 de 6 veces sobre el `main` anterior, que había pasado en CI, y pasó 6 de 6 sobre el nuevo. Las estadísticas de cada cuadro mostraron dos defectos del atlas.
+
+**Entrada por ráfagas**
+
+La GPU cuesta 9–18 ms por cuadro. Dos o tres cuadros lentos por contención (al volver de otra pantalla, con la máquina cargada) subían la media móvil por encima de 1,25 veces el presupuesto, y el atlas pasaba a la caché. Esos cuadros salían por la consola de CPU aunque la GPU no fuera lenta.
+
+Ahora entra en la caché sólo cuando la fuente ha pasado el umbral en cuatro cuadros seguidos, cada uno con su propio coste (`ENTER_AFTER_FRAMES`). Un trazador de CPU (40–300 ms) lo pasa en todos y entra cuatro cuadros más tarde.
+
+**Caché sin salida**
+
+Con la sonda quieta y el cine completo, la caché no renderizaba nada, así que el coste medido quedaba congelado. Con carga 30, la GPU midió 32–39 ms, entró en la caché y no volvió mientras la sonda estuviera quieta: 0 bitmaps.
+
+Ahora, cada 16 cuadros servidos desde la caché, uno se renderiza con la fuente y se mide (`REMEASURE_EVERY`). Esa medida sustituye a la media vieja. Con la sonda quieta, el cuadro que mide es el de su ranura y se vuelve a guardar, así que todo cuadro del modo caché conserva la fase de su ranura. La primera versión lo renderizaba en la fase exacta, y `respiration.test.ts`, que compara la VCI del cuadro con la de su fase, lo detectó.
+
+**La E2E**
+
+La E2E pedía que todos los cuadros fueran bitmaps, algo que el diseño no garantiza con la máquina cargada: con la GPU por encima del presupuesto, la caché es la respuesta prevista. Ahora exige lo que sí garantiza:
+
+- llegan cuadros;
+- ningún cuadro formado directamente llega sin bitmap.
+
+**Verificación y guardas**
+
+- Con los dos arreglos, la suite de `gpu-live` pasó 4 de 4 veces con carga 16–20.
+- `atlas.test.ts` recibe tres pruebas con una fuente de coste controlado:
+  - una ráfaga de tres cuadros de 40 ms con un presupuesto de 10 ms no la saca de la pantalla;
+  - una fuente que sigue a 20 ms entra en la caché tras cuatro cuadros;
+  - una fuente que vuelve a 2 ms con el cine completo recupera la pantalla en menos de 19 cuadros.
+
+  Con la media sola fallan las dos primeras, y sin la nueva medida falla la tercera. Las pruebas de la caché con presupuesto cero cuentan los cuatro cuadros directos de la entrada.

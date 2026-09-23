@@ -19,32 +19,52 @@ test.beforeEach(async ({ page }) => {
   await waitForFrames(page, 3);
 });
 
-test('a curriculum task completes when the PLAX preset reaches its score and the progress persists across reloads', async ({
+type LearnWindow = {
+  __echotwin: {
+    useSimStore: {
+      getState: () => {
+        caseId: string;
+        presetAnim: unknown;
+        progress: { completedTasks: Record<string, number> };
+        loadCase: (id: string) => void;
+        setProbe: (p: unknown) => void;
+      };
+    };
+    frameBus: { request: (r: unknown) => Promise<{ kind: string; control?: unknown } | null> };
+  };
+};
+
+test('a curriculum task completes when the learner reaches the view by hand, not with its preset, and persists across reloads', async ({
   page,
 }) => {
+  // the preset reaches the PLAX score, but a score reached with a preset does not complete a task (decision 174)
   await page.getByRole('button', { name: 'PLAX' }).click();
   await page.waitForFunction(
-    () =>
-      (
-        window as unknown as {
-          __echotwin: { useSimStore: { getState: () => { presetAnim: unknown } } };
-        }
-      ).__echotwin.useSimStore.getState().presetAnim === null,
+    () => (window as unknown as LearnWindow).__echotwin.useSimStore.getState().presetAnim === null,
     null,
     { timeout: 20000 },
   );
+  await waitForFrames(page, 20);
+  expect(
+    await page.evaluate(
+      () =>
+        (window as unknown as LearnWindow).__echotwin.useSimStore.getState().progress
+          .completedTasks['plax-70'],
+    ),
+  ).toBeFalsy();
+  // the case loaded again, the probe moved to the same pose as the learner moves it (the manual path, not the preset)
+  await page.evaluate(async () => {
+    const eb = (window as unknown as LearnWindow).__echotwin;
+    const st = eb.useSimStore.getState();
+    st.loadCase(st.caseId);
+    const res = await eb.frameBus.request({ kind: 'canonicalControl', viewId: 'plax' });
+    if (res?.kind === 'canonicalControl') eb.useSimStore.getState().setProbe(res.control);
+  });
   await page.waitForFunction(
     () =>
       Boolean(
-        (
-          window as unknown as {
-            __echotwin: {
-              useSimStore: {
-                getState: () => { progress: { completedTasks: Record<string, number> } };
-              };
-            };
-          }
-        ).__echotwin.useSimStore.getState().progress.completedTasks['plax-70'],
+        (window as unknown as LearnWindow).__echotwin.useSimStore.getState().progress
+          .completedTasks['plax-70'],
       ),
     null,
     { timeout: 20000 },

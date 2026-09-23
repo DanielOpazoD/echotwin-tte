@@ -76,7 +76,7 @@ describe('the flowing blood decorrelates from frame to frame (decision 163)', ()
         }),
       );
       const marks = core.phaseMarks();
-      const fps = core.step(1 / 30)!.simulatedFps;
+      const fps = core.step(1 / 30)!.cadenceHz;
       const target = (marks.eEnd + marks.aStart) / 2;
       let out = core.step(1 / fps)!;
       for (let n = 0; n < 200 && Math.abs(out.phase - target) > 0.6 / fps / out.rrS; n++)

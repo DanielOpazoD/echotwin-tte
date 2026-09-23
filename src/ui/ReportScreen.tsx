@@ -180,6 +180,7 @@ export function ReportScreen() {
           <tr>
             <th>Medición</th>
             <th>Valor</th>
+            <th>Rango normal</th>
             <th>{hideTruth ? 'Modalidad' : 'Modalidad / vista'}</th>
             {!hideTruth && <th>Calidad vista</th>}
             {!hideTruth && <th>Técnica</th>}
@@ -192,6 +193,20 @@ export function ReportScreen() {
             <tr key={r.id} data-technique={r.technique?.level ?? 'free'}>
               <td>{r.label}</td>
               <td>{r.value}</td>
+              <td data-range-flag={r.rangeFlag ?? 'none'}>
+                {r.range ? (
+                  <>
+                    {r.range}{' '}
+                    {r.rangeFlag === 'normal' ? (
+                      <span className="pill ok">normal</span>
+                    ) : (
+                      <span className="pill warn">{r.rangeFlag === 'high' ? 'alto' : 'bajo'}</span>
+                    )}
+                  </>
+                ) : (
+                  '—'
+                )}
+              </td>
               <td>
                 {r.modality}
                 {r.view ? ` / ${r.view}` : ''}
@@ -225,7 +240,7 @@ export function ReportScreen() {
           ))}
           {report.rows.length === 0 && (
             <tr>
-              <td colSpan={7} className="small">
+              <td colSpan={8} className="small">
                 Sin mediciones todavía.
               </td>
             </tr>

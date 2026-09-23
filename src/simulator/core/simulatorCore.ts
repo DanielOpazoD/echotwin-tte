@@ -50,7 +50,7 @@ import {
   type ScanLut,
   type SectorMapping,
 } from '@/simulator/renderer/scanConvert';
-import { simulatedFrameRate } from '@/simulator/renderer/frameRate';
+import { acquisitionFrameRate, cadenceHz } from '@/simulator/renderer/frameRate';
 import {
   beamFrameFromPose,
   contactQuality,
@@ -364,8 +364,29 @@ export class SimulatorCore {
     if (buffer.byteLength > 0 && this.rgbaPool.length < 3) this.rgbaPool.push(buffer);
   }
 
+  private disposed = false;
+
+  /**
+   * Release what the core holds outside the JavaScript heap (decision 172): its WebGL2 context, which every core creates
+   * and a browser keeps only a handful of (the oldest are lost past the limit), and the atlas' cached frames. A disposed
+   * core produces no more frames; disposing twice is harmless.
+   */
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.gpu?.dispose();
+    this.gpu = null;
+    this.atlas.invalidate();
+    this.rgbaPool.length = 0;
+  }
+
+  get isDisposed(): boolean {
+    return this.disposed;
+  }
+
   /** Advance simulation by dt seconds. Returns an output when a new composite frame is ready. */
   step(dtS: number): SimOutput | null {
+    if (this.disposed) return null;
     const inp = this.input;
     const dt = Math.min(0.1, Math.max(0, dtS));
     if (inp.frozen) return this.frozenOutput();
@@ -383,8 +404,13 @@ export class SimulatorCore {
             ((inp.color.boxThetaMaxRad - inp.color.boxThetaMinRad) / spec.sectorRad) * spec.lines,
           )
         : 0;
-    const fps = simulatedFrameRate(spec, { colorLines, packetSize: 8 });
-    this.colorFps = inp.modality === 'color' ? fps : 0;
+    // the scanner's frame rate depends on the console alone; the cadence also on the work of the tier (decision 178)
+    const acquisitionFps = acquisitionFrameRate(
+      inp.settings,
+      inp.modality === 'color' ? inp.color : undefined,
+    );
+    const fps = cadenceHz(spec, acquisitionFps, colorLines);
+    this.colorFps = inp.modality === 'color' ? acquisitionFps : 0;
     const beam = beamFrameFromPose(
       poseFromControl(this.thorax, inp.probe),
       contactQuality(inp.probe.pressure),
@@ -843,17 +869,16 @@ export class SimulatorCore {
     const gate = isStrip
       ? this.strips.gateInfo(beam, fspec, cf ? cf.phase : c.phase, structure, this.stripCtx())
       : null;
-    const ecgTail = this.ecg.slice(Math.max(0, this.ecg.length - 1200));
+    const from = Math.max(0, this.ecg.length - 1200);
+    const ecgTail = new Float64Array(2 * (this.ecg.length - from));
+    for (let i = from, k = 0; i < this.ecg.length; i++, k += 2) {
+      ecgTail[k] = this.ecg[i]!.t;
+      ecgTail[k + 1] = this.ecg[i]!.v;
+    }
     this.lastOutputBeam = beam;
     const sector = { ...mapping, x: 0, y: 0 };
     this.lastSector = sector;
     this.lastStrip = strip;
-    const colorLines =
-      inp.modality === 'color'
-        ? Math.round(
-            ((inp.color.boxThetaMaxRad - inp.color.boxThetaMinRad) / spec.sectorRad) * spec.lines,
-          )
-        : 0;
     this.lastPhase = cf ? cf.phase : c.phase;
     return {
       frameId: this.frameId,
@@ -877,7 +902,11 @@ export class SimulatorCore {
       beatIndex: c.beatIndex,
       heartRateBpm: 60 / c.rrS,
       rrS: c.rrS,
-      simulatedFps: simulatedFrameRate(spec, { colorLines, packetSize: 8 }),
+      simulatedFps: acquisitionFrameRate(
+        inp.settings,
+        inp.modality === 'color' ? inp.color : undefined,
+      ),
+      cadenceHz: 1 / this.frameIntervalS,
       ecg: ecgTail,
       ecgHead: this.timeS,
       view,

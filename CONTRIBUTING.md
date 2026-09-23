@@ -23,9 +23,13 @@ descárgalos aparte y pásalos con `CAMUS_DIR=<ruta fuera del repo>` (decisión 
 2. `docs/DECISIONS.md`: registro numerado; si tu cambio altera el modelo, añade la decisión siguiente
    con las medidas que la justifican y regenera el índice con `npm run docs:index`. Una decisión que
    otra posterior sustituye lleva `[Estado: superada por N]` tras su título. `docs/LIMITATIONS.md`
-   recoge lo que sigue mal; cada id de `KNOWN_MODEL_LIMITATIONS` y `KNOWN_VIEW_LIMITATIONS` debe
-   aparecer allí entre acentos graves (`src/tests/limitationsConsistency.test.ts`).
-3. `.claude/skills/fidelity-method/SKILL.md`: 18 reglas de método para anatomía e imagen (medir antes
+   recoge lo que sigue mal; cada id de `KNOWN_MODEL_LIMITATIONS`, `KNOWN_VIEW_LIMITATIONS` y
+   `KNOWN_UNREACHABLE_LANDMARKS` debe aparecer allí entre acentos graves, y la tabla final lista las
+   entradas de todos los conjuntos `KNOWN_*` (`src/tests/limitationsConsistency.test.ts`).
+   Las tablas generadas de `ARCHITECTURE.md` (qué importa cada capa) y `LIMITATIONS.md` se
+   rehacen con `npm run docs:gen`, que también regenera el índice de decisiones; una prueba falla si
+   alguna no coincide con el código.
+3. `.claude/skills/fidelity-method/SKILL.md`: 20 reglas de método para anatomía e imagen (medir antes
    de tocar, CPU y GPU en paridad, tests validados por mutación). Están escritas para un agente pero
    valen igual para una persona.
 4. `docs/AUDITORIA_INGENIERIA.md`: estado de la base técnica y deuda conocida.
@@ -47,14 +51,16 @@ debajo y el informe lleva el estado exacto para reproducir el cuadro con `npm ru
   por estructura.
 - **Determinismo por semilla.** Los goldens (`src/tests/goldens/`) no se regeneran para que pasen: sólo
   cuando el cambio de imagen es intencional y revisado, con `npm run golden:update`.
-- **Desviaciones declaradas.** `expectedDeviations` de un caso es patología deliberada;
-  `KNOWN_MODEL_LIMITATIONS` (`proportions.test.ts`) y `KNOWN_VIEW_LIMITATIONS` (`viewContent.test.ts`)
-  son deuda del modelo y deben figurar en `docs/LIMITATIONS.md`. `KNOWN_DEVIATIONS` de
+- **Desviaciones declaradas.** `expectedDeviations` de un caso es patología deliberada; los conjuntos
+  `KNOWN_*` de las pruebas (`KNOWN_MODEL_LIMITATIONS` en `proportions.test.ts`, `KNOWN_VIEW_LIMITATIONS`
+  en `viewContent.test.ts` y los demás de la tabla de `docs/LIMITATIONS.md`) son deuda del modelo y
+  deben figurar en ese documento. `KNOWN_DEVIATIONS` de
   `clinicalImage.test.ts` lleva el valor basal medido: si mueves una métrica, actualiza el basal con
   el valor medido y documenta el motivo. CAMUS es calibración, nunca «validación clínica».
 - **Fronteras de capa.** ESLint impide que el motor (`src/simulator`, `src/clinical`, `src/education`,
   `src/cases`, `src/core`) importe la aplicación, la UI, los workers o React; `src/core` no importa
-  nada del resto. La tabla completa está en `ARCHITECTURE.md`.
+  nada del resto. `src/tests/layers.test.ts` prohíbe los ciclos entre capas, y la tabla de
+  `ARCHITECTURE.md`, generada desde los imports, muestra qué importa cada una.
 
 ## Verificar
 
@@ -66,7 +72,7 @@ npm run lint && npm run format:check && npm run typecheck
 npm test              # suite rápida, ~1 min
 npm run test:slow     # acústica, clínica CAMUS, goldens: varios minutos
 npm run check         # todo lo anterior con la suite completa + build (lo que exige el pipeline)
-npx vite build && npm run test:e2e   # Playwright prueba dist/, así que construye antes (~28 min)
+npx vite build && npm run test:e2e   # Playwright prueba dist/, así que construye antes (7–12 min)
 ```
 
 `npm run coverage` aplica los pisos por área de `vite.config.ts`. Un test nuevo que renderice cuadros

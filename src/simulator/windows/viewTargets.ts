@@ -34,7 +34,7 @@ export {
   type ViewTarget,
   type WindowId,
 } from './viewDefinitions';
-import { getViewTarget, type ViewTarget } from './viewDefinitions';
+import { getViewTarget, REFERENCE_LV_LENGTH_CM, type ViewTarget } from './viewDefinitions';
 
 export function skinPointOnPlane(
   thorax: ThoraxModel,
@@ -399,7 +399,9 @@ export function canonicalPlane(
   // the subcostal four-chamber plane is solved through its window, which needs the thorax (decision 167); without it
   // the declared plane stands in
   if (view.id === 'subcostal-4c' && thorax) return subcostalFourChamber(heart, thorax).plane;
-  let targetH = view.target;
+  let targetH = view.scalesWithLvLength
+    ? v3(view.target.x, view.target.y, view.target.z * (heart.lv.lengthCm / REFERENCE_LV_LENGTH_CM))
+    : view.target;
   let rightH = view.planeRight;
   let downH = view.planeDown;
   if (view.id === 'psax-av') {

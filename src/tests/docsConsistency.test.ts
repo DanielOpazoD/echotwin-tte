@@ -4,13 +4,17 @@ import { join } from 'node:path';
 import { CASE_INPUTS } from '@/cases';
 import { VIEW_TARGETS } from '@/simulator/windows/viewTargets';
 import { parseDecisions, renderIndex } from '../../tools/docs/decisions-index';
+import { generatedBlock } from '../../tools/docs/generated';
+import { LAYER_GRAPH_TOOL, layerEdges, renderLayerTable } from '../../tools/docs/layer-graph';
 
 /**
  * Documentation drift guard: CLINICAL_SCOPE.md is the human-readable inventory of cases and views;
  * this test makes it as load-bearing as KNOWN_MODEL_LIMITATIONS is for proportions — a case or view
  * added to the code without reaching the doc fails here. ARCHITECTURE.md gets the same treatment
- * for the facts it states about the code (case count, files it names): the 2026-09-16 engineering
- * audit found it saying «tres casos» and naming a function that no longer existed.
+ * for the facts it states about the code (case count, files it names, the layers and what each imports): the
+ * 2026-09-16 engineering audit found it saying «tres casos» and naming a function that no longer existed, and its
+ * hand-written «imports from» column had drifted from the imports (decision 177). The README and CONTRIBUTING state
+ * the Node version of `.nvmrc`: the README asked for Node 20 while `engines` required 22.
  */
 const ROOT = process.cwd();
 const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8');
@@ -85,5 +89,63 @@ describe('ARCHITECTURE.md stays in sync with the code', () => {
     const named = [...ARCHITECTURE.matchAll(/`(docs\/[A-Za-z0-9_./-]+\.md)`/g)].map((m) => m[1]!);
     const missing = named.filter((rel) => !existsSync(join(ROOT, rel)));
     expect(missing).toEqual([]);
+  });
+
+  it('shows what each layer imports as the real graph does (run npx tsx tools/docs/layer-graph.ts)', () => {
+    expect(generatedBlock(ARCHITECTURE, LAYER_GRAPH_TOOL)).toBe(renderLayerTable(layerEdges()));
+  });
+
+  it('gives every layer of the graph a folder in the responsibility table, and names no folder that is gone', () => {
+    const section = ARCHITECTURE.slice(0, ARCHITECTURE.indexOf('<!-- generado'));
+    const folders = [...section.matchAll(/`src\/([A-Za-z0-9_./-]+)`/g)].map((m) => m[1]!);
+    const layers = new Set<string>();
+    for (const [a, bs] of layerEdges()) {
+      layers.add(a);
+      for (const b of bs.keys()) layers.add(b);
+    }
+    expect([...layers].filter((l) => !folders.includes(l))).toEqual([]);
+    expect(folders.filter((f) => !existsSync(join(ROOT, 'src', f)))).toEqual([]);
+  });
+});
+
+describe('README and CONTRIBUTING describe the repository as it is', () => {
+  const scripts = Object.keys(
+    (JSON.parse(read('package.json')) as { scripts: Record<string, string> }).scripts,
+  );
+
+  it('name only npm scripts that exist', () => {
+    for (const doc of ['README.md', 'CONTRIBUTING.md']) {
+      const named = [...read(doc).matchAll(/npm run ([\w:-]+)/g)].map((m) => m[1]!);
+      expect(named.length, doc).toBeGreaterThan(0);
+      expect(
+        named.filter((n) => !scripts.includes(n)),
+        doc,
+      ).toEqual([]);
+    }
+  });
+
+  it('CONTRIBUTING counts the rules of the fidelity method', () => {
+    const rules =
+      read('.claude/skills/fidelity-method/SKILL.md').match(/^\d+\. \*\*/gm)?.length ?? 0;
+    expect(rules).toBeGreaterThan(0);
+    expect(read('CONTRIBUTING.md')).toContain(`${rules} reglas de método`);
+  });
+});
+
+describe('the Node version is stated once', () => {
+  const major = read('.nvmrc').trim();
+
+  it('package.json, the CI image, the README and CONTRIBUTING follow .nvmrc', () => {
+    const pkg = JSON.parse(read('package.json')) as { engines: { node: string } };
+    expect(pkg.engines.node).toBe(`>=${major}`);
+    expect(read('.gitlab-ci.yml')).toMatch(new RegExp(`image: node:${major}\\b`));
+    for (const doc of ['README.md', 'CONTRIBUTING.md']) {
+      const stated = [...read(doc).matchAll(/\bNode (\d+)/g)].map((m) => m[1]);
+      expect(stated.length, `${doc} states no Node version`).toBeGreaterThan(0);
+      expect(
+        stated.filter((v) => v !== major),
+        doc,
+      ).toEqual([]);
+    }
   });
 });

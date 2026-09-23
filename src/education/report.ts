@@ -1,3 +1,4 @@
+import { rangeFlag, rangeText } from '@/clinical/guidelines/normalRanges';
 import type { Measurement } from '@/simulator/measurements/types';
 import type { StructuredEchoTruth } from '@/simulator/hemodynamics/groundTruth';
 import { AORTIC_STENOSIS_RULES, formatClinical } from '@/clinical/reference-values';
@@ -16,6 +17,9 @@ export interface ReportRow {
   viewScore: number | null;
   truth: string | null;
   deviation: string | null;
+  /** Normal range for the patient's sex and where the value sits (decision 175); null without a range. */
+  range: string | null;
+  rangeFlag: 'low' | 'normal' | 'high' | null;
   /** technique grade (0..100) and its non-ok findings; null for free measurements */
   technique: { score: number; level: 'ok' | 'warn' | 'invalid'; notes: string[] } | null;
 }
@@ -41,6 +45,7 @@ export function buildEducationalReport(
   truth: StructuredEchoTruth | null,
   hideTruth: boolean,
 ): EducationalReport {
+  const sex = truth?.sex ?? null;
   const rows: ReportRow[] = measurements.map((m) => {
     let truthVal: string | null = null;
     let dev: string | null = null;
@@ -75,6 +80,9 @@ export function buildEducationalReport(
       viewScore: hideTruth ? null : m.viewScore,
       truth: truthVal,
       deviation: dev,
+      // the patient's sex is a demographic, not the truth: the range is shown in the exam too (decision 175)
+      range: sex && m.measurementId ? rangeText(m.measurementId, sex) : null,
+      rangeFlag: sex && m.measurementId ? rangeFlag(m.measurementId, sex, m.value) : null,
       technique: tq,
     };
   });

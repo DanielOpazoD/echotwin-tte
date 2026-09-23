@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 168 (última: 168).
+Decisiones: 179 (última: 179).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -176,3 +176,14 @@ Decisiones: 168 (última: 168).
 | [166](DECISIONS.md#L661) | 2026-09-23 | El color de los flujos normales termina en curvas y no en las superficies de sus primitivas, y el llenado pasa por el orificio el caudal de su tabla | vigente |
 | [167](DECISIONS.md#L706) | 2026-09-23 | El subcostal de cuatro cámaras se resuelve desde su ventana y su geometría se lee como un eje largo | vigente |
 | [168](DECISIONS.md#L751) | 2026-09-23 | Una sola atenuación por adquisición, y fuera el código muerto | vigente |
+| [169](DECISIONS.md#L774) | 2026-09-23 | Una potencia entera se transpila como producto | vigente |
+| [170](DECISIONS.md#L792) | 2026-09-23 | Los ejes cortos papilar y apical apuntan a un nivel del ventrículo, no a una altura fija | vigente |
+| [171](DECISIONS.md#L809) | 2026-09-23 | La turbulencia que declara cada caso llega a su flujo | vigente |
+| [172](DECISIONS.md#L822) | 2026-09-23 | Un caso se carga una vez y su núcleo se desecha al cambiar | vigente |
+| [173](DECISIONS.md#L842) | 2026-09-23 | Un cuadro viaja transferido y el store no avisa sin cambios | vigente |
+| [174](DECISIONS.md#L865) | 2026-09-23 | El currículo pide el corazón normal completo y adquirido a mano | vigente |
+| [175](DECISIONS.md#L893) | 2026-09-23 | Rangos normales por sexo en el informe y la impresión, y tres medidas nuevas | vigente |
+| [176](DECISIONS.md#L948) | 2026-09-23 | El teclado llega primero al control con foco, y el dial de rotación se maneja con él | vigente |
+| [177](DECISIONS.md#L980) | 2026-09-23 | La documentación de estructura se genera desde el código y una prueba la vigila | vigente |
+| [178](DECISIONS.md#L1028) | 2026-09-23 | La frecuencia de cuadro es la del equipo, y el nivel de calidad sólo decide cuántos cuadros se calculan | vigente |
+| [179](DECISIONS.md#L1056) | 2026-09-23 | El atlas sólo toma la imagen de una GPU que sigue lenta, y se la devuelve cuando vuelve a ser rápida | vigente |

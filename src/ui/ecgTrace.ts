@@ -38,13 +38,11 @@ export function ecgPoint(
 }
 
 /** Visible samples as screen points, in input order. */
-export function ecgTracePoints(
-  ecg: readonly { t: number; v: number }[],
-  l: EcgLayout,
-): { x: number; y: number }[] {
+export function ecgTracePoints(ecg: Float64Array, l: EcgLayout): { x: number; y: number }[] {
   const points: { x: number; y: number }[] = [];
-  for (const p of ecg) {
-    const pt = ecgPoint(p, l);
+  // interleaved (time, amplitude) pairs, as the simulator sends them (decision 173)
+  for (let i = 0; i + 1 < ecg.length; i += 2) {
+    const pt = ecgPoint({ t: ecg[i]!, v: ecg[i + 1]! }, l);
     if (pt) points.push(pt);
   }
   return points;

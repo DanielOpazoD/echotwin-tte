@@ -26,12 +26,50 @@ export const SHORTCUTS: { keys: string; action: string }[] = [
   { keys: 'Esc', action: 'Cancelar la medición en curso' },
 ];
 
+/** Roles whose widgets move with the arrow keys and act with Space (WAI-ARIA composite widgets and the slider). */
+const ARROW_ROLES = new Set([
+  'tab',
+  'tablist',
+  'slider',
+  'radio',
+  'radiogroup',
+  'listbox',
+  'option',
+  'menu',
+  'menuitem',
+  'menuitemradio',
+  'menuitemcheckbox',
+  'spinbutton',
+  'combobox',
+  'tree',
+  'treeitem',
+  'grid',
+  'gridcell',
+]);
+const ARROW_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End']);
+
+/**
+ * Whether the focused element handles this key itself, so the global shortcut must yield (decision 176): every key in a
+ * form field or an editable element; the arrows, Home, End and Space in a tab, a slider or another composite widget;
+ * Space and Enter on a button, a link or a summary. With focus on a tab ArrowRight moved the probe and Space froze the
+ * image while it pressed the button.
+ */
+export function focusOwnsKey(target: EventTarget | null, key: string): boolean {
+  const t = target as HTMLElement | null;
+  if (!t || typeof t.tagName !== 'string') return false;
+  if (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA') return true;
+  if (t.isContentEditable) return true;
+  const role = t.getAttribute('role');
+  if (role && ARROW_ROLES.has(role) && (ARROW_KEYS.has(key) || key === ' ')) return true;
+  const pressable =
+    t.tagName === 'BUTTON' || t.tagName === 'A' || t.tagName === 'SUMMARY' || role === 'button';
+  return pressable && (key === ' ' || key === 'Enter');
+}
+
 export function useShortcuts(): void {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA'))
-        return;
+      if (focusOwnsKey(e.target, e.key)) return;
       const s = useSimStore.getState();
       const big = e.shiftKey;
       const step = big ? 1 : 0.2;

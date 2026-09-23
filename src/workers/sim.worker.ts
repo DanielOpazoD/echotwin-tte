@@ -1,5 +1,10 @@
 import { SimulatorCore } from '@/simulator/core/simulatorCore';
-import type { MainToWorker, SimInput, WorkerToMain } from '@/simulator/core/protocol';
+import {
+  frameTransferList,
+  type MainToWorker,
+  type SimInput,
+  type WorkerToMain,
+} from '@/simulator/core/protocol';
 
 /**
  * Web Worker entry. The worker drives its own clock (setTimeout at the simulated frame interval)
@@ -58,17 +63,17 @@ function tick(): void {
       };
       outstanding++;
       const tp = performance.now();
-      post({ type: 'frame', output: out }, out.bitmap ? [out.rgba, out.bitmap] : [out.rgba]);
+      post({ type: 'frame', output: out }, frameTransferList(out));
       lastPostMs = performance.now() - tp;
     } else if (out) {
       out.bitmap?.close(); // main thread is behind: drop the frame, keep simulating
       core.recycle(out.rgba);
       dropped++;
     }
-    // pace at the simulated frame rate (or 30 Hz for strips) against an absolute schedule: a timer that fires
+    // pace at the cadence the core forms frames at (or 30 Hz for strips) against an absolute schedule: a timer that fires
     // late shortens the next wait instead of lowering the frame rate (worker timers ran ~5 ms late under load,
     // 31.5 instead of 36.9 frames/s); after a stall longer than one interval the schedule restarts from now
-    if (out) lastFps = out.simulatedFps;
+    if (out) lastFps = out.cadenceHz;
     const targetMs = input.frozen ? 80 : Math.max(12, Math.min(50, 1000 / lastFps));
     nextDue = nextDue > 0 && tStart - nextDue < targetMs ? nextDue + targetMs : tStart + targetMs;
     schedule(Math.max(1, nextDue - performance.now()));
@@ -93,6 +98,8 @@ self.onmessage = (ev: MessageEvent<MainToWorker>) => {
   const msg = ev.data;
   try {
     if (msg.type === 'init' || msg.type === 'loadCase') {
+      // the previous case's core gives back its WebGL2 context before the new one takes one (decision 172)
+      core?.dispose();
       core = new SimulatorCore(msg.caseDef, msg.input);
       input = msg.input;
       lastTick = 0;

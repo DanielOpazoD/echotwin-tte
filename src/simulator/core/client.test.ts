@@ -163,4 +163,21 @@ describe('SimClient worker path: every request settles', () => {
     await expect(p).rejects.toThrow(/failed to fetch/);
     expect(h.errors).toEqual(['failed to fetch module']);
   });
+
+  it('disposes the core of the previous case when it loads another, and the last one when disposed (decision 172)', async () => {
+    const { SimulatorCore } = await import('./simulatorCore');
+    const spy = vi.spyOn(SimulatorCore.prototype, 'dispose');
+    try {
+      client = new SimClient(handlers());
+      await client.loadCase(loadCaseById('normal-excellent-window'), baseInput());
+      expect(spy).toHaveBeenCalledTimes(0);
+      await client.loadCase(loadCaseById('aortic-stenosis-severe'), baseInput());
+      expect(spy).toHaveBeenCalledTimes(1);
+      client.dispose();
+      client = null;
+      expect(spy).toHaveBeenCalledTimes(2);
+    } finally {
+      spy.mockRestore();
+    }
+  });
 });

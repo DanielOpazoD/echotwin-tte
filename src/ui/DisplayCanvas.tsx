@@ -919,7 +919,7 @@ function drawOverlay(
     ctx.fillStyle = '#ffc857';
     ctx.fillText('zona focal', m.apexX - 30, m.apexY + (settings.focusCm + 2.2) * m.pxPerCm);
   }
-  if (ui.showEcg && hud.ecg.length > 1) {
+  if (ui.showEcg && hud.ecg.length > 3) {
     const eh = 34;
     const ey = (modality === '2d' || modality === 'color' ? sectorH : H) - eh - 4;
     const span = 3;

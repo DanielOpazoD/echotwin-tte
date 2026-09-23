@@ -6,7 +6,11 @@ import * as acoustics from '@/simulator/renderer/acoustic/acoustics';
 import * as psf from '@/simulator/renderer/acoustic/psf';
 import * as consolePipeline from '@/simulator/renderer/postprocess/consolePipeline';
 import { DEFAULT_ACQUISITION, polarSpecFor } from '@/simulator/renderer/types';
-import { simulatedFrameRate } from '@/simulator/renderer/frameRate';
+import {
+  acquisitionFrameRate,
+  bmodeTransmitLines,
+  cadenceHz,
+} from '@/simulator/renderer/frameRate';
 import { DEFAULT_COLOR } from '@/simulator/doppler/color/colorDoppler';
 import { loadCaseById } from '@/cases';
 import { computeGroundTruth } from '@/simulator/hemodynamics/groundTruth';
@@ -140,7 +144,26 @@ describe('docs/DOPPLER_ENGINE.md states the values the code computes', () => {
     expect(rows.length).toBeGreaterThanOrEqual(3);
   });
 
-  it('states the simulated frame rate of each quality tier, with and without the default colour box', () => {
+  it('states the acquisition frame rate of each line density, with and without the default colour box', () => {
+    const rows = table('frame-rate-acquisition', 'doppler');
+    const wrong: string[] = [];
+    for (const density of keysOf(rows) as ('low' | 'medium' | 'high')[]) {
+      const r = rows.find((row) => key(row[0]!) === density)!;
+      const settings = { ...DEFAULT_ACQUISITION, lineDensity: density };
+      const got = [
+        bmodeTransmitLines(settings),
+        asPrinted(r[2]!, acquisitionFrameRate(settings)),
+        asPrinted(r[3]!, acquisitionFrameRate(settings, DEFAULT_COLOR)),
+      ];
+      const doc = [num(r[1]!), num(r[2]!), num(r[3]!)];
+      if (doc.some((v, i) => v !== got[i]))
+        wrong.push(`${density}: document ${doc.join(' | ')}, code ${got.join(' | ')}`);
+    }
+    expect(wrong).toEqual([]);
+    expect(rows.length).toBe(3);
+  });
+
+  it('states the cadence of each quality tier, with and without the default colour box', () => {
     const rows = table('frame-rate', 'doppler');
     const wrong: string[] = [];
     for (const tier of keysOf(rows) as ('low' | 'medium' | 'high')[]) {
@@ -152,8 +175,11 @@ describe('docs/DOPPLER_ENGINE.md states the values the code computes', () => {
       );
       const got = [
         `${spec.lines} × ${spec.samples}`,
-        asPrinted(r[2]!, simulatedFrameRate(spec)),
-        asPrinted(r[3]!, simulatedFrameRate(spec, { colorLines, packetSize: 8 })),
+        asPrinted(r[2]!, cadenceHz(spec, acquisitionFrameRate(DEFAULT_ACQUISITION))),
+        asPrinted(
+          r[3]!,
+          cadenceHz(spec, acquisitionFrameRate(DEFAULT_ACQUISITION, DEFAULT_COLOR), colorLines),
+        ),
         colorLines,
       ];
       const doc = [r[1]!, num(r[2]!), num(r[3]!), num(r[4]!)];

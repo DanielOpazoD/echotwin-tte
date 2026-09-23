@@ -60,6 +60,21 @@ const COST_EMA = 0.25;
 /** Hysteresis on the measured source cost relative to the frame budget: noisy costs near the budget must not flap. */
 const ENTER_CACHE = 1.25;
 const LEAVE_CACHE = 0.75;
+/**
+ * Consecutive frames whose own cost is over ENTER_CACHE × the budget before the cache takes over (decision 179). The
+ * WebGL2 source costs 9–18 ms a frame; a few frames slowed by contention (returning from another screen, a loaded
+ * machine) lifted the moving average past the threshold, and the atlas sent frames through the CPU console while the
+ * GPU was not slow: the E2E «GPU frames keep arriving after visiting another screen» failed on it in the main pipeline
+ * and in 1 of 6 isolated runs. A source that is slow (the CPU tracer, 40–300 ms) is over the budget in every frame and
+ * enters the cache four frames later.
+ */
+export const ENTER_AFTER_FRAMES = 4;
+/**
+ * Frames served from a complete cine between two direct renders that measure the source again (decision 179). At rest
+ * the cache rendered nothing, so the cost it had measured stayed as it was: a source that had been slow for a moment
+ * never showed it was fast again, and the GPU image did not come back while the probe rested.
+ */
+export const REMEASURE_EVERY = 16;
 /** Consecutive direct frames after which kept cines are released. */
 const RELEASE_AFTER_FRAMES = 120;
 const AMP_SCALE = 2048; // amplitude 0..31.99 → uint16
@@ -76,6 +91,11 @@ export class AtlasRenderer implements RendererBackend {
   private sourceMs = -1;
   private mode: AtlasMode = 'direct';
   private directFrames = 0;
+  /** Consecutive measured frames over ENTER_CACHE × the budget of their frame. */
+  private overBudget = 0;
+  /** Frames served from the cache since the source was last measured. */
+  private servedSinceMeasure = 0;
+  private budgetMs = Infinity;
   private lastStats: Record<string, number | string> = {};
 
   constructor(
@@ -132,12 +152,18 @@ export class AtlasRenderer implements RendererBackend {
   /** Mode of the next frame under the cost hysteresis, without changing any state. */
   private nextMode(budget: number): AtlasMode {
     if (this.sourceMs < 0) return this.mode;
-    if (this.mode === 'direct' && this.sourceMs > ENTER_CACHE * budget) return 'cache';
+    if (
+      this.mode === 'direct' &&
+      this.sourceMs > ENTER_CACHE * budget &&
+      this.overBudget >= ENTER_AFTER_FRAMES
+    )
+      return 'cache';
     if (this.mode === 'cache' && this.sourceMs < LEAVE_CACHE * budget) return 'direct';
     return this.mode;
   }
 
   private advanceMode(budget: number): void {
+    this.budgetMs = budget;
     this.mode = this.nextMode(budget);
     // a source that stays fast needs no cache: release it
     this.directFrames = this.mode === 'direct' ? this.directFrames + 1 : 0;
@@ -145,7 +171,12 @@ export class AtlasRenderer implements RendererBackend {
   }
 
   private measureSource(cost: number): void {
-    this.sourceMs = this.sourceMs < 0 ? cost : this.sourceMs + COST_EMA * (cost - this.sourceMs);
+    // a measurement after a stretch served from the cache replaces the stale average
+    const stale = this.servedSinceMeasure >= REMEASURE_EVERY;
+    this.servedSinceMeasure = 0;
+    this.sourceMs =
+      this.sourceMs < 0 || stale ? cost : this.sourceMs + COST_EMA * (cost - this.sourceMs);
+    this.overBudget = cost > ENTER_CACHE * this.budgetMs ? this.overBudget + 1 : 0;
   }
 
   renderDisplay(
@@ -200,24 +231,29 @@ export class AtlasRenderer implements RendererBackend {
     const slotF = phase * ATLAS_PHASES;
     const slot = ((Math.round(slotF) % ATLAS_PHASES) + ATLAS_PHASES) % ATLAS_PHASES;
     let served: 'direct' | 'cache' = 'direct';
+    // now and then a frame of the cache is rendered by the source instead, to measure it again
+    const remeasure = this.servedSinceMeasure >= REMEASURE_EVERY;
 
-    if (this.mode === 'cache' && cine && cine.filled === ATLAS_PHASES) {
+    if (!remeasure && this.mode === 'cache' && cine && cine.filled === ATLAS_PHASES) {
       this.serve(cine, slot, out, n);
       cine.lastUse = ++this.useCounter;
       served = 'cache';
+      this.servedSinceMeasure++;
     } else if (this.mode === 'cache' && hints?.stationary && hints.sceneAtPhase) {
-      // slow source at rest: the frame of this phase slot — served when kept, otherwise rendered once and kept
+      // slow source at rest: the frame of this phase slot — served when kept, otherwise rendered once and kept; a
+      // frame that measures the source again is the slot's too, so every frame of the cache mode keeps its phase
       cine ??= this.addAnchor(beam, spec, scene.physics);
-      if (cine.amp[slot]) {
+      if (cine.amp[slot] && !remeasure) {
         this.serve(cine, slot, out, n);
         served = 'cache';
+        this.servedSinceMeasure++;
       } else {
         const slotPhase = slot / ATLAS_PHASES;
         const ts = performance.now();
         this.source.render(hints.sceneAtPhase(slotPhase), beam, spec, slotPhase, out);
         this.measureSource(performance.now() - ts);
+        if (!cine.amp[slot]) cine.filled++;
         this.store(cine, slot, out, n);
-        cine.filled++;
       }
       cine.lastUse = ++this.useCounter;
     } else {

@@ -1,71 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { layerEdges } from '../../tools/docs/layer-graph';
 
 /**
- * Architecture test: the import graph between layers is a DAG. `docs/ARCHITECTURE.md` declares the layers and
- * what each may import; ESLint fixes a few boundaries per directory; this test states the whole property — no
- * cycle between layers — over the real imports of `src/` (excluding tests), so a new edge that closes a cycle
- * fails here whatever directories it involves. The 2026-09-16 engineering audit (B1) found five layer cycles;
- * the one between `app` and `ui` (the React shell renders the UI, the UI reads the store) is inherent to the
- * application layer and is allowed explicitly.
+ * Architecture test: the import graph between layers is a DAG. `docs/ARCHITECTURE.md` shows each layer and what it
+ * imports (a table generated from this same graph, `tools/docs/layer-graph.ts`); ESLint fixes a few boundaries per
+ * directory; this test states the whole property — no cycle between layers — over the real imports of `src/`
+ * (excluding tests), so a new edge that closes a cycle fails here whatever directories it involves. The 2026-09-16
+ * engineering audit (B1) found five layer cycles; the one between `app` and `ui` (the React shell renders the UI, the
+ * UI reads the store) is inherent to the application layer and is allowed explicitly.
  */
-const ROOT = join(process.cwd(), 'src');
-
-/** A file's layer: the first directory under src/, with `simulator/<engine>` split one level deeper. */
-function layerOf(rel: string): string {
-  const parts = rel.split('/');
-  if (parts[0] === 'simulator' && parts.length > 2) return `simulator/${parts[1]}`;
-  return parts[0]!;
-}
-
-function sourceFiles(): string[] {
-  const out: string[] = [];
-  const walk = (dir: string) => {
-    for (const name of readdirSync(dir)) {
-      const p = join(dir, name);
-      if (statSync(p).isDirectory()) walk(p);
-      else if (/\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name)) out.push(p);
-    }
-  };
-  walk(ROOT);
-  return out;
-}
-
-/** Resolve an import specifier to a src-relative path (without extension), or null for packages. */
-function resolveImport(fromRel: string, spec: string): string | null {
-  if (spec.startsWith('@/')) return spec.slice(2);
-  if (spec.startsWith('.')) {
-    const dir = fromRel.split('/').slice(0, -1);
-    for (const seg of spec.split('/')) {
-      if (seg === '.') continue;
-      if (seg === '..') dir.pop();
-      else dir.push(seg);
-    }
-    return dir.join('/');
-  }
-  return null;
-}
-
-/** Edges between layers, with one example import per edge. */
-function layerEdges(): Map<string, Map<string, string>> {
-  const edges = new Map<string, Map<string, string>>();
-  for (const file of sourceFiles()) {
-    const rel = relative(ROOT, file).replace(/\\/g, '/');
-    const from = layerOf(rel);
-    const src = readFileSync(file, 'utf8');
-    for (const m of src.matchAll(/from\s+'([^']+)'|import\s*\(\s*'([^']+)'\s*\)/g)) {
-      const target = resolveImport(rel, m[1] ?? m[2]!);
-      if (!target) continue;
-      const to = layerOf(target);
-      if (to === from) continue;
-      let bucket = edges.get(from);
-      if (!bucket) edges.set(from, (bucket = new Map<string, string>()));
-      if (!bucket.has(to)) bucket.set(to, `${rel} → ${target}`);
-    }
-  }
-  return edges;
-}
 
 /** Tarjan's strongly connected components over the layer graph. */
 function cycles(edges: Map<string, Map<string, string>>): string[][] {

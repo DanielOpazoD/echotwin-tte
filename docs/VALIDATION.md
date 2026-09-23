@@ -1,9 +1,9 @@
 # Validación
 
-> **Estado al 2026-09-16 (`ffd6cc5`)**: 60 archivos de prueba unitaria (37 en el tier rápido, 23 en
-> `SLOW_TEST_FILES`) y 46 pruebas E2E en 5 archivos (`npx playwright test --list`). El repositorio
-> tiene remoto en GitLab y pipeline en `.gitlab-ci.yml`. Los párrafos siguientes son instantáneas
-> fechadas de corridas anteriores y conservan las cifras de su fecha.
+> Las cifras de cada corrida completa (archivos y pruebas por nivel, E2E, presupuesto del bundle) se registran en
+> la sección «Verificación» de la descripción de su MR; `npx vitest list` y `npx playwright test --list` dan los
+> recuentos del árbol actual. El pipeline está en `.gitlab-ci.yml` y corre en el runner propio (`CONTRIBUTING.md`).
+> Los párrafos siguientes son instantáneas fechadas de corridas anteriores y conservan las cifras de su fecha.
 
 Estado observado el **2026-09-14 (hora local)** sobre el commit `314eab7`: **46 archivos, 267 pruebas unitarias, todas pasan** con `npx vitest run --testTimeout=180000 --maxWorkers=3` (405 s; varias pruebas «a través del núcleo» superan los 60 s y el timeout de 60 s original ya no basta). Las pruebas E2E **no se reejecutaron en esta corrida**; la última tanda completa registrada fue de 42 pruebas en ~25 min (ver `docs/AUDITORIA_FIDELIDAD.md`, iteración 3).
 

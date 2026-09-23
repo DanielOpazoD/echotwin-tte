@@ -16,12 +16,6 @@ import { canonicalPlane, landmarkReachCm, VIEW_TARGETS } from './viewTargets';
  * the obliquity of its window) at end-diastole, in the twelve cases.
  */
 const KNOWN_UNREACHABLE_LANDMARKS: ReadonlySet<string> = new Set([
-  // required landmarks placed by the length of the LV while the view aims at a fixed height: in the dilated HFrEF
-  // ventricle (9.8 cm) the papillary short axis passes 1.0 cm above the papillary landmarks and the apical one 1.2 cm
-  // above the apical cavity landmark
-  'psax-pm/pap-al',
-  'psax-pm/pap-pm',
-  'psax-apex/lv-apical-cavity',
   // optional landmarks outside the plane in every case: the descending aorta behind the PLAX, the mid-level RV inflow of
   // the papillary short axis, the apex tip in the apical short axis, the interatrial septum of the A4C, the mitral
   // valve and the RV inflow of the A5C, and the LV apex of the RV-focused view; the left atrium and the tricuspid

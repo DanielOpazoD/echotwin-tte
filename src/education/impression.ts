@@ -1,3 +1,4 @@
+import { rangeFlag } from '@/clinical/guidelines/normalRanges';
 import type { StructuredEchoTruth } from '@/simulator/hemodynamics/groundTruth';
 
 /**
@@ -85,7 +86,11 @@ export function expectedFindings(t: StructuredEchoTruth): string[] {
   const out = new Set<string>();
   const ef = t.lv.efPct;
   out.add(ef >= 52 ? 'ef-normal' : ef >= 41 ? 'ef-mild' : ef >= 30 ? 'ef-moderate' : 'ef-severe');
-  if (t.lv.edvMl / t.bsaM2 > 74 || t.lv.eddCm > 5.8) out.add('lv-dilated');
+  // the upper limits of the reference ranges for the patient's sex (decision 175): EDV index 74 (men) or 61 (women)
+  // mL/m², end-diastolic diameter 5.8 or 5.2 cm; the male limits applied to everyone
+  const edviHigh = t.sex === 'female' ? 61 : 74;
+  if (t.lv.edvMl / t.bsaM2 > edviHigh || rangeFlag('lv-edd', t.sex, t.lv.eddCm) === 'high')
+    out.add('lv-dilated');
   if (t.lv.ivsdCm >= 1.5 && t.lv.ivsdCm / Math.max(0.5, t.lv.lvpwdCm) >= 1.3)
     out.add('asymmetric-septal-hypertrophy');
   else if (t.lv.ivsdCm > 1.1 || t.lv.lvpwdCm > 1.1) out.add('lvh');
@@ -111,9 +116,16 @@ export function expectedFindings(t: StructuredEchoTruth): string[] {
   if (t.pericardium.effusionCm > 0) out.add('effusion');
   if (t.pericardium.tamponade > 0.3) out.add('tamponade');
   if (t.rhythm === 'atrial-fibrillation') out.add('af');
+  // an E/A above 2 alone is the filling of a young normal heart (decision 175): it marks dysfunction with another sign
+  // of raised filling pressure — reduced e′, a TR velocity above 2.8 m/s or a dilated left atrium
+  const eReduced =
+    rangeFlag('e-prime-septal', t.sex, t.mitral.ePrimeSeptalCmps) === 'low' ||
+    rangeFlag('e-prime-lateral', t.sex, t.mitral.ePrimeLateralCmps) === 'low';
+  const trHigh = (t.rightHeart.trVmaxMps ?? 0) > 2.8;
+  const otherSign = eReduced || trHigh || t.la.volumeIndexMlM2 > 34;
   if (
     t.mitral.eOverEPrimeAvg > 14 ||
-    (t.mitral.eOverA !== null && t.mitral.eOverA > 2) ||
+    (t.mitral.eOverA !== null && t.mitral.eOverA > 2 && otherSign) ||
     (t.mitral.eOverA !== null && t.mitral.eOverA < 0.8 && t.la.volumeIndexMlM2 > 34)
   )
     out.add('diastolic-dysfunction');

@@ -176,6 +176,29 @@ export const MEASUREMENT_SPECS: MeasurementSpec[] = [
     group: 'atria',
   },
   {
+    // decision 175
+    id: 'aortic-root',
+    label: 'Raíz aórtica (senos de Valsalva)',
+    shortLabel: 'Raíz Ao',
+    kind: 'linear',
+    units: 'cm',
+    tool: 'caliper',
+    modalities: ['2d'],
+    views: ['plax'],
+    phase: 'ed',
+    placement: {
+      structures: [Structure.AorticRoot],
+      segment: 'cavity',
+      label: 'raíz aórtica en los senos de Valsalva, perpendicular a su eje',
+    },
+    instruction:
+      'PLAX en telediástole, zoom sobre la raíz: caliper en la parte más ancha de los senos de Valsalva, perpendicular al eje de la aorta.',
+    truth: (t) => t.aorta.sinusCm,
+    tolerancePct: 8,
+    referenceIds: ['ase-eacvi-chamber-2015'],
+    group: 'lvot-av',
+  },
+  {
     id: 'lv-edv-simpson',
     label: 'Volumen telediastólico del VI (Simpson)',
     shortLabel: 'VTD Simpson',
@@ -452,6 +475,52 @@ export const MEASUREMENT_SPECS: MeasurementSpec[] = [
     instruction:
       'A4C, cursor de modo M sobre el anillo tricuspídeo lateral, lo más paralelo posible al movimiento longitudinal: caliper vertical entre la posición telediastólica y la telesistólica del anillo.',
     truth: (t) => t.rightHeart.tapseCm,
+    tolerancePct: 12,
+    referenceIds: ['ase-right-heart-2025'],
+    group: 'right',
+  },
+  {
+    // decision 175
+    id: 'rv-basal',
+    label: 'Diámetro basal del VD',
+    shortLabel: 'VD basal',
+    kind: 'linear',
+    units: 'cm',
+    tool: 'caliper',
+    modalities: ['2d'],
+    views: ['rv-focused', 'a4c'],
+    phase: 'ed',
+    placement: {
+      structures: [Structure.RvCavity],
+      segment: 'cavity',
+      label: 'tercio basal del VD, de la pared libre al septo',
+    },
+    instruction:
+      'Apical enfocada en el VD, telediástole: caliper en el tercio basal, de la pared libre al septo, paralelo al anillo tricuspídeo.',
+    truth: (t) => t.rv.basalDiameterCm,
+    tolerancePct: 10,
+    referenceIds: ['ase-eacvi-chamber-2015', 'ase-right-heart-2025'],
+    group: 'right',
+  },
+  {
+    // decision 175
+    id: 'ivc-diameter',
+    label: 'Diámetro de la vena cava inferior',
+    shortLabel: 'VCI',
+    kind: 'linear',
+    units: 'cm',
+    tool: 'caliper',
+    modalities: ['2d', 'm-mode'],
+    views: ['subcostal-ivc'],
+    phase: 'any',
+    placement: {
+      structures: [Structure.Ivc],
+      segment: 'cavity',
+      label: 'VCI 1–2 cm antes de su unión con la AD, perpendicular a su eje',
+    },
+    instruction:
+      'Subcostal, VCI en su eje largo: caliper de borde interno a borde interno, 1–2 cm antes de la desembocadura de las venas hepáticas, en espiración.',
+    truth: (t) => t.rightHeart.ivcCm,
     tolerancePct: 12,
     referenceIds: ['ase-right-heart-2025'],
     group: 'right',

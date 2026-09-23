@@ -20,6 +20,7 @@ const snap = (over: Partial<LearnerSnapshot> = {}): LearnerSnapshot => ({
   caseId: 'normal-excellent-window',
   mode: 'guided',
   viewProgress: {},
+  handViewProgress: {},
   bestView: null,
   modality: '2d',
   colorScaleMps: 0.62,
@@ -33,6 +34,39 @@ const snap = (over: Partial<LearnerSnapshot> = {}): LearnerSnapshot => ({
 });
 
 describe('curriculum', () => {
+  it('asks for the whole normal heart by hand: A3C, the RV, the subcostal views, the three apical planes, TAPSE and e′ (decision 174)', () => {
+    const hand = {
+      a3c: 62,
+      'rv-focused': 58,
+      'subcostal-4c': 64,
+      'subcostal-ivc': 61,
+      a4c: 70,
+      a2c: 61,
+    };
+    const done = evaluateTasks(snap({ handViewProgress: hand }));
+    for (const id of [
+      'a3c-60',
+      'rv-focused-55',
+      'subcostal-4c-60',
+      'subcostal-ivc-60',
+      'apical-segments',
+    ])
+      expect(done, id).toContain(id);
+    // the three apical planes together, each by hand
+    expect(evaluateTasks(snap({ handViewProgress: { ...hand, a2c: 50 } }))).not.toContain(
+      'apical-segments',
+    );
+    expect(evaluateTasks(snap({ viewProgress: hand }))).toEqual([]);
+    const measured = (id: string, score: number): Measurement =>
+      ({ measurementId: id, technique: { score } }) as unknown as Measurement;
+    expect(evaluateTasks(snap({ measurements: [measured('tapse', 0.8)] }))).toContain('tapse-ok');
+    expect(evaluateTasks(snap({ measurements: [measured('tapse', 0.5)] }))).not.toContain(
+      'tapse-ok',
+    );
+    expect(evaluateTasks(snap({ measurements: [measured('e-prime-septal', 0.9)] }))).toContain(
+      'e-prime-septal-ok',
+    );
+  });
   it('has unique task ids, non-empty rationale and only known case ids', () => {
     const tasks = allTasks();
     expect(new Set(tasks.map((t) => t.id)).size).toBe(tasks.length);
@@ -46,8 +80,10 @@ describe('curriculum', () => {
   });
   it('checks pass only when the learner state meets the criterion', () => {
     expect(evaluateTasks(snap())).toEqual([]);
-    expect(evaluateTasks(snap({ viewProgress: { plax: 72 } }))).toContain('plax-70');
-    expect(evaluateTasks(snap({ viewProgress: { plax: 65 } }))).not.toContain('plax-70');
+    expect(evaluateTasks(snap({ handViewProgress: { plax: 72 } }))).toContain('plax-70');
+    expect(evaluateTasks(snap({ handViewProgress: { plax: 65 } }))).not.toContain('plax-70');
+    // a score reached with the view's preset does not complete the task (decision 174)
+    expect(evaluateTasks(snap({ viewProgress: { plax: 90 } }))).not.toContain('plax-70');
     expect(evaluateTasks(snap({ modality: 'color', colorScaleMps: 0.3 }))).toContain(
       'colour-low-scale',
     );

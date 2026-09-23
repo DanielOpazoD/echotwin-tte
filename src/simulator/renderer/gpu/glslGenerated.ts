@@ -67,7 +67,7 @@ float septalShiftAt(float shiftCm, float az, float levelFrac) {
   if (c <= 0.0) {
     return 0.0;
   }
-  float zw = 1.0 - pow((levelFrac - 0.45) / 0.45, 2.0);
+  float zw = 1.0 - (((levelFrac - 0.45) / 0.45) * ((levelFrac - 0.45) / 0.45));
   if (zw <= 0.0) {
     return 0.0;
   }

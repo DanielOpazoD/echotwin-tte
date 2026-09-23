@@ -78,6 +78,7 @@ export function App() {
             caseId: st.caseId,
             mode: st.mode,
             viewProgress: st.viewProgress,
+            handViewProgress: st.handViewProgress,
             bestView: out.view?.bestViewId
               ? { id: out.view.bestViewId, score: out.view.score }
               : null,
