@@ -29,7 +29,8 @@ export interface TissueProps {
   reflect: number;
   specular: number;
   attenuation: number;
-  grain: number; // speckle lateral frequency (cycles/cm)
+  /** Lattice frequency (cycles/cm) of the coherent grains of myocardium, muscle and liver (decision 145); the PSF sets the speckle cell. */
+  grain: number;
   name: string;
 }
 
