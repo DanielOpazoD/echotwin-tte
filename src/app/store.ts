@@ -101,6 +101,11 @@ export interface SimStore {
   modality: ImagingModality;
   frozen: boolean;
   cineOffset: number;
+  /**
+   * The frozen cine replays as a loop (decision 191). Any frame the learner picks by hand, a tool, review mode, the
+   * freeze and the modality stop it, so a measurement or a marker never lands on a frame the loop chose (decision 197).
+   */
+  cinePlaying: boolean;
   color: ColorSettings;
   spectral: SpectralSettings;
   cursorThetaRad: number;
@@ -182,6 +187,9 @@ export interface SimStore {
   setModality: (m: ImagingModality) => void;
   toggleFreeze: () => void;
   setCineOffset: (o: number) => void;
+  /** One step of the cine loop: the next frame, the newest wrapping to the oldest; it keeps the loop playing. */
+  stepCine: () => void;
+  setCinePlaying: (p: boolean) => void;
   setColor: (c: Partial<ColorSettings>) => void;
   setSpectral: (s: Partial<SpectralSettings>) => void;
   setCursor: (theta: number, depth?: number) => void;
@@ -366,6 +374,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
   modality: '2d',
   frozen: false,
   cineOffset: 0,
+  cinePlaying: false,
   color: { ...DEFAULT_COLOR },
   spectral: { ...DEFAULT_SPECTRAL },
   cursorThetaRad: 0.05,
@@ -446,12 +455,19 @@ export const useSimStore = create<SimStore>((set, get) => ({
       tgc[band] = Math.max(-15, Math.min(15, db));
       return { settings: { ...s.settings, tgcDb: tgc } };
     }),
-  setModality: (m) => set({ modality: m, frozen: false, cineOffset: 0 }),
-  toggleFreeze: () => set((s) => ({ frozen: !s.frozen, cineOffset: 0 })),
+  setModality: (m) => set({ modality: m, frozen: false, cineOffset: 0, cinePlaying: false }),
+  toggleFreeze: () => set((s) => ({ frozen: !s.frozen, cineOffset: 0, cinePlaying: false })),
   setCineOffset: (o) =>
     set(() => ({
       cineOffset: Math.min(0, Math.max(-((useHudStore.getState().hud?.cineLength ?? 1) - 1), o)),
+      cinePlaying: false,
     })),
+  stepCine: () =>
+    set((s) => {
+      const length = useHudStore.getState().hud?.cineLength ?? 1;
+      return { cineOffset: s.cineOffset >= 0 ? -(length - 1) : s.cineOffset + 1 };
+    }),
+  setCinePlaying: (p) => set({ cinePlaying: p }),
   setColor: (c) => set((s) => ({ color: { ...s.color, ...c } })),
   setSpectral: (sp) => set((s) => ({ spectral: { ...s.spectral, ...sp } })),
   setCursor: (theta, depth) =>
@@ -481,7 +497,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
     set((s) => {
       const ui = { ...s.ui, ...u };
       savePrefs(ui);
-      return { ui };
+      return u.reviewMode ? { ui, cinePlaying: false } : { ui };
     }),
   setTruth: (t, caseId) => set({ truth: t, caseId }),
   addMeasurement: (m) =>
@@ -500,7 +516,12 @@ export const useSimStore = create<SimStore>((set, get) => ({
   removeMeasurement: (id) =>
     set((s) => ({ measurements: s.measurements.filter((m) => m.id !== id) })),
   clearMeasurements: () => set({ measurements: [] }),
-  setActiveTool: (t) => set({ activeTool: t, activeMeasurementId: null }),
+  setActiveTool: (t) =>
+    set({
+      activeTool: t,
+      activeMeasurementId: null,
+      ...(t !== 'none' ? { cinePlaying: false } : {}),
+    }),
   addReviewMarker: (m) =>
     set((s) => ({
       reviewMarkers: renumberMarkers([...s.reviewMarkers, m]),
@@ -591,7 +612,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
     if (!id) return set({ activeMeasurementId: null, activeTool: 'none' });
     const spec = getMeasurementSpec(id);
     if (!spec) return set({ activeMeasurementId: null, activeTool: 'none' });
-    set({ activeMeasurementId: id, activeTool: spec.tool });
+    set({ activeMeasurementId: id, activeTool: spec.tool, cinePlaying: false });
   },
   setCycleInfo: (marks, lvLengthCm) => set({ phaseMarks: marks, lvLengthCm }),
   setArtifactLab: (v) => set({ artifactLab: v }),

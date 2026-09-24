@@ -124,6 +124,12 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
       const canvas = ovRef.current;
       if (!out || !canvas) return;
       const state = useSimStore.getState();
+      // the ↔ of the ECG strip goes with the scrub: live again, a tool or review mode, before the pointer moves
+      if (
+        canvas.style.cursor &&
+        (!out.frozen || state.activeTool !== 'none' || state.ui.reviewMode)
+      )
+        canvas.style.cursor = '';
       const pending = pendingRef.current;
       const context = [
         state.caseId,

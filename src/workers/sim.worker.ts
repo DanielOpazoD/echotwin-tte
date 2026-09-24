@@ -124,8 +124,16 @@ self.onmessage = (ev: MessageEvent<MainToWorker>) => {
       return;
     }
     if (msg.type === 'input') {
+      // frozen, the worker ticks every 80 ms; a new cine frame (scrubbing on the ECG, the cine loop) is formed at once
+      // instead, or the loop showed at most 12.5 frames/s of a cine acquired at 50–90 (decision 197)
+      const newFrame =
+        msg.input.frozen && input?.frozen && msg.input.cineOffset !== input.cineOffset;
       input = msg.input;
       core.setInput(msg.input);
+      if (newFrame) {
+        nextDue = 0;
+        schedule(1);
+      }
       return;
     }
     if (msg.type === 'request') {

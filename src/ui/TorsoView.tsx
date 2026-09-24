@@ -819,6 +819,12 @@ export function TorsoView() {
   return (
     <div className={`torso-wrap${split ? ' split' : ''}`}>
       <div className="torso-3d" ref={ref} aria-label="Torso 3D y sonda virtual">
+        {/* inside the torso so it sits at the torso's own bottom edge, whatever height the cut map leaves it
+            (decision 197) */}
+        <div className="torso-help">
+          Arrastrar: deslizar · Rueda: rotar · Shift: rock · Alt: tilt ·{' '}
+          <kbd className="kbd">?</kbd> todos los gestos
+        </div>
         {webglError && (
           <div className="panel-error" role="alert">
             <b>La vista 3D necesita WebGL 2, que este navegador no ofrece.</b>
@@ -860,10 +866,6 @@ export function TorsoView() {
           </button>
           <LayerMenu />
         </div>
-      </div>
-      <div className="torso-help">
-        Arrastrar: deslizar · Rueda: rotar · Shift: rock · Alt: tilt · <kbd className="kbd">?</kbd>{' '}
-        todos los gestos
       </div>
     </div>
   );

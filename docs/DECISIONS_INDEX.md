@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 196 (última: 196).
+Decisiones: 197 (última: 197).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -204,3 +204,4 @@ Decisiones: 196 (última: 196).
 | [194](DECISIONS.md#L1318) | 2026-09-23 | El modo revisión sin instrucciones sobre la imagen | vigente |
 | [195](DECISIONS.md#L1320) | 2026-09-23 | La frecuencia de cuadro una sola vez | vigente |
 | [196](DECISIONS.md#L1322) | 2026-09-23 | Primer arranque sin saltos | vigente |
+| [197](DECISIONS.md#L1324) | 2026-09-23 | Lo que encontró la revisión de las decisiones 189–196 | vigente |

@@ -738,7 +738,6 @@ function MeasureTab() {
     { id: 'auto-vti', label: 'VTI auto', title: 'Envolvente automática entre dos instantes' },
     { id: 'slope', label: 'TD', title: 'Tiempo de desaceleración (pico → pendiente)' },
   ];
-  const armed = s.activeMeasurementId ? 'none' : s.activeTool;
   const capturing = Boolean(s.activeMeasurementId) || s.activeTool !== 'none';
   if (capturing) {
     const spec = s.activeMeasurementId
@@ -788,13 +787,7 @@ function MeasureTab() {
       >
         <div className="tool-grid" role="group" aria-label="Herramienta de medición">
           {tools.map((t) => (
-            <button
-              key={t.id}
-              className={t.id === armed ? 'on' : ''}
-              aria-pressed={t.id === armed}
-              title={t.title}
-              onClick={() => s.setActiveTool(t.id)}
-            >
+            <button key={t.id} title={t.title} onClick={() => s.setActiveTool(t.id)}>
               {t.label}
             </button>
           ))}

@@ -95,6 +95,8 @@ import { StripEngine, type StripCtx } from './stripEngine';
  */
 const ECG_HZ = 200;
 const CINE_FRAMES = 96;
+/** ECG kept and sent before the oldest cine frame, so its beat reads at the left edge of a frozen strip (s). */
+const CINE_ECG_MARGIN_S = 0.3;
 
 interface CineFrame {
   display: Uint8ClampedArray;
@@ -477,7 +479,11 @@ export class SimulatorCore {
       );
       this.ecg.push({ t: this.timeS - this.ecgAccum, v });
     }
-    const cutoff = this.timeS - 6;
+    // six seconds, and at least back to the oldest cine frame, so a frozen strip can show the whole cine (decision 197)
+    const cutoff = Math.min(
+      this.timeS - 6,
+      (this.cine[0]?.timeS ?? this.timeS) - CINE_ECG_MARGIN_S,
+    );
     while (this.ecg.length && (this.ecg[0]?.t ?? 0) < cutoff) this.ecg.shift();
   }
 
@@ -869,7 +875,12 @@ export class SimulatorCore {
     const gate = isStrip
       ? this.strips.gateInfo(beam, fspec, cf ? cf.phase : c.phase, structure, this.stripCtx())
       : null;
-    const from = Math.max(0, this.ecg.length - 1200);
+    // live, the last 1200 samples (6 s); frozen, back to the oldest cine frame, which a slow cadence puts further
+    let from = Math.max(0, this.ecg.length - 1200);
+    if (frozen) {
+      const t0 = (this.cine[0]?.timeS ?? this.timeS) - CINE_ECG_MARGIN_S;
+      while (from > 0 && (this.ecg[from - 1]?.t ?? -Infinity) >= t0) from--;
+    }
     const ecgTail = new Float64Array(2 * (this.ecg.length - from));
     for (let i = from, k = 0; i < this.ecg.length; i++, k += 2) {
       ecgTail[k] = this.ecg[i]!.t;

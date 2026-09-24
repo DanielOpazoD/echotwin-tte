@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useHudStore, useSimStore } from '@/app/store';
 import { useShallow } from 'zustand/shallow';
 import { modePolicy } from '@/app/modePolicy';
@@ -71,7 +71,7 @@ export function ModeBar() {
             value={s.cineOffset}
             onChange={(e) => s.setCineOffset(Number(e.target.value))}
           />
-          <span className="small">
+          <span className="small cine-read">
             cuadro {hud.cineLength + s.cineOffset}/{hud.cineLength} · fase{' '}
             {(hud.cineFramePhase * 100).toFixed(0)}%
           </span>
@@ -246,26 +246,26 @@ function OverflowMenu() {
 
 /**
  * Replays the frozen cine as a loop at the pace it was acquired (decision 191): each tick shows the next frame and the
- * newest wraps to the oldest. It stops with its button, and with the freeze, which unmounts it.
+ * newest wraps to the oldest. The loop lives in the store, so any frame picked by hand, a tool, review mode or the
+ * freeze stops it (decision 197); the button keeps one name and says whether it plays with aria-pressed.
  */
 function CinePlay({ length, spanS }: { length: number; spanS: number }) {
-  const [playing, setPlaying] = useState(false);
+  const playing = useSimStore((st) => st.cinePlaying);
+  const setPlaying = useSimStore((st) => st.setCinePlaying);
+  const stepCine = useSimStore((st) => st.stepCine);
   useEffect(() => {
     if (!playing || length < 2) return;
     const frameMs = (1000 * Math.max(0.1, spanS)) / (length - 1);
-    const id = setInterval(() => {
-      const st = useSimStore.getState();
-      st.setCineOffset(st.cineOffset >= 0 ? -(length - 1) : st.cineOffset + 1);
-    }, frameMs);
+    const id = setInterval(stepCine, frameMs);
     return () => clearInterval(id);
-  }, [playing, length, spanS]);
-  const label = playing ? 'Pausar el cine' : 'Reproducir el cine';
+  }, [playing, length, spanS, stepCine]);
   return (
     <button
       className={`icon-btn${playing ? ' active' : ''}`}
-      aria-label={label}
+      aria-label="Reproducir el cine"
       aria-pressed={playing}
-      title={label}
+      title={playing ? 'Pausar el cine' : 'Reproducir el cine'}
+      disabled={length < 2}
       onClick={() => setPlaying(!playing)}
     >
       {playing ? <IconPause size={13} /> : <IconPlay size={13} />}

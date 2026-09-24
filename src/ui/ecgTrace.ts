@@ -81,7 +81,9 @@ export function ecgLayoutOf(hud: SimOutput, modality: SimStore['modality']): Ecg
     width: hud.width - 16,
     y: (modality === '2d' || modality === 'color' ? hud.sector.height : hud.height) - eh - 6,
     height: eh,
-    spanS: 3,
+    // live, the last 3 s; frozen, the whole cine with 0.25 s before it (a slow colour cadence spans 7 s: its older
+    // frames fell off a 3 s strip, decision 197)
+    spanS: hud.frozen ? Math.max(3, hud.ecgHead - hud.cineWindow.startS + 0.25) : 3,
     headS: hud.ecgHead,
   };
 }

@@ -1160,8 +1160,8 @@ select:hover {
 }
 /* each legend shows while the pointer is over its own panel (decision 189): hovering the 3D torso does not
    also print the cut map's legend, and the reverse */
-.torso-3d:hover ~ .torso-help,
-.torso-3d:focus-within ~ .torso-help,
+.torso-3d:hover > .torso-help,
+.torso-3d:focus-within > .torso-help,
 .cut-map:hover .torso-help.cut {
   opacity: 1;
 }
@@ -1946,11 +1946,6 @@ details.adv > summary:hover::before {
   padding: 5px 2px;
   font-size: 11px;
 }
-.tool-grid button.on {
-  background: #23455e;
-  border-color: var(--accent);
-  color: #fff;
-}
 
 /* focused capture card shown while a measurement tool is armed */
 .capture-head {
@@ -2593,12 +2588,7 @@ canvas.overlay.armed {
   justify-content: flex-end;
 }
 .tool-grid {
-  grid-template-columns: repeat(4, 1fr);
-}
-.tool-grid button.on {
-  background: var(--accent-soft);
-  border-color: var(--accent-line);
-  color: var(--text);
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
 }
 .capture-cancel {
   display: inline-flex;
@@ -2643,7 +2633,9 @@ canvas.overlay.armed {
 }
 /* the mode bar never wraps a label: at 1105 px «Torso 3D» broke in two lines and doubled the bar's height; the
    disclaimer, which ellipsises, gives way first */
-.modebar button,
+.modebar > button,
+.modebar .seg-bar button,
+.modebar .cine button,
 .modebar .cine .small {
   white-space: nowrap;
   flex-shrink: 0;
@@ -2669,4 +2661,23 @@ canvas.overlay.armed {
   display: grid;
   place-items: center;
   color: var(--faint);
+}
+/* the frame counter keeps its width while the digits change, so the cine slider beside it does not move (decision 197) */
+.cine-read {
+  font-variant-numeric: tabular-nums;
+  min-width: 17ch;
+}
+/* the torso's legend sits in the torso (it was placed at 50 % of the split, which the cut map's 6:5 height no longer
+   is), and the two halves keep a usable height when the open guide takes the rail (decision 197) */
+.torso-wrap.split .torso-3d > .torso-help {
+  bottom: 6px;
+}
+.torso-wrap.split {
+  min-height: 230px;
+}
+.torso-wrap.split .torso-3d {
+  min-height: 120px;
+}
+.torso-wrap.split .cut-map {
+  min-height: 110px;
 }

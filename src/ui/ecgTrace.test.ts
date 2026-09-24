@@ -85,6 +85,16 @@ describe('scrubbing the cine on the ECG strip (decision 190)', () => {
     expect(ecgLayoutOf({ ...hud, sector: { height: 400 } } as SimOutput, '2d').y).toBe(400 - 36);
     expect(ecgLayoutOf({ ...hud, sector: { height: 400 } } as SimOutput, 'pw').y).toBe(600 - 36);
   });
+  it('widens while frozen to hold the whole cine, and keeps 3 s when live or when the cine is short', () => {
+    const slow = { ...hud, cineWindow: { startS: 3.2, endS: 10, frameS: 3.2 } };
+    const wide = ecgLayoutOf(slow, '2d');
+    expect(wide.spanS).toBeCloseTo(10 - 3.2 + 0.25);
+    // the oldest frame of a 6.8 s cine lies on the strip, not pinned at its edge
+    expect(ecgX(3.2, wide)).toBeGreaterThan(wide.x0 + 1);
+    expect(cineOffsetAtX(ecgX(3.2, wide), wide, slow.cineWindow, 96)).toBe(-95);
+    expect(ecgLayoutOf({ ...slow, frozen: false }, '2d').spanS).toBe(3);
+    expect(l.spanS).toBe(3);
+  });
   it('picks the frame under a press on the strip of a frozen image', () => {
     expect(cineOffsetOnEcg(onStrip, hud, store({}))).toBe(-63);
   });

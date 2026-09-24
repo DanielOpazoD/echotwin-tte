@@ -130,3 +130,45 @@ describe('sim.worker pacing and failure policy', () => {
     expect(posted().filter((m) => m.type === 'frame').length).toBeGreaterThan(0);
   });
 });
+
+describe('sim.worker while frozen (decision 197)', () => {
+  let fakeSelf: FakeSelf;
+  let core: { prototype: { step: (dt: number) => unknown } };
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    fakeSelf = { onmessage: null, postMessage: vi.fn() };
+    (globalThis as { self?: unknown }).self = fakeSelf;
+    vi.resetModules();
+    core = (await import('@/simulator/core/simulatorCore')).SimulatorCore;
+    await import('./sim.worker');
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+    delete (globalThis as { self?: unknown }).self;
+  });
+
+  it('forms the new cine frame at once instead of waiting for its 80 ms tick', () => {
+    fakeSelf.onmessage!({
+      data: {
+        type: 'loadCase',
+        caseDef: loadCaseById('normal-excellent-window'),
+        input: { ...baseInput(), frozen: true },
+      },
+    });
+    const step = vi.spyOn(core.prototype, 'step').mockReturnValue(null);
+    vi.advanceTimersByTime(5);
+    const ticks = step.mock.calls.length;
+    expect(ticks).toBeGreaterThan(0);
+    // the same frame again waits for the frozen tick
+    fakeSelf.onmessage!({ data: { type: 'input', input: { ...baseInput(), frozen: true } } });
+    vi.advanceTimersByTime(5);
+    expect(step.mock.calls.length).toBe(ticks);
+    // another frame of the cine is formed within a millisecond or two
+    fakeSelf.onmessage!({
+      data: { type: 'input', input: { ...baseInput(), frozen: true, cineOffset: -5 } },
+    });
+    vi.advanceTimersByTime(2);
+    expect(step.mock.calls.length).toBe(ticks + 1);
+  });
+});
