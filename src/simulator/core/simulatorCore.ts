@@ -916,6 +916,11 @@ export class SimulatorCore {
       cineLength: this.cine.length,
       cineOffset: cf ? inp.cineOffset : 0,
       cineFramePhase: cf ? cf.phase : c.phase,
+      cineWindow: {
+        startS: this.cine[0]?.timeS ?? this.timeS,
+        endS: this.cine[this.cine.length - 1]?.timeS ?? this.timeS,
+        frameS: cf ? cf.timeS : this.timeS,
+      },
       stats: {
         ...this.backend.stats(),
         backend: this.backend.id,
