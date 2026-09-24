@@ -76,6 +76,10 @@ export function ModeBar() {
         </div>
       )}
       <span className="spacer" style={{ flex: 1 }} />
+      {/* off the image: in the Doppler modes it covered the spectral strip */}
+      <span className="disclaimer">
+        Simulador educacional con pacientes sintéticos · no apto para diagnóstico
+      </span>
       <button
         onClick={() => s.setUi({ showTorso: !s.ui.showTorso })}
         className={s.ui.showTorso ? 'active' : ''}
@@ -90,13 +94,14 @@ export function ModeBar() {
         Torso 3D
       </button>
       <OverflowMenu />
-      <span
-        className="small modebar-status"
-        title="Dónde corre la simulación y a cuántos cuadros por segundo se repinta la interfaz"
-      >
-        {s.workerMode === 'worker' ? 'Worker' : s.workerMode === 'inline' ? 'Inline' : 'Iniciando…'}{' '}
-        · UI {s.fpsUi} fps
-      </span>
+      {s.workerMode !== 'worker' && (
+        <span
+          className="small modebar-status"
+          title="La simulación corre en el hilo de la interfaz: puede ir más lenta"
+        >
+          {s.workerMode === 'inline' ? 'Sin worker' : 'Iniciando…'}
+        </span>
+      )}
     </div>
   );
 }

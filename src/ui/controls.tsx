@@ -87,11 +87,27 @@ export function Toggle(props: {
   );
 }
 
-export function Section(props: { title: string; children: ReactNode }) {
+/**
+ * A console section. `tip` is how to use it: shown on demand from a small ⓘ beside the title instead of a paragraph
+ * under the controls (decision 186); the console passes none in exam mode.
+ */
+export function Section(props: { title: string; tip?: string; children: ReactNode }) {
   return (
     <div className="section">
-      <h4>{props.title}</h4>
+      <h4>
+        {props.title}
+        {props.tip ? <InfoTip text={props.tip} /> : null}
+      </h4>
       {props.children}
     </div>
+  );
+}
+
+/** A small ⓘ that shows a usage note on hover or focus; its text is also its accessible name. */
+export function InfoTip({ text }: { text: string }) {
+  return (
+    <span className="info-tip" tabIndex={0} role="note" aria-label={text} data-tip={text}>
+      i
+    </span>
   );
 }

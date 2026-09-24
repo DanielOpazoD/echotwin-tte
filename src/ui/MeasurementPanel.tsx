@@ -91,7 +91,7 @@ export function MeasurementPanel() {
     <div className="protocol">
       {required.length > 0 && (
         <>
-          <div className="small">Requeridas por el caso</div>
+          <div className="protocol-cap">Requeridas por el caso</div>
           {required.map(row)}
         </>
       )}

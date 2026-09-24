@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 185 (última: 185).
+Decisiones: 186 (última: 186).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -193,3 +193,4 @@ Decisiones: 185 (última: 185).
 | [183](DECISIONS.md#L1245) | 2026-09-23 | Interfaz limpia, primera tanda: cimientos y armazón | vigente |
 | [184](DECISIONS.md#L1268) | 2026-09-23 | Interfaz limpia, segunda tanda: la pantalla del simulador | vigente |
 | [185](DECISIONS.md#L1280) | 2026-09-23 | Interfaz limpia, tercera tanda: los atajos a una tecla y el cursor de medir | vigente |
+| [186](DECISIONS.md#L1287) | 2026-09-23 | Interfaz limpia, cuarta tanda: menos texto en pantalla | vigente |

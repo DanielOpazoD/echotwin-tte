@@ -266,17 +266,15 @@ export function CutMapView() {
       }
     >
       <div className="torso-caption bottom">
-        {segmentsOn
-          ? 'Corte ecográfico · segmentos del VI'
-          : 'Corte ecográfico · plano de la imagen'}
+        {segmentsOn ? 'Corte ecográfico · segmentos' : 'Corte ecográfico'}
       </div>
       <div className="cut-map-hover" ref={hoverRef} aria-live="off" />
       <div className="torso-help cut">
         {segmentsOn
-          ? 'Segmentos del VI del tejido que corta el plano (no del nombre de la vista) · pasar el ratón: nombre · clic: seleccionar'
+          ? 'Pasar el ratón: nombre · clic: seleccionar'
           : labels
-            ? 'Estructuras que atraviesa el plano de la imagen, con sus nombres · pasar el ratón: nombre completo'
-            : 'Estructuras que atraviesa el plano de la imagen · pasar el ratón: nombre'}
+            ? 'Pasar el ratón: nombre completo'
+            : 'Pasar el ratón: nombre'}
       </div>
     </div>
   );

@@ -735,10 +735,6 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
         <b />
         <span />
       </div>
-      <div className="disclaimer">
-        Simulador educacional con pacientes sintéticos. No utilizar para diagnóstico ni toma de
-        decisiones clínicas reales.
-      </div>
     </div>
   );
 }
@@ -830,8 +826,9 @@ function drawOverlay(
       color.boxRMaxCm,
       '#57d38c',
     );
-    const bx = W - 22,
-      by = m.apexY + 20,
+    // below the telemetry the HUD prints in the top-right corner (two lines, ~60 px), clear of the focus marker
+    const bx = W - 30,
+      by = Math.max(m.apexY + 20, 76),
       bh = 90;
     const grad = ctx.createLinearGradient(0, by, 0, by + bh);
     grad.addColorStop(0, '#ffd23c');
@@ -841,12 +838,16 @@ function drawOverlay(
     grad.addColorStop(1, '#3ce0ff');
     ctx.fillStyle = grad;
     ctx.fillRect(bx, by, 8, bh);
-    ctx.fillStyle = '#9aa4b5';
-    ctx.font = '10px system-ui';
-    ctx.fillText(`${color.scaleMps.toFixed(2)}`, bx - 32, by);
-    ctx.fillText(`−${color.scaleMps.toFixed(2)}`, bx - 36, by + bh);
-    ctx.fillText('↑ hacia', bx - 44, by + bh / 2 - 8);
-    ctx.fillText('↓ desde', bx - 44, by + bh / 2 + 8);
+    ctx.fillStyle = '#b9c3d0';
+    ctx.font = '10px ui-monospace, SFMono-Regular, Menlo, monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(`+${color.scaleMps.toFixed(2)}`, bx - 5, by + 7);
+    ctx.fillText(`−${color.scaleMps.toFixed(2)}`, bx - 5, by + bh);
+    ctx.fillStyle = '#7f8a9a';
+    ctx.font = '9.5px system-ui, sans-serif';
+    ctx.fillText('hacia', bx - 5, by + bh / 2 - 6);
+    ctx.fillText('desde', bx - 5, by + bh / 2 + 12);
+    ctx.textAlign = 'left';
     ctx.font = '11px system-ui';
   }
   if (isStripModality(modality)) {
@@ -931,9 +932,8 @@ function drawOverlay(
     ctx.fillText('zona focal', m.apexX - 30, m.apexY + (settings.focusCm + 2.2) * m.pxPerCm);
   }
   if (ui.showEcg && hud.ecg.length > 3) {
-    // the band sits above the disclaimer caption along the bottom edge
     const eh = 30;
-    const ey = (modality === '2d' || modality === 'color' ? sectorH : H) - eh - 18;
+    const ey = (modality === '2d' || modality === 'color' ? sectorH : H) - eh - 6;
     const span = 3;
     const layout: EcgLayout = {
       x0: 8,
@@ -989,19 +989,13 @@ function drawOverlay(
       '#5cc8ff',
     );
   ctx.lineWidth = 1;
-  if (activeTool !== 'none') {
-    ctx.fillStyle = '#5cc8ff';
-    const spec = st.activeMeasurementId ? specFor(st.activeMeasurementId) : undefined;
-    const prefix = spec ? `${spec.shortLabel} · ` : '';
-    ctx.fillText(prefix + TOOL_HINT[activeTool], 8, 30);
-  }
   // review markers (decision 134): numbered, with the structure the model holds under each one
   if (ui.reviewMode) {
     ctx.fillStyle = '#ff6ad5';
     ctx.fillText(
       'Revisión: clic = marcar · arrastra un marcador para moverlo · Supr = borrar · Shift+clic = herramienta normal',
-      8,
-      activeTool !== 'none' ? 44 : 30,
+      12,
+      74,
     );
   }
   if (st.reviewLinkParentId) {
@@ -1009,8 +1003,8 @@ function drawOverlay(
     ctx.fillStyle = '#ffc857';
     ctx.fillText(
       `Punto secundario de ${parent ? parent.n : '?'}: clic para añadirlo · Esc termina`,
-      8,
-      activeTool !== 'none' ? 58 : 44,
+      12,
+      88,
     );
   }
   // links from each secondary point to its primary (decision 136), under the rings
@@ -1121,19 +1115,6 @@ function drawArcBox(
   ctx.stroke();
   ctx.lineWidth = 1;
 }
-
-const TOOL_HINT: Record<SimStore['activeTool'], string> = {
-  none: '',
-  caliper: 'Caliper: clic en 2 puntos (borde interno a borde interno)',
-  velocity: 'Velocidad: clic sobre el pico del espectro',
-  vti: 'VTI: clic a lo largo de la envolvente, doble clic para cerrar',
-  'auto-vti': 'VTI automático: clic al inicio y al final del latido sobre el espectro',
-  time: 'Tiempo: clic en 2 puntos',
-  slope: 'Tiempo de desaceleración: clic en el pico de E y luego sobre la pendiente',
-  simpson:
-    'Simpson: clic a lo largo del endocardio de anillo a anillo por el ápex, doble clic para cerrar',
-  tapse: 'TAPSE: clic en la posición telediastólica y telesistólica del anillo en el modo M',
-};
 
 function drawGeometry(
   ctx: CanvasRenderingContext2D,

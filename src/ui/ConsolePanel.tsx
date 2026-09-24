@@ -477,7 +477,12 @@ function DopplerTab() {
   return (
     <>
       {mod === 'color' && (
-        <Section title="Color Doppler">
+        <Section
+          title="Color Doppler"
+          tip={tip(
+            'Arrastra la caja para moverla; Shift+arrastrar la redimensiona; clic fuera crea otra.',
+          )}
+        >
           <Slider
             label="Ganancia color"
             value={s.color.gainDb}
@@ -538,14 +543,15 @@ function DopplerTab() {
               onChange={(v) => s.setColor({ wallFilterMps: v })}
             />
           </details>
-          <div className="small">
-            Arrastra la caja para moverla; Shift+arrastrar para redimensionar; clic fuera para crear
-            otra.
-          </div>
         </Section>
       )}
       {isSpectralModality(mod) && (
-        <Section title={MODALITIES[mod].name}>
+        <Section
+          title={MODALITIES[mod].name}
+          tip={tip(
+            `Clic o arrastrar sobre la imagen 2D mueve el cursor${mod !== 'cw' ? ' y el gate' : ''}.`,
+          )}
+        >
           <Slider
             label="Escala"
             value={s.spectral.scaleMps}
@@ -652,9 +658,6 @@ function DopplerTab() {
               />
             </div>
           </details>
-          <div className="small">
-            Clic/arrastrar sobre la imagen 2D mueve el cursor{mod !== 'cw' ? ' y el gate' : ''}.
-          </div>
         </Section>
       )}
       {mod === 'm-mode' && (
@@ -719,6 +722,7 @@ function MeasureTab() {
       setActiveTool: st.setActiveTool,
     })),
   );
+  const tip = useTip();
   const tools: { id: typeof s.activeTool; label: string; title?: string }[] = [
     { id: 'none', label: '—', title: 'Ninguna herramienta' },
     { id: 'caliper', label: 'Caliper', title: 'Distancia lineal (2D)' },
@@ -775,8 +779,10 @@ function MeasureTab() {
       <Section title="Protocolo de medición">
         <MeasurementPanel />
       </Section>
-      <Section title="Herramientas libres">
-        <div className="small">Sin evaluación de técnica:</div>
+      <Section
+        title="Herramientas libres"
+        tip={tip('Medidas sin evaluación de técnica. Congela (Espacio) y elige una herramienta.')}
+      >
         <div className="tool-grid" role="group" aria-label="Herramienta de medición">
           {tools.map((t) => (
             <button
@@ -807,9 +813,6 @@ function MeasureList({
 }) {
   return (
     <div className="measure-list">
-      {s.measurements.length === 0 && (
-        <div className="small">Sin mediciones. Congela (Espacio) y usa una herramienta.</div>
-      )}
       {s.measurements.map((m) => (
         <div key={m.id}>
           <span>

@@ -1,4 +1,5 @@
 import { useHudStore, useSegmentHover, useSegmentOrientation, useSimStore } from '@/app/store';
+import { InfoTip } from './controls';
 import { modePolicy } from '@/app/modePolicy';
 import { aha17Info, LV_AHA17, type LvSegmentInfo } from '@/clinical/segmentation/catalog';
 import type { SegmentCoverage } from '@/simulator/view-recognition/segmentCoverage';
@@ -273,11 +274,14 @@ export function SegmentPanel() {
       </ul>
       {upDeg !== null && (
         <div className="small segment-orientation">
-          ▲ Arriba en la imagen, hacia la sonda, queda la pared {wallAtPolarAngle(upDeg)} del mapa:
-          en un eje corto la posición horaria depende de la ventana, y los segmentos se reconocen
-          por las inserciones del VD.
-          {insertions &&
-            ' Los triángulos ámbar de la imagen marcan esas inserciones: el tabique (2, 3, 8 y 9) queda entre ellas.'}
+          ▲ Arriba en la imagen: pared {wallAtPolarAngle(upDeg)}
+          <InfoTip
+            text={`En un eje corto la posición horaria depende de la ventana; los segmentos se reconocen por las inserciones del VD.${
+              insertions
+                ? ' Los triángulos ámbar de la imagen marcan esas inserciones: el tabique (2, 3, 8 y 9) queda entre ellas.'
+                : ''
+            }`}
+          />
         </div>
       )}
       <div className="small segment-summary" aria-live="polite">
@@ -291,7 +295,7 @@ export function SegmentPanel() {
               ` · en el plano sin evaluar ${partial
                 .map((p) => `${p.segmentId} (${REASON_ES[p.reason ?? ''] ?? ''})`)
                 .join(', ')}`}
-            . Calculado del tejido que corta el plano, no del nombre de la vista.
+            .
           </>
         ) : (
           'Analizando el corte…'

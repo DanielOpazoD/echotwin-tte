@@ -1283,3 +1283,12 @@ Probado en el navegador a 1440 × 900 y a 1000 × 700: simulador en vivo y conge
 - **Cursor**: con una herramienta de medición armada, el puntero sobre la imagen es una cruz, como en el modo revisión; antes nada indicaba que el siguiente clic mediría.
 
 `ShortcutsDialog.test.tsx` cubre la apertura con la tecla fuera y dentro de un campo, el cierre por Escape y por botón, el contenido y la acción del menú.
+
+186. **2026-09-23 — Interfaz limpia, cuarta tanda: menos texto en pantalla**: Daniel pidió una experiencia premium, limpia e intuitiva, «sin mensajes innecesarios». Cada texto de ayuda que se leía una vez y después estorbaba pasa a un ⓘ bajo demanda o desaparece; lo que informa del estado se queda.
+
+- **Ayuda bajo demanda**: `Section` e `InfoTip` muestran la nota de uso en una burbuja al pasar el puntero o con el foco (su texto es también su nombre accesible). Así quedan la caja de color, el cursor espectral, las herramientas libres, las vistas predeterminadas y la orientación del eje corto en el panel de segmentos. En examen no hay notas, como antes.
+- **Fuera**: el párrafo de las vistas predeterminadas en reposo (sólo queda el aviso mientras la sonda se mueve, con «Detener»), «Sin mediciones…», «Sin evaluación de técnica», la coletilla «Calculado del tejido que corta el plano…», « · congelada» en el título (la píldora FREEZE y el marco ámbar ya lo dicen), la instrucción de la herramienta pintada sobre la imagen (la tarjeta «Midiendo» de la consola la da, y en la imagen chocaba con el título) y el estado técnico «Worker · UI n fps», que sólo aparece cuando la simulación corre sin worker.
+- **Más corto**: los rótulos y la leyenda del mapa del corte.
+- **Nada encima de la imagen que la tape**: el aviso educativo sale de la imagen a la barra inferior (en PW, CW, TDI y modo M tapaba la tira espectral); la frecuencia de cuadro se une al grupo de arriba a la derecha, y la vista reconocida va abajo a la derecha en 2D y color y arriba en los modos con tira (estaba sobre la escala de velocidad). La barra de color baja bajo ese grupo (su valor superior quedaba debajo), con los valores alineados a la derecha. El conmutador de segmentos baja 14 px bajo el título.
+
+Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui` y `src/app` pasan sin tocar nombres accesibles: el texto del aviso que exige la E2E sigue igual.
