@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 193 (última: 193).
+Decisiones: 194 (última: 194).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -201,3 +201,4 @@ Decisiones: 193 (última: 193).
 | [191](DECISIONS.md#L1312) | 2026-09-23 | Reproducir el cine congelado | vigente |
 | [192](DECISIONS.md#L1314) | 2026-09-23 | La imagen en reposo | vigente |
 | [193](DECISIONS.md#L1316) | 2026-09-23 | La barra inferior en ventanas medianas | vigente |
+| [194](DECISIONS.md#L1318) | 2026-09-23 | El modo revisión sin instrucciones sobre la imagen | vigente |

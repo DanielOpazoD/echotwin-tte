@@ -1014,22 +1014,18 @@ function drawOverlay(
       '#5cc8ff',
     );
   ctx.lineWidth = 1;
-  // review markers (decision 134): numbered, with the structure the model holds under each one
+  // review markers (decision 134): numbered, with the structure the model holds under each one. How to use the mode
+  // is in the console's review tab; the image carries only a tag that names the mode, above the ECG where the depth
+  // and gain steppers never go (decision 194), and the pending secondary point
   if (ui.reviewMode) {
+    const tagY = (modality === '2d' || modality === 'color' ? sectorH : H) - 50;
     ctx.fillStyle = '#ff6ad5';
     ctx.fillText(
-      'Revisión: clic = marcar · arrastra un marcador para moverlo · Supr = borrar · Shift+clic = herramienta normal',
+      st.reviewLinkParentId
+        ? `REVISIÓN · punto secundario de ${reviewMarkers.find((x) => x.id === st.reviewLinkParentId)?.n ?? '?'} · Esc termina`
+        : 'REVISIÓN',
       12,
-      74,
-    );
-  }
-  if (st.reviewLinkParentId) {
-    const parent = reviewMarkers.find((x) => x.id === st.reviewLinkParentId);
-    ctx.fillStyle = '#ffc857';
-    ctx.fillText(
-      `Punto secundario de ${parent ? parent.n : '?'}: clic para añadirlo · Esc termina`,
-      12,
-      88,
+      tagY,
     );
   }
   // links from each secondary point to its primary (decision 136), under the rings
