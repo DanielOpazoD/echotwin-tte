@@ -2626,3 +2626,18 @@ canvas.overlay.armed {
   aspect-ratio: 6 / 5;
   min-height: 0;
 }
+
+/* ---- the image at rest (decision 192): only what describes the image stays; the controls come with the pointer ---- */
+.img-seg:not(.on) {
+  opacity: 0;
+  transition: opacity 0.16s ease;
+}
+.display-wrap:hover .img-seg,
+.img-seg:focus-within {
+  opacity: 1;
+}
+@media (hover: none) {
+  .img-seg:not(.on) {
+    opacity: 1;
+  }
+}
