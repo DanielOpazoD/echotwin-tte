@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { useSimStore } from '@/app/store';
 
 /**
@@ -60,7 +60,6 @@ const STEPS: {
 ];
 
 const CARD_W = 320;
-const CARD_H = 210;
 const PAD = 6;
 
 interface Rect {
@@ -70,19 +69,45 @@ interface Rect {
   height: number;
 }
 
-/** Where the card goes for a framed target: beside it when there is room, under it otherwise. */
-function placeCard(r: Rect): { left: number; top: number; arrow: 'left' | 'right' | 'up' } {
+/**
+ * Where the card goes for a framed target: beside it when there is room, under it otherwise, never past the bottom
+ * of the window (`cardH` is the card as rendered); the arrow aims at the target's middle.
+ */
+function placeCard(
+  r: Rect,
+  cardH: number,
+): { left: number; top: number; arrow: 'left' | 'right' | 'up'; arrowAt: number } {
   const vw = window.innerWidth,
     vh = window.innerHeight;
-  const top = Math.max(12, Math.min(vh - CARD_H - 12, r.top - 4));
-  if (r.left + r.width + 16 + CARD_W < vw)
-    return { left: r.left + r.width + 16, top, arrow: 'left' };
-  if (r.left - 16 - CARD_W > 0) return { left: r.left - 16 - CARD_W, top, arrow: 'right' };
+  const top = Math.max(12, Math.min(vh - cardH - 12, r.top - 4));
+  const cy = r.top + r.height / 2;
+  if (r.left + r.width + 16 + CARD_W < vw) {
+    return {
+      left: r.left + r.width + 16,
+      top,
+      arrow: 'left',
+      arrowAt: clampArrow(cy - top, cardH),
+    };
+  }
+  if (r.left - 16 - CARD_W > 0) {
+    return {
+      left: r.left - 16 - CARD_W,
+      top,
+      arrow: 'right',
+      arrowAt: clampArrow(cy - top, cardH),
+    };
+  }
+  const left = Math.max(12, Math.min(vw - CARD_W - 12, r.left));
   return {
-    left: Math.max(12, Math.min(vw - CARD_W - 12, r.left)),
-    top: Math.min(vh - CARD_H - 12, r.top + r.height + 16),
+    left,
+    top: Math.max(12, Math.min(vh - cardH - 12, r.top + r.height + 16)),
     arrow: 'up',
+    arrowAt: clampArrow(r.left + r.width / 2 - left, CARD_W),
   };
+}
+
+function clampArrow(at: number, extent: number): number {
+  return Math.max(14, Math.min(extent - 20, at - 6));
 }
 
 function sameRect(a: Rect | null, b: Rect | null): boolean {
@@ -103,6 +128,10 @@ export function Tutorial() {
   const [step, setStep] = useState(0);
   const [open, setOpen] = useState(!done);
   const [rect, setRect] = useState<Rect | null>(null);
+  const [cardH, setCardH] = useState(240);
+  const card = useRef<HTMLDivElement>(null);
+  /** the console tab when the tour began: steps open tabs, and the learner gets theirs back at the end */
+  const tabAtStart = useRef(useSimStore.getState().ui.consoleTab);
 
   // the anchor of the step: measured when the step changes, on resize, and a few times a second while the layout
   // may still be settling (a console tab opening, the navigator arriving)
@@ -130,11 +159,17 @@ export function Tutorial() {
     };
   }, [open, step]);
 
+  // the card's own height, once drawn, so it never runs past the bottom of the window
+  useLayoutEffect(() => {
+    const h = card.current?.offsetHeight;
+    if (h && h !== cardH) setCardH(h);
+  }, [step, rect, cardH]);
+
   if (!open) return null;
   const s = STEPS[step]!;
-  const place = rect ? placeCard(rect) : null;
+  const place = rect ? placeCard(rect, cardH) : null;
   const finish = () => {
-    setUi({ tutorialDone: true });
+    setUi({ tutorialDone: true, consoleTab: tabAtStart.current });
     setOpen(false);
   };
   return (
@@ -152,10 +187,19 @@ export function Tutorial() {
         />
       )}
       <div
+        ref={card}
         className={`tutorial${place ? ` arrow-${place.arrow}` : ' centered'}`}
         role="dialog"
         aria-label="Tutorial de controles"
-        style={place ? { left: place.left, top: place.top } : undefined}
+        style={
+          place
+            ? ({
+                left: place.left,
+                top: place.top,
+                '--arrow-at': `${place.arrowAt}px`,
+              } as React.CSSProperties)
+            : undefined
+        }
       >
         <div className="tut-head">
           <span className="tut-kicker">

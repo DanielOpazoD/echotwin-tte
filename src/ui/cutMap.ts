@@ -276,27 +276,30 @@ export function paintStructureOutline(
   rgb: Rgb = ACCENT_RGB,
 ): number {
   const n = lut.length;
+  // whether each pixel belongs to the structure, once; then the edges in one pass
+  const mine = new Uint8Array(n);
+  for (let i = 0; i < n; i++) if (lut[i]! >= 0 && (structure[lut[i]!] ?? 0) === id) mine[i] = 1;
+  const paint = (j: number) => {
+    const o = j * 4;
+    rgba[o] = rgb[0];
+    rgba[o + 1] = rgb[1];
+    rgba[o + 2] = rgb[2];
+    rgba[o + 3] = 235;
+  };
   let drawn = 0;
-  const idAt = (i: number): number =>
-    i >= 0 && i < n && lut[i]! >= 0 ? (structure[lut[i]!] ?? 0) : -1;
   for (let i = 0; i < n; i++) {
-    if (idAt(i) !== id) continue;
+    if (!mine[i]) continue;
     const x = i % width;
-    const edge =
-      (x > 0 ? idAt(i - 1) : -1) !== id ||
-      (x < width - 1 ? idAt(i + 1) : -1) !== id ||
-      idAt(i - width) !== id ||
-      idAt(i + width) !== id;
-    if (!edge) continue;
-    for (const j of [i, i - 1, i + 1, i - width, i + width]) {
-      if (j < 0 || j >= n) continue;
-      if ((j === i - 1 && x === 0) || (j === i + 1 && x === width - 1)) continue;
-      const o = j * 4;
-      rgba[o] = rgb[0];
-      rgba[o + 1] = rgb[1];
-      rgba[o + 2] = rgb[2];
-      rgba[o + 3] = 235;
-    }
+    const left = x > 0 && mine[i - 1] === 1;
+    const right = x < width - 1 && mine[i + 1] === 1;
+    const up = i >= width && mine[i - width] === 1;
+    const down = i + width < n && mine[i + width] === 1;
+    if (left && right && up && down) continue;
+    paint(i);
+    if (x > 0) paint(i - 1);
+    if (x < width - 1) paint(i + 1);
+    if (i >= width) paint(i - width);
+    if (i + width < n) paint(i + width);
     drawn++;
   }
   return drawn;

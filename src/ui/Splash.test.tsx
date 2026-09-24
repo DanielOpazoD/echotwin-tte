@@ -40,17 +40,42 @@ describe('the start screen', () => {
     expect(items).toEqual(['Motor de simulaciónen el hilo de la interfaz', 'Primera imagen']);
   });
 
+  it('leaves on an error, so the banner is never under it, and after 15 s whatever happens', () => {
+    vi.useFakeTimers();
+    render(<Splash />);
+    act(() => useSimStore.getState().setError('el worker no arrancó'));
+    expect(document.querySelector('.splash')?.className).toContain('leaving');
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+    expect(document.querySelector('.splash')).toBeNull();
+    cleanup();
+    useSimStore.setState(initialSim, true);
+    render(<Splash />);
+    act(() => {
+      vi.advanceTimersByTime(14_000);
+    });
+    expect(document.querySelector('.splash')?.className).not.toContain('leaving');
+    act(() => {
+      vi.advanceTimersByTime(1_500);
+    });
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+    expect(document.querySelector('.splash')).toBeNull();
+  });
+
   it('fades out once the first frame arrives and is gone 380 ms later', () => {
     vi.useFakeTimers();
     render(<Splash />);
     act(() => {
       useHudStore.setState({ hud: { stats: { gpu: 'ok' } } as never });
     });
-    expect(screen.getByRole('status').className).toContain('leaving');
-    expect(screen.getByRole('status').textContent).toContain('trazado en la GPU');
+    expect(document.querySelector('.splash')?.className).toContain('leaving');
+    expect(document.querySelector('.splash')?.textContent).toContain('trazado en la GPU');
     act(() => {
       vi.advanceTimersByTime(400);
     });
-    expect(screen.queryByRole('status')).toBeNull();
+    expect(document.querySelector('.splash')).toBeNull();
   });
 });

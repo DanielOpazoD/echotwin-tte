@@ -246,8 +246,11 @@ export function CutMapView() {
         return;
       }
       const id = k >= 0 ? (out.structure[k] ?? 0) : -1;
-      // the structure under the pointer lights up here and is outlined on the image (decision 202)
-      useStructureHover.getState().setHover(id > 0 ? id : null);
+      // the structure under the pointer lights up here and is outlined on the image (decision 202); with the segment
+      // layer on, the map paints segments and the structure is not lit, so the image does not outline it either
+      useStructureHover
+        .getState()
+        .setHover(id > 0 && !segmentLayerOn(useSimStore.getState()) ? id : null);
       hover.textContent = id > 0 ? (STRUCTURE_LABELS[id] ?? '') : '';
     };
     const onClick = (e: MouseEvent) => {
@@ -270,6 +273,9 @@ export function CutMapView() {
       unsubStore();
       unsubHover();
       unsubStructHover();
+      // the map can unmount with the pointer over it (split off, rail hidden): nothing fires mouseleave then
+      useSegmentHover.getState().setHover(null, 'cut');
+      useStructureHover.getState().setHover(null);
       ro.disconnect();
       canvas.removeEventListener('mousemove', onMove);
       canvas.removeEventListener('mouseleave', onLeave);

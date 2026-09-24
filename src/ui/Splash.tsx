@@ -11,8 +11,16 @@ export function Splash() {
   const workerMode = useSimStore((s) => s.workerMode);
   const navigatorReady = useSimStore((s) => s.navigatorReady);
   const showTorso = useSimStore((s) => s.ui.showTorso && !s.ui.minimal);
+  const error = useSimStore((s) => s.error);
   const [gone, setGone] = useState(false);
-  const leaving = hud !== null;
+  const [waitedTooLong, setWaitedTooLong] = useState(false);
+  // an error banner must never sit under the splash (decision 206): it leaves on the first frame, on an error, and
+  // after 15 s whatever happens
+  useEffect(() => {
+    const id = window.setTimeout(() => setWaitedTooLong(true), 15_000);
+    return () => window.clearTimeout(id);
+  }, []);
+  const leaving = hud !== null || error !== null || waitedTooLong;
   useEffect(() => {
     if (!leaving || gone) return;
     const id = window.setTimeout(() => setGone(true), 380);
@@ -30,7 +38,12 @@ export function Splash() {
     { label: 'Primera imagen', done: hud !== null, detail: gpu || undefined },
   ];
   return (
-    <div className={`splash${leaving ? ' leaving' : ''}`} role="status" aria-label="Arrancando">
+    <div
+      className={`splash${leaving ? ' leaving' : ''}`}
+      role="status"
+      aria-label="Arrancando"
+      aria-hidden={leaving || undefined}
+    >
       <div className="splash-card">
         <div className="splash-brand">
           <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">

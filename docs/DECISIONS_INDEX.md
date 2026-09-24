@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 205 (última: 205).
+Decisiones: 206 (última: 206).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -213,3 +213,4 @@ Decisiones: 205 (última: 205).
 | [203](DECISIONS.md#L1352) | 2026-09-24 | El arranque con marca | vigente |
 | [204](DECISIONS.md#L1354) | 2026-09-24 | El tutorial como foco | vigente |
 | [205](DECISIONS.md#L1356) | 2026-09-24 | Modo sala | vigente |
+| [206](DECISIONS.md#L1358) | 2026-09-24 | Lo que encontró la revisión de 202–205 | vigente |

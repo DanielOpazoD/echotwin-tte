@@ -2823,7 +2823,7 @@ canvas.overlay.armed {
 }
 .tutorial.centered {
   left: 50%;
-  top: 14px;
+  top: 54px;
   transform: translateX(-50%);
 }
 .tutorial::before {
@@ -2839,20 +2839,27 @@ canvas.overlay.armed {
 .tutorial.arrow-left::before {
   display: block;
   left: -7px;
-  top: 18px;
+  top: var(--arrow-at, 18px);
   transform: rotate(-45deg);
 }
 .tutorial.arrow-right::before {
   display: block;
   right: -7px;
-  top: 18px;
+  top: var(--arrow-at, 18px);
   transform: rotate(135deg);
 }
 .tutorial.arrow-up::before {
   display: block;
   top: -7px;
-  left: 22px;
+  left: var(--arrow-at, 22px);
   transform: rotate(45deg);
+}
+/* the spotlit control is not dimmed by room mode while the tour runs */
+.app.room:has(.tour-hole) .topbar,
+.app.room:has(.tour-hole) .left,
+.app.room:has(.tour-hole) .right,
+.app.room:has(.tour-hole) .modebar {
+  opacity: 1;
 }
 
 /* ---- room mode (decision 205): the frame dims, the image keeps its light, a panel wakes under the pointer ---- */

@@ -1235,11 +1235,12 @@ function drawValueChip(
 }
 
 /** Pixel-to-sample table and layer for the outline of the hovered structure, kept while the geometry stays. */
-const structLayer: { key: string; lut: Int32Array | null; canvas: HTMLCanvasElement | null } = {
-  key: '',
-  lut: null,
-  canvas: null,
-};
+const structLayer: {
+  key: string;
+  lut: Int32Array | null;
+  canvas: HTMLCanvasElement | null;
+  img: ImageData | null;
+} = { key: '', lut: null, canvas: null, img: null };
 
 /**
  * The structure under the pointer on the cut map, outlined on the image in the accent (decision 202): the learner
@@ -1254,14 +1255,16 @@ function drawStructureOutline(ctx: CanvasRenderingContext2D, hud: SimOutput): vo
   const w = Math.round(m.width),
     h = Math.round(m.height);
   const key = `${p.lines}x${p.samples}|${p.sectorRad.toFixed(4)}|${p.depthCm}|${w}x${h}|${m.apexX.toFixed(1)},${m.apexY.toFixed(1)}|${m.pxPerCm.toFixed(3)}|${m.invertLR ? 1 : 0}`;
-  if (key !== structLayer.key || !structLayer.lut || !structLayer.canvas) {
+  if (key !== structLayer.key || !structLayer.lut || !structLayer.canvas || !structLayer.img) {
     structLayer.lut = nearestSampleLut(p, { ...m, width: w, height: h });
     structLayer.canvas = document.createElement('canvas');
     structLayer.canvas.width = w;
     structLayer.canvas.height = h;
+    structLayer.img = new ImageData(w, h);
     structLayer.key = key;
   }
-  const img = new ImageData(w, h);
+  const img = structLayer.img;
+  img.data.fill(0);
   if (!paintStructureOutline(img.data, structLayer.lut, hud.structure, w, id)) return;
   const off = structLayer.canvas.getContext('2d');
   if (!off) return;
