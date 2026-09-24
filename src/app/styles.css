@@ -2641,3 +2641,23 @@ canvas.overlay.armed {
     opacity: 1;
   }
 }
+/* the mode bar never wraps a label: at 1105 px «Torso 3D» broke in two lines and doubled the bar's height; the
+   disclaimer, which ellipsises, gives way first */
+.modebar button,
+.modebar .cine .small {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.modebar .disclaimer {
+  flex: 0 1000 auto;
+}
+/* frozen, the cine slider is what gives way after the disclaimer: at 1105 px the bar overflowed by 12 px */
+.modebar .cine {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.modebar .cine input[type='range'] {
+  width: auto;
+  flex: 1 1 180px;
+  min-width: 70px;
+}

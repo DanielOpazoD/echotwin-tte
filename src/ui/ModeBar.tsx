@@ -79,7 +79,10 @@ export function ModeBar() {
       )}
       <span className="spacer" style={{ flex: 1 }} />
       {/* off the image: in the Doppler modes it covered the spectral strip */}
-      <span className="disclaimer">
+      <span
+        className="disclaimer"
+        title="Simulador educacional con pacientes sintéticos · no apto para diagnóstico"
+      >
         Simulador educacional con pacientes sintéticos · no apto para diagnóstico
       </span>
       <button
