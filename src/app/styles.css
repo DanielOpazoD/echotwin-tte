@@ -417,10 +417,12 @@ select:hover {
 .center {
   grid-column: 2;
   position: relative;
-  background: #000;
+  background: var(--bg);
   display: flex;
   flex-direction: column;
   min-width: 0;
+  padding: 8px;
+  gap: 8px;
 }
 .right {
   grid-column: 3;
@@ -696,6 +698,11 @@ select:hover {
   position: relative;
   flex: 1;
   min-height: 0;
+  /* the stage (decision 209): the image sits in a rounded black card with a hairline, not bleeding into the chrome */
+  background: #000;
+  border-radius: 12px;
+  border: 1px solid var(--hairline);
+  overflow: hidden;
 }
 .display-wrap canvas {
   position: absolute;
@@ -2962,4 +2969,60 @@ canvas.overlay.armed {
 .topbar select:hover {
   background-color: var(--panel-3);
   color: var(--text);
+}
+
+/* ---- sliding indicators (decision 209): the chosen option is a pill that travels, not a fill that jumps ---- */
+.nav-seg,
+.seg-bar,
+.console-tabs {
+  position: relative;
+}
+.nav-seg > button,
+.seg-bar > button,
+.console-tabs > button {
+  position: relative;
+  z-index: 1;
+}
+.seg-pill {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 0;
+  border-radius: 7px;
+  background: var(--panel-4);
+  box-shadow: var(--shadow-1);
+  pointer-events: none;
+  transition:
+    transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
+    width 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.seg-pill.accent {
+  background: var(--accent-soft);
+  box-shadow: none;
+}
+.nav-seg:has(.seg-pill) > button.active,
+.seg-bar:has(.seg-pill) > button.active {
+  background: transparent;
+  box-shadow: none;
+}
+.tab-ink {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--accent);
+  pointer-events: none;
+  transition:
+    transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
+    width 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.console-tabs:has(.tab-ink) > button.on::after {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .seg-pill,
+  .tab-ink {
+    transition: none;
+  }
 }
