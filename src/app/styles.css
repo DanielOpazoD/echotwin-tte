@@ -2661,3 +2661,12 @@ canvas.overlay.armed {
   flex: 1 1 180px;
   min-width: 70px;
 }
+/* while three.js loads, its placeholder holds the navigator's place: the guide and segment headers stayed at the top
+   of the rail and jumped down when the torso arrived, and the text sat under the collapse button (decision 196) */
+.rail-main > .torso.small {
+  flex: 1;
+  min-height: 200px;
+  display: grid;
+  place-items: center;
+  color: var(--faint);
+}
