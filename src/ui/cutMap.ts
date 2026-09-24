@@ -17,6 +17,25 @@ export interface PolarGeometry {
 
 /** Sector background: soft tissue the model does not name. Outside the sector the canvas shows its own colour. */
 const NONE_RGB: Rgb = [46, 50, 60];
+/** The panel behind the map: the outlines and the muted palette lean towards it. */
+const INK_RGB: Rgb = [10, 13, 18];
+/** The interface's accent (`--accent`): the outline of the structure under the pointer. */
+export const ACCENT_RGB: Rgb = [92, 200, 255];
+
+/**
+ * The cut map's own palette (decision 202): the shared structure colours, a quarter less saturated and leaning a
+ * little towards the panel, so the map reads as a drawing of the interface and not as a poster beside the image.
+ * The offline slice maps keep the full colours.
+ */
+export const CUT_MAP_RGB: Partial<Record<Structure, Rgb>> = Object.fromEntries(
+  Object.entries(STRUCTURE_RGB).map(([k, c]) => [k, muted(c)]),
+);
+
+function muted([r, g, b]: Rgb): Rgb {
+  const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+  const mix = (v: number, ink: number) => Math.round((v * 0.75 + lum * 0.25) * 0.88 + ink * 0.12);
+  return [mix(r, INK_RGB[0]), mix(g, INK_RGB[1]), mix(b, INK_RGB[2])];
+}
 
 /** Polar index of the sample nearest to each pixel (−1 outside the sector). */
 export function nearestSampleLut(p: PolarGeometry, m: SectorMapping): Int32Array {
@@ -61,14 +80,20 @@ export interface RegionStat {
   maxY: number;
 }
 
-/** Paints the structure colours into `rgba` (w×h, premultiplied nothing) and returns the regions found. */
+/**
+ * Paints the structure colours into `rgba` (w×h, premultiplied nothing) and returns the regions found. A thin dark
+ * outline separates neighbouring structures, and the structure under the pointer (`hovered`) is lit and outlined in
+ * the accent (decision 202).
+ */
 export function paintCutMap(
   rgba: Uint8ClampedArray,
   lut: Int32Array,
   structure: Uint8Array,
   width: number,
+  hovered: number | null = null,
 ): RegionStat[] {
   const n = lut.length;
+  const ids = new Uint8Array(n);
   const count = new Float64Array(256);
   const sx = new Float64Array(256);
   const sy = new Float64Array(256);
@@ -82,10 +107,12 @@ export function paintCutMap(
       continue;
     }
     const id: Structure = structure[k] ?? 0;
-    const c = STRUCTURE_RGB[id] ?? NONE_RGB;
-    rgba[o] = c[0];
-    rgba[o + 1] = c[1];
-    rgba[o + 2] = c[2];
+    ids[i] = id;
+    const c = CUT_MAP_RGB[id] ?? NONE_RGB;
+    const lit = hovered !== null && id === hovered;
+    rgba[o] = lit ? c[0] + (255 - c[0]) * 0.28 : c[0];
+    rgba[o + 1] = lit ? c[1] + (255 - c[1]) * 0.28 : c[1];
+    rgba[o + 2] = lit ? c[2] + (255 - c[2]) * 0.28 : c[2];
     rgba[o + 3] = 255;
     const y = (i / width) | 0;
     count[id]! += 1;
@@ -93,6 +120,25 @@ export function paintCutMap(
     sy[id]! += y;
     if (y < minY[id]!) minY[id] = y;
     if (y > maxY[id]!) maxY[id] = y;
+  }
+  // outlines: a pixel whose right or lower neighbour belongs to another structure darkens; beside the hovered one it
+  // takes the accent
+  for (let i = 0; i < n; i++) {
+    if (lut[i]! < 0) continue;
+    const id = ids[i]!;
+    const right = i % width < width - 1 && lut[i + 1]! >= 0 ? ids[i + 1]! : id;
+    const below = i + width < n && lut[i + width]! >= 0 ? ids[i + width]! : id;
+    if (right === id && below === id) continue;
+    const o = i * 4;
+    if (hovered !== null && (id === hovered || right === hovered || below === hovered)) {
+      rgba[o] = ACCENT_RGB[0];
+      rgba[o + 1] = ACCENT_RGB[1];
+      rgba[o + 2] = ACCENT_RGB[2];
+    } else {
+      rgba[o] = rgba[o]! * 0.45 + INK_RGB[0] * 0.55;
+      rgba[o + 1] = rgba[o + 1]! * 0.45 + INK_RGB[1] * 0.55;
+      rgba[o + 2] = rgba[o + 2]! * 0.45 + INK_RGB[2] * 0.55;
+    }
   }
   const stats: RegionStat[] = [];
   for (let id = 1; id < 256; id++) {
@@ -215,4 +261,43 @@ export function withoutOverlaps<T extends { text: string; x: number; y: number }
     kept.push(l);
   }
   return kept;
+}
+
+/**
+ * The outline of one structure of the frame on a transparent layer the image overlay draws (decision 202): the
+ * pixels of `id` that touch another structure, the outside of the sector or the sector's edge, two pixels wide.
+ */
+export function paintStructureOutline(
+  rgba: Uint8ClampedArray,
+  lut: Int32Array,
+  structure: Uint8Array,
+  width: number,
+  id: number,
+  rgb: Rgb = ACCENT_RGB,
+): number {
+  const n = lut.length;
+  let drawn = 0;
+  const idAt = (i: number): number =>
+    i >= 0 && i < n && lut[i]! >= 0 ? (structure[lut[i]!] ?? 0) : -1;
+  for (let i = 0; i < n; i++) {
+    if (idAt(i) !== id) continue;
+    const x = i % width;
+    const edge =
+      (x > 0 ? idAt(i - 1) : -1) !== id ||
+      (x < width - 1 ? idAt(i + 1) : -1) !== id ||
+      idAt(i - width) !== id ||
+      idAt(i + width) !== id;
+    if (!edge) continue;
+    for (const j of [i, i - 1, i + 1, i - width, i + width]) {
+      if (j < 0 || j >= n) continue;
+      if ((j === i - 1 && x === 0) || (j === i + 1 && x === width - 1)) continue;
+      const o = j * 4;
+      rgba[o] = rgb[0];
+      rgba[o + 1] = rgb[1];
+      rgba[o + 2] = rgb[2];
+      rgba[o + 3] = 235;
+    }
+    drawn++;
+  }
+  return drawn;
 }

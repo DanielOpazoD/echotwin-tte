@@ -238,6 +238,12 @@ export function imageSegmentsOn(s: Pick<SimStore, 'mode' | 'ui'>): boolean {
  * The LV segment under the pointer, wherever it is — the image, the cut map, the 3D heart or the polar map — so the
  * others highlight it too (decision 153). Its own store: it changes as the mouse moves and is never persisted.
  */
+/** The structure under the pointer on the cut map (decision 202): the image outlines it in return. */
+export const useStructureHover = create<{
+  id: number | null;
+  setHover: (id: number | null) => void;
+}>((set) => ({ id: null, setHover: (id) => set((s) => (s.id === id ? s : { id })) }));
+
 export const useSegmentHover = create<{
   id: number | null;
   source: 'image' | 'cut' | 'heart' | 'polar' | null;

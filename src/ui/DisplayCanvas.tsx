@@ -6,6 +6,7 @@ import {
   useSegmentHover,
   useSegmentOrientation,
   useSimStore,
+  useStructureHover,
   type SimStore,
 } from '@/app/store';
 import type { SimOutput } from '@/simulator/core/protocol';
@@ -26,7 +27,7 @@ import {
   type CaptureExtras,
 } from '@/app/measurementCapture';
 import { markerLabel, structureLabel, type ReviewMarker } from '@/app/review';
-import { nearestSampleLut, placeLabels } from './cutMap';
+import { nearestSampleLut, paintStructureOutline, placeLabels } from './cutMap';
 import {
   paintSegmentOverlay,
   sampleIndexAt,
@@ -166,10 +167,13 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
     const unsubStore = useSimStore.subscribe(redrawOverlay);
     // the segment under the pointer in another view (cut map, 3D heart, polar map) is highlighted here too
     const unsubHover = useSegmentHover.subscribe(redrawOverlay);
+    // the structure under the pointer on the cut map is outlined here (decision 202)
+    const unsubStructHover = useStructureHover.subscribe(redrawOverlay);
     return () => {
       unsubFrame();
       unsubStore();
       unsubHover();
+      unsubStructHover();
     };
   }, []);
 
@@ -795,6 +799,7 @@ function drawOverlay(
   ctx.clearRect(0, 0, W, H);
   if (imageSegmentsOn(st)) drawSegmentLayer(ctx, hud, st);
   else useSegmentOrientation.getState().set(null, false);
+  drawStructureOutline(ctx, hud);
   const m = hud.sector;
   ctx.font = canvasFont(11);
   ctx.textBaseline = 'middle';
@@ -1227,6 +1232,41 @@ function drawValueChip(
   ctx.textBaseline = 'middle';
   ctx.fillText(text, left + 6, top + h / 2 + 0.5);
   ctx.font = font;
+}
+
+/** Pixel-to-sample table and layer for the outline of the hovered structure, kept while the geometry stays. */
+const structLayer: { key: string; lut: Int32Array | null; canvas: HTMLCanvasElement | null } = {
+  key: '',
+  lut: null,
+  canvas: null,
+};
+
+/**
+ * The structure under the pointer on the cut map, outlined on the image in the accent (decision 202): the learner
+ * points at «AI» on the drawing and sees where the atrium is in the echo. Nothing is drawn while nothing is pointed at.
+ */
+function drawStructureOutline(ctx: CanvasRenderingContext2D, hud: SimOutput): void {
+  const id = useStructureHover.getState().id;
+  if (id === null) return;
+  const m = hud.sector;
+  const p = hud.polar;
+  if (hud.structure.length !== p.lines * p.samples || m.width < 8 || m.height < 8) return;
+  const w = Math.round(m.width),
+    h = Math.round(m.height);
+  const key = `${p.lines}x${p.samples}|${p.sectorRad.toFixed(4)}|${p.depthCm}|${w}x${h}|${m.apexX.toFixed(1)},${m.apexY.toFixed(1)}|${m.pxPerCm.toFixed(3)}|${m.invertLR ? 1 : 0}`;
+  if (key !== structLayer.key || !structLayer.lut || !structLayer.canvas) {
+    structLayer.lut = nearestSampleLut(p, { ...m, width: w, height: h });
+    structLayer.canvas = document.createElement('canvas');
+    structLayer.canvas.width = w;
+    structLayer.canvas.height = h;
+    structLayer.key = key;
+  }
+  const img = new ImageData(w, h);
+  if (!paintStructureOutline(img.data, structLayer.lut, hud.structure, w, id)) return;
+  const off = structLayer.canvas.getContext('2d');
+  if (!off) return;
+  off.putImageData(img, 0, 0);
+  ctx.drawImage(structLayer.canvas, m.x, m.y);
 }
 
 /**

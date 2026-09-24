@@ -1126,6 +1126,8 @@ select:hover {
   flex: 1 1 100%;
   min-height: 0;
   position: relative;
+  /* the room behind the torso (decision 202): the renderer draws transparent over this */
+  background: radial-gradient(120% 90% at 50% 32%, #1b212b 0%, #0f1319 62%, #0b0e13 100%);
 }
 .torso-wrap.split .torso-3d {
   flex: 1 1 50%;

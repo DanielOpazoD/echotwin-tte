@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 201 (última: 201).
+Decisiones: 202 (última: 202).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -209,3 +209,4 @@ Decisiones: 201 (última: 201).
 | [199](DECISIONS.md#L1337) | 2026-09-24 | Un solo tooltip | vigente |
 | [200](DECISIONS.md#L1339) | 2026-09-24 | Artesanía sobre la imagen | vigente |
 | [201](DECISIONS.md#L1341) | 2026-09-24 | Lo que encontró la revisión de 198–200 | vigente |
+| [202](DECISIONS.md#L1350) | 2026-09-24 | Acabado del navegador 3D y del mapa del corte | vigente |
