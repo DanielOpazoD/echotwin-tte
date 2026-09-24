@@ -39,7 +39,7 @@ export function TopBar() {
       </span>
       <span
         className={`run-state ${s.frozen ? 'frozen' : 'live'}`}
-        title={
+        data-tip={
           s.frozen ? 'Imagen congelada (Espacio reanuda)' : 'Adquisición en vivo (Espacio congela)'
         }
       >
@@ -63,7 +63,7 @@ export function TopBar() {
         aria-label="Modo del producto"
         value={s.mode}
         onChange={(e) => s.setMode(e.target.value as typeof s.mode)}
-        title="Sandbox: todo abierto. Guiada: una vista objetivo con ayudas. Examen: sin ayudas ni presets"
+        data-tip="Sandbox: todo abierto. Guiada: una vista objetivo con ayudas. Examen: sin ayudas ni presets"
       >
         <option value="sandbox">Sandbox</option>
         <option value="guided">Adquisición guiada</option>
@@ -73,7 +73,7 @@ export function TopBar() {
         aria-label="Calidad"
         value={s.quality}
         onChange={(e) => s.setQuality(e.target.value as typeof s.quality)}
-        title="Nivel de calidad: resolución del trazado y, en alta, el grosor del corte (tres planos de elevación); no altera la fisiología. Automática: la calibrada contra imágenes clínicas cuando la GPU forma la imagen, media con el trazador de CPU"
+        data-tip="Nivel de calidad: resolución del trazado y, en alta, el grosor del corte (tres planos de elevación); no altera la fisiología. Automática: la calibrada contra imágenes clínicas cuando la GPU forma la imagen, media con el trazador de CPU"
       >
         <option value="auto">Calidad automática</option>
         <option value="low">Calidad baja</option>

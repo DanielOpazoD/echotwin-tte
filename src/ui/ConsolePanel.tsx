@@ -1,5 +1,5 @@
 import { hasGate, isSpectralModality, MODALITIES } from '@/simulator/renderer/modality';
-import { useEffect, useRef, type KeyboardEvent, type ReactNode } from 'react';
+import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { useSimStore, type ConsoleTab, type SimStore } from '@/app/store';
 import { useShallow } from 'zustand/shallow';
 import { modePolicy } from '@/app/modePolicy';
@@ -10,6 +10,7 @@ import { listCases } from '@/cases';
 import { PresetViews } from './PresetViews';
 import { MeasurementPanel } from './MeasurementPanel';
 import { ArtifactLab } from './ArtifactLab';
+import { formatMHz } from './format';
 import { ReviewPanel } from './ReviewPanel';
 import { IconAcquire, IconDoppler, IconImage, IconLab, IconMeasure, IconReview } from './icons';
 
@@ -131,6 +132,7 @@ export function ConsolePanel() {
       </div>
       <div className="console-scroll">
         <div
+          key={active}
           role="tabpanel"
           id={`console-panel-${active}`}
           aria-labelledby={`console-tab-${active}`}
@@ -314,7 +316,7 @@ function ImageTab() {
         max={5}
         step={0.25}
         unit=" MHz"
-        format={(v) => `${v.toFixed(2)} MHz`}
+        format={formatMHz}
         onChange={(v) => s.setSettings({ frequencyMHz: v })}
         title={tip('Mayor frecuencia = más resolución, menos penetración.')}
       />
@@ -787,7 +789,7 @@ function MeasureTab() {
       >
         <div className="tool-grid" role="group" aria-label="Herramienta de medición">
           {tools.map((t) => (
-            <button key={t.id} title={t.title} onClick={() => s.setActiveTool(t.id)}>
+            <button key={t.id} data-tip={t.title} onClick={() => s.setActiveTool(t.id)}>
               {t.label}
             </button>
           ))}
@@ -806,24 +808,56 @@ function MeasureList({
   s: Pick<SimStore, 'measurements' | 'removeMeasurement'>;
   showView: boolean;
 }) {
+  const line = (m: SimStore['measurements'][number]) =>
+    `${m.value.toFixed(m.kind === 'time' || m.kind === 'volume' ? 0 : 2)} ${m.units}` +
+    (m.derived?.gradientMmHg !== undefined ? ` · ${m.derived.gradientMmHg.toFixed(0)} mmHg` : '') +
+    (m.derived?.meanGradientMmHg !== undefined
+      ? ` · media ${m.derived.meanGradientMmHg.toFixed(0)} mmHg`
+      : '');
+  const [status, setStatus] = useState<string | null>(null);
+  const statusTimer = useRef<number | null>(null);
+  useEffect(() => () => window.clearTimeout(statusTimer.current ?? undefined), []);
+  const copy = async () => {
+    const text = s.measurements.map((m) => `${m.label}: ${line(m)}`).join('\n');
+    // the browser says whether it took the text: over plain http there is no clipboard at all (decision 201)
+    try {
+      await navigator.clipboard.writeText(text);
+      setStatus('Copiadas');
+    } catch {
+      setStatus('El navegador no dejó copiar');
+    }
+    window.clearTimeout(statusTimer.current ?? undefined);
+    statusTimer.current = window.setTimeout(() => setStatus(null), 2500);
+  };
+  if (!s.measurements.length) return null;
   return (
     <div className="measure-list">
+      {/* the figures in a column of their own, and the list as text for a report (decision 200) */}
+      <div className="measure-head">
+        {status && (
+          <span className="small" role="status">
+            {status}
+          </span>
+        )}
+        <button className="ghost" onClick={() => void copy()}>
+          Copiar mediciones
+        </button>
+      </div>
       {s.measurements.map((m) => (
-        <div key={m.id}>
-          <span>
-            {m.label} ({m.modality}
-            {showView && m.sourceViewId ? `, ${m.sourceViewId}` : ''})
+        <div key={m.id} className="measure-row">
+          <span className="m-label">
+            {m.label}
+            <span className="m-src">
+              {m.modality}
+              {showView && m.sourceViewId ? ` · ${m.sourceViewId}` : ''}
+            </span>
           </span>
-          <span>
-            {m.value.toFixed(m.kind === 'time' || m.kind === 'volume' ? 0 : 2)} {m.units}
-            {m.derived?.gradientMmHg !== undefined
-              ? ` · ${m.derived.gradientMmHg.toFixed(0)} mmHg`
-              : ''}
-            {m.derived?.meanGradientMmHg !== undefined
-              ? ` · media ${m.derived.meanGradientMmHg.toFixed(0)} mmHg`
-              : ''}
-          </span>
-          <button aria-label="Eliminar medición" onClick={() => s.removeMeasurement(m.id)}>
+          <span className="m-value">{line(m)}</span>
+          <button
+            className="icon-btn"
+            aria-label="Eliminar medición"
+            onClick={() => s.removeMeasurement(m.id)}
+          >
             ×
           </button>
         </div>

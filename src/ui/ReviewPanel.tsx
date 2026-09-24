@@ -198,7 +198,7 @@ export function ReviewPanel() {
                       {m.n}
                     </span>
                     {m.space === 'model' && (
-                      <span className="review-chip" title="Marcador sobre el modelo 3D">
+                      <span className="review-chip" data-tip="Marcador sobre el modelo 3D">
                         3D
                       </span>
                     )}
@@ -217,7 +217,7 @@ export function ReviewPanel() {
                     </select>
                     <button
                       aria-label={`Eliminar marcador ${m.n}`}
-                      title="Eliminar (con sus puntos secundarios)"
+                      data-tip="Eliminar (con sus puntos secundarios)"
                       onClick={() => s.removeReviewMarker(m.id)}
                     >
                       ×
@@ -253,7 +253,7 @@ export function ReviewPanel() {
                                 {label}
                               </span>
                               {c.space === 'model' && (
-                                <span className="review-chip" title="Sobre el modelo 3D">
+                                <span className="review-chip" data-tip="Sobre el modelo 3D">
                                   3D
                                 </span>
                               )}
@@ -262,7 +262,7 @@ export function ReviewPanel() {
                               </span>
                               <button
                                 aria-label={`Eliminar punto ${label}`}
-                                title="Eliminar"
+                                data-tip="Eliminar"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   s.removeReviewMarker(c.id);
@@ -288,7 +288,7 @@ export function ReviewPanel() {
                       className={arming ? 'on' : ''}
                       aria-pressed={arming}
                       aria-label={`Añadir puntos secundarios al marcador ${m.n}`}
-                      title="Los siguientes clics sobre la imagen o el torso se enlazan a este marcador; Esc termina"
+                      data-tip="Los siguientes clics sobre la imagen o el torso se enlazan a este marcador; Esc termina"
                       onClick={(e) => {
                         e.stopPropagation();
                         s.armReviewLink(arming ? null : m.id);

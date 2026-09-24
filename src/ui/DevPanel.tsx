@@ -122,7 +122,7 @@ export function DevPanel() {
             key={b}
             className={s.rendererBackend === b ? 'active' : ''}
             onClick={() => s.setBackend(b)}
-            title={BACKEND_TITLES[b]}
+            data-tip={BACKEND_TITLES[b]}
           >
             {b}
           </button>

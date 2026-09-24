@@ -43,6 +43,7 @@ import {
   type RvInsertions,
 } from './segmentAnchors';
 import { coverageText } from './SegmentPanel';
+import { canvasFont } from './canvasFonts';
 
 /**
  * Ultrasound display: draws the composite frame from the simulator and the overlays (depth scale,
@@ -795,7 +796,7 @@ function drawOverlay(
   if (imageSegmentsOn(st)) drawSegmentLayer(ctx, hud, st);
   else useSegmentOrientation.getState().set(null, false);
   const m = hud.sector;
-  ctx.font = '11px system-ui, sans-serif';
+  ctx.font = canvasFont(11);
   ctx.textBaseline = 'middle';
   const sectorH = m.height;
   const half = m.sectorRad / 2;
@@ -803,16 +804,25 @@ function drawOverlay(
   ctx.strokeStyle = '#9aa4b5';
   ctx.fillStyle = '#9aa4b5';
   ctx.lineWidth = 1;
-  const stepCm = m.depthCm > 20 ? 5 : m.depthCm > 12 ? 2 : 1;
-  for (let d = 0; d <= m.depthCm + 1e-6; d += stepCm) {
+  // the depth scale as on a scanner (decision 200): a tick every centimetre, a longer one with its figure every five
+  // when the width limits the sector its edge is 14 px from the canvas edge: the scale then grows inwards and the
+  // figures sit left of the ticks, otherwise both fell off the canvas (decision 201)
+  const inward = rightX + 24 > W;
+  const dir = inward ? -1 : 1;
+  ctx.font = canvasFont(10, 'mono');
+  ctx.textAlign = inward ? 'right' : 'left';
+  for (let d = 1; d <= m.depthCm + 1e-6; d += 1) {
     const y = m.apexY + d * m.pxPerCm;
     if (y > sectorH - 2) break;
+    const major = d % 5 === 0;
     ctx.beginPath();
     ctx.moveTo(rightX, y);
-    ctx.lineTo(rightX + 6, y);
+    ctx.lineTo(rightX + dir * (major ? 8 : 4), y);
     ctx.stroke();
-    if (d % (stepCm * 2) === 0) ctx.fillText(String(d), rightX + 9, y);
+    if (major) ctx.fillText(String(d), rightX + dir * 11, y);
   }
+  ctx.textAlign = 'left';
+  ctx.font = canvasFont(11);
   const fy = m.apexY + settings.focusCm * m.pxPerCm;
   if (fy < sectorH) {
     ctx.fillStyle = '#ffc857';
@@ -863,16 +873,16 @@ function drawOverlay(
     ctx.fillStyle = grad;
     ctx.fillRect(bx, by, 8, bh);
     ctx.fillStyle = '#b9c3d0';
-    ctx.font = '10px ui-monospace, SFMono-Regular, Menlo, monospace';
+    ctx.font = canvasFont(10, 'mono');
     ctx.textAlign = 'right';
     ctx.fillText(`+${color.scaleMps.toFixed(2)}`, bx - 5, by + 7);
     ctx.fillText(`−${color.scaleMps.toFixed(2)}`, bx - 5, by + bh);
     ctx.fillStyle = '#7f8a9a';
-    ctx.font = '9.5px system-ui, sans-serif';
+    ctx.font = canvasFont(9.5);
     ctx.fillText('hacia', bx - 5, by + bh / 2 - 6);
     ctx.fillText('desde', bx - 5, by + bh / 2 + 12);
     ctx.textAlign = 'left';
-    ctx.font = '11px system-ui';
+    ctx.font = canvasFont(11);
   }
   if (isStripModality(modality)) {
     const p0 = polarToPixel(m, 0.3, cursorTheta);
@@ -999,14 +1009,14 @@ function drawOverlay(
     const geometry = reprojectGeometry(ms.geometry, ms.captureSector, m);
     drawGeometry(ctx, geometry, ms.kind, '#ffc857');
     const p = geometry[geometry.length - 1];
-    if (p) {
-      ctx.fillStyle = '#ffc857';
-      ctx.fillText(
-        `${ms.label}: ${ms.value.toFixed(ms.kind === 'time' ? 0 : ms.kind === 'vti' ? 1 : 2)} ${ms.units}`,
-        p.x + 6,
-        p.y - 8,
+    if (p)
+      drawValueChip(
+        ctx,
+        `${ms.label} ${ms.value.toFixed(ms.kind === 'time' ? 0 : ms.kind === 'vti' ? 1 : 2)} ${ms.units}`,
+        p.x,
+        p.y,
+        '#ffc857',
       );
-    }
   }
   if (pending.length)
     drawGeometry(
@@ -1076,7 +1086,7 @@ function drawOverlay(
     ctx.textAlign = 'center';
     ctx.fillText(markerLabel(mk, reviewMarkers), q.x, q.y + 0.5);
     ctx.textAlign = 'left';
-    ctx.font = '11px system-ui, sans-serif';
+    ctx.font = canvasFont(11);
     if (!mk.strip) {
       const note = mk.note.trim();
       const label =
@@ -1149,26 +1159,74 @@ function drawGeometry(
   kind: string,
   color: string,
 ): void {
-  ctx.strokeStyle = color;
-  ctx.fillStyle = color;
-  for (const p of pts) {
+  // calipers as on a scanner (decision 200): a cross at each point and a dashed line between them, both over a dark
+  // halo so they read on bright tissue as well as in the cavity
+  const crosses = () => {
     ctx.beginPath();
-    ctx.moveTo(p.x - 4, p.y);
-    ctx.lineTo(p.x + 4, p.y);
-    ctx.moveTo(p.x, p.y - 4);
-    ctx.lineTo(p.x, p.y + 4);
+    for (const p of pts) {
+      ctx.moveTo(p.x - 5, p.y);
+      ctx.lineTo(p.x + 5, p.y);
+      ctx.moveTo(p.x, p.y - 5);
+      ctx.lineTo(p.x, p.y + 5);
+    }
     ctx.stroke();
-  }
-  if (
+  };
+  const joined =
     pts.length >= 2 &&
-    (kind === 'linear' || kind === 'time' || kind === 'vti' || kind === 'volume')
-  ) {
+    (kind === 'linear' || kind === 'time' || kind === 'vti' || kind === 'volume');
+  const line = () => {
     ctx.beginPath();
     ctx.moveTo(pts[0]!.x, pts[0]!.y);
     for (const p of pts.slice(1)) ctx.lineTo(p.x, p.y);
     if (kind === 'volume') ctx.closePath();
     ctx.stroke();
+  };
+  const cap = ctx.lineCap;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.65)';
+  ctx.lineWidth = 3.5;
+  crosses();
+  if (joined) line();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  crosses();
+  if (joined) {
+    ctx.setLineDash([5, 4]);
+    line();
+    ctx.setLineDash([]);
   }
+  ctx.lineCap = cap;
+}
+
+/** A measurement's value beside its last point: a small dark chip with the figure in the mono face (decision 200). */
+function drawValueChip(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  color: string,
+): void {
+  const font = ctx.font;
+  ctx.font = canvasFont(10.5, 'mono');
+  const w = ctx.measureText(text).width + 12;
+  const h = 18;
+  const left = Math.max(
+    2,
+    Math.min(ctx.canvas.width / (window.devicePixelRatio || 1) - w - 2, x + 8),
+  );
+  // above the point, or under it when the point is at the top edge (decision 201)
+  const top = y - h - 6 < 2 ? y + 8 : y - h - 6;
+  ctx.fillStyle = 'rgba(8, 11, 16, 0.8)';
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.roundRect(left, top, w, h, 5);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = color;
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, left + 6, top + h / 2 + 0.5);
+  ctx.font = font;
 }
 
 /**
@@ -1271,7 +1329,7 @@ function drawSegmentLayer(ctx: CanvasRenderingContext2D, hud: SimOutput, st: Sim
   ctx.drawImage(segLayer.canvas, m.x, m.y);
   // numbers on each segment and the RV insertions: the mean of their places over one beat of an unchanged probe,
   // geometry and model, then still (decision 181)
-  ctx.font = '700 12px system-ui, sans-serif';
+  ctx.font = canvasFont(12, 'ui', 700);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   const pr = st.probe;

@@ -16,6 +16,7 @@ import { DevPanel } from '@/ui/DevPanel';
 import { IconChevronRight } from '@/ui/icons';
 import { ShortcutsDialog } from '@/ui/ShortcutsDialog';
 import { Tutorial } from '@/ui/Tutorial';
+import { TooltipLayer } from '@/ui/Tooltip';
 import type { SimOutput } from '@/simulator/core/protocol';
 import { DopplerAudio } from '@/simulator/doppler/audio/dopplerAudio';
 import { frameBus } from './frameBus';
@@ -168,7 +169,7 @@ export function App() {
               aria-label={
                 ui.railMini ? 'Expandir panel de navegación' : 'Colapsar panel de navegación'
               }
-              title={
+              data-tip={
                 ui.railMini
                   ? 'Expandir el torso 3D y la guía'
                   : 'Colapsar a una tira con la puntuación'
@@ -200,7 +201,7 @@ export function App() {
                   onClick={() => useSimStore.getState().setUi({ guidanceOpen: !ui.guidanceOpen })}
                   aria-expanded={ui.guidanceOpen}
                   aria-controls="view-guidance"
-                  title="Puntuación de la vista, referencias que faltan y explicaciones"
+                  data-tip="Puntuación de la vista, referencias que faltan y explicaciones"
                 >
                   <span className="chev" aria-hidden="true">
                     <IconChevronRight size={13} />
@@ -221,7 +222,7 @@ export function App() {
                   onClick={() => useSimStore.getState().setUi({ segmentsOpen: !ui.segmentsOpen })}
                   aria-expanded={ui.segmentsOpen}
                   aria-controls="lv-segments"
-                  title="Mapa polar de los segmentos del VI, qué muestra el corte y ficha de cada segmento"
+                  data-tip="Mapa polar de los segmentos del VI, qué muestra el corte y ficha de cada segmento"
                 >
                   <span className="chev" aria-hidden="true">
                     <IconChevronRight size={13} />
@@ -259,6 +260,7 @@ export function App() {
         </>
       )}
       <ModeBar />
+      <TooltipLayer />
       <ShortcutsDialog />
     </div>
   );
@@ -290,7 +292,7 @@ function RailMini() {
       <div
         className="rail-strip-score"
         style={{ color }}
-        title={`${v.score}/100 — ${v.bestViewName}`}
+        data-tip={`${v.score}/100 — ${v.bestViewName}`}
       >
         {v.score}
       </div>

@@ -45,19 +45,18 @@ export function CheckItem({
   disabled?: boolean;
 }) {
   return (
-    <button
-      role="menuitemcheckbox"
-      aria-checked={checked}
-      disabled={disabled}
-      title={disabled ? 'No disponible en modo examen' : hint}
-      onClick={onToggle}
-    >
+    <button role="menuitemcheckbox" aria-checked={checked} disabled={disabled} onClick={onToggle}>
       <span className="mi-check" aria-hidden="true">
         {checked ? <IconCheck size={12} /> : null}
       </span>
       <span className="mi-label">
         {label}
-        {hint && !disabled ? (
+        {/* a disabled control gets no pointer events in every browser: the reason is printed, not tipped */}
+        {disabled ? (
+          <span className="mi-hint" aria-hidden="true">
+            No disponible en modo examen
+          </span>
+        ) : hint ? (
           <span className="mi-hint" aria-hidden="true">
             {hint}
           </span>

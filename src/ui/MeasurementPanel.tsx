@@ -56,7 +56,7 @@ export function MeasurementPanel() {
         <button
           className={isActive ? 'active' : ''}
           onClick={() => s.setActiveMeasurement(isActive ? null : spec.id)}
-          title={spec.instruction}
+          data-tip={spec.instruction}
           aria-label={`Medir ${spec.label}`}
         >
           {spec.shortLabel}
@@ -68,7 +68,7 @@ export function MeasurementPanel() {
           {level && (
             <span
               className={`pill ${level === 'ok' ? 'ok' : level === 'warn' ? 'warn' : 'bad'}`}
-              title={
+              data-tip={
                 m?.technique?.findings
                   .filter((f) => f.level !== 'ok')
                   .map((f) => f.message)

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { ConsolePanel } from './ConsolePanel';
 import { useSimStore } from '@/app/store';
@@ -149,9 +149,59 @@ describe('ConsolePanel tabs', () => {
       act(() => screen.getByRole('tab', { name: 'Medir' }).click());
       const shown = container.textContent ?? '';
       const learning = mode === 'sandbox';
-      expect(shown.includes('2d, a4c'), `${mode}: view in the list`).toBe(learning);
+      expect(shown.includes('2d · a4c'), `${mode}: view in the list`).toBe(learning);
       expect(shown.includes('inválida'), `${mode}: technique grade`).toBe(learning);
       expect(shown.includes('2.00 cm'), `${mode}: the value itself`).toBe(true);
     }
+  });
+});
+
+describe('the measurement list (decision 200)', () => {
+  it('shows each figure in its own column and copies the list as text', async () => {
+    const writeText = vi.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    act(() =>
+      useSimStore.setState({
+        ui: { ...useSimStore.getState().ui, consoleTab: 'medir' },
+        measurements: [
+          {
+            id: 'm1',
+            kind: 'linear',
+            label: 'TSVI ⌀',
+            value: 2.034,
+            units: 'cm',
+            modality: '2d',
+            measurementId: null,
+            technique: null,
+            sourceViewId: 'plax',
+            geometry: [],
+          } as never,
+          {
+            id: 'm2',
+            kind: 'velocity',
+            label: 'Vmax Ao',
+            value: 1.2,
+            units: 'm/s',
+            modality: 'cw',
+            measurementId: null,
+            technique: null,
+            sourceViewId: null,
+            geometry: [],
+            derived: { gradientMmHg: 5.76 },
+          } as never,
+        ],
+      }),
+    );
+    render(<ConsolePanel />);
+    const values = [...document.querySelectorAll('.measure-row .m-value')].map(
+      (e) => e.textContent,
+    );
+    expect(values).toEqual(['2.03 cm', '1.20 m/s · 6 mmHg']);
+    await act(async () => {
+      screen.getByRole('button', { name: 'Copiar mediciones' }).click();
+      await Promise.resolve();
+    });
+    expect(writeText).toHaveBeenCalledWith('TSVI ⌀: 2.03 cm\nVmax Ao: 1.20 m/s · 6 mmHg');
+    expect(screen.getByRole('status').textContent).toBe('Copiadas');
   });
 });

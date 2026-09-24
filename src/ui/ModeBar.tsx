@@ -39,7 +39,6 @@ export function ModeBar() {
             key={m.id}
             className={s.modality === m.id ? 'active' : ''}
             onClick={() => s.setModality(m.id)}
-            title={`Tecla ${m.key}`}
             aria-pressed={s.modality === m.id}
           >
             {m.label}
@@ -54,7 +53,8 @@ export function ModeBar() {
       <button
         className={`freeze-btn${s.frozen ? ' active' : ''}`}
         onClick={() => s.toggleFreeze()}
-        title={s.frozen ? 'Reanudar (Espacio)' : 'Congelar (Espacio)'}
+        data-tip={s.frozen ? 'Reanudar' : 'Congelar la imagen'}
+        data-tip-key="Espacio"
         aria-pressed={s.frozen}
       >
         <i className="run-dot" aria-hidden="true" />
@@ -81,18 +81,15 @@ export function ModeBar() {
       {/* off the image: in the Doppler modes it covered the spectral strip */}
       <span
         className="disclaimer"
-        title="Simulador educacional con pacientes sintéticos · no apto para diagnóstico"
+        data-tip="Simulador educacional con pacientes sintéticos · no apto para diagnóstico"
       >
         Simulador educacional con pacientes sintéticos · no apto para diagnóstico
       </span>
       <button
         onClick={() => s.setUi({ showTorso: !s.ui.showTorso })}
         className={s.ui.showTorso ? 'active' : ''}
-        title={
-          s.ui.minimal || s.mode === 'exam'
-            ? 'Interfaz limpia activa — desactívala en el menú ⋯'
-            : 'Mostrar/ocultar el torso 3D (H)'
-        }
+        data-tip={s.ui.minimal || s.mode === 'exam' ? undefined : 'Mostrar u ocultar el torso 3D'}
+        data-tip-key={s.ui.minimal || s.mode === 'exam' ? undefined : 'H'}
         aria-pressed={s.ui.showTorso}
         disabled={s.ui.minimal || s.mode === 'exam'}
       >
@@ -102,7 +99,7 @@ export function ModeBar() {
       {s.workerMode !== 'worker' && (
         <span
           className="small modebar-status"
-          title="La simulación corre en el hilo de la interfaz: puede ir más lenta"
+          data-tip="La simulación corre en el hilo de la interfaz: puede ir más lenta"
         >
           {s.workerMode === 'inline' ? 'Sin worker' : 'Iniciando…'}
         </span>
@@ -134,7 +131,7 @@ function ContextChip() {
   const chip = spec[modality];
   if (!chip) return null;
   return (
-    <span className="ctx-chip" title={chip.title}>
+    <span className="ctx-chip" data-tip={chip.title}>
       {chip.text}
     </span>
   );
@@ -156,7 +153,7 @@ function OverflowMenu() {
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Más opciones"
-        title="Paneles y acciones"
+        data-tip="Paneles y acciones"
         onClick={() => setOpen(!open)}
       >
         <IconSliders />
@@ -264,7 +261,7 @@ function CinePlay({ length, spanS }: { length: number; spanS: number }) {
       className={`icon-btn${playing ? ' active' : ''}`}
       aria-label="Reproducir el cine"
       aria-pressed={playing}
-      title={playing ? 'Pausar el cine' : 'Reproducir el cine'}
+      data-tip={playing ? 'Pausar el cine' : 'Reproducir el cine'}
       disabled={length < 2}
       onClick={() => setPlaying(!playing)}
     >

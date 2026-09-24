@@ -3,6 +3,7 @@ import { modePolicy } from '@/app/modePolicy';
 import { listCases } from '@/cases';
 import { isStripModality } from '@/simulator/renderer/modality';
 import type { ProductMode } from '@/app/modePolicy';
+import { formatMHz } from './format';
 
 const TIER_LABEL: Record<string, string> = { low: 'baja', medium: 'media', high: 'alta' };
 
@@ -46,14 +47,15 @@ export function ImageHud() {
           {truth ? ` · ${RHYTHM_LABEL[truth.rhythm] ?? truth.rhythm}` : ''}
         </span>
         <span>
-          {depthCm} cm · {frequencyMHz.toFixed(1)} MHz{harmonics ? ' THI' : ''}
+          {depthCm} cm · {formatMHz(frequencyMHz)}
+          {harmonics ? ' THI' : ''}
         </span>
         {/* in colour the frame rate already is the colour one: «· color N» repeated it (decision 195) */}
         <span>FR {hud ? Math.round(hud.simulatedFps) : '—'} Hz</span>
         {strip ? viewLine : null}
         {gpuReason && gpuReason !== 'ok' ? (
           // the image is formed by the CPU tracer (no WebGL2, or the context was lost): slower and, on «auto», coarser
-          <span className="hud-warn" title={gpuReason}>
+          <span className="hud-warn" data-tip={gpuReason}>
             Sin GPU · trazador CPU{tier ? `, calidad ${TIER_LABEL[tier] ?? tier}` : ''}
           </span>
         ) : null}

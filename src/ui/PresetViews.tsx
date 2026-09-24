@@ -41,10 +41,8 @@ function PresetButton({ id, label, sub, title }: Preset) {
     <button
       className={active ? 'active' : ''}
       disabled={disabled}
-      title={
-        disabled
-          ? 'No disponible en modo examen'
-          : `${title}: mueve la sonda de forma continua hasta la pose canónica`
+      data-tip={
+        disabled ? undefined : `${title}: mueve la sonda de forma continua hasta la pose canónica`
       }
       onClick={() => start(id)}
       aria-pressed={active}
@@ -70,6 +68,7 @@ export function PresetViews() {
           <InfoTip text="Cada vista mueve la sonda de forma continua hasta su pose; luego sigues afinando tú. Cualquier acción manual la detiene." />
         )}
       </h4>
+      {disabled && <div className="protocol-cap">No disponibles en modo examen</div>}
       <div className="preset-grid">
         {PRIMARY.map((p) => (
           <PresetButton key={p.id} {...p} />

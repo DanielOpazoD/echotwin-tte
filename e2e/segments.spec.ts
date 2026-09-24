@@ -17,7 +17,7 @@ test('the image button shows the LV segments and the pointer names the one under
 }) => {
   await page.goto('/');
   await waitForFrames(page, 3);
-  await page.getByTitle(/^Apical cuatro cámaras: mueve la sonda/).click();
+  await page.getByRole('button', { name: 'A4C', exact: true }).click();
   await page.waitForFunction(
     () => {
       const hud = (window as unknown as EchoWindow).__echotwin.useHudStore.getState().hud;
@@ -97,7 +97,10 @@ test('the image button shows the LV segments and the pointer names the one under
 test('the segment numbers and the RV insertions hold still through the beat', async ({ page }) => {
   await page.goto('/');
   await waitForFrames(page, 3);
-  await page.getByTitle(/^Paraesternal eje corto, nivel papilar: mueve la sonda/).click();
+  await page
+    .getByRole('button', { name: 'PSAX', exact: true })
+    .filter({ hasText: 'papilar' })
+    .click();
   await page.waitForFunction(
     () => {
       const hud = (window as unknown as EchoWindow).__echotwin.useHudStore.getState().hud;
