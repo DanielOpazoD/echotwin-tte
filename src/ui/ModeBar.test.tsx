@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { ModeBar } from './ModeBar';
 import { useHudStore, useSimStore } from '@/app/store';
@@ -105,5 +105,40 @@ describe('ModeBar clean interface', () => {
     expect(item).toHaveProperty('disabled', true);
     expect(item.getAttribute('aria-checked')).toBe('true');
     expect(screen.getByRole('button', { name: 'Torso 3D' })).toHaveProperty('disabled', true);
+  });
+});
+
+describe('the cine loop (decision 191)', () => {
+  it('replays the frozen frames at their pace, wraps from the newest to the oldest and pauses', () => {
+    vi.useFakeTimers();
+    try {
+      // 96 frames over 1.9 s: one every 20 ms
+      useHudStore.setState({
+        hud: {
+          ...initialHud.hud,
+          cineLength: 96,
+          cineFramePhase: 0,
+          cineWindow: { startS: 8.1, endS: 10, frameS: 10 },
+        } as never,
+      });
+      useSimStore.setState({ frozen: true, cineOffset: -2 });
+      render(<ModeBar />);
+      act(() => screen.getByRole('button', { name: 'Reproducir el cine' }).click());
+      act(() => {
+        vi.advanceTimersByTime(20);
+      });
+      expect(useSimStore.getState().cineOffset).toBe(-1);
+      act(() => {
+        vi.advanceTimersByTime(40);
+      });
+      expect(useSimStore.getState().cineOffset).toBe(-95);
+      act(() => screen.getByRole('button', { name: 'Pausar el cine' }).click());
+      act(() => {
+        vi.advanceTimersByTime(200);
+      });
+      expect(useSimStore.getState().cineOffset).toBe(-95);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

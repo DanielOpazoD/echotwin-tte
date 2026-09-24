@@ -158,3 +158,21 @@ export function IconLayers({ size }: { size?: number }) {
     </I>
   );
 }
+
+/** Play triangle: replay the cine loop. */
+export function IconPlay({ size }: { size?: number }) {
+  return (
+    <I size={size}>
+      <path d="M8 5.5v13l10.5-6.5L8 5.5Z" />
+    </I>
+  );
+}
+
+/** Two bars: pause the cine loop. */
+export function IconPause({ size }: { size?: number }) {
+  return (
+    <I size={size}>
+      <path d="M9 5.5v13M15 5.5v13" />
+    </I>
+  );
+}

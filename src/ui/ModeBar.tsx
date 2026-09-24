@@ -1,9 +1,10 @@
+import { useEffect, useState } from 'react';
 import { useHudStore, useSimStore } from '@/app/store';
 import { useShallow } from 'zustand/shallow';
 import { modePolicy } from '@/app/modePolicy';
 import { exportDisplayPng } from '@/app/exportImage';
 import { useRestartTutorial } from './Tutorial';
-import { IconSliders } from './icons';
+import { IconPause, IconPlay, IconSliders } from './icons';
 import { MODALITY_LIST } from '@/simulator/renderer/modality';
 import { ActionItem, CheckItem, MenuCap, usePopover } from './menu';
 
@@ -61,6 +62,7 @@ export function ModeBar() {
       </button>
       {s.frozen && hud && (
         <div className="cine">
+          <CinePlay length={hud.cineLength} spanS={hud.cineWindow.endS - hud.cineWindow.startS} />
           <input
             type="range"
             aria-label="Cine"
@@ -236,5 +238,34 @@ function OverflowMenu() {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Replays the frozen cine as a loop at the pace it was acquired (decision 191): each tick shows the next frame and the
+ * newest wraps to the oldest. It stops with its button, and with the freeze, which unmounts it.
+ */
+function CinePlay({ length, spanS }: { length: number; spanS: number }) {
+  const [playing, setPlaying] = useState(false);
+  useEffect(() => {
+    if (!playing || length < 2) return;
+    const frameMs = (1000 * Math.max(0.1, spanS)) / (length - 1);
+    const id = setInterval(() => {
+      const st = useSimStore.getState();
+      st.setCineOffset(st.cineOffset >= 0 ? -(length - 1) : st.cineOffset + 1);
+    }, frameMs);
+    return () => clearInterval(id);
+  }, [playing, length, spanS]);
+  const label = playing ? 'Pausar el cine' : 'Reproducir el cine';
+  return (
+    <button
+      className={`icon-btn${playing ? ' active' : ''}`}
+      aria-label={label}
+      aria-pressed={playing}
+      title={label}
+      onClick={() => setPlaying(!playing)}
+    >
+      {playing ? <IconPause size={13} /> : <IconPlay size={13} />}
+    </button>
   );
 }
