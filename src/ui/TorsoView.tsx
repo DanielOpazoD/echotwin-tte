@@ -862,8 +862,8 @@ export function TorsoView() {
         </div>
       </div>
       <div className="torso-help">
-        Arrastrar piel: deslizar · Arrastrar marcador azul o rueda: rotar · Shift+arrastrar: rock ·
-        Alt+arrastrar: tilt · Botón derecho: orbitar
+        Arrastrar: deslizar · Rueda: rotar · Shift: rock · Alt: tilt · <kbd className="kbd">?</kbd>{' '}
+        todos los gestos
       </div>
     </div>
   );

@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { STRUCTURE_RGB } from '@/simulator/anatomy/structurePalette';
 import { Structure } from '@/simulator/anatomy/tissue';
 import { computeSectorMapping } from '@/simulator/renderer/scanConvert';
-import { nearestSampleLut, paintCutMap, placeLabels, type PolarGeometry } from './cutMap';
+import {
+  nearestSampleLut,
+  paintCutMap,
+  placeLabels,
+  type PolarGeometry,
+  withoutOverlaps,
+} from './cutMap';
 
 const polar: PolarGeometry = { lines: 64, samples: 128, sectorRad: Math.PI / 2, depthCm: 16 };
 const spec = { ...polar, elevationSamples: 1, focusCm: 8 };
@@ -87,5 +93,21 @@ describe('cut map: painting and labels', () => {
     expect(septum).toBeDefined();
     // a region smaller than the threshold gets no label
     expect(placeLabels(stats, lut, structure, m.width, 1e9, () => ({ w: 10, h: 12 }))).toEqual([]);
+  });
+});
+
+describe('cut map: labels once averaged over a beat (decision 188)', () => {
+  it('drops a label that would cover one kept before it, keeps the ones that do not touch', () => {
+    const measure = (t: string) => ({ w: t.length * 6, h: 12 });
+    const kept = withoutOverlaps(
+      [
+        { text: 'VI', x: 50, y: 50 },
+        { text: 'pared inferior e inferolateral', x: 60, y: 52 },
+        { text: 'Ao', x: 200, y: 50 },
+        { text: 'AI', x: 50, y: 80 },
+      ],
+      measure,
+    );
+    expect(kept.map((l) => l.text)).toEqual(['VI', 'Ao', 'AI']);
   });
 });

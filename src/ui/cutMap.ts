@@ -189,3 +189,30 @@ export function placeLabels(
   }
   return out;
 }
+
+/**
+ * The labels to draw, in their order of priority, without any that would cover one already kept (decision 188).
+ * `placeLabels` keeps each frame free of overlaps, but the labels are drawn at their mean place over one beat
+ * (decision 181), and two that never met in one frame can land on each other once averaged. The later one is dropped.
+ */
+export function withoutOverlaps<T extends { text: string; x: number; y: number }>(
+  labels: readonly T[],
+  measure: (text: string) => { w: number; h: number },
+): T[] {
+  const kept: T[] = [];
+  const boxes: { x0: number; y0: number; x1: number; y1: number }[] = [];
+  for (const l of labels) {
+    const { w, h } = measure(l.text);
+    const box = {
+      x0: l.x - w / 2 - 2,
+      y0: l.y - h / 2 - 1,
+      x1: l.x + w / 2 + 2,
+      y1: l.y + h / 2 + 1,
+    };
+    if (boxes.some((b) => box.x0 < b.x1 && box.x1 > b.x0 && box.y0 < b.y1 && box.y1 > b.y0))
+      continue;
+    boxes.push(box);
+    kept.push(l);
+  }
+  return kept;
+}

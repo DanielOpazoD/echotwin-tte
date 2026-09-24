@@ -27,6 +27,16 @@ export const SHORTCUTS: { keys: string; action: string }[] = [
   { keys: '?', action: 'Mostrar u ocultar esta lista de atajos' },
 ];
 
+/** The pointer on the 3D navigator (decision 188): listed in the shortcuts sheet, one short line on the torso itself. */
+export const TORSO_GESTURES: { keys: string; action: string }[] = [
+  { keys: 'Arrastrar la piel', action: 'Deslizar la sonda' },
+  { keys: 'Arrastrar el marcador · rueda', action: 'Rotar la sonda (Shift + rueda: 10°)' },
+  { keys: 'Shift + arrastrar', action: 'Rock' },
+  { keys: 'Alt + arrastrar', action: 'Tilt (abanico)' },
+  { keys: 'Botón derecho + arrastrar', action: 'Orbitar la cámara' },
+  { keys: 'Ctrl/⌘ + rueda', action: 'Acercar o alejar la cámara' },
+];
+
 /** Roles whose widgets move with the arrow keys and act with Space (WAI-ARIA composite widgets and the slider). */
 const ARROW_ROLES = new Set([
   'tab',

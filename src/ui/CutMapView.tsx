@@ -4,7 +4,7 @@ import { STRUCTURE_LABELS } from '@/app/review';
 import { segmentLayerOn, useSegmentHover, useSimStore } from '@/app/store';
 import type { SimOutput } from '@/simulator/core/protocol';
 import { computeSectorMapping, type SectorMapping } from '@/simulator/renderer/scanConvert';
-import { nearestSampleLut, paintCutMap, placeLabels } from './cutMap';
+import { nearestSampleLut, paintCutMap, placeLabels, withoutOverlaps } from './cutMap';
 import { SegmentAnchors } from './segmentAnchors';
 import { paintSegmentMap, segmentIds, segmentNames } from './segmentMap';
 
@@ -133,7 +133,10 @@ export function CutMapView() {
             ),
             null,
           );
-        const labelsShown = segAnchors.view().labels;
+        const labelsShown = withoutOverlaps(segAnchors.view().labels, (t) => ({
+          w: ctx.measureText(t).width,
+          h: 13,
+        }));
         ctx.lineJoin = 'round';
         ctx.lineWidth = 3;
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
@@ -162,7 +165,10 @@ export function CutMapView() {
             ),
             null,
           );
-        const labelsShown = structAnchors.view().labels;
+        const labelsShown = withoutOverlaps(structAnchors.view().labels, (t) => ({
+          w: ctx.measureText(t).width,
+          h: 12,
+        }));
         ctx.lineJoin = 'round';
         ctx.lineWidth = 3;
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.75)';

@@ -44,6 +44,13 @@ describe('the shortcuts sheet', () => {
     expect(screen.getByText('Freeze / Live')).toBeTruthy();
     expect(screen.getByText('Espacio')).toBeTruthy();
     expect(screen.getByText('Mostrar u ocultar esta lista de atajos')).toBeTruthy();
+    // the pointer gestures on the 3D navigator (decision 188), each phrase in its chip
+    expect(screen.getByText('Orbitar la cámara')).toBeTruthy();
+    expect(screen.getByText('Botón derecho')).toBeTruthy();
+    expect(screen.getAllByText('arrastrar', { selector: 'kbd' })).toHaveLength(3);
+    // «+» between two keys joins them, but in «- / +» it is the key that raises the gain
+    expect(screen.getByText('+', { selector: 'kbd' })).toBeTruthy();
+    expect(screen.getAllByText('+', { selector: '.sheet-sep' }).length).toBeGreaterThan(0);
   });
 
   it('is offered as an action of the ⋯ menu', () => {
