@@ -16,6 +16,7 @@ import { tgcAtDepth } from '@/simulator/renderer/postprocess/consolePipeline';
 import type { Measurement } from '@/simulator/measurements/types';
 import { frameBus } from '@/app/frameBus';
 import { ImageHud } from './ImageHud';
+import { ImageQuickBar } from './ImageQuickBar';
 import { discProfileFromContour, volumeFromProfileMl } from '@/simulator/measurements/simpson';
 import { summarizeEnvelope } from '@/simulator/measurements/vti';
 import {
@@ -730,6 +731,7 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
       />
       <ImageHud />
       <SegmentImageToggle />
+      <ImageQuickBar />
       <div className="seg-tip" ref={segTipRef} role="status" aria-live="polite">
         <i className="seg-tip-swatch" />
         <b />
