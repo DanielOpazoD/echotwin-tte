@@ -805,17 +805,23 @@ function drawOverlay(
   ctx.fillStyle = '#9aa4b5';
   ctx.lineWidth = 1;
   // the depth scale as on a scanner (decision 200): a tick every centimetre, a longer one with its figure every five
+  // when the width limits the sector its edge is 14 px from the canvas edge: the scale then grows inwards and the
+  // figures sit left of the ticks, otherwise both fell off the canvas (decision 201)
+  const inward = rightX + 24 > W;
+  const dir = inward ? -1 : 1;
   ctx.font = canvasFont(10, 'mono');
+  ctx.textAlign = inward ? 'right' : 'left';
   for (let d = 1; d <= m.depthCm + 1e-6; d += 1) {
     const y = m.apexY + d * m.pxPerCm;
     if (y > sectorH - 2) break;
     const major = d % 5 === 0;
     ctx.beginPath();
     ctx.moveTo(rightX, y);
-    ctx.lineTo(rightX + (major ? 8 : 4), y);
+    ctx.lineTo(rightX + dir * (major ? 8 : 4), y);
     ctx.stroke();
-    if (major) ctx.fillText(String(d), rightX + 11, y);
+    if (major) ctx.fillText(String(d), rightX + dir * 11, y);
   }
+  ctx.textAlign = 'left';
   ctx.font = canvasFont(11);
   const fy = m.apexY + settings.focusCm * m.pxPerCm;
   if (fy < sectorH) {
@@ -1208,7 +1214,8 @@ function drawValueChip(
     2,
     Math.min(ctx.canvas.width / (window.devicePixelRatio || 1) - w - 2, x + 8),
   );
-  const top = y - h - 6;
+  // above the point, or under it when the point is at the top edge (decision 201)
+  const top = y - h - 6 < 2 ? y + 8 : y - h - 6;
   ctx.fillStyle = 'rgba(8, 11, 16, 0.8)';
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
   ctx.lineWidth = 1;

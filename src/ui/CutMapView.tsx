@@ -10,6 +10,16 @@ import { paintSegmentMap, segmentIds, segmentNames } from './segmentMap';
 import { canvasFont } from './canvasFonts';
 
 /**
+ * Whether the interface's fonts have arrived (decision 201): the labels are placed with `measureText`, and a placement
+ * measured with the fallback face before Inter loaded would stay cached until the probe moved.
+ */
+let fontsReady = false;
+if (typeof document !== 'undefined' && 'fonts' in document)
+  void document.fonts.ready.then(() => {
+    fontsReady = true;
+  });
+
+/**
  * Second view of the navigator (decision 141): the imaging plane as a colour-coded map of the structures it
  * passes through, scan-converted from the structure map of the frame on screen. It is the same plane as the
  * image by construction (same beam, phase, sector, depth and left–right convention), drawn in the model's
@@ -117,7 +127,7 @@ export function CutMapView() {
         ctx.font = canvasFont(12, 'ui', 700);
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        const segKey = `${key}|seg|${st.ui.segmentModel}|${st.caseId}|${restKey()}`;
+        const segKey = `${key}|seg|${st.ui.segmentModel}|${st.caseId}|${restKey()}|${fontsReady}`;
         if (segAnchors.wants(segKey, out.frameId))
           segAnchors.add(
             segKey,
@@ -150,7 +160,7 @@ export function CutMapView() {
         ctx.font = canvasFont(11, 'ui', 600);
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        const structKey = `${key}|${st.caseId}|${restKey()}`;
+        const structKey = `${key}|${st.caseId}|${restKey()}|${fontsReady}`;
         if (structAnchors.wants(structKey, out.frameId))
           structAnchors.add(
             structKey,

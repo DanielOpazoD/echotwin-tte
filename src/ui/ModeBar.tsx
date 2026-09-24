@@ -88,11 +88,7 @@ export function ModeBar() {
       <button
         onClick={() => s.setUi({ showTorso: !s.ui.showTorso })}
         className={s.ui.showTorso ? 'active' : ''}
-        data-tip={
-          s.ui.minimal || s.mode === 'exam'
-            ? 'Interfaz limpia activa — desactívala en el menú ⋯'
-            : 'Mostrar u ocultar el torso 3D'
-        }
+        data-tip={s.ui.minimal || s.mode === 'exam' ? undefined : 'Mostrar u ocultar el torso 3D'}
         data-tip-key={s.ui.minimal || s.mode === 'exam' ? undefined : 'H'}
         aria-pressed={s.ui.showTorso}
         disabled={s.ui.minimal || s.mode === 'exam'}

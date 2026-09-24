@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 200 (última: 200).
+Decisiones: 201 (última: 201).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -205,6 +205,7 @@ Decisiones: 200 (última: 200).
 | [195](DECISIONS.md#L1320) | 2026-09-23 | La frecuencia de cuadro una sola vez | vigente |
 | [196](DECISIONS.md#L1322) | 2026-09-23 | Primer arranque sin saltos | vigente |
 | [197](DECISIONS.md#L1324) | 2026-09-23 | Lo que encontró la revisión de las decisiones 189–196 | vigente |
-| [198](DECISIONS.md#L1333) | 2026-09-23 | La letra de la interfaz y una sola escala | vigente |
-| [199](DECISIONS.md#L1335) | 2026-09-23 | Un solo tooltip | vigente |
-| [200](DECISIONS.md#L1337) | 2026-09-23 | Artesanía sobre la imagen | vigente |
+| [198](DECISIONS.md#L1335) | 2026-09-24 | La letra de la interfaz y una sola escala | vigente |
+| [199](DECISIONS.md#L1337) | 2026-09-24 | Un solo tooltip | vigente |
+| [200](DECISIONS.md#L1339) | 2026-09-24 | Artesanía sobre la imagen | vigente |
+| [201](DECISIONS.md#L1341) | 2026-09-24 | Lo que encontró la revisión de 198–200 | vigente |

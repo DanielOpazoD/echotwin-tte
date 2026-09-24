@@ -157,7 +157,7 @@ describe('ConsolePanel tabs', () => {
 });
 
 describe('the measurement list (decision 200)', () => {
-  it('shows each figure in its own column and copies the list as text', () => {
+  it('shows each figure in its own column and copies the list as text', async () => {
     const writeText = vi.fn(() => Promise.resolve());
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
     act(() =>
@@ -197,7 +197,11 @@ describe('the measurement list (decision 200)', () => {
       (e) => e.textContent,
     );
     expect(values).toEqual(['2.03 cm', '1.20 m/s · 6 mmHg']);
-    act(() => screen.getByRole('button', { name: 'Copiar mediciones' }).click());
+    await act(async () => {
+      screen.getByRole('button', { name: 'Copiar mediciones' }).click();
+      await Promise.resolve();
+    });
     expect(writeText).toHaveBeenCalledWith('TSVI ⌀: 2.03 cm\nVmax Ao: 1.20 m/s · 6 mmHg');
+    expect(screen.getByRole('status').textContent).toBe('Copiadas');
   });
 });

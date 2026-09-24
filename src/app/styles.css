@@ -1617,8 +1617,14 @@ select {
 }
 .measure-head {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 10px;
   margin: 6px 0 2px;
+}
+/* the GPU notice keeps its tip although the HUD lets the pointer through to the image */
+.img-hud .hud-warn {
+  pointer-events: auto;
 }
 .measure-row {
   display: grid;

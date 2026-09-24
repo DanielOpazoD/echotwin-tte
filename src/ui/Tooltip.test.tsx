@@ -54,6 +54,38 @@ describe('the tooltip layer', () => {
     expect(screen.queryByRole('tooltip')).toBeNull();
   });
 
+  it('does not show for the focus a click gives its button, only for keyboard focus', () => {
+    vi.useFakeTimers();
+    mount();
+    const btn = screen.getByRole('button', { name: 'Freeze' });
+    fireEvent.pointerDown(btn);
+    fireEvent.focusIn(btn);
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+    expect(screen.queryByRole('tooltip')).toBeNull();
+  });
+
+  it('leaves with the pointer when its element was removed, and follows a text the keys change', () => {
+    vi.useFakeTimers();
+    mount();
+    const btn = screen.getByRole('button', { name: 'Freeze' });
+    fireEvent.pointerOver(btn);
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+    expect(screen.getByRole('tooltip')).toBeTruthy();
+    btn.setAttribute('data-tip', 'Reanudar');
+    fireEvent.keyDown(document, { key: ' ' });
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(screen.getByRole('tooltip').textContent).toContain('Reanudar');
+    btn.remove();
+    fireEvent.pointerOver(screen.getByRole('button', { name: 'sin ayuda' }));
+    expect(screen.queryByRole('tooltip')).toBeNull();
+  });
+
   it('ignores elements without a tip and a pointer that leaves before the delay', () => {
     vi.useFakeTimers();
     mount();

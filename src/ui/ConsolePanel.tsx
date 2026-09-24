@@ -1,5 +1,5 @@
 import { hasGate, isSpectralModality, MODALITIES } from '@/simulator/renderer/modality';
-import { useEffect, useRef, type KeyboardEvent, type ReactNode } from 'react';
+import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { useSimStore, type ConsoleTab, type SimStore } from '@/app/store';
 import { useShallow } from 'zustand/shallow';
 import { modePolicy } from '@/app/modePolicy';
@@ -10,6 +10,7 @@ import { listCases } from '@/cases';
 import { PresetViews } from './PresetViews';
 import { MeasurementPanel } from './MeasurementPanel';
 import { ArtifactLab } from './ArtifactLab';
+import { formatMHz } from './format';
 import { ReviewPanel } from './ReviewPanel';
 import { IconAcquire, IconDoppler, IconImage, IconLab, IconMeasure, IconReview } from './icons';
 
@@ -315,7 +316,7 @@ function ImageTab() {
         max={5}
         step={0.25}
         unit=" MHz"
-        format={(v) => `${v.toFixed(1)} MHz`}
+        format={formatMHz}
         onChange={(v) => s.setSettings({ frequencyMHz: v })}
         title={tip('Mayor frecuencia = más resolución, menos penetración.')}
       />
@@ -813,16 +814,32 @@ function MeasureList({
     (m.derived?.meanGradientMmHg !== undefined
       ? ` · media ${m.derived.meanGradientMmHg.toFixed(0)} mmHg`
       : '');
-  const copy = () =>
-    void navigator.clipboard?.writeText(
-      s.measurements.map((m) => `${m.label}: ${line(m)}`).join('\n'),
-    );
+  const [status, setStatus] = useState<string | null>(null);
+  const statusTimer = useRef<number | null>(null);
+  useEffect(() => () => window.clearTimeout(statusTimer.current ?? undefined), []);
+  const copy = async () => {
+    const text = s.measurements.map((m) => `${m.label}: ${line(m)}`).join('\n');
+    // the browser says whether it took the text: over plain http there is no clipboard at all (decision 201)
+    try {
+      await navigator.clipboard.writeText(text);
+      setStatus('Copiadas');
+    } catch {
+      setStatus('El navegador no dejó copiar');
+    }
+    window.clearTimeout(statusTimer.current ?? undefined);
+    statusTimer.current = window.setTimeout(() => setStatus(null), 2500);
+  };
   if (!s.measurements.length) return null;
   return (
     <div className="measure-list">
       {/* the figures in a column of their own, and the list as text for a report (decision 200) */}
       <div className="measure-head">
-        <button className="ghost" onClick={copy}>
+        {status && (
+          <span className="small" role="status">
+            {status}
+          </span>
+        )}
+        <button className="ghost" onClick={() => void copy()}>
           Copiar mediciones
         </button>
       </div>
