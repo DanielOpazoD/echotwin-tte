@@ -84,7 +84,8 @@ export function ConsolePanel() {
   const visible = tabs.filter((t) => t.show);
   const active = visible.some((t) => t.id === s.ui.consoleTab) ? s.ui.consoleTab : 'adquirir';
   const tabsRef = useRef<HTMLDivElement>(null);
-  const ink = useSlidingPill(tabsRef, active, '.on');
+  // the set of tabs is part of the key: a tab that appears (review) or goes (exam) moves the others
+  const ink = useSlidingPill(tabsRef, `${active}|${visible.map((t) => t.id).join(',')}`, '.on');
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const onTabsKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {

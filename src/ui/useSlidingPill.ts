@@ -26,6 +26,9 @@ export function useSlidingPill(
     const raf = requestAnimationFrame(measure);
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
     ro?.observe(el);
+    // the option itself can change size without the control doing so (a badge, a neighbour that appears)
+    const a = el.querySelector<HTMLElement>(selector);
+    if (a) ro?.observe(a);
     if (typeof document !== 'undefined' && 'fonts' in document)
       void document.fonts.ready.then(measure);
     return () => {

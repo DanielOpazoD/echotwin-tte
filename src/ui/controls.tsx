@@ -41,7 +41,7 @@ export function Slider(props: {
         // the track is lit up to the value (decision 208)
         style={
           {
-            '--fill': `${Math.round(((props.value - props.min) / (props.max - props.min)) * 1000) / 10}%`,
+            '--fill': `${props.max > props.min ? Math.round(((props.value - props.min) / (props.max - props.min)) * 1000) / 10 : 0}%`,
           } as React.CSSProperties
         }
         onChange={(e) => props.onChange(Number(e.target.value))}
