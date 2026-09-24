@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { ModeBar } from './ModeBar';
 import { useHudStore, useSimStore } from '@/app/store';
@@ -105,5 +105,84 @@ describe('ModeBar clean interface', () => {
     expect(item).toHaveProperty('disabled', true);
     expect(item.getAttribute('aria-checked')).toBe('true');
     expect(screen.getByRole('button', { name: 'Torso 3D' })).toHaveProperty('disabled', true);
+  });
+});
+
+describe('the cine loop (decisions 191 and 197)', () => {
+  const frozenCine = () => {
+    // 96 frames over 1.9 s: one every 20 ms
+    useHudStore.setState({
+      hud: {
+        ...initialHud.hud,
+        cineLength: 96,
+        cineFramePhase: 0,
+        cineWindow: { startS: 8.1, endS: 10, frameS: 10 },
+      } as never,
+    });
+    useSimStore.setState({ frozen: true, cineOffset: -2 });
+  };
+  const play = () => screen.getByRole('button', { name: 'Reproducir el cine' });
+  const advance = (ms: number) =>
+    act(() => {
+      vi.advanceTimersByTime(ms);
+    });
+
+  it('replays the frozen frames at their pace, wraps from the newest to the oldest and pauses', () => {
+    vi.useFakeTimers();
+    try {
+      frozenCine();
+      render(<ModeBar />);
+      act(() => play().click());
+      expect(play().getAttribute('aria-pressed')).toBe('true');
+      advance(20);
+      expect(useSimStore.getState().cineOffset).toBe(-1);
+      advance(40);
+      expect(useSimStore.getState().cineOffset).toBe(-95);
+      act(() => play().click());
+      expect(play().getAttribute('aria-pressed')).toBe('false');
+      advance(200);
+      expect(useSimStore.getState().cineOffset).toBe(-95);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('stops when the learner picks a frame, arms a tool, enters review mode or unfreezes', () => {
+    vi.useFakeTimers();
+    try {
+      frozenCine();
+      render(<ModeBar />);
+      const stops: [string, () => void][] = [
+        ['a frame by hand', () => useSimStore.getState().setCineOffset(-40)],
+        ['a tool', () => useSimStore.getState().setActiveTool('caliper')],
+        ['review mode', () => useSimStore.getState().setUi({ reviewMode: true })],
+        ['the freeze', () => useSimStore.getState().toggleFreeze()],
+      ];
+      for (const [what, stop] of stops) {
+        useSimStore.setState({ frozen: true, activeTool: 'none' });
+        act(() => useSimStore.getState().setCinePlaying(true));
+        act(stop);
+        expect(useSimStore.getState().cinePlaying, what).toBe(false);
+        const offset = useSimStore.getState().cineOffset;
+        advance(100);
+        expect(useSimStore.getState().cineOffset, what).toBe(offset);
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('has nothing to play with a single frame', () => {
+    useHudStore.setState({
+      hud: {
+        ...initialHud.hud,
+        cineLength: 1,
+        cineFramePhase: 0,
+        cineWindow: { startS: 10, endS: 10, frameS: 10 },
+      } as never,
+    });
+    useSimStore.setState({ frozen: true, cineOffset: 0 });
+    render(<ModeBar />);
+    expect(play()).toHaveProperty('disabled', true);
   });
 });

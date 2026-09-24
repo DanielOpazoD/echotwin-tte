@@ -63,10 +63,7 @@ export function ArtifactLab() {
   const current = lab ?? defaults;
   return (
     <div className="artifact-lab">
-      <div className="small">
-        Ajusta cada artefacto y observa causa y remedio.{' '}
-        {lab ? 'Valores del laboratorio (anulan los del caso).' : 'Valores del caso.'}
-      </div>
+      {lab && <div className="small">Valores del laboratorio: anulan los del caso.</div>}
       {ITEMS.map((it) => (
         <div key={it.key} className="artifact-row" data-artifact={it.key}>
           <label>

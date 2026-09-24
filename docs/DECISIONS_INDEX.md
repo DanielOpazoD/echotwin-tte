@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 188 (última: 188).
+Decisiones: 197 (última: 197).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -196,3 +196,12 @@ Decisiones: 188 (última: 188).
 | [186](DECISIONS.md#L1287) | 2026-09-23 | Interfaz limpia, cuarta tanda: menos texto en pantalla | vigente |
 | [187](DECISIONS.md#L1296) | 2026-09-23 | Profundidad y ganancia sobre la imagen | vigente |
 | [188](DECISIONS.md#L1298) | 2026-09-23 | El navegador despejado y la guía oculta al empezar | vigente |
+| [189](DECISIONS.md#L1304) | 2026-09-23 | La guía entera y una consola sin sobrantes | vigente |
+| [190](DECISIONS.md#L1310) | 2026-09-23 | El cine sobre el ECG | vigente |
+| [191](DECISIONS.md#L1312) | 2026-09-23 | Reproducir el cine congelado | vigente |
+| [192](DECISIONS.md#L1314) | 2026-09-23 | La imagen en reposo | vigente |
+| [193](DECISIONS.md#L1316) | 2026-09-23 | La barra inferior en ventanas medianas | vigente |
+| [194](DECISIONS.md#L1318) | 2026-09-23 | El modo revisión sin instrucciones sobre la imagen | vigente |
+| [195](DECISIONS.md#L1320) | 2026-09-23 | La frecuencia de cuadro una sola vez | vigente |
+| [196](DECISIONS.md#L1322) | 2026-09-23 | Primer arranque sin saltos | vigente |
+| [197](DECISIONS.md#L1324) | 2026-09-23 | Lo que encontró la revisión de las decisiones 189–196 | vigente |

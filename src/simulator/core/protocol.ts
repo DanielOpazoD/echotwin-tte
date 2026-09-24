@@ -126,6 +126,11 @@ export interface SimOutput {
   cineLength: number;
   cineOffset: number;
   cineFramePhase: number;
+  /**
+   * The cine buffer on the ECG's clock (decision 190): the times of its oldest and newest frames and of the frame
+   * shown, so the ECG strip draws where the frozen frame sits in the beat and the learner can scrub along it.
+   */
+  cineWindow: { startS: number; endS: number; frameS: number };
   stats: Record<string, number | string>;
   colorFps: number;
   probeBeam: {

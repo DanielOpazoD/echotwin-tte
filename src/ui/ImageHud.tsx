@@ -48,10 +48,8 @@ export function ImageHud() {
         <span>
           {depthCm} cm · {frequencyMHz.toFixed(1)} MHz{harmonics ? ' THI' : ''}
         </span>
-        <span>
-          FR {hud ? Math.round(hud.simulatedFps) : '—'} Hz
-          {hud && hud.colorFps > 0 ? ` · color ${Math.round(hud.colorFps)}` : ''}
-        </span>
+        {/* in colour the frame rate already is the colour one: «· color N» repeated it (decision 195) */}
+        <span>FR {hud ? Math.round(hud.simulatedFps) : '—'} Hz</span>
         {strip ? viewLine : null}
         {gpuReason && gpuReason !== 'ok' ? (
           // the image is formed by the CPU tracer (no WebGL2, or the context was lost): slower and, on «auto», coarser

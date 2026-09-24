@@ -5,7 +5,8 @@ import type { SegmentModelChoice } from './segmentMap';
 /**
  * The button on the ultrasound image that shows the LV segments of the tissue in it (decision 153), and, while they
  * show, the choice of model (17 anatomical, 16 wall motion) and how to read them. Hidden in exam mode, where the
- * layer is off whatever the saved preference.
+ * layer is off whatever the saved preference. While off it shows only with the pointer over the image, like the depth
+ * and gain steppers (decision 192).
  */
 export function SegmentImageToggle() {
   const mode = useSimStore((s) => s.mode);
@@ -22,7 +23,7 @@ export function SegmentImageToggle() {
           : useSimStore.getState().ui.selectedSegment,
     });
   return (
-    <div className="img-seg">
+    <div className={on ? 'img-seg on' : 'img-seg'}>
       <button
         className={on ? 'img-seg-toggle on' : 'img-seg-toggle'}
         aria-pressed={on}

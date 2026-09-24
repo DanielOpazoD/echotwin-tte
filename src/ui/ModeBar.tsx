@@ -1,9 +1,10 @@
+import { useEffect } from 'react';
 import { useHudStore, useSimStore } from '@/app/store';
 import { useShallow } from 'zustand/shallow';
 import { modePolicy } from '@/app/modePolicy';
 import { exportDisplayPng } from '@/app/exportImage';
 import { useRestartTutorial } from './Tutorial';
-import { IconSliders } from './icons';
+import { IconPause, IconPlay, IconSliders } from './icons';
 import { MODALITY_LIST } from '@/simulator/renderer/modality';
 import { ActionItem, CheckItem, MenuCap, usePopover } from './menu';
 
@@ -61,6 +62,7 @@ export function ModeBar() {
       </button>
       {s.frozen && hud && (
         <div className="cine">
+          <CinePlay length={hud.cineLength} spanS={hud.cineWindow.endS - hud.cineWindow.startS} />
           <input
             type="range"
             aria-label="Cine"
@@ -69,7 +71,7 @@ export function ModeBar() {
             value={s.cineOffset}
             onChange={(e) => s.setCineOffset(Number(e.target.value))}
           />
-          <span className="small">
+          <span className="small cine-read">
             cuadro {hud.cineLength + s.cineOffset}/{hud.cineLength} · fase{' '}
             {(hud.cineFramePhase * 100).toFixed(0)}%
           </span>
@@ -77,7 +79,10 @@ export function ModeBar() {
       )}
       <span className="spacer" style={{ flex: 1 }} />
       {/* off the image: in the Doppler modes it covered the spectral strip */}
-      <span className="disclaimer">
+      <span
+        className="disclaimer"
+        title="Simulador educacional con pacientes sintéticos · no apto para diagnóstico"
+      >
         Simulador educacional con pacientes sintéticos · no apto para diagnóstico
       </span>
       <button
@@ -236,5 +241,34 @@ function OverflowMenu() {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Replays the frozen cine as a loop at the pace it was acquired (decision 191): each tick shows the next frame and the
+ * newest wraps to the oldest. The loop lives in the store, so any frame picked by hand, a tool, review mode or the
+ * freeze stops it (decision 197); the button keeps one name and says whether it plays with aria-pressed.
+ */
+function CinePlay({ length, spanS }: { length: number; spanS: number }) {
+  const playing = useSimStore((st) => st.cinePlaying);
+  const setPlaying = useSimStore((st) => st.setCinePlaying);
+  const stepCine = useSimStore((st) => st.stepCine);
+  useEffect(() => {
+    if (!playing || length < 2) return;
+    const frameMs = (1000 * Math.max(0.1, spanS)) / (length - 1);
+    const id = setInterval(stepCine, frameMs);
+    return () => clearInterval(id);
+  }, [playing, length, spanS, stepCine]);
+  return (
+    <button
+      className={`icon-btn${playing ? ' active' : ''}`}
+      aria-label="Reproducir el cine"
+      aria-pressed={playing}
+      title={playing ? 'Pausar el cine' : 'Reproducir el cine'}
+      disabled={length < 2}
+      onClick={() => setPlaying(!playing)}
+    >
+      {playing ? <IconPause size={13} /> : <IconPlay size={13} />}
+    </button>
   );
 }

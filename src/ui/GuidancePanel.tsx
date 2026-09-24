@@ -69,10 +69,8 @@ export function GuidancePanel() {
           </span>
         </span>
       </div>
-      <div className="bar scorebar">
-        <i style={{ width: `${v.score}%`, background: color }} />
-      </div>
-      {targetId && (
+      {/* the ring already draws the score; the target line only when it names another view (decision 189) */}
+      {targetId && targetId !== v.bestViewId && (
         <div className="small target">
           Objetivo: {getViewTarget(targetId).name} · {targetScore ?? '—'}/100
         </div>

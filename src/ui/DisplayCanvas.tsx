@@ -9,7 +9,7 @@ import {
   type SimStore,
 } from '@/app/store';
 import type { SimOutput } from '@/simulator/core/protocol';
-import { ecgTracePoints, type EcgLayout } from './ecgTrace';
+import { cineOffsetAtX, cineOffsetOnEcg, ecgLayoutOf, ecgTracePoints, ecgX } from './ecgTrace';
 import { pixelToPolar, polarToPixel, type SectorMapping } from '@/simulator/renderer/scanConvert';
 import { reprojectGeometry } from '@/simulator/measurements/geometry';
 import { tgcAtDepth } from '@/simulator/renderer/postprocess/consolePipeline';
@@ -69,7 +69,7 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
   /** the overlay redraw of the drawing effect, so tool clicks refresh the overlay without waiting for a frame */
   const redrawOverlayRef = useRef<() => void>(() => {});
   const dragRef = useRef<{
-    kind: 'box-move' | 'box-resize' | 'cursor' | 'marker' | 'none';
+    kind: 'box-move' | 'box-resize' | 'cursor' | 'marker' | 'cine' | 'none';
     startX: number;
     startY: number;
     box?: { t0: number; t1: number; r0: number; r1: number };
@@ -124,6 +124,12 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
       const canvas = ovRef.current;
       if (!out || !canvas) return;
       const state = useSimStore.getState();
+      // the ↔ of the ECG strip goes with the scrub: live again, a tool or review mode, before the pointer moves
+      if (
+        canvas.style.cursor &&
+        (!out.frozen || state.activeTool !== 'none' || state.ui.reviewMode)
+      )
+        canvas.style.cursor = '';
       const pending = pendingRef.current;
       const context = [
         state.caseId,
@@ -206,6 +212,13 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
       handleToolClick(p, e.detail);
       return;
     }
+    // frozen, a press on the ECG strip picks the cine frame at that instant and a drag scrubs (decision 190)
+    const cineOffset = cineOffsetOnEcg(p, hud, st);
+    if (cineOffset !== null) {
+      st.setCineOffset(cineOffset);
+      dragRef.current = { kind: 'cine', startX: p.x, startY: p.y };
+      return;
+    }
     if (st.modality === 'color' && inSector) {
       const { rCm, thetaRad } = pixelToPolar(m, p.x, p.y);
       const c = st.color;
@@ -283,12 +296,21 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
     const hud = lastOutRef.current;
     if (dragRef.current.kind === 'none') {
       updateSegmentTip(e);
+      // the strip says it can be scrubbed; an armed tool keeps its crosshair from the stylesheet
+      if (hud && ovRef.current)
+        ovRef.current.style.cursor =
+          cineOffsetOnEcg(toLocal(e), hud, useSimStore.getState()) !== null ? 'ew-resize' : '';
       return;
     }
     if (!hud) return;
     const p = toLocal(e);
     const st = useSimStore.getState();
     const m = hud.sector;
+    if (dragRef.current.kind === 'cine') {
+      const layout = ecgLayoutOf(hud, st.modality);
+      st.setCineOffset(cineOffsetAtX(p.x, layout, hud.cineWindow, hud.cineLength));
+      return;
+    }
     if (dragRef.current.kind === 'marker') {
       const f = fieldsAt(p, hud);
       if (f && dragRef.current.markerId) {
@@ -934,17 +956,15 @@ function drawOverlay(
     ctx.fillText('zona focal', m.apexX - 30, m.apexY + (settings.focusCm + 2.2) * m.pxPerCm);
   }
   if (ui.showEcg && hud.ecg.length > 3) {
-    const eh = 30;
-    const ey = (modality === '2d' || modality === 'color' ? sectorH : H) - eh - 6;
-    const span = 3;
-    const layout: EcgLayout = {
-      x0: 8,
-      width: W - 16,
-      y: ey,
-      height: eh,
-      spanS: span,
-      headS: hud.ecgHead,
-    };
+    const layout = ecgLayoutOf(hud, modality);
+    const { y: ey, height: eh } = layout;
+    if (hud.frozen) {
+      // the cine buffer as a band on the ECG and the frame shown as a playhead (decision 190)
+      const x0 = ecgX(hud.cineWindow.startS, layout);
+      const x1 = ecgX(hud.cineWindow.endS, layout);
+      ctx.fillStyle = 'rgba(255,200,87,0.09)';
+      ctx.fillRect(x0, ey, Math.max(1, x1 - x0), eh);
+    }
     ctx.strokeStyle = '#57d38c';
     ctx.lineWidth = 1.2;
     ctx.beginPath();
@@ -958,7 +978,16 @@ function drawOverlay(
     ctx.stroke();
     ctx.lineWidth = 1;
     ctx.fillStyle = '#ffc857';
-    ctx.fillRect(W - 9, ey, 2, eh);
+    if (hud.frozen) {
+      const px = Math.round(ecgX(hud.cineWindow.frameS, layout));
+      ctx.fillRect(px - 1, ey - 2, 2, eh + 2);
+      ctx.beginPath();
+      ctx.moveTo(px - 5, ey - 7);
+      ctx.lineTo(px + 5, ey - 7);
+      ctx.lineTo(px, ey - 1);
+      ctx.closePath();
+      ctx.fill();
+    } else ctx.fillRect(W - 9, ey, 2, eh);
   }
   ctx.lineWidth = 1.5;
   for (const ms of measurements) {
@@ -991,22 +1020,18 @@ function drawOverlay(
       '#5cc8ff',
     );
   ctx.lineWidth = 1;
-  // review markers (decision 134): numbered, with the structure the model holds under each one
+  // review markers (decision 134): numbered, with the structure the model holds under each one. How to use the mode
+  // is in the console's review tab; the image carries only a tag that names the mode, above the ECG where the depth
+  // and gain steppers never go (decision 194), and the pending secondary point
   if (ui.reviewMode) {
+    const tagY = (modality === '2d' || modality === 'color' ? sectorH : H) - 50;
     ctx.fillStyle = '#ff6ad5';
     ctx.fillText(
-      'Revisión: clic = marcar · arrastra un marcador para moverlo · Supr = borrar · Shift+clic = herramienta normal',
+      st.reviewLinkParentId
+        ? `REVISIÓN · punto secundario de ${reviewMarkers.find((x) => x.id === st.reviewLinkParentId)?.n ?? '?'} · Esc termina`
+        : 'REVISIÓN',
       12,
-      74,
-    );
-  }
-  if (st.reviewLinkParentId) {
-    const parent = reviewMarkers.find((x) => x.id === st.reviewLinkParentId);
-    ctx.fillStyle = '#ffc857';
-    ctx.fillText(
-      `Punto secundario de ${parent ? parent.n : '?'}: clic para añadirlo · Esc termina`,
-      12,
-      88,
+      tagY,
     );
   }
   // links from each secondary point to its primary (decision 136), under the rings

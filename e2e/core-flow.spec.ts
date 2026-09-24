@@ -210,7 +210,8 @@ test('the controls tutorial appears on a fresh profile and can be skipped', asyn
   await page.goto('/');
   await expect(page.getByRole('dialog', { name: 'Tutorial de controles' })).toBeVisible();
   await page.getByRole('button', { name: 'Siguiente' }).click();
-  await expect(page.getByText('2 · Marcador y rotación')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Marcador y rotación' })).toBeVisible();
+  await expect(page.getByText('paso 2 de 8')).toBeVisible();
   await page.getByRole('button', { name: 'Saltar' }).click();
   await expect(page.getByRole('dialog', { name: 'Tutorial de controles' })).toHaveCount(0);
   await page.reload();
