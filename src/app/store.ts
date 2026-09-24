@@ -89,6 +89,8 @@ export interface UiPrefs {
   railMini: boolean;
   /** Clean-interface mode: the whole left rail hides so only the image and console remain. */
   minimal: boolean;
+  /** Room mode (decision 205): the chrome dims and only the image keeps its light, as in a dark echo room. */
+  roomMode: boolean;
   consoleTab: ConsoleTab;
   screen: 'simulator' | 'references' | 'report' | 'curriculum' | 'progress';
 }
@@ -178,6 +180,8 @@ export interface SimStore {
   examFinished: boolean;
   error: string | null;
   workerMode: 'worker' | 'inline' | 'starting';
+  /** The 3D navigator has its model (decision 203): the start screen ticks it off. Not persisted. */
+  navigatorReady: boolean;
   fpsUi: number;
   setProbe: (p: Partial<ProbeControl>) => void;
   nudgeProbe: (p: Partial<ProbeControl>) => void;
@@ -216,6 +220,7 @@ export interface SimStore {
   resetProgress: () => void;
   setError: (e: string | null) => void;
   setWorkerMode: (m: SimStore['workerMode']) => void;
+  setNavigatorReady: (ready: boolean) => void;
   setFpsUi: (f: number) => void;
   resetProbe: () => void;
   loadCase: (id: string) => void;
@@ -326,6 +331,7 @@ function savePrefs(ui: UiPrefs): void {
       reviewFreezeOnMark,
       railMini,
       minimal,
+      roomMode,
       consoleTab,
     } = ui;
     localStorage.setItem(
@@ -354,6 +360,7 @@ function savePrefs(ui: UiPrefs): void {
         reviewFreezeOnMark,
         railMini,
         minimal,
+        roomMode,
         consoleTab,
       }),
     );
@@ -419,6 +426,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
     showHud: true,
     railMini: false,
     minimal: false,
+    roomMode: false,
     consoleTab: 'adquirir',
     screen: 'simulator',
     ...loadPrefs(),
@@ -445,6 +453,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
   examFinished: false,
   error: null,
   workerMode: 'starting',
+  navigatorReady: false,
   fpsUi: 0,
   setProbe: (p) => set((s) => ({ probe: clampProbe({ ...s.probe, ...p }), presetAnim: null })),
   nudgeProbe: (p) =>
@@ -750,6 +759,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
     }),
   setError: (e) => set({ error: e }),
   setWorkerMode: (m) => set({ workerMode: m }),
+  setNavigatorReady: (ready) => set({ navigatorReady: ready }),
   setFpsUi: (f) => set({ fpsUi: f }),
   resetProbe: () => set({ probe: { ...START_PROBE }, presetAnim: null }),
   loadCase: (id) =>

@@ -185,7 +185,7 @@ function AcquireTab() {
           </select>
         </Section>
       )}
-      <Section title="Sonda">
+      <Section title="Sonda" tour="sonda">
         <Slider
           label="Rotación"
           hint="Q E"
@@ -291,6 +291,7 @@ function ImageTab() {
     <Section title="Imagen 2D">
       <Slider
         label="Profundidad"
+        tour="depth"
         hint="[ ]"
         value={s.settings.depthCm}
         min={6}
@@ -301,6 +302,7 @@ function ImageTab() {
       />
       <Slider
         label="Ganancia"
+        tour="gain"
         hint="− +"
         value={s.settings.gainDb}
         min={-30}

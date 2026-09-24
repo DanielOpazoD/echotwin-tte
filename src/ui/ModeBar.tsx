@@ -38,6 +38,7 @@ export function ModeBar() {
           <button
             key={m.id}
             className={s.modality === m.id ? 'active' : ''}
+            data-tour={m.id === 'color' ? 'color' : m.id === 'pw' ? 'pw' : undefined}
             onClick={() => s.setModality(m.id)}
             aria-pressed={s.modality === m.id}
           >
@@ -52,6 +53,7 @@ export function ModeBar() {
       <div className="sep" />
       <button
         className={`freeze-btn${s.frozen ? ' active' : ''}`}
+        data-tour="freeze"
         onClick={() => s.toggleFreeze()}
         data-tip={s.frozen ? 'Reanudar' : 'Congelar la imagen'}
         data-tip-key="Espacio"
@@ -96,12 +98,12 @@ export function ModeBar() {
         Torso 3D
       </button>
       <OverflowMenu />
-      {s.workerMode !== 'worker' && (
+      {s.workerMode === 'inline' && (
         <span
           className="small modebar-status"
           data-tip="La simulación corre en el hilo de la interfaz: puede ir más lenta"
         >
-          {s.workerMode === 'inline' ? 'Sin worker' : 'Iniciando…'}
+          Sin worker
         </span>
       )}
     </div>
@@ -200,6 +202,12 @@ function OverflowMenu() {
             onToggle={() => s.setUi({ minimal: !s.ui.minimal })}
             disabled={s.mode === 'exam'}
             hint="Solo imagen y consola — oculta el rail izquierdo"
+          />
+          <CheckItem
+            label="Modo sala"
+            checked={s.ui.roomMode}
+            onToggle={() => s.setUi({ roomMode: !s.ui.roomMode })}
+            hint="Atenúa todo salvo la imagen, como en la sala a oscuras"
           />
           <CheckItem
             label="ECG"

@@ -98,6 +98,7 @@ export function TorsoView() {
     // the imaging plane doubles as a clipping plane: the 3D heart is split exactly where the beam cuts
     const cutPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
     const onModel = (model: NavigatorModel) => {
+      useSimStore.getState().setNavigatorReady(true);
       thorax = model.thorax;
       heartFrame = model.frame;
       skin = buildSkin(model.thorax);
@@ -824,7 +825,7 @@ export function TorsoView() {
 
   return (
     <div className={`torso-wrap${split ? ' split' : ''}`}>
-      <div className="torso-3d" ref={ref} aria-label="Torso 3D y sonda virtual">
+      <div className="torso-3d" ref={ref} aria-label="Torso 3D y sonda virtual" data-tour="torso">
         {/* inside the torso so it sits at the torso's own bottom edge, whatever height the cut map leaves it
             (decision 197) */}
         <div className="torso-help">
