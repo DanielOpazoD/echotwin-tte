@@ -44,6 +44,18 @@ describe('useSimStore', () => {
     expect(s.activeTool).toBe('none');
   });
 
+  it('the view guide starts hidden at every load, even when an older save kept it open (decision 188)', async () => {
+    const store = await freshStore(JSON.stringify({ guidanceOpen: true, showEcg: false }));
+    expect(store.getState().ui.guidanceOpen).toBe(false);
+    expect(store.getState().ui.showEcg).toBe(false);
+    store.getState().setUi({ guidanceOpen: true });
+    const saved = JSON.parse(localStorage.getItem('echotwin.prefs.v1') ?? '{}') as Record<
+      string,
+      unknown
+    >;
+    expect('guidanceOpen' in saved).toBe(false);
+  });
+
   it('setUi persists the allowed keys and drops the transient ones', async () => {
     const store = await freshStore();
     store.getState().setUi({ showEcg: false, devPanel: true, screen: 'report' });

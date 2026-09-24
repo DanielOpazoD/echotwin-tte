@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 184 (última: 184).
+Decisiones: 188 (última: 188).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -192,3 +192,7 @@ Decisiones: 184 (última: 184).
 | [182](DECISIONS.md#L1174) | 2026-09-23 | El eje corto papilar se toma 2 cm más lejos del esternón y se acerca al de un paciente promedio | vigente |
 | [183](DECISIONS.md#L1245) | 2026-09-23 | Interfaz limpia, primera tanda: cimientos y armazón | vigente |
 | [184](DECISIONS.md#L1268) | 2026-09-23 | Interfaz limpia, segunda tanda: la pantalla del simulador | vigente |
+| [185](DECISIONS.md#L1280) | 2026-09-23 | Interfaz limpia, tercera tanda: los atajos a una tecla y el cursor de medir | vigente |
+| [186](DECISIONS.md#L1287) | 2026-09-23 | Interfaz limpia, cuarta tanda: menos texto en pantalla | vigente |
+| [187](DECISIONS.md#L1296) | 2026-09-23 | Profundidad y ganancia sobre la imagen | vigente |
+| [188](DECISIONS.md#L1298) | 2026-09-23 | El navegador despejado y la guía oculta al empezar | vigente |

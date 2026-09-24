@@ -24,6 +24,17 @@ export const SHORTCUTS: { keys: string; action: string }[] = [
   },
   { keys: '. / ,', action: 'Cine: cuadro siguiente/anterior (en freeze)' },
   { keys: 'Esc', action: 'Cancelar la medición en curso' },
+  { keys: '?', action: 'Mostrar u ocultar esta lista de atajos' },
+];
+
+/** The pointer on the 3D navigator (decision 188): listed in the shortcuts sheet, one short line on the torso itself. */
+export const TORSO_GESTURES: { keys: string; action: string }[] = [
+  { keys: 'Arrastrar la piel', action: 'Deslizar la sonda' },
+  { keys: 'Arrastrar el marcador · rueda', action: 'Rotar la sonda (Shift + rueda: 10°)' },
+  { keys: 'Shift + arrastrar', action: 'Rock' },
+  { keys: 'Alt + arrastrar', action: 'Tilt (abanico)' },
+  { keys: 'Botón derecho + arrastrar', action: 'Orbitar la cámara' },
+  { keys: 'Ctrl/⌘ + rueda', action: 'Acercar o alejar la cámara' },
 ];
 
 /** Roles whose widgets move with the arrow keys and act with Space (WAI-ARIA composite widgets and the slider). */
@@ -169,8 +180,12 @@ export function useShortcuts(): void {
         case ',':
           if (s.frozen) s.setCineOffset(s.cineOffset - 1);
           break;
+        case '?':
+          s.setUi({ shortcutsOpen: !s.ui.shortcutsOpen });
+          break;
         case 'Escape':
-          if (s.activeMeasurementId) s.setActiveMeasurement(null);
+          if (s.ui.shortcutsOpen) s.setUi({ shortcutsOpen: false });
+          else if (s.activeMeasurementId) s.setActiveMeasurement(null);
           else if (s.activeTool !== 'none') s.setActiveTool('none');
           else if (s.reviewLinkParentId) s.armReviewLink(null);
           else if (s.reviewSelectedId) s.selectReviewMarker(null);

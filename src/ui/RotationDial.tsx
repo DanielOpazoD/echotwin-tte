@@ -4,11 +4,14 @@ import { useSimStore } from '@/app/store';
 /**
  * On-screen index-marker dial (spec 4.3): shows where the probe marker points as seen from the
  * front of the patient and lets the user rotate the probe by dragging the marker dot.
- * 0° = marker toward the patient's right shoulder (upper-left on screen); positive = clockwise.
+ * 0° = marker toward the patient's right shoulder (upper-left on screen); positive = clockwise. Decision 188: the value
+ * sits in the middle and the ±15° buttons went away (a click on the ring jumps there, Page Up/Down and Q E step 15°).
  */
-const R = 34;
+const R = 28;
 const CX = 44,
   CY = 44;
+/** A tick every 30° of rotation; 0°, ±90° and 180° (the shoulders and the hips) are longer. */
+const TICKS = Array.from({ length: 12 }, (_, i) => i * 30 - 150);
 
 function screenAngleDeg(rotationDeg: number): number {
   return 135 - rotationDeg; // math convention (y up), degrees
@@ -34,12 +37,12 @@ export function RotationDial() {
   return (
     <div
       className="dial"
-      title="Orientación del marcador de la sonda (arrastra el punto para rotar)"
+      title="Orientación del marcador de la sonda: arrastra el punto o haz clic en el anillo"
     >
       <svg
         viewBox="0 0 88 88"
-        width={88}
-        height={88}
+        width={76}
+        height={76}
         role="slider"
         tabIndex={0}
         aria-label="Rotación de la sonda (marcador)"
@@ -78,32 +81,45 @@ export function RotationDial() {
           e.currentTarget.releasePointerCapture(e.pointerId);
         }}
       >
-        <circle cx={CX} cy={CY} r={R} fill="#151b23" stroke="#3a4656" />
-        <circle cx={CX} cy={CY} r={9} fill="#2b6cb0" opacity={0.6} />
-        <text x={CX} y={11} textAnchor="middle" fontSize={7} fill="#8b95a5">
+        <circle className="dial-ring" cx={CX} cy={CY} r={R} />
+        {TICKS.map((deg) => {
+          const t = (screenAngleDeg(deg) * Math.PI) / 180;
+          const r0 = deg % 90 === 0 ? R - 5 : R - 3;
+          return (
+            <line
+              key={deg}
+              className="dial-tick"
+              x1={CX + r0 * Math.cos(t)}
+              y1={CY - r0 * Math.sin(t)}
+              x2={CX + R * Math.cos(t)}
+              y2={CY - R * Math.sin(t)}
+            />
+          );
+        })}
+        <text className="dial-lbl" x={CX} y={8} textAnchor="middle">
           cabeza
         </text>
-        <text x={CX} y={84} textAnchor="middle" fontSize={7} fill="#8b95a5">
+        <text className="dial-lbl" x={CX} y={86} textAnchor="middle">
           pies
         </text>
-        <text x={7} y={CY + 2} textAnchor="middle" fontSize={7} fill="#8b95a5">
+        <text className="dial-lbl" x={5} y={CY + 3} textAnchor="middle">
           D
         </text>
-        <text x={81} y={CY + 2} textAnchor="middle" fontSize={7} fill="#8b95a5">
+        <text className="dial-lbl" x={83} y={CY + 3} textAnchor="middle">
           I
         </text>
-        <line x1={CX} y1={CY} x2={mx} y2={my} stroke="#5cc8ff" strokeWidth={2} />
-        <circle cx={mx} cy={my} r={6} fill="#5cc8ff" stroke="#0b0e12" strokeWidth={1.5} />
+        <line
+          className="dial-needle"
+          x1={CX + 13 * Math.cos(a)}
+          y1={CY - 13 * Math.sin(a)}
+          x2={mx}
+          y2={my}
+        />
+        <circle className="dial-knob" cx={mx} cy={my} r={5.5} />
+        <text className="dial-val" x={CX} y={CY + 4} textAnchor="middle">
+          {Math.round(rotation)}°
+        </text>
       </svg>
-      <div className="dial-controls">
-        <button aria-label="Rotar 15° antihorario" onClick={() => nudge({ rotationDeg: -15 })}>
-          ↺15°
-        </button>
-        <span className="val">{Math.round(rotation)}°</span>
-        <button aria-label="Rotar 15° horario" onClick={() => nudge({ rotationDeg: 15 })}>
-          ↻15°
-        </button>
-      </div>
     </div>
   );
 }

@@ -65,8 +65,13 @@ export interface UiPrefs {
   segmentModel: 'LV_AHA17' | 'LV_16';
   /** Segment selected on the cut map or the polar map, shared by both. Not persisted. */
   selectedSegment: number | null;
-  /** The view guide (score, hints, details, causes) under the navigator; hidden until asked for (decision 141). */
+  /**
+   * The view guide (score, hints, details, causes) under the navigator; hidden until asked for (decision 141) and
+   * hidden again at every load: it is not persisted (decision 188).
+   */
   guidanceOpen: boolean;
+  /** The keyboard shortcuts sheet over the simulator («?» or the ⋯ menu, decision 185). Not persisted. */
+  shortcutsOpen: boolean;
   /** Rings on the skin where each canonical view is acquired (decision 132). */
   navWindows: boolean;
   showHints: boolean;
@@ -272,7 +277,11 @@ const PREF_KEY = 'echotwin.prefs.v1';
 function loadPrefs(): Partial<UiPrefs> {
   try {
     const raw = localStorage.getItem(PREF_KEY);
-    return raw ? (JSON.parse(raw) as Partial<UiPrefs>) : {};
+    if (!raw) return {};
+    const prefs = JSON.parse(raw) as Partial<UiPrefs>;
+    // the view guide always starts hidden (decision 188): a save from before kept it open across sessions
+    delete prefs.guidanceOpen;
+    return prefs;
   } catch {
     return {};
   }
@@ -300,7 +309,6 @@ function savePrefs(ui: UiPrefs): void {
       imageSegments,
       segmentsOpen,
       segmentModel,
-      guidanceOpen,
       reviewFreezeOnMark,
       railMini,
       minimal,
@@ -329,7 +337,6 @@ function savePrefs(ui: UiPrefs): void {
         imageSegments,
         segmentsOpen,
         segmentModel,
-        guidanceOpen,
         reviewFreezeOnMark,
         railMini,
         minimal,
@@ -386,6 +393,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
     segmentModel: 'LV_AHA17',
     selectedSegment: null,
     guidanceOpen: false,
+    shortcutsOpen: false,
     showHints: true,
     showPhysics: false,
     devPanel: false,

@@ -14,6 +14,7 @@ import { evaluateTasks, type LearnerSnapshot } from '@/education/curriculum';
 import { expectedFindings, scoreImpression } from '@/education/impression';
 import { DevPanel } from '@/ui/DevPanel';
 import { IconChevronRight } from '@/ui/icons';
+import { ShortcutsDialog } from '@/ui/ShortcutsDialog';
 import { Tutorial } from '@/ui/Tutorial';
 import type { SimOutput } from '@/simulator/core/protocol';
 import { DopplerAudio } from '@/simulator/doppler/audio/dopplerAudio';
@@ -258,6 +259,7 @@ export function App() {
         </>
       )}
       <ModeBar />
+      <ShortcutsDialog />
     </div>
   );
 }

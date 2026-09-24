@@ -1,5 +1,6 @@
 import { useSimStore } from '@/app/store';
 import { modePolicy } from '@/app/modePolicy';
+import { InfoTip } from './controls';
 
 /**
  * Predefined views (user request): each button moves the probe *continuously* from its current pose
@@ -63,7 +64,12 @@ export function PresetViews() {
   const disabled = !modePolicy(mode).presetsEnabled;
   return (
     <div className="section">
-      <h4>Vistas predeterminadas</h4>
+      <h4>
+        Vistas predeterminadas
+        {!disabled && (
+          <InfoTip text="Cada vista mueve la sonda de forma continua hasta su pose; luego sigues afinando tú. Cualquier acción manual la detiene." />
+        )}
+      </h4>
       <div className="preset-grid">
         {PRIMARY.map((p) => (
           <PresetButton key={p.id} {...p} />
@@ -78,10 +84,10 @@ export function PresetViews() {
         {disabled
           ? 'Deshabilitadas en examen: la vista debe obtenerse manipulando la sonda.'
           : anim
-            ? `Moviendo la sonda hacia ${anim.viewId.toUpperCase()}… (cualquier acción manual la detiene) `
-            : 'La sonda se desplaza, rota e inclina de forma continua hasta la pose objetivo; luego sigues afinando tú.'}
+            ? `Moviendo la sonda hacia ${anim.viewId.toUpperCase()}…`
+            : null}
         {anim && (
-          <button onClick={cancel} style={{ marginLeft: 6 }}>
+          <button className="ghost" onClick={cancel} style={{ marginLeft: 'auto' }}>
             Detener
           </button>
         )}

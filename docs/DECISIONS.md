@@ -1276,3 +1276,27 @@ La prueba falla:
 - **Ventanas estrechas** (≤ 1040 px): el carril se pliega a su tira, la consola baja a 236 px y las barras sueltan los extras (subtítulo de la marca, teclas, estado técnico). A 800 px la barra superior se recortaba y la leyenda del torso pisaba el modelo.
 
 Probado en el navegador a 1440 × 900 y a 1000 × 700: simulador en vivo y congelado, guía abierta y tutorial. Las pruebas de `src/ui` y `src/app` pasan sin tocarlas.
+
+185. **2026-09-23 — Interfaz limpia, tercera tanda: los atajos a una tecla y el cursor de medir**: dos detalles de la pantalla del simulador que un ecografista echa de menos enseguida.
+
+- **Hoja de atajos**: «?» abre sobre el simulador la misma tabla de atajos que vive en Referencias, con cada tecla como `kbd`; Escape, el fondo o su botón la cierran, y el menú ⋯ la ofrece como acción. Con el foco en un campo, «?» sigue siendo texto. El estado (`ui.shortcutsOpen`) no se persiste.
+- **Cursor**: con una herramienta de medición armada, el puntero sobre la imagen es una cruz, como en el modo revisión; antes nada indicaba que el siguiente clic mediría.
+
+`ShortcutsDialog.test.tsx` cubre la apertura con la tecla fuera y dentro de un campo, el cierre por Escape y por botón, el contenido y la acción del menú.
+
+186. **2026-09-23 — Interfaz limpia, cuarta tanda: menos texto en pantalla**: Daniel pidió una experiencia premium, limpia e intuitiva, «sin mensajes innecesarios». Cada texto de ayuda que se leía una vez y después estorbaba pasa a un ⓘ bajo demanda o desaparece; lo que informa del estado se queda.
+
+- **Ayuda bajo demanda**: `Section` e `InfoTip` muestran la nota de uso en una burbuja al pasar el puntero o con el foco (su texto es también su nombre accesible). Así quedan la caja de color, el cursor espectral, las herramientas libres, las vistas predeterminadas y la orientación del eje corto en el panel de segmentos. En examen no hay notas, como antes.
+- **Fuera**: el párrafo de las vistas predeterminadas en reposo (sólo queda el aviso mientras la sonda se mueve, con «Detener»), «Sin mediciones…», «Sin evaluación de técnica», la coletilla «Calculado del tejido que corta el plano…», « · congelada» en el título (la píldora FREEZE y el marco ámbar ya lo dicen), la instrucción de la herramienta pintada sobre la imagen (la tarjeta «Midiendo» de la consola la da, y en la imagen chocaba con el título) y el estado técnico «Worker · UI n fps», que sólo aparece cuando la simulación corre sin worker.
+- **Más corto**: los rótulos y la leyenda del mapa del corte.
+- **Nada encima de la imagen que la tape**: el aviso educativo sale de la imagen a la barra inferior (en PW, CW, TDI y modo M tapaba la tira espectral); la frecuencia de cuadro se une al grupo de arriba a la derecha, y la vista reconocida va abajo a la derecha en 2D y color y arriba en los modos con tira (estaba sobre la escala de velocidad). La barra de color baja bajo ese grupo (su valor superior quedaba debajo), con los valores alineados a la derecha. El conmutador de segmentos baja 14 px bajo el título.
+
+Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui` y `src/app` pasan sin tocar nombres accesibles: el texto del aviso que exige la E2E sigue igual.
+
+187. **2026-09-23 — Profundidad y ganancia sobre la imagen**: los dos mandos que más se tocan en un ecógrafo estaban en la pestaña «Imagen» de la consola, a una pestaña de distancia mientras se adquiere en «Adquirir». `ImageQuickBar` los pone sobre la imagen, arriba a la izquierda bajo el título: aparece al pasar el puntero por la imagen o con el foco en uno de sus botones (siempre en pantallas táctiles), con los mismos pasos que sus teclas ([ ] 1 cm, − + 2 dB) y los topes del almacén (6–30 cm, ±30 dB). Cada botón tiene nombre accesible («Más profundidad», «Menos ganancia»…). `ImageQuickBar.test.tsx` comprueba los pasos, el valor mostrado y los topes.
+
+188. **2026-09-23 — El navegador despejado y la guía oculta al empezar**: Daniel pidió que la guía de la vista esté siempre oculta por defecto. Desde la decisión 141 empezaba cerrada, pero su estado se guardaba entre sesiones: quien la abría una vez la encontraba abierta en cada visita. Deja de guardarse y la carga descarta el `guidanceOpen` que guardaron las versiones anteriores; `store.test.ts` lo comprueba y falla si se quita el descarte. En el mismo carril:
+- **Dial de rotación**: el valor pasa al centro, marcas cada 30° (más largas en 0°, ±90° y 180°) y colores de la paleta; pierde los botones de ±15°, que repetían lo que ya hacen un clic en el anillo, Re Pág / Av Pág sobre el dial y Q / E. Sin la fila de botones ocupa 84 × 84 px.
+- **Herramientas de cámara**: una columna junto al dial que aparece al pasar el puntero por el navegador o con el foco en una de ellas (siempre en pantallas táctiles). En reposo el torso sólo lleva el dial, y la ventana apical, que quedaba bajo las herramientas, se ve.
+- **Gestos del ratón**: la leyenda del torso se reduce a una línea; la lista completa pasa a la hoja de atajos (`TORSO_GESTURES`), que se abre en dos columnas, teclado y ratón, y cabe sin desplazarse a 1440 × 900. De paso, en «- / +» el «+» salía como separador y no como tecla.
+- **Rótulos del mapa del corte**: `placeLabels` los separa cuadro a cuadro, pero se dibujan en su posición media de un latido (decisión 181) y dos que nunca coincidieron en un cuadro pueden pisarse ya promediados. `withoutOverlaps` descarta al dibujar el que taparía a uno ya puesto, en orden de tamaño; `cutMap.test.ts` lo cubre.

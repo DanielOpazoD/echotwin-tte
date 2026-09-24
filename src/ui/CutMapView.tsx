@@ -4,7 +4,7 @@ import { STRUCTURE_LABELS } from '@/app/review';
 import { segmentLayerOn, useSegmentHover, useSimStore } from '@/app/store';
 import type { SimOutput } from '@/simulator/core/protocol';
 import { computeSectorMapping, type SectorMapping } from '@/simulator/renderer/scanConvert';
-import { nearestSampleLut, paintCutMap, placeLabels } from './cutMap';
+import { nearestSampleLut, paintCutMap, placeLabels, withoutOverlaps } from './cutMap';
 import { SegmentAnchors } from './segmentAnchors';
 import { paintSegmentMap, segmentIds, segmentNames } from './segmentMap';
 
@@ -133,7 +133,10 @@ export function CutMapView() {
             ),
             null,
           );
-        const labelsShown = segAnchors.view().labels;
+        const labelsShown = withoutOverlaps(segAnchors.view().labels, (t) => ({
+          w: ctx.measureText(t).width,
+          h: 13,
+        }));
         ctx.lineJoin = 'round';
         ctx.lineWidth = 3;
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
@@ -162,7 +165,10 @@ export function CutMapView() {
             ),
             null,
           );
-        const labelsShown = structAnchors.view().labels;
+        const labelsShown = withoutOverlaps(structAnchors.view().labels, (t) => ({
+          w: ctx.measureText(t).width,
+          h: 12,
+        }));
         ctx.lineJoin = 'round';
         ctx.lineWidth = 3;
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.75)';
@@ -266,17 +272,15 @@ export function CutMapView() {
       }
     >
       <div className="torso-caption bottom">
-        {segmentsOn
-          ? 'Corte ecográfico · segmentos del VI'
-          : 'Corte ecográfico · plano de la imagen'}
+        {segmentsOn ? 'Corte ecográfico · segmentos' : 'Corte ecográfico'}
       </div>
       <div className="cut-map-hover" ref={hoverRef} aria-live="off" />
       <div className="torso-help cut">
         {segmentsOn
-          ? 'Segmentos del VI del tejido que corta el plano (no del nombre de la vista) · pasar el ratón: nombre · clic: seleccionar'
+          ? 'Pasar el ratón: nombre · clic: seleccionar'
           : labels
-            ? 'Estructuras que atraviesa el plano de la imagen, con sus nombres · pasar el ratón: nombre completo'
-            : 'Estructuras que atraviesa el plano de la imagen · pasar el ratón: nombre'}
+            ? 'Pasar el ratón: nombre completo'
+            : 'Pasar el ratón: nombre'}
       </div>
     </div>
   );

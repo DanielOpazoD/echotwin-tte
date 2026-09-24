@@ -697,20 +697,18 @@ select:hover {
   pointer-events: auto;
 }
 .disclaimer {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 4px;
-  text-align: center;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   font-size: 10px;
   color: var(--faint);
-  pointer-events: none;
   letter-spacing: 0.01em;
 }
 /* LV segments on the ultrasound image (decision 153): the toggle under the case title and the name beside the pointer */
 .img-seg {
   position: absolute;
-  top: 32px;
+  top: 46px;
   left: 10px;
   display: flex;
   align-items: center;
@@ -869,7 +867,7 @@ select:hover {
 }
 /* above the ECG band the overlay draws along the bottom edge */
 .hud-br {
-  bottom: 54px;
+  bottom: 44px;
   right: 10px;
   align-items: flex-end;
   text-align: right;
@@ -2114,7 +2112,8 @@ details.adv > summary:hover::before {
   color: #ffc857;
   margin-top: 4px;
 }
-canvas.overlay.review {
+canvas.overlay.review,
+canvas.overlay.armed {
   cursor: crosshair;
 }
 .review-children {
@@ -2262,4 +2261,328 @@ canvas.overlay.review {
   border-radius: 50%;
   background: var(--accent);
   animation: pulse 1.2s ease-in-out infinite;
+}
+
+/* ---- sheets over the simulator (decision 185): the keyboard shortcuts ---- */
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(4, 6, 9, 0.6);
+  backdrop-filter: blur(3px);
+  animation: app-in 0.15s ease-out;
+}
+.sheet {
+  width: min(560px, 100%);
+  max-height: 100%;
+  overflow: auto;
+  padding: 16px 18px 18px;
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-2);
+}
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.sheet-head h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+}
+.sheet table {
+  width: 100%;
+  margin-top: 10px;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.sheet td {
+  padding: 6px 4px;
+  border-top: 1px solid var(--border);
+  vertical-align: top;
+}
+.sheet td:first-child {
+  width: 46%;
+  white-space: nowrap;
+}
+.sheet .kbd {
+  font-size: 11px;
+  line-height: 20px;
+  min-width: 22px;
+  padding: 0 6px;
+  color: var(--text);
+  background: var(--panel-3);
+  border-color: var(--border-strong);
+}
+.sheet-sep {
+  display: inline-block;
+  margin: 0 5px;
+  color: var(--faint);
+}
+
+/* ---- decision 186: fewer words on screen ---- */
+/* a usage note on demand: a small ⓘ beside a title, the note in a bubble on hover or focus */
+.info-tip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  margin-left: 6px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  color: var(--faint);
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 1;
+  text-transform: none;
+  letter-spacing: 0;
+  cursor: help;
+  vertical-align: 1px;
+}
+.info-tip:hover,
+.info-tip:focus-visible {
+  color: var(--accent);
+  border-color: var(--accent-line);
+  outline: none;
+}
+.info-tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: calc(100% + 8px);
+  right: -8px;
+  width: max-content;
+  max-width: 250px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #0d1117;
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-2);
+  color: var(--text);
+  font-family: var(--font);
+  font-style: normal;
+  font-size: 11.5px;
+  font-weight: 400;
+  line-height: 1.45;
+  white-space: normal;
+  text-align: left;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-2px);
+  transition:
+    opacity 0.14s ease,
+    transform 0.14s ease;
+  z-index: 50;
+}
+.info-tip:hover::after,
+.info-tip:focus-visible::after {
+  opacity: 1;
+  transform: none;
+}
+/* in the left rail the bubble opens to the right */
+.segment-panel .info-tip::after {
+  right: auto;
+  left: -8px;
+}
+.preset-status:empty {
+  display: none;
+}
+.protocol-cap {
+  margin: 2px 0 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.modebar-status {
+  color: var(--warn);
+}
+
+/* ---- decision 187: depth and gain on the image ---- */
+.quick-bar {
+  position: absolute;
+  left: 10px;
+  top: 78px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px;
+  border-radius: 10px;
+  background: rgba(8, 11, 16, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(4px);
+  box-shadow: var(--shadow-1);
+  opacity: 0;
+  transform: translateY(-3px);
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+}
+.display-wrap:hover .quick-bar,
+.quick-bar:focus-within {
+  opacity: 1;
+  transform: none;
+}
+.quick-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.quick-label {
+  margin-right: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.quick-value {
+  min-width: 50px;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.quick-bar button.icon-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border-color: transparent;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+}
+.quick-bar button.icon-btn:hover {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+.quick-sep {
+  width: 1px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.12);
+}
+@media (hover: none) {
+  .quick-bar {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---- interface, fourth round: the navigator (decision 188) ---- */
+/* the dial: its value in the middle, ticks every 30°, the colours of the palette */
+.dial {
+  padding: 3px;
+  gap: 0;
+  background: rgba(12, 16, 22, 0.78);
+  backdrop-filter: blur(6px);
+  border-color: var(--hairline);
+}
+.dial-ring {
+  fill: rgba(255, 255, 255, 0.03);
+  stroke: var(--border-strong);
+  stroke-width: 1;
+}
+.dial-tick {
+  stroke: var(--faint);
+  stroke-width: 1;
+}
+.dial-lbl {
+  fill: var(--faint);
+  font-size: 7.5px;
+  font-family: var(--font);
+}
+.dial-needle {
+  stroke: var(--accent);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+.dial-knob {
+  fill: var(--accent);
+  stroke: var(--bg);
+  stroke-width: 1.5;
+}
+.dial-val {
+  fill: var(--text);
+  font-size: 11px;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.dial svg:focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 1px;
+  border-radius: 50%;
+}
+/* the camera tools: a column beside the dial, shown while the pointer is over the navigator or one has focus
+   (always on a touch screen), so at rest the torso shows only the dial */
+.torso-tools {
+  flex-direction: row-reverse;
+  align-items: flex-start;
+}
+.torso-buttons {
+  flex-direction: column;
+  opacity: 0;
+  transition: opacity 0.16s ease;
+}
+.torso-wrap:hover .torso-buttons,
+.torso-tools:focus-within .torso-buttons {
+  opacity: 1;
+}
+@media (hover: none) {
+  .torso-buttons {
+    opacity: 1;
+  }
+}
+.sheet-sub {
+  margin: 14px 0 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.sheet-sub + table {
+  margin-top: 4px;
+}
+.torso-help .kbd {
+  font-size: 9.5px;
+  padding: 0 4px;
+}
+/* the shortcuts sheet: keyboard and pointer side by side where there is room */
+.sheet.shortcuts {
+  width: min(880px, 100%);
+}
+.sheet-cols {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  gap: 0 28px;
+  align-items: start;
+}
+.sheet.shortcuts td {
+  padding: 5px 4px;
+}
+.sheet.shortcuts td:first-child {
+  width: auto;
+  padding-right: 14px;
+}
+@media (max-width: 760px) {
+  .sheet-cols {
+    grid-template-columns: 1fr;
+  }
+}
+.kbd.gesture {
+  font-family: var(--font);
+  font-size: 11.5px;
 }
