@@ -63,4 +63,11 @@ describe('the controls tour', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(useSimStore.getState().ui.tutorialDone).toBe(true);
   });
+
+  it('closes as soon as the preference marks it done, wherever that comes from', () => {
+    render(<Tutorial />);
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    act(() => useSimStore.getState().setUi({ tutorialDone: true }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
 });
