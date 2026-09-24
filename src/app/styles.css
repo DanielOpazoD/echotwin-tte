@@ -4,6 +4,8 @@
   --panel: #10141a;
   --panel-2: #161b23;
   --panel-3: #1c222c;
+  --panel-4: #252c38;
+  --track: #2a3240;
   --border: #222933;
   --border-strong: #303947;
   --hairline: rgba(255, 255, 255, 0.07);
@@ -58,9 +60,11 @@ select {
   font: inherit;
   color: inherit;
 }
+/* buttons are tonal (decision 208): a fill one step above their panel and no drawn border; the accent fill is kept
+   for the one primary action, and the ghost for actions inside cards */
 button {
-  background: var(--panel-2);
-  border: 1px solid var(--border);
+  background: var(--panel-3);
+  border: 1px solid transparent;
   border-radius: 8px;
   padding: 5px 10px;
   font-weight: 500;
@@ -73,8 +77,7 @@ button {
     transform 0.06s ease;
 }
 button:hover {
-  border-color: var(--border-strong);
-  background: var(--panel-3);
+  background: var(--panel-4);
 }
 button:active {
   transform: scale(0.98);
@@ -131,8 +134,8 @@ button.icon-btn {
   min-width: 15px;
   padding: 0 4px;
   border-radius: 4px;
-  border: 1px solid var(--hairline);
-  background: rgba(0, 0, 0, 0.35);
+  border: 0;
+  background: rgba(255, 255, 255, 0.07);
   font-family: var(--mono);
   font-size: var(--fs-xs);
   line-height: 15px;
@@ -145,8 +148,8 @@ button.active .kbd {
   border-color: var(--accent-line);
 }
 select {
-  background: var(--panel-2);
-  border: 1px solid var(--border);
+  background: var(--panel-3);
+  border: 1px solid transparent;
   border-radius: 8px;
   padding: 5px 26px 5px 9px;
   appearance: none;
@@ -156,7 +159,7 @@ select {
   background-position: right 9px center;
 }
 select:hover {
-  border-color: var(--border-strong);
+  background: var(--panel-4);
 }
 .app {
   display: grid;
@@ -264,7 +267,7 @@ select:hover {
   margin: 0 auto;
   border-radius: 10px;
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
 }
 .nav-seg button {
   border: 0;
@@ -279,7 +282,7 @@ select:hover {
   background: var(--panel-3);
 }
 .nav-seg button.active {
-  background: var(--panel-3);
+  background: var(--panel-4);
   color: var(--text);
   box-shadow: var(--shadow-1);
 }
@@ -550,7 +553,7 @@ select:hover {
   padding: 3px;
   border-radius: 10px;
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
 }
 .seg-bar button {
   display: inline-flex;
@@ -571,7 +574,6 @@ select:hover {
 .seg-bar button.active {
   background: var(--accent-soft);
   color: #fff;
-  box-shadow: inset 0 0 0 1px var(--accent-line);
 }
 .modebar .sep {
   width: 1px;
@@ -957,9 +959,9 @@ select:hover {
 .row input[type='range']::-webkit-slider-runnable-track,
 .cine input[type='range']::-webkit-slider-runnable-track,
 .artifact-row input[type='range']::-webkit-slider-runnable-track {
-  height: 4px;
+  height: 3px;
   border-radius: 2px;
-  background: #2a3342;
+  background: linear-gradient(90deg, var(--accent) var(--fill, 0%), var(--track) var(--fill, 0%));
 }
 .row input[type='range']::-webkit-slider-thumb,
 .cine input[type='range']::-webkit-slider-thumb,
@@ -986,9 +988,9 @@ select:hover {
 .row input[type='range']::-moz-range-track,
 .cine input[type='range']::-moz-range-track,
 .artifact-row input[type='range']::-moz-range-track {
-  height: 4px;
+  height: 3px;
   border-radius: 2px;
-  background: #2a3342;
+  background: linear-gradient(90deg, var(--accent) var(--fill, 0%), var(--track) var(--fill, 0%));
 }
 .row input[type='range']::-moz-range-thumb,
 .cine input[type='range']::-moz-range-thumb,
@@ -2177,14 +2179,13 @@ canvas.overlay.armed {
 /* ---- split navigator: torso above, cut face below (decision 137) ---- */
 .torso-caption {
   position: absolute;
-  left: 6px;
-  font-size: var(--fs-xs);
-  letter-spacing: 0.04em;
+  left: 8px;
+  font-size: var(--fs-caps);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #9aa4b5;
-  background: rgba(0, 0, 0, 0.45);
-  padding: 2px 6px;
-  border-radius: 4px;
+  color: var(--muted);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  padding: 2px 4px;
   z-index: 2;
   pointer-events: none;
 }
@@ -2879,4 +2880,86 @@ canvas.overlay.armed {
 .app.room .right:focus-within,
 .app.room .modebar:focus-within {
   opacity: 1;
+}
+
+/* ---- visual system v2 (decision 208): the same language in every control ---- */
+.row input[type='range']::-webkit-slider-thumb,
+.cine input[type='range']::-webkit-slider-thumb,
+.artifact-row input[type='range']::-webkit-slider-thumb {
+  width: 12px;
+  height: 12px;
+  margin-top: -4.5px;
+  background: #eef2f7;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.5),
+    0 1px 3px rgba(0, 0, 0, 0.5);
+}
+.row input[type='range']:hover::-webkit-slider-thumb,
+.cine input[type='range']:hover::-webkit-slider-thumb,
+.artifact-row input[type='range']:hover::-webkit-slider-thumb {
+  background: #ffffff;
+  transform: scale(1.12);
+}
+.row input[type='range']::-moz-range-thumb,
+.cine input[type='range']::-moz-range-thumb,
+.artifact-row input[type='range']::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: #eef2f7;
+}
+/* the TGC verticals in the same language as the other sliders */
+.tgc input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  accent-color: auto;
+}
+.tgc input[type='range']::-webkit-slider-runnable-track {
+  width: 3px;
+  border-radius: 2px;
+  background: var(--track);
+}
+.tgc input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-left: -4.5px;
+  border-radius: 50%;
+  border: 0;
+  background: #eef2f7;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.5),
+    0 1px 3px rgba(0, 0, 0, 0.5);
+}
+.tgc input[type='range']:hover::-webkit-slider-thumb {
+  background: #ffffff;
+}
+.seg {
+  border-color: transparent;
+  background: var(--bg);
+  padding: 3px;
+  border-radius: 10px;
+}
+.seg button.active {
+  background: var(--panel-4);
+  box-shadow: var(--shadow-1);
+}
+/* preset tiles: tonal cards, the chosen one in the accent */
+.preset-grid button {
+  background: var(--panel-2);
+  border-radius: 10px;
+  padding: 7px 4px 6px;
+}
+.preset-grid button:hover {
+  background: var(--panel-3);
+}
+/* the top bar's selects read as quiet chips */
+.topbar select {
+  background-color: transparent;
+  color: var(--muted);
+}
+.topbar select:hover {
+  background-color: var(--panel-3);
+  color: var(--text);
 }
