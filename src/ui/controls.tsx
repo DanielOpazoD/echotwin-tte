@@ -13,13 +13,15 @@ export function Slider(props: {
   disabled?: boolean;
   /** Keyboard shortcut shown beside the label, hidden from assistive technology (the name stays the label). */
   hint?: string;
+  /** Anchor for the controls tour (decision 204). */
+  tour?: string;
 }) {
   const fmt =
     props.format ??
     ((v: number) =>
       `${Number.isInteger(props.step ?? 1) ? Math.round(v) : v.toFixed(2)}${props.unit ?? ''}`);
   return (
-    <div className="row" data-tip={props.title}>
+    <div className="row" data-tip={props.title} data-tour={props.tour}>
       <label>
         {props.label}
         {props.hint ? (
@@ -71,9 +73,10 @@ export function Toggle(props: {
   value: boolean;
   onChange: (v: boolean) => void;
   title?: string;
+  tour?: string;
 }) {
   return (
-    <div className="row" data-tip={props.title}>
+    <div className="row" data-tip={props.title} data-tour={props.tour}>
       <label>{props.label}</label>
       <button
         className={`switch${props.value ? ' on' : ''}`}
@@ -91,9 +94,15 @@ export function Toggle(props: {
  * A console section. `tip` is how to use it: shown on demand from a small ⓘ beside the title instead of a paragraph
  * under the controls (decision 186); the console passes none in exam mode.
  */
-export function Section(props: { title: string; tip?: string; children: ReactNode }) {
+export function Section(props: {
+  title: string;
+  tip?: string;
+  /** Anchor for the controls tour (decision 204). */
+  tour?: string;
+  children: ReactNode;
+}) {
   return (
-    <div className="section">
+    <div className="section" data-tour={props.tour}>
       <h4>
         {props.title}
         {props.tip ? <InfoTip text={props.tip} /> : null}

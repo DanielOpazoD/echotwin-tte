@@ -59,10 +59,11 @@ export function TorsoView() {
     let thorax: ThoraxModel | null = null;
     let heartFrame: HeartFrame | null = null;
     if (webglError) return;
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, stencil: true });
+    // transparent over the panel's own radial backdrop (decision 202): the scene reads as lit in a room, not on a card
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, stencil: true });
     renderer.localClippingEnabled = true; // the heart is cut by the imaging plane (decision 57)
     renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
-    renderer.setClearColor(0x0f1319);
+    renderer.setClearColor(0x0f1319, 0);
     el.appendChild(renderer.domElement);
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(35, 1, 1, 300);
@@ -76,15 +77,17 @@ export function TorsoView() {
     // a sculpted heart mesh would look better and stop matching the image, which is the whole point.
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.15;
-    scene.add(new THREE.HemisphereLight(0xe8eef5, 0x1a1f28, 1.0));
-    const key = new THREE.DirectionalLight(0xffffff, 1.4);
-    key.position.set(-12, 25, 40);
+    // a warm key, a cool fill and a stronger rim from behind (decision 202): skin and shells get a soft edge light
+    // instead of a flat front wash
+    scene.add(new THREE.HemisphereLight(0xe8eef5, 0x12161d, 0.85));
+    const key = new THREE.DirectionalLight(0xfff1e2, 1.25);
+    key.position.set(-14, 24, 40);
     scene.add(key);
-    const rim = new THREE.DirectionalLight(0xcfe4ff, 0.85); // behind and above: separates the shells from the background
-    rim.position.set(-6, 9, -12);
+    const rim = new THREE.DirectionalLight(0xdcecff, 1.2); // behind and above: separates the shells from the background
+    rim.position.set(-8, 12, -14);
     scene.add(rim);
-    const fill = new THREE.DirectionalLight(0x9fc0ff, 0.5);
-    fill.position.set(20, -10, 30);
+    const fill = new THREE.DirectionalLight(0x8fb2e6, 0.42);
+    fill.position.set(22, -8, 28);
     scene.add(fill);
 
     // ---- body (built when the navigator model arrives) ----
@@ -95,6 +98,7 @@ export function TorsoView() {
     // the imaging plane doubles as a clipping plane: the 3D heart is split exactly where the beam cuts
     const cutPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
     const onModel = (model: NavigatorModel) => {
+      useSimStore.getState().setNavigatorReady(true);
       thorax = model.thorax;
       heartFrame = model.frame;
       skin = buildSkin(model.thorax);
@@ -208,10 +212,13 @@ export function TorsoView() {
         }
         perPhase[ev.data.index] = geom;
         if (!meshByGroup.has(g.id)) {
-          const mat = new THREE.MeshStandardMaterial({
+          // a light clear coat: the shells look wet, as tissue does, without changing their colour (decision 202)
+          const mat = new THREE.MeshPhysicalMaterial({
             color: g.color,
-            roughness: 0.55,
-            metalness: 0.05,
+            roughness: 0.5,
+            metalness: 0.02,
+            clearcoat: 0.18,
+            clearcoatRoughness: 0.55,
             transparent: g.opacity < 1,
             opacity: g.opacity,
             depthWrite: g.opacity >= 1,
@@ -818,7 +825,7 @@ export function TorsoView() {
 
   return (
     <div className={`torso-wrap${split ? ' split' : ''}`}>
-      <div className="torso-3d" ref={ref} aria-label="Torso 3D y sonda virtual">
+      <div className="torso-3d" ref={ref} aria-label="Torso 3D y sonda virtual" data-tour="torso">
         {/* inside the torso so it sits at the torso's own bottom edge, whatever height the cut map leaves it
             (decision 197) */}
         <div className="torso-help">
@@ -1034,10 +1041,14 @@ function buildSkin(t: ThoraxModel): THREE.Mesh {
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setIndex(idx);
   g.computeVertexNormals();
-  const mat = new THREE.MeshStandardMaterial({
+  // skin with a soft sheen (decision 202): the rim light catches the shoulders and the flanks
+  const mat = new THREE.MeshPhysicalMaterial({
     color: 0xd9b59a,
-    roughness: 0.75,
-    metalness: 0.02,
+    roughness: 0.62,
+    metalness: 0,
+    sheen: 0.35,
+    sheenRoughness: 0.6,
+    sheenColor: new THREE.Color(0xffd3b8),
     transparent: true,
     opacity: 0.55,
     side: THREE.DoubleSide,
@@ -1090,8 +1101,9 @@ function buildWindowMarks(t: ThoraxModel, marks: WindowMark[]): THREE.Group {
     if (placed.some((p) => p.window === m.window && Math.hypot(p.u - m.u, p.v - m.v) < 0.35))
       continue;
     placed.push({ window: m.window, u: m.u, v: m.v });
+    // a thin ring with a faint halo (decision 202) instead of the thick band
     const ring = new THREE.Mesh(
-      new THREE.RingGeometry(0.42, 0.62, 32),
+      new THREE.RingGeometry(0.47, 0.56, 40),
       new THREE.MeshBasicMaterial({
         color: WINDOW_COLORS[m.window],
         transparent: true,
@@ -1100,6 +1112,18 @@ function buildWindowMarks(t: ThoraxModel, marks: WindowMark[]): THREE.Group {
         depthWrite: false,
       }),
     );
+    const halo = new THREE.Mesh(
+      new THREE.RingGeometry(0.6, 0.7, 40),
+      new THREE.MeshBasicMaterial({
+        color: WINDOW_COLORS[m.window],
+        transparent: true,
+        opacity: 0.22,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      }),
+    );
+    halo.renderOrder = 3;
+    ring.add(halo);
     const n = skinNormal(t, m.u, m.v);
     const z = skinZ(t, m.u, m.v);
     ring.position.set(m.u + n.x * 0.06, m.v + n.y * 0.06, z + n.z * 0.06);
@@ -1155,7 +1179,7 @@ function textSprite(text: string, color: number): THREE.Sprite {
 
 function buildSkeleton(t: ThoraxModel): THREE.Group {
   const g = new THREE.Group();
-  const bone = new THREE.MeshStandardMaterial({ color: 0xe9e2d2, roughness: 0.55 });
+  const bone = new THREE.MeshStandardMaterial({ color: 0xebe6da, roughness: 0.5 });
   const cartilage = new THREE.MeshStandardMaterial({
     color: 0xcfd9e6,
     roughness: 0.5,
@@ -1295,17 +1319,25 @@ function buildHeartGhost(model: NavigatorModel): THREE.Group {
  */
 function buildProbe(): { probe: THREE.Group; marker: THREE.Group } {
   const probe = new THREE.Group();
-  const shell = new THREE.MeshStandardMaterial({
-    color: 0xd7dbe0,
-    roughness: 0.5,
-    metalness: 0.05,
+  // a clear-coated shell and lens (decision 202): the probe reads as moulded plastic under the room light
+  const shell = new THREE.MeshPhysicalMaterial({
+    color: 0xdadfe4,
+    roughness: 0.45,
+    metalness: 0.04,
+    clearcoat: 0.55,
+    clearcoatRoughness: 0.3,
   });
   const collar = new THREE.MeshStandardMaterial({
     color: 0x8b939c,
-    roughness: 0.55,
-    metalness: 0.1,
+    roughness: 0.5,
+    metalness: 0.3,
   });
-  const lens = new THREE.MeshStandardMaterial({ color: 0x23282e, roughness: 0.25 });
+  const lens = new THREE.MeshPhysicalMaterial({
+    color: 0x1f2429,
+    roughness: 0.2,
+    clearcoat: 0.9,
+    clearcoatRoughness: 0.15,
+  });
   const rubber = new THREE.MeshStandardMaterial({ color: 0x2a2e34, roughness: 0.8 });
   // head: 2,8 × 1,8 cm footprint, the array running along x
   const head = new THREE.Mesh(new RoundedBoxGeometry(2.85, 1.9, 1.5, 4, 0.3), shell);
@@ -1390,7 +1422,11 @@ function buildProbe(): { probe: THREE.Group; marker: THREE.Group } {
   );
   dot.position.set(1.32, 0, -2.1);
   marker.add(ridge, dot);
-  probe.add(head, lensMesh, shoulder, handle, relief, band, cable, marker);
+  // the seam where the head meets the barrel, as on a moulded shell
+  const seam = new THREE.Mesh(new THREE.TorusGeometry(1.38, 0.035, 8, 48), collar);
+  seam.scale.set(1, 0.72, 1);
+  seam.position.z = -1.5;
+  probe.add(head, lensMesh, shoulder, handle, relief, band, cable, marker, seam);
   return { probe, marker };
 }
 

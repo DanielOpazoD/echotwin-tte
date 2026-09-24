@@ -1126,6 +1126,8 @@ select:hover {
   flex: 1 1 100%;
   min-height: 0;
   position: relative;
+  /* the room behind the torso (decision 202): the renderer draws transparent over this */
+  background: radial-gradient(120% 90% at 50% 32%, #1b212b 0%, #0f1319 62%, #0b0e13 100%);
 }
 .torso-wrap.split .torso-3d {
   flex: 1 1 50%;
@@ -1696,11 +1698,9 @@ select {
 }
 
 .tutorial {
-  position: absolute;
-  left: 50%;
-  top: 14px;
-  transform: translateX(-50%);
-  width: min(560px, 90%);
+  position: fixed;
+  width: 320px;
+  max-width: calc(100vw - 24px);
   background: rgba(14, 18, 24, 0.96);
   border: 1px solid var(--border-strong);
   border-radius: var(--r-lg);
@@ -2730,4 +2730,153 @@ canvas.overlay.armed {
   from {
     opacity: 0;
   }
+}
+
+/* ---- the start screen (decision 203) ---- */
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  transition: opacity 0.35s ease;
+}
+.splash.leaving {
+  opacity: 0;
+  pointer-events: none;
+}
+.splash-card {
+  display: grid;
+  justify-items: start;
+  gap: 22px;
+  padding: 28px 34px;
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-2);
+  min-width: 300px;
+}
+.splash-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.splash-brand svg {
+  color: var(--accent);
+}
+.splash-sub {
+  color: var(--faint);
+  font-weight: 500;
+}
+.splash-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 9px;
+  font-size: var(--fs-md);
+  color: var(--muted);
+}
+.splash-steps li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.splash-steps li i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid var(--faint);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+.splash-steps li.done {
+  color: var(--text);
+}
+.splash-steps li.done i {
+  background: var(--ok);
+  border-color: var(--ok);
+  animation: none;
+}
+.splash-detail {
+  color: var(--faint);
+  font-size: var(--fs-sm);
+}
+
+/* ---- the spotlight tour (decision 204) ---- */
+.tour-hole {
+  position: fixed;
+  z-index: 6;
+  border-radius: 10px;
+  border: 1.5px solid var(--accent-line);
+  box-shadow: 0 0 0 9999px rgba(4, 7, 11, 0.6);
+  pointer-events: none;
+  transition:
+    left 0.25s ease,
+    top 0.25s ease,
+    width 0.25s ease,
+    height 0.25s ease;
+}
+.tutorial.centered {
+  left: 50%;
+  top: 54px;
+  transform: translateX(-50%);
+}
+.tutorial::before {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: rgba(14, 18, 24, 0.96);
+  border-left: 1px solid var(--border-strong);
+  border-top: 1px solid var(--border-strong);
+  display: none;
+}
+.tutorial.arrow-left::before {
+  display: block;
+  left: -7px;
+  top: var(--arrow-at, 18px);
+  transform: rotate(-45deg);
+}
+.tutorial.arrow-right::before {
+  display: block;
+  right: -7px;
+  top: var(--arrow-at, 18px);
+  transform: rotate(135deg);
+}
+.tutorial.arrow-up::before {
+  display: block;
+  top: -7px;
+  left: var(--arrow-at, 22px);
+  transform: rotate(45deg);
+}
+/* the spotlit control is not dimmed by room mode while the tour runs */
+.app.room:has(.tour-hole) .topbar,
+.app.room:has(.tour-hole) .left,
+.app.room:has(.tour-hole) .right,
+.app.room:has(.tour-hole) .modebar {
+  opacity: 1;
+}
+
+/* ---- room mode (decision 205): the frame dims, the image keeps its light, a panel wakes under the pointer ---- */
+.app.room .topbar,
+.app.room .left,
+.app.room .right,
+.app.room .modebar {
+  opacity: 0.5;
+  transition: opacity 0.25s ease;
+}
+.app.room .topbar:hover,
+.app.room .left:hover,
+.app.room .right:hover,
+.app.room .modebar:hover,
+.app.room .topbar:focus-within,
+.app.room .left:focus-within,
+.app.room .right:focus-within,
+.app.room .modebar:focus-within {
+  opacity: 1;
 }

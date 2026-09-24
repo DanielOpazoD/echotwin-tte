@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { STRUCTURE_RGB } from '@/simulator/anatomy/structurePalette';
+
 import { Structure } from '@/simulator/anatomy/tissue';
 import { computeSectorMapping } from '@/simulator/renderer/scanConvert';
 import {
@@ -8,6 +8,9 @@ import {
   placeLabels,
   type PolarGeometry,
   withoutOverlaps,
+  CUT_MAP_RGB,
+  ACCENT_RGB,
+  paintStructureOutline,
 } from './cutMap';
 
 const polar: PolarGeometry = { lines: 64, samples: 128, sectorRad: Math.PI / 2, depthCm: 16 };
@@ -58,11 +61,11 @@ describe('cut map: painting and labels', () => {
       Array.from(rgba.subarray((y * m.width + x) * 4, (y * m.width + x) * 4 + 4));
     const yMid = Math.floor(m.apexY + 12 * m.pxPerCm);
     expect(at(Math.floor(m.apexX - 3 * m.pxPerCm), yMid)).toEqual([
-      ...STRUCTURE_RGB[Structure.LvCavity]!,
+      ...CUT_MAP_RGB[Structure.LvCavity]!,
       255,
     ]);
     expect(at(Math.floor(m.apexX + 3 * m.pxPerCm), yMid)).toEqual([
-      ...STRUCTURE_RGB[Structure.RvCavity]!,
+      ...CUT_MAP_RGB[Structure.RvCavity]!,
       255,
     ]);
     expect(at(0, 0)[3]).toBe(0);
@@ -109,5 +112,58 @@ describe('cut map: labels once averaged over a beat (decision 188)', () => {
       measure,
     );
     expect(kept.map((l) => l.text)).toEqual(['VI', 'Ao', 'AI']);
+  });
+});
+
+describe('cut map: outlines and the structure under the pointer (decision 202)', () => {
+  const m = { apexX: 40, apexY: 2, pxPerCm: 3, width: 80, height: 60, invertLR: false };
+  const polar = { lines: 40, samples: 40, sectorRad: 1.4, depthCm: 16 };
+  const lut = nearestSampleLut(polar, m as never);
+  const structure = new Uint8Array(polar.lines * polar.samples);
+  for (let l = 0; l < polar.lines; l++)
+    for (let s = 0; s < polar.samples; s++)
+      structure[l * polar.samples + s] =
+        l < polar.lines / 2 ? Structure.LvCavity : Structure.RvCavity;
+  const at = (rgba: Uint8ClampedArray, x: number, y: number) =>
+    Array.from(rgba.subarray((y * m.width + x) * 4, (y * m.width + x) * 4 + 4));
+  const y = 40;
+  // the LV/RV boundary runs down the middle: the last LV pixel of the row is the outline
+  const xEdge = (rgba: Uint8ClampedArray): number => {
+    let x = 0;
+    while (x < m.width - 1 && at(rgba, x + 1, y)[3] === 0) x++;
+    while (x < m.width - 1 && at(rgba, x, y)[0] !== at(rgba, x + 1, y)[0]) x++;
+    return Math.floor(m.apexX) - 1;
+  };
+
+  it('darkens the pixels on the boundary between two structures', () => {
+    const rgba = new Uint8ClampedArray(m.width * m.height * 4);
+    paintCutMap(rgba, lut, structure, m.width);
+    const lv = CUT_MAP_RGB[Structure.LvCavity]!;
+    const inside = at(rgba, Math.floor(m.apexX) - 6, y);
+    const edge = at(rgba, xEdge(rgba), y);
+    expect(inside.slice(0, 3)).toEqual([...lv]);
+    expect(edge[0]! + edge[1]! + edge[2]!).toBeLessThan(inside[0]! + inside[1]! + inside[2]!);
+  });
+
+  it('lights the hovered structure and gives its outline the accent', () => {
+    const rgba = new Uint8ClampedArray(m.width * m.height * 4);
+    paintCutMap(rgba, lut, structure, m.width, Structure.LvCavity);
+    const lv = CUT_MAP_RGB[Structure.LvCavity]!;
+    const inside = at(rgba, Math.floor(m.apexX) - 6, y);
+    expect(inside[0]! + inside[1]! + inside[2]!).toBeGreaterThan(lv[0] + lv[1] + lv[2]);
+    expect(at(rgba, xEdge(rgba), y).slice(0, 3)).toEqual([...ACCENT_RGB]);
+    // the other structure keeps its colour
+    expect(at(rgba, Math.floor(m.apexX) + 6, y).slice(0, 3)).toEqual([
+      ...CUT_MAP_RGB[Structure.RvCavity]!,
+    ]);
+  });
+
+  it('paints only the outline of one structure on a transparent layer for the image', () => {
+    const rgba = new Uint8ClampedArray(m.width * m.height * 4);
+    const drawn = paintStructureOutline(rgba, lut, structure, m.width, Structure.RvCavity);
+    expect(drawn).toBeGreaterThan(10);
+    expect(at(rgba, Math.floor(m.apexX) + 6, y)[3]).toBe(0); // inside the RV: nothing
+    expect(at(rgba, Math.floor(m.apexX) - 6, y)[3]).toBe(0); // inside the LV: nothing
+    expect(at(rgba, Math.floor(m.apexX), y)).toEqual([...ACCENT_RGB, 235]); // the boundary
   });
 });

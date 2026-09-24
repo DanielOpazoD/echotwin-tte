@@ -186,3 +186,12 @@ describe('the cine loop (decisions 191 and 197)', () => {
     expect(play()).toHaveProperty('disabled', true);
   });
 });
+
+describe('room mode (decision 205)', () => {
+  it('is a menu toggle', () => {
+    render(<ModeBar />);
+    openMenu();
+    act(() => screen.getByRole('menuitemcheckbox', { name: 'Modo sala' }).click());
+    expect(useSimStore.getState().ui.roomMode).toBe(true);
+  });
+});

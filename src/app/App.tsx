@@ -17,6 +17,7 @@ import { IconChevronRight } from '@/ui/icons';
 import { ShortcutsDialog } from '@/ui/ShortcutsDialog';
 import { Tutorial } from '@/ui/Tutorial';
 import { TooltipLayer } from '@/ui/Tooltip';
+import { Splash } from '@/ui/Splash';
 import type { SimOutput } from '@/simulator/core/protocol';
 import { DopplerAudio } from '@/simulator/doppler/audio/dopplerAudio';
 import { frameBus } from './frameBus';
@@ -130,8 +131,9 @@ export function App() {
   const railVisible = ui.showTorso && !minimal;
   return (
     <div
-      className={`app ${railVisible ? '' : 'no-torso'} ${railVisible && ui.railMini ? 'rail-mini' : ''}`}
+      className={`app ${railVisible ? '' : 'no-torso'} ${railVisible && ui.railMini ? 'rail-mini' : ''}${ui.roomMode ? ' room' : ''}`}
     >
+      <Splash />
       <TopBar />
       {/* one key per screen: the same boundary type in the same place would otherwise carry one screen's error
           into the next (decision 154) */}
