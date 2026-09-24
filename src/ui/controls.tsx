@@ -11,6 +11,8 @@ export function Slider(props: {
   onChange: (v: number) => void;
   title?: string;
   disabled?: boolean;
+  /** Keyboard shortcut shown beside the label, hidden from assistive technology (the name stays the label). */
+  hint?: string;
 }) {
   const fmt =
     props.format ??
@@ -18,7 +20,14 @@ export function Slider(props: {
       `${Number.isInteger(props.step ?? 1) ? Math.round(v) : v.toFixed(2)}${props.unit ?? ''}`);
   return (
     <div className="row" title={props.title}>
-      <label>{props.label}</label>
+      <label>
+        {props.label}
+        {props.hint ? (
+          <kbd className="kbd" aria-hidden="true">
+            {props.hint}
+          </kbd>
+        ) : null}
+      </label>
       <input
         type="range"
         aria-label={props.label}

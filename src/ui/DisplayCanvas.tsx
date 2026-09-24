@@ -77,6 +77,7 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
     moved?: boolean;
   }>({ kind: 'none', startX: 0, startY: 0 });
   const reviewMode = useSimStore((s) => s.ui.reviewMode);
+  const frozen = useSimStore((s) => s.frozen);
   const segTipRef = useRef<HTMLDivElement>(null);
   const onSize = props.onSize;
 
@@ -706,7 +707,7 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
   };
 
   return (
-    <div className="display-wrap" ref={wrapRef}>
+    <div className={`display-wrap${frozen ? ' frozen' : ''}`} ref={wrapRef}>
       <canvas
         ref={imgRef}
         width={size.width}
@@ -929,8 +930,9 @@ function drawOverlay(
     ctx.fillText('zona focal', m.apexX - 30, m.apexY + (settings.focusCm + 2.2) * m.pxPerCm);
   }
   if (ui.showEcg && hud.ecg.length > 3) {
-    const eh = 34;
-    const ey = (modality === '2d' || modality === 'color' ? sectorH : H) - eh - 4;
+    // the band sits above the disclaimer caption along the bottom edge
+    const eh = 30;
+    const ey = (modality === '2d' || modality === 'color' ? sectorH : H) - eh - 18;
     const span = 3;
     const layout: EcgLayout = {
       x0: 8,

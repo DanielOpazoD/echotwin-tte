@@ -33,8 +33,10 @@ export function ImageHud() {
   return (
     <div className="img-hud">
       <div className="hud-box hud-tl">
-        {title}
-        {frozen ? ' · congelada' : ''}
+        <span className="hud-title">
+          {title}
+          {frozen ? ' · congelada' : ''}
+        </span>
       </div>
       <div className="hud-box hud-tr">
         <span>
@@ -57,7 +59,22 @@ export function ImageHud() {
           {hud && hud.colorFps > 0 ? ` · color ${Math.round(hud.colorFps)}` : ''}
         </span>
         {modePolicy(mode).showViewFeedback ? (
-          <span>
+          <span className="hud-view">
+            {hud?.view ? (
+              <i
+                className="mini-ring"
+                aria-hidden="true"
+                style={{
+                  ['--p' as string]: `${Math.max(0, Math.min(100, hud.view.score))}%`,
+                  color:
+                    hud.view.score >= 75
+                      ? 'var(--ok)'
+                      : hud.view.score >= 50
+                        ? 'var(--warn)'
+                        : 'var(--bad)',
+                }}
+              />
+            ) : null}
             Vista{' '}
             {hud?.view?.bestViewId ? `${hud.view.bestViewId.toUpperCase()} ${hud.view.score}` : '—'}
           </span>

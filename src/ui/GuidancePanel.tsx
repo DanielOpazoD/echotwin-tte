@@ -46,7 +46,20 @@ export function GuidancePanel() {
   return (
     <div className="guidance" aria-live="polite">
       <div className="score">
-        <b style={{ color }}>{v.score}</b>
+        <span className="score-ring" style={{ color }} aria-hidden="true">
+          <svg viewBox="0 0 46 46" width="46" height="46">
+            <circle className="track" cx="23" cy="23" r="19" />
+            <circle
+              className="fill"
+              cx="23"
+              cy="23"
+              r="19"
+              strokeDasharray={2 * Math.PI * 19}
+              strokeDashoffset={2 * Math.PI * 19 * (1 - Math.max(0, Math.min(100, v.score)) / 100)}
+            />
+          </svg>
+          <b style={{ color }}>{v.score}</b>
+        </span>
         <span>
           {v.bestViewName}
           <br />

@@ -186,6 +186,7 @@ function AcquireTab() {
       <Section title="Sonda">
         <Slider
           label="Rotación"
+          hint="Q E"
           value={s.probe.rotationDeg}
           min={-180}
           max={180}
@@ -195,6 +196,7 @@ function AcquireTab() {
         />
         <Slider
           label="Tilt (abanico)"
+          hint="⌥↑↓"
           value={s.probe.tiltDeg}
           min={-70}
           max={70}
@@ -204,6 +206,7 @@ function AcquireTab() {
         />
         <Slider
           label="Rock"
+          hint="⌥←→"
           value={s.probe.rockDeg}
           min={-60}
           max={60}
@@ -213,6 +216,7 @@ function AcquireTab() {
         />
         <Slider
           label="Presión"
+          hint="W S"
           value={s.probe.pressure}
           min={0}
           max={1}
@@ -228,7 +232,7 @@ function AcquireTab() {
         </div>
       </Section>
       <Section title="Caso y paciente">
-        <div className="row">
+        <div className="row stack">
           <label>Caso</label>
           <select
             aria-label="Caso"
@@ -286,6 +290,7 @@ function ImageTab() {
     <Section title="Imagen 2D">
       <Slider
         label="Profundidad"
+        hint="[ ]"
         value={s.settings.depthCm}
         min={6}
         max={30}
@@ -295,6 +300,7 @@ function ImageTab() {
       />
       <Slider
         label="Ganancia"
+        hint="− +"
         value={s.settings.gainDb}
         min={-30}
         max={30}

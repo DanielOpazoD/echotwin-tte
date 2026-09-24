@@ -32,7 +32,7 @@ export function ModeBar() {
   const hud = useHudStore((h) => h.hud);
   return (
     <div className="modebar" role="toolbar" aria-label="Modalidades y cine">
-      <div className="group">
+      <div className="seg-bar" role="group" aria-label="Modalidad">
         {MODES.map((m) => (
           <button
             key={m.id}
@@ -42,17 +42,21 @@ export function ModeBar() {
             aria-pressed={s.modality === m.id}
           >
             {m.label}
+            <kbd className="kbd" aria-hidden="true">
+              {m.key.replace('Shift+', '⇧')}
+            </kbd>
           </button>
         ))}
       </div>
       <ContextChip />
       <div className="sep" />
       <button
-        className={s.frozen ? 'active' : ''}
+        className={`freeze-btn${s.frozen ? ' active' : ''}`}
         onClick={() => s.toggleFreeze()}
-        title="Espacio"
+        title={s.frozen ? 'Reanudar (Espacio)' : 'Congelar (Espacio)'}
         aria-pressed={s.frozen}
       >
+        <i className="run-dot" aria-hidden="true" />
         {s.frozen ? 'Live' : 'Freeze'}
       </button>
       {s.frozen && hud && (
@@ -86,7 +90,10 @@ export function ModeBar() {
         Torso 3D
       </button>
       <OverflowMenu />
-      <span className="small modebar-status">
+      <span
+        className="small modebar-status"
+        title="Dónde corre la simulación y a cuántos cuadros por segundo se repinta la interfaz"
+      >
         {s.workerMode === 'worker' ? 'Worker' : s.workerMode === 'inline' ? 'Inline' : 'Iniciando…'}{' '}
         · UI {s.fpsUi} fps
       </span>
