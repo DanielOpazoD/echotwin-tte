@@ -131,6 +131,7 @@ export function ConsolePanel() {
       </div>
       <div className="console-scroll">
         <div
+          key={active}
           role="tabpanel"
           id={`console-panel-${active}`}
           aria-labelledby={`console-tab-${active}`}
@@ -314,7 +315,7 @@ function ImageTab() {
         max={5}
         step={0.25}
         unit=" MHz"
-        format={(v) => `${v.toFixed(2)} MHz`}
+        format={(v) => `${v.toFixed(1)} MHz`}
         onChange={(v) => s.setSettings({ frequencyMHz: v })}
         title={tip('Mayor frecuencia = más resolución, menos penetración.')}
       />
@@ -787,7 +788,7 @@ function MeasureTab() {
       >
         <div className="tool-grid" role="group" aria-label="Herramienta de medición">
           {tools.map((t) => (
-            <button key={t.id} title={t.title} onClick={() => s.setActiveTool(t.id)}>
+            <button key={t.id} data-tip={t.title} onClick={() => s.setActiveTool(t.id)}>
               {t.label}
             </button>
           ))}
@@ -806,24 +807,40 @@ function MeasureList({
   s: Pick<SimStore, 'measurements' | 'removeMeasurement'>;
   showView: boolean;
 }) {
+  const line = (m: SimStore['measurements'][number]) =>
+    `${m.value.toFixed(m.kind === 'time' || m.kind === 'volume' ? 0 : 2)} ${m.units}` +
+    (m.derived?.gradientMmHg !== undefined ? ` · ${m.derived.gradientMmHg.toFixed(0)} mmHg` : '') +
+    (m.derived?.meanGradientMmHg !== undefined
+      ? ` · media ${m.derived.meanGradientMmHg.toFixed(0)} mmHg`
+      : '');
+  const copy = () =>
+    void navigator.clipboard?.writeText(
+      s.measurements.map((m) => `${m.label}: ${line(m)}`).join('\n'),
+    );
+  if (!s.measurements.length) return null;
   return (
     <div className="measure-list">
+      {/* the figures in a column of their own, and the list as text for a report (decision 200) */}
+      <div className="measure-head">
+        <button className="ghost" onClick={copy}>
+          Copiar mediciones
+        </button>
+      </div>
       {s.measurements.map((m) => (
-        <div key={m.id}>
-          <span>
-            {m.label} ({m.modality}
-            {showView && m.sourceViewId ? `, ${m.sourceViewId}` : ''})
+        <div key={m.id} className="measure-row">
+          <span className="m-label">
+            {m.label}
+            <span className="m-src">
+              {m.modality}
+              {showView && m.sourceViewId ? ` · ${m.sourceViewId}` : ''}
+            </span>
           </span>
-          <span>
-            {m.value.toFixed(m.kind === 'time' || m.kind === 'volume' ? 0 : 2)} {m.units}
-            {m.derived?.gradientMmHg !== undefined
-              ? ` · ${m.derived.gradientMmHg.toFixed(0)} mmHg`
-              : ''}
-            {m.derived?.meanGradientMmHg !== undefined
-              ? ` · media ${m.derived.meanGradientMmHg.toFixed(0)} mmHg`
-              : ''}
-          </span>
-          <button aria-label="Eliminar medición" onClick={() => s.removeMeasurement(m.id)}>
+          <span className="m-value">{line(m)}</span>
+          <button
+            className="icon-btn"
+            aria-label="Eliminar medición"
+            onClick={() => s.removeMeasurement(m.id)}
+          >
             ×
           </button>
         </div>

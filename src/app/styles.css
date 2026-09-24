@@ -22,8 +22,15 @@
   --r-lg: 14px;
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-2: 0 10px 32px rgba(0, 0, 0, 0.55);
-  --font: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
-  --mono: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+  --font: 'Inter Variable', 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --mono: 'JetBrains Mono Variable', 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+  /* one type scale (decision 198): captions and keys, uppercase kickers, secondary text, panel text, body, titles */
+  --fs-xs: 10px;
+  --fs-caps: 10.5px;
+  --fs-sm: 11px;
+  --fs-md: 12px;
+  --fs-lg: 13px;
+  --fs-xl: 15px;
 }
 * {
   box-sizing: border-box;
@@ -38,7 +45,9 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font);
-  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  font-size: var(--fs-lg);
   line-height: 1.4;
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
@@ -125,7 +134,7 @@ button.icon-btn {
   border: 1px solid var(--hairline);
   background: rgba(0, 0, 0, 0.35);
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: var(--fs-xs);
   line-height: 15px;
   text-align: center;
   color: var(--faint);
@@ -218,7 +227,7 @@ select:hover {
   gap: 6px;
   padding: 2px 9px 2px 7px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   font-weight: 700;
   letter-spacing: 0.08em;
   border: 1px solid transparent;
@@ -293,7 +302,7 @@ select:hover {
   flex: 1;
 }
 .topbar select {
-  font-size: 12px;
+  font-size: var(--fs-md);
   color: var(--muted);
   background-color: transparent;
   border-color: transparent;
@@ -369,7 +378,7 @@ select:hover {
 .rail-head .rail-head-score {
   margin-left: auto;
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--fs-sm);
   font-weight: 700;
 }
 .rail-strip {
@@ -444,7 +453,7 @@ select:hover {
   border: 0;
   border-radius: 0;
   color: var(--muted);
-  font-size: 10.5px;
+  font-size: var(--fs-caps);
   letter-spacing: 0.02em;
   position: relative;
   transition: color 0.15s ease;
@@ -478,7 +487,7 @@ select:hover {
   border-radius: 7px;
   background: var(--accent);
   color: #08111a;
-  font-size: 9px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   font-family: var(--mono);
   display: inline-flex;
@@ -595,7 +604,7 @@ select:hover {
 }
 .ctx-chip {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--fs-sm);
   font-variant-numeric: tabular-nums;
   color: var(--accent);
   background: var(--accent-soft);
@@ -641,7 +650,7 @@ select:hover {
   border: 0;
   border-radius: 6px;
   padding: 8px 9px;
-  font-size: 12px;
+  font-size: var(--fs-md);
   color: var(--text);
 }
 .menu button:hover {
@@ -652,7 +661,7 @@ select:hover {
   opacity: 0.4;
 }
 .menu-cap {
-  font-size: 10px;
+  font-size: var(--fs-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -679,7 +688,7 @@ select:hover {
 }
 .mi-hint {
   color: var(--muted);
-  font-size: 10.5px;
+  font-size: var(--fs-caps);
 }
 .display-wrap {
   position: relative;
@@ -701,7 +710,7 @@ select:hover {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: 10px;
+  font-size: var(--fs-xs);
   color: var(--faint);
   letter-spacing: 0.01em;
 }
@@ -720,7 +729,7 @@ select:hover {
   align-items: center;
   gap: 6px;
   padding: 3px 9px 3px 6px;
-  font-size: 11.5px;
+  font-size: var(--fs-md);
   background: rgba(8, 11, 16, 0.72);
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 999px;
@@ -762,7 +771,7 @@ select:hover {
   border-radius: 0;
   background: transparent;
   padding: 2px 9px;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   color: var(--muted);
 }
 .img-seg-model button.active {
@@ -780,7 +789,7 @@ select:hover {
   background: rgba(8, 11, 16, 0.92);
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 6px;
-  font-size: 12px;
+  font-size: var(--fs-md);
   color: #f4f6fa;
   pointer-events: none;
   z-index: 4;
@@ -794,14 +803,14 @@ select:hover {
 }
 .seg-tip span {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 .img-hud {
   position: absolute;
   inset: 0;
   pointer-events: none;
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--fs-sm);
   letter-spacing: 0.01em;
   color: #b9c3d0;
   font-variant-numeric: tabular-nums;
@@ -827,7 +836,7 @@ select:hover {
 }
 .hud-title {
   font-family: var(--font);
-  font-size: 12.5px;
+  font-size: var(--fs-lg);
   font-weight: 600;
   color: #f1f4f8;
   letter-spacing: 0;
@@ -857,7 +866,7 @@ select:hover {
   border-radius: 8px;
   background: rgba(40, 12, 14, 0.85);
   color: var(--text);
-  font-size: 12px;
+  font-size: var(--fs-md);
   line-height: 1.4;
 }
 .torso-3d > .panel-error {
@@ -886,7 +895,7 @@ select:hover {
 }
 .section h4 {
   margin: 0 0 8px;
-  font-size: 10.5px;
+  font-size: var(--fs-caps);
   font-weight: 650;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -897,7 +906,7 @@ select:hover {
 }
 .section .subhead {
   margin: 10px 0 6px;
-  font-size: 10.5px;
+  font-size: var(--fs-caps);
   text-transform: uppercase;
   letter-spacing: 0.09em;
   color: var(--muted);
@@ -911,7 +920,7 @@ select:hover {
 .row label {
   flex: 1;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--fs-md);
   white-space: nowrap;
 }
 .row select {
@@ -925,7 +934,7 @@ select:hover {
   min-width: 60px;
   text-align: right;
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--fs-sm);
   font-variant-numeric: tabular-nums;
   color: var(--text);
 }
@@ -1132,7 +1141,7 @@ select:hover {
   position: absolute;
   right: 6px;
   top: 6px;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   color: #f4f6fa;
   background: rgba(0, 0, 0, 0.55);
   padding: 2px 6px;
@@ -1149,7 +1158,7 @@ select:hover {
   left: 6px;
   right: 6px;
   bottom: 6px;
-  font-size: 10px;
+  font-size: var(--fs-xs);
   color: #c5cdd8;
   background: rgba(0, 0, 0, 0.62);
   padding: 4px 7px;
@@ -1194,11 +1203,11 @@ select:hover {
   align-items: center;
   gap: 4px;
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 .dial-controls button {
   padding: 1px 5px;
-  font-size: 10px;
+  font-size: var(--fs-xs);
 }
 .torso-buttons {
   display: flex;
@@ -1206,7 +1215,7 @@ select:hover {
 }
 .torso-buttons button {
   padding: 2px 7px;
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 /* LV segment panel (decision 152): polar map, legend in words, inspector; it scrolls when the rail is short */
 #lv-segments {
@@ -1221,7 +1230,7 @@ select:hover {
   border-top: 1px solid var(--border);
   min-height: 0;
   overflow-y: auto;
-  font-size: 12px;
+  font-size: var(--fs-md);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -1256,7 +1265,7 @@ select:hover {
   stroke-width: 1.4;
 }
 .bullseye-seg text {
-  font-size: 12px;
+  font-size: var(--fs-md);
   font-weight: 700;
   pointer-events: none;
 }
@@ -1284,7 +1293,7 @@ select:hover {
   stroke-dasharray: none;
 }
 .bullseye-dir {
-  font-size: 9px;
+  font-size: var(--fs-xs);
   fill: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -1297,7 +1306,7 @@ select:hover {
   flex-wrap: wrap;
   gap: 4px 10px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 .bullseye-legend .sw {
   display: inline-block;
@@ -1359,7 +1368,7 @@ select:hover {
   border-top: 1px solid var(--border);
   max-height: 46%;
   overflow-y: auto;
-  font-size: 12px;
+  font-size: var(--fs-md);
 }
 /* exam notice shown in the centre column when the clean interface hides the rail */
 .center > .exam-notice {
@@ -1437,7 +1446,7 @@ select:hover {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 2px 8px;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   color: var(--muted);
 }
 .dev {
@@ -1452,13 +1461,13 @@ select:hover {
   border-radius: 8px;
   padding: 8px;
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--fs-sm);
   z-index: 5;
 }
 .dev h4 {
   margin: 4px 0;
   color: var(--accent-2);
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 .dev table {
   border-collapse: collapse;
@@ -1481,7 +1490,7 @@ select:hover {
   z-index: 6;
   white-space: pre-wrap;
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 .screen {
   grid-column: 1 / -1;
@@ -1504,7 +1513,7 @@ select:hover {
 }
 .screen h3 {
   margin: 26px 0 10px;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -1514,14 +1523,14 @@ select:hover {
   border-collapse: separate;
   border-spacing: 0;
   width: 100%;
-  font-size: 12px;
+  font-size: var(--fs-md);
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
 }
 .screen th {
-  font-size: 10.5px;
+  font-size: var(--fs-caps);
   font-weight: 600;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -1543,7 +1552,7 @@ select:hover {
 }
 .screen code {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--fs-sm);
   background: var(--panel-2);
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -1558,7 +1567,7 @@ select:hover {
   gap: 5px;
   padding: 2px 8px 2px 7px;
   border-radius: 10px;
-  font-size: 10px;
+  font-size: var(--fs-xs);
   font-weight: 600;
   letter-spacing: 0.03em;
   background: var(--panel-3);
@@ -1579,16 +1588,13 @@ select:hover {
 .pill.warn {
   color: var(--warn);
 }
-.tooltip {
-  position: relative;
-}
 .small {
-  font-size: 11px;
+  font-size: var(--fs-sm);
   color: var(--muted);
 }
 .modebar-status {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--fs-xs);
   color: var(--faint);
   letter-spacing: 0.02em;
 }
@@ -1607,19 +1613,43 @@ select {
   padding: 4px 6px;
 }
 .measure-list {
-  font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
-.measure-list div {
+.measure-head {
   display: flex;
-  justify-content: space-between;
-  gap: 6px;
-  padding: 2px 0;
-  border-bottom: 1px solid #1c2330;
+  justify-content: flex-end;
+  margin: 6px 0 2px;
 }
-.measure-list button {
-  padding: 0 5px;
-  font-size: 10px;
+.measure-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.measure-row .m-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.measure-row .m-src {
+  margin-left: 6px;
+  color: var(--faint);
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.measure-row .m-value {
+  font-family: var(--mono);
+  color: var(--text);
+  white-space: nowrap;
+}
+.measure-row .icon-btn {
+  width: 20px;
+  height: 20px;
+  color: var(--faint);
 }
 @media (max-width: 1200px) {
   .app {
@@ -1642,7 +1672,7 @@ select {
   }
   .nav-seg button {
     padding: 4px 8px;
-    font-size: 12px;
+    font-size: var(--fs-md);
   }
   .topbar select {
     padding-right: 20px;
@@ -1675,7 +1705,7 @@ select {
 }
 .tutorial h4 {
   margin: 0 0 6px;
-  font-size: 14px;
+  font-size: var(--fs-xl);
   color: var(--text);
 }
 .tutorial p {
@@ -1691,7 +1721,7 @@ select {
   margin-bottom: 8px;
 }
 .tut-kicker {
-  font-size: 10.5px;
+  font-size: var(--fs-caps);
   font-weight: 650;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -1731,13 +1761,13 @@ select {
   align-items: center;
   gap: 1px;
   padding: 6px 4px 5px;
-  font-size: 12px;
+  font-size: var(--fs-md);
   font-weight: 600;
   letter-spacing: 0.02em;
 }
 .preset-sub {
   white-space: nowrap;
-  font-size: 9.5px;
+  font-size: var(--fs-xs);
   font-weight: 500;
   color: var(--faint);
   letter-spacing: 0.02em;
@@ -1764,11 +1794,11 @@ select {
   gap: 6px;
   padding: 1px 0;
   border-bottom: 1px solid #1c2330;
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 .protocol-row button {
   min-width: 64px;
-  font-size: 10px;
+  font-size: var(--fs-xs);
   padding: 1px 6px;
 }
 .protocol-row.active {
@@ -1786,11 +1816,11 @@ select {
   border-radius: 6px;
   padding: 6px;
   margin-bottom: 4px;
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 .protocol-instruction button {
   margin-top: 4px;
-  font-size: 10px;
+  font-size: var(--fs-xs);
 }
 .protocol details summary {
   cursor: pointer;
@@ -1811,7 +1841,7 @@ select {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 .artifact-row label > span:first-child {
   min-width: 130px;
@@ -1868,7 +1898,7 @@ select {
   margin: 0;
 }
 .impression-form legend {
-  font-size: 10.5px;
+  font-size: var(--fs-caps);
   font-weight: 600;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -1877,7 +1907,7 @@ select {
 }
 .impression-form .finding {
   display: block;
-  font-size: 12px;
+  font-size: var(--fs-md);
   padding: 1px 0;
 }
 .impression-form .finding.ok {
@@ -1905,7 +1935,7 @@ details.adv {
 details.adv > summary {
   cursor: pointer;
   list-style: none;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   color: var(--muted);
   display: flex;
   align-items: center;
@@ -1944,7 +1974,7 @@ details.adv > summary:hover::before {
 }
 .tool-grid button {
   padding: 5px 2px;
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 
 /* focused capture card shown while a measurement tool is armed */
@@ -1952,7 +1982,7 @@ details.adv > summary:hover::before {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: var(--fs-lg);
 }
 .capture-dot {
   width: 8px;
@@ -1964,7 +1994,7 @@ details.adv > summary:hover::before {
 }
 .capture-hint {
   margin: 8px 0;
-  font-size: 12px;
+  font-size: var(--fs-md);
   line-height: 1.5;
   color: var(--text);
 }
@@ -1999,7 +2029,7 @@ details.adv > summary:hover::before {
 }
 .empty p {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--fs-md);
   line-height: 1.45;
 }
 .empty .quick {
@@ -2038,14 +2068,14 @@ details.adv > summary:hover::before {
   background: #ff6ad5;
   color: #14141c;
   font-weight: 700;
-  font-size: 12px;
+  font-size: var(--fs-md);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: none;
 }
 .review-place {
-  font-size: 12px;
+  font-size: var(--fs-md);
   color: #9aa4b5;
   line-height: 1.35;
 }
@@ -2056,7 +2086,7 @@ details.adv > summary:hover::before {
   min-height: 44px;
   resize: vertical;
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-md);
   background: #0e1218;
   color: inherit;
   border: 1px solid #2a3140;
@@ -2067,7 +2097,7 @@ details.adv > summary:hover::before {
 .review-preview {
   min-height: 140px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 .review-actions {
   display: flex;
@@ -2078,7 +2108,7 @@ details.adv > summary:hover::before {
   border-color: #ff6ad5;
 }
 .review-status {
-  font-size: 12px;
+  font-size: var(--fs-md);
   color: #7ce8a0;
   margin-top: 6px;
 }
@@ -2090,7 +2120,7 @@ details.adv > summary:hover::before {
   cursor: pointer;
 }
 .review-chip {
-  font-size: 10px;
+  font-size: var(--fs-xs);
   border: 1px solid #ff6ad5;
   color: #ff6ad5;
   border-radius: 4px;
@@ -2098,12 +2128,12 @@ details.adv > summary:hover::before {
   flex: none;
 }
 .review-help {
-  font-size: 11px;
+  font-size: var(--fs-sm);
   color: #9aa4b5;
   margin-top: 6px;
 }
 .review-source {
-  font-size: 12px;
+  font-size: var(--fs-md);
   color: #ffc857;
   margin-top: 4px;
 }
@@ -2131,7 +2161,7 @@ canvas.overlay.armed {
 .review-n.small {
   width: 26px;
   border-radius: 8px;
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 .review-actions button.on {
   border-color: #ffc857;
@@ -2142,7 +2172,7 @@ canvas.overlay.armed {
 .torso-caption {
   position: absolute;
   left: 6px;
-  font-size: 10px;
+  font-size: var(--fs-xs);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: #9aa4b5;
@@ -2195,7 +2225,7 @@ canvas.overlay.armed {
 }
 .torso-buttons button {
   padding: 0;
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 .torso-buttons button.icon-btn {
   width: 26px;
@@ -2225,13 +2255,18 @@ canvas.overlay.armed {
   mask: radial-gradient(circle, transparent 0 3.5px, #000 4px);
 }
 /* a frozen image wears a thin amber frame, like the FREEZE pill */
-.display-wrap.frozen::after {
+.display-wrap::after {
   content: '';
   position: absolute;
   inset: 0;
   pointer-events: none;
   box-shadow: inset 0 0 0 2px rgba(255, 200, 87, 0.55);
   z-index: 2;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.display-wrap.frozen::after {
+  opacity: 1;
 }
 /* while a preset moves the probe, its status reads as a live notice */
 .preset-status {
@@ -2290,14 +2325,14 @@ canvas.overlay.armed {
 }
 .sheet-head h3 {
   margin: 0;
-  font-size: 15px;
+  font-size: var(--fs-xl);
   font-weight: 650;
 }
 .sheet table {
   width: 100%;
   margin-top: 10px;
   border-collapse: collapse;
-  font-size: 12.5px;
+  font-size: var(--fs-lg);
 }
 .sheet td {
   padding: 6px 4px;
@@ -2309,7 +2344,7 @@ canvas.overlay.armed {
   white-space: nowrap;
 }
 .sheet .kbd {
-  font-size: 11px;
+  font-size: var(--fs-sm);
   line-height: 20px;
   min-width: 22px;
   padding: 0 6px;
@@ -2338,7 +2373,7 @@ canvas.overlay.armed {
   color: var(--faint);
   font-family: Georgia, serif;
   font-style: italic;
-  font-size: 9.5px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   line-height: 1;
   text-transform: none;
@@ -2352,50 +2387,12 @@ canvas.overlay.armed {
   border-color: var(--accent-line);
   outline: none;
 }
-.info-tip::after {
-  content: attr(data-tip);
-  position: absolute;
-  top: calc(100% + 8px);
-  right: -8px;
-  width: max-content;
-  max-width: 250px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: #0d1117;
-  border: 1px solid var(--border-strong);
-  box-shadow: var(--shadow-2);
-  color: var(--text);
-  font-family: var(--font);
-  font-style: normal;
-  font-size: 11.5px;
-  font-weight: 400;
-  line-height: 1.45;
-  white-space: normal;
-  text-align: left;
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(-2px);
-  transition:
-    opacity 0.14s ease,
-    transform 0.14s ease;
-  z-index: 50;
-}
-.info-tip:hover::after,
-.info-tip:focus-visible::after {
-  opacity: 1;
-  transform: none;
-}
-/* in the left rail the bubble opens to the right */
-.segment-panel .info-tip::after {
-  right: auto;
-  left: -8px;
-}
 .preset-status:empty {
   display: none;
 }
 .protocol-cap {
   margin: 2px 0 4px;
-  font-size: 10.5px;
+  font-size: var(--fs-caps);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -2438,7 +2435,7 @@ canvas.overlay.armed {
 }
 .quick-label {
   margin-right: 4px;
-  font-size: 10.5px;
+  font-size: var(--fs-caps);
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -2448,7 +2445,7 @@ canvas.overlay.armed {
   min-width: 50px;
   text-align: center;
   font-family: var(--mono);
-  font-size: 11.5px;
+  font-size: var(--fs-md);
   font-variant-numeric: tabular-nums;
   color: var(--text);
 }
@@ -2511,7 +2508,7 @@ canvas.overlay.armed {
 }
 .dial-val {
   fill: var(--text);
-  font-size: 11px;
+  font-size: var(--fs-sm);
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;
 }
@@ -2543,7 +2540,7 @@ canvas.overlay.armed {
 }
 .sheet-sub {
   margin: 14px 0 0;
-  font-size: 11px;
+  font-size: var(--fs-sm);
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -2553,7 +2550,7 @@ canvas.overlay.armed {
   margin-top: 4px;
 }
 .torso-help .kbd {
-  font-size: 9.5px;
+  font-size: var(--fs-xs);
   padding: 0 4px;
 }
 /* the shortcuts sheet: keyboard and pointer side by side where there is room */
@@ -2580,7 +2577,7 @@ canvas.overlay.armed {
 }
 .kbd.gesture {
   font-family: var(--font);
-  font-size: 11.5px;
+  font-size: var(--fs-md);
 }
 
 /* ---- interface, fifth round: the console, trimmed (decision 189) ---- */
@@ -2680,4 +2677,51 @@ canvas.overlay.armed {
 }
 .torso-wrap.split .cut-map {
   min-height: 110px;
+}
+
+/* ---- motion (decision 198): what appears, appears; what changes state, slides into it ---- */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+#view-guidance,
+#lv-segments {
+  animation: rise 0.18s ease-out;
+}
+
+/* ---- the one tooltip (decision 199) ---- */
+.tooltip {
+  position: fixed;
+  z-index: 1000;
+  width: max-content;
+  max-width: 280px;
+  padding: 6px 9px;
+  border-radius: 8px;
+  background: rgba(13, 17, 23, 0.97);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-2);
+  color: var(--text);
+  font-size: var(--fs-md);
+  font-weight: 400;
+  line-height: 1.45;
+  text-align: left;
+  white-space: normal;
+  pointer-events: none;
+  animation: fade-in 0.12s ease-out;
+}
+.tooltip.above {
+  transform: translateY(-100%);
+}
+.tooltip-keys {
+  display: inline-flex;
+  gap: 3px;
+  margin-left: 8px;
+  vertical-align: 1px;
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
 }

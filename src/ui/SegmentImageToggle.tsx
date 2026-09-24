@@ -28,7 +28,7 @@ export function SegmentImageToggle() {
         className={on ? 'img-seg-toggle on' : 'img-seg-toggle'}
         aria-pressed={on}
         onClick={() => setUi({ imageSegments: !on })}
-        title="Colorea en la imagen los segmentos del VI del tejido que corta el plano; pasar el ratón: nombre del segmento"
+        data-tip="Colorea en la imagen los segmentos del VI del tejido que corta el plano; pasar el ratón: nombre del segmento"
       >
         <i className="img-seg-icon" aria-hidden="true" />
         Segmentos VI
@@ -43,7 +43,7 @@ export function SegmentImageToggle() {
             className={model === 'LV_AHA17' ? 'active' : ''}
             aria-pressed={model === 'LV_AHA17'}
             onClick={() => pick('LV_AHA17')}
-            title="AHA 17: el 17 es el casquete apical, sin cavidad"
+            data-tip="AHA 17: el 17 es el casquete apical, sin cavidad"
           >
             17
           </button>
@@ -51,7 +51,7 @@ export function SegmentImageToggle() {
             className={model === 'LV_16' ? 'active' : ''}
             aria-pressed={model === 'LV_16'}
             onClick={() => pick('LV_16')}
-            title="Motilidad: 16 segmentos, los apicales cubren todo el ápex"
+            data-tip="Motilidad: 16 segmentos, los apicales cubren todo el ápex"
           >
             16
           </button>

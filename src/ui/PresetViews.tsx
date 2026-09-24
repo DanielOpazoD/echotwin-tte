@@ -41,7 +41,7 @@ function PresetButton({ id, label, sub, title }: Preset) {
     <button
       className={active ? 'active' : ''}
       disabled={disabled}
-      title={
+      data-tip={
         disabled
           ? 'No disponible en modo examen'
           : `${title}: mueve la sonda de forma continua hasta la pose canónica`

@@ -843,7 +843,8 @@ export function TorsoView() {
           <button
             className="icon-btn"
             onClick={() => zoomRef.current?.zoomBy(0.85)}
-            title="Acercar (Ctrl/⌘ + rueda)"
+            data-tip="Acercar"
+            data-tip-key="Ctrl/⌘+rueda"
             aria-label="Acercar"
           >
             <IconPlus size={14} />
@@ -851,7 +852,7 @@ export function TorsoView() {
           <button
             className="icon-btn"
             onClick={() => zoomRef.current?.zoomBy(1.18)}
-            title="Alejar"
+            data-tip="Alejar"
             aria-label="Alejar"
           >
             <IconMinus size={14} />
@@ -859,7 +860,7 @@ export function TorsoView() {
           <button
             className="icon-btn"
             onClick={() => zoomRef.current?.center()}
-            title="Centrar la cámara en la sonda"
+            data-tip="Centrar la cámara en la sonda"
             aria-label="Centrar la cámara en la sonda"
           >
             <IconCrosshair size={14} />
@@ -907,7 +908,7 @@ function LayerMenu() {
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Capas del navegador 3D"
-        title="Capas del navegador 3D"
+        data-tip="Capas del navegador 3D"
         onClick={() => setOpen(!open)}
       >
         <IconLayers size={14} />

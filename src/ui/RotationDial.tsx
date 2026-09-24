@@ -37,7 +37,7 @@ export function RotationDial() {
   return (
     <div
       className="dial"
-      title="Orientación del marcador de la sonda: arrastra el punto o haz clic en el anillo"
+      data-tip="Orientación del marcador de la sonda: arrastra el punto o haz clic en el anillo"
     >
       <svg
         viewBox="0 0 88 88"

@@ -19,7 +19,7 @@ export function Slider(props: {
     ((v: number) =>
       `${Number.isInteger(props.step ?? 1) ? Math.round(v) : v.toFixed(2)}${props.unit ?? ''}`);
   return (
-    <div className="row" title={props.title}>
+    <div className="row" data-tip={props.title}>
       <label>
         {props.label}
         {props.hint ? (
@@ -56,7 +56,7 @@ export function Segmented<T extends string>(props: {
           key={o.id}
           className={o.id === props.value ? 'active' : ''}
           onClick={() => props.onChange(o.id)}
-          title={o.title}
+          data-tip={o.title}
           aria-pressed={o.id === props.value}
         >
           {o.label}
@@ -73,7 +73,7 @@ export function Toggle(props: {
   title?: string;
 }) {
   return (
-    <div className="row" title={props.title}>
+    <div className="row" data-tip={props.title}>
       <label>{props.label}</label>
       <button
         className={`switch${props.value ? ' on' : ''}`}

@@ -52,7 +52,7 @@ function Stepper(props: {
       <button
         className="icon-btn"
         aria-label={props.less}
-        title={props.less}
+        data-tip={props.less}
         onClick={props.onLess}
       >
         <IconMinus size={13} />
@@ -63,7 +63,7 @@ function Stepper(props: {
       <button
         className="icon-btn"
         aria-label={props.more}
-        title={props.more}
+        data-tip={props.more}
         onClick={props.onMore}
       >
         <IconPlus size={13} />

@@ -49,7 +49,7 @@ export function CheckItem({
       role="menuitemcheckbox"
       aria-checked={checked}
       disabled={disabled}
-      title={disabled ? 'No disponible en modo examen' : hint}
+      data-tip={disabled ? 'No disponible en modo examen' : undefined}
       onClick={onToggle}
     >
       <span className="mi-check" aria-hidden="true">

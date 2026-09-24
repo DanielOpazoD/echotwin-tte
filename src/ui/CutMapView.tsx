@@ -7,6 +7,7 @@ import { computeSectorMapping, type SectorMapping } from '@/simulator/renderer/s
 import { nearestSampleLut, paintCutMap, placeLabels, withoutOverlaps } from './cutMap';
 import { SegmentAnchors } from './segmentAnchors';
 import { paintSegmentMap, segmentIds, segmentNames } from './segmentMap';
+import { canvasFont } from './canvasFonts';
 
 /**
  * Second view of the navigator (decision 141): the imaging plane as a colour-coded map of the structures it
@@ -113,7 +114,7 @@ export function CutMapView() {
       drawRuler(ctx, mapping, p.depthCm, segIds !== null);
       if (segIds) {
         // segment numbers: every segment in the plane gets its number, still while the probe rests (decision 181)
-        ctx.font = '700 12px system-ui, sans-serif';
+        ctx.font = canvasFont(12, 'ui', 700);
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         const segKey = `${key}|seg|${st.ui.segmentModel}|${st.caseId}|${restKey()}`;
@@ -146,7 +147,7 @@ export function CutMapView() {
           ctx.fillText(l.text, l.x, l.y);
         }
       } else if (st.ui.navLabels) {
-        ctx.font = '600 11px system-ui, sans-serif';
+        ctx.font = canvasFont(11, 'ui', 600);
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         const structKey = `${key}|${st.caseId}|${restKey()}`;
@@ -301,7 +302,7 @@ function drawRuler(
   ctx.strokeStyle = 'rgba(255, 200, 87, 0.85)';
   ctx.fillStyle = 'rgba(255, 200, 87, 0.9)';
   ctx.lineWidth = 1;
-  ctx.font = '10px system-ui, sans-serif';
+  ctx.font = canvasFont(10, 'mono');
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
   ctx.beginPath();
