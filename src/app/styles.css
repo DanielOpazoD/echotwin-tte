@@ -1158,8 +1158,11 @@ select:hover {
   opacity: 0;
   transition: opacity 0.18s ease;
 }
-.torso-wrap:hover .torso-help,
-.torso-wrap:focus-within .torso-help {
+/* each legend shows while the pointer is over its own panel (decision 189): hovering the 3D torso does not
+   also print the cut map's legend, and the reverse */
+.torso-3d:hover ~ .torso-help,
+.torso-3d:focus-within ~ .torso-help,
+.cut-map:hover .torso-help.cut {
   opacity: 1;
 }
 .torso-tools {
@@ -1405,9 +1408,6 @@ select:hover {
 }
 .guidance li {
   margin: 3px 0;
-}
-.guidance .scorebar {
-  margin: 6px 0 2px;
 }
 .guidance .target {
   margin-top: 5px;
@@ -2525,14 +2525,15 @@ canvas.overlay.armed {
   outline-offset: 1px;
   border-radius: 50%;
 }
-/* the camera tools: a column beside the dial, shown while the pointer is over the navigator or one has focus
-   (always on a touch screen), so at rest the torso shows only the dial */
+/* the camera tools: a row under the dial, shown while the pointer is over the navigator or one has focus
+   (always on a touch screen), so at rest the torso shows only the dial; beside the dial, a narrow rail put them over
+   the panel's caption (decision 189) */
 .torso-tools {
-  flex-direction: row-reverse;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: flex-end;
 }
 .torso-buttons {
-  flex-direction: column;
+  flex-direction: row;
   opacity: 0;
   transition: opacity 0.16s ease;
 }
@@ -2585,4 +2586,43 @@ canvas.overlay.armed {
 .kbd.gesture {
   font-family: var(--font);
   font-size: 11.5px;
+}
+
+/* ---- interface, fifth round: the console, trimmed (decision 189) ---- */
+.row.end {
+  justify-content: flex-end;
+}
+.tool-grid {
+  grid-template-columns: repeat(4, 1fr);
+}
+.tool-grid button.on {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--text);
+}
+.capture-cancel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+/* the guide's box: its percentage cap resolved against its own content, so it kept the whole height of the content
+   and showed 46 % of it, with the details and the causes clipped below an empty band; the cap now sits on the
+   wrapper, against the rail, and the guide scrolls inside it */
+#view-guidance {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 50%;
+  display: flex;
+  flex-direction: column;
+}
+#view-guidance .guidance {
+  max-height: none;
+  min-height: 0;
+}
+/* the cut map takes the height its sector needs and leaves the rest to the torso */
+.torso-wrap.split .cut-map {
+  flex: 0 1 auto;
+  aspect-ratio: 6 / 5;
+  min-height: 0;
 }

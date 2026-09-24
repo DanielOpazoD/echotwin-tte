@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 188 (última: 188).
+Decisiones: 189 (última: 189).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -196,3 +196,4 @@ Decisiones: 188 (última: 188).
 | [186](DECISIONS.md#L1287) | 2026-09-23 | Interfaz limpia, cuarta tanda: menos texto en pantalla | vigente |
 | [187](DECISIONS.md#L1296) | 2026-09-23 | Profundidad y ganancia sobre la imagen | vigente |
 | [188](DECISIONS.md#L1298) | 2026-09-23 | El navegador despejado y la guía oculta al empezar | vigente |
+| [189](DECISIONS.md#L1304) | 2026-09-23 | La guía entera y una consola sin sobrantes | vigente |

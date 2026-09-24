@@ -224,11 +224,10 @@ function AcquireTab() {
           onChange={(v) => s.setProbe({ pressure: v })}
           title={tip('Poca presión = mal acoplamiento (dropout).')}
         />
-        <div className="row small">
-          <span>
-            u {s.probe.u.toFixed(1)} · v {s.probe.v.toFixed(1)} cm
-          </span>
-          <button onClick={() => s.resetProbe()}>Reiniciar sonda</button>
+        <div className="row end">
+          <button className="ghost" onClick={() => s.resetProbe()}>
+            Reiniciar sonda
+          </button>
         </div>
       </Section>
       <Section title="Caso y paciente">
@@ -723,20 +722,21 @@ function MeasureTab() {
     })),
   );
   const tip = useTip();
+  // the image tools first (2D, then M-mode), the spectrum ones after; nothing armed is the catalogue itself, so it
+  // needs no button of its own (decision 189)
   const tools: { id: typeof s.activeTool; label: string; title?: string }[] = [
-    { id: 'none', label: '—', title: 'Ninguna herramienta' },
     { id: 'caliper', label: 'Caliper', title: 'Distancia lineal (2D)' },
-    { id: 'velocity', label: 'Vel', title: 'Velocidad pico sobre el espectro' },
-    { id: 'vti', label: 'VTI', title: 'Trazado manual del envelope' },
-    { id: 'auto-vti', label: 'VTI auto', title: 'Envolvente automática entre dos instantes' },
-    { id: 'time', label: 't', title: 'Intervalo de tiempo' },
-    { id: 'slope', label: 'TD', title: 'Tiempo de desaceleración (pico → pendiente)' },
     {
       id: 'simpson',
       label: 'Simpson',
       title: 'Volumen del VI por discos (trazado del endocardio)',
     },
     { id: 'tapse', label: 'TAPSE', title: 'Excursión vertical en modo M' },
+    { id: 'time', label: 'Tiempo', title: 'Intervalo de tiempo' },
+    { id: 'velocity', label: 'Velocidad', title: 'Velocidad pico sobre el espectro' },
+    { id: 'vti', label: 'VTI', title: 'Trazado manual del envelope' },
+    { id: 'auto-vti', label: 'VTI auto', title: 'Envolvente automática entre dos instantes' },
+    { id: 'slope', label: 'TD', title: 'Tiempo de desaceleración (pico → pendiente)' },
   ];
   const armed = s.activeMeasurementId ? 'none' : s.activeTool;
   const capturing = Boolean(s.activeMeasurementId) || s.activeTool !== 'none';
@@ -764,8 +764,11 @@ function MeasureTab() {
             )}
             <p className="capture-hint">{spec ? spec.instruction : FREE_TOOL_HINT[s.activeTool]}</p>
           </div>
-          <button className="capture-cancel" onClick={cancel}>
-            Cancelar <span className="small">(Esc)</span>
+          <button className="capture-cancel ghost" onClick={cancel}>
+            Cancelar
+            <kbd className="kbd" aria-hidden="true">
+              Esc
+            </kbd>
           </button>
         </Section>
         <Section title={`Mediciones (${s.measurements.length})`}>
@@ -789,7 +792,6 @@ function MeasureTab() {
               key={t.id}
               className={t.id === armed ? 'on' : ''}
               aria-pressed={t.id === armed}
-              aria-label={t.id === 'none' ? 'Ninguna herramienta' : undefined}
               title={t.title}
               onClick={() => s.setActiveTool(t.id)}
             >
@@ -840,7 +842,10 @@ function MeasureList({
 /** Artifact laboratory — a teaching tool, hidden in exam mode. */
 function LabTab() {
   return (
-    <Section title="Laboratorio de artefactos">
+    <Section
+      title="Laboratorio de artefactos"
+      tip="Ajusta cada artefacto y observa su causa y su remedio. Parte de los valores del caso."
+    >
       <ArtifactLab />
     </Section>
   );

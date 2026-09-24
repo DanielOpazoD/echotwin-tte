@@ -91,6 +91,15 @@ test('the guidance panel explains causes and the report scores a structured impr
   await expect(page.locator('.guidance')).toHaveCount(0);
   await page.getByRole('button', { name: 'Guía de la vista' }).click();
   await expect(page.locator('.guidance .causes')).toHaveCount(1);
+  // the guide fills its box: it used to keep the height of its whole content and clip the details and causes
+  // under an empty band (decision 189)
+  // (measured in one evaluation: the guide rewrites its hints at 8 Hz)
+  const gap = await page.evaluate(() => {
+    const outer = document.querySelector('#view-guidance')?.getBoundingClientRect();
+    const inner = document.querySelector('#view-guidance .guidance')?.getBoundingClientRect();
+    return outer && inner ? Math.abs(outer.height - inner.height) : Infinity;
+  });
+  expect(gap).toBeLessThan(2);
   await page.getByRole('button', { name: 'Informe' }).click();
   await page.locator('[data-finding="ef-normal"] input').check();
   await page.locator('[data-finding="as-none"] input').check();
