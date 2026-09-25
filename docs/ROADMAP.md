@@ -10,7 +10,7 @@ Estado real según el código el 2026-09-10. Los hitos M0–M6 siguen la especif
 | Esquema de casos Zod con validaciones cruzadas | hecho | `src/cases/schema.ts` |
 | Regla de capas UI ↛ fórmulas; motor ↛ app/ui/workers; `src/core` ↛ todo | hecho | `eslint.config.js` (`no-restricted-imports`); las fronteras restantes de la tabla de `ARCHITECTURE.md` siguen sin vallar porque el código las viola hoy (`docs/AUDITORIA_INGENIERIA.md`, B1) |
 | Control de versiones | hecho | remoto en GitLab (`gitlab.com/d.opazo.damiani/simuladorecocardiograma`), ramas `feat/*` y MR |
-| CI (lint, typecheck, format, unitarias en 3 shards con cobertura, build, Playwright) | hecho | `.gitlab-ci.yml` (espejo de `.github/workflows/ci.yml`, que GitLab no ejecuta) |
+| CI (lint, typecheck, format, unitarias en 3 shards con cobertura, build, Playwright) | hecho | `.github/workflows/ci.yml` (GitHub Actions, decisión 211; entre el 2026-09-16 y el 2026-09-25 corrió en GitLab) |
 
 ## M1 — Anatomía y ciclo cardíaco
 | Entregable | Estado | Evidencia |

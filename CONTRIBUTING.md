@@ -84,28 +84,20 @@ Herramientas de medición (`npm run measure -- <caso>`, `slice-map.ts`, `audit-v
 y la sección «Herramientas» del método de fidelidad. Los scripts temporales van fuera del repositorio.
 
 Los E2E locales levantan su propio `vite preview` en el puerto 4190 (`E2E_PORT` lo cambia) y nunca reutilizan un
-servidor ya existente: en esta máquina el runner propio sirve su checkout en el 4173 y quedan vistas previas de
-worktrees viejos en otros puertos, y una corrida que las reutilizara probaría otra build y no tu árbol de trabajo.
+servidor ya existente: el CI usa el 4173 y en una máquina de trabajo suelen quedar vistas previas de worktrees
+viejos en otros puertos, y una corrida que las reutilizara probaría otra build y no tu árbol de trabajo.
 Si el puerto está ocupado, Playwright falla en vez de probar lo que no es.
 
 ## Entregar
 
-Rama `feat/<nombre>` desde `main`, commit con mensaje en imperativo, MR en GitLab. El pipeline
-(`.gitlab-ci.yml`) tiene dos perfiles: en el MR corre lint, formato, tipos, la suite rápida, el build
-y el presupuesto de bundle (~5 min); en `main` añade la suite completa con cobertura en tres shards
-y los E2E sobre `dist/`. Un MR se mergea con su pipeline en verde y se vigila el de `main`.
+Rama `feat/<nombre>` desde `main`, commit con mensaje en imperativo y PR en GitHub
+(`DanielOpazoD/echotwin-tte`). El workflow `.github/workflows/ci.yml` corre en cada PR y en cada push a `main`:
+lint, formato y tipos; la suite completa con cobertura en tres shards; el build con el presupuesto de bundle; y los
+E2E sobre `dist/`. El trabajo `check` resume los demás y es el check que exige la protección de `main`, también a los
+administradores; `main` no admite force push. Un PR se mergea con `check` en verde y se vigila el run de `main`.
 
-Los pipelines corren en un **runner propio** (`gitlab-runner`, executor `shell`, registrado para
-este proyecto el 2026-09-16 en el Mac del proyecto; los runners compartidos de GitLab están
-desactivados porque el plan gratuito agotó sus 400 minutos ese mismo día). Qué implica:
-
-- El job usa el Node y el Chromium de Playwright instalados en esa máquina (`PATH` fijado en
-  `~/.gitlab-runner/config.toml` al Node 22 de nvm, el de `.nvmrc`); las claves `image:` del YAML
-  se ignoran. Si cambia la versión de Playwright, ejecuta `npx playwright install chromium` allí.
-- Un job a la vez (`concurrent = 1`): un pipeline completo de `main` tarda unos 8–10 min.
-- Se administra con `brew services start|stop gitlab-runner`; el estado se ve en Settings → CI/CD →
-  Runners del proyecto. Para otra máquina: `brew install gitlab-runner`, crear el runner en esa
-  página (o `POST /user/runners`) y `gitlab-runner register --executor shell --token <token>`.
-- Un runner `shell` ejecuta lo que se empuje con los permisos del usuario que lo corre. Los MR de
-  forks de usuarios externos no disparan pipelines en runners del proyecto sin aprobación de un
-  mantenedor; aun así, revisa el diff de `.gitlab-ci.yml` antes de aprobar uno.
+Los trabajos corren en runners alojados de GitHub (gratuitos en un repositorio público) con el Node de `.nvmrc`, y el
+workflow sólo tiene permiso de lectura sobre el repositorio. Los PR de forks corren con el evento `pull_request`, sin
+secretos ni permisos de escritura. Entre el 2026-09-16 y el 2026-09-25 el proyecto vivió en GitLab con un runner
+propio, porque los trabajos de Actions dejaron de arrancar en la cuenta (decisión 211); `docs/AUDITORIA_INGENIERIA.md`
+conserva esa etapa y sus MR.

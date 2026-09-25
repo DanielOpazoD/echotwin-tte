@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 210 (última: 210).
+Decisiones: 211 (última: 211).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -218,3 +218,4 @@ Decisiones: 210 (última: 210).
 | [208](DECISIONS.md#L1367) | 2026-09-24 | Sistema visual v2: un solo lenguaje en cada control | vigente |
 | [209](DECISIONS.md#L1369) | 2026-09-24 | Indicadores que se deslizan y la imagen en su escenario | vigente |
 | [210](DECISIONS.md#L1371) | 2026-09-24 | Lo que encontró la revisión de 208–209 | vigente |
+| [211](DECISIONS.md#L1381) | 2026-09-25 | El repositorio vuelve a GitHub y el CI a Actions | vigente |

@@ -1,8 +1,9 @@
 # Validación
 
 > Las cifras de cada corrida completa (archivos y pruebas por nivel, E2E, presupuesto del bundle) se registran en
-> la sección «Verificación» de la descripción de su MR; `npx vitest list` y `npx playwright test --list` dan los
-> recuentos del árbol actual. El pipeline está en `.gitlab-ci.yml` y corre en el runner propio (`CONTRIBUTING.md`).
+> la sección «Verificación» de la descripción de su PR (antes, de su MR en GitLab); `npx vitest list` y
+> `npx playwright test --list` dan los recuentos del árbol actual. El CI está en `.github/workflows/ci.yml` y corre
+> en runners alojados de GitHub (`CONTRIBUTING.md`).
 > Los párrafos siguientes son instantáneas fechadas de corridas anteriores y conservan las cifras de su fecha.
 
 Estado observado el **2026-09-14 (hora local)** sobre el commit `314eab7`: **46 archivos, 267 pruebas unitarias, todas pasan** con `npx vitest run --testTimeout=180000 --maxWorkers=3` (405 s; varias pruebas «a través del núcleo» superan los 60 s y el timeout de 60 s original ya no basta). Las pruebas E2E **no se reejecutaron en esta corrida**; la última tanda completa registrada fue de 42 pruebas en ~25 min (ver `docs/AUDITORIA_FIDELIDAD.md`, iteración 3).
