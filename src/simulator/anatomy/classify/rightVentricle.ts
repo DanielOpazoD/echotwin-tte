@@ -9,6 +9,13 @@ export function rvFreeWallNow(freeWallCm: number, contraction: number): number {
   return freeWallCm * (1 + 0.35 * contraction);
 }
 
+/**
+ * Blend (cm) of the smooth union between the RV body and the outflow cones (decision 214): the inflow sinus narrows into
+ * the infundibulum without a boundary (Ho and Nihoyannopoulos, Heart 2006). A plain union left a crease between the two
+ * lumens, and in systole, when the body pulled in, a band of wall a centimetre thick between them in the long axis.
+ */
+export const RV_OUTFLOW_BLEND_CM = 0.6;
+
 /** Radial scale of the outflow tract and pulmonary root with the contraction. */
 export function rvOutflowScale(contraction: number): number {
   return 0.85 + 0.15 * (1 - contraction);
@@ -142,7 +149,7 @@ export function classifyRightVentricle(c: ClassifyCtx): boolean {
   // plane, so its wall ran as a floor 0.5-1.5 cm thick across the orifice, and in systole its free wall pulled in
   // while the annulus stayed put: the lateral hinge sat outside the heart in 6-10 of 10 frames of eleven cases.
   rvTmp[0] = dRvU;
-  const dCavRv = Math.min(dRvU, dRvot);
+  const dCavRv = smin(dRvU, dRvot, RV_OUTFLOW_BLEND_CM);
   if (dCavRv < 0) {
     if (dRv < 0) {
       // moderator band: from the lower septum to the anterior free wall at the base of the anterior papillary muscle

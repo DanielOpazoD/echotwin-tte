@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 213 (última: 213).
+Decisiones: 214 (última: 214).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -221,3 +221,4 @@ Decisiones: 213 (última: 213).
 | [211](DECISIONS.md#L1381) | 2026-09-25 | El repositorio vuelve a GitHub y el CI a Actions | vigente |
 | [212](DECISIONS.md#L1383) | 2026-09-25 | La 2D comparte el tiempo de transmisión con el Doppler espectral | vigente |
 | [213](DECISIONS.md#L1385) | 2026-09-25 | La aorta descendente va a la izquierda de la columna y detrás del surco auriculoventricular, y la vena pulmonar superior izquierda pasa por delante de ella | vigente |
+| [214](DECISIONS.md#L1387) | 2026-09-25 | La pared libre del VD entra en el tracto de salida sin borde | vigente |

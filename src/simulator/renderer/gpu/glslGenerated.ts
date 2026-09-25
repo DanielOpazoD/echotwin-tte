@@ -36,7 +36,8 @@ float axialWallFactor(float zeta, float apexFrac) {
 // src/simulator/anatomy/rv.ts: rvAxialTaper
 float rvAxialTaper(float tvPlane, float zApex, float z) {
   if (z <= tvPlane) {
-    return 0.85;
+    float a = min(1.0, (tvPlane - z) / 1.5);
+    return 1.0 - 0.15 * a * a * (3.0 - 2.0 * a);
   }
   float q = min(1.0, (z - tvPlane) / max(0.5, zApex - tvPlane));
   float s = max(0.0, (q - 0.25) / 0.75);
@@ -57,6 +58,11 @@ float rvFloorZ(float tvCz, float tvZ, float pvZ, float u, float off) {
   }
   float w = u / uInf;
   return tvCz + pvZ + (tvZ + off - pvZ) * w - 2.6 * (1.0 - w);
+}
+// src/simulator/anatomy/rv.ts: rvRadialContraction
+float rvRadialContraction(float u) {
+  float s = min(1.0, max(0.0, (u - 0.15) / 0.35));
+  return 0.15 + 0.27 * s * s * (3.0 - 2.0 * s);
 }
 // src/simulator/anatomy/lvWall.ts: septalShiftAt
 float septalShiftAt(float shiftCm, float az, float levelFrac) {
