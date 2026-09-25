@@ -42,8 +42,8 @@ export function rvFloorZ(tvCz: number, tvZ: number, pvZ: number, u: number, off:
  * The crescent used to lose 35 % everywhere, up to the edge of the cones that lose 15 %: in the long axis its anterior
  * wall pulled 1.3 cm away from the probe beside the outflow tract, which stayed, and in systole the two lumens separated
  * with a centimetre of wall between them. The body takes up the ejection the outlet gives away (0.35 → 0.42): the normal
- * case keeps its RV ejection fraction (51 → 50 %) and its four-chamber fractional area change goes from 40 to 42 %
- * (normal 49 ± 7 %, Lang et al., JASE 2015).
+ * case keeps its RV ejection fraction (51 → 50 %; 47 % without it, and five normal ventricles fell below 45 %) and its
+ * four-chamber fractional area change goes from 40 to 42 % (normal 49 ± 7 %, Lang et al., JASE 2015).
  */
 export function rvRadialContraction(u: number): number {
   const s = Math.min(1, Math.max(0, (u - 0.15) / 0.35));

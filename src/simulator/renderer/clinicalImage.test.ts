@@ -177,7 +177,9 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['2CH-ED:bandDark8', 12.78],
   ['2CH-ES:bandDark8', 1.47],
   ['4CH-ED:bandDark10', 0.35],
-  ['4CH-ES:bandDark10', 1.18],
+  // 1.18 → 1.35 with the RV body contracting 0.42 (decision 214): 0.0044 → 0.0047 of the band's pixels dark, against
+  // CAMUS Good median 0, p75 0.002 and p90 0.015 — an IQR of 0.002 turns 0.0003 into 0.17 widths
+  ['4CH-ES:bandDark10', 1.35],
   ['2CH-ED:bandDark10', 0.21],
   ['2CH-ES:bandDark10', 1.24],
   // sharper than clinical (gradients 1.4-1.5× the median) and drawn with thin bright lines
