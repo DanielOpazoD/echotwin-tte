@@ -144,7 +144,7 @@ describe('docs/DOPPLER_ENGINE.md states the values the code computes', () => {
     expect(rows.length).toBeGreaterThanOrEqual(3);
   });
 
-  it('states the acquisition frame rate of each line density, with and without the default colour box', () => {
+  it('states the acquisition frame rate of each line density, with and without the default colour box and beside a spectral strip', () => {
     const rows = table('frame-rate-acquisition', 'doppler');
     const wrong: string[] = [];
     for (const density of keysOf(rows) as ('low' | 'medium' | 'high')[]) {
@@ -154,8 +154,9 @@ describe('docs/DOPPLER_ENGINE.md states the values the code computes', () => {
         bmodeTransmitLines(settings),
         asPrinted(r[2]!, acquisitionFrameRate(settings)),
         asPrinted(r[3]!, acquisitionFrameRate(settings, DEFAULT_COLOR)),
+        asPrinted(r[4]!, acquisitionFrameRate(settings, undefined, true)),
       ];
-      const doc = [num(r[1]!), num(r[2]!), num(r[3]!)];
+      const doc = [num(r[1]!), num(r[2]!), num(r[3]!), num(r[4]!)];
       if (doc.some((v, i) => v !== got[i]))
         wrong.push(`${density}: document ${doc.join(' | ')}, code ${got.join(' | ')}`);
     }

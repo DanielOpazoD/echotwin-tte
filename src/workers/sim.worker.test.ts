@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadCaseById } from '@/cases';
 import { baseInput } from '@/simulator/core/baseInput';
 import type { WorkerToMain } from '@/simulator/core/protocol';
+import type { ImagingModality } from '@/simulator/renderer/types';
 
 /**
  * The worker module registers `self.onmessage` on import, so it is loaded with a fake `self` per test.
@@ -17,7 +18,12 @@ type FakeSelf = {
 
 describe('sim.worker pacing and failure policy', () => {
   let fakeSelf: FakeSelf;
-  let mod: { MAX_TICK_FAILURES: number; TICK_RETRY_MS: number };
+  let mod: {
+    MAX_TICK_FAILURES: number;
+    TICK_RETRY_MS: number;
+    STRIP_TICK_HZ: number;
+    tickIntervalMs: (cadenceHz: number, modality: ImagingModality, frozen: boolean) => number;
+  };
   /** The worker's own copy of the core (vi.resetModules gives it a fresh module graph), so spies reach it. */
   let core: { prototype: { step: (dt: number) => unknown; request: (req: never) => unknown } };
   beforeEach(async () => {
@@ -43,6 +49,18 @@ describe('sim.worker pacing and failure policy', () => {
         input: baseInput(),
       },
     });
+
+  it('advances a strip at least at STRIP_TICK_HZ whatever the 2D cadence (decision 212)', () => {
+    // PW with the default console: the 2D keeps 17.1 Hz, and pacing at it moved the sweep in 50 ms jumps
+    for (const m of ['pw', 'cw', 'tdi', 'm-mode', 'cmm'] as const)
+      expect(mod.tickIntervalMs(17.1, m, false), m).toBeCloseTo(1000 / mod.STRIP_TICK_HZ, 6);
+    expect(mod.tickIntervalMs(48.8, 'pw', false)).toBeCloseTo(1000 / 48.8, 6);
+    // without a strip the worker still follows the frames: bounded to 12–50 ms
+    expect(mod.tickIntervalMs(17.1, '2d', false)).toBe(50);
+    expect(mod.tickIntervalMs(68.6, 'color', false)).toBeCloseTo(1000 / 68.6, 6);
+    expect(mod.tickIntervalMs(120, '2d', false)).toBe(12);
+    expect(mod.tickIntervalMs(17.1, 'pw', true)).toBe(80);
+  });
 
   it('answers ready and delivers frames on its own clock', () => {
     load();

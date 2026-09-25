@@ -67,14 +67,16 @@ Hay dos números.
   El 2D convencional corre a unos 40–80 cuadros/s (Fujikura et al., J Clin Med 2021), y el color focalizado a 10–30 a 12 cm con 20–60 líneas y un paquete de 8 (Puig et al., IEEE TUFFC 2024).
 - **La cadencia** es cada cuánto forma el simulador un cuadro (`cadenceHz`). Nunca supera la adquisición y la acota además el trabajo del nivel, con las líneas de su cuadro polar y un tope de 90 Hz. Marca el paso del worker (acotado a 12–50 ms por paso), el presupuesto de cuadro, la traza del modo M y el intervalo sobre el que decae la persistencia. Antes de la decisión 178 era también el número del HUD, y cambiaba con el nivel de cálculo.
 
+En PW, CW y TDI la 2D comparte el tiempo de transmisión con el Doppler espectral (decisión 212): el PW y el TDI disparan a la PRF y el CW no deja de transmitir, así que una 2D en vivo se intercala dejando huecos en las muestras Doppler (Liu y Liu, IEEE TUFFC 2013). Cómo se reparte el tiempo es elección de cada equipo y no se encontró un valor publicado: la 2D conserva un cuarto de su frecuencia (`DUPLEX_BMODE_SHARE`, supuesto del modelo). Muchos ecocardiógrafos congelan la 2D mientras corre el espectro (modo actualización); el simulador no la congela ni dibuja los huecos en el espectro.
+
 Con los ajustes por defecto (16 cm, 80°) y la caja de color por defecto (±0,32 rad, hasta 13 cm):
 
 <!-- verificada: frame-rate-acquisition -->
-| Densidad de líneas | Disparos 2D | 2D (Hz) | 2D + caja de color (Hz) |
-|---|---|---|---|
-| `low` | 40 | 109,7 | 15,4 |
-| `medium` | 64 | 68,6 | 14,2 |
-| `high` | 96 | 45,7 | 12,9 |
+| Densidad de líneas | Disparos 2D | 2D (Hz) | 2D + caja de color (Hz) | 2D junto al Doppler espectral (Hz) |
+|---|---|---|---|---|
+| `low` | 40 | 109,7 | 15,4 | 27,4 |
+| `medium` | 64 | 68,6 | 14,2 | 17,1 |
+| `high` | 96 | 45,7 | 12,9 | 11,4 |
 
 <!-- verificada: frame-rate -->
 | Calidad | Cuadro polar | Cadencia 2D (Hz) | Cadencia con color (Hz) | Líneas de color del nivel |
