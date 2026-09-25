@@ -152,7 +152,7 @@ float mediastinumDistance(float x, float y, float z) {
   float ax = (x - DESC_AORTA_X) / rs;
   float az = (z - DESC_AORTA_Z - DESC_AORTA_SLEEVE_FORWARD) / (rs + DESC_AORTA_SLEEVE_FORWARD);
   float aorta = ax * ax + az * az - 1.0;
-  return min(posterior, superior, aorta);
+  return min(min(posterior, superior), aorta);
 }
 // src/simulator/anatomy/classify/atria.ts: atrialScale
 float atrialScale(float booster, float reservoir, float contraction) {
