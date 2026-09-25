@@ -12,7 +12,7 @@ El motor **mide**, nunca «encaja» la vista: compara la pose actual con la **po
 | `plane` | 0,20 | `(1 − ángulo_plano/(2·tol_plano)) · (1 − rotación/(2,5·tol_rot))`; ángulo entre la normal del haz canónico y la del actual; rotación entre el `lateral` canónico proyectado sobre el plano actual y el `lateral` actual |
 | `landmarks` | 0,30 | `Σ peso(visibles) / Σ peso(requeridas) − 0,12·Σ peso(penalizadoras visibles)`; una referencia «parcial» (en sector, a < 1,6 cm del plano, transmisión > 0,5) suma 0,4 de su peso |
 | `geometry` | 0,15 | Apical: `1 − acortamiento/40`, con `acortamiento = ángulo(eje VI, plano) + 12·dist_plano(ápex)`; PLAX: `1 − ángulo(eje VI, plano)/35`; PSAX: `1 − max(0, obliquidad − 12)/50`, obliquidad = 90° − ángulo(eje VI, plano) (una obliquidad leve es normal) |
-| `centering` | 0,10 | `1 − desplazamiento/3,5` del punto objetivo respecto al eje central del haz; 0 si el objetivo está detrás |
+| `centering` | 0,10 | `1 − desplazamiento/3,5` del centro de la vista respecto al eje central del haz; 0 si está detrás. El centro es el punto objetivo llevado a la línea central del haz canónico (decisión 215): las apicales giradas alrededor del eje del VI no apuntan a su objetivo, y el preajuste del A4C se puntuaba 0,67 |
 | `depth` | 0,10 | 1 dentro del rango recomendado; `1 − déficit/5` por debajo, `1 − exceso/8` por encima |
 | `gain` | 0,10 | Sobre la imagen post-consola: −3·(media_sangre − 0,22) si > 0,22 (sobre-ganancia); −3·(0,32 − media_miocardio) si < 0,32 (infra-ganancia); máx. −0,7 cada uno |
 | `artifacts` | 0,05 | `1 − 1,6·fracción_sombra` (muestras cardíacas con transmisión < 0,2·esperada) |
@@ -54,7 +54,7 @@ Lectura honesta: incluso la pose canónica A4C no marca visible el ápex (la ref
 - **UI** (`ReportScreen`): la tabla de vistas requeridas se muestra siempre; el resumen con puntuación aparece en sandbox/guiado como «progreso» y, en examen, sólo tras «Finalizar examen y ver puntuación» (`finishExam` congela la imagen y abre el informe). No hay límite de tiempo.
 
 ## Pruebas que lo cubren
-`viewQuality.test.ts` (PLAX canónica > 70 y reconocida; PSAX-MV y PSAX-PM canónicas reconocidas, PSAX-MV > 60, y el camino PLAX→PSAX-MV interpolado en 8 pasos sin saltos > 45 puntos; A4C > 65 con acortamiento < 15° que crece al elevar la sonda; pose fuera de ventana → 0 con hint; PLAX oblicua puntúa menos y sugiere rotar/inclinar/rockear/deslizar), `simulatorCore.test.ts` (PLAX > 60 a través del núcleo) y `scoring.test.ts` (adquisición 100 con todas las vistas y parcial sin A4C; número correcto en vista con score 20 → inválido, < 50 puntos; VTI con 40 % de error pierde puntos progresivamente y `mitral-e` no medida = 0; resumen reproducible que lista A4C como omitida).
+`viewQuality.test.ts` (PLAX canónica > 70 y reconocida; PSAX-MV y PSAX-PM canónicas reconocidas, PSAX-MV > 60, y el camino PLAX→PSAX-MV interpolado en 8 pasos sin saltos > 45 puntos; A4C > 65 con acortamiento < 5° que crece al elevar la sonda; pose fuera de ventana → 0 con hint; PLAX oblicua puntúa menos y sugiere rotar/inclinar/rockear/deslizar), `simulatorCore.test.ts` (PLAX > 60 a través del núcleo) y `scoring.test.ts` (adquisición 100 con todas las vistas y parcial sin A4C; número correcto en vista con score 20 → inválido, < 50 puntos; VTI con 40 % de error pierde puntos progresivamente y `mitral-e` no medida = 0; resumen reproducible que lista A4C como omitida).
 
 ## Lo que falta
 - **Scoring Doppler**: alineación del cursor con el chorro, elección PW/CW, escala/aliasing, tamaño del gate. No existe.

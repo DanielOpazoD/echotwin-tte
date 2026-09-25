@@ -34,6 +34,14 @@ export interface ViewTarget {
    * ventricle, as their landmarks do.
    */
   scalesWithLvLength?: boolean;
+  /**
+   * Apical views turned about the long axis (decision 215): in-plane lean (°) of the sector centre off the line from the
+   * probe to the middle of the axis, positive toward the view's `planeRight`. Swept against CAMUS Good (Leclerc et al.,
+   * IEEE TMI 2019): −3° in the four-chamber view leaves the cavity apex on the centre line and the base 2° lateral, as
+   * there. In the two-chamber view any lean moves the apex and the base to the same side, while CAMUS shows them on
+   * opposite sides (a probe off the axis, apex −6.8 mm and base +6°); 0° deviates least.
+   */
+  sectorAimDeg?: number;
   /** Skin location of the canonical window (torso cm). */
   skin: { u: number; v: number };
   requiredLandmarks: LandmarkRequirement[];
@@ -64,8 +72,13 @@ const PLAX_AP = R(v3(-0.5, 0.866, 0)); // from lateral(x)/anterior(y): anterosep
  */
 const A2C_RIGHT = R(v3(Math.cos(1.117), Math.sin(1.117), 0)); // 64°
 const AV_CENTER = v3(-0.7, 1.35, -0.25);
-/** Turn of the A5C plane about the long axis from the septal–lateral direction toward the inferior wall (decision 139). */
-const A5C_TURN = (-6 * Math.PI) / 180;
+/**
+ * Turn of the A5C plane about the long axis from the septal–lateral direction toward the inferior wall (decisions 139 and
+ * 215). 6° from the probe of decision 139; from the probe on the long axis 6° kept 1 and 38 samples of left atrium in the
+ * pulmonary hypertension and tamponade cases (50 required, decision 85), and 12° keeps it in all twelve with the same
+ * apical segments.
+ */
+const A5C_TURN = (-12 * Math.PI) / 180;
 
 export function buildViewTargets(): ViewTarget[] {
   return [
@@ -253,6 +266,7 @@ export function buildViewTargets(): ViewTarget[] {
       planeRight: R(v3(1, 0, 0)), // screen right = lateral wall (patient's left)
       planeDown: R(v3(0, 0, -1)), // screen down = toward the base (atria at the bottom)
       target: v3(-1.6, -0.5, 1.5),
+      sectorAimDeg: -3,
       skin: { u: 6.8, v: -2.8 },
       requiredLandmarks: [
         { landmarkId: 'lv-apex', weight: 1.4, required: true },
@@ -323,6 +337,7 @@ export function buildViewTargets(): ViewTarget[] {
       planeRight: A2C_RIGHT, // screen right = anterior wall (60° from A4C)
       planeDown: R(v3(0, 0, -1)),
       target: v3(0, 0, 1.5),
+      sectorAimDeg: 0,
       skin: { u: 6.8, v: -2.8 },
       requiredLandmarks: [
         { landmarkId: 'lv-apex', weight: 1.4, required: true },

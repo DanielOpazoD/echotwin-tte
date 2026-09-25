@@ -33,11 +33,6 @@ export const KNOWN_SETS: readonly {
   { file: 'src/simulator/anatomy/chestWall.test.ts', name: 'KNOWN_INTRUSION_CM' },
   {
     file: 'src/simulator/view-recognition/segmentCoverage.test.ts',
-    name: 'KNOWN_NOT_ASSESSABLE',
-    values: true,
-  },
-  {
-    file: 'src/simulator/view-recognition/segmentCoverage.test.ts',
     name: 'KNOWN_EXTRA_ASSESSABLE',
     values: true,
   },

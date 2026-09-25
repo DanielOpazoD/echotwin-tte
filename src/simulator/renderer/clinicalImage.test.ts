@@ -88,25 +88,26 @@ const KNOWN_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // residual skewness (+0.18 to +0.30) and the end-diastolic local std inside the clinical quartiles; the end-systolic
   // local std sits under them (8.6-8.7 against 9.1-9.5), the variance against the ±4 mm mean stays short (15-17.4
   // against 18.4-24: the clinical grain is more contrasted at 2-4 mm than a thresholded lattice) and the slope of local
-  // std against grey level with it (3.6-4.2 against 4.2-5.7 lower quartiles).
+  // std against grey level with it (3.6-4.2 against 4.2-5.7 lower quartiles). With the probe on the long axis (decision
+  // 215) the four-chamber walls run closer to their scan lines and their residual texture fell 0.2 widths further.
   ['4CH-ES:myocardialLocalStd', -0.43],
   ['2CH-ES:myocardialLocalStd', -0.32],
-  ['4CH-ED:myocardialDetrendedStd', -0.45],
-  ['4CH-ES:myocardialDetrendedStd', -0.89],
+  ['4CH-ED:myocardialDetrendedStd', -0.64],
+  ['4CH-ES:myocardialDetrendedStd', -1.08],
   ['2CH-ED:myocardialDetrendedStd', -0.52],
   ['2CH-ES:myocardialDetrendedStd', -0.73],
   ['4CH-ED:levelStdSlope', -0.12],
   ['4CH-ES:levelStdSlope', -0.65],
-  ['2CH-ES:levelStdSlope', -0.11],
   // Contrast under the environment of decision 144 (docs/LIMITATIONS.md): the console the CAMUS sweep chose with the
   // focused beam (0.7 dB/cm/MHz) lifts the mid-field walls to 106 while the cavity, read at the receiver's lower noise
   // floor, stays at 50: 57 grey levels of contrast against 40 [33-47] in the 4CH and 56 against 44 [36-53] in the 2CH
-  // at end-diastole; at end-systole both are inside.
+  // at end-diastole (59 with the probe on the long axis, decision 215); at end-systole both are inside.
   ['4CH-ED:contrast', 0.73],
-  ['2CH-ED:contrast', 0.16],
-  // the horizontal speckle cell of the 4CH end-diastolic myocardium sits at the edge of the clinical range since the
-  // atrium was drawn at its declared volume (decision 161): 2.30 against 1.98–2.27 mm
-  ['4CH-ED:speckleCellHorizontalMm', 0.11],
+  ['2CH-ED:contrast', 0.34],
+  // the horizontal speckle cell of the myocardium sits at the edge of the clinical range: 4CH end-diastole came inside
+  // with the probe on the long axis (decision 215), and both end-systolic cells fall under it (1.96 against 1.98-2.0 mm)
+  ['4CH-ES:speckleCellHorizontalMm', -0.14],
+  ['2CH-ES:speckleCellHorizontalMm', -0.1],
 ]);
 
 /**
@@ -132,15 +133,19 @@ const QUARTILE_EDGE = 0.1;
  * lines (3.5° against 21°), the lateral wall oblique (32° against 17°) and the septum 46 grey levels darker than the
  * lateral wall (+35 in CAMUS Good). With the long axis where cardiac MRI puts it and the apical probe looking down it,
  * fourteen fall inside the clinical interquartile range (four-chamber end-diastole: apex 3.2 mm from the centre line at
- * 26.9 mm, axis 5.7°, walls at 22° and 19°). What stays outside: the septum is as bright as the lateral wall at
- * end-diastole, not brighter (+2 grey levels against +13 to +53); at end-systole the axis tilts 8° (0.3–6.9) and the
- * septum stands 21° to its scan lines (8–20); and the two-chamber axis tilts 1.5° at end-diastole against 3.8–10.8°.
+ * 26.9 mm, axis 5.7°, walls at 22° and 19°). With the probe on the long axis (decision 215) the four-chamber axis and
+ * septum came inside at end-systole too (2.0° and 17°). What stays outside: the septum is darker than the lateral wall,
+ * not brighter (−10 and −3 grey levels against +13 to +53), and the two-chamber view. There CAMUS images show the apex
+ * 4–7 mm to one side of the centre line and the base 6° to the other, a probe off the axis; with the probe on it the apex
+ * sits on the line (0.3–0.5 mm) and the axis along it (0.1–0.5°), and leaning the sector moves both to the same side.
  */
 const KNOWN_GEOMETRY_DEVIATIONS: ReadonlyMap<string, number> = new Map([
-  ['4CH-ED:septalMinusLateralGrey', -0.28],
-  ['4CH-ES:axisTiltDeg', 0.16],
-  ['4CH-ES:septalRayAngleDeg', 0.11],
-  ['2CH-ED:axisTiltDeg', -0.33],
+  ['4CH-ED:septalMinusLateralGrey', -0.58],
+  ['2CH-ED:axisTiltDeg', -0.48],
+  ['4CH-ES:septalMinusLateralGrey', -0.22],
+  ['2CH-ED:apexOffsetMm', 0.63],
+  ['2CH-ES:apexOffsetMm', 0.21],
+  ['2CH-ES:axisTiltDeg', -0.31],
 ]);
 
 /**
@@ -154,89 +159,86 @@ const KNOWN_GEOMETRY_DEVIATIONS: ReadonlyMap<string, number> = new Map([
  */
 const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // black pixels where a clinical image has none (its cavities and background keep a haze above grey 20)
-  ['4CH-ED:darkFraction', 2.1],
+  ['4CH-ED:darkFraction', 1.93],
   ['4CH-ES:darkFraction', 0.77],
-  ['2CH-ED:darkFraction', 1.78],
-  ['2CH-ES:darkFraction', 1.27],
-  ['2CH-ED:bandDark0', 0.61],
-  ['2CH-ES:bandDark0', 0.6],
   ['4CH-ED:bandDark2', 0.44],
   ['4CH-ES:bandDark2', 0.44],
-  ['2CH-ED:bandDark2', 0.89],
-  ['2CH-ES:bandDark2', 1.59],
-  ['4CH-ED:bandDark4', 3.9],
-  ['4CH-ES:bandDark4', 3.23],
-  ['2CH-ED:bandDark4', 4.96],
-  ['2CH-ES:bandDark4', 4.81],
-  ['4CH-ED:bandDark6', 27.56],
+  ['2CH-ED:bandDark2', 0.14],
+  ['2CH-ES:bandDark2', 0.24],
+  ['4CH-ED:bandDark4', 3.72],
+  ['4CH-ES:bandDark4', 2.96],
+  ['2CH-ED:bandDark4', 2.67],
+  ['2CH-ES:bandDark4', 2.32],
+  ['4CH-ED:bandDark6', 27.09],
   ['4CH-ES:bandDark6', 2.37],
-  ['2CH-ED:bandDark6', 31.05],
-  ['2CH-ES:bandDark6', 30.38],
-  ['4CH-ED:bandDark8', 14.16],
+  ['2CH-ED:bandDark6', 6.66],
+  ['2CH-ES:bandDark6', 3.58],
+  ['4CH-ED:bandDark8', 12.12],
   ['4CH-ES:bandDark8', 1.63],
-  ['2CH-ED:bandDark8', 12.78],
-  ['2CH-ES:bandDark8', 1.47],
+  ['2CH-ED:bandDark8', 1.09],
+  ['2CH-ES:bandDark8', 0.22],
+  // the rib shadow over the inferior side of the two-chamber sector went away with the probe on the long axis (decision
+  // 215): dark pixels at 4-8 cm fell from 5-31 quartile widths to 0.2-6.7
   ['4CH-ED:bandDark10', 0.35],
   // 1.18 → 1.35 with the RV body contracting 0.42 (decision 214): 0.0044 → 0.0047 of the band's pixels dark, against
   // CAMUS Good median 0, p75 0.002 and p90 0.015 — an IQR of 0.002 turns 0.0003 into 0.17 widths
-  ['4CH-ES:bandDark10', 1.35],
+  ['4CH-ES:bandDark10', 0.94],
   ['2CH-ED:bandDark10', 0.21],
-  ['2CH-ES:bandDark10', 1.24],
+  ['2CH-ES:bandDark10', 0.41],
   // sharper than clinical (gradients 1.4-1.5× the median) and drawn with thin bright lines
   ['4CH-ED:gradientP50', 2.51],
   ['4CH-ES:gradientP50', 2.52],
-  ['2CH-ED:gradientP50', 3.09],
-  ['2CH-ES:gradientP50', 2.42],
+  ['2CH-ED:gradientP50', 3.54],
+  ['2CH-ES:gradientP50', 2.85],
   ['4CH-ED:gradientP95', 0.92],
   ['4CH-ES:gradientP95', 0.66],
-  ['2CH-ED:gradientP95', 1.11],
-  ['2CH-ES:gradientP95', 0.76],
-  ['4CH-ED:ridgeFraction', 1.98],
-  ['4CH-ES:ridgeFraction', 1.46],
-  ['2CH-ES:ridgeFraction', 0.23],
-  ['2CH-ED:ridgeFraction', 0.97],
+  ['2CH-ED:gradientP95', 1.7],
+  ['2CH-ES:gradientP95', 1.52],
+  ['4CH-ED:ridgeFraction', 1.7],
+  ['4CH-ES:ridgeFraction', 1.21],
+  ['2CH-ES:ridgeFraction', 1.35],
+  ['2CH-ED:ridgeFraction', 2.15],
   // more texture contrast over the whole sector: the blood pool and background are grainier than the clinical haze
-  ['4CH-ED:detrendedStd', 0.5],
-  ['2CH-ED:detrendedStd', 0.47],
+  ['4CH-ED:detrendedStd', 0.35],
+  ['2CH-ED:detrendedStd', 1.06],
   // texture longer along the beam at 1 mm (0.31-0.35 against 0.20-0.23) and, in the 2CH, less coherent across it at 2-4 mm
   ['4CH-ED:radialCorr1', 1.33],
   ['4CH-ES:radialCorr1', 0.8],
   // at end-systole since the atrium shrank to its declared volume (decision 161): a little more texture against the
   // ±4 mm mean and a slightly negative correlation along the beam at 8 mm
   ['4CH-ES:detrendedStd', 0.13],
-  ['4CH-ES:radialCorr8', -0.13],
-  ['2CH-ED:radialCorr1', 1.54],
-  ['2CH-ES:radialCorr1', 1.17],
-  ['2CH-ED:radialCorr2', 0.26],
-  ['4CH-ES:radialCorr4', -0.23],
-  ['4CH-ED:radialCorr4', -0.17],
-  ['2CH-ED:radialCorr4', 0.23],
+  ['4CH-ES:radialCorr8', -0.55],
+  ['2CH-ED:radialCorr1', 2.42],
+  ['2CH-ES:radialCorr1', 2.22],
+  ['2CH-ED:radialCorr2', 0.63],
   ['2CH-ES:radialCorr4', 0.15],
-  ['2CH-ED:radialCorr8', -0.34],
-  ['2CH-ES:radialCorr8', -0.88],
-  ['2CH-ED:tangentialCorr2', -0.2],
-  ['4CH-ES:tangentialCorr4', -0.22],
-  ['2CH-ED:tangentialCorr4', -1.07],
+  ['2CH-ED:radialCorr8', -0.51],
+  ['2CH-ES:radialCorr8', -1.18],
+  ['4CH-ES:tangentialCorr4', -0.7],
+  ['2CH-ED:tangentialCorr4', -0.85],
   ['2CH-ES:tangentialCorr4', -0.99],
-  ['4CH-ED:tangentialCorr8', 0.82],
-  ['2CH-ES:tangentialCorr8', -0.2],
+  ['4CH-ED:tangentialCorr8', 0.49],
   // the cavity bands (4-10 cm) darker than clinical; the near field (0-2 cm), 141-154 against 105-115 until the
   // chest-wall muscle came down to its clinical grey (decision 156), is inside
   ['4CH-ED:bandGrey4', -0.27],
-  ['4CH-ES:bandGrey4', -0.39],
-  ['2CH-ED:bandGrey4', -0.5],
-  ['2CH-ES:bandGrey4', -0.83],
+  ['2CH-ED:bandGrey4', -0.17],
   ['4CH-ES:bandGrey6', -0.25],
-  ['2CH-ED:bandGrey6', -0.26],
-  ['2CH-ES:bandGrey6', -0.35],
   ['4CH-ES:bandGrey8', -0.29],
-  ['2CH-ED:bandGrey8', -0.15],
-  ['2CH-ES:bandGrey8', -0.31],
-  // a duller bright end at end-systole and, in the 2CH, an outer sector darker against the centre
+  ['2CH-ES:bandGrey8', -0.11],
+  // a duller bright end at end-systole
   ['4CH-ES:greyP95', -0.14],
-  ['2CH-ES:greyP95', -0.15],
-  ['2CH-ED:edgeRollOff', -0.27],
-  ['2CH-ES:edgeRollOff', -0.43],
+  // Where the rib shadow lay, the two-chamber sector shows lit tissue since decision 215 — the lung edge and, at its
+  // inferior edge, the diaphragm over the liver — with the model's sharper, beam-elongated texture: gradients, ridges and
+  // the radial correlation at 1 mm rose 0.4-1.2 widths, the outer quarter of the sector against its central half went
+  // from under the clinical ratio to over it (1.66 and 1.37 against 1.10-1.48 and 0.96-1.26), and the whole-sector texture
+  // contrast came out of the quartiles.
+  ['2CH-ED:edgeRollOff', 0.47],
+  ['2CH-ES:edgeRollOff', 0.38],
+  ['2CH-ED:localStd', 0.35],
+  ['2CH-ED:bandGrey2', 0.23],
+  ['2CH-ES:localStd', 0.21],
+  ['2CH-ES:detrendedStd', 0.86],
+  ['2CH-ES:radialCorr2', 0.51],
 ]);
 
 /**

@@ -452,7 +452,9 @@ describe('colour persistence through SimulatorCore (decisions 56 and 94)', () =>
       let flow = nextUpdate(0.1);
       for (let i = 0; i < 12 && coloredSamples(flow.raw) < 200; i++) flow = nextUpdate(0.1);
       expect(coloredSamples(flow.raw)).toBeGreaterThan(200);
-      // four attempts at different phases: a single one can land where the box holds almost no flow
+      // attempts at different phases until both resets are observable: an attempt can land where the box holds almost no
+      // flow in one of the two fields, and four of them (0.3 s of the cycle) stopped sufficing when the apical probe moved
+      // onto the LV axis (decision 215: 77 and 15 observable samples before and after, all from the first attempt)
       const withDepth = (depthCm: number) => ({
         ...DEFAULT_ACQUISITION,
         tgcDb: [...DEFAULT_ACQUISITION.tgcDb],
@@ -462,7 +464,11 @@ describe('colour persistence through SimulatorCore (decisions 56 and 94)', () =>
       let before = flow.kept;
       let observableModality = 0;
       let observableSpec = 0;
-      for (let attempt = 0; attempt < 4; attempt++) {
+      for (
+        let attempt = 0;
+        attempt < 12 && (observableModality <= 50 || observableSpec <= 50);
+        attempt++
+      ) {
         // modality: colour → 2D → colour, at the current depth
         raw.setInput(colorInput(0, { probe, modality: '2d', settings: withDepth(depth) }));
         kept.setInput(colorInput(p, { probe, modality: '2d', settings: withDepth(depth) }));
