@@ -32,6 +32,20 @@ describe('generated GLSL', () => {
     expect(missing).toEqual([]);
   });
 
+  it('nests a min or max of more than two arguments, which GLSL does not take (decision 213)', () => {
+    const src = `
+export function m3(a: number, b: number, c: number): number {
+  return Math.min(a, b, c) + Math.max(a, b, c, 1);
+}`;
+    expect(transpileFunction(src, 'm3', new Set(['m3'])).glsl).toContain(
+      'min(min(a, b), c) + max(max(max(a, b), c), 1.0)',
+    );
+    // and no generated call passes more than two arguments to either
+    expect(GLSL_GENERATED).not.toMatch(
+      /\b(min|max)\((?:[^(),]|\([^()]*\))*,(?:[^(),]|\([^()]*\))*,/,
+    );
+  });
+
   it('squares a negative base as JavaScript does: a whole exponent becomes a product, not pow (decision 169)', () => {
     const src = `
 export function sq(x: number): number {

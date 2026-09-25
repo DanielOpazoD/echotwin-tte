@@ -4,17 +4,12 @@
  */
 import { LV_PROF_BINS } from '@/simulator/anatomy/lvShape';
 import {
-  PV_INF_DZ,
   PV_INF_Z,
-  PV_LEFT_DX,
-  PV_LEFT_DY,
   PV_LEFT_INF_T,
   PV_LEFT_SUP_T,
+  PV_COURSE,
   PV_RADIUS,
-  PV_RIGHT_DX,
-  PV_RIGHT_DY,
   PV_RIGHT_T,
-  PV_SUP_DZ,
   PV_SUP_Z,
 } from '@/simulator/anatomy/pulmonaryVeins';
 import {
@@ -85,12 +80,7 @@ const float PV_LEFT_INF_T = ${f(PV_LEFT_INF_T)};
 const float PV_RIGHT_T = ${f(PV_RIGHT_T)};
 const float PV_SUP_Z = ${f(PV_SUP_Z)};
 const float PV_INF_Z = ${f(PV_INF_Z)};
-const float PV_LEFT_DX = ${f(PV_LEFT_DX)};
-const float PV_LEFT_DY = ${f(PV_LEFT_DY)};
-const float PV_RIGHT_DX = ${f(PV_RIGHT_DX)};
-const float PV_RIGHT_DY = ${f(PV_RIGHT_DY)};
-const float PV_SUP_DZ = ${f(PV_SUP_DZ)};
-const float PV_INF_DZ = ${f(PV_INF_DZ)};
+const float PV_COURSE[12] = float[12](${PV_COURSE.map(f).join(', ')});
 const float PV_RADIUS = ${f(PV_RADIUS)};
 const float SKIRT_ABOVE_CM = ${f(SKIRT_ABOVE_CM)};
 const float TV_INFLOW_BULGE_CM = ${f(TV_INFLOW_BULGE_CM)};
@@ -846,7 +836,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
       float px = la.x + sx * lr.x * bo * kz * cos(t);
       float py0 = la.y - lr.y * bo * kz * sin(t);
       float pz = czL + dzN * rzL;
-      float dPv = sdCapsule(p, vec3(px, py0, pz), vec3(px + sx * (sx > 0.0 ? PV_LEFT_DX : PV_RIGHT_DX), py0 - (sx > 0.0 ? PV_LEFT_DY : PV_RIGHT_DY), pz + (sup ? PV_SUP_DZ : PV_INF_DZ)), PV_RADIUS);
+      float dPv = sdCapsule(p, vec3(px, py0, pz), vec3(px + PV_COURSE[3 * i], py0 + PV_COURSE[3 * i + 1], pz + PV_COURSE[3 * i + 2]), PV_RADIUS);
       if (dPv < 0.0) {
         setSample(s, T_BLOOD, dPv, vec3(0.0, -1.0, 0.0), p, 0.0, S_PVEIN);
         return true;

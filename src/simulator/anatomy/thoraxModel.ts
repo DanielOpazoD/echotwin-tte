@@ -238,6 +238,26 @@ export const PERICARDIAL_FAT_CM = 0.15;
 export const SKIN_CM = 0.15;
 export const FAT_FRACTION = 0.45;
 export const FASCIA_HALF_CM = 0.04;
+
+/**
+ * Descending thoracic aorta (decision 213): a vertical tube left-anterolateral to the vertebral body, behind the left atrium
+ * near the atrioventricular groove, where the parasternal long axis shows it in cross-section (Goldstein et al., JASE
+ * 2015;28:119-182) and against the posterior atrial wall (MRI, 2.8 mm between the inner walls, Hopman et al., Radiol
+ * Cardiothorac Imaging 2022;4:e210192). Lumen 2.0 cm (MRI at the pulmonary artery, men 20.6 and women 18.9 mm, Davis et
+ * al., JCMR 2014;16:9) and a 2 mm wall. It used to lie 1 cm right of the midline with a 2.2 cm lumen, and the long axis cut
+ * it behind the upper atrium on the side of the aortic root, 14 cm deep and 2.6 × 3.8 cm across.
+ */
+export const DESC_AORTA_X = 2.6;
+export const DESC_AORTA_Z = -14.5;
+export const DESC_AORTA_R = 1.0;
+export const DESC_AORTA_WALL = 0.2;
+/**
+ * Posterior mediastinal fat around the descending aorta, reaching forward to the pericardium behind the left atrium: the
+ * lung wraps the aorta laterally and behind, and does not come between it and the atrium (the oesophagus and fat lie
+ * there). An ellipse in the transverse plane around the aorta, shifted forward by `DESC_AORTA_SLEEVE_FORWARD`.
+ */
+export const DESC_AORTA_SLEEVE = 0.3;
+export const DESC_AORTA_SLEEVE_FORWARD = 0.6;
 export const ANTERIOR_CORRIDOR_CM = 2.5;
 
 /**
@@ -248,7 +268,7 @@ export const ANTERIOR_CORRIDOR_CM = 2.5;
  * vessels that widens from nothing at the heart's base (torso y = 2 cm) to 2.5 cm on either side by y = 6. Until then the
  * mediastinum was a straight slab 5 cm wide from front to back at every height and the posterior lung began at a plane
  * 10.5 cm deep: their faces are pleural interfaces, and they crossed the parasternal and apical sectors as straight
- * bright lines.
+ * bright lines. A third region is the fat around the descending aorta (decision 213).
  */
 export function mediastinumDistance(x: number, y: number, z: number): number {
   const px = (x + 0.5) / 1.8,
@@ -262,7 +282,11 @@ export function mediastinumDistance(x: number, y: number, z: number): number {
       sz = (z + 8) / 5;
     superior = sx * sx + sz * sz - 1;
   }
-  return Math.min(posterior, superior);
+  const rs = DESC_AORTA_R + DESC_AORTA_WALL + DESC_AORTA_SLEEVE;
+  const ax = (x - DESC_AORTA_X) / rs,
+    az = (z - DESC_AORTA_Z - DESC_AORTA_SLEEVE_FORWARD) / (rs + DESC_AORTA_SLEEVE_FORWARD);
+  const aorta = ax * ax + az * az - 1;
+  return Math.min(posterior, superior, aorta);
 }
 
 /**
@@ -371,25 +395,25 @@ export function classifyThorax(
       return true;
     }
   }
-  // Descending aorta (posterior to LA)
+  // Descending aorta (behind the left atrium, left of the spine)
   {
-    const dx = x + 1.0,
-      dz = z + 14.2;
-    const d = Math.sqrt(dx * dx + dz * dz) - 1.1;
+    const dx = x - DESC_AORTA_X,
+      dz = z - DESC_AORTA_Z;
+    const d = Math.sqrt(dx * dx + dz * dz) - DESC_AORTA_R;
     if (d < 0) {
       out.tissue = Tissue.Blood;
       out.structure = Structure.DescendingAorta;
       out.sdf = d;
-      out.nx = dx / 1.1;
-      out.nz = dz / 1.1;
+      out.nx = dx / DESC_AORTA_R;
+      out.nz = dz / DESC_AORTA_R;
       return true;
     }
-    if (d < 0.2) {
+    if (d < DESC_AORTA_WALL) {
       out.tissue = Tissue.VesselWall;
       out.structure = Structure.DescendingAorta;
-      out.sdf = -Math.min(d, 0.2 - d);
-      out.nx = dx / 1.1;
-      out.nz = dz / 1.1;
+      out.sdf = -Math.min(d, DESC_AORTA_WALL - d);
+      out.nx = dx / DESC_AORTA_R;
+      out.nz = dz / DESC_AORTA_R;
       return true;
     }
   }

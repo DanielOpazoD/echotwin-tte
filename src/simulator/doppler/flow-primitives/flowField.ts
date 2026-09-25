@@ -12,7 +12,7 @@ import { smoothstep } from '@/core/vec3';
 import { Structure } from '@/simulator/anatomy/tissue';
 import { lvotRadiusAt } from '@/simulator/anatomy/aorticValve';
 import { atrialScale } from '@/simulator/anatomy/classify/atria';
-import { PV_LEFT_DX, PV_RADIUS, pulmonaryVeinSegment } from '@/simulator/anatomy/pulmonaryVeins';
+import { PV_RADIUS, PV_REACH, pulmonaryVeinSegment } from '@/simulator/anatomy/pulmonaryVeins';
 
 /** Scratch for the pulmonary vein being sampled (no allocation per sample). */
 const PV_SEG = new Float64Array(6);
@@ -720,7 +720,7 @@ export function samplePulmonaryVeins(
   const la = pv.laCenter,
     lr = pv.laR;
   // quick reject: far from the atrium's sides and back
-  if (y > la.y + lr.y * 0.3 || Math.abs(x - la.x) > lr.x + PV_LEFT_DX + 1) return;
+  if (y > la.y + lr.y * 0.3 + PV_REACH || Math.abs(x - la.x) > lr.x + PV_REACH + 1) return;
   const zTop = la.z - lr.z;
   const zBottom = hp.zAnn + 0.25;
   const czL = (zTop + zBottom) / 2;

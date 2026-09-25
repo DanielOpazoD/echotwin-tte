@@ -3,6 +3,16 @@ import { paramDefinesGlsl } from './paramLayout';
 import { acousticDefinesGlsl } from '../acoustic/acoustics';
 import { ENVELOPE_NORM, psfDefinesGlsl } from '../acoustic/psf';
 import { GLSL_GENERATED } from './glslGenerated';
+import {
+  DESC_AORTA_R,
+  DESC_AORTA_SLEEVE,
+  DESC_AORTA_SLEEVE_FORWARD,
+  DESC_AORTA_WALL,
+  DESC_AORTA_X,
+  DESC_AORTA_Z,
+} from '@/simulator/anatomy/thoraxModel';
+
+const gf = (v: number): string => (Number.isInteger(v) ? `${v}.0` : `${v}`);
 
 /** GLSL defines for the tissue and structure ids used by the shaders (kept in sync with tissue.ts). */
 export function enumDefinesGlsl(): string {
@@ -94,6 +104,13 @@ ${acousticDefinesGlsl(ENVELOPE_NORM)}
 ${psfDefinesGlsl()}
 const float PI = 3.14159265358979;
 const float TWO_PI = 6.28318530717959;
+// descending aorta (thoraxModel.ts, decision 213): read by the generated mediastinumDistance and by the thorax block
+const float DESC_AORTA_X = ${gf(DESC_AORTA_X)};
+const float DESC_AORTA_Z = ${gf(DESC_AORTA_Z)};
+const float DESC_AORTA_R = ${gf(DESC_AORTA_R)};
+const float DESC_AORTA_WALL = ${gf(DESC_AORTA_WALL)};
+const float DESC_AORTA_SLEEVE = ${gf(DESC_AORTA_SLEEVE)};
+const float DESC_AORTA_SLEEVE_FORWARD = ${gf(DESC_AORTA_SLEEVE_FORWARD)};
 
 // value noise on a 128^3 lattice with smoothstep weights (same as core/noise.ts latticeNoise3)
 float lat(vec3 p, int ch) {

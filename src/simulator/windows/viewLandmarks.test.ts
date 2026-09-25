@@ -16,12 +16,10 @@ import { canonicalPlane, landmarkReachCm, VIEW_TARGETS } from './viewTargets';
  * the obliquity of its window) at end-diastole, in the twelve cases.
  */
 const KNOWN_UNREACHABLE_LANDMARKS: ReadonlySet<string> = new Set([
-  // optional landmarks outside the plane in every case: the descending aorta behind the PLAX, the mid-level RV inflow of
-  // the papillary short axis, the apex tip in the apical short axis, the interatrial septum of the A4C, the mitral
+  // optional landmarks outside the plane in every case: the mid-level RV inflow of the papillary short axis, the apex tip in the apical short axis, the interatrial septum of the A4C, the mitral
   // valve and the RV inflow of the A5C, and the LV apex of the RV-focused view; the left atrium and the tricuspid
   // valve of the subcostal four-chamber view, up to 1.11 and 1.32 reaches away in some cases: its window is below the
   // four-chamber plane, and its solved plane keeps the required landmarks nearer (decision 167)
-  'plax/desc-aorta',
   'psax-pm/rv',
   'psax-apex/lv-apex',
   'a4c/ias',

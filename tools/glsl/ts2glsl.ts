@@ -168,6 +168,12 @@ function expr(n: ts.Expression, c: Ctx, wantInt = false): string {
     ) {
       const g = MATH_FN[n.expression.name.text];
       if (!g) throw new Unsupported(n, c.fn, `Math.${n.expression.name.text}`);
+      // GLSL min and max take two arguments: Math.min(a, b, c) nests as min(min(a, b), c) (decision 213: a three-argument
+      // min compiled nowhere and only the GPU end-to-end tests saw it)
+      if ((g === 'min' || g === 'max') && n.arguments.length > 2)
+        return n.arguments
+          .slice(1)
+          .reduce((acc, a) => `${g}(${acc}, ${expr(a, c)})`, expr(n.arguments[0]!, c));
       return `${g}(${args})`;
     }
     if (ts.isIdentifier(n.expression) && c.functions.has(n.expression.text))
