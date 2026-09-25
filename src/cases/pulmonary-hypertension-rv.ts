@@ -99,6 +99,9 @@ export const pulmonaryHypertensionRvCase: CaseDefinitionInput = {
     // a right ventricle 4.9 cm wide at the base is dilated at mid-cavity and in absolute volume too (decision 138:
     // the inflow below the 4.4 cm annulus keeps its width over the leaflets)
     'rv-edv',
+    // systolic dysfunction of the case (TAPSE 1.3 cm, S′ 7 cm/s): 43-44 % once the outflow tract contracts less than the
+    // body (decision 214); 48 % before, on the edge of normal
+    'rv-ef',
     'rv-mid',
     'rv-basal',
     'rv-lv-basal-ratio',

@@ -118,6 +118,10 @@ export const hfrefSevereMrCase: CaseDefinitionInput = {
     'ivs-thickening',
     'apex-thickness',
     'rv-edvi',
+    // the RV of this case is enlarged and hypokinetic (TAPSE 1.6 cm and S′ 9 cm/s, both below normal): 192-196 mL and
+    // 43-44 % once the outflow tract contracts less than the body (decision 214); 190 mL and 46 % before, at the edge
+    'rv-edv',
+    'rv-ef',
     'la-ap',
     'la-transverse',
     'lavi',

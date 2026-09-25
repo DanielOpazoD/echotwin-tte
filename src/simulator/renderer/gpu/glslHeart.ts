@@ -52,6 +52,7 @@ import {
 
 import { FAR_FROM_HEART_CM } from '@/simulator/anatomy/classify';
 import { RA_ROOF_DESCENT_SHARE, RA_SLEEVE_MARGIN_CM } from '@/simulator/anatomy/classify/atria';
+import { RV_OUTFLOW_BLEND_CM } from '@/simulator/anatomy/classify/rightVentricle';
 
 const f = (v: number): string => (Number.isInteger(v) ? `${v}.0` : `${v}`);
 
@@ -82,6 +83,7 @@ const float PV_SUP_Z = ${f(PV_SUP_Z)};
 const float PV_INF_Z = ${f(PV_INF_Z)};
 const float PV_COURSE[12] = float[12](${PV_COURSE.map(f).join(', ')});
 const float PV_RADIUS = ${f(PV_RADIUS)};
+const float RV_OUTFLOW_BLEND_CM = ${f(RV_OUTFLOW_BLEND_CM)};
 const float SKIRT_ABOVE_CM = ${f(SKIRT_ABOVE_CM)};
 const float TV_INFLOW_BULGE_CM = ${f(TV_INFLOW_BULGE_CM)};
 const float FAR_FROM_HEART_CM = ${f(FAR_FROM_HEART_CM)};
@@ -512,7 +514,7 @@ vec4 rvRadii(float az, float z, float contraction, float tvZ, float rvCollapse) 
   float rIn = rEpi - septalShiftAt(SEPTAL_SHIFT, az, levelFrac) + 0.05;
   if (u <= 0.0 || u >= 1.0) return vec4(rIn, u, rIn, 0.0);
   float tvPlane = TV_CZ + tvZ;
-  float t = RV_T * rvAzProfile(RV_AZA, RV_AZP, u) * rvAxialTaper(tvPlane, RV_APEX_FRAC * L, z) * (1.0 - 0.35 * contraction);
+  float t = RV_T * rvAzProfile(RV_AZA, RV_AZP, u) * rvAxialTaper(tvPlane, RV_APEX_FRAC * L, z) * (1.0 - rvRadialContraction(u) * contraction);
   if (rvCollapse > 0.0 && u < 0.55) t *= 1.0 - 0.65 * rvCollapse * (1.0 - u / 0.55);
   return vec4(rIn, u, rIn + t, t);
 }
@@ -902,7 +904,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
       setSample(s, T_VESSEL, -min(dTrunk, 0.18 - dTrunk), v, p, 0.0, S_PA);
       return true;
     }
-    float dCavRv = min(dRvU, dRvot);
+    float dCavRv = smin(dRvU, dRvot, RV_OUTFLOW_BLEND_CM);
     float sc3 = 1.0 - 0.3 * sc;
     if (dCavRv < 0.0) {
       if (dRv < 0.0) {

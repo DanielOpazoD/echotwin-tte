@@ -25,7 +25,10 @@ export interface GenTarget {
 export const TARGETS: GenTarget[] = [
   { file: 'src/simulator/anatomy/valveSkirt.ts', functions: ['annulusOffset', 'tvInflowTaper'] },
   { file: 'src/simulator/anatomy/lvShape.ts', functions: ['ellipseFactor', 'axialWallFactor'] },
-  { file: 'src/simulator/anatomy/rv.ts', functions: ['rvAxialTaper', 'rvAzProfile', 'rvFloorZ'] },
+  {
+    file: 'src/simulator/anatomy/rv.ts',
+    functions: ['rvAxialTaper', 'rvAzProfile', 'rvFloorZ', 'rvRadialContraction'],
+  },
   { file: 'src/simulator/anatomy/lvWall.ts', functions: ['septalShiftAt'] },
   { file: 'src/simulator/anatomy/lvSegments.ts', functions: ['lvSegmentCode', 'lvWallKind'] },
   { file: 'src/simulator/anatomy/classify/root.ts', functions: ['rootBend'] },
