@@ -4,6 +4,8 @@
   --panel: #10141a;
   --panel-2: #161b23;
   --panel-3: #1c222c;
+  --panel-4: #252c38;
+  --track: #2a3240;
   --border: #222933;
   --border-strong: #303947;
   --hairline: rgba(255, 255, 255, 0.07);
@@ -58,9 +60,11 @@ select {
   font: inherit;
   color: inherit;
 }
+/* buttons are tonal (decision 208): a fill one step above their panel and no drawn border; the accent fill is kept
+   for the one primary action, and the ghost for actions inside cards */
 button {
-  background: var(--panel-2);
-  border: 1px solid var(--border);
+  background: var(--panel-3);
+  border: 1px solid transparent;
   border-radius: 8px;
   padding: 5px 10px;
   font-weight: 500;
@@ -73,8 +77,7 @@ button {
     transform 0.06s ease;
 }
 button:hover {
-  border-color: var(--border-strong);
-  background: var(--panel-3);
+  background: var(--panel-4);
 }
 button:active {
   transform: scale(0.98);
@@ -131,8 +134,8 @@ button.icon-btn {
   min-width: 15px;
   padding: 0 4px;
   border-radius: 4px;
-  border: 1px solid var(--hairline);
-  background: rgba(0, 0, 0, 0.35);
+  border: 0;
+  background: rgba(255, 255, 255, 0.07);
   font-family: var(--mono);
   font-size: var(--fs-xs);
   line-height: 15px;
@@ -145,8 +148,8 @@ button.active .kbd {
   border-color: var(--accent-line);
 }
 select {
-  background: var(--panel-2);
-  border: 1px solid var(--border);
+  background: var(--panel-3);
+  border: 1px solid transparent;
   border-radius: 8px;
   padding: 5px 26px 5px 9px;
   appearance: none;
@@ -156,7 +159,7 @@ select {
   background-position: right 9px center;
 }
 select:hover {
-  border-color: var(--border-strong);
+  background-color: var(--panel-4);
 }
 .app {
   display: grid;
@@ -264,7 +267,7 @@ select:hover {
   margin: 0 auto;
   border-radius: 10px;
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
 }
 .nav-seg button {
   border: 0;
@@ -279,7 +282,7 @@ select:hover {
   background: var(--panel-3);
 }
 .nav-seg button.active {
-  background: var(--panel-3);
+  background: var(--panel-4);
   color: var(--text);
   box-shadow: var(--shadow-1);
 }
@@ -309,7 +312,6 @@ select:hover {
 }
 .topbar select:hover {
   color: var(--text);
-  border-color: var(--border);
 }
 .left {
   grid-column: 1;
@@ -339,7 +341,8 @@ select:hover {
   align-items: center;
   justify-content: center;
   background: rgba(10, 14, 20, 0.7);
-  opacity: 0.75;
+  box-shadow: 0 0 0 1px var(--hairline);
+  opacity: 0.85;
 }
 .rail-collapse:hover {
   opacity: 1;
@@ -414,10 +417,12 @@ select:hover {
 .center {
   grid-column: 2;
   position: relative;
-  background: #000;
+  background: var(--bg);
   display: flex;
   flex-direction: column;
   min-width: 0;
+  padding: 8px;
+  gap: 8px;
 }
 .right {
   grid-column: 3;
@@ -550,7 +555,7 @@ select:hover {
   padding: 3px;
   border-radius: 10px;
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
 }
 .seg-bar button {
   display: inline-flex;
@@ -571,7 +576,6 @@ select:hover {
 .seg-bar button.active {
   background: var(--accent-soft);
   color: #fff;
-  box-shadow: inset 0 0 0 1px var(--accent-line);
 }
 .modebar .sep {
   width: 1px;
@@ -694,6 +698,12 @@ select:hover {
   position: relative;
   flex: 1;
   min-height: 0;
+  /* the stage (decision 209): the image sits in a rounded black card with a hairline, not bleeding into the chrome;
+     the hairline is a shadow, not a border, so the canvases keep the whole box and no frame is resampled (decision 210) */
+  background: #000;
+  border-radius: 12px;
+  box-shadow: 0 0 0 1px var(--hairline);
+  overflow: hidden;
 }
 .display-wrap canvas {
   position: absolute;
@@ -957,9 +967,9 @@ select:hover {
 .row input[type='range']::-webkit-slider-runnable-track,
 .cine input[type='range']::-webkit-slider-runnable-track,
 .artifact-row input[type='range']::-webkit-slider-runnable-track {
-  height: 4px;
+  height: 3px;
   border-radius: 2px;
-  background: #2a3342;
+  background: linear-gradient(90deg, var(--accent) var(--fill, 0%), var(--track) var(--fill, 0%));
 }
 .row input[type='range']::-webkit-slider-thumb,
 .cine input[type='range']::-webkit-slider-thumb,
@@ -986,9 +996,9 @@ select:hover {
 .row input[type='range']::-moz-range-track,
 .cine input[type='range']::-moz-range-track,
 .artifact-row input[type='range']::-moz-range-track {
-  height: 4px;
+  height: 3px;
   border-radius: 2px;
-  background: #2a3342;
+  background: linear-gradient(90deg, var(--accent) var(--fill, 0%), var(--track) var(--fill, 0%));
 }
 .row input[type='range']::-moz-range-thumb,
 .cine input[type='range']::-moz-range-thumb,
@@ -1374,7 +1384,7 @@ select:hover {
 }
 /* exam notice shown in the centre column when the clean interface hides the rail */
 .center > .exam-notice {
-  margin: 8px 12px 0;
+  margin: 0;
   flex: 0 0 auto;
 }
 .guidance .score {
@@ -1607,12 +1617,6 @@ select:hover {
 }
 .cine input[type='range'] {
   width: 180px;
-}
-select {
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 4px 6px;
 }
 .measure-list {
   font-size: var(--fs-sm);
@@ -2177,14 +2181,13 @@ canvas.overlay.armed {
 /* ---- split navigator: torso above, cut face below (decision 137) ---- */
 .torso-caption {
   position: absolute;
-  left: 6px;
-  font-size: var(--fs-xs);
-  letter-spacing: 0.04em;
+  left: 8px;
+  font-size: var(--fs-caps);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #9aa4b5;
-  background: rgba(0, 0, 0, 0.45);
-  padding: 2px 6px;
-  border-radius: 4px;
+  color: var(--muted);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  padding: 2px 4px;
   z-index: 2;
   pointer-events: none;
 }
@@ -2265,6 +2268,7 @@ canvas.overlay.armed {
   content: '';
   position: absolute;
   inset: 0;
+  border-radius: inherit;
   pointer-events: none;
   box-shadow: inset 0 0 0 2px rgba(255, 200, 87, 0.55);
   z-index: 2;
@@ -2879,4 +2883,178 @@ canvas.overlay.armed {
 .app.room .right:focus-within,
 .app.room .modebar:focus-within {
   opacity: 1;
+}
+
+/* ---- visual system v2 (decision 208): the same language in every control ---- */
+.row input[type='range']::-webkit-slider-thumb,
+.cine input[type='range']::-webkit-slider-thumb,
+.artifact-row input[type='range']::-webkit-slider-thumb {
+  width: 12px;
+  height: 12px;
+  margin-top: -4.5px;
+  background: #eef2f7;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.5),
+    0 1px 3px rgba(0, 0, 0, 0.5);
+}
+.row input[type='range']:hover::-webkit-slider-thumb,
+.cine input[type='range']:hover::-webkit-slider-thumb,
+.artifact-row input[type='range']:hover::-webkit-slider-thumb {
+  background: #ffffff;
+  transform: scale(1.12);
+}
+.row input[type='range']::-moz-range-thumb,
+.cine input[type='range']::-moz-range-thumb,
+.artifact-row input[type='range']::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: #eef2f7;
+}
+/* the TGC verticals in the same language as the other sliders */
+.tgc input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  accent-color: auto;
+}
+.tgc input[type='range']::-webkit-slider-runnable-track {
+  width: 3px;
+  border-radius: 2px;
+  background: var(--track);
+}
+.tgc input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-left: -4.5px;
+  border-radius: 50%;
+  border: 0;
+  background: #eef2f7;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.5),
+    0 1px 3px rgba(0, 0, 0, 0.5);
+}
+.tgc input[type='range']:hover::-webkit-slider-thumb {
+  background: #ffffff;
+}
+.seg {
+  border-color: transparent;
+  background: var(--bg);
+  padding: 3px;
+  border-radius: 10px;
+}
+.seg button.active {
+  background: var(--panel-4);
+  box-shadow: var(--shadow-1);
+}
+/* preset tiles: tonal cards, the chosen one in the accent */
+.preset-grid button {
+  background: var(--panel-2);
+  border-radius: 10px;
+  padding: 7px 4px 6px;
+}
+.preset-grid button:hover {
+  background: var(--panel-3);
+}
+/* the top bar's selects read as quiet chips */
+.topbar select {
+  background-color: transparent;
+  color: var(--muted);
+}
+.topbar select:hover {
+  background-color: var(--panel-3);
+  color: var(--text);
+}
+
+/* ---- sliding indicators (decision 209): the chosen option is a pill that travels, not a fill that jumps ---- */
+.nav-seg,
+.seg-bar,
+.console-tabs {
+  position: relative;
+}
+.nav-seg > button,
+.seg-bar > button,
+.console-tabs > button {
+  position: relative;
+  z-index: 1;
+}
+.seg-pill {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 0;
+  border-radius: 7px;
+  background: var(--panel-4);
+  box-shadow: var(--shadow-1);
+  pointer-events: none;
+  transition:
+    transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
+    width 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.seg-pill.accent {
+  background: var(--accent-soft);
+  box-shadow: none;
+}
+.nav-seg:has(.seg-pill) > button.active,
+.seg-bar:has(.seg-pill) > button.active {
+  background: transparent;
+  box-shadow: none;
+}
+.tab-ink {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  clip-path: inset(0 12% 0 12%);
+  border-radius: 2px 2px 0 0;
+  background: var(--accent);
+  pointer-events: none;
+  transition:
+    transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
+    width 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.console-tabs:has(.tab-ink) > button.on::after {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .seg-pill,
+  .tab-ink {
+    transition: none;
+  }
+}
+
+/* ---- what the review of 208–209 found (decision 210) ---- */
+/* the chosen preset keeps its accent fill: the tonal tile rule came later and had the same weight */
+.preset-grid button.active {
+  background: var(--accent-soft);
+}
+/* the cine and artefact sliders set no --fill: a plain track, not an unlit gradient */
+.cine input[type='range']::-webkit-slider-runnable-track,
+.artifact-row input[type='range']::-webkit-slider-runnable-track {
+  background: var(--track);
+}
+.cine input[type='range']::-moz-range-track,
+.artifact-row input[type='range']::-moz-range-track {
+  background: var(--track);
+}
+/* the TGC verticals in Firefox */
+.tgc input[type='range']::-moz-range-track {
+  width: 3px;
+  border-radius: 2px;
+  background: var(--track);
+}
+.tgc input[type='range']::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 0;
+  background: #eef2f7;
+}
+/* the rail's captions: a quiet veil so they read over the lit torso as well as over the map */
+.torso-caption {
+  background: rgba(8, 11, 16, 0.45);
+  backdrop-filter: blur(4px);
+  border-radius: 6px;
+  padding: 2px 7px;
 }

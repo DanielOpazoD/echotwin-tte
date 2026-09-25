@@ -1,0 +1,157 @@
+# CI en GitHub Actions (decisión 211). El repositorio pasó a GitLab el 2026-09-16 porque los trabajos de Actions dejaron
+# de arrancar en la cuenta; volvió a GitHub el 2026-09-25 y este workflow sustituye a `.gitlab-ci.yml`.
+#
+# Un solo perfil para los PR y para `main`: en un repositorio público los runners alojados no descuentan minutos, así que
+# no hace falta la suite rápida que el plan gratuito de GitLab obligaba a usar en los MR. Corre lint, formato y tipos, la
+# suite completa con cobertura en tres shards, el build con su presupuesto de bundle y los E2E sobre `dist/` (Chromium
+# con SwiftShader; `gpu-live.spec.ts` se salta sin GPU por hardware, `gpu-equivalence.spec.ts` sí corre).
+# La protección de `main` exige el check `check`, que resume los demás trabajos.
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run format:check
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # Cada shard emite un informe blob; `coverage` los funde y aplica los umbrales una sola vez
+      # (VITEST_COVERAGE_SHARD desactiva los pisos por área en el shard: vite.config.ts).
+      - name: Suite completa (shard ${{ matrix.shard }}/3)
+        run: VITEST_TIER=all VITEST_COVERAGE_SHARD=1 npx vitest run --coverage --coverage.reporter=none --reporter=blob --reporter=default --shard=${{ matrix.shard }}/3
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: blob-${{ matrix.shard }}
+          path: .vitest-reports/
+          # upload-artifact@v4 omite los directorios que empiezan por punto si no se le pide
+          include-hidden-files: true
+          if-no-files-found: error
+  coverage:
+    needs: unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: blob-*
+          path: .vitest-reports
+          merge-multiple: true
+      - name: Funde los shards y aplica los umbrales de cobertura
+        run: npx vitest run --merge-reports --coverage
+      - name: Resumen de cobertura
+        if: always()
+        run: |
+          node -e '
+            const fs = require("fs");
+            if (!fs.existsSync("coverage/coverage-summary.json")) {
+              fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, "No se generó el resumen de cobertura.\n");
+              process.exit(0);
+            }
+            const total = require("./coverage/coverage-summary.json").total;
+            const rows = ["lines", "statements", "functions", "branches"]
+              .map((k) => `| ${k} | ${total[k].pct}% | ${total[k].covered}/${total[k].total} |`)
+              .join("\n");
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `## Cobertura\n\n| Métrica | % | Cubierto/Total |\n|---|---|---|\n${rows}\n`);
+          '
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: coverage/
+          if-no-files-found: ignore
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # tipos, vite build y el presupuesto de bundle (tools/ci/bundle-budget.mjs)
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+  e2e:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # playwright.config.ts sirve la app construida con `vite preview`: necesita dist/
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+  # La protección de `main` exige un check llamado «check»: resume los trabajos reales.
+  check:
+    needs: [lint, coverage, build, e2e]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resultado de cada trabajo
+        run: echo '${{ toJSON(needs) }}'
+      - name: Falla si alguno no terminó bien
+        run: |
+          for result in ${{ join(needs.*.result, ' ') }}; do
+            if [ "$result" != "success" ]; then
+              echo "Un trabajo exigido no terminó bien: $result"
+              exit 1
+            fi
+          done

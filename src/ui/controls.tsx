@@ -38,6 +38,12 @@ export function Slider(props: {
         step={props.step ?? 1}
         value={props.value}
         disabled={props.disabled}
+        // the track is lit up to the value (decision 208)
+        style={
+          {
+            '--fill': `${props.max > props.min ? Math.round(((props.value - props.min) / (props.max - props.min)) * 1000) / 10 : 0}%`,
+          } as React.CSSProperties
+        }
         onChange={(e) => props.onChange(Number(e.target.value))}
       />
       <span className="val">{fmt(props.value)}</span>

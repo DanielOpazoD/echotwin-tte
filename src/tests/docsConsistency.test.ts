@@ -168,10 +168,12 @@ describe('README and CONTRIBUTING describe the repository as it is', () => {
 describe('the Node version is stated once', () => {
   const major = read('.nvmrc').trim();
 
-  it('package.json, the CI image, the README and CONTRIBUTING follow .nvmrc', () => {
+  it('package.json, the CI workflow, the README and CONTRIBUTING follow .nvmrc', () => {
     const pkg = JSON.parse(read('package.json')) as { engines: { node: string } };
     expect(pkg.engines.node).toBe(`>=${major}`);
-    expect(read('.gitlab-ci.yml')).toMatch(new RegExp(`image: node:${major}\\b`));
+    const ci = read('.github/workflows/ci.yml');
+    expect(ci).toContain('node-version-file: .nvmrc');
+    expect(ci).not.toMatch(/node-version:/);
     for (const doc of ['README.md', 'CONTRIBUTING.md']) {
       const stated = [...read(doc).matchAll(/\bNode (\d+)/g)].map((m) => m[1]);
       expect(stated.length, `${doc} states no Node version`).toBeGreaterThan(0);

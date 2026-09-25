@@ -1,6 +1,8 @@
 import { useSimStore } from '@/app/store';
 import { useShallow } from 'zustand/shallow';
 import { modePolicy } from '@/app/modePolicy';
+import { useRef } from 'react';
+import { useSlidingPill } from './useSlidingPill';
 
 /**
  * Slim top bar: brand and run state on the left, the screens as one segmented control in the middle, product mode
@@ -19,6 +21,7 @@ const SCREENS: {
 ];
 
 export function TopBar() {
+  const navRef = useRef<HTMLElement>(null);
   const s = useSimStore(
     useShallow((st) => ({
       frozen: st.frozen,
@@ -30,6 +33,7 @@ export function TopBar() {
       ui: st.ui,
     })),
   );
+  const pill = useSlidingPill(navRef, s.ui.screen);
   const policy = modePolicy(s.mode);
   return (
     <div className="topbar" role="banner">
@@ -46,7 +50,8 @@ export function TopBar() {
         <i className="run-dot" aria-hidden="true" />
         {s.frozen ? 'FREEZE' : 'LIVE'}
       </span>
-      <nav className="nav-seg" aria-label="Pantallas">
+      <nav className="nav-seg" aria-label="Pantallas" ref={navRef}>
+        {pill && <span className="seg-pill" style={pill} aria-hidden="true" />}
         {SCREENS.map((sc) => (
           <button
             key={sc.id}

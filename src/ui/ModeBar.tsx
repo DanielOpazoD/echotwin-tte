@@ -1,4 +1,5 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { useSlidingPill } from './useSlidingPill';
 import { useHudStore, useSimStore } from '@/app/store';
 import { useShallow } from 'zustand/shallow';
 import { modePolicy } from '@/app/modePolicy';
@@ -31,9 +32,12 @@ export function ModeBar() {
     })),
   );
   const hud = useHudStore((h) => h.hud);
+  const segRef = useRef<HTMLDivElement>(null);
+  const pill = useSlidingPill(segRef, s.modality);
   return (
     <div className="modebar" role="toolbar" aria-label="Modalidades y cine">
-      <div className="seg-bar" role="group" aria-label="Modalidad">
+      <div className="seg-bar" role="group" aria-label="Modalidad" ref={segRef}>
+        {pill && <span className="seg-pill accent" style={pill} aria-hidden="true" />}
         {MODES.map((m) => (
           <button
             key={m.id}

@@ -13,6 +13,7 @@ import { ArtifactLab } from './ArtifactLab';
 import { formatMHz } from './format';
 import { ReviewPanel } from './ReviewPanel';
 import { IconAcquire, IconDoppler, IconImage, IconLab, IconMeasure, IconReview } from './icons';
+import { useSlidingPill } from './useSlidingPill';
 
 /** Section tooltips are teaching content — suppressed in exam mode like the other hints. */
 function useTip() {
@@ -82,6 +83,9 @@ export function ConsolePanel() {
   ];
   const visible = tabs.filter((t) => t.show);
   const active = visible.some((t) => t.id === s.ui.consoleTab) ? s.ui.consoleTab : 'adquirir';
+  const tabsRef = useRef<HTMLDivElement>(null);
+  // the set of tabs is part of the key: a tab that appears (review) or goes (exam) moves the others
+  const ink = useSlidingPill(tabsRef, `${active}|${visible.map((t) => t.id).join(',')}`, '.on');
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const onTabsKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -104,7 +108,9 @@ export function ConsolePanel() {
         role="tablist"
         aria-label="Familia de controles"
         onKeyDown={onTabsKeyDown}
+        ref={tabsRef}
       >
+        {ink && <span className="tab-ink" style={ink} aria-hidden="true" />}
         {visible.map((t, i) => (
           <button
             key={t.id}
