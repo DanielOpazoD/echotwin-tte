@@ -15,14 +15,25 @@ export const PV_RIGHT_T = 0.5;
 /** Height of the two pairs on the atrium (fraction of its half length; negative towards the roof). */
 export const PV_SUP_Z = -0.55;
 export const PV_INF_Z = 0.35;
-/** Course of each vein from its ostium towards the hilum (cm): sideways and backwards. */
-export const PV_LEFT_DX = 2.2;
-export const PV_LEFT_DY = 0.5;
-export const PV_RIGHT_DX = 2.0;
-export const PV_RIGHT_DY = 1.0;
-/** Rise of the superior veins towards the roof and drop of the inferior ones (cm, heart z). */
-export const PV_SUP_DZ = -0.7;
-export const PV_INF_DZ = 0.25;
+/**
+ * Course of each vein from its ostium to its distal end (cm, heart frame: x lateral, y anterior, z towards the apex), in
+ * the order of `pulmonaryVeinSegment`: right superior, left superior, right inferior, left inferior. The right veins run
+ * medially and backwards, the superior one towards the roof; the left inferior one laterally and a little backwards.
+ * The left superior vein runs to the hilum laterally, slightly upwards and slightly forwards in the chest (torso
+ * (2.3, 0.4, 0.5) cm in the normal case), passing in front of the descending aorta (decision 213). It used to share the
+ * course of the inferior one with a rise towards the roof, and in the chest that went 2.0 cm backwards to the depth of
+ * the front of the vertebral body, through the place of the aorta: the heart frame's lateral and basal directions both
+ * point backwards in the torso.
+ */
+export const PV_COURSE: readonly number[] = [
+  -2.0, -1.0, -0.7, 1.63, 0.81, 1.55, -2.0, -1.0, 0.25, 2.2, -0.5, 0.25,
+];
+/** Farthest a vein reaches from its ostium (cm): the flow sampler's quick reject. */
+export const PV_REACH = Math.max(
+  ...[0, 1, 2, 3].map((i) =>
+    Math.hypot(PV_COURSE[3 * i]!, PV_COURSE[3 * i + 1]!, PV_COURSE[3 * i + 2]!),
+  ),
+);
 /** Lumen radius (cm); the wall adds 0.12 in the classifier. */
 export const PV_RADIUS = 0.45;
 
@@ -51,7 +62,7 @@ export function pulmonaryVeinSegment(
   out[0] = ox;
   out[1] = oy;
   out[2] = oz;
-  out[3] = ox + sx * (sx > 0 ? PV_LEFT_DX : PV_RIGHT_DX);
-  out[4] = oy - (sx > 0 ? PV_LEFT_DY : PV_RIGHT_DY);
-  out[5] = oz + (sup ? PV_SUP_DZ : PV_INF_DZ);
+  out[3] = ox + PV_COURSE[3 * i]!;
+  out[4] = oy + PV_COURSE[3 * i + 1]!;
+  out[5] = oz + PV_COURSE[3 * i + 2]!;
 }

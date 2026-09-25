@@ -2,7 +2,8 @@ import type { CycleState } from '@/simulator/cardiac-cycle/cycleModel';
 import { Structure } from './tissue';
 import type { TissueSample } from './tissue';
 import { lvCavityRadius, lvProfileG } from './lvShape';
-import { AV_AXIS, MITRAL_SHORT_AXIS_CM } from './heartFrame';
+import { AV_AXIS, MITRAL_SHORT_AXIS_CM, heartToTorso, torsoToHeart } from './heartFrame';
+import { DESC_AORTA_X, DESC_AORTA_Z } from './thoraxModel';
 import { computeHeartPose } from './heartPose';
 import { classifyHeart } from './classify';
 import type { HeartModel } from './heartModel';
@@ -360,7 +361,21 @@ export function heartLandmarks(m: HeartModel): Landmark[] {
       radius: 0.9,
     },
     { id: 'pap-al', label: 'Papilar anterolateral', p: papAt(A.papAzAL), radius: 0.7 },
-    { id: 'desc-aorta', label: 'Aorta descendente', p: v3(1.5, -6.2, -2.5), radius: 1.0 },
+    // a thorax structure: the point of its axis at the height of the posterior mitral annulus, behind the atrioventricular
+    // groove where the long axis shows it (decision 213); it used to be a fixed heart-frame point 1.5 cm from the tube
+    {
+      id: 'desc-aorta',
+      label: 'Aorta descendente',
+      p: torsoToHeart(
+        m.frame,
+        v3(
+          DESC_AORTA_X,
+          heartToTorso(m.frame, v3(A.mvCenter.x, A.mvCenter.y - A.mvR, A.mvCenter.z)).y,
+          DESC_AORTA_Z,
+        ),
+      ),
+      radius: 1.0,
+    },
     { id: 'pap-pm', label: 'Papilar posteromedial', p: papAt(A.papAzPM), radius: 0.7 },
     { id: 'ias', label: 'Septum interauricular', p: v3(A.iasX, -1.6, -2.2), radius: 1.0 },
     {
