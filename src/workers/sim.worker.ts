@@ -5,6 +5,8 @@ import {
   type SimInput,
   type WorkerToMain,
 } from '@/simulator/core/protocol';
+import { isStripModality } from '@/simulator/renderer/modality';
+import type { ImagingModality } from '@/simulator/renderer/types';
 
 /**
  * Web Worker entry. The worker drives its own clock (setTimeout at the simulated frame interval)
@@ -30,6 +32,24 @@ let lastFps = 30;
 let tickFailures = 0;
 export const MAX_TICK_FAILURES = 5;
 export const TICK_RETRY_MS = 500;
+
+/** Slowest rate a strip advances at (Hz): the sweep moves in steps of at most 33 ms whatever the 2D cadence. */
+export const STRIP_TICK_HZ = 30;
+
+/**
+ * Interval to the next tick (ms): the cadence the core forms frames at, within 12–50 ms, and at least STRIP_TICK_HZ with a
+ * strip. In the spectral modes the 2D keeps a quarter of its frame rate (decision 212), and pacing at that cadence moved
+ * the sweep and the ECG in 50 ms jumps. Frozen, 80 ms.
+ */
+export function tickIntervalMs(
+  cadenceHz: number,
+  modality: ImagingModality,
+  frozen: boolean,
+): number {
+  if (frozen) return 80;
+  const hz = isStripModality(modality) ? Math.max(cadenceHz, STRIP_TICK_HZ) : cadenceHz;
+  return Math.max(12, Math.min(50, 1000 / hz));
+}
 
 const post = (m: WorkerToMain, transfer?: Transferable[]): void => {
   (self as unknown as Worker).postMessage(m, transfer ?? []);
@@ -70,11 +90,11 @@ function tick(): void {
       core.recycle(out.rgba);
       dropped++;
     }
-    // pace at the cadence the core forms frames at (or 30 Hz for strips) against an absolute schedule: a timer that fires
-    // late shortens the next wait instead of lowering the frame rate (worker timers ran ~5 ms late under load,
-    // 31.5 instead of 36.9 frames/s); after a stall longer than one interval the schedule restarts from now
+    // pace at the cadence the core forms frames at (at least STRIP_TICK_HZ with a strip) against an absolute schedule: a
+    // timer that fires late shortens the next wait instead of lowering the frame rate (worker timers ran ~5 ms late under
+    // load, 31.5 instead of 36.9 frames/s); after a stall longer than one interval the schedule restarts from now
     if (out) lastFps = out.cadenceHz;
-    const targetMs = input.frozen ? 80 : Math.max(12, Math.min(50, 1000 / lastFps));
+    const targetMs = tickIntervalMs(lastFps, input.modality, input.frozen);
     nextDue = nextDue > 0 && tStart - nextDue < targetMs ? nextDue + targetMs : tStart + targetMs;
     schedule(Math.max(1, nextDue - performance.now()));
   } catch (e) {

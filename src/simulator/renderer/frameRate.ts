@@ -43,6 +43,16 @@ export const BMODE_MLA = 2;
 export const COLOR_LINES_PER_DEG = 1.0;
 export const COLOR_PACKET = 8;
 
+/**
+ * Share of the transmit time left to the 2D image while a spectral Doppler strip runs (decision 212). Pulsed and tissue
+ * Doppler fire at the pulse repetition frequency and continuous wave never stops transmitting, so a live 2D image has to be
+ * interleaved with them: duplex and triplex transmit patterns leave gaps in the Doppler samples to fit B-mode lines (Liu &
+ * Liu, «Gapped sampled spectrum Doppler estimation», IEEE TUFFC 2013;60:1312-1323). How the time is split is each scanner's
+ * choice and no published value was found, so a quarter is an assumption of the model; many cardiac scanners freeze the 2D
+ * instead while the spectrum runs (update mode). Before decision 212 the 2D kept its full rate beside a gapless spectrum.
+ */
+export const DUPLEX_BMODE_SHARE = 0.25;
+
 /** The colour box as the frame rate reads it: its width and its deepest edge. */
 export interface ColorBoxExtent {
   boxThetaMinRad: number;
@@ -64,11 +74,13 @@ export function colorTransmitLines(box: ColorBoxExtent): number {
 /**
  * The acquisition frame rate (Hz): the B-mode transmit events to the image depth, plus the colour packets to the bottom
  * of the box when colour is on. Conventional 2D echocardiography runs at about 40–80 frames/s (Fujikura et al., J Clin Med
- * 2021;10:2095); the default console gives 68.6 Hz at 16 cm and 80°, and 14.3 Hz with the default colour box.
+ * 2021;10:2095); the default console gives 68.6 Hz at 16 cm and 80°, and 14.2 Hz with the default colour box. Beside a
+ * spectral Doppler strip (`spectral`) the 2D keeps `DUPLEX_BMODE_SHARE` of that rate: 17.1 Hz with the default console.
  */
 export function acquisitionFrameRate(
   settings: AcquisitionSettings,
   color?: ColorBoxExtent,
+  spectral = false,
 ): number {
   const bmode = bmodeTransmitLines(settings) * lineTimeS(settings.depthCm);
   const colour = color
@@ -76,7 +88,7 @@ export function acquisitionFrameRate(
       COLOR_PACKET *
       lineTimeS(Math.min(color.boxRMaxCm, settings.depthCm))
     : 0;
-  return 1 / (bmode + colour);
+  return (spectral ? DUPLEX_BMODE_SHARE : 1) / (bmode + colour);
 }
 
 /**

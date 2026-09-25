@@ -19,7 +19,7 @@ import {
 import { ejectionTimeS, preEjectionPeriodS } from '@/simulator/cardiac-cycle/timing';
 import { CardiacClock } from '@/simulator/cardiac-cycle/clock';
 import { ecgSample } from '@/simulator/cardiac-cycle/ecg';
-import { isStripModality } from '@/simulator/renderer/modality';
+import { isSpectralModality, isStripModality } from '@/simulator/renderer/modality';
 import { ProceduralSliceRenderer } from '@/simulator/renderer/procedural/sliceRenderer';
 import { createWebgl2Renderer, type Webgl2Renderer } from '@/simulator/renderer/gpu/webgl2Renderer';
 import { AtlasRenderer } from '@/simulator/renderer/atlas/atlasRenderer';
@@ -406,11 +406,9 @@ export class SimulatorCore {
             ((inp.color.boxThetaMaxRad - inp.color.boxThetaMinRad) / spec.sectorRad) * spec.lines,
           )
         : 0;
-    // the scanner's frame rate depends on the console alone; the cadence also on the work of the tier (decision 178)
-    const acquisitionFps = acquisitionFrameRate(
-      inp.settings,
-      inp.modality === 'color' ? inp.color : undefined,
-    );
+    // the scanner's frame rate depends on the console and on the transmit time a spectral strip takes (decision 212); the
+    // cadence also on the work of the tier (decision 178)
+    const acquisitionFps = this.acquisitionFps();
     const fps = cadenceHz(spec, acquisitionFps, colorLines);
     this.colorFps = inp.modality === 'color' ? acquisitionFps : 0;
     const beam = beamFrameFromPose(
@@ -451,6 +449,16 @@ export class SimulatorCore {
     const out = this.composite(beam, spec, false);
     this.timing.compositeMs = performance.now() - t1;
     return out;
+  }
+
+  /** The scanner's 2D frame rate for the current console and modality (decisions 178 and 212). */
+  private acquisitionFps(): number {
+    const inp = this.input;
+    return acquisitionFrameRate(
+      inp.settings,
+      inp.modality === 'color' ? inp.color : undefined,
+      isSpectralModality(inp.modality),
+    );
   }
 
   /** Continue without the GPU port (context lost): the atlas feeds from the CPU tracer again. */
@@ -913,10 +921,7 @@ export class SimulatorCore {
       beatIndex: c.beatIndex,
       heartRateBpm: 60 / c.rrS,
       rrS: c.rrS,
-      simulatedFps: acquisitionFrameRate(
-        inp.settings,
-        inp.modality === 'color' ? inp.color : undefined,
-      ),
+      simulatedFps: this.acquisitionFps(),
       cadenceHz: 1 / this.frameIntervalS,
       ecg: ecgTail,
       ecgHead: this.timeS,
