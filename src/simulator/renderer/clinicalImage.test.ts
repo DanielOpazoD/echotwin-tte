@@ -229,8 +229,9 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['4CH-ES:greyP95', -0.14],
   // Where the rib shadow lay, the two-chamber sector shows lit tissue since decision 215 — the lung edge and, at its
   // inferior edge, the diaphragm over the liver — with the model's sharper, beam-elongated texture: gradients, ridges and
-  // the radial correlation at 1 mm rose 0.4-1.2 widths, the outer sector turned brighter than the centre instead of
-  // darker, and the whole-sector texture contrast came out of the quartiles.
+  // the radial correlation at 1 mm rose 0.4-1.2 widths, the outer quarter of the sector against its central half went
+  // from under the clinical ratio to over it (1.66 and 1.37 against 1.10-1.48 and 0.96-1.26), and the whole-sector texture
+  // contrast came out of the quartiles.
   ['2CH-ED:edgeRollOff', 0.47],
   ['2CH-ES:edgeRollOff', 0.38],
   ['2CH-ED:localStd', 0.35],
