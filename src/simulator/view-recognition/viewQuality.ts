@@ -1,5 +1,5 @@
 import type { Vec3 } from '@/core/vec3';
-import { dot, normalize, radToDeg, sub, v3 } from '@/core/vec3';
+import { add, dot, normalize, radToDeg, sub, v3 } from '@/core/vec3';
 import type { HeartModel, HeartPose } from '@/simulator/anatomy/heartModel';
 import {
   anchorsCached,
@@ -286,8 +286,8 @@ export function analyzeView(input: AnalyzeInput): ViewAnalysis {
       sub(canon.lateral, scaleV(beam.normal, dot(canon.lateral, beam.normal))),
     );
     const inPlane = radToDeg(Math.acos(Math.min(1, Math.max(-1, dot(rightProj, beam.lateral)))));
-    // offset: distance of the target from the beam centre line
-    const d = sub(plane.target, beam.origin);
+    // offset: distance of the view's centre from the beam centre line
+    const d = sub(viewCentre(plane.target, canon), beam.origin);
     const along = dot(d, beam.forward);
     const off = Math.hypot(dot(d, beam.lateral), dot(d, beam.normal));
     const tol = view.tolerance;
@@ -501,6 +501,15 @@ export function analyzeView(input: AnalyzeInput): ViewAnalysis {
   };
 }
 
+/**
+ * The point a view is centred on: its target, brought onto the centre line of the canonical beam. The beam of most views
+ * is aimed at the target, which stays where it is; the apical planes turned about the LV long axis (decision 215) run
+ * their centre line down the axis, 1.2 cm from the four-chamber target, and scored their own preset 0.67 for centring.
+ */
+function viewCentre(target: Vec3, canon: BeamFrame): Vec3 {
+  return add(canon.origin, scaleV(canon.forward, dot(sub(target, canon.origin), canon.forward)));
+}
+
 function scaleV(v: Vec3, s: number): Vec3 {
   return v3(v.x * s, v.y * s, v.z * s);
 }
@@ -521,7 +530,7 @@ function poseError(
     sub(canon.lateral, scaleV(beam.normal, dot(canon.lateral, beam.normal))),
   );
   const e2 = Math.acos(Math.min(1, Math.max(-1, dot(rightProj, beam.lateral))));
-  const d = sub(plane.target, beam.origin);
+  const d = sub(viewCentre(plane.target, canon), beam.origin);
   const off = Math.hypot(dot(d, beam.lateral), dot(d, beam.normal));
   return e1 * 1.2 + e2 * 0.8 + off * 0.25;
 }

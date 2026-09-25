@@ -3,7 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { beamMarch } from './sliceRenderer';
 import { Tissue } from '@/simulator/anatomy/tissue';
 import { DEFAULT_ACQUISITION, polarSpecFor } from '../types';
-import { TRANSMISSION_FLOOR } from '../acoustic/acoustics';
+import {
+  BEAM_ATTEN_MAX_LINES,
+  beamAttenWindowLines,
+  beamHalfWidthCm,
+  TRANSMISSION_FLOOR,
+} from '../acoustic/acoustics';
 
 /**
  * The march of the beam (decision 144): a line grazing a wall pays the attenuation of the beam's width, not of its own
@@ -66,5 +71,36 @@ describe('beam march', () => {
     expect(f.re[12 * samples + entry]).toBeCloseTo(tEntry, 6);
     expect(f.re[12 * samples + entry + 20]).toBeCloseTo(tEntry, 6);
     expect(f.tr[12 * samples + entry + 20]).toBe(0);
+  });
+
+  it('averages over the same width in every tier and line density, within the GPU loop (decision 215)', () => {
+    // the cap was 24 lines: at 1 cm under the face that is 0.37 cm in the low tier and 0.21 cm in the high one
+    for (const lineDensity of ['low', 'medium', 'high'] as const)
+      // every sector the console allows (30-100°): the densest grid asks for 34 lines, under the GPU loop's bound
+      for (let sectorDeg = 30; sectorDeg <= 100; sectorDeg += 5)
+        for (const r of [0.5, 1, 2, 4, 8]) {
+          const widths = (['low', 'medium', 'high'] as const).map((tier) => {
+            const sp = polarSpecFor({ ...DEFAULT_ACQUISITION, lineDensity, sectorDeg }, tier);
+            const dTheta = sp.sectorRad / sp.lines;
+            const K = beamAttenWindowLines(r, sp.focusCm, dTheta);
+            // below the bound, not at it: a K the bound clipped would be a window narrower than the angle asks
+            expect(K).toBeLessThan(BEAM_ATTEN_MAX_LINES);
+            return K * dTheta * r;
+          });
+          // to one line of the coarsest grid, and never wider than the beam
+          const coarse =
+            r *
+            (polarSpecFor({ ...DEFAULT_ACQUISITION, lineDensity, sectorDeg }, 'low').sectorRad /
+              polarSpecFor({ ...DEFAULT_ACQUISITION, lineDensity, sectorDeg }, 'low').lines);
+          expect(
+            Math.max(...widths) - Math.min(...widths),
+            `${lineDensity} ${sectorDeg}° r ${r}`,
+          ).toBeLessThanOrEqual(coarse + 1e-9);
+          for (const w of widths)
+            expect(w).toBeLessThanOrEqual(beamHalfWidthCm(r, DEFAULT_ACQUISITION.focusCm) + coarse);
+        }
+    // the calibrated grid keeps its 24 lines (the images it forms do not change)
+    const hi = polarSpecFor(DEFAULT_ACQUISITION, 'high');
+    expect(beamAttenWindowLines(0.5, hi.focusCm, hi.sectorRad / hi.lines)).toBe(24);
   });
 });

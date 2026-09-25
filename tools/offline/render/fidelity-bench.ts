@@ -3,7 +3,7 @@
  * rule has to be judged by, for every case at once, on the planes the windows really reach.
  *   npx tsx tools/offline/render/fidelity-bench.ts [caseId,caseId,... | all]
  * Per apical view: probe skin point, angle of the drawn plane to the view's plane, where the LV cavity apex falls in the
- * beam (lateral, depth, elevation, cm), tilt of the long axis to the centre line and the share of the LV wall behind lung.
+ * beam (lateral, depth, elevation, cm), tilt of the long axis to the centre line and the share of the LV wall behind lung or rib (ribs count since decision 215).
  * Per parasternal view: obliquity to the long axis (short axes) or to the plane (PLAX), and the first tissue on the PLAX
  * centre line. Per case: how far the apex tip sits behind the chest wall along the axis and the deepest intrusion of the
  * heart into the wall (as chestWall.test.ts measures it).
@@ -122,7 +122,7 @@ for (const id of ids) {
   const gap = tipToSkin(m) - m.thorax.chestWall;
   process.stdout.write(
     `\n## ${id}\nApex tip ${f(gap, 2)} cm behind the chest wall along the axis (wall ${f(m.thorax.chestWall, 2)} cm); heart inside the wall ${f(intrusion(m, false), 2)} cm at end-diastole, ${f(intrusion(m, true), 2)} cm in systole.\n\n` +
-      `| apical view | probe u, v | plane dev (°) | apex lat / depth / elev (cm) | axis tilt (°) | wall behind lung |\n|---|---|---|---|---|---|\n` +
+      `| apical view | probe u, v | plane dev (°) | apex lat / depth / elev (cm) | axis tilt (°) | wall behind lung or rib |\n|---|---|---|---|---|---|\n` +
       APICAL.map((v) => apical(m, v)).join('\n') +
       `\n\n| parasternal view | probe u, v | obliquity (°) | plane dev (°) | first tissue (cm) |\n|---|---|---|---|---|\n` +
       PARASTERNAL.map((v) => parasternal(m, v)).join('\n') +

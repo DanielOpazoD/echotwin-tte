@@ -289,7 +289,8 @@ void main() {
   float r = (float(si) + 0.5) * dr;
   float dTheta = SECTOR / LINES;
   const int kMax = int(BEAM_ATTEN_MAX_LINES);
-  int K = min(kMax, int(floor(beamHalfWidthCm(r, FOCUS) / max(BEAM_ATTEN_MIN_ARC_CM, r * dTheta) + 0.5)));
+  int K = min(kMax, min(int(floor(BEAM_ATTEN_MAX_HALF_ANGLE_RAD / dTheta + 0.5)),
+                        int(floor(beamHalfWidthCm(r, FOCUS) / max(BEAM_ATTEN_MIN_ARC_CM, r * dTheta) + 0.5))));
   int last = int(LINES) - 1;
   float sum = 0.0;
   float n = 0.0;

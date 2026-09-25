@@ -55,7 +55,7 @@ Referencia = con qué se compara (valor analítico, consistencia interna, rango 
 | | RVSP = PASP del caso | — | 1e-5 | pasa |
 | `view-recognition/viewQuality.test.ts` | PLAX canónica reconocida, > 70, MV y AI visibles | — | — | pasa |
 | | PSAX-MV (> 60) y PSAX-PM canónicas reconocidas; camino PLAX→PSAX-MV interpolado en 8 pasos | — | saltos < 45 pts | pasa |
-| | A4C > 65, acortamiento < 15°, sonda elevada acorta más | — | — | pasa |
+| | A4C > 65, acortamiento < 5° (3,3° con la sonda sobre el eje, decisión 215), sonda elevada acorta más | — | — | pasa |
 | | Fuera de ventana → 0 + hint; PLAX oblicua puntúa menos y sugiere maniobra | — | — | pasa |
 | `core/simulatorCore.test.ts` | Cuadros en 2D/Color/PW/CW/M/TDI, freeze y cine | humo | — | pasa |
 | | PLAX canónica > 60 vía núcleo | — | — | pasa |

@@ -84,24 +84,11 @@ const REFERENCE: Record<string, number[]> = {
 };
 
 /**
- * Reference segments the model's view crosses but does not show well enough to judge (model debt, docs/LIMITATIONS.md,
- * «Segmentos no evaluables en vistas de referencia»): the A3C sector, turned 120° from the four-chamber view on the same
- * apical probe, crosses the intercostal space instead of running along it, and 16 % of its rays meet a rib before 4 cm;
- * the beam march spreads the rib's attenuation over the beam width and leaves the mid and apical anteroseptal wall at a
- * transmission of 0.001–0.002 against 0.03–0.19 elsewhere (decision 165). With the ribs made muscle both segments light
- * up (83 and 88 against a cavity of 49); the fibre helix gain there is that of the other walls.
- */
-const KNOWN_NOT_ASSESSABLE: Record<string, number[]> = {
-  a3c: [8, 14],
-};
-
-/**
  * Segments outside the reference that the drawn plane shows well, measured (same entry of docs/LIMITATIONS.md): the
- * A3C plane meets the apex on the anterior side of the 13|14 boundary, the PLAX reaches the apical level of the
- * inferolateral wall, and the basal short axis is oblique enough to cut the mid anteroseptal wall.
+ * PLAX reaches the apical level of the inferolateral wall, and the basal short axis is oblique enough to cut the mid
+ * anteroseptal wall. The A3C plane met the apex on the anterior side of the 13|14 boundary until decision 215.
  */
 const KNOWN_EXTRA_ASSESSABLE: Record<string, number[]> = {
-  a3c: [13],
   plax: [16],
   'psax-mv': [8],
 };
@@ -115,15 +102,9 @@ describe('LV segments of the drawn views', () => {
       const inPlane = ids(cov, (s) => s.inPlane);
       const assessable = ids(cov, (s) => s.assessable);
       for (const id of ref) expect(inPlane, `${view}: ${id} in the plane`).toContain(id);
-      const known = KNOWN_NOT_ASSESSABLE[view] ?? [];
-      for (const id of ref.filter((x) => !known.includes(x)))
-        expect(assessable, `${view}: ${id} assessable`).toContain(id);
-      // a declared limitation that no longer holds is stale: it would hide a requirement that is met
-      for (const id of known) {
-        const s = cov.find((x) => x.segmentId === id)!;
-        expect(s.assessable, `${view}: ${id} is declared not assessable`).toBe(false);
-        expect(s.reason).toBe('insufficient_border_visibility');
-      }
+      // Until decision 215 the A3C left the mid and apical anteroseptal wall (8, 14) in a rib shadow (decision 165),
+      // declared here as not assessable; with the probe on the long axis every reference segment is read
+      for (const id of ref) expect(assessable, `${view}: ${id} assessable`).toContain(id);
     }
   });
 
@@ -173,6 +154,16 @@ describe('LV segments of the drawn views', () => {
           ids(cov, (s) => s.assessable),
           `${view}: declared extra ${id} is stale`,
         ).toContain(id);
+    }
+  });
+
+  it('reaches the apex of the five-chamber view through the septal and lateral segments (decision 215)', () => {
+    // The A5C lies between the four-chamber view and the apical long axis, which both meet the apex at 14 and 16; Daniel
+    // saw the apical anterior segment 13 in it while its plane was aimed from a probe off the long axis.
+    for (const phase of [0, ES]) {
+      const cov = viewAt('a5c', phase).segments.aha17;
+      const apical = ids(cov, (s) => s.assessable && s.segmentId >= 13 && s.segmentId <= 16);
+      expect(apical, `a5c phase ${phase}`).toEqual([14, 16]);
     }
   });
 

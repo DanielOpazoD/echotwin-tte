@@ -82,9 +82,7 @@ import {
   RINGDOWN_GAIN,
   focusingGain,
   membraneWeight,
-  beamHalfWidthCm,
-  BEAM_ATTEN_MAX_LINES,
-  BEAM_ATTEN_MIN_ARC_CM,
+  beamAttenWindowLines,
   COMPOUND_LOOKS,
   LOOK_SHIFT,
   GRAIN_GAIN,
@@ -865,7 +863,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
  * at its endocardial edge and darkest at its epicardial one whatever the fibres did. A pulse is not a pencil: the
  * energy that reaches a sample left the whole aperture and crossed, at every depth on the way, the width of the beam
  * there — mostly blood beside a wall it grazes. So the attenuation a line pays at each depth is the mean increment over
- * the lines within the beam's half-width at that depth (`beamHalfWidthCm`, the aperture tapering to the focus), over
+ * the lines within the beam's half-width at that depth (`beamHalfWidthCm`, the aperture tapering to the focus, at most ±12° of sector: `beamAttenWindowLines`), over
  * the body-tissue samples among them; outside-body and lung samples neither pay nor count. Prefix sums across lines make
  * the window mean O(1). The echoes come unscaled from the line march and are scaled here by the beam's transmission,
  * the lung echoes of a line by the transmission at its pleural entry.
@@ -891,10 +889,7 @@ export function beamMarch(
   const count = new Int32Array(lines + 1);
   for (let si = 0; si < samples; si++) {
     const r = (si + 0.5) * dr;
-    const K = Math.min(
-      BEAM_ATTEN_MAX_LINES,
-      Math.round(beamHalfWidthCm(r, spec.focusCm) / Math.max(BEAM_ATTEN_MIN_ARC_CM, r * dTheta)),
-    );
+    const K = beamAttenWindowLines(r, spec.focusCm, dTheta);
     let acc = 0;
     let cnt = 0;
     prefix[si] = 0;

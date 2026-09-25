@@ -246,8 +246,24 @@ export function membraneWeight(normalDotPlane: number, sliceHalfWidthCm: number)
   const along = Math.abs(normalDotPlane);
   return MEMBRANE_CM / (MEMBRANE_CM + 2 * sliceHalfWidthCm * along);
 }
-/** Most lines the beam-attenuation window spans on either side (near the face the beam is wider than the sector). */
-export const BEAM_ATTEN_MAX_LINES = 24;
+/**
+ * Widest half-angle of the beam-attenuation window (rad): near the face the beam is wider than the sector. Until decision
+ * 215 the cap was 24 lines, which gave the window a physical width that depended on the line grid — at 1 cm, 0.37 cm in
+ * the low tier and 0.21 cm in the high one — so the edge of a rib crossed obliquely by the apical plane shadowed 13 dB
+ * more in the high tier at the same path through bone. 0.208 rad is those 24 lines on the calibrated grid (high tier,
+ * medium line density, 115 lines per radian), whose images do not change.
+ */
+export const BEAM_ATTEN_MAX_HALF_ANGLE_RAD = 0.208;
+/** Lines the GPU window loop visits on either side: the cap above on the densest grid (high tier, high density: 34). */
+export const BEAM_ATTEN_MAX_LINES = 36;
+/** Half-width of the beam-attenuation window in lines at depth r (cm), for lines dTheta (rad) apart. */
+export function beamAttenWindowLines(rCm: number, focusCm: number, dTheta: number): number {
+  return Math.min(
+    BEAM_ATTEN_MAX_LINES,
+    Math.floor(BEAM_ATTEN_MAX_HALF_ANGLE_RAD / dTheta + 0.5),
+    Math.floor(beamHalfWidthCm(rCm, focusCm) / Math.max(BEAM_ATTEN_MIN_ARC_CM, rCm * dTheta) + 0.5),
+  );
+}
 /** Floor of the arc one line spans (cm), so the window at the apex sample stays finite. */
 export const BEAM_ATTEN_MIN_ARC_CM = 1e-6;
 
@@ -373,6 +389,7 @@ export const ACOUSTIC_GLSL_CONSTANTS: Readonly<
   FOCUS_HALF_ELEVATION_MM,
   FOCUS_WAIST_LATERAL_MM,
   FOCUS_WAIST_ELEVATION_MM,
+  BEAM_ATTEN_MAX_HALF_ANGLE_RAD,
   BEAM_ATTEN_MAX_LINES,
   BEAM_ATTEN_MIN_ARC_CM,
 };

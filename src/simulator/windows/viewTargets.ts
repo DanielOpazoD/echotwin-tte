@@ -12,6 +12,9 @@ import {
 import {
   clampToIntercostal,
   isAnteriorLung,
+  isInRib,
+  ribCenterY,
+  ribIndexAt,
   skinNormal,
   skinZ,
   snapToIntercostal,
@@ -89,25 +92,29 @@ export function lungOcclusion(thorax: ThoraxModel, control: ProbeControl, target
 }
 
 /**
- * Share of the left ventricular wall drawn by a probe control that lies behind lung: the mid-wall surface of the resting
- * ventricle, sampled within 0.5 cm of the image plane and inside the 80° sector, with lung anywhere between the probe
- * and the sample. The renderer shows only reverberation behind the pleura, so this is the wall the image loses.
+ * Share of the left ventricular wall drawn by a probe control that lies behind lung or rib: the mid-wall surface of the
+ * resting ventricle, sampled within 0.5 cm of the image plane and inside the 80° sector, with lung or a rib anywhere
+ * between the probe and the sample. The renderer shows only reverberation behind the pleura and a bone shadow behind a
+ * rib, so this is the wall the image loses. Ribs count since decision 215: the search for the most on-axis apical point
+ * otherwise took the space below in the artifact case, where rib shadows left no landmark in sight.
  */
 export function ventricleHiddenShare(
   heart: HeartModel,
   thorax: ThoraxModel,
   control: ProbeControl,
+  levels = 12,
+  azimuths = 48,
 ): number {
   const beam = beamFrameFromPose(poseFromControl(thorax, control), 1);
   const { lengthCm: L, rMax, shape } = heart.lv;
   const halfSector = (40 * Math.PI) / 180;
   let seen = 0,
     hidden = 0;
-  for (let zi = 1; zi <= 12; zi++) {
-    const zeta = zi / 13;
+  for (let zi = 1; zi <= levels; zi++) {
+    const zeta = zi / (levels + 1);
     const r = rMax * lvProfileG(shape, zeta) + 0.45;
-    for (let k = 0; k < 48; k++) {
-      const phi = (k / 48) * 2 * Math.PI;
+    for (let k = 0; k < azimuths; k++) {
+      const phi = (k / azimuths) * 2 * Math.PI;
       const pT = heartToTorso(
         heart.frame,
         v3(r * Math.cos(phi), r * shape.ratio * Math.sin(phi), zeta * L),
@@ -120,7 +127,7 @@ export function ventricleHiddenShare(
       const len = Math.hypot(d.x, d.y, d.z);
       for (let t = 0.25; t < len; t += 0.25) {
         const q = add(beam.origin, scale(d, t / len));
-        if (isAnteriorLung(thorax, q.x, q.y, q.z)) {
+        if (isAnteriorLung(thorax, q.x, q.y, q.z) || isInRib(thorax, q.x, q.y, q.z)) {
           hidden++;
           break;
         }
@@ -130,44 +137,96 @@ export function ventricleHiddenShare(
   return seen ? hidden / seen : 0;
 }
 
-/**
- * Heart-frame point the apical probe looks from, through the LV apex (decision 139). In clinical four-chamber images the
- * cavity apex lies on the sector centre line (CAMUS Good: 0 mm, interquartile range −3.9 to 3.2) with the ventricle
- * tilted 6° (2–9°) toward the lateral wall, and in two-chamber images it lies 7 mm (4–10) toward the inferior wall with
- * the ventricle tilted 7° (4–11°) the other way. One probe position serves both when the centre line runs from the apex
- * to a point 1.2 cm septal and 1.5 cm inferior of the mitral centre, at the level the apical planes aim at: measured on
- * the rendered images as CAMUS is, the four-chamber apex comes out 3.2 mm from the centre line at 26.9 mm with a 5.7°
- * tilt (CAMUS medians 0, 27.4 and 5.7) and the two-chamber apex −4.4 mm. With 0.8 and 2.0 cm the four-chamber plane
- * passed 4 mm beside the apex and its cavity apex showed 6.2 mm lateral; with 1.0 cm inferior the two-chamber tilt fell
- * to 0.7°.
- */
-export const APICAL_PROBE_AIM: Vec3 = v3(-1.2, -1.5, 1.5);
 /** Half-height of the probe face across the ribs: the probe stays this far from the rib surfaces (cm). */
 const APICAL_FACE_MARGIN_CM = 0.6;
 const APICAL_PRESSURE = 0.6;
+/** Share of the ventricle lung and ribs may hide in the four- and two-chamber views before the probe leaves the axis (decisions 83, 215). */
+const APICAL_LUNG_TOLERANCE = 0.1;
 
-const apicalSkinCache = new WeakMap<HeartModel, Map<string, { u: number; v: number }>>();
+const apicalSkinCache = new WeakMap<HeartModel, Map<string, ApicalWindow>>();
+
+/** The apical window: where the probe sits, and whether its planes turn about the long axis (decision 215). */
+export interface ApicalWindow {
+  u: number;
+  v: number;
+  onAxis: boolean;
+}
 
 /**
- * The skin point of every apical view (decision 139). A sonographer finds the apex beat and aims down the ventricle, then
- * rotates the probe in place for the two-, three- and five-chamber views: the probe sits where the line from
- * `APICAL_PROBE_AIM` through the LV cavity apex leaves the chest — with its beam origin, pushed under the skin by the
- * probe pressure, on that line — inside the rib-free band of its intercostal space. Until decision 139 each view slid
- * from the anterior projection of the apex toward its own plane; that point lay 2.6 cm septal of the long axis, and the
- * four-chamber apex showed 19 mm lateral of the centre line, 47° off it from the probe. If lung hides more than a tenth of
- * the ventricular wall in the four- or two-chamber view, the probe slides medially along the space (decision 83).
+ * Where the LV long axis of the apical views meets the mitral level (decision 215), as a share of the way from the axis of
+ * the cavity profile (0) to the centre of the mitral annulus (1), which lies 0.9 cm behind it. The guideline draws the long
+ * axis from the apex to the mid mitral annulus (Lang et al., JASE 2015), but in this model a four-chamber plane through
+ * the mitral centre cut the basal inferior and inferolateral segments (4 and 5) at the base, and one through the cavity
+ * axis grazed the aortic root (0.18 % of the sector): halfway, the four apical views show exactly the walls of the
+ * guideline's Figure 4.
  */
-export function apicalSkinPoint(heart: HeartModel, thorax: ThoraxModel): { u: number; v: number } {
-  let cache = apicalSkinCache.get(heart);
-  if (!cache) {
-    cache = new Map();
-    apicalSkinCache.set(heart, cache);
-  }
-  const key = `${thorax.lungShiftCm}|${thorax.chestWall}|${thorax.aw}|${thorax.bDepth}|${thorax.ribSpacing}|${thorax.ribRadius}`;
-  const hit = cache.get(key);
-  if (hit) return hit;
+const APICAL_AXIS_BASE_SHARE = 0.5;
+
+/** The LV long axis of the apical views in the torso (decision 215): from the cavity apex to the middle of its base. */
+export function apicalAxis(heart: HeartModel): { apex: Vec3; dir: Vec3 } {
   const apex = heartToTorso(heart.frame, v3(0, 0, heart.lv.lengthCm));
-  const out = normalize(sub(apex, heartToTorso(heart.frame, APICAL_PROBE_AIM)));
+  const mv = anchorsCached(heart).mvCenter;
+  const base = heartToTorso(
+    heart.frame,
+    v3(mv.x * APICAL_AXIS_BASE_SHARE, mv.y * APICAL_AXIS_BASE_SHARE, mv.z),
+  );
+  return { apex, dir: normalize(sub(base, apex)) };
+}
+
+/** Beam origin of a probe at a skin point: pushed under the skin by the apical probe pressure. */
+function apicalOrigin(thorax: ThoraxModel, s: { u: number; v: number }): Vec3 {
+  return add(
+    v3(s.u, s.v, skinZ(thorax, s.u, s.v)),
+    scale(skinNormal(thorax, s.u, s.v), -probeCompressionCm(APICAL_PRESSURE)),
+  );
+}
+
+/**
+ * Point of the long axis the apical planes pass through, as a share of the ventricle's length from the apex (decision
+ * 215). With the probe on the axis every point gives the same plane; a few degrees off it (the dilated ventricles, 5-11°)
+ * a plane through the apex put the whole error at the base, where the four-chamber view cut the basal inferior and
+ * inferolateral segments (HFrEF score 96 → 92), and the middle of the cavity shares it between apex and base.
+ */
+const APICAL_PLANE_PIVOT = 0.5;
+
+/**
+ * The apical views whose planes contain the LV long axis (decision 215). The RV-focused view turned about it too until the
+ * review of decision 215 found it: its preset lost the RV, the tricuspid valve and the right atrium, all required.
+ */
+const TURNS_ABOUT_AXIS: ReadonlySet<string> = new Set(['a4c', 'a2c', 'a3c']);
+
+/**
+ * Probe control of an apical view from a skin point (decision 215): the image plane contains the line from the beam origin
+ * to the middle of the long axis, turned about it to the view's azimuth (its `planeRight`), and the sector centre leans
+ * `sectorAimDeg` off that line inside the plane. The five-chamber view is a tilt, not a turn about the axis, and keeps its
+ * target.
+ */
+export function apicalAxisControl(
+  view: ViewTarget,
+  heart: HeartModel,
+  thorax: ThoraxModel,
+  skin: { u: number; v: number },
+): ProbeControl {
+  const O = apicalOrigin(thorax, skin);
+  const ax = apicalAxis(heart);
+  const a = normalize(sub(add(ax.apex, scale(ax.dir, APICAL_PLANE_PIVOT * heart.lv.lengthCm)), O));
+  const right = canonicalPlane(view, heart).right;
+  const rv = normalize(sub(right, scale(a, dot(right, a))));
+  const phi = ((view.sectorAimDeg ?? 0) * Math.PI) / 180;
+  const fwd = normalize(add(scale(a, Math.cos(phi)), scale(rv, Math.sin(phi))));
+  const rgt = normalize(sub(scale(rv, Math.cos(phi)), scale(a, Math.sin(phi))));
+  return controlAimingAt(thorax, skin.u, skin.v, add(O, scale(fwd, 10)), rgt, APICAL_PRESSURE);
+}
+
+/**
+ * Heart-frame point of the line the apical probe followed until decision 215 (decision 139): from 1.2 cm septal and 1.5 cm
+ * inferior of the mitral centre through the cavity apex, 15-16° off the long axis. It placed the apex and walls in the
+ * sector as CAMUS images show them, and it is still the probe's line where lung or ribs close the window on the axis.
+ */
+const OFF_AXIS_PROBE_AIM: Vec3 = v3(-1.2, -1.5, 1.5);
+
+/** Where the line from the cavity apex along `out` leaves the chest, with the beam origin pushed under the skin on it. */
+function apicalExit(thorax: ThoraxModel, apex: Vec3, out: Vec3): { u: number; v: number } {
   const compress = probeCompressionCm(APICAL_PRESSURE);
   // signed height of the skin point above the beam origin at s cm along the line (positive once outside)
   const above = (s: number): { h: number; u: number; v: number } => {
@@ -186,12 +245,74 @@ export function apicalSkinPoint(heart: HeartModel, thorax: ThoraxModel): { u: nu
     if (above(mid).h < 0) lo = mid;
     else hi = mid;
   }
-  const exit = above(hi);
-  let skin = clampToIntercostal(thorax, exit.u, exit.v, APICAL_FACE_MARGIN_CM);
-  const views = [getViewTarget('a4c'), getViewTarget('a2c')].map((v) => canonicalPlane(v, heart));
-  const hiddenAt = (p: { u: number; v: number }): number =>
+  const e = above(hi);
+  return { u: e.u, v: e.v };
+}
+
+/**
+ * The skin point of every apical view (decisions 139 and 215). A sonographer finds the apex beat and aims down the
+ * ventricle, then rotates the probe in place for the two-, three- and five-chamber views. The probe goes where the line to
+ * the cavity apex runs closest to the LV long axis (`apicalAxis`): the rib-free bands of the intercostal space where the
+ * axis leaves the chest and of its neighbours, among the points from which lung and ribs hide at most a tenth of the
+ * ventricle in the four-chamber view. When the window on the axis is closed — lung and ribs over the apex, the difficult
+ * and artifact windows — the probe keeps the placement of decision 139 (the line from `OFF_AXIS_PROBE_AIM`, sliding
+ * medially along the space while lung or ribs hide the four- or two-chamber ventricle, decision 83), which is kept unless the
+ * on-axis point hides at most 5 % more: in the normal case the probe line now runs 1.5° from the axis instead of 15°.
+ */
+export function apicalSkinPoint(heart: HeartModel, thorax: ThoraxModel): ApicalWindow {
+  let cache = apicalSkinCache.get(heart);
+  if (!cache) {
+    cache = new Map();
+    apicalSkinCache.set(heart, cache);
+  }
+  const key = `${thorax.lungShiftCm}|${thorax.chestWall}|${thorax.aw}|${thorax.bDepth}|${thorax.ribSpacing}|${thorax.ribRadius}`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+  const { apex, dir } = apicalAxis(heart);
+  const a4c = getViewTarget('a4c');
+  const a2c = getViewTarget('a2c');
+  const hiddenA4c = (s: { u: number; v: number }, levels = 12, azimuths = 48): number =>
+    ventricleHiddenShare(heart, thorax, apicalAxisControl(a4c, heart, thorax, s), levels, azimuths);
+  const hiddenOnAxis = (s: { u: number; v: number }): number =>
     Math.max(
-      ...views.map((pl) =>
+      hiddenA4c(s),
+      ventricleHiddenShare(heart, thorax, apicalAxisControl(a2c, heart, thorax, s)),
+    );
+
+  // on the axis: the most on-axis rib-free point that leaves the ventricle in sight
+  const exit = apicalExit(thorax, apex, scale(dir, -1));
+  const angle = (s: { u: number; v: number }): number =>
+    Math.acos(Math.min(1, dot(normalize(sub(apex, apicalOrigin(thorax, s))), dir)));
+  const k0 = Math.floor(ribIndexAt(thorax, exit.u, exit.v));
+  const cands: { u: number; v: number; angle: number }[] = [];
+  for (const k of [k0, k0 - 1, k0 + 1])
+    for (let du = -4; du <= 2 + 1e-9; du += 0.25) {
+      const u = exit.u + du;
+      const mid = (ribCenterY(thorax, k, u) + ribCenterY(thorax, k + 1, u)) / 2;
+      for (const dv of [0, -0.3, 0.3, -0.6, 0.6]) {
+        const s = clampToIntercostal(thorax, u, mid + dv, APICAL_FACE_MARGIN_CM);
+        cands.push({ ...s, angle: angle(s) });
+      }
+    }
+  cands.sort((p, q) => p.angle - q.angle);
+  let onAxis: { u: number; v: number } | null = null;
+  for (const c of cands.slice(0, 80))
+    if (hiddenA4c(c, 6, 24) <= APICAL_LUNG_TOLERANCE) {
+      onAxis = { u: c.u, v: c.v };
+      break;
+    }
+
+  // decision 139's placement: the off-axis line, sliding medially while lung or ribs hide the ventricle (decision 83)
+  const offExit = apicalExit(
+    thorax,
+    apex,
+    normalize(sub(apex, heartToTorso(heart.frame, OFF_AXIS_PROBE_AIM))),
+  );
+  let off = clampToIntercostal(thorax, offExit.u, offExit.v, APICAL_FACE_MARGIN_CM);
+  const planes = [getViewTarget('a4c'), getViewTarget('a2c')].map((v) => canonicalPlane(v, heart));
+  const hiddenOld = (p: { u: number; v: number }): number =>
+    Math.max(
+      ...planes.map((pl) =>
         ventricleHiddenShare(
           heart,
           thorax,
@@ -199,16 +320,22 @@ export function apicalSkinPoint(heart: HeartModel, thorax: ThoraxModel): { u: nu
         ),
       ),
     );
-  if (hiddenAt(skin) > 0.1) {
-    const stops = [skin];
+  if (hiddenOld(off) > APICAL_LUNG_TOLERANCE) {
+    const stops = [off];
     for (let d = 0.5; d <= 4; d += 0.5)
-      stops.push(clampToIntercostal(thorax, skin.u - d, skin.v, APICAL_FACE_MARGIN_CM));
-    const hid = stops.map(hiddenAt);
-    const tolerated = Math.max(0.1, Math.min(...hid) + 0.05);
-    skin = stops[hid.findIndex((h) => h <= tolerated + 1e-9)]!;
+      stops.push(clampToIntercostal(thorax, off.u - d, off.v, APICAL_FACE_MARGIN_CM));
+    const hid = stops.map(hiddenOld);
+    const tolerated = Math.max(APICAL_LUNG_TOLERANCE, Math.min(...hid) + 0.05);
+    off = stops[hid.findIndex((h) => h <= tolerated + 1e-9)]!;
   }
-  cache.set(key, skin);
-  return skin;
+
+  // each placement judged with its own planes: turned about the axis, or aimed at the views' targets (decision 139)
+  const chosen: ApicalWindow =
+    onAxis && hiddenOnAxis(onAxis) <= hiddenOld(off) + 0.05
+      ? { ...onAxis, onAxis: true }
+      : { u: off.u, v: off.v, onAxis: false };
+  cache.set(key, chosen);
+  return chosen;
 }
 
 /**
@@ -329,7 +456,13 @@ export function canonicalControl(
   const preferred = view.skin;
   let skin = preferred;
   if (view.window === 'apical') {
-    skin = apicalSkinPoint(heart, thorax);
+    const w = apicalSkinPoint(heart, thorax);
+    skin = { u: w.u, v: w.v };
+    // on the axis the four-, two- and three-chamber planes turn about it; the five-chamber view (a tilt toward the root)
+    // and the RV-focused view (a slide toward the right ventricle) keep aiming at their targets, as every view does from
+    // an off-axis window
+    if (w.onAxis && TURNS_ABOUT_AXIS.has(view.id))
+      return apicalAxisControl(view, heart, thorax, skin);
   } else if (view.id === 'plax') {
     skin = skinPointOnPlane(thorax, plane, preferred, 1.5);
   } else if (view.window === 'parasternal') {

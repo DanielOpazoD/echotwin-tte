@@ -1,5 +1,5 @@
 import type { AcousticWindowConfig, BodyHabitusConfig } from '@/cases/schema';
-import { Structure, Tissue, type TissueSample } from './tissue';
+import { makeSample, Structure, Tissue, type TissueSample } from './tissue';
 import type { Vec3 } from '@/core/vec3';
 import { normalize, v3 } from '@/core/vec3';
 
@@ -287,6 +287,12 @@ export function mediastinumDistance(x: number, y: number, z: number): number {
     az = (z - DESC_AORTA_Z - DESC_AORTA_SLEEVE_FORWARD) / (rs + DESC_AORTA_SLEEVE_FORWARD);
   const aorta = ax * ax + az * az - 1;
   return Math.min(posterior, superior, aorta);
+}
+
+const ribProbe = makeSample();
+/** True inside a rib, as `classifyThorax` draws it: for window searches that must keep the ventricle out of bone shadow. */
+export function isInRib(t: ThoraxModel, x: number, y: number, z: number): boolean {
+  return classifyThorax(t, x, y, z, ribProbe) && ribProbe.structure === Structure.Rib;
 }
 
 /**

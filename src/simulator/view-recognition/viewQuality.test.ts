@@ -106,14 +106,18 @@ describe('view quality engine', () => {
     const a = analyze(a4c);
     expect(a.bestViewId).toBe('a4c');
     expect(a.score).toBeGreaterThan(65);
-    // 18, not 15: with the heart placed BEHIND the chest wall instead of inside it (decision 66) the apical
-    // window this thorax offers cuts the long axis at 16.4°. Sliding the probe further does not help — it
-    // makes it worse (16.7° at 2.3 cm, and at 2.8 cm the view is recognised as subcostal) — because the
-    // foreshortening comes from the plane angle, not from missing the apex. The number is a property of the
-    // thorax geometry, recorded in docs/LIMITATIONS.md rather than hidden by moving the heart back.
-    expect(a.foreshorteningDeg).toBeLessThan(18);
+    // With the probe on the long axis and the plane turned about it (decision 215) the preset foreshortens 3.3°: 9.2°
+    // from the shared off-axis probe of decision 139, and 16.4° before it, when the limit here was 18.
+    expect(a.foreshorteningDeg).toBeLessThan(5);
     const fs = analyze({ ...a4c, v: a4c.v + 1.8, tiltDeg: a4c.tiltDeg - 12 });
     expect(fs.foreshorteningDeg).toBeGreaterThan(a.foreshorteningDeg);
+  });
+  it('canonical RV-focused view keeps the right heart it is for (decision 215)', () => {
+    // it shares the apical skin point but slides toward the right ventricle: turned about the LV axis like the four-,
+    // two- and three-chamber views, its preset lost the RV, the tricuspid valve and the right atrium and still scored 85
+    const a = analyze(canonicalControl(getViewTarget('rv-focused'), heart, thorax));
+    expect(a.bestViewId).toBe('rv-focused');
+    expect(a.visibleLandmarks).toEqual(expect.arrayContaining(['rv', 'tv', 'ra']));
   });
   it('off-window pose has no useful view and produces a hint', () => {
     const a = analyze({ u: -9, v: 4, rotationDeg: 0, tiltDeg: 0, rockDeg: 0, pressure: 0.6 });
