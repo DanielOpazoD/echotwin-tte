@@ -43,29 +43,35 @@ function run(modality: ImagingModality, seconds: number) {
 }
 
 describe('the 2D image shares the transmit time with a spectral strip (decision 212)', () => {
-  it('in PW, CW and TDI the scanner shows and the core forms a quarter of the 2D frame rate', () => {
-    const plain = run('2d', 1);
-    for (const modality of SPECTRAL) {
-      const r = run(modality, 1);
-      expect(r.hud, modality).toBeCloseTo(DUPLEX_BMODE_SHARE * plain.hud, 6);
-      // one second of steps: at most the scanner's rate, plus the first frame
-      expect(r.frames, modality).toBeLessThanOrEqual(Math.ceil(r.hud) + 1);
-      expect(r.frames, modality).toBeGreaterThanOrEqual(Math.floor(r.hud) - 1);
-    }
-    expect(plain.frames).toBeGreaterThan(2 * run('pw', 1).frames);
-  });
+  // Each test steps the core for a few simulated seconds: 7-13 s on a quiet machine, 42 and 140 s under coverage on the CI
+  // runner of PR #23 (the second past the 60 s default before its runs were cut from 2 s to 1 s)
+  it(
+    'in PW, CW and TDI the scanner shows and the core forms a quarter of the 2D frame rate',
+    { timeout: 300_000 },
+    () => {
+      const plain = run('2d', 1);
+      for (const modality of SPECTRAL) {
+        const r = run(modality, 1);
+        expect(r.hud, modality).toBeCloseTo(DUPLEX_BMODE_SHARE * plain.hud, 6);
+        // one second of steps: at most the scanner's rate, plus the first frame
+        expect(r.frames, modality).toBeLessThanOrEqual(Math.ceil(r.hud) + 1);
+        expect(r.frames, modality).toBeGreaterThanOrEqual(Math.floor(r.hud) - 1);
+      }
+      expect(plain.frames).toBeGreaterThan(2 * run('pw', 1).frames);
+    },
+  );
 
-  it('the spectrum does not depend on how often the 2D image forms', () => {
+  it('the spectrum does not depend on how often the 2D image forms', { timeout: 300_000 }, () => {
     for (const modality of SPECTRAL) {
       rate.fullDuplex = true;
-      const full = run(modality, 2);
+      const full = run(modality, 1);
       rate.fullDuplex = false;
-      const shared = run(modality, 2);
+      const shared = run(modality, 1);
       expect(full.frames, modality).toBeGreaterThan(2 * shared.frames);
       const a = full.core.spectralStrip,
         b = shared.core.spectralStrip;
       expect(b.head, modality).toBe(a.head);
-      expect(b.head, modality).toBeGreaterThan(50);
+      expect(b.head, modality).toBeGreaterThan(100);
       expect(Array.from(b.data!), modality).toEqual(Array.from(a.data!));
       expect(Array.from(b.display!), modality).toEqual(Array.from(a.display!));
       expect(Array.from(b.phase), modality).toEqual(Array.from(a.phase));
