@@ -313,11 +313,12 @@ export function buildMitralValve(
 }
 
 /**
- * Chordal reach per cm of total leaflet length (anterior + posterior): the distance from a papillary tip to the annulus
- * centre that the chordae and leaflets span without pulling the coaptation toward the apex. Set so that the normal
- * case's longer muscle is just untethered at its longest (end diastole, 3.59 cm with leaflets of 2.4 + 1.3 cm).
+ * Chordal reach per cm of total leaflet length (anterior + posterior): the distance from a papillary tip to the anterior
+ * (fibrous) annulus that the chordae and leaflets span without pulling the coaptation toward the apex. Set so that the
+ * normal case's longer muscle is just untethered at its longest (early systole, 3.35 cm with leaflets of 2.4 + 1.3 cm).
+ * Until decision 225 it was 0.97, measured to the annulus centre from tips 0.6 cm deeper in the ventricle.
  */
-export const CHORDAL_REACH_PER_CM = 0.97;
+export const CHORDAL_REACH_PER_CM = 0.91;
 
 /**
  * Apical pull (cm) of one papillary muscle on the closed leaflets: how far its tip lies beyond the reach of the chordae

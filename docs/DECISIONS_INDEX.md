@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 224 (última: 224).
+Decisiones: 225 (última: 225).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -232,3 +232,4 @@ Decisiones: 224 (última: 224).
 | [222](DECISIONS.md#L1403) | 2026-09-25 | La aurícula derecha llega al septo membranoso | vigente |
 | [223](DECISIONS.md#L1405) | 2026-09-25 | La cresta del septo se afila bajo el septo membranoso | vigente |
 | [224](DECISIONS.md#L1407) | 2026-09-25 | El anillo tricuspídeo anteroseptal llega al septo y a la raíz | vigente |
+| [225](DECISIONS.md#L1409) | 2026-09-25 | Los papilares nacen del tercio medio y se apoyan en la pared | vigente |

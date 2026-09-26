@@ -1,6 +1,6 @@
 import type { CycleState } from '@/simulator/cardiac-cycle/cycleModel';
 import { Structure } from './tissue';
-import { smin } from './sdf';
+import { sdRoundCone, smin } from './sdf';
 import {
   allocLvProfileTable,
   axialWallFactor,
@@ -168,6 +168,28 @@ function raCollapseWindow(state: CycleState): number {
   return Math.exp(-(d * d) / (2 * 0.06 * 0.06));
 }
 
+/** Distance (cm) from a point to the nearer papillary muscle of `paps` (two round cones, 8 floats each). */
+function papillaryDistance(paps: Float64Array, x: number, y: number, z: number): number {
+  let d = Infinity;
+  for (let o = 0; o < 16; o += 8)
+    d = Math.min(
+      d,
+      sdRoundCone(
+        x,
+        y,
+        z,
+        paps[o]!,
+        paps[o + 1]!,
+        paps[o + 2]!,
+        paps[o + 3]!,
+        paps[o + 4]!,
+        paps[o + 5]!,
+        paps[o + 6]!,
+        paps[o + 7]!,
+      ),
+    );
+  return d;
+}
 export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
   const { lv } = m;
   const sh = lv.shape;
@@ -237,9 +259,38 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
   };
   const tipAL = papTip(A.papAzAL),
     tipPM = papTip(A.papAzPM);
+  // papillary muscles: round cones rooted inside the wall (level ζb) leaning into the cavity toward the
+  // annulus (tip at level ζt, about halfway to the axis); they move with the wall and thicken in systole
+  const paps = new Float64Array(16);
+  const papAz = [A.papAzAL, A.papAzPM];
+  for (let i = 0; i < 2; i++) {
+    const paz = papAz[i]!;
+    const zb = zAnn + A.papZetaBase * lengthNow;
+    const rb = lvCavityRadius(sh, prof, paz, zb) + 0.25;
+    const tip = i === 0 ? tipAL : tipPM;
+    const grow = 0.9 + 0.3 * state.contraction;
+    paps.set(
+      [
+        rb * Math.cos(paz),
+        rb * Math.sin(paz),
+        zb,
+        tip[0],
+        tip[1],
+        tip[2],
+        A.papR * grow,
+        A.papR * 0.65 * grow,
+      ],
+      i * 8,
+    );
+  }
   // the curtain (anterior annulus) is fibrous continuity with the aortic root, which descends a little less than the
   // ventricular base: the anterior hinge follows it so the anterior leaflet stays attached to the root through the cycle.
-  // Each papillary muscle whose tip lies beyond the reach of its chordae pulls the coaptation apically.
+  // Each papillary muscle whose tip lies beyond the reach of its chordae pulls the coaptation apically, measured to the
+  // anterior (fibrous) annulus, as the tethering distance of functional mitral regurgitation is (decision 225).
+  const toAv = Math.hypot(A.avCenter.x - A.mvCenter.x, A.avCenter.y - A.mvCenter.y);
+  const antAnnX = A.mvCenter.x + (A.mvR * (A.avCenter.x - A.mvCenter.x)) / toAv,
+    antAnnY = A.mvCenter.y + (A.mvR * (A.avCenter.y - A.mvCenter.y)) / toAv,
+    antAnnZ = ROOT_EXCURSION * zAnn;
   const mitral = buildMitralValve(
     A.mvCenter.x,
     A.mvCenter.y,
@@ -251,24 +302,8 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
     open,
     state.contraction,
     -(1 - ROOT_EXCURSION) * zAnn,
-    papillaryTether(
-      tipAL[0],
-      tipAL[1],
-      tipAL[2],
-      A.mvCenter.x,
-      A.mvCenter.y,
-      zAnn,
-      m.anatomy.mitral,
-    ),
-    papillaryTether(
-      tipPM[0],
-      tipPM[1],
-      tipPM[2],
-      A.mvCenter.x,
-      A.mvCenter.y,
-      zAnn,
-      m.anatomy.mitral,
-    ),
+    papillaryTether(tipAL[0], tipAL[1], tipAL[2], antAnnX, antAnnY, antAnnZ, m.anatomy.mitral),
+    papillaryTether(tipPM[0], tipPM[1], tipPM[2], antAnnX, antAnnY, antAnnZ, m.anatomy.mitral),
   );
   {
     // inflow below the annulus: from the outline where it lies farthest outside the cavity profile, straight to just
@@ -314,10 +349,10 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
           Math.atan2(py, px),
           Math.min(1, Math.max(0, (pz - zAnn) / Math.max(lengthNow, 1))),
         );
-      return smin(
-        lvCavitySdf(prof, sh.ratio, xs, py, pz),
-        mitralInflowSdf(px, py, pz, mitral),
-        0.3,
+      // and the papillary muscles are not cavity: an open leaflet that reached one ran through it (decision 225)
+      return Math.max(
+        smin(lvCavitySdf(prof, sh.ratio, xs, py, pz), mitralInflowSdf(px, py, pz, mitral), 0.3),
+        0.1 - papillaryDistance(paps, px, py, pz),
       );
     });
   }
@@ -556,30 +591,6 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
     pvWidths,
     0.2,
   );
-  // papillary muscles: round cones rooted inside the wall (level ζb) leaning into the cavity toward the
-  // annulus (tip at level ζt, about halfway to the axis); they move with the wall and thicken in systole
-  const paps = new Float64Array(16);
-  const papAz = [A.papAzAL, A.papAzPM];
-  for (let i = 0; i < 2; i++) {
-    const paz = papAz[i]!;
-    const zb = zAnn + A.papZetaBase * lengthNow;
-    const rb = lvCavityRadius(sh, prof, paz, zb) + 0.25;
-    const tip = i === 0 ? tipAL : tipPM;
-    const grow = 0.9 + 0.3 * state.contraction;
-    paps.set(
-      [
-        rb * Math.cos(paz),
-        rb * Math.sin(paz),
-        zb,
-        tip[0],
-        tip[1],
-        tip[2],
-        A.papR * grow,
-        A.papR * 0.65 * grow,
-      ],
-      i * 8,
-    );
-  }
   // RV anterior papillary muscle: cone from the free wall at the moderator-band insertion toward the tricuspid
   const rvPap = new Float64Array(8);
   {

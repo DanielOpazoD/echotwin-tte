@@ -243,8 +243,8 @@ export function anchors(m: HeartModel): Anchors {
     // PSAX), posteromedial at the inferior / inferoseptal junction (AHA ≈ 250°, 7–8 o'clock)
     papAzAL: -0.5,
     papAzPM: -2.4,
-    papZetaBase: 0.68,
-    papZetaTip: 0.4,
+    papZetaBase: 0.6,
+    papZetaTip: 0.33,
     papTipFrac: 0.5,
     papR: 0.55,
   };
@@ -268,10 +268,15 @@ export function heartLandmarks(m: HeartModel): Landmark[] {
   const aB = m.lv.rMax * lvProfileG(m.lv.shape, zB / L) + 0.45,
     bB = aB * m.lv.shape.ratio;
   const rvc = A.rvCenter;
+  // the papillary landmarks: 40 % of the way from the wall root to the tip, on the muscle's axis at end diastole
   const papAt = (az: number): Vec3 => {
-    const z = L * 0.57;
-    const r = lvCavityRadius(m.lv.shape, m.lv.edProfile, az, z) * 0.78;
-    return v3(r * Math.cos(az), r * Math.sin(az), z);
+    const zb = A.papZetaBase * L,
+      zt = A.papZetaTip * L;
+    const rb = lvCavityRadius(m.lv.shape, m.lv.edProfile, az, zb) + 0.25,
+      rt = lvCavityRadius(m.lv.shape, m.lv.edProfile, az, zt) * A.papTipFrac;
+    const f = 0.4;
+    const r = rb + (rt - rb) * f;
+    return v3(r * Math.cos(az), r * Math.sin(az), zb + (zt - zb) * f);
   };
   return [
     { id: 'lv-apex', label: 'Ápex VI', p: v3(0, 0, L - 0.3), radius: 0.8 },

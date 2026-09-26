@@ -1421,3 +1421,89 @@ describe('tricuspid annulus on the septum (decision 224)', () => {
     expect(problems).toEqual([]);
   });
 });
+
+describe('papillary muscles (decision 225)', () => {
+  it('arise from the middle third, reach to their published distance from the annulus and, in the papillary short axis, stand on the wall', () => {
+    // In 245 healthy adults (Zhang et al., J Clin Med 2026;15:3496) the muscles arise from the middle third of the
+    // ventricle in 93-97 % (base 0.33-0.66 of the apex-annulus distance from the apex) and their tips lie 22.3 ± 3.5 mm
+    // from the annulus along the long axis in late systole; by CT they join the wall through a network of trabeculae
+    // (Axel), so the papillary short axis shows them on the wall (Li et al., Diagnostics 2024). The model rooted them at 0.32, their tips 29 mm from the
+    // annulus, and the drawn PSAX-PM cut them near their heads, 0.1-0.7 cm of blood off the wall.
+    const KNOWN_PAPILLARY_GAPS_CM: ReadonlyMap<string, number> = new Map([
+      // the dyskinetic inferior wall bulges out in systole and leaves the muscles behind
+      ['inferior-rwma@ES', 0.45],
+    ]);
+    const s = makeSample();
+    const problems: string[] = [];
+    for (const input of CASE_INPUTS) {
+      const { heart, tables, thorax } = setup(input.id);
+      const A = heartAnchors(heart);
+      const t = tables.timings;
+      const beam = beamFrameFromPose(
+        poseFromControl(thorax, canonicalControl(getViewTarget('psax-pm'), heart, thorax)),
+        1,
+      );
+      for (const [label, ph] of [
+        ['ED', 0],
+        ['late', (t.ejectionStartS + 0.9 * (t.ejectionEndS - t.ejectionStartS)) / tables.rrS],
+        ['ES', t.ejectionEndS / tables.rrS],
+      ] as const) {
+        const pose = computeHeartPose(heart, cycleStateAt(tables, ph));
+        const P = pose.paps;
+        const base = 1 - (P[2]! - pose.zAnn) / pose.lengthNow;
+        if (label === 'ED' && !(base >= 0.33 && base <= 0.66))
+          problems.push(`${input.id}: rooted at ${base.toFixed(2)} of the length from the apex`);
+        const tipMm = 10 * (P[5]! - pose.zAnn);
+        if (label === 'late' && input.id.startsWith('normal-') && Math.abs(tipMm - 22.3) > 3.5)
+          problems.push(`${input.id}: tip ${tipMm.toFixed(1)} mm from the annulus in late systole`);
+        if (label === 'late') continue;
+        // each muscle's section on the drawn plane, then outward from its centre to the first tissue that is not blood
+        const sum: [number, number, number, number][] = [
+          [0, 0, 0, 0],
+          [0, 0, 0, 0],
+        ];
+        for (let dep = 2; dep < 13; dep += 0.08)
+          for (let lat = -6; lat < 6; lat += 0.08) {
+            const p = torsoToHeart(
+              heart.frame,
+              add(beam.origin, add(scale(beam.forward, dep), scale(beam.lateral, lat))),
+            );
+            if (!classifyHeart(heart, pose, p.x, p.y, p.z, s)) continue;
+            if (s.structure !== Structure.PapillaryMuscle) continue;
+            const az = Math.atan2(p.y, p.x);
+            const off = (a: number) => Math.abs(Math.atan2(Math.sin(az - a), Math.cos(az - a)));
+            const c = sum[off(A.papAzAL) < off(A.papAzPM) ? 0 : 1]!;
+            c[0] += p.x - pose.swingX;
+            c[1] += p.y;
+            c[2] += p.z;
+            c[3]++;
+          }
+        for (const [i, c] of sum.entries()) {
+          const key = `${input.id}@${label}`;
+          if (!c[3]) {
+            problems.push(`${key}: muscle ${i} not in the papillary short axis`);
+            continue;
+          }
+          const x = c[0] / c[3],
+            y = c[1] / c[3],
+            z = c[2] / c[3];
+          const r0 = Math.hypot(x, y);
+          let edge = NaN,
+            gap = NaN;
+          for (let r = r0; r < r0 + 3; r += 0.01) {
+            classifyHeart(heart, pose, (r * x) / r0 + pose.swingX, (r * y) / r0, z, s);
+            if (Number.isNaN(edge) && s.structure !== Structure.PapillaryMuscle) edge = r;
+            if (!Number.isNaN(edge) && s.tissue !== Tissue.Blood) {
+              gap = r - edge;
+              break;
+            }
+          }
+          const known = KNOWN_PAPILLARY_GAPS_CM.get(key);
+          const ok = known === undefined ? gap <= 0.1 : Math.abs(gap - known) <= 0.1 && gap > 0.1;
+          if (!ok) problems.push(`${key}: muscle ${i} ${gap.toFixed(2)} cm of blood off the wall`);
+        }
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+});

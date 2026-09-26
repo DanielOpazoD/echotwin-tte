@@ -41,6 +41,12 @@ En el código, cada referencia vive en `src/clinical/guidelines/references.ts` c
 | `streeter-fibre-1969` | Fiber orientation in the canine left ventricle during diastole and systole | Streeter DD Jr, Spotnitz HM, Patel DP, Ross J Jr, Sonnenblick EH. Circ Res 1969;24(3):339-347. DOI 10.1161/01.RES.24.3.339 | VERIFIED (resumen en AHA Journals): 18 corazones caninos fijados en sístole, diástole y diástole dilatada; el ángulo de las fibras varía de ≈ +60° (endocardio) a ≈ −60° (epicardio) respecto de la dirección circunferencial y no cambia de diástole a sístole (28 % de engrosamiento) |
 | `kato-pv-2003` | Pulmonary vein anatomy in patients undergoing catheter ablation of atrial fibrillation: lessons learned by use of magnetic resonance imaging | Kato R, Lickfett L, Meininger G, et al. Circulation 2003;107(15):2004-2010. PMID 12681994 | VERIFIED (resumen en PubMed): 28 pacientes y 27 controles por RM; los ostios de las venas pulmonares son ovalados, con el diámetro anteroposterior menor que el superoinferior (el modelo los deja redondos, LIMITATIONS) |
 
+### Aparato subvalvular mitral (decisión 225)
+| Id en código | Documento | Cita | Estado |
+|---|---|---|---|
+| `zhang-pm-2026` | Evaluation of Left Ventricular Papillary Muscles Using Targeted Views by Echocardiography | Zhang L, Xie Y, Zhang X, et al. J Clin Med 2026;15(9):3496. DOI 10.3390/jcm15093496 | VERIFIED (texto completo en PMC13163397): 245 adultos sanos; longitud telediastólica 28 ± 3 mm (anterolateral) y 28 ± 2 (posteromedial), telesistólica 21 ± 3; diámetro medio 8,5 ± 0,9 y 8,1 ± 0,9 mm; origen en el tercio medio (0,33–0,66 de la distancia ápex–anillo desde el ápex) en el 97 y el 93 %; distancia vertical de la punta al anillo mitral 22,4 ± 3,3 mm en sístole precoz y 22,3 ± 3,5 en la tardía; distancia interpapilar 21,8 ± 1,7 mm en telediástole y 10,6 ± 2,1 en telesístole |
+| `li-pm-2024` | Left Ventricular Papillary Muscle: Anatomy, Pathophysiology, and Multimodal Evaluation | Li S, Wang Z, Fu W, et al. Diagnostics (Basel) 2024 (PMC11202998) | VERIFIED (texto completo): por TC multidetector (Axel, 25 sujetos) los músculos papilares se unen a la pared a través de una red de trabéculas entrelazadas, no directamente al miocardio compacto |
+
 ## Mapeo a `src/clinical/reference-values` y discrepancias
 | Regla en código | Valor en código | Valor verificado | Acción |
 |---|---|---|---|
