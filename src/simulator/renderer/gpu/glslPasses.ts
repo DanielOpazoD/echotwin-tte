@@ -151,12 +151,43 @@ layout(location = 1) out vec4 outIds;   // structure/255, tissue/255, extra, LV 
 layout(location = 2) out vec4 outSig2;  // complex signal of the second look re, im, 0, 1
 
 
+// A neighbouring line's lung entry, taken within w samples of this line's entry kE (decision 221): mirrors
+// ProceduralSliceRenderer.drawLung — a line without lung there counts as a cliff behind this one's entry.
+int lungEntryNear(int lj, int kE, int w) {
+  int kEnd = min(int(SAMPLES) - 1, kE + w);
+  for (int k = 0; k < 1024; k++) {
+    if (k > kEnd) break;
+    vec4 a = texelFetch(uPassA, ivec2(k, lj), 0);
+    if (a.w < 0.5) continue;
+    if (a.z > 0.5) return clamp(k, kE - w, kE + w);
+  }
+  return kE + w;
+}
+
+// Specular share of the pleural echo of line li entering lung at sample kE, from its neighbours' entries (decision 221)
+float pleuralCoherenceAt(int li, int kE, float dr) {
+  int w = int(floor(PLEURA_SLOPE_WINDOW_CM / dr + 0.5));
+  int last = int(LINES) - 1;
+  float dEntry = 0.0, span = 1.0;
+  if (li > 0 && li < last) {
+    dEntry = float(lungEntryNear(li + 1, kE, w) - lungEntryNear(li - 1, kE, w));
+    span = 2.0;
+  } else if (li > 0) {
+    dEntry = float(kE - lungEntryNear(li - 1, kE, w));
+  } else if (li < last) {
+    dEntry = float(lungEntryNear(li + 1, kE, w) - kE);
+  }
+  float rE = (float(kE) + 0.5) * dr;
+  return pleuralCoherence(pleuralIncidenceCos(dEntry * dr, span * rE * (SECTOR / LINES)));
+}
+
 void main() {
   int si = int(gl_FragCoord.x);
   int li = int(gl_FragCoord.y);
   float dr = DEPTH / SAMPLES;
   float transmission = P(LINE_DROP_BASE + li);
   float lungEntryR = -1.0, lungEntryT = 0.0;
+  int lungEntryK = -1;
   bool dead = false;
   // march the samples before this one on the same line (attenuation and lung entry are sequential)
   for (int k = 0; k < 1024; k++) {
@@ -166,6 +197,7 @@ void main() {
     if (a.z > 0.5) { // lung entry
       lungEntryR = (float(k) + 0.5) * dr;
       lungEntryT = transmission;
+      lungEntryK = k;
       dead = true;
       break;
     }
@@ -177,7 +209,7 @@ void main() {
   float r = (float(si) + 0.5) * dr;
   if (dead) {
     float n = REVERB_MOD_BASE + REVERB_MOD_AMP * lat(vec3(float(li) * REVERB_MOD_LINE_FREQ, r * REVERB_MOD_DEPTH_FREQ, REVERB_MOD_Z), 2);
-    float amp = pleuralReverberation(r, lungEntryR, lungEntryT, n);
+    float amp = pleuralReverberation(r, lungEntryR, lungEntryT, n, pleuralCoherenceAt(li, lungEntryK, dr));
     // reverberation energy is incoherent: a phasor tied to the line and the depth
     float px2 = float(li) * REVERB_PHASOR_LINE_FREQ, pr = r * SCATTER_FREQ;
     // one phasor per compounding look (decision 145)
@@ -199,7 +231,8 @@ void main() {
   }
   if (a.z > 0.5) {
     // the pleural line itself: a strong coherent reflector, the same in every look
-    float pl = transmission * (PLEURA_BASE + PLEURA_AMP * lat(vec3(float(li) * PLEURA_LINE_FREQ, r * PLEURA_DEPTH_FREQ, PLEURA_Z), 0));
+    float coh = pleuralCoherenceAt(li, si, dr);
+    float pl = transmission * (PLEURA_BASE + PLEURA_AMP * lat(vec3(float(li) * PLEURA_LINE_FREQ, r * PLEURA_DEPTH_FREQ, PLEURA_Z), 0)) * (PLEURA_DIFFUSE_FLOOR + (1.0 - PLEURA_DIFFUSE_FLOOR) * coh);
     outSig = vec4(pl, transmission, 0.0, 1.0);
     outSig2 = vec4(pl, 0.0, 0.0, 1.0);
     outIds = b;

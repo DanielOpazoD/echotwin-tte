@@ -67,7 +67,11 @@ import {
   PLEURA_DEPTH_FREQ,
   PLEURA_LINE_FREQ,
   PLEURA_Z,
+  pleuralCoherence,
+  pleuralIncidenceCos,
   pleuralReverberation,
+  PLEURA_DIFFUSE_FLOOR,
+  PLEURA_SLOPE_WINDOW_CM,
   REVERB_MOD_AMP,
   REVERB_MOD_BASE,
   REVERB_MOD_DEPTH_FREQ,
@@ -137,6 +141,8 @@ export class ProceduralSliceRenderer implements RendererBackend {
   /** Attenuation increment of each sample (Np), for the beam-averaged march of a frame (decision 144). */
   private atten = new Float32Array(0);
   private prefix = new Float32Array(0);
+  /** Sample of each frame line where it enters lung, −1 where it does not (decision 221). */
+  private lungEntry = new Int32Array(0);
   private lineRe = new Float32Array(0);
   private lineIm = new Float32Array(0);
   private lineTmpRe = new Float32Array(0);
@@ -187,6 +193,8 @@ export class ProceduralSliceRenderer implements RendererBackend {
       this.prefix = new Float32Array((spec.lines + 1) * spec.samples);
     }
     const ctx = this.prepare(scene, beam, spec);
+    if (this.lungEntry.length !== spec.lines) this.lungEntry = new Int32Array(spec.lines);
+    this.lungEntry.fill(-1);
     for (let li = 0; li < spec.lines; li++) {
       const theta = -spec.sectorRad / 2 + (spec.sectorRad * (li + 0.5)) / spec.lines;
       this.renderLine(
@@ -203,6 +211,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
         out.segment,
       );
     }
+    this.drawLung(ctx, spec, this.re, this.im);
     const kernels = this.kernels(scene, spec);
     // the march of the beam, not of the pencil line (decision 144): the echoes scaled by its transmission
     beamMarch(
@@ -430,6 +439,130 @@ export class ProceduralSliceRenderer implements RendererBackend {
     };
   }
 
+  /** The pleural line at sample `idx`: coherent, the same in every look; its specular share follows the incidence. */
+  private pleuraEcho(
+    ctx: LineContext,
+    li: number,
+    idx: number,
+    r: number,
+    entryT: number,
+    coherence: number,
+    looks: number,
+    re: Float32Array,
+    im: Float32Array,
+  ): void {
+    const lk = ctx.line ? ctx.line.kernels : null;
+    const nFrame = ctx.spec.lines * ctx.spec.samples;
+    let pleura =
+      entryT *
+      (PLEURA_BASE +
+        PLEURA_AMP *
+          latticeNoise3(li * PLEURA_LINE_FREQ, r * PLEURA_DEPTH_FREQ, PLEURA_Z, ctx.latA)) *
+      (PLEURA_DIFFUSE_FLOOR + (1 - PLEURA_DIFFUSE_FLOOR) * coherence);
+    if (lk) pleura *= lk.single;
+    for (let k = 0; k < looks; k++) {
+      re[k * nFrame + idx] = pleura;
+      im[k * nFrame + idx] = 0;
+    }
+  }
+
+  /** Reverberation behind the pleura at sample `idx`: incoherent, a phasor tied to the line and the depth per look. */
+  private lungEcho(
+    ctx: LineContext,
+    li: number,
+    idx: number,
+    r: number,
+    entryR: number,
+    entryT: number,
+    coherence: number,
+    looks: number,
+    re: Float32Array,
+    im: Float32Array,
+  ): void {
+    const { latA, latB, latC } = ctx;
+    const incAxial = ctx.line ? ctx.line.kernels.incoherentAxial : 1;
+    const nFrame = ctx.spec.lines * ctx.spec.samples;
+    const R = SCATTER_FREQ_RATIO;
+    const nn =
+      REVERB_MOD_BASE +
+      REVERB_MOD_AMP *
+        latticeNoise3(li * REVERB_MOD_LINE_FREQ, r * REVERB_MOD_DEPTH_FREQ, REVERB_MOD_Z, latC);
+    const a = pleuralReverberation(r, entryR, entryT, nn, coherence);
+    // reverberation energy is incoherent: a phasor tied to the line and the depth, one per look (decision 145)
+    const px2 = li * REVERB_PHASOR_LINE_FREQ,
+      pr = r * SCATTER_FREQ;
+    for (let k = 0; k < looks; k++) {
+      const sx = LOOK_SHIFT[k]![0],
+        sy = LOOK_SHIFT[k]![1],
+        sz = LOOK_SHIFT[k]![2];
+      re[k * nFrame + idx] =
+        a *
+        (latticeNoise3(px2 + sx, pr + sy, REVERB_PHASOR_RE_A_Z + sz, latA) +
+          latticeNoise3(px2 + RRB_X + sx, pr * R + RRB_Y + sy, RRB_Z + sz, latB) -
+          1) *
+        PHASOR_NORM *
+        incAxial;
+      im[k * nFrame + idx] =
+        a *
+        (latticeNoise3(px2 + RIA_X + sx, pr + RIA_Y + sy, RIA_Z + sz, latC) +
+          latticeNoise3(px2 + RIB_X + sx, pr * R + RIB_Y + sy, RIB_Z + sz, latA) -
+          1) *
+        PHASOR_NORM *
+        incAxial;
+    }
+  }
+
+  /**
+   * The pleura and the reverberations of a frame (decision 221): how square the pleura stands to a line comes from the
+   * entries of its neighbours, each taken within PLEURA_SLOPE_WINDOW_CM of its own (a neighbour without lung there is a
+   * cliff); `glslPasses.ts` repeats it from the pass A flags.
+   */
+  private drawLung(
+    ctx: LineContext,
+    spec: PolarFrameSpec,
+    re: Float32Array,
+    im: Float32Array,
+  ): void {
+    const { dr } = ctx;
+    const lines = spec.lines,
+      samples = spec.samples;
+    const w = Math.floor(PLEURA_SLOPE_WINDOW_CM / dr + 0.5);
+    const dTheta = spec.sectorRad / lines;
+    const entry = this.lungEntry;
+    for (let li = 0; li < lines; li++) {
+      const e = entry[li]!;
+      if (e < 0) continue;
+      const near = (j: number): number => {
+        const ej = entry[j]!;
+        return ej < 0 ? e + w : Math.min(e + w, Math.max(e - w, ej));
+      };
+      let dEntry = 0,
+        span = 1;
+      if (li > 0 && li < lines - 1) {
+        dEntry = near(li + 1) - near(li - 1);
+        span = 2;
+      } else if (li > 0) dEntry = e - near(li - 1);
+      else if (li < lines - 1) dEntry = near(li + 1) - e;
+      const rE = (e + 0.5) * dr;
+      const coherence = pleuralCoherence(pleuralIncidenceCos(dEntry * dr, span * rE * dTheta));
+      const base = li * samples;
+      this.pleuraEcho(ctx, li, base + e, rE, 1, coherence, COMPOUND_LOOKS, re, im);
+      for (let si = e + 1; si < samples; si++)
+        this.lungEcho(
+          ctx,
+          li,
+          base + si,
+          (si + 0.5) * dr,
+          rE,
+          1,
+          coherence,
+          COMPOUND_LOOKS,
+          re,
+          im,
+        );
+    }
+  }
+
   private renderLine(
     ctx: LineContext,
     theta: number,
@@ -597,33 +730,8 @@ export class ProceduralSliceRenderer implements RendererBackend {
       const r = (si + 0.5) * dr;
       const idx = base + si;
       if (dead) {
-        const nn =
-          REVERB_MOD_BASE +
-          REVERB_MOD_AMP *
-            latticeNoise3(li * REVERB_MOD_LINE_FREQ, r * REVERB_MOD_DEPTH_FREQ, REVERB_MOD_Z, latC);
-        const a = pleuralReverberation(r, lungEntryR, lungEntryT, nn);
-        // reverberation energy is incoherent: a phasor tied to the line and the depth, one per look (decision 145)
-        const px2 = li * REVERB_PHASOR_LINE_FREQ,
-          pr = r * SCATTER_FREQ;
-        for (let k = 0; k < looks; k++) {
-          const sx = LOOK_SHIFT[k]![0],
-            sy = LOOK_SHIFT[k]![1],
-            sz = LOOK_SHIFT[k]![2];
-          re[k * nFrame + idx] =
-            a *
-            (latticeNoise3(px2 + sx, pr + sy, REVERB_PHASOR_RE_A_Z + sz, latA) +
-              latticeNoise3(px2 + RRB_X + sx, pr * R + RRB_Y + sy, RRB_Z + sz, latB) -
-              1) *
-            PHASOR_NORM *
-            incAxial;
-          im[k * nFrame + idx] =
-            a *
-            (latticeNoise3(px2 + RIA_X + sx, pr + RIA_Y + sy, RIA_Z + sz, latC) +
-              latticeNoise3(px2 + RIB_X + sx, pr * R + RIB_Y + sy, RIB_Z + sz, latA) -
-              1) *
-            PHASOR_NORM *
-            incAxial;
-        }
+        // an M-mode line: its pleura faces the beam (a frame's lines wait for their neighbours, decision 221)
+        this.lungEcho(ctx, li, idx, r, lungEntryR, lungEntryT, 1, looks, re, im);
         st[idx] = Structure.Lung;
         tr[idx] = 0;
         ti[idx] = Tissue.Lung;
@@ -658,17 +766,25 @@ export class ProceduralSliceRenderer implements RendererBackend {
         lungEntryR = r;
         // a frame's lung echoes are scaled by the beam's transmission at the entry in the beam march; a line's by its own
         lungEntryT = line ? transmission : 1;
-        let pleura =
-          lungEntryT *
-          (PLEURA_BASE +
-            PLEURA_AMP *
-              latticeNoise3(li * PLEURA_LINE_FREQ, r * PLEURA_DEPTH_FREQ, PLEURA_Z, latA));
-        if (lk) pleura *= lk.single;
-        // coherent: the same in every compounding look
-        for (let k = 0; k < looks; k++) {
-          re[k * nFrame + idx] = pleura;
-          im[k * nFrame + idx] = 0;
+        if (!line) {
+          // a frame line: its pleura and reverberations are drawn once every line's entry is known, since how square the
+          // pleura stands to the beam comes from the neighbouring lines' entries (decision 221)
+          this.lungEntry[li] = si;
+          for (let sj = si; sj < samples; sj++) {
+            const j = base + sj;
+            for (let k = 0; k < looks; k++) {
+              re[k * nFrame + j] = 0;
+              im[k * nFrame + j] = 0;
+            }
+            if (sj === si) continue;
+            st[j] = Structure.Lung;
+            tr[j] = 0;
+            ti[j] = Tissue.Lung;
+            if (sg) sg[j] = 0;
+          }
+          break;
         }
+        this.pleuraEcho(ctx, li, idx, r, lungEntryT, 1, looks, re, im);
         dead = true;
         continue;
       }
