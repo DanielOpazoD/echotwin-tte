@@ -58,6 +58,11 @@ export interface SkirtDesc {
   /** 1 when closed (coaptation-line shaping and scallops fully applied), 0 when open. */
   closed: number;
   zones: SkirtZone[];
+  /**
+   * Radial extension of the annulus (cm) at azimuths k·TV_BUMP_STEP_RAD, k = 0…TV_BUMP_N − 1 (decision 224), none
+   * outside; the leaflets, the ring and the inflow column are drawn in coordinates where it is a circle again.
+   */
+  bump: Float64Array;
 }
 
 /**
@@ -86,6 +91,28 @@ export function skirtOffset(k: SkirtDesc, phi: number): number {
 /** The annulus offset above a heart-frame point, by its azimuth around the annulus centre. */
 export function skirtOffsetAt(k: SkirtDesc, x: number, y: number): number {
   return skirtOffset(k, fastAtan2(y - k.cy, x - k.cx));
+}
+
+/** Azimuth step (rad) and length of the tricuspid annulus extension table (decision 224): 0, 10°, …, 80°. */
+export const TV_BUMP_STEP_RAD = Math.PI / 18;
+export const TV_BUMP_N = 9;
+
+/** The annulus extension (cm) at azimuth `phi` (rad, −π…π), interpolated in its table. */
+export function skirtBumpAt(k: SkirtDesc, phi: number): number {
+  const f = phi / TV_BUMP_STEP_RAD;
+  if (f <= 0 || f >= TV_BUMP_N - 1) return 0;
+  const i = Math.floor(f);
+  const t = f - i;
+  return k.bump[i]! * (1 - t) + k.bump[i + 1]! * t;
+}
+
+/**
+ * Scale that takes an offset (dx, dy) from the annulus centre to the coordinates where the extended annulus is the
+ * circle of radius R (decision 224): the radius shrinks by R / (R + extension) at its azimuth.
+ */
+export function skirtWarpScale(k: SkirtDesc, dx: number, dy: number): number {
+  const b = skirtBumpAt(k, Math.atan2(dy, dx));
+  return b > 0 ? k.R / (k.R + b) : 1;
 }
 
 /**
@@ -134,8 +161,9 @@ export const skirtHit = { d: 0, frac: 0, zone: 0, w: 0, nx: 0, ny: 0, nz: 1 };
  * zones show their lobes. Writes `skirtHit`; returns the local thickness (for the inside test).
  */
 export function skirtDistance(x: number, y: number, z: number, k: SkirtDesc): number {
-  const dx = x - k.cx,
-    dy = y - k.cy;
+  const w0 = skirtWarpScale(k, x - k.cx, y - k.cy);
+  const dx = (x - k.cx) * w0,
+    dy = (y - k.cy) * w0;
   const zr0 = z - k.cz;
   const rho = Math.sqrt(dx * dx + dy * dy);
   if (zr0 > SKIRT_ABOVE_CM || zr0 < -SKIRT_BELOW_CM || rho > k.R + SKIRT_RADIAL_MARGIN_CM) {
@@ -262,6 +290,12 @@ export function skirtTip(k: SkirtDesc, zn: SkirtZone, param: number, out: number
     out[1] = k.cy + rTip * Math.sin(ang);
     out[2] = k.cz + P[7]! * s + skirtOffset(k, ang) * Math.min(1, Math.abs(rTip) / k.R);
   }
+  // back from the circle to the extended annulus (decision 224)
+  const ex = out[0] - k.cx,
+    ey = out[1] - k.cy;
+  const e = 1 + skirtBumpAt(k, Math.atan2(ey, ex)) / k.R;
+  out[0] = k.cx + ex * e;
+  out[1] = k.cy + ey * e;
 }
 
 /**
@@ -269,8 +303,9 @@ export function skirtTip(k: SkirtDesc, zn: SkirtZone, param: number, out: number
  * crescent and closing on the atrial side where the atrium ends (0.3·TAPSE basal to the annulus in systole).
  */
 export function tvInflowSdf(x: number, y: number, z: number, tv: SkirtDesc, tvZ: number): number {
-  const dx = x - tv.cx,
-    dy = y - tv.cy;
+  const w0 = skirtWarpScale(tv, x - tv.cx, y - tv.cy);
+  const dx = (x - tv.cx) * w0,
+    dy = (y - tv.cy) * w0;
   const rho = Math.sqrt(dx * dx + dy * dy);
   // the same annulus surface as the leaflets and the ring
   const phi = fastAtan2(dy, dx);

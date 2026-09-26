@@ -5,7 +5,7 @@ import { lvCavityRadius } from '../lvShape';
 import { latticeNoise3 } from '@/core/noise';
 import { inflowTaper } from '../mitralValve';
 import { rvFloorZ, rvRadii } from '../rv';
-import { skirtOffsetAt } from '../valveSkirt';
+import { skirtOffsetAt, skirtWarpScale } from '../valveSkirt';
 import { setSample, type ClassifyCtx } from './context';
 import type { AnchorsCached } from '../anchors';
 import { PV_RADIUS, pulmonaryVeinSegment } from '../pulmonaryVeins';
@@ -241,7 +241,8 @@ export function classifyAtria(c: ClassifyCtx): boolean {
         r - (rad[2]! - m.anatomy.rv.freeWallThicknessCm),
         rvFloorZ(A.tvCenter.z, 0, 0, u, tvOffEd) - z,
         z - rvFloorZ(A.tvCenter.z, hp.tvZ, hp.pvZ, u, tvOff),
-        Math.hypot(x - V.tv.cx, y - V.tv.cy) - (V.tv.R + RA_SLEEVE_MARGIN_CM),
+        Math.hypot(x - V.tv.cx, y - V.tv.cy) * skirtWarpScale(V.tv, x - V.tv.cx, y - V.tv.cy) -
+          (V.tv.R + RA_SLEEVE_MARGIN_CM),
       );
     }
   }
@@ -286,7 +287,11 @@ export function classifyAtria(c: ClassifyCtx): boolean {
     // Only on the floor side of the atrium: the test was a cylinder over the ring, so the roof had no wall over a strip
     // the width of the annulus, which the four-chamber view cuts (decision 219). The floor half keeps it, since the
     // curved floor of the ellipsoid leaves a vestibule up to 1 cm above the orifice that only this rule opens.
-    if (Math.hypot(x - V.tv.cx, y - V.tv.cy) < V.tv.R && z > czR) {
+    if (
+      Math.hypot(x - V.tv.cx, y - V.tv.cy) * skirtWarpScale(V.tv, x - V.tv.cx, y - V.tv.cy) <
+        V.tv.R &&
+      z > czR
+    ) {
       // past the annulus the blood belongs to the ventricle, as it does on the left where the LV cavity
       // claims the mitral orifice: calling it atrium instead stretched ra-long past its reference range
       const past = z > A.tvCenter.z + hp.tvZ + tvOff;

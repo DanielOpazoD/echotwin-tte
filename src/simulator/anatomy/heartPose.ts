@@ -7,10 +7,18 @@ import {
   buildLvProfile,
   lvCavityRadius,
   lvCavitySdf,
+  lvRadialOffsetFactor,
   solveThickening,
   type LvProfileTable,
 } from './lvShape';
-import { buildAorticValve, type AorticValve, type RootProfile } from './aorticValve';
+import {
+  AORTIC_ROOT_WALL_CM,
+  buildAorticValve,
+  rootRadiusAt,
+  type AorticValve,
+  type RootProfile,
+} from './aorticValve';
+import { ROOT_TUBE_END_T, rootBend } from './classify/root';
 import {
   buildMitralValve,
   fitOpenLeaflets,
@@ -26,11 +34,15 @@ import {
   buildProfile,
   skirtOffset,
   skirtOffsetAt,
+  skirtBumpAt,
   skirtTip,
   tvInflowSdf,
+  TV_BUMP_N,
+  TV_BUMP_STEP_RAD,
   type SkirtDesc,
 } from './valveSkirt';
-import { septalShiftAt } from './lvWall';
+import { septalCrestFactor, septalShiftAt, wallThicknessAt } from './lvWall';
+import { ahaSegment } from './lvGeometry';
 import { rvFloorZ, rvRadii } from './rv';
 import { anchorsCached } from './anchors';
 import type { HeartModel } from './heartModel';
@@ -61,6 +73,18 @@ export const TV_SADDLE_PHI = Math.PI / 4;
  * points keep their height, and with them the apical offset of the septal hinge in the four-chamber view.
  */
 export const TV_ANTERIOR_TILT_CM = 0.6;
+
+/**
+ * The septal and anteroseptal annulus lies on the septum (decision 224). The septal leaflet hinges on the right face of
+ * the septum and, at the anteroseptal commissure, crosses the membranous septum beneath the aortic root; the model's
+ * annulus was a circle, which left the ring 0.4-1.9 cm off the septum from 10° to 40° of its azimuth (the membranous
+ * septum lies at ~15°, the four-chamber plane at 0°), filled with right ventricular wall and later with atrium. Each
+ * pose extends the ring there to TV_BUMP_CLEAR_CM off the right ventricle's septal boundary (its inner radius), up to
+ * TV_BUMP_MAX_CM, full from 10° to 40° and half at 50°; the four-chamber hinge (0°) and the free wall do not move.
+ */
+export const TV_BUMP_CLEAR_CM = 0.1;
+export const TV_BUMP_MAX_CM = 1.8;
+const TV_BUMP_WINDOW = [0, 1, 1, 1, 1, 0.5, 0, 0, 0];
 
 /** Closed tricuspid leaflets: depth of the central coaptation below the hinges (cm) and the profile's vertex fractions. */
 const TV_TENTING_CM = 0.3;
@@ -307,6 +331,13 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
   // mitral hinges grew from 0.70 cm at end-diastole to 1.57-1.93 cm in systole, past the Ebstein threshold.
   const septalLag = (zAnn - tvZ) / 2;
 
+  const root: RootProfile = {
+    avR: A.avR,
+    sinusR: A.sinusR,
+    ascR: A.ascR,
+    lvotR: m.anatomy.aorta.lvotDiameterCm / 2,
+    count: cusps,
+  };
   const tv: SkirtDesc = {
     cx: A.tvCenter.x + (A.tvR - tvRNow),
     cy: A.tvCenter.y,
@@ -323,7 +354,58 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
     lift: septalLag,
     closed: 1 - tvOpen,
     zones: [],
+    bump: new Float64Array(TV_BUMP_N),
   };
+  // the ring reaches the septum from 10° to 50° of its azimuth (decision 224): marched out to the right ventricle's septal
+  // boundary, the LV epicardium with the septal crest and the septal shift, as `rvRadii` draws it, or to the outer
+  // surface of the aortic root, as `rootCoordinates` and the root classifier draw it
+  const rootCz = A.avCenter.z + zAnn * ROOT_EXCURSION;
+  for (let kb = 1; kb < TV_BUMP_N - 1; kb++) {
+    const win = TV_BUMP_WINDOW[kb]!;
+    if (win <= 0) continue;
+    const ang = kb * TV_BUMP_STEP_RAD;
+    const zb = tv.cz + skirtOffset(tv, ang);
+    const levelFrac = Math.min(1, Math.max(0, (zb - zAnn) / Math.max(lengthNow, 1)));
+    const ca = Math.cos(ang),
+      sa = Math.sin(ang);
+    let gap = 0;
+    for (let t = 0; t <= TV_BUMP_MAX_CM; t += 0.05) {
+      const px = tv.cx + (tv.R + t) * ca,
+        py = tv.cy + (tv.R + t) * sa;
+      const az = Math.atan2(py, px);
+      const amp = m.segAmp[ahaSegment(az, levelFrac)] ?? 1;
+      const rIn =
+        lvCavityRadius(sh, prof, az, zb) +
+        wallThicknessAt(m, thickK, az, levelFrac, amp) *
+          septalCrestFactor(az, zb - zAnn) *
+          lvRadialOffsetFactor(sh, prof, az, zb) -
+        septalShiftAt(septalShiftCm, az, levelFrac) +
+        0.05;
+      if (Math.hypot(px, py) <= rIn + TV_BUMP_CLEAR_CM) break;
+      const dx = px - A.avCenter.x,
+        dy = py - A.avCenter.y,
+        dz = zb - rootCz;
+      const ta = dx * A.avAxis.x + dy * A.avAxis.y + dz * A.avAxis.z;
+      if (ta > -0.3 && ta < ROOT_TUBE_END_T) {
+        const bend = rootBend(ta);
+        const qx = dx - A.avAxis.x * ta - A.avBend.x * bend,
+          qy = dy - A.avAxis.y * ta - A.avBend.y * bend,
+          qz = dz - A.avAxis.z * ta - A.avBend.z * bend;
+        const rootOut =
+          rootRadiusAt(
+            root,
+            ta,
+            Math.atan2(
+              qx * A.avE2.x + qy * A.avE2.y + qz * A.avE2.z,
+              qx * A.avE1.x + qy * A.avE1.y + qz * A.avE1.z,
+            ),
+          ) + AORTIC_ROOT_WALL_CM;
+        if (Math.hypot(qx, qy, qz) <= rootOut + TV_BUMP_CLEAR_CM) break;
+      }
+      gap = t;
+    }
+    tv.bump[kb] = gap * win;
+  }
   {
     // Each leaflet opens by the same angles turned inward just enough to stay 2.5 mm off the ventricular wall: with
     // shared angles the septal leaflet opened into the septum and the anterior one through the free wall.
@@ -407,10 +489,12 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
                 i % 2 ? pr[j * 2 + 1]! + (pr[j * 2 + 3]! - pr[j * 2 + 1]!) * t : pr[j * 2 + 1]!;
               const need = Math.min(0.25, 0.4 * (Math.hypot(tvRNow - rho, zz) - 0.15));
               if (need <= 0) continue;
+              // in real coordinates: the circle's radius stretched by the annulus extension (decision 224)
+              const rr = rho * (1 + skirtBumpAt(tv, ang) / tv.R);
               if (
                 rvCavity(
-                  tv.cx + rho * ca,
-                  tv.cy + rho * sa,
+                  tv.cx + rr * ca,
+                  tv.cy + rr * sa,
                   tv.cz + zz + skirtOffset(tv, ang) * Math.min(1, rho / tv.R),
                 ) > -need
               )
@@ -455,13 +539,6 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
     Math.max(0, Math.min(1, state.avOpen)) * m.anatomy.aorticValve.maxOpeningFraction,
     m.anatomy.aorticValve.cuspThicknessCm,
   );
-  const root: RootProfile = {
-    avR: A.avR,
-    sinusR: A.sinusR,
-    ascR: A.ascR,
-    lvotR: m.anatomy.aorta.lvotDiameterCm / 2,
-    count: cusps,
-  };
   // pulmonary valve: three cusps hinged at the outflow–trunk junction on the trunk axis, opening with RV ejection
   const pvSegs = new Float64Array(36);
   const pvWidths = new Float64Array(9);
