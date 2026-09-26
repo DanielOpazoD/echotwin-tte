@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 221 (última: 221).
+Decisiones: 222 (última: 222).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -229,3 +229,4 @@ Decisiones: 221 (última: 221).
 | [219](DECISIONS.md#L1397) | 2026-09-25 | Las venas cavas desembocan en la aurícula derecha, la suprahepática en la cava y la aurícula tiene techo sobre el orificio tricuspídeo | vigente |
 | [220](DECISIONS.md#L1399) | 2026-09-25 | La bisagra septal de la tricúspide baja con la mitral y el VD expulsa lo que el VI envía hacia delante | vigente |
 | [221](DECISIONS.md#L1401) | 2026-09-25 | La línea pleural y las líneas A dependen de la incidencia | vigente |
+| [222](DECISIONS.md#L1403) | 2026-09-25 | La aurícula derecha llega al septo membranoso | vigente |

@@ -46,6 +46,23 @@ export const RA_ANTEROMEDIAL_TO: readonly [number, number, number] = [-2.1, -0.2
 export const RA_ANTEROMEDIAL_R_CM = 0.8;
 export const RA_ANTEROMEDIAL_BLEND_CM = 0.6;
 
+/**
+ * The atrium beside the membranous septum (decision 222). Under the commissure between the non-coronary and right
+ * coronary sinuses the left ventricular outflow tract faces the right atrium across the atrioventricular part of the
+ * membranous septum. The atrium was clipped flat against the interatrial plane everywhere, also in front of the left
+ * atrium where there is no interatrial septum, so between the outflow tract and the atrium lay 0.8 cm of fat at end-
+ * diastole and in systole a 0.6 cm slab of interatrial septum drawn where only the right atrium reached the plane. Where
+ * the left atrium is RA_SEPTAL_RELEASE_LA_CM away and more (over a ramp as long) the plane no longer clips the right atrium
+ * nor draws a septum, and a capsule carries the atrium from its anteromedial reach (decision 218) down to the septum just
+ * below the aortic annulus, above the tricuspid floor and outside the ventricular wall.
+ */
+export const RA_SEPTAL_RELEASE_LA_CM = 0.6;
+export const RA_SEPTAL_RELEASE_RAMP_CM = 0.6;
+/** How far past the interatrial plane (cm) the released atrium may reach: its own shape bounds it. */
+export const RA_SEPTAL_RELEASE_CM = 4;
+export const RA_MEMBRANOUS_TO: readonly [number, number, number] = [-1.45, -0.85, 0.05];
+export const RA_MEMBRANOUS_R_CM = 0.5;
+
 /** Distance to the superior vena cava, which enters the roof of the atrium from above (decision 219). */
 export function svcDistance(A: AnchorsCached, x: number, y: number, z: number): number {
   return sdCapsule(x, y, z, A.svcA.x, A.svcA.y, A.svcA.z, A.svcB.x, A.svcB.y, A.svcB.z, A.svcR);
@@ -171,6 +188,25 @@ export function classifyAtria(c: ClassifyCtx): boolean {
       RA_ANTEROMEDIAL_R_CM * bo,
     );
     dFreeRa = smin(dFreeRa, dAm, RA_ANTEROMEDIAL_BLEND_CM);
+    // on down to the membranous septum (decision 222): above the tricuspid floor, and outside the ventricular wall
+    // (beyond its epicardium, or above its basal edge), so it never slips between the outflow tract and the septum
+    const m2 = RA_MEMBRANOUS_TO;
+    const zr = zAnn * ROOT_EXCURSION;
+    let dMs = sdCapsule(
+      x,
+      y,
+      z,
+      av.x + t[0],
+      av.y + t[1],
+      av.z + zr + t[2],
+      av.x + m2[0],
+      av.y + m2[1],
+      av.z + zr + m2[2],
+      RA_MEMBRANOUS_R_CM * bo,
+    );
+    dMs = smax(dMs, z - zBotR, 0.1);
+    dMs = smax(dMs, -Math.max(c.dEllR - c.wallT - 0.05, zAnn - 0.25 - z), 0.1);
+    dFreeRa = smin(dFreeRa, dMs, 0.3);
   }
   // The base the ventricle vacates as its annulus descends belongs to the atrium: the atrioventricular plane works as a
   // piston and the atria lengthen by what the ventricles shorten (Carlsson 2004: the total heart volume barely changes).
@@ -199,7 +235,14 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   }
   c.raSleeve = dSleeve;
   dFreeRa = Math.min(dFreeRa, dSleeve);
-  const dR = smax(dFreeRa, x - (xIas - tIas / 2), 0.3);
+  // in front of the left atrium the interatrial plane no longer clips the right atrium (decision 222)
+  const q = Math.min(
+    1,
+    Math.max(0, (dFreeLa - RA_SEPTAL_RELEASE_LA_CM) / RA_SEPTAL_RELEASE_RAMP_CM),
+  );
+  const relL = q * q * (3 - 2 * q);
+  const septumPlane = x - (xIas - tIas / 2) - RA_SEPTAL_RELEASE_CM * relL;
+  const dR = smax(dFreeRa, septumPlane, 0.3);
   if (dR < 0) {
     setSample(
       out,
@@ -221,7 +264,7 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   // 0.10-0.16 cm the superior one in diastole.
   const dSvc = svcDistance(A, x, y, z);
   const dIvc = ivcDistance(A, hp.ivcCollapse, x, y, z);
-  if (dFreeRa < 0.22 && x < xIas - tIas / 2 && dSvc >= 0 && dIvc >= 0) {
+  if (dFreeRa < 0.22 && septumPlane < 0 && dSvc >= 0 && dIvc >= 0) {
     // No wall across the tricuspid orifice: there the atrium opens into the ventricle, and the annulus and
     // leaflets are emitted by the valve block above. Both atria end 0.25 cm past their annulus, but on the
     // left the LV cavity is classified first and claims the orifice, while on the right nothing did — so
@@ -265,13 +308,13 @@ export function classifyAtria(c: ClassifyCtx): boolean {
     );
     return true;
   }
-  // interatrial septum: slab between the clipped atria wherever either atrium reaches the septal plane
-  // (behind the aortic root in PSAX-AV as well as in A4C and subcostal views)
+  // interatrial septum: slab between the clipped atria wherever either atrium reaches the septal plane (behind the aortic
+  // root in PSAX-AV as well as in A4C and subcostal views), not in front of the left atrium (decision 222)
   if (Math.abs(x - xIas) <= tIas / 2 && z < zAnn + 0.4) {
-    if (
-      sdEllipsoid(xIas, y, z, la.x, la.y, czL, lr.x * bo, lr.y * bo, rzL) < 0.45 ||
-      sdEllipsoid(xIas, y, z, ra.x, ra.y, czR, rr.x * bo * raC, rr.y * bo * raC, rzR) < 0.45
-    ) {
+    const nearLa = sdEllipsoid(xIas, y, z, la.x, la.y, czL, lr.x * bo, lr.y * bo, rzL) < 0.45;
+    const nearRa =
+      sdEllipsoid(xIas, y, z, ra.x, ra.y, czR, rr.x * bo * raC, rr.y * bo * raC, rzR) < 0.45;
+    if ((nearLa || nearRa) && relL < 0.5) {
       setSample(
         out,
         Tissue.Myocardium,
