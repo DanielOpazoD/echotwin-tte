@@ -1,5 +1,6 @@
 import { Structure, Tissue } from '../tissue';
-import { sdCapsule, sdEllipsoid, smax } from '../sdf';
+import { sdCapsule, sdEllipsoid, smax, smin } from '../sdf';
+import { ROOT_EXCURSION } from '../heartFrame';
 import { lvCavityRadius } from '../lvShape';
 import { latticeNoise3 } from '@/core/noise';
 import { inflowTaper } from '../mitralValve';
@@ -29,6 +30,20 @@ export const RA_ROOF_DESCENT_SHARE = 0.5;
  * right ventricular wall and the fat of the atrioventricular groove, as in a heart.
  */
 export const RA_SLEEVE_MARGIN_CM = 0.5;
+
+/**
+ * The anteromedial right atrium (decision 218): the atrial wall that wraps the right side of the aortic root, where the
+ * non-coronary sinus meets the atrial septum and the root indents the atrium, and the tricuspid septal leaflet hinges
+ * across the membranous septum just below. The atrium was an ellipsoid 2 cm behind the root: walking from the root
+ * toward the patient's right 0.3 cm above the annulus crossed 1.1-1.8 cm of wall before the first right-heart cavity,
+ * the ventricle in eight of twelve cases. A capsule from inside the atrial body (offset from its centre) to the right
+ * side of the root at the level of its sinuses (offset from the moving valve centre), smoothly joined to the
+ * ellipsoid, brings the atrium to 0.26-0.82 cm of the root lumen in eleven cases without touching the apical views.
+ */
+export const RA_ANTEROMEDIAL_FROM: readonly [number, number, number] = [0.6, 0.6, 0.4];
+export const RA_ANTEROMEDIAL_TO: readonly [number, number, number] = [-2.1, -0.2, -0.3];
+export const RA_ANTEROMEDIAL_R_CM = 0.8;
+export const RA_ANTEROMEDIAL_BLEND_CM = 0.6;
 
 export function atrialScale(booster: number, reservoir: number, contraction: number): number {
   return booster * (reservoir + (1 - reservoir) * contraction);
@@ -120,6 +135,25 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   const raC = raCollapseScale(hp.raCollapse);
   const dEllRa = sdEllipsoid(x, y, z, ra.x, ra.y, czR, rr.x * bo * raC, rr.y * bo * raC, rzR);
   let dFreeRa = smax(dEllRa, ra.y - 0.8 * rr.y * bo - y, 0.6);
+  // the anteromedial atrium beside the right side of the aortic root (decision 218)
+  {
+    const av = A.avCenter;
+    const f = RA_ANTEROMEDIAL_FROM,
+      t = RA_ANTEROMEDIAL_TO;
+    const dAm = sdCapsule(
+      x,
+      y,
+      z,
+      ra.x + f[0],
+      ra.y + f[1],
+      ra.z + f[2],
+      av.x + t[0],
+      av.y + t[1],
+      av.z + zAnn * ROOT_EXCURSION + t[2],
+      RA_ANTEROMEDIAL_R_CM * bo,
+    );
+    dFreeRa = smin(dFreeRa, dAm, RA_ANTEROMEDIAL_BLEND_CM);
+  }
   // The base the ventricle vacates as its annulus descends belongs to the atrium: the atrioventricular plane works as a
   // piston and the atria lengthen by what the ventricles shorten (Carlsson 2004: the total heart volume barely changes).
   // Here it is the end-diastolic crescent at this height, below the floor of the moment and above the end-diastolic one,

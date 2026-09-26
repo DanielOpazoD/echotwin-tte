@@ -51,7 +51,14 @@ import {
 } from '@/simulator/anatomy/valveSkirt';
 
 import { FAR_FROM_HEART_CM } from '@/simulator/anatomy/classify';
-import { RA_ROOF_DESCENT_SHARE, RA_SLEEVE_MARGIN_CM } from '@/simulator/anatomy/classify/atria';
+import {
+  RA_ANTEROMEDIAL_BLEND_CM,
+  RA_ANTEROMEDIAL_FROM,
+  RA_ANTEROMEDIAL_R_CM,
+  RA_ANTEROMEDIAL_TO,
+  RA_ROOF_DESCENT_SHARE,
+  RA_SLEEVE_MARGIN_CM,
+} from '@/simulator/anatomy/classify/atria';
 import { RV_OUTFLOW_BLEND_CM } from '@/simulator/anatomy/classify/rightVentricle';
 
 const f = (v: number): string => (Number.isInteger(v) ? `${v}.0` : `${v}`);
@@ -72,6 +79,14 @@ const float AV_OPEN_EDGE_FRACTION = ${f(AV_OPEN_EDGE_FRACTION)};
 const float AV_OPEN_WALL_GAP = ${f(AV_OPEN_WALL_GAP)};
 const float RA_ROOF_DESCENT_SHARE = ${f(RA_ROOF_DESCENT_SHARE)};
 const float RA_SLEEVE_MARGIN_CM = ${f(RA_SLEEVE_MARGIN_CM)};
+const float RA_ANTEROMEDIAL_FROM_X = ${f(RA_ANTEROMEDIAL_FROM[0])};
+const float RA_ANTEROMEDIAL_FROM_Y = ${f(RA_ANTEROMEDIAL_FROM[1])};
+const float RA_ANTEROMEDIAL_FROM_Z = ${f(RA_ANTEROMEDIAL_FROM[2])};
+const float RA_ANTEROMEDIAL_TO_X = ${f(RA_ANTEROMEDIAL_TO[0])};
+const float RA_ANTEROMEDIAL_TO_Y = ${f(RA_ANTEROMEDIAL_TO[1])};
+const float RA_ANTEROMEDIAL_TO_Z = ${f(RA_ANTEROMEDIAL_TO[2])};
+const float RA_ANTEROMEDIAL_R_CM = ${f(RA_ANTEROMEDIAL_R_CM)};
+const float RA_ANTEROMEDIAL_BLEND_CM = ${f(RA_ANTEROMEDIAL_BLEND_CM)};
 const int MV_BINS = ${MV_BINS};
 const float AML_ARC_EXTENSION = ${f(AML_ARC_EXTENSION)};
 const float MV_CLOSED_REACH[3] = float[3](${CLOSED_REACH.map(f).join(', ')});
@@ -783,6 +798,10 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float raC = raCollapseScale(RA_COLLAPSE);
     float dEllRa = sdEllipsoid(p, vec3(ra.x, ra.y, czR), vec3(rar.x * bo * raC, rar.y * bo * raC, rzR));
     float dFreeRa = smax(dEllRa, ra.y - 0.8 * rar.y * bo - y, 0.6);
+    // the anteromedial atrium beside the right side of the aortic root (decision 218): mirrors classifyAtria
+    vec3 amFrom = ra + vec3(RA_ANTEROMEDIAL_FROM_X, RA_ANTEROMEDIAL_FROM_Y, RA_ANTEROMEDIAL_FROM_Z);
+    vec3 amTo = vec3(AV_CX + RA_ANTEROMEDIAL_TO_X, AV_CY + RA_ANTEROMEDIAL_TO_Y, AV_CZ + zAnn * ROOT_EXCURSION + RA_ANTEROMEDIAL_TO_Z);
+    dFreeRa = smin(dFreeRa, sdCapsule(p, amFrom, amTo, RA_ANTEROMEDIAL_R_CM * bo), RA_ANTEROMEDIAL_BLEND_CM);
     if (TVZ > 0.05) {
       vec4 rr0 = rvRadii(az, z, 0.0, 0.0, 0.0);
       float u0 = rr0.y;

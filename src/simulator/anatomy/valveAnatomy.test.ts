@@ -1085,3 +1085,55 @@ describe('pulmonary root beside the aortic root (decision 112)', () => {
     }
   });
 });
+
+describe('right atrium beside the aortic root (decision 218)', () => {
+  it("the first cavity on the patient's right of the root at the level of its sinuses is the right atrium, in every case through the cycle", () => {
+    // The root sits wedged between the atrioventricular orifices: the non-coronary sinus meets the atrial septum and
+    // indents the right atrium, and the tricuspid septal leaflet hinges across the membranous septum just below. Until
+    // decision 218 the atrium was an ellipsoid behind the root: walking from the root toward the patient's right 0.3 and
+    // 0.6 cm above the annulus crossed 0.96-2.8 cm of wall before the first cavity, the right ventricle in nine cases at
+    // end-diastole. The better of the two heights counts, because in the hypertrophic case the thick basal septum
+    // covers the lower one (the atrium reaches the root 0.6 cm above the annulus).
+    const s = makeSample();
+    const cavities = new Set([
+      Structure.RaCavity,
+      Structure.RvCavity,
+      Structure.Rvot,
+      Structure.LaCavity,
+      Structure.LaAppendage,
+      Structure.LvCavity,
+      Structure.Lvot,
+    ]);
+    const problems: string[] = [];
+    for (const input of CASE_INPUTS) {
+      const { heart, tables } = setup(input.id);
+      const A = heartAnchors(heart);
+      const posterior = normalize(add(v3(0, -1, 0), scale(A.avAxis, A.avAxis.y)));
+      const right = normalize(cross(A.avAxis, posterior));
+      for (let i = 0; i < 10; i++) {
+        const pose = computeHeartPose(heart, cycleStateAt(tables, i / 10));
+        let best = { gap: Infinity, cavity: -1 };
+        for (const h of [0.3, 0.6]) {
+          const c = add(add(A.avCenter, v3(0, 0, pose.zAnn * ROOT_EXCURSION)), scale(A.avAxis, h));
+          let exit = NaN;
+          for (let r = 0; r < 5; r += 0.02) {
+            const p = add(c, scale(right, r));
+            const hit = classifyHeart(heart, pose, p.x + pose.swingX, p.y, p.z, s);
+            const st = s.structure;
+            if (Number.isNaN(exit)) {
+              if (!hit || (st !== Structure.AorticRoot && st !== Structure.AorticValve)) exit = r;
+            } else if (hit && cavities.has(st)) {
+              if (r - exit < best.gap) best = { gap: r - exit, cavity: st };
+              break;
+            }
+          }
+        }
+        if (best.cavity !== Structure.RaCavity || best.gap > 0.6)
+          problems.push(
+            `${input.id} @${i / 10}: ${best.gap.toFixed(2)} cm to structure ${best.cavity}`,
+          );
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+});
