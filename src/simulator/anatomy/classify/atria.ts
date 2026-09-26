@@ -7,6 +7,7 @@ import { inflowTaper } from '../mitralValve';
 import { rvFloorZ, rvRadii } from '../rv';
 import { skirtOffsetAt } from '../valveSkirt';
 import { setSample, type ClassifyCtx } from './context';
+import type { AnchorsCached } from '../anchors';
 import { PV_RADIUS, pulmonaryVeinSegment } from '../pulmonaryVeins';
 
 /** Scratch for the pulmonary vein segment of the sample being classified (no allocation per sample). */
@@ -44,6 +45,23 @@ export const RA_ANTEROMEDIAL_FROM: readonly [number, number, number] = [0.6, 0.6
 export const RA_ANTEROMEDIAL_TO: readonly [number, number, number] = [-2.1, -0.2, -0.3];
 export const RA_ANTEROMEDIAL_R_CM = 0.8;
 export const RA_ANTEROMEDIAL_BLEND_CM = 0.6;
+
+/** Distance to the superior vena cava, which enters the roof of the atrium from above (decision 219). */
+export function svcDistance(A: AnchorsCached, x: number, y: number, z: number): number {
+  return sdCapsule(x, y, z, A.svcA.x, A.svcA.y, A.svcA.z, A.svcB.x, A.svcB.y, A.svcB.z, A.svcR);
+}
+
+/** Distance to the inferior vena cava, narrowed by its respiratory collapse (decision 113). */
+export function ivcDistance(
+  A: AnchorsCached,
+  ivcCollapse: number,
+  x: number,
+  y: number,
+  z: number,
+): number {
+  const rI = A.ivcR * (1 - ivcCollapse);
+  return sdCapsule(x, y, z, A.ivcA.x, A.ivcA.y, A.ivcA.z, A.ivcB.x, A.ivcB.y, A.ivcB.z, rI);
+}
 
 export function atrialScale(booster: number, reservoir: number, contraction: number): number {
   return booster * (reservoir + (1 - reservoir) * contraction);
@@ -194,14 +212,22 @@ export function classifyAtria(c: ClassifyCtx): boolean {
     );
     return true;
   }
-  if (dFreeRa < 0.22 && x < xIas - tIas / 2) {
+  // The venae cavae open into the atrium (decision 219): its wall is not drawn across their mouths. The cavae were
+  // classified after the wall, so 0.22-0.24 cm of atrial wall closed the inferior vena cava in every case and phase, and
+  // 0.10-0.16 cm the superior one in diastole.
+  const dSvc = svcDistance(A, x, y, z);
+  const dIvc = ivcDistance(A, hp.ivcCollapse, x, y, z);
+  if (dFreeRa < 0.22 && x < xIas - tIas / 2 && dSvc >= 0 && dIvc >= 0) {
     // No wall across the tricuspid orifice: there the atrium opens into the ventricle, and the annulus and
     // leaflets are emitted by the valve block above. Both atria end 0.25 cm past their annulus, but on the
     // left the LV cavity is classified first and claims the orifice, while on the right nothing did — so
     // the atrial wall filled the gap and drew a 2.6 mm echogenic line splitting RA from RV in every A4C.
     // Reported from the images by a cardiologist; measured as RaCavity -> RaWall 0.28 -> RvCavity along a
     // line straight through the annulus centre.
-    if (Math.hypot(x - V.tv.cx, y - V.tv.cy) < V.tv.R) {
+    // Only on the floor side of the atrium: the test was a cylinder over the ring, so the roof had no wall over a strip
+    // the width of the annulus, which the four-chamber view cuts (decision 219). The floor half keeps it, since the
+    // curved floor of the ellipsoid leaves a vestibule up to 1 cm above the orifice that only this rule opens.
+    if (Math.hypot(x - V.tv.cx, y - V.tv.cy) < V.tv.R && z > czR) {
       // past the annulus the blood belongs to the ventricle, as it does on the left where the LV cavity
       // claims the mitral orifice: calling it atrium instead stretched ra-long past its reference range
       const past = z > A.tvCenter.z + hp.tvZ + tvOff;
@@ -330,18 +356,6 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   // venae cavae: the superior enters the RA roof from above (torso superior), the inferior its floor from
   // below and behind through the liver, joined by a hepatic vein (subcostal views); the IVC narrows with the sniff
   {
-    const dSvc = sdCapsule(
-      x,
-      y,
-      z,
-      A.svcA.x,
-      A.svcA.y,
-      A.svcA.z,
-      A.svcB.x,
-      A.svcB.y,
-      A.svcB.z,
-      A.svcR,
-    );
     if (dSvc < 0) {
       setSample(out, Tissue.Blood, dSvc, 0, 0, -1, x, y, z, 0, Structure.Svc);
       return true;
@@ -362,13 +376,13 @@ export function classifyAtria(c: ClassifyCtx): boolean {
       );
       return true;
     }
-    const rI = A.ivcR * (1 - hp.ivcCollapse);
-    const dIvc = sdCapsule(x, y, z, A.ivcA.x, A.ivcA.y, A.ivcA.z, A.ivcB.x, A.ivcB.y, A.ivcB.z, rI);
+    const dHv = sdCapsule(x, y, z, A.hvA.x, A.hvA.y, A.hvA.z, A.hvB.x, A.hvB.y, A.hvB.z, 0.4);
     if (dIvc < 0) {
       setSample(out, Tissue.Blood, dIvc, 0, 0, 1, x, y, z, 0, Structure.Ivc);
       return true;
     }
-    if (dIvc < 0.12) {
+    // nor the caval wall across the mouth of the hepatic vein (it drew 0.14 cm there)
+    if (dIvc < 0.12 && dHv >= 0) {
       setSample(
         out,
         Tissue.VesselWall,
@@ -384,7 +398,6 @@ export function classifyAtria(c: ClassifyCtx): boolean {
       );
       return true;
     }
-    const dHv = sdCapsule(x, y, z, A.hvA.x, A.hvA.y, A.hvA.z, A.hvB.x, A.hvB.y, A.hvB.z, 0.4);
     if (dHv < 0) {
       setSample(out, Tissue.Blood, dHv, 0, 0, 1, x, y, z, 0, Structure.HepaticVein);
       return true;
