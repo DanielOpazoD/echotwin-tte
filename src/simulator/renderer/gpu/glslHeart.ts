@@ -816,9 +816,13 @@ bool classifyHeart(vec3 p0, out Sample s) {
       setSample(s, T_BLOOD, dR, vec3((x - ra.x) / rar.x, (y - ra.y) / rar.y, (z - czR) / rzR), p, 0.0, S_RA_CAV);
       return true;
     }
-    if (dFreeRa < 0.22 && x < xIas - tIas / 2.0) {
+    // the venae cavae open into the atrium (decision 219): mirrors classifyAtria, svcDistance and ivcDistance
+    float dSvc = sdCapsule(p, vec3(SVC_AX, SVC_AY, SVC_AZ), vec3(SVC_BX, SVC_BY, SVC_BZ), SVC_R);
+    float dIvc = sdCapsule(p, vec3(IVC_AX, IVC_AY, IVC_AZ), vec3(IVC_BX, IVC_BY, IVC_BZ), IVC_R);
+    if (dFreeRa < 0.22 && x < xIas - tIas / 2.0 && dSvc >= 0.0 && dIvc >= 0.0) {
       // no wall across the tricuspid orifice (decision 64): atrial blood up to the annular plane, ventricular past it
-      if (length(vec2(x - TVS_CX, y - TVS_CY)) < TVS_R) {
+      // only on the floor side of the atrium (decision 219): mirrors classifyAtria
+      if (length(vec2(x - TVS_CX, y - TVS_CY)) < TVS_R && z > czR) {
         setSample(s, T_BLOOD, dFreeRa - 0.22, vec3((x - ra.x) / rar.x, (y - ra.y) / rar.y, (z - czR) / rzR), p, 0.0, z > TV_CZ + TVZ + tvOff ? S_RV_CAV : S_RA_CAV);
         return true;
       }
@@ -869,13 +873,11 @@ bool classifyHeart(vec3 p0, out Sample s) {
     }
     // venae cavae and hepatic vein
     {
-      float dSvc = sdCapsule(p, vec3(SVC_AX, SVC_AY, SVC_AZ), vec3(SVC_BX, SVC_BY, SVC_BZ), SVC_R);
       if (dSvc < 0.0) { setSample(s, T_BLOOD, dSvc, vec3(0.0, 0.0, -1.0), p, 0.0, S_SVC); return true; }
       if (dSvc < 0.12) { setSample(s, T_VESSEL, -min(dSvc, 0.12 - dSvc), vec3(0.0, 0.0, -1.0), p, 0.0, S_SVC); return true; }
-      float dIvc = sdCapsule(p, vec3(IVC_AX, IVC_AY, IVC_AZ), vec3(IVC_BX, IVC_BY, IVC_BZ), IVC_R);
-      if (dIvc < 0.0) { setSample(s, T_BLOOD, dIvc, vec3(0.0, 0.0, 1.0), p, 0.0, S_IVC); return true; }
-      if (dIvc < 0.12) { setSample(s, T_VESSEL, -min(dIvc, 0.12 - dIvc), vec3(0.0, 0.0, 1.0), p, 0.0, S_IVC); return true; }
       float dHv = sdCapsule(p, vec3(HV_AX, HV_AY, HV_AZ), vec3(HV_BX, HV_BY, HV_BZ), 0.4);
+      if (dIvc < 0.0) { setSample(s, T_BLOOD, dIvc, vec3(0.0, 0.0, 1.0), p, 0.0, S_IVC); return true; }
+      if (dIvc < 0.12 && dHv >= 0.0) { setSample(s, T_VESSEL, -min(dIvc, 0.12 - dIvc), vec3(0.0, 0.0, 1.0), p, 0.0, S_IVC); return true; }
       if (dHv < 0.0) { setSample(s, T_BLOOD, dHv, vec3(0.0, 0.0, 1.0), p, 0.0, S_HV); return true; }
       if (dHv < 0.08) { setSample(s, T_VESSEL, -min(dHv, 0.08 - dHv), vec3(0.0, 0.0, 1.0), p, 0.0, S_HV); return true; }
     }

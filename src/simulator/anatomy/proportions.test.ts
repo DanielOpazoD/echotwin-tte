@@ -19,11 +19,9 @@ const KNOWN_MODEL_LIMITATIONS: ReadonlySet<string> = new Set([
   // aortic axis (decision 59), measures 14–16° in every case: nothing flagged that exemption as stale until
   // decision 86 added the check below.
   'av-tv-distance',
-  // The right atrial long axis sits at or above the top of its approximate range: 5.2-5.6 cm until decision 133, 5.6-6.8
-  // once the atrium lengthened over the vacated base under a fixed roof, 4.5-5.9 since its roof follows half the TAPSE
-  // (decision 149; 5.62 in the normal case, the measure takes the longest frame). It still barely tells a normal atrium
-  // from a dilated one (docs/LIMITATIONS.md).
-  'ra-long',
+  // 'ra-long' was declared here while the right atrial long axis sat at or above the top of its range (4.5-5.9 cm, 5.62
+  // in the normal case): the roof had no wall over the tricuspid orifice and the cavity ran 0.22 cm into it. With the
+  // roof back (decision 219) it measures 4.50-5.46 in every case but atrial fibrillation, which declares it.
 ]);
 
 /** Out-of-range measures per case, filled by the per-case tests and read by the staleness check. */

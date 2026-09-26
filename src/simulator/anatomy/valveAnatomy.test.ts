@@ -1137,3 +1137,81 @@ describe('right atrium beside the aortic root (decision 218)', () => {
     expect(problems).toEqual([]);
   });
 });
+
+describe('venous inflow (decision 219)', () => {
+  it('the venae cavae open into the right atrium and the hepatic vein into the inferior vena cava, in every case through the cycle', () => {
+    // The cavae were classified after the atrial wall, so 0.22-0.24 cm of it closed the inferior vena cava in every case
+    // and phase and 0.10-0.16 cm the superior one in diastole; the caval wall likewise crossed the mouth of the hepatic
+    // vein (0.14 cm).
+    const s = makeSample();
+    const problems: string[] = [];
+    for (const input of CASE_INPUTS) {
+      const { heart, tables } = setup(input.id);
+      const A = heartAnchors(heart);
+      for (let i = 0; i < 10; i++) {
+        const pose = computeHeartPose(heart, cycleStateAt(tables, i / 10));
+        const ivcDir = normalize(sub(A.ivcA, A.ivcB));
+        const hvDir = normalize(sub(A.hvA, A.hvB));
+        const paths: [string, Vec3, Vec3, Structure][] = [
+          // from inside each vein toward the chamber it drains into
+          ['inferior vena cava', sub(A.ivcA, scale(ivcDir, 1.5)), ivcDir, Structure.RaCavity],
+          ['superior vena cava', A.svcA, normalize(sub(A.raCenter, A.svcA)), Structure.RaCavity],
+          ['hepatic vein', sub(A.hvA, scale(hvDir, 1.2)), hvDir, Structure.Ivc],
+        ];
+        for (const [name, from, dir, target] of paths) {
+          let reached = false;
+          for (let r = 0; r < 4 && !reached; r += 0.02) {
+            const p = add(from, scale(dir, r));
+            const hit = classifyHeart(heart, pose, p.x + pose.swingX, p.y, p.z, s);
+            if (!hit || s.tissue !== Tissue.Blood) {
+              problems.push(
+                `${input.id} @${i / 10} ${name}: structure ${hit ? s.structure : 'none'} (tissue ${hit ? s.tissue : '-'}) at ${r.toFixed(2)} cm`,
+              );
+              break;
+            }
+            reached = s.structure === target;
+          }
+        }
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+
+  it('the right atrium has its roof over the tricuspid orifice, in every case through the cycle', () => {
+    // The wall opened onto the orifice wherever a point lay over the ring, whatever its height: until decision 219 the
+    // roof had no wall over a strip the width of the annulus and the cavity ran straight into epicardial fat.
+    const s = makeSample();
+    const problems: string[] = [];
+    for (const input of CASE_INPUTS) {
+      const { heart, tables } = setup(input.id);
+      for (let i = 0; i < 10; i += 2) {
+        const pose = computeHeartPose(heart, cycleStateAt(tables, i / 10));
+        const tv = pose.valves.tv;
+        for (const [fx, fy] of [
+          [0, 0],
+          [0, -0.6],
+          [-0.3, 0.3],
+        ]) {
+          const x = tv.cx + fx! * tv.R,
+            y = tv.cy + fy! * tv.R;
+          // up from the annulus (heart z decreases toward the base): the first thing past the atrial cavity
+          let inAtrium = false;
+          for (let z = tv.cz; z > tv.cz - 9; z -= 0.02) {
+            const hit = classifyHeart(heart, pose, x + pose.swingX, y, z, s);
+            const st = hit ? s.structure : -1;
+            if (st === Structure.RaCavity) inAtrium = true;
+            else if (inAtrium) {
+              // its own wall, the vein entering it, or the ventricular wall it meets at the atrioventricular junction
+              if (st !== Structure.RaWall && st !== Structure.Svc && st !== Structure.RvWall)
+                problems.push(
+                  `${input.id} @${i / 10} (${fx}, ${fy}): structure ${st} after the atrium at z ${z.toFixed(2)}`,
+                );
+              break;
+            }
+          }
+        }
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+});

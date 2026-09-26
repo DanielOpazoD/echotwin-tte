@@ -109,7 +109,8 @@ export const pulmonaryHypertensionRvCase: CaseDefinitionInput = {
     'rv-plax',
     'ravi',
     'ra-transverse',
-    'ra-long',
+    // the long axis (5.46 cm) stays inside its range: the dilated atrium widens more than it lengthens here
+    // (docs/LIMITATIONS.md, decision 219)
     'tv-annulus',
     'tv-mv-ratio',
     'pa',
