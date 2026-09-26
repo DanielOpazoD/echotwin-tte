@@ -19,8 +19,11 @@ const BUDGETS = [
   [/^TorsoView-.*\.js$/, 60 * KB],
   [/^sim\.worker-.*\.js$/, 320 * KB],
   // the WebGL2 port and its shaders: shared by the simulation worker and the lazy backend comparison. 119.7 kB at
-  // decision 151; the LV segment code in GLSL and its read-back (decision 152) took it to 121.0 kB
-  [/^webgl2Renderer-.*\.js$/, 128 * KB],
+  // decision 151; the LV segment code in GLSL and its read-back (decision 152) took it to 121.0 kB; the mirrors of the
+  // right atrium beside the root and the membranous septum, the open venae cavae, the septal tricuspid hinge and the
+  // pleura whose incidence comes from the neighbouring lines (decisions 218-222) to 128.1 kB, 127.3 kB once the comments
+  // those shaders carried in the bundle were cut to their decision numbers
+  [/^webgl2Renderer-.*\.js$/, 132 * KB],
   [/^heartMesh\.worker-.*\.js$/, 220 * KB],
   [/^(ReportScreen|CurriculumScreen|ProgressScreen|ReferencesScreen)-.*\.js$/, 80 * KB],
   [/\.js$/, 80 * KB], // any other chunk Rollup splits out

@@ -810,11 +810,11 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float raC = raCollapseScale(RA_COLLAPSE);
     float dEllRa = sdEllipsoid(p, vec3(ra.x, ra.y, czR), vec3(rar.x * bo * raC, rar.y * bo * raC, rzR));
     float dFreeRa = smax(dEllRa, ra.y - 0.8 * rar.y * bo - y, 0.6);
-    // the anteromedial atrium beside the right side of the aortic root (decision 218): mirrors classifyAtria
+    // decision 218
     vec3 amFrom = ra + vec3(RA_ANTEROMEDIAL_FROM_X, RA_ANTEROMEDIAL_FROM_Y, RA_ANTEROMEDIAL_FROM_Z);
     vec3 amTo = vec3(AV_CX + RA_ANTEROMEDIAL_TO_X, AV_CY + RA_ANTEROMEDIAL_TO_Y, AV_CZ + zAnn * ROOT_EXCURSION + RA_ANTEROMEDIAL_TO_Z);
     dFreeRa = smin(dFreeRa, sdCapsule(p, amFrom, amTo, RA_ANTEROMEDIAL_R_CM * bo), RA_ANTEROMEDIAL_BLEND_CM);
-    // on down to the membranous septum (decision 222): mirrors classifyAtria
+    // decision 222
     vec3 msTo = vec3(AV_CX + RA_MEMBRANOUS_TO_X, AV_CY + RA_MEMBRANOUS_TO_Y, AV_CZ + zAnn * ROOT_EXCURSION + RA_MEMBRANOUS_TO_Z);
     float dMs = smax(sdCapsule(p, amTo, msTo, RA_MEMBRANOUS_R_CM * bo), z - zBotR, 0.1);
     dMs = smax(dMs, -max(dEllR - wallT - 0.05, zAnn - 0.25 - z), 0.1);
@@ -824,14 +824,14 @@ bool classifyHeart(vec3 p0, out Sample s) {
       float u0 = rr0.y;
       if (u0 > 0.0 && u0 < 1.0) {
         float r0 = length(p.xy);
-        // the end-diastolic floor without the septal lag of the moment (decision 220): mirrors classifyAtria
+        // decision 220
         float rhoT = length(vec2(x - TVS_CX, y - TVS_CY));
         float tvOffEd = tvOff - TVS_LIFT - (rhoT > 1e-6 ? TVS_TILTC * (x - TVS_CX) / rhoT : TVS_TILTC);
         raSleeve = max(max(max(rr0.x + 0.1 - r0, r0 - (rr0.z - RV_FW)), max(rvFloorZ(TV_CZ, 0.0, 0.0, u0, tvOffEd) - z, z - rvFloorZ(TV_CZ, TVZ, PV_Z, u0, tvOff))), rhoT - (TVS_R + RA_SLEEVE_MARGIN_CM));
       }
     }
     dFreeRa = min(dFreeRa, raSleeve);
-    // in front of the left atrium the interatrial plane no longer clips the right atrium (decision 222)
+    // decision 222
     float qRel = clamp((dFreeLa - RA_SEPTAL_RELEASE_LA_CM) / RA_SEPTAL_RELEASE_RAMP_CM, 0.0, 1.0);
     float relL = qRel * qRel * (3.0 - 2.0 * qRel);
     float septumPlane = x - (xIas - tIas / 2.0) - RA_SEPTAL_RELEASE_CM * relL;
@@ -840,12 +840,12 @@ bool classifyHeart(vec3 p0, out Sample s) {
       setSample(s, T_BLOOD, dR, vec3((x - ra.x) / rar.x, (y - ra.y) / rar.y, (z - czR) / rzR), p, 0.0, S_RA_CAV);
       return true;
     }
-    // the venae cavae open into the atrium (decision 219): mirrors classifyAtria, svcDistance and ivcDistance
+    // decision 219
     float dSvc = sdCapsule(p, vec3(SVC_AX, SVC_AY, SVC_AZ), vec3(SVC_BX, SVC_BY, SVC_BZ), SVC_R);
     float dIvc = sdCapsule(p, vec3(IVC_AX, IVC_AY, IVC_AZ), vec3(IVC_BX, IVC_BY, IVC_BZ), IVC_R);
     if (dFreeRa < 0.22 && septumPlane < 0.0 && dSvc >= 0.0 && dIvc >= 0.0) {
       // no wall across the tricuspid orifice (decision 64): atrial blood up to the annular plane, ventricular past it
-      // only on the floor side of the atrium (decision 219): mirrors classifyAtria
+      // decision 219
       if (length(vec2(x - TVS_CX, y - TVS_CY)) < TVS_R && z > czR) {
         setSample(s, T_BLOOD, dFreeRa - 0.22, vec3((x - ra.x) / rar.x, (y - ra.y) / rar.y, (z - czR) / rzR), p, 0.0, z > TV_CZ + TVZ + tvOff ? S_RV_CAV : S_RA_CAV);
         return true;

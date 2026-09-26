@@ -151,8 +151,7 @@ layout(location = 1) out vec4 outIds;   // structure/255, tissue/255, extra, LV 
 layout(location = 2) out vec4 outSig2;  // complex signal of the second look re, im, 0, 1
 
 
-// A neighbouring line's lung entry, taken within w samples of this line's entry kE (decision 221): mirrors
-// ProceduralSliceRenderer.drawLung — a line without lung there counts as a cliff behind this one's entry.
+// decision 221: mirrors ProceduralSliceRenderer.drawLung
 int lungEntryNear(int lj, int kE, int w) {
   int kEnd = min(int(SAMPLES) - 1, kE + w);
   for (int k = 0; k < 1024; k++) {
@@ -164,7 +163,6 @@ int lungEntryNear(int lj, int kE, int w) {
   return kE + w;
 }
 
-// Specular share of the pleural echo of line li entering lung at sample kE, from its neighbours' entries (decision 221)
 float pleuralCoherenceAt(int li, int kE, float dr) {
   int w = int(floor(PLEURA_SLOPE_WINDOW_CM / dr + 0.5));
   int last = int(LINES) - 1;
