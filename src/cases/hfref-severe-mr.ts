@@ -112,8 +112,8 @@ export const hfrefSevereMrCase: CaseDefinitionInput = {
     'lv-idd',
     'lv-ids',
     'lv-length', // the dilated ventricle is long as well: 9.8 cm at the edge of the range
-    // the dilated base reaches the outflow tract: 0.5 cm below the annulus its lumen opens into the cavity (decision 161)
-    'lvot',
+    // (the LVOT, whose lumen the dilated base opened into the cavity 0.5 cm below the annulus (decision 161), measures its
+    // declared 2.1 cm since the neck of the ventricle narrows into the mitral annulus, decision 226)
     'lv-shortening',
     'ivs-thickening',
     'apex-thickness',

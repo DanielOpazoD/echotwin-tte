@@ -49,6 +49,7 @@ import {
   SKIRT_THICK_FLOOR_CM,
   TV_INFLOW_BULGE_CM,
   TV_BUMP_N,
+  TV_BUMP_PHI0,
   TV_BUMP_STEP_RAD,
 } from '@/simulator/anatomy/valveSkirt';
 
@@ -66,6 +67,9 @@ import {
   RA_SEPTAL_RELEASE_RAMP_CM,
   RA_ROOF_DESCENT_SHARE,
   RA_SLEEVE_MARGIN_CM,
+  RA_VESTIBULE_SEPTAL_COS,
+  RA_VESTIBULE_SEPTAL_RAMP,
+  RA_VESTIBULE_UNION_CM,
 } from '@/simulator/anatomy/classify/atria';
 import { RV_OUTFLOW_BLEND_CM } from '@/simulator/anatomy/classify/rightVentricle';
 
@@ -87,6 +91,9 @@ const float AV_OPEN_EDGE_FRACTION = ${f(AV_OPEN_EDGE_FRACTION)};
 const float AV_OPEN_WALL_GAP = ${f(AV_OPEN_WALL_GAP)};
 const float RA_ROOF_DESCENT_SHARE = ${f(RA_ROOF_DESCENT_SHARE)};
 const float RA_SLEEVE_MARGIN_CM = ${f(RA_SLEEVE_MARGIN_CM)};
+const float RA_VESTIBULE_UNION_CM = ${f(RA_VESTIBULE_UNION_CM)};
+const float RA_VESTIBULE_SEPTAL_COS = ${f(RA_VESTIBULE_SEPTAL_COS)};
+const float RA_VESTIBULE_SEPTAL_RAMP = ${f(RA_VESTIBULE_SEPTAL_RAMP)};
 const float RA_ANTEROMEDIAL_FROM_X = ${f(RA_ANTEROMEDIAL_FROM[0])};
 const float RA_ANTEROMEDIAL_FROM_Y = ${f(RA_ANTEROMEDIAL_FROM[1])};
 const float RA_ANTEROMEDIAL_FROM_Z = ${f(RA_ANTEROMEDIAL_FROM[2])};
@@ -118,6 +125,7 @@ const float RV_OUTFLOW_BLEND_CM = ${f(RV_OUTFLOW_BLEND_CM)};
 const float SKIRT_ABOVE_CM = ${f(SKIRT_ABOVE_CM)};
 const float TV_INFLOW_BULGE_CM = ${f(TV_INFLOW_BULGE_CM)};
 const float TV_BUMP_STEP_RAD = ${f(TV_BUMP_STEP_RAD)};
+const float TV_BUMP_PHI0 = ${f(TV_BUMP_PHI0)};
 const int TV_BUMP_N = ${TV_BUMP_N};
 const float FAR_FROM_HEART_CM = ${f(FAR_FROM_HEART_CM)};
 const float SKIRT_BELOW_CM = ${f(SKIRT_BELOW_CM)};
@@ -158,7 +166,7 @@ void setSample(out Sample s, int tissue, float sdf, vec3 n, vec3 m, float extra,
 float profAt(int base, int i) { return P(base + i); }
 // tricuspid annulus extension (valveSkirt.ts skirtBumpAt / skirtWarpScale, decision 224)
 float tvBumpAt(float phi) {
-  float f = phi / TV_BUMP_STEP_RAD;
+  float f = (phi - TV_BUMP_PHI0) / TV_BUMP_STEP_RAD;
   if (f <= 0.0 || f >= float(TV_BUMP_N - 1)) return 0.0;
   int i = int(floor(f));
   return mix(P(TVS_BUMP_BASE + i), P(TVS_BUMP_BASE + i + 1), f - float(i));
@@ -506,7 +514,13 @@ float lvProfileDG(float zeta) {
 }
 float lvCavityRadius(float az, float z) {
   float zeta = (z - ZANN) / max(LENGTH_NOW, 1e-3);
-  return LV_RMAX * lvProfileG(zeta) * ellipseFactor(LV_RATIO, az);
+  // decision 226
+  float w = lvNeckWeight(zeta);
+  float S = 1.0 + LV_NECK_K * w, ox = LV_NECK_X * w;
+  float rho = LV_RMAX * lvProfileG(zeta);
+  float c = cos(az), sn = sin(az) / LV_RATIO;
+  float a = c * c * S * S + sn * sn, b = c * ox * S * S;
+  return (b + sqrt(max(0.0, b * b - a * (ox * ox * S * S - rho * rho)))) / a;
 }
 float lvRadialOffsetFactor(float az, float z) {
   float zeta = (z - ZANN) / max(LENGTH_NOW, 1e-3);
@@ -515,8 +529,13 @@ float lvRadialOffsetFactor(float az, float z) {
 }
 // signed distance to the tabulated cavity surface (polar table from the centre LV_PZC); writes the normal
 float lvCavitySdf(float xs, float y, float z, out vec3 n) {
+  // decision 226
+  float w = lvNeckWeight((z - ZANN) / max(LENGTH_NOW, 1e-3));
+  float sx = 1.0 + LV_NECK_K * w;
+  float xr = xs - LV_NECK_X * w;
+  float xn = xr * sx;
   float ys = y / LV_RATIO;
-  float rho2 = xs * xs + ys * ys;
+  float rho2 = xn * xn + ys * ys;
   float rho = sqrt(rho2);
   float dz = z - LV_PZC;
   float phi = rho > 1e-9 ? atan(rho, dz) : (dz >= 0.0 ? 0.0 : PI);
@@ -532,8 +551,8 @@ float lvCavitySdf(float xs, float y, float z, out vec3 n) {
   float cosP = rad > 1e-9 ? dz / rad : 1.0;
   float nr = sinP - S * cosP, nz = cosP + S * sinP;
   float ir = rho > 1e-9 ? 1.0 / rho : 0.0;
-  n = vec3(nr * xs * ir, nr * ys * ir / LV_RATIO, nz);
-  float q = rho2 > 1e-12 ? sqrt((xs * xs + LV_RATIO * LV_RATIO * ys * ys) / rho2) : 1.0;
+  n = vec3(nr * xn * ir * sx, nr * ys * ir / LV_RATIO, nz);
+  float q = rho2 > 1e-12 ? sqrt((xr * xr + LV_RATIO * LV_RATIO * ys * ys) / rho2) : 1.0;
   float corr = 1.0 - (1.0 - q) * sinP * sinP;
   return (rad - R) * f * corr;
 }
@@ -879,8 +898,10 @@ bool classifyHeart(vec3 p0, out Sample s) {
     if (dFreeRa < 0.22 && septumPlane < 0.0 && dSvc >= 0.0 && dIvc >= 0.0) {
       // no wall across the tricuspid orifice (decision 64): atrial blood up to the annular plane, ventricular past it
       // decision 219
+      // decision 226
       vec2 dO = vec2(x - TVS_CX, y - TVS_CY);
-      if (length(dO) * tvWarpScale(dO) < TVS_R && z > czR) {
+      float sepS = clamp((dO.x / max(1e-6, length(dO)) - RA_VESTIBULE_SEPTAL_COS) / RA_VESTIBULE_SEPTAL_RAMP, 0.0, 1.0);
+      if (z > czR && smin(dFreeRa, length(dO) - TVS_R / tvWarpScale(dO), 1e-3 + RA_VESTIBULE_UNION_CM * sepS) < 0.0) {
         setSample(s, T_BLOOD, dFreeRa - 0.22, vec3((x - ra.x) / rar.x, (y - ra.y) / rar.y, (z - czR) / rzR), p, 0.0, z > TV_CZ + TVZ + tvOff ? S_RV_CAV : S_RA_CAV);
         return true;
       }

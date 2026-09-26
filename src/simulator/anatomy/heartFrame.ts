@@ -26,6 +26,9 @@ export const AV_AXIS: Vec3 = normalize(v3(-0.15, 0.53, -0.85));
  * does not pull the anatomy into the main bundle.
  */
 export const MITRAL_SHORT_AXIS_CM = 1.4;
+/** Centre of the mitral annulus (heart frame, cm): 0.9 cm behind the LV long axis and 0.2 cm lateral to it. */
+export const MITRAL_CENTRE_X = 0.2;
+export const MITRAL_CENTRE_Y = -0.9;
 /**
  * Share of the ventricular base's systolic descent that the aortic root follows. The fibrous skeleton moves as one:
  * the aortic annular plane systolic excursion of healthy adults is 1.16 ± 0.30 cm by 3D speckle tracking (MAGYAR-

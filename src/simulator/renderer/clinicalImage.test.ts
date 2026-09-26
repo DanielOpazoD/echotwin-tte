@@ -202,7 +202,8 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['2CH-ED:gradientP95', 1.13],
   ['2CH-ES:gradientP95', 0.9],
   ['4CH-ED:ridgeFraction', 1.23],
-  ['4CH-ES:ridgeFraction', 0.36],
+  // 0.36 → 0.56 at decision 226: thin bright lines at the systolic crux, where both valves now hinge on the septum
+  ['4CH-ES:ridgeFraction', 0.56],
   ['2CH-ES:ridgeFraction', 0.45],
   ['2CH-ED:ridgeFraction', 1.2],
   // more texture contrast over the whole sector: the blood pool and background are grainier than the clinical haze
@@ -220,8 +221,13 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['2CH-ED:tangentialCorr4', -0.45],
   ['2CH-ES:tangentialCorr4', -0.27],
   // 0.49 → 0.62 with the septal crest (decision 223) and 0.65 with the tricuspid annulus reaching the septum (decision
-  // 224): the septal leaflet moves in the four-chamber view (50 samples at 11 cm), 0.0985 → 0.0998 in every realization
-  ['4CH-ED:tangentialCorr8', 0.65],
+  // 224): the septal leaflet moves in the four-chamber view (50 samples at 11 cm), 0.0985 → 0.0998 in every realization;
+  // 0.83 with the crux of decision 226, whose bright block of fibrous tissue beside the septum became myocardium
+  ['4CH-ED:tangentialCorr8', 0.83],
+  // decision 226: without that block the four-chamber end-diastolic texture anticorrelates along the beam at 2 and 4 mm,
+  // at the edge (and its 95th percentile of grey sits on the clinical quartile's edge, 156.6 against 161)
+  ['4CH-ED:radialCorr2', -0.15],
+  ['4CH-ED:radialCorr4', -0.16],
   // the cavity bands (4-10 cm) darker than clinical; the near field (0-2 cm), 141-154 against 105-115 until the
   // chest-wall muscle came down to its clinical grey (decision 156), is inside
   ['4CH-ED:bandGrey4', -0.27],

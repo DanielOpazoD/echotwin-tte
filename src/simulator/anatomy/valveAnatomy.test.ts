@@ -1261,12 +1261,9 @@ describe('right atrium at the membranous septum (decision 222)', () => {
     // The atrium was clipped flat against the interatrial plane also in front of the left atrium, so between the outflow
     // tract or root lumen and the atrial cavity there were 0.70-0.92 cm at the level of the sinuses and 1.12-1.56 cm just
     // below the annulus, fat and a slab of interatrial septum where the membranous septum should stand alone.
-    const KNOWN_GAPS_CM: ReadonlyMap<string, number> = new Map([
-      // the dilated left atrium of the HFrEF case lies close enough to keep the interatrial plane below the annulus
-      ['hfref-severe-mr@0@-0.2', 0.96],
-      ['hfref-severe-mr@0.35@-0.2', 0.76],
-      ['mvp-primary-mr@0@-0.2', 0.54],
-    ]);
+    // The HFrEF case below the annulus (0.96 and 0.76 cm) and the mitral prolapse (0.54), whose left atria kept the
+    // interatrial plane there, were declared until the neck of the ventricle narrowed into the mitral annulus
+    // (decision 226): 0.20 cm since.
     const s = makeSample();
     const problems: string[] = [];
     for (const input of CASE_INPUTS) {
@@ -1301,10 +1298,7 @@ describe('right atrium at the membranous septum (decision 222)', () => {
           // a bulging sinus the line re-enters is not a partition
           if (next === Structure.AorticRoot) continue;
           const key = `${input.id}@${ph}@${h}`;
-          const baseline = KNOWN_GAPS_CM.get(key);
-          const ok =
-            next === Structure.RaCavity &&
-            (baseline === undefined ? gap <= 0.45 : Math.abs(gap - baseline) <= 0.1);
+          const ok = next === Structure.RaCavity && gap <= 0.45;
           if (!ok) problems.push(`${key}: ${gap.toFixed(2)} cm to structure ${next}`);
         }
       }
@@ -1359,12 +1353,11 @@ describe('tricuspid annulus on the septum (decision 224)', () => {
     const PARTITION_CM = 0.45;
     // [runs of blood, partition in cm] where the case still misses the septum: the hypertrophied septa lie ~0.9 cm farther
     // from the tricuspid centre at 40° than the annulus may extend (TV_BUMP_MAX_CM), and thin atrial folds remain
+    // (the thin folds of the mitral prolapse case went with the vestibule opened onto the septal orifice, and the
+    // hypertrophic septum at 40° with the neck narrowed into the mitral annulus, decision 226)
     const KNOWN_ANNULUS_PARTITIONS: ReadonlyMap<string, [number, number]> = new Map([
-      ['hocm-sam@0@40', [1, 1.12]],
-      ['aortic-stenosis-severe@0@40', [1, 0.74]],
+      ['aortic-stenosis-severe@0@40', [1, 0.71]],
       ['aortic-stenosis-severe@0.35@40', [2, 0.21]],
-      ['mvp-primary-mr@0@40', [2, 0.14]],
-      ['mvp-primary-mr@0.35@10', [2, 0.07]],
     ]);
     const WALLS = new Set<number>([
       Structure.LvWallSeptal,
@@ -1502,6 +1495,83 @@ describe('papillary muscles (decision 225)', () => {
           const ok = known === undefined ? gap <= 0.1 : Math.abs(gap - known) <= 0.1 && gap > 0.1;
           if (!ok) problems.push(`${key}: muscle ${i} ${gap.toFixed(2)} cm of blood off the wall`);
         }
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+});
+
+describe('crux of the four-chamber view (decision 226)', () => {
+  it('both atrioventricular valves hinge on the septum, on either side of it, in every case at end-diastole and end-systole', () => {
+    // In the four-chamber view the anterior mitral leaflet hinges at the top of the septum and the septal tricuspid
+    // leaflet on its right face, a few millimetres more apical. The ventricle's round neck was wider than the mitral
+    // annulus from septum to lateral wall, so the mitral hinge stood 0.46 cm of LV blood off the septum in the normal case
+    // (0.82 in the HFrEF case) under a block of fibrous tissue, and the tricuspid hinge 0.28 cm of RV blood off its face.
+    // Measured on the drawn plane, across the image at each hinge's depth.
+    const s = makeSample();
+    const problems: string[] = [];
+    for (const input of CASE_INPUTS) {
+      const { heart, tables, thorax } = setup(input.id);
+      const b = beamFrameFromPose(
+        poseFromControl(thorax, canonicalControl(getViewTarget('a4c'), heart, thorax)),
+        1,
+      );
+      for (const [label, ph] of [
+        ['ED', 0],
+        ['ES', tables.timings.ejectionEndS / tables.rrS],
+      ] as const) {
+        const pose = computeHeartPose(heart, cycleStateAt(tables, ph));
+        const st = (dep: number, lat: number): number => {
+          const p = torsoToHeart(
+            heart.frame,
+            add(b.origin, add(scale(b.forward, dep), scale(b.lateral, lat))),
+          );
+          return classifyHeart(heart, pose, p.x, p.y, p.z, s) ? s.structure : -1;
+        };
+        let lvLat = 0,
+          rvLat = 0,
+          nl = 0,
+          nr = 0;
+        const tv: [number, number][] = [],
+          mv: [number, number][] = [];
+        for (let dep = 4; dep < 18; dep += 0.04)
+          for (let lat = -7; lat < 7; lat += 0.04) {
+            const k = st(dep, lat);
+            if (k === Structure.LvCavity) {
+              lvLat += lat;
+              nl++;
+            } else if (k === Structure.RvCavity) {
+              rvLat += lat;
+              nr++;
+            } else if (k === Structure.TricuspidValve) tv.push([dep, lat]);
+            else if (k === Structure.MitralAnterior || k === Structure.MitralPosterior)
+              mv.push([dep, lat]);
+          }
+        // +1 when the LV lies at +lat: the septal-most samples are the TV's largest and the MV's smallest sgn·lat
+        const sgn = Math.sign(lvLat / nl - rvLat / nr);
+        const tvH = tv.reduce((a, p) => (sgn * p[1] > sgn * a[1] ? p : a));
+        const mvH = mv.reduce((a, p) => (sgn * p[1] < sgn * a[1] ? p : a));
+        // LV blood from the mitral hinge toward the septum; RV blood from the septum's right face toward the TV hinge
+        let lvBlood = 0;
+        for (let d = 0; d < 2; d += 0.02) {
+          const k = st(mvH[0], mvH[1] - sgn * d);
+          if (k === Structure.LvWallSeptal) break;
+          if (k === Structure.LvCavity) lvBlood += 0.02;
+        }
+        let rvBlood = 0,
+          past = false;
+        for (let d = 0; d < 4; d += 0.02) {
+          const k = st(tvH[0], mvH[1] - sgn * d);
+          if (k === Structure.LvWallSeptal) past = true;
+          else if (past && (k === Structure.TricuspidAnnulus || k === Structure.TricuspidValve))
+            break;
+          else if (past && k === Structure.RvCavity) rvBlood += 0.02;
+        }
+        const key = `${input.id}@${label}`;
+        if (lvBlood > 0.1)
+          problems.push(`${key}: ${lvBlood.toFixed(2)} cm of LV blood at the mitral hinge`);
+        if (rvBlood > 0.15)
+          problems.push(`${key}: ${rvBlood.toFixed(2)} cm of RV blood at the tricuspid hinge`);
       }
     }
     expect(problems).toEqual([]);

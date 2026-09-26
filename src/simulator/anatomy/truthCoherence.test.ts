@@ -27,10 +27,8 @@ const LV_TOL_ML = 4;
  * declaration that holds no longer fails, and one that moves more than 0.02 from its baseline too.
  */
 const KNOWN_TRUTH_DEVIATIONS: ReadonlyMap<string, number> = new Map([
-  // the dilated LV of the HFrEF case reaches the base: 0.5 cm below the annulus the lumen between the septum and the
-  // anterior leaflet opens into the cavity (2.5 cm against the 2.1 cm tract); the case asks for the LVOT VTI, whose
-  // flow uses the declared area, not for the diameter
-  ['hfref-severe-mr:lvot', 0.2],
+  // (the LVOT of the HFrEF case, whose lumen the dilated base opened into the cavity, 2.5 cm against 2.1, measures 2.08
+  // since the neck of the ventricle narrows into the mitral annulus, decision 226)
   // the same dilated base clips the LA ellipsoid: 88 mL drawn against 98 declared
   ['hfref-severe-mr:laMax', -0.106],
   // the pressure-overloaded RV flattens the septum into the LV (decision 32): the drawn cavity holds 7 mL less than the
@@ -83,8 +81,9 @@ describe('the drawn heart matches the truth its measurements are scored against'
       // its forward flow can explain, declared with the ratio as baseline (±0.05).
       const KNOWN_RATIOS: ReadonlyMap<string, number> = new Map([
         // enlarged right ventricle (192 mL declared by its dimensions) with 35 mL of forward flow after the regurgitant
-        // mitral volume; its tricuspid regurgitation has no volume in the beat tables
-        ['hfref-severe-mr', 2.3],
+        // mitral volume; its tricuspid regurgitation has no volume in the beat tables (2.30 until the neck of the
+        // ventricle narrowed into the mitral annulus, decision 226, and moved its septum at the base)
+        ['hfref-severe-mr', 2.24],
         // the systolic anterior motion's mitral regurgitation takes 18 mL of the 70 the ventricle ejects
         ['hocm-sam', 1.68],
         // the tricuspid regurgitation of the case (effective orifice 0.3 cm²) carries the difference
