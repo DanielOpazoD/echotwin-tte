@@ -56,6 +56,7 @@ import {
   RA_ANTEROMEDIAL_FROM,
   RA_ANTEROMEDIAL_R_CM,
   RA_ANTEROMEDIAL_TO,
+  RA_CREST_REACH_CM,
   RA_MEMBRANOUS_R_CM,
   RA_MEMBRANOUS_TO,
   RA_SEPTAL_RELEASE_CM,
@@ -96,6 +97,7 @@ const float RA_MEMBRANOUS_TO_X = ${f(RA_MEMBRANOUS_TO[0])};
 const float RA_MEMBRANOUS_TO_Y = ${f(RA_MEMBRANOUS_TO[1])};
 const float RA_MEMBRANOUS_TO_Z = ${f(RA_MEMBRANOUS_TO[2])};
 const float RA_MEMBRANOUS_R_CM = ${f(RA_MEMBRANOUS_R_CM)};
+const float RA_CREST_REACH_CM = ${f(RA_CREST_REACH_CM)};
 const float RA_SEPTAL_RELEASE_LA_CM = ${f(RA_SEPTAL_RELEASE_LA_CM)};
 const float RA_SEPTAL_RELEASE_RAMP_CM = ${f(RA_SEPTAL_RELEASE_RAMP_CM)};
 const float RA_SEPTAL_RELEASE_CM = ${f(RA_SEPTAL_RELEASE_CM)};
@@ -537,13 +539,17 @@ vec4 rvRadii(float az, float z, float contraction, float tvZ, float rvCollapse) 
   float rCav = lvCavityRadius(az, z);
   float levelFrac = clamp((z - ZANN) / max(LENGTH_NOW, 1.0), 0.0, 1.0);
   float amp = P(SEG_AMP_BASE + ahaSegment(az, levelFrac));
-  float rEpi = rCav + wallThicknessAt(az, levelFrac, amp) * lvRadialOffsetFactor(az, z);
+  // decision 223: the crest's lost thickness goes to the cavity below the tricuspid plane, the free wall stays
+  float wFull = wallThicknessAt(az, levelFrac, amp) * lvRadialOffsetFactor(az, z);
+  float below = clamp((z - (TV_CZ + tvZ - 0.6)) / 0.3, 0.0, 1.0);
+  float crestLossR = wFull * (1.0 - septalCrestFactor(az, z - ZANN)) * below * below * (3.0 - 2.0 * below);
+  float rEpi = rCav + wFull - crestLossR;
   float rIn = rEpi - septalShiftAt(SEPTAL_SHIFT, az, levelFrac) + 0.05;
   if (u <= 0.0 || u >= 1.0) return vec4(rIn, u, rIn, 0.0);
   float tvPlane = TV_CZ + tvZ;
   float t = RV_T * rvAzProfile(RV_AZA, RV_AZP, u) * rvAxialTaper(tvPlane, RV_APEX_FRAC * L, z) * (1.0 - rvRadialContraction(u) * contraction * RV_RADIAL_SCALE);
   if (rvCollapse > 0.0 && u < 0.55) t *= 1.0 - 0.65 * rvCollapse * (1.0 - u / 0.55);
-  return vec4(rIn, u, rIn + t, t);
+  return vec4(rIn, u, rIn + t + crestLossR, t + crestLossR);
 }
 // tricuspid inflow column (heartModel.ts tvInflowSdf): annular circle narrowing below the hinges, closed on the atrial side
 // annulus offset above a point, by its azimuth around the tricuspid centre (valveSkirt.ts skirtOffsetAt)
@@ -713,7 +719,10 @@ bool classifyHeart(vec3 p0, out Sample s) {
   float rs = RADIAL_SCALE, ls = LONG_SCALE;
   float trab = levelFrac > 0.45 ? 0.2 * min(1.0, (levelFrac - 0.45) / 0.35) * (lat(vec3((x / rs) * 2.6 + 11.3, (y / rs) * 2.6 + 2.9, ((z - LV_LEN) / ls) * 1.1 + 6.1), 3) - 0.5) : 0.0;
   float dCavR = dCav - regional + trab;
-  float tNow = wallThicknessAt(az, levelFrac, amp);
+  float tFull = wallThicknessAt(az, levelFrac, amp);
+  // decision 223
+  float tNow = tFull * septalCrestFactor(az, z - zAnn);
+  float crestLoss = tFull - tNow;
   // mitral inflow: cavity and wall are the smooth union of the profile with the narrowing annular outline
   bool inRootTube = rootT > -1.6 && rootRr < rootR + 0.2;
   float zHinge = mvHingeZ(p.xy);
@@ -819,6 +828,11 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float dMs = smax(sdCapsule(p, amTo, msTo, RA_MEMBRANOUS_R_CM * bo), z - zBotR, 0.1);
     dMs = smax(dMs, -max(dEllR - wallT - 0.05, zAnn - 0.25 - z), 0.1);
     dFreeRa = smin(dFreeRa, dMs, 0.3);
+    // decision 223
+    if (crestLoss > 0.0) {
+      float dEpiC = dEllR - wallT;
+      dFreeRa -= crestLoss * clamp(dEpiC / 0.05, 0.0, 1.0) * clamp(1.0 - dEpiC / RA_CREST_REACH_CM, 0.0, 1.0);
+    }
     if (TVZ > 0.05) {
       vec4 rr0 = rvRadii(az, z, 0.0, 0.0, 0.0);
       float u0 = rr0.y;
@@ -982,7 +996,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
 
   // ---------- pericardium & effusion ----------
   {
-    float dLvEpi = dEllR - wallT;
+    float dLvEpi = dEllR - wallT - crestLoss;
     float fw = RV_FW;
     float dRvEpi = dRvU - fw;
     float dLaEpi = sdEllipsoid(p, la, lr + 0.25);

@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 222 (última: 222).
+Decisiones: 223 (última: 223).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -230,3 +230,4 @@ Decisiones: 222 (última: 222).
 | [220](DECISIONS.md#L1399) | 2026-09-25 | La bisagra septal de la tricúspide baja con la mitral y el VD expulsa lo que el VI envía hacia delante | vigente |
 | [221](DECISIONS.md#L1401) | 2026-09-25 | La línea pleural y las líneas A dependen de la incidencia | vigente |
 | [222](DECISIONS.md#L1403) | 2026-09-25 | La aurícula derecha llega al septo membranoso | vigente |
+| [223](DECISIONS.md#L1405) | 2026-09-25 | La cresta del septo se afila bajo el septo membranoso | vigente |
