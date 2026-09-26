@@ -808,7 +808,10 @@ export class ProceduralSliceRenderer implements RendererBackend {
       } else if (tissue === Tissue.Chordae) {
         // a cord thinner than the slice reads by the fraction of the slice it fills, and takes no elevation average
         // either (decision 227)
-        const w = cordWeight(s.nx * nrmH.x + s.ny * nrmH.y + s.nz * nrmH.z, sliceHalfWidthCm(r, focus));
+        const w = cordWeight(
+          s.nx * nrmH.x + s.ny * nrmH.y + s.nz * nrmH.z,
+          sliceHalfWidthCm(r, focus),
+        );
         sigma *= w;
         specular *= w;
       } else if (nElev > 1) {
