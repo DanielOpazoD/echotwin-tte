@@ -216,7 +216,9 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['4CH-ES:tangentialCorr4', -0.35],
   ['2CH-ED:tangentialCorr4', -0.45],
   ['2CH-ES:tangentialCorr4', -0.27],
-  ['4CH-ED:tangentialCorr8', 0.49],
+  // 0.49 → 0.62 with the septal crest (decision 223) and 0.65 with the tricuspid annulus reaching the septum (decision
+  // 224): the septal leaflet moves in the four-chamber view (50 samples at 11 cm), 0.0985 → 0.0998 in every realization
+  ['4CH-ED:tangentialCorr8', 0.65],
   // the cavity bands (4-10 cm) darker than clinical; the near field (0-2 cm), 141-154 against 105-115 until the
   // chest-wall muscle came down to its clinical grey (decision 156), is inside
   ['4CH-ED:bandGrey4', -0.27],

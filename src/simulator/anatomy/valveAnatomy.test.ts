@@ -1349,3 +1349,75 @@ describe('septal crest under the membranous septum (decision 223)', () => {
     expect(problems).toEqual([]);
   });
 });
+
+describe('tricuspid annulus on the septum (decision 224)', () => {
+  it('from 10° to 40° toward the aortic root the orifice reaches the septum or root through one thin partition, with no atrial pocket beyond the ring', () => {
+    // The septal leaflet hinges on the right face of the septum and the anteroseptal commissure on the membranous septum,
+    // under the aortic root. The model's annulus was a circle, so from 10° to 40° of its azimuth (0° is the four-chamber
+    // hinge) the atrium ran on past the ring behind an atrial wall: two blood runs in 44 of these 96 rays, and up to
+    // 2.9 cm of tissue other than the septum or root between the orifice and them. Walked just atrial of the hinge.
+    const PARTITION_CM = 0.45;
+    // [runs of blood, partition in cm] where the case still misses the septum: the hypertrophied septa lie ~0.9 cm farther
+    // from the tricuspid centre at 40° than the annulus may extend (TV_BUMP_MAX_CM), and thin atrial folds remain
+    const KNOWN_ANNULUS_PARTITIONS: ReadonlyMap<string, [number, number]> = new Map([
+      ['hocm-sam@0@40', [1, 1.12]],
+      ['aortic-stenosis-severe@0@40', [1, 0.74]],
+      ['aortic-stenosis-severe@0.35@40', [2, 0.21]],
+      ['mvp-primary-mr@0@40', [2, 0.14]],
+      ['mvp-primary-mr@0.35@10', [2, 0.07]],
+    ]);
+    const WALLS = new Set<number>([
+      Structure.LvWallSeptal,
+      Structure.LvWallAnterior,
+      Structure.LvWallInferior,
+      Structure.LvWallLateral,
+      Structure.AorticRoot,
+      Structure.AorticValve,
+    ]);
+    const s = makeSample();
+    const problems: string[] = [];
+    for (const input of CASE_INPUTS) {
+      const { heart, tables } = setup(input.id);
+      for (const ph of [0, 0.35]) {
+        const pose = computeHeartPose(heart, cycleStateAt(tables, ph));
+        const tv = pose.valves.tv;
+        for (const deg of [10, 20, 30, 40]) {
+          const a = (deg * Math.PI) / 180;
+          const z = tv.cz + skirtOffset(tv, a) - 0.1;
+          let runs = 0,
+            partition = 0,
+            inBlood = false,
+            reached = false;
+          for (let r = 0.8 * tv.R; r < tv.R + 4; r += 0.01) {
+            const hit = classifyHeart(
+              heart,
+              pose,
+              tv.cx + r * Math.cos(a) + pose.swingX,
+              tv.cy + r * Math.sin(a),
+              z,
+              s,
+            );
+            if (hit && WALLS.has(s.structure)) {
+              reached = true;
+              break;
+            }
+            const blood = hit && s.tissue === Tissue.Blood;
+            if (blood && !inBlood) runs++;
+            if (!blood) partition += 0.01;
+            inBlood = blood;
+          }
+          // past the root toward the outflow tract: nothing to reach at this azimuth
+          if (!reached) continue;
+          const key = `${input.id}@${ph}@${deg}`;
+          const known = KNOWN_ANNULUS_PARTITIONS.get(key);
+          const ok = runs === 1 && partition <= PARTITION_CM;
+          const kept =
+            known !== undefined && runs === known[0] && Math.abs(partition - known[1]) <= 0.1;
+          if (known === undefined ? !ok : ok || !kept)
+            problems.push(`${key}: ${runs} blood runs, ${partition.toFixed(2)} cm of partition`);
+        }
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+});

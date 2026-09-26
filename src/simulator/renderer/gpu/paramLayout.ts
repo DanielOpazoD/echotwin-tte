@@ -2,6 +2,7 @@ import type { HeartModel, HeartPose } from '@/simulator/anatomy/heartModel';
 import { heartAnchors } from '@/simulator/anatomy/heartModel';
 import { LV_PROF_BINS } from '@/simulator/anatomy/lvShape';
 import { MV_BINS } from '@/simulator/anatomy/mitralValve';
+import { TV_BUMP_N } from '@/simulator/anatomy/valveSkirt';
 import type { ThoraxModel } from '@/simulator/anatomy/thoraxModel';
 import type { BeamFrame } from '@/simulator/probe/pose';
 import { contactQuality } from '@/simulator/probe/pose';
@@ -275,6 +276,7 @@ const ARRAYS: [string, number][] = [
   ['MVL_P_PROF', 6],
   ['TVS_ZONES', 3 * 6],
   ['TVS_PROF', 3 * 8],
+  ['TVS_BUMP', TV_BUMP_N],
   ['LINE_DROP', 256],
 ];
 
@@ -576,6 +578,7 @@ export function packScene(
       d[zb + i * 6 + 5] = zn.structure;
       d.set(zn.prof, pb + i * 8);
     }
+    d.set(k.bump.subarray(0, TV_BUMP_N), PARAM_OFFSET[`${prefix}_BUMP`]);
   };
   sk('TVS', V.tv);
   d.set(heart.segAmp.subarray(0, 18), PARAM_OFFSET['SEG_AMP']);

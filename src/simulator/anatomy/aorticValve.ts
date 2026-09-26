@@ -26,6 +26,8 @@ export const ROOT_SINUS_T = 0.95;
  */
 export const LVOT_TAPER_CM = 0.5;
 export const ROOT_STJ_T = 2.0;
+/** Thickness of the aortic root wall (cm), outside its lumen radius `rootRadiusAt`. */
+export const AORTIC_ROOT_WALL_CM = 0.2;
 export const ROOT_ASC_T = 3.0;
 /** Half thickness of the coaptation surfaces of the closed valve (cm). */
 export const AV_COAPT_HALF = 0.02;

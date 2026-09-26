@@ -1,9 +1,7 @@
 import { Structure, Tissue } from '../tissue';
 import { sdCapsule, sdEllipsoid, sdRoundCone, smin } from '../sdf';
 import { setSample, type ClassifyCtx } from './context';
-
-/** Wall of the aortic root and ascending aorta as the root block draws it (cm). */
-const AORTIC_WALL_CM = 0.2;
+import { AORTIC_ROOT_WALL_CM } from '../aorticValve';
 
 /** Pericardium & effusion: the outer envelope of all epicardial surfaces. True when the point is in the sac. */
 export function classifyPericardium(c: ClassifyCtx): boolean {
@@ -116,7 +114,7 @@ export function classifyPericardium(c: ClassifyCtx): boolean {
   // outside the sac: how far beyond the parietal pericardium, or beyond the wall of the ascending aorta, which leaves
   // the sac — what the thorax classifier needs to wrap the lungs around the heart (decision 144)
   const dSac = dEpi - 0.12 - (eff > 0 ? eff + 0.12 : 0);
-  const dRoot = c.rootT > -90 ? c.rootRr - c.rootR - AORTIC_WALL_CM : dSac;
+  const dRoot = c.rootT > -90 ? c.rootRr - c.rootR - AORTIC_ROOT_WALL_CM : dSac;
   out.sdf = Math.min(dSac, dRoot);
   return false;
 }

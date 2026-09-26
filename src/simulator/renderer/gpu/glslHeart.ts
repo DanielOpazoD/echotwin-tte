@@ -48,6 +48,8 @@ import {
   SKIRT_THICK_EDGE,
   SKIRT_THICK_FLOOR_CM,
   TV_INFLOW_BULGE_CM,
+  TV_BUMP_N,
+  TV_BUMP_STEP_RAD,
 } from '@/simulator/anatomy/valveSkirt';
 
 import { FAR_FROM_HEART_CM } from '@/simulator/anatomy/classify';
@@ -115,6 +117,8 @@ const float PV_RADIUS = ${f(PV_RADIUS)};
 const float RV_OUTFLOW_BLEND_CM = ${f(RV_OUTFLOW_BLEND_CM)};
 const float SKIRT_ABOVE_CM = ${f(SKIRT_ABOVE_CM)};
 const float TV_INFLOW_BULGE_CM = ${f(TV_INFLOW_BULGE_CM)};
+const float TV_BUMP_STEP_RAD = ${f(TV_BUMP_STEP_RAD)};
+const int TV_BUMP_N = ${TV_BUMP_N};
 const float FAR_FROM_HEART_CM = ${f(FAR_FROM_HEART_CM)};
 const float SKIRT_BELOW_CM = ${f(SKIRT_BELOW_CM)};
 const float SKIRT_RADIAL_MARGIN_CM = ${f(SKIRT_RADIAL_MARGIN_CM)};
@@ -152,10 +156,22 @@ void setSample(out Sample s, int tissue, float sdf, vec3 n, vec3 m, float extra,
 
 // ---- profile helpers (skirts) ----
 float profAt(int base, int i) { return P(base + i); }
+// tricuspid annulus extension (valveSkirt.ts skirtBumpAt / skirtWarpScale, decision 224)
+float tvBumpAt(float phi) {
+  float f = phi / TV_BUMP_STEP_RAD;
+  if (f <= 0.0 || f >= float(TV_BUMP_N - 1)) return 0.0;
+  int i = int(floor(f));
+  return mix(P(TVS_BUMP_BASE + i), P(TVS_BUMP_BASE + i + 1), f - float(i));
+}
+float tvWarpScale(vec2 d) {
+  float b = dot(d, d) > 1e-12 ? tvBumpAt(atan(d.y, d.x)) : 0.0;
+  return b > 0.0 ? TVS_R / (TVS_R + b) : 1.0;
+}
 
 // AV-valve skirt: minimum over leaflet zones (radial revolution or parallel-fibre sheets); writes distance, frac, zone, normal
 float skirtDistance(vec3 p, vec3 c, float R, int zonesBase, int profBase, int nz, float closed, float blend, float thickness, float saddle, out float dOut, out float fracOut, out int zoneOut, out vec3 nOut) {
   vec2 d = p.xy - c.xy;
+  d *= tvWarpScale(d);
   float zr0 = p.z - c.z;
   float rho = length(d);
   zoneOut = 0;
@@ -560,6 +576,7 @@ float tvOffsetAt(vec2 q) {
 }
 float tvInflowSdf(vec3 p) {
   vec2 d = p.xy - vec2(TVS_CX, TVS_CY);
+  d *= tvWarpScale(d);
   float r2 = dot(d, d);
   float rho = sqrt(r2);
   float phi = r2 > 1e-12 ? atan(d.y, d.x) : 0.0;
@@ -689,7 +706,8 @@ bool classifyHeart(vec3 p0, out Sample s) {
       return true;
     }
     vec3 q = vec3(TV_RING_X, TV_RING_Y, TV_RING_Z);
-    float dT = sdTorusZ(vec3(x, y, z - tvOffsetAt(p.xy)), q, TV_RING_R, 0.09);
+    vec2 dq = p.xy - q.xy;
+    float dT = sdTorusZ(vec3(q.xy + dq * tvWarpScale(dq), z - tvOffsetAt(p.xy)), q, TV_RING_R, 0.09);
     if (dT < 0.0) {
       setSample(s, T_FIBROUS, dT, vec3(x - q.x, y - q.y, 0.0), p, 0.0, S_TV_ANN);
       return true;
@@ -839,9 +857,10 @@ bool classifyHeart(vec3 p0, out Sample s) {
       if (u0 > 0.0 && u0 < 1.0) {
         float r0 = length(p.xy);
         // decision 220
-        float rhoT = length(vec2(x - TVS_CX, y - TVS_CY));
+        vec2 dT = vec2(x - TVS_CX, y - TVS_CY);
+        float rhoT = length(dT);
         float tvOffEd = tvOff - TVS_LIFT - (rhoT > 1e-6 ? TVS_TILTC * (x - TVS_CX) / rhoT : TVS_TILTC);
-        raSleeve = max(max(max(rr0.x + 0.1 - r0, r0 - (rr0.z - RV_FW)), max(rvFloorZ(TV_CZ, 0.0, 0.0, u0, tvOffEd) - z, z - rvFloorZ(TV_CZ, TVZ, PV_Z, u0, tvOff))), rhoT - (TVS_R + RA_SLEEVE_MARGIN_CM));
+        raSleeve = max(max(max(rr0.x + 0.1 - r0, r0 - (rr0.z - RV_FW)), max(rvFloorZ(TV_CZ, 0.0, 0.0, u0, tvOffEd) - z, z - rvFloorZ(TV_CZ, TVZ, PV_Z, u0, tvOff))), rhoT * tvWarpScale(dT) - (TVS_R + RA_SLEEVE_MARGIN_CM));
       }
     }
     dFreeRa = min(dFreeRa, raSleeve);
@@ -860,7 +879,8 @@ bool classifyHeart(vec3 p0, out Sample s) {
     if (dFreeRa < 0.22 && septumPlane < 0.0 && dSvc >= 0.0 && dIvc >= 0.0) {
       // no wall across the tricuspid orifice (decision 64): atrial blood up to the annular plane, ventricular past it
       // decision 219
-      if (length(vec2(x - TVS_CX, y - TVS_CY)) < TVS_R && z > czR) {
+      vec2 dO = vec2(x - TVS_CX, y - TVS_CY);
+      if (length(dO) * tvWarpScale(dO) < TVS_R && z > czR) {
         setSample(s, T_BLOOD, dFreeRa - 0.22, vec3((x - ra.x) / rar.x, (y - ra.y) / rar.y, (z - czR) / rzR), p, 0.0, z > TV_CZ + TVZ + tvOff ? S_RV_CAV : S_RA_CAV);
         return true;
       }

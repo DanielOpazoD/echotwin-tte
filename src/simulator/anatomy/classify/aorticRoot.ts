@@ -1,5 +1,6 @@
 import { Structure, Tissue } from '../tissue';
 import { ROOT_EXCURSION } from '../heartFrame';
+import { AORTIC_ROOT_WALL_CM } from '../aorticValve';
 import { setSample, type ClassifyCtx } from './context';
 
 /** Aortic root / LVOT (tube along avAxis) and the aorto-mitral curtain. True when the point is one of them. */
@@ -10,7 +11,7 @@ export function classifyAorticRoot(c: ClassifyCtx): boolean {
     const t = rootT,
       rr = rootRr,
       R = rootR;
-    const wall = 0.2;
+    const wall = AORTIC_ROOT_WALL_CM;
     if (rr < R) {
       setSample(
         out,

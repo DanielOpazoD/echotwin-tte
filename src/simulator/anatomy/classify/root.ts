@@ -11,6 +11,9 @@ export function rootBend(t: number): number {
   return t > 3 ? 0.16 * (t - 3) * (t - 3) : 0;
 }
 
+/** Length (cm) of the root tube along its axis from the annulus: the ascending aorta ends there. */
+export const ROOT_TUBE_END_T = 6.5;
+
 /** Aortic root coordinates (tube along avAxis; also carves the LV base). Writes the root fields of the context. */
 export function rootCoordinates(c: ClassifyCtx): void {
   const { hp, A, x, y, z } = c;
@@ -30,7 +33,7 @@ export function rootCoordinates(c: ClassifyCtx): void {
       dy = y - cc.y,
       dz = z - czz;
     const t = dx * ax.x + dy * ax.y + dz * ax.z; // along axis, 0 at annulus, negative toward LV
-    if (t > -1.6 && t < 6.5) {
+    if (t > -1.6 && t < ROOT_TUBE_END_T) {
       // the ascending aorta curves toward the patient's right/anterior beyond the sinotubular junction
       // (it leaves the long-axis plane after ~3 cm instead of running straight for 7 cm)
       const bend = rootBend(t);

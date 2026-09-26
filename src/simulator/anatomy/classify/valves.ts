@@ -3,7 +3,7 @@ import { sdCapsule, sdSegmentChain, sdTorusZ, type ChainHit } from '../sdf';
 import { fastAtan2 } from '@/core/noise';
 import { aorticContactBand, aorticCuspDistance, aorticHit, AV_COAPT_HALF } from '../aorticValve';
 import { mitralAnnulusDistance, mitralDistance, mitralHit } from '../mitralValve';
-import { TWO_PI, skirtDistance, skirtHit, skirtOffset } from '../valveSkirt';
+import { TWO_PI, skirtDistance, skirtHit, skirtOffset, skirtWarpScale } from '../valveSkirt';
 import { setSample, type ClassifyCtx } from './context';
 
 const chainHit: ChainHit = { d: 0, frac: 0 };
@@ -178,9 +178,11 @@ export function classifyValves(c: ClassifyCtx): boolean {
       return true;
     }
     const q = V.tvRing;
+    // the ring of the extended annulus: drawn where it is a circle again (decision 224)
+    const wr = skirtWarpScale(V.tv, x - q[0], y - q[1]);
     const dT = sdTorusZ(
-      x,
-      y,
+      q[0] + (x - q[0]) * wr,
+      q[1] + (y - q[1]) * wr,
       z - skirtOffset(V.tv, fastAtan2(y - q[1], x - q[0])),
       q[0],
       q[1],
