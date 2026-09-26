@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 216 (última: 216).
+Decisiones: 217 (última: 217).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -224,3 +224,4 @@ Decisiones: 216 (última: 216).
 | [214](DECISIONS.md#L1387) | 2026-09-25 | La pared libre del VD entra en el tracto de salida sin borde | vigente |
 | [215](DECISIONS.md#L1389) | 2026-09-25 | Las vistas apicales giran alrededor del eje largo del VI desde una sonda sobre él | vigente |
 | [216](DECISIONS.md#L1391) | 2026-09-25 | El A5C corta la válvula aórtica cerca de su centro | vigente |
+| [217](DECISIONS.md#L1393) | 2026-09-25 | El A5C gira hacia el eje largo y muestra la mitral y la aurícula izquierda | vigente |

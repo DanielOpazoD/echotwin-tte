@@ -189,6 +189,64 @@ function apicalOrigin(thorax: ThoraxModel, s: { u: number; v: number }): Vec3 {
  */
 const APICAL_PLANE_PIVOT = 0.5;
 
+/** Depth (cm) within which a rib or lung on a ray of the sector shadows what lies beyond it in an apical view. */
+const APICAL_NEAR_FIELD_CM = 4;
+
+/** Share of 33 rays across the 80° sector that meet a rib or lung within the near field of a probe control. */
+export function nearFieldBlockedShare(thorax: ThoraxModel, control: ProbeControl): number {
+  const beam = beamFrameFromPose(poseFromControl(thorax, control), 1);
+  const RAYS = 33;
+  let blocked = 0;
+  for (let i = 0; i < RAYS; i++) {
+    const a = (i / (RAYS - 1) - 0.5) * ((80 * Math.PI) / 180);
+    const dir = add(scale(beam.forward, Math.cos(a)), scale(beam.lateral, Math.sin(a)));
+    for (let r = 0.1; r < APICAL_NEAR_FIELD_CM; r += 0.1) {
+      const p = add(beam.origin, scale(dir, r));
+      if (isInRib(thorax, p.x, p.y, p.z) || isAnteriorLung(thorax, p.x, p.y, p.z)) {
+        blocked++;
+        break;
+      }
+    }
+  }
+  return blocked / RAYS;
+}
+
+/**
+ * Skin point of an apical view aimed at its own target (the five-chamber and RV-focused views, decision 217): the probe
+ * slides within the rib-free band of its intercostal space, up to 1.5 cm along it, to the point from which the fewest rays
+ * of the sector meet a rib or lung before 4 cm, the nearest to the apical window among equals. Turned 45° from the
+ * four-chamber view, the five-chamber sector crossed the space obliquely and a rib shadowed a quarter of its septal half
+ * (the right ventricle) in three cases of four.
+ */
+function clearedApicalSkin(
+  thorax: ThoraxModel,
+  window: { u: number; v: number },
+  target: Vec3,
+  right: Vec3,
+): { u: number; v: number } {
+  let best = window;
+  let bestShare = nearFieldBlockedShare(
+    thorax,
+    controlAimingAt(thorax, window.u, window.v, target, right, APICAL_PRESSURE),
+  );
+  let bestDist = 0;
+  for (let du = -1.5; du <= 1.5 + 1e-9; du += 0.25)
+    for (const dv of [-0.3, 0, 0.3]) {
+      const s = clampToIntercostal(thorax, window.u + du, window.v + dv, APICAL_FACE_MARGIN_CM);
+      const share = nearFieldBlockedShare(
+        thorax,
+        controlAimingAt(thorax, s.u, s.v, target, right, APICAL_PRESSURE),
+      );
+      const dist = Math.hypot(s.u - window.u, s.v - window.v);
+      if (share < bestShare - 1e-9 || (Math.abs(share - bestShare) < 1e-9 && dist < bestDist)) {
+        best = s;
+        bestShare = share;
+        bestDist = dist;
+      }
+    }
+  return best;
+}
+
 /**
  * The apical views whose planes contain the LV long axis (decision 215). The RV-focused view turned about it too until the
  * review of decision 215 found it: its preset lost the RV, the tricuspid valve and the right atrium, all required.
@@ -463,6 +521,7 @@ export function canonicalControl(
     // an off-axis window
     if (w.onAxis && TURNS_ABOUT_AXIS.has(view.id))
       return apicalAxisControl(view, heart, thorax, skin);
+    skin = clearedApicalSkin(thorax, skin, plane.target, plane.right);
   } else if (view.id === 'plax') {
     skin = skinPointOnPlane(thorax, plane, preferred, 1.5);
   } else if (view.window === 'parasternal') {
