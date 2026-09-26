@@ -7,6 +7,9 @@ description: Método de trabajo para mejorar la fidelidad anatómica y acústica
 
 Este método existe porque casi todos los errores de una sesión larga sobre la fidelidad del simulador tuvieron la misma forma: afirmar algo a partir de una imagen, de un plano equivocado o de una firma supuesta, en vez de medirlo. Cada regla viene de un error real.
 
+
+La misión y los objetivos que este método sirve están en `docs/MISION.md`: guíate por ellos para elegir qué medir y qué arreglar primero.
+
 ## Reglas
 
 1. **Reduce el defecto a un número antes de atribuirle una causa.** Una captura muestra un síntoma, no su origen. Diagnósticos hechos a ojo que resultaron falsos: una sonda construida al revés que se explicó como escorzo de cámara; una válvula pulmonar declarada «nunca dibujada» que existía (1,19% de los puntos alrededor del anillo); una línea entre aurícula y ventrículo derechos atribuida a grasa epicárdica cuando era la pared auricular atravesando el orificio tricuspídeo. Mide con el contador de estructuras por vista, perfiles a lo largo de líneas de barrido o cajas envolventes en Node.

@@ -56,6 +56,7 @@ funcionando en CPU, más despacio.
 
 ## Documentación
 
+- [`docs/MISION.md`](docs/MISION.md) — misión, objetivos medibles, cómo se prioriza y límites que no se cruzan.
 - [`docs/DECISIONS.md`](docs/DECISIONS.md) — cada decisión de diseño con las mediciones que la
   motivaron, incluidos los callejones sin salida y los errores corregidos.
 - [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) — qué no simula y qué está mal, con números.
