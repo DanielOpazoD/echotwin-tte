@@ -72,6 +72,14 @@ const PLAX_AP = R(v3(-0.5, 0.866, 0)); // from lateral(x)/anterior(y): anterosep
  */
 const A2C_RIGHT = R(v3(Math.cos(1.117), Math.sin(1.117), 0)); // 64°
 const AV_CENTER = v3(-0.7, 1.35, -0.25);
+/**
+ * Turn of the A5C plane about the long axis from the septal–lateral direction toward the inferolateral wall (decision 217):
+ * the four-chamber view tilted onto the outflow tract and turned 35° toward the apical long axis, so that the anterior
+ * mitral leaflet in continuity with the aortic root and the left atrium lie beside the valve, as in the reference images
+ * Daniel gave (a real A5C and its schematic: RV on the septal side, LVOT and aortic valve in the middle, mitral valve and a
+ * large left atrium on the lateral side).
+ */
+const A5C_TURN = (-35 * Math.PI) / 180;
 
 export function buildViewTargets(): ViewTarget[] {
   return [
@@ -293,19 +301,17 @@ export function buildViewTargets(): ViewTarget[] {
       id: 'a5c',
       name: 'Apical cinco cámaras (A5C)',
       window: 'apical',
-      // The four-chamber plane moved forward onto the outflow tract, keeping its septal–lateral orientation, through the
-      // aortic valve 0.5 cm on the atrial side of its centre (decision 216): the plane cuts 91 % of the annulus and 95 % of
-      // the sinuses, and both atria flank the root. From decision 85 to 215 it was aimed 0.55, then 0.85 cm behind the
-      // centre and turned 6-12° toward the inferior wall to keep the body of the left atrium: the root was cut 0.85 cm off
-      // its axis, a chord of 1.8 of its 2.5 cm, and the sinus wall and cusps, sectioned tangentially, drew a bright
-      // granular mass under the ventricle where the outflow tract should open (Daniel: «la válvula aórtica se ve
-      // extraña»). Tilted onto the valve from the apex, the plane leaves the cavity apex a few millimetres off it, as
-      // in a heart: through the valve centre (0.39 cm in the normal case) the anterior apical segment showed at both
-      // phases; 0.5 cm behind it, only where the window sits off the axis. The left atrium in the plane is its appendage
-      // in ten cases: this model's atria do not wrap the back of the root (docs/LIMITATIONS.md).
-      planeRight: R(v3(1, 0, 0)),
+      // The four-chamber plane tilted onto the outflow tract through the aortic valve, 0.3 cm on the atrial side of its
+      // centre (97 % of the annulus), and turned 35° toward the apical long axis (A5C_TURN, decision 217): the right
+      // ventricle on the septal side, the valve against the septum, the anterior mitral leaflet and the body of the left
+      // atrium on the lateral side. From decision 85 to 215 it was aimed 0.55, then 0.85 cm behind the valve centre and
+      // turned toward the inferior wall: the root was cut 0.85 cm off its axis and drew a bright granular mass where the
+      // outflow tract should open (Daniel: «la válvula aórtica se ve extraña»); decision 216 took it through the valve
+      // with the four-chamber orientation, which passed in front of the mitral annulus and the left atrium. The right
+      // atrium leaves the plane: the model's tricuspid annulus sits 1.7-2.9 cm from the aortic one (docs/LIMITATIONS.md).
+      planeRight: R(v3(Math.cos(A5C_TURN), Math.sin(A5C_TURN), 0)),
       planeDown: R(v3(0, 0, -1)),
-      target: v3(AV_CENTER.x, AV_CENTER.y - 0.5, AV_CENTER.z),
+      target: v3(AV_CENTER.x, AV_CENTER.y - 0.3, AV_CENTER.z),
       skin: { u: 6.8, v: -2.8 },
       requiredLandmarks: [
         { landmarkId: 'lvot', weight: 1.3, required: true },
