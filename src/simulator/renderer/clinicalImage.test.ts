@@ -107,7 +107,6 @@ const KNOWN_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // the horizontal speckle cell of the myocardium sits at the edge of the clinical range: 4CH end-diastole came inside
   // with the probe on the long axis (decision 215), and both end-systolic cells fall under it (1.96 against 1.98-2.0 mm)
   ['4CH-ES:speckleCellHorizontalMm', -0.14],
-  ['2CH-ES:speckleCellHorizontalMm', -0.1],
 ]);
 
 /**
@@ -177,47 +176,46 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['4CH-ED:bandDark8', 12.12],
   // up from 1.63 at decision 220: the contracted right ventricle leaves the atria deeper in the sector at end-systole
   ['4CH-ES:bandDark8', 1.86],
-  ['2CH-ED:bandDark8', 1.09],
+  // decision 221: the A-lines that lit this band at oblique incidence are gone
+  ['2CH-ED:bandDark8', 1.31],
   ['2CH-ES:bandDark8', 0.22],
   // the rib shadow over the inferior side of the two-chamber sector went away with the probe on the long axis (decision
   // 215): dark pixels at 4-8 cm fell from 5-31 quartile widths to 0.2-6.7
   ['4CH-ED:bandDark10', 0.35],
   // 1.18 → 1.35 with the RV body contracting 0.42 (decision 214): 0.0044 → 0.0047 of the band's pixels dark, against
   // CAMUS Good median 0, p75 0.002 and p90 0.015 — an IQR of 0.002 turns 0.0003 into 0.17 widths
-  ['4CH-ES:bandDark10', 0.94],
+  // decision 221: the A-lines that lit this band at oblique incidence are gone
+  ['4CH-ES:bandDark10', 1.14],
   ['2CH-ED:bandDark10', 0.21],
-  ['2CH-ES:bandDark10', 0.41],
-  // sharper than clinical (gradients 1.4-1.5× the median) and drawn with thin bright lines
-  ['4CH-ED:gradientP50', 2.51],
-  ['4CH-ES:gradientP50', 2.52],
-  ['2CH-ED:gradientP50', 3.54],
-  ['2CH-ES:gradientP50', 2.85],
-  ['4CH-ED:gradientP95', 0.92],
-  ['4CH-ES:gradientP95', 0.66],
-  ['2CH-ED:gradientP95', 1.7],
-  ['2CH-ES:gradientP95', 1.52],
-  ['4CH-ED:ridgeFraction', 1.7],
-  ['4CH-ES:ridgeFraction', 1.01],
-  ['2CH-ES:ridgeFraction', 1.35],
-  ['2CH-ED:ridgeFraction', 2.15],
+  // decision 221: the A-lines that lit this band at oblique incidence are gone
+  ['2CH-ES:bandDark10', 0.73],
+  // sharper than clinical (gradients 1.4-1.5× the median) and drawn with thin bright lines; less so since decision 221,
+  // when the A-lines at oblique incidence went (median gradient 2.2-2.9 quartile widths out, from 2.5-3.5; ridges 0.4-1.2,
+  // from 1.0-2.2)
+  ['4CH-ED:gradientP50', 2.22],
+  ['4CH-ES:gradientP50', 2.31],
+  ['2CH-ED:gradientP50', 2.92],
+  ['2CH-ES:gradientP50', 2.27],
+  ['4CH-ED:gradientP95', 0.61],
+  ['4CH-ES:gradientP95', 0.44],
+  ['2CH-ED:gradientP95', 1.13],
+  ['2CH-ES:gradientP95', 0.9],
+  ['4CH-ED:ridgeFraction', 1.23],
+  ['4CH-ES:ridgeFraction', 0.36],
+  ['2CH-ES:ridgeFraction', 0.45],
+  ['2CH-ED:ridgeFraction', 1.2],
   // more texture contrast over the whole sector: the blood pool and background are grainier than the clinical haze
-  ['4CH-ED:detrendedStd', 0.35],
-  ['2CH-ED:detrendedStd', 1.06],
+  ['2CH-ED:detrendedStd', 0.4],
   // texture longer along the beam at 1 mm (0.31-0.35 against 0.20-0.23) and, in the 2CH, less coherent across it at 2-4 mm
-  ['4CH-ED:radialCorr1', 1.33],
-  ['4CH-ES:radialCorr1', 0.8],
-  // at end-systole since the atrium shrank to its declared volume (decision 161): a little more texture against the
-  // ±4 mm mean (inside since decision 220) and a slightly negative correlation along the beam at 8 mm
-  ['4CH-ES:radialCorr8', -0.55],
-  ['2CH-ED:radialCorr1', 2.42],
-  ['2CH-ES:radialCorr1', 2.22],
-  ['2CH-ED:radialCorr2', 0.63],
-  ['2CH-ES:radialCorr4', 0.15],
-  ['2CH-ED:radialCorr8', -0.51],
-  ['2CH-ES:radialCorr8', -1.18],
-  ['4CH-ES:tangentialCorr4', -0.7],
-  ['2CH-ED:tangentialCorr4', -0.85],
-  ['2CH-ES:tangentialCorr4', -0.99],
+  ['4CH-ED:radialCorr1', 0.88],
+  ['4CH-ES:radialCorr1', 0.35],
+  // (the four-chamber end-systolic texture against the ±4 mm mean and its correlation along the beam at 8 mm, declared
+  // since decision 161, came inside at decisions 220 and 221)
+  ['2CH-ED:radialCorr1', 1.71],
+  ['2CH-ES:radialCorr1', 1.24],
+  ['4CH-ES:tangentialCorr4', -0.35],
+  ['2CH-ED:tangentialCorr4', -0.45],
+  ['2CH-ES:tangentialCorr4', -0.27],
   ['4CH-ED:tangentialCorr8', 0.49],
   // the cavity bands (4-10 cm) darker than clinical; the near field (0-2 cm), 141-154 against 105-115 until the
   // chest-wall muscle came down to its clinical grey (decision 156), is inside
@@ -226,19 +224,22 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['4CH-ES:bandGrey8', -0.29],
   ['2CH-ES:bandGrey8', -0.11],
   // a duller bright end at end-systole
-  ['4CH-ES:greyP95', -0.14],
+  // decision 221: without the bright A-lines at oblique incidence the bright end of the sector comes down
+  ['4CH-ES:greyP95', -0.36],
   // Where the rib shadow lay, the two-chamber sector shows lit tissue since decision 215 — the lung edge and, at its
   // inferior edge, the diaphragm over the liver — with the model's sharper, beam-elongated texture: gradients, ridges and
   // the radial correlation at 1 mm rose 0.4-1.2 widths, the outer quarter of the sector against its central half went
   // from under the clinical ratio to over it (1.66 and 1.37 against 1.10-1.48 and 0.96-1.26), and the whole-sector texture
   // contrast came out of the quartiles.
-  ['2CH-ED:edgeRollOff', 0.47],
-  ['2CH-ES:edgeRollOff', 0.38],
-  ['2CH-ED:localStd', 0.35],
+  ['2CH-ED:edgeRollOff', 0.21],
   ['2CH-ED:bandGrey2', 0.23],
-  ['2CH-ES:localStd', 0.21],
-  ['2CH-ES:detrendedStd', 0.86],
-  ['2CH-ES:radialCorr2', 0.51],
+  ['2CH-ES:detrendedStd', 0.16],
+  // decision 221: without the A-lines at oblique incidence, which striped the lung region, the far two-chamber band is
+  // duller and its texture less correlated across the beam and along it at 4 mm
+  ['4CH-ES:radialCorr4', -0.1],
+  ['2CH-ED:tangentialCorr2', -0.13],
+  ['2CH-ED:bandGrey10', -0.12],
+  ['2CH-ES:tangentialCorr8', -0.27],
 ]);
 
 /**

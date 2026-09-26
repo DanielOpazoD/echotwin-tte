@@ -46,6 +46,8 @@ export const TARGETS: GenTarget[] = [
     functions: [
       'myoHelixGain',
       'pleuralReverberation',
+      'pleuralIncidenceCos',
+      'pleuralCoherence',
       'beamHalfWidthCm',
       'focusingGain',
       'membraneWeight',

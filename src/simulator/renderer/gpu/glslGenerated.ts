@@ -187,7 +187,7 @@ float myoHelixGain(float dphi, float dz, float u) {
   return MYO_ANISO_FLOOR + (1.0 - MYO_ANISO_FLOOR) * (1.0 - c * c);
 }
 // src/simulator/renderer/acoustic/acoustics.ts: pleuralReverberation
-float pleuralReverberation(float rCm, float entryCm, float transmission, float modulation) {
+float pleuralReverberation(float rCm, float entryCm, float transmission, float modulation, float coherence) {
   if (rCm <= entryCm) {
     return 0.0;
   }
@@ -203,7 +203,15 @@ float pleuralReverberation(float rCm, float entryCm, float transmission, float m
     decay *= REVERB_DECAY;
   }
   float diffuse = REVERB_DIFFUSE * exp(-d / REVERB_DIFFUSE_DECAY_CM) * modulation;
-  return transmission * (REVERB_GAIN * band + diffuse);
+  return transmission * (REVERB_GAIN * band * coherence + diffuse);
+}
+// src/simulator/renderer/acoustic/acoustics.ts: pleuralIncidenceCos
+float pleuralIncidenceCos(float dEntryCm, float arcCm) {
+  return arcCm / sqrt(arcCm * arcCm + dEntryCm * dEntryCm);
+}
+// src/simulator/renderer/acoustic/acoustics.ts: pleuralCoherence
+float pleuralCoherence(float c) {
+  return c * c * c * c;
 }
 // src/simulator/renderer/acoustic/acoustics.ts: beamHalfWidthCm
 float beamHalfWidthCm(float rCm, float focusCm) {

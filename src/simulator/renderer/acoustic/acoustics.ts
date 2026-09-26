@@ -84,6 +84,30 @@ export const REVERB_PHASOR_RE_B: readonly [number, number, number] = [5.1, 2.3, 
 export const REVERB_PHASOR_IM_A: readonly [number, number, number] = [9.7, 13.1, 41.3];
 export const REVERB_PHASOR_IM_B: readonly [number, number, number] = [3.3, 7.7, 53.9];
 /** The pleural line itself: a strong coherent reflector, base + amplitude · lattice(line·f, r·f, z). */
+/**
+ * Incidence on the pleura (decision 221). The pleural line and its A-line reverberations are specular: they return to the
+ * transducer when the beam meets the pleura square on, and the A-lines are the same echo bouncing between pleura and
+ * probe. Both used to be drawn at full strength on every line that entered lung, whatever the angle, so where the lung
+ * surface ran along the beam each line's entry depth stepped from the next one's and the replicas at two and three
+ * times that depth drew staircases («square-wave zigzags» to a reviewing echocardiographer). The coherent part now
+ * follows the renderer's specular law, |n·d|⁴, with the incidence taken from the entry depths of the neighbouring lines;
+ * a rough pleura keeps PLEURA_DIFFUSE_FLOOR of its line at grazing incidence, and the diffuse reverberation (the dirty
+ * shadow behind the lung) does not depend on it.
+ */
+export const PLEURA_DIFFUSE_FLOOR = 0.25;
+/** Search window (cm) for a neighbouring line's lung entry around this line's: beyond it the surface is a cliff. */
+export const PLEURA_SLOPE_WINDOW_CM = 1.5;
+/**
+ * Cosine of the incidence on the pleura from the change of entry depth `dEntryCm` over the arc `arcCm` between the lines
+ * it was taken on (a surface square to the beam changes its depth by nothing across the lines).
+ */
+export function pleuralIncidenceCos(dEntryCm: number, arcCm: number): number {
+  return arcCm / Math.sqrt(arcCm * arcCm + dEntryCm * dEntryCm);
+}
+/** Coherent share of the pleural echo and its reverberations at incidence cosine `c`: the specular law |n·d|⁴. */
+export function pleuralCoherence(c: number): number {
+  return c * c * c * c;
+}
 export const PLEURA_BASE = 1.2;
 export const PLEURA_AMP = 0.4;
 export const PLEURA_LINE_FREQ = 0.8;
@@ -276,6 +300,7 @@ export function pleuralReverberation(
   entryCm: number,
   transmission: number,
   modulation: number,
+  coherence: number,
 ): number {
   if (rCm <= entryCm) return 0;
   const d = rCm - entryCm;
@@ -290,7 +315,7 @@ export function pleuralReverberation(
     decay *= REVERB_DECAY;
   }
   const diffuse = REVERB_DIFFUSE * Math.exp(-d / REVERB_DIFFUSE_DECAY_CM) * modulation;
-  return transmission * (REVERB_GAIN * band + diffuse);
+  return transmission * (REVERB_GAIN * band * coherence + diffuse);
 }
 
 export function heteroDb(tissue: number): number {
@@ -350,6 +375,8 @@ export const ACOUSTIC_GLSL_CONSTANTS: Readonly<
   REVERB_PHASOR_IM_B,
   PLEURA_BASE,
   PLEURA_AMP,
+  PLEURA_DIFFUSE_FLOOR,
+  PLEURA_SLOPE_WINDOW_CM,
   PLEURA_LINE_FREQ,
   PLEURA_DEPTH_FREQ,
   PLEURA_Z,

@@ -378,7 +378,9 @@ describe('pleural reverberation continuity', () => {
             sum += 0.55 ** (n + 1) * Math.exp(-(((d - n * period) / 0.12) ** 2));
           // the diffuse haze decays with the distance into the lung, not with the A-line period (decision 144)
           const expected = 0.7 * (0.9 * sum + 0.35 * Math.exp(-d / 1.5) * 0.6);
-          expect(Math.abs(pleuralReverberation(r, entry, 0.7, 0.6) - expected)).toBeLessThan(1e-12);
+          expect(Math.abs(pleuralReverberation(r, entry, 0.7, 0.6, 1) - expected)).toBeLessThan(
+            1e-12,
+          );
         }
     }
   });
@@ -388,28 +390,28 @@ describe('pleural reverberation continuity', () => {
     const expected = [0.9 * 0.55 ** 2, 0.9 * 0.55 ** 3, 0.9 * 0.55 ** 4];
     [2, 3, 4].forEach((n, i) => {
       const r = n * entry;
-      expect(Math.abs(pleuralReverberation(r, entry, 1, 0) - expected[i]!)).toBeLessThan(1e-12);
+      expect(Math.abs(pleuralReverberation(r, entry, 1, 0, 1) - expected[i]!)).toBeLessThan(1e-12);
       for (const eps of [-1e-8, 1e-8])
         expect(
           Math.abs(
-            pleuralReverberation(r + eps, entry, 1, 0) - pleuralReverberation(r, entry, 1, 0),
+            pleuralReverberation(r + eps, entry, 1, 0, 1) - pleuralReverberation(r, entry, 1, 0, 1),
           ),
         ).toBeLessThan(1e-10);
     });
     expect(
       Math.abs(
-        pleuralReverberation(2 * entry - 0.04, entry, 1, 0) -
-          pleuralReverberation(2 * entry + 0.04, entry, 1, 0),
+        pleuralReverberation(2 * entry - 0.04, entry, 1, 0, 1) -
+          pleuralReverberation(2 * entry + 0.04, entry, 1, 0, 1),
       ),
     ).toBeLessThan(1e-12);
   });
 
   it('is zero before the pleura and bounded by the entry transmission behind it', () => {
-    expect(pleuralReverberation(5, 2.3, 0, 0.6)).toBe(0);
-    expect(pleuralReverberation(2.3, 2.3, 0.4, 0.6)).toBe(0);
-    expect(pleuralReverberation(1, 2.3, 0.4, 0.6)).toBe(0);
+    expect(pleuralReverberation(5, 2.3, 0, 0.6, 1)).toBe(0);
+    expect(pleuralReverberation(2.3, 2.3, 0.4, 0.6, 1)).toBe(0);
+    expect(pleuralReverberation(1, 2.3, 0.4, 0.6, 1)).toBe(0);
     for (let r = 2.31; r <= 16; r += 0.05) {
-      const v = pleuralReverberation(r, 2.3, 0.4, 0.6);
+      const v = pleuralReverberation(r, 2.3, 0.4, 0.6, 1);
       expect(v).toBeGreaterThanOrEqual(0);
       expect(v).toBeLessThanOrEqual(0.4);
     }
