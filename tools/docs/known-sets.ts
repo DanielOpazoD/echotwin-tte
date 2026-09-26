@@ -33,6 +33,7 @@ export const KNOWN_SETS: readonly {
   { file: 'src/simulator/anatomy/truthCoherence.test.ts', name: 'KNOWN_RATIOS' },
   { file: 'src/simulator/anatomy/valveAnatomy.test.ts', name: 'KNOWN_GAPS_CM' },
   { file: 'src/simulator/anatomy/valveAnatomy.test.ts', name: 'KNOWN_ANNULUS_PARTITIONS' },
+  { file: 'src/simulator/anatomy/valveAnatomy.test.ts', name: 'KNOWN_PAPILLARY_GAPS_CM' },
   { file: 'src/simulator/anatomy/chestWall.test.ts', name: 'KNOWN_INTRUSION_CM' },
   {
     file: 'src/simulator/view-recognition/segmentCoverage.test.ts',

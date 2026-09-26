@@ -166,13 +166,14 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['2CH-ED:bandDark2', 0.14],
   ['2CH-ES:bandDark2', 0.24],
   ['4CH-ED:bandDark4', 3.72],
-  ['4CH-ES:bandDark4', 2.39],
+  // decision 225: the papillary muscles rose 0.6-0.8 cm toward the base, and the mid-cavity bands they crossed are blacker
+  ['4CH-ES:bandDark4', 2.83],
   ['2CH-ED:bandDark4', 2.67],
   ['2CH-ES:bandDark4', 2.32],
-  ['4CH-ED:bandDark6', 27.09],
+  ['4CH-ED:bandDark6', 27.45],
   ['4CH-ES:bandDark6', 1.2],
   ['2CH-ED:bandDark6', 6.66],
-  ['2CH-ES:bandDark6', 3.58],
+  ['2CH-ES:bandDark6', 3.85],
   ['4CH-ED:bandDark8', 12.12],
   // up from 1.63 at decision 220: the contracted right ventricle leaves the atria deeper in the sector at end-systole
   ['4CH-ES:bandDark8', 1.86],
@@ -206,6 +207,8 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['2CH-ED:ridgeFraction', 1.2],
   // more texture contrast over the whole sector: the blood pool and background are grainier than the clinical haze
   ['2CH-ED:detrendedStd', 0.4],
+  // on the edge of the quartiles since the papillary muscles rose out of the mid-cavity band (decision 225)
+  ['4CH-ED:detrendedStd', 0.1],
   // texture longer along the beam at 1 mm (0.31-0.35 against 0.20-0.23) and, in the 2CH, less coherent across it at 2-4 mm
   ['4CH-ED:radialCorr1', 0.88],
   ['4CH-ES:radialCorr1', 0.35],
@@ -237,9 +240,8 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['2CH-ED:bandGrey2', 0.23],
   ['2CH-ES:detrendedStd', 0.16],
   // decision 221: without the A-lines at oblique incidence, which striped the lung region, the far two-chamber band is
-  // duller and its texture less correlated across the beam (the four-chamber correlation along it at 4 mm, out at 221,
-  // came back inside with the atrium beside the membranous septum, decision 222)
-  ['2CH-ED:tangentialCorr2', -0.13],
+  // duller (its texture correlation across the beam at 2 mm, out since 221, came back inside at decision 225, and the
+  // four-chamber correlation along it at 4 mm with the atrium beside the membranous septum, decision 222)
   ['2CH-ED:bandGrey10', -0.12],
   ['2CH-ES:tangentialCorr8', -0.27],
 ]);
