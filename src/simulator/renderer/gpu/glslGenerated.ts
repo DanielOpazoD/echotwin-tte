@@ -62,7 +62,7 @@ float rvFloorZ(float tvCz, float tvZ, float pvZ, float u, float off) {
 // src/simulator/anatomy/rv.ts: rvRadialContraction
 float rvRadialContraction(float u) {
   float s = min(1.0, max(0.0, (u - 0.15) / 0.35));
-  return 0.15 + 0.27 * s * s * (3.0 - 2.0 * s);
+  return 0.15 + (RV_BODY_RADIAL_CONTRACTION - 0.15) * s * s * (3.0 - 2.0 * s);
 }
 // src/simulator/anatomy/lvWall.ts: septalShiftAt
 float septalShiftAt(float shiftCm, float az, float levelFrac) {
@@ -229,4 +229,4 @@ float sliceHalfWidthCm(float rCm, float focusCm) {
 `;
 
 /** Shader constants the generated functions read (must be #defines or constants of the including shader). */
-export const GLSL_GENERATED_FREE_IDENTIFIERS: readonly string[] = ["DESC_AORTA_R","DESC_AORTA_SLEEVE","DESC_AORTA_SLEEVE_FORWARD","DESC_AORTA_WALL","DESC_AORTA_X","DESC_AORTA_Z","FOCUS_HALF_APERTURE_MM","FOCUS_HALF_ELEVATION_MM","FOCUS_WAIST_ELEVATION_MM","FOCUS_WAIST_LATERAL_MM","MEMBRANE_CM","MYO_ANISO_FLOOR","MYO_HELIX_ENDO_DEG","MYO_HELIX_EPI_DEG","REVERB_DECAY","REVERB_DIFFUSE","REVERB_DIFFUSE_DECAY_CM","REVERB_GAIN","REVERB_PERIOD_MIN_CM","REVERB_WIDTH_CM","SLICE_HALF_BASE_CM","SLICE_HALF_SLOPE"];
+export const GLSL_GENERATED_FREE_IDENTIFIERS: readonly string[] = ["DESC_AORTA_R","DESC_AORTA_SLEEVE","DESC_AORTA_SLEEVE_FORWARD","DESC_AORTA_WALL","DESC_AORTA_X","DESC_AORTA_Z","FOCUS_HALF_APERTURE_MM","FOCUS_HALF_ELEVATION_MM","FOCUS_WAIST_ELEVATION_MM","FOCUS_WAIST_LATERAL_MM","MEMBRANE_CM","MYO_ANISO_FLOOR","MYO_HELIX_ENDO_DEG","MYO_HELIX_EPI_DEG","REVERB_DECAY","REVERB_DIFFUSE","REVERB_DIFFUSE_DECAY_CM","REVERB_GAIN","REVERB_PERIOD_MIN_CM","REVERB_WIDTH_CM","RV_BODY_RADIAL_CONTRACTION","SLICE_HALF_BASE_CM","SLICE_HALF_SLOPE"];

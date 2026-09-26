@@ -2,6 +2,7 @@ import type { CycleState } from '@/simulator/cardiac-cycle/cycleModel';
 import { Structure } from './tissue';
 import type { TissueSample } from './tissue';
 import { lvCavityRadius, lvProfileG } from './lvShape';
+import { rvRadialScale } from './rv';
 import { AV_AXIS, MITRAL_SHORT_AXIS_CM, heartToTorso, torsoToHeart } from './heartFrame';
 import { DESC_AORTA_X, DESC_AORTA_Z } from './thoraxModel';
 import { computeHeartPose } from './heartPose';
@@ -27,6 +28,8 @@ export interface Anchors {
   rvR: Vec3;
   /** RV crescent: maximal thickness (A4C basal diameter), azimuth span (rad, through π) and apex level (fraction of L). */
   rvT: number;
+  /** Radial contraction of the RV free wall relative to a normal heart, from the case's TAPSE (decision 220). */
+  rvRadialScale: number;
   rvAzA: number;
   rvAzP: number;
   rvApexFrac: number;
@@ -173,6 +176,7 @@ export function anchors(m: HeartModel): Anchors {
     rvCenter: v3(-(m.lv.rMax + a.lv.ivsdCm + 1.1 * rvR), -0.1, L * 0.4),
     rvR: v3(1.1 * rvR + 0.4, 1.1 * rvR + 1.6, L * 0.46),
     rvT: a.rv.basalDiameterCm,
+    rvRadialScale: rvRadialScale(m.physiology.tapseCm),
     rvAzA: RV_GROOVE_ANTERIOR_RAD,
     rvAzP: RV_GROOVE_INFERIOR_RAD,
     rvApexFrac: Math.min(0.9, Math.max(0.7, (a.rv.lengthCm + 0.8) / L)),

@@ -15,8 +15,10 @@ import { v3 } from '@/core/vec3';
  * whole heart back further deepens the apex, which sat too far from the apical chest wall along the long axis (decision
  * 92). Decision 139 turned the long axis 9° forward about the apex tip and moved the heart 0.8 cm out along it, which
  * took 0.4 cm off the intrusion of every case (normal 1.23 → 0.83 cm, 1.35 cm of tissue on the PLAX centre line); the
- * tamponade keeps its 1.88 cm because its effusion fills the wall whatever the heart does. Declared with baselines (cm);
- * a change beyond the tolerance fails in either direction.
+ * tamponade keeps its 1.88 cm because its effusion fills the wall whatever the heart does. Since decision 220 the right
+ * ventricular free wall moves inward by the case's systolic function, so the systolic intrusion changed where that is far
+ * from the old uniform value (hypertrophic cardiomyopathy 0.98 → 0.88 cm, pulmonary hypertension 0.49 → 0.59). Declared
+ * with baselines (cm); a change beyond the tolerance fails in either direction.
  */
 const KNOWN_INTRUSION_CM: Record<string, [number, number]> = {
   'normal-excellent-window': [0.83, 0.58],
@@ -25,9 +27,9 @@ const KNOWN_INTRUSION_CM: Record<string, [number, number]> = {
   'inferior-rwma': [1.13, 0.83],
   'aortic-stenosis-moderate': [0.45, 0.2],
   'aortic-stenosis-severe': [1.28, 0.93],
-  'hocm-sam': [1.23, 0.98],
+  'hocm-sam': [1.23, 0.88],
   'mvp-primary-mr': [0.98, 0.78],
-  'pulmonary-hypertension-rv': [0.89, 0.49],
+  'pulmonary-hypertension-rv': [0.89, 0.59],
   'pericardial-effusion-tamponade': [1.88, 1.88],
   'af-diastolic': [0.55, 0.2],
   'artifact-challenge': [0.74, 0.54],

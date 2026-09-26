@@ -302,6 +302,10 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
   // shortens in systole with its septal edge fixed (TV_SYSTOLIC_SHORTENING); leaflet lengths do not change.
   const tvOpen = state.tvOpen;
   const tvRNow = A.tvR * (1 - TV_SYSTOLIC_SHORTENING * state.contraction);
+  // The septal hinge hangs from the crux with the mitral one and descends with it; TAPSE is the excursion of the lateral
+  // hinge (decision 220). The whole annulus used to descend by TAPSE, so the septal offset between the tricuspid and the
+  // mitral hinges grew from 0.70 cm at end-diastole to 1.57-1.93 cm in systole, past the Ebstein threshold.
+  const septalLag = (zAnn - tvZ) / 2;
 
   const tv: SkirtDesc = {
     cx: A.tvCenter.x + (A.tvR - tvRNow),
@@ -312,10 +316,11 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
     thickness: 0.09,
     saddle: TV_SADDLE_CM,
     saddlePhi: TV_SADDLE_PHI,
-    // the anterior rim toward the level of the aortic root (decision 148)
-    tiltC: 0,
+    // the anterior rim toward the level of the aortic root (decision 148); the septal hinge lags the lateral one by
+    // TAPSE − MAPSE (decision 220)
+    tiltC: septalLag,
     tiltS: -TV_ANTERIOR_TILT_CM,
-    lift: 0,
+    lift: septalLag,
     closed: 1 - tvOpen,
     zones: [],
   };

@@ -1215,3 +1215,42 @@ describe('venous inflow (decision 219)', () => {
     expect(problems).toEqual([]);
   });
 });
+
+describe('septal hinges at the crux (decision 220)', () => {
+  it('the septal tricuspid hinge descends with the mitral annulus and TAPSE is the lateral hinge, in every case through the cycle', () => {
+    // The whole tricuspid annulus descended by TAPSE, so the septal offset between the tricuspid and mitral hinges grew
+    // from 0.70 cm at end-diastole to 1.57-1.93 cm in systole in eleven cases, past the Ebstein threshold. In healthy
+    // hearts the septal points of the atrioventricular plane move as the left ventricle's do.
+    const problems: string[] = [];
+    for (const input of CASE_INPUTS) {
+      const { c, heart, tables } = setup(input.id);
+      let lo = Infinity,
+        hi = -Infinity;
+      let lat0 = 0,
+        tapse0 = 0;
+      for (let i = 0; i <= 20; i++) {
+        const state = cycleStateAt(tables, i / 20);
+        const pose = computeHeartPose(heart, state);
+        const tv = pose.valves.tv;
+        const offset = tv.cz + skirtOffset(tv, 0) - pose.zAnn;
+        lo = Math.min(lo, offset);
+        hi = Math.max(hi, offset);
+        const lateral = tv.cz + skirtOffset(tv, Math.PI);
+        const tapse = c.physiology.tapseCm * state.rvLongitudinal;
+        if (i === 0) {
+          lat0 = lateral;
+          tapse0 = tapse;
+        }
+        if (Math.abs(lateral - lat0 - (tapse - tapse0)) > 0.02)
+          problems.push(
+            `${input.id} @${i / 20}: lateral hinge moved ${(lateral - lat0).toFixed(2)} for TAPSE ${tapse.toFixed(2)}`,
+          );
+      }
+      if (hi - lo > 0.1)
+        problems.push(
+          `${input.id}: septal offset ${lo.toFixed(2)}–${hi.toFixed(2)} cm over the cycle`,
+        );
+    }
+    expect(problems).toEqual([]);
+  });
+});

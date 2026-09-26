@@ -10,7 +10,7 @@ import { add, scale, sub } from '@/core/vec3';
 import { classifyHeart } from './classify';
 import { torsoToHeart } from './heartFrame';
 import { computeHeartPose } from './heartPose';
-import { rvRadialContraction } from './rv';
+import { RV_BODY_RADIAL_CONTRACTION, rvRadialContraction } from './rv';
 import { makeSample, Structure } from './tissue';
 
 /**
@@ -83,7 +83,7 @@ describe('RV free wall and outflow tract (decision 214)', () => {
   it('contracts the outflow tract less than the body, as the infundibulum does', () => {
     // groove fraction: the outflow cones run from u 0.38 to the pulmonary valve at 0.03; the inflow is at 0.75
     expect(rvRadialContraction(0.05)).toBeCloseTo(0.15, 6);
-    expect(rvRadialContraction(0.75)).toBeCloseTo(0.42, 6);
+    expect(rvRadialContraction(0.75)).toBeCloseTo(RV_BODY_RADIAL_CONTRACTION, 6);
     for (let u = 0; u < 1; u += 0.05)
       expect(rvRadialContraction(u + 0.05)).toBeGreaterThanOrEqual(rvRadialContraction(u));
   });
