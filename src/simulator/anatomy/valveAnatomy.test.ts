@@ -13,7 +13,7 @@ import {
   type HeartPose,
 } from './heartModel';
 import { mitralFreeEdge, mitralLeafletPoint, MV_BINS } from './mitralValve';
-import { rootRadiusAt } from './aorticValve';
+import { AV_PHI0, rootRadiusAt } from './aorticValve';
 import { rvCrescent } from './rv';
 import { tvInflowSdf, skirtDistance, skirtHit, skirtOffset } from './valveSkirt';
 import { smin } from './sdf';
@@ -1250,6 +1250,63 @@ describe('septal hinges at the crux (decision 220)', () => {
         problems.push(
           `${input.id}: septal offset ${lo.toFixed(2)}–${hi.toFixed(2)} cm over the cycle`,
         );
+    }
+    expect(problems).toEqual([]);
+  });
+});
+
+describe('right atrium at the membranous septum (decision 222)', () => {
+  it('toward the commissure of the non-coronary and right coronary sinuses only a thin partition separates the outflow tract and root from the right atrium', () => {
+    // The atrium was clipped flat against the interatrial plane also in front of the left atrium, so between the outflow
+    // tract or root lumen and the atrial cavity there were 0.70-0.92 cm at the level of the sinuses and 1.12-1.56 cm just
+    // below the annulus, fat and a slab of interatrial septum where the membranous septum should stand alone.
+    const KNOWN_GAPS_CM: ReadonlyMap<string, number> = new Map([
+      // the dilated left atrium of the HFrEF case lies close enough to keep the interatrial plane below the annulus
+      ['hfref-severe-mr@0@-0.2', 0.96],
+      ['hfref-severe-mr@0.35@-0.2', 0.76],
+      ['mvp-primary-mr@0@-0.2', 0.54],
+    ]);
+    const s = makeSample();
+    const problems: string[] = [];
+    for (const input of CASE_INPUTS) {
+      const { heart, tables } = setup(input.id);
+      const A = heartAnchors(heart);
+      const phi = AV_PHI0 + (2 * 2 * Math.PI) / 3 + Math.PI / 3;
+      const toward = normalize(add(scale(A.avE1, Math.cos(phi)), scale(A.avE2, Math.sin(phi))));
+      for (const ph of [0, 0.35]) {
+        const pose = computeHeartPose(heart, cycleStateAt(tables, ph));
+        for (const h of [0.3, -0.2]) {
+          const c = add(add(A.avCenter, v3(0, 0, pose.zAnn * ROOT_EXCURSION)), scale(A.avAxis, h));
+          let exit = NaN,
+            gap = NaN,
+            next = -1;
+          for (let r = 0; r < 4; r += 0.02) {
+            const p = add(c, scale(toward, r));
+            const hit = classifyHeart(heart, pose, p.x + pose.swingX, p.y, p.z, s);
+            const lumen =
+              hit &&
+              s.tissue === Tissue.Blood &&
+              (s.structure === Structure.AorticRoot ||
+                s.structure === Structure.Lvot ||
+                s.structure === Structure.LvCavity);
+            if (Number.isNaN(exit)) {
+              if (!lumen) exit = r;
+            } else if (hit && s.tissue === Tissue.Blood) {
+              gap = r - exit;
+              next = s.structure;
+              break;
+            }
+          }
+          // a bulging sinus the line re-enters is not a partition
+          if (next === Structure.AorticRoot) continue;
+          const key = `${input.id}@${ph}@${h}`;
+          const baseline = KNOWN_GAPS_CM.get(key);
+          const ok =
+            next === Structure.RaCavity &&
+            (baseline === undefined ? gap <= 0.45 : Math.abs(gap - baseline) <= 0.1);
+          if (!ok) problems.push(`${key}: ${gap.toFixed(2)} cm to structure ${next}`);
+        }
+      }
     }
     expect(problems).toEqual([]);
   });

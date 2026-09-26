@@ -235,8 +235,8 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['2CH-ED:bandGrey2', 0.23],
   ['2CH-ES:detrendedStd', 0.16],
   // decision 221: without the A-lines at oblique incidence, which striped the lung region, the far two-chamber band is
-  // duller and its texture less correlated across the beam and along it at 4 mm
-  ['4CH-ES:radialCorr4', -0.1],
+  // duller and its texture less correlated across the beam (the four-chamber correlation along it at 4 mm, out at 221,
+  // came back inside with the atrium beside the membranous septum, decision 222)
   ['2CH-ED:tangentialCorr2', -0.13],
   ['2CH-ED:bandGrey10', -0.12],
   ['2CH-ES:tangentialCorr8', -0.27],

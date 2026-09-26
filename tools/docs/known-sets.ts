@@ -31,6 +31,7 @@ export const KNOWN_SETS: readonly {
   { file: 'src/simulator/windows/viewLandmarks.test.ts', name: 'KNOWN_UNREACHABLE_LANDMARKS' },
   { file: 'src/simulator/anatomy/truthCoherence.test.ts', name: 'KNOWN_TRUTH_DEVIATIONS' },
   { file: 'src/simulator/anatomy/truthCoherence.test.ts', name: 'KNOWN_RATIOS' },
+  { file: 'src/simulator/anatomy/valveAnatomy.test.ts', name: 'KNOWN_GAPS_CM' },
   { file: 'src/simulator/anatomy/chestWall.test.ts', name: 'KNOWN_INTRUSION_CM' },
   {
     file: 'src/simulator/view-recognition/segmentCoverage.test.ts',
