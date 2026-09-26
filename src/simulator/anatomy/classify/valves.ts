@@ -207,7 +207,8 @@ export function classifyValves(c: ClassifyCtx): boolean {
       return true;
     }
   }
-  // chordae tendineae (thin, only visible when in plane)
+  // chordae tendineae (thin, only visible when in plane); a cord's sample carries its axis, which the acoustics read for
+  // its interface echo and its share of the slice (decision 227)
   for (let i = 0; i < V.chordaeCount; i++) {
     const o = i * 6;
     const ch = V.chordae;
@@ -224,7 +225,19 @@ export function classifyValves(c: ClassifyCtx): boolean {
       0.045,
     );
     if (d < 0) {
-      setSample(out, Tissue.Chordae, d, 0, 0, 1, x, y, z, 0, Structure.Chordae);
+      setSample(
+        out,
+        Tissue.Chordae,
+        d,
+        ch[o + 3]! - ch[o]!,
+        ch[o + 4]! - ch[o + 1]!,
+        ch[o + 5]! - ch[o + 2]!,
+        x,
+        y,
+        z,
+        0,
+        Structure.Chordae,
+      );
       return true;
     }
   }

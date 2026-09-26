@@ -54,6 +54,8 @@ export const TARGETS: GenTarget[] = [
       'beamHalfWidthCm',
       'focusingGain',
       'membraneWeight',
+      'cordWeight',
+      'cordAlignment',
     ],
   },
   { file: 'src/simulator/renderer/acoustic/psf.ts', functions: ['sliceHalfWidthCm'] },

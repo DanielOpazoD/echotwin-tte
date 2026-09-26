@@ -734,9 +734,11 @@ bool classifyHeart(vec3 p0, out Sample s) {
   }
   for (int i = 0; i < 10; i++) {
     int o = CHORDAE_BASE + i * 6;
-    float d = sdCapsule(p, vec3(P(o), P(o + 1), P(o + 2)), vec3(P(o + 3), P(o + 4), P(o + 5)), 0.045);
+    vec3 ca = vec3(P(o), P(o + 1), P(o + 2)), cb = vec3(P(o + 3), P(o + 4), P(o + 5));
+    float d = sdCapsule(p, ca, cb, 0.045);
     if (d < 0.0) {
-      setSample(s, T_CHORDAE, d, vec3(0.0, 0.0, 1.0), p, 0.0, S_CHORDAE);
+      // decision 227: the cord's axis
+      setSample(s, T_CHORDAE, d, cb - ca, p, 0.0, S_CHORDAE);
       return true;
     }
   }

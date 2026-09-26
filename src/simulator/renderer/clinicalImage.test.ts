@@ -96,8 +96,14 @@ const KNOWN_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['4CH-ES:myocardialDetrendedStd', -1.08],
   ['2CH-ED:myocardialDetrendedStd', -0.52],
   ['2CH-ES:myocardialDetrendedStd', -0.73],
-  ['4CH-ED:levelStdSlope', -0.12],
+  // −0.12 → −0.28 at decision 227, and 2CH-ES out: the chordae, drawn as bright rods until then, lifted the texture of
+  // the mid cavity; as thin cords they leave it a little darker and more uniform than CAMUS Good, at the quartiles' edge
+  ['4CH-ED:levelStdSlope', -0.28],
   ['4CH-ES:levelStdSlope', -0.65],
+  ['2CH-ES:levelStdSlope', -0.14],
+  ['4CH-ES:cavityGrey', -0.1],
+  ['2CH-ED:cavityDetrendedStd', -0.13],
+  ['2CH-ES:cavityDetrendedStd', -0.2],
   // Contrast under the environment of decision 144 (docs/LIMITATIONS.md): the console the CAMUS sweep chose with the
   // focused beam (0.7 dB/cm/MHz) lifts the mid-field walls to 106 while the cavity, read at the receiver's lower noise
   // floor, stays at 50: 57 grey levels of contrast against 40 [33-47] in the 4CH and 56 against 44 [36-53] in the 2CH
@@ -208,18 +214,23 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['2CH-ED:ridgeFraction', 1.2],
   // more texture contrast over the whole sector: the blood pool and background are grainier than the clinical haze
   ['2CH-ED:detrendedStd', 0.4],
-  // on the edge of the quartiles since the papillary muscles rose out of the mid-cavity band (decision 225)
-  ['4CH-ED:detrendedStd', 0.1],
+  // (4CH-ED, on the edge since the papillary muscles rose out of the mid-cavity band at decision 225, came inside with the
+  // chordae as thin cords, decision 227)
   // texture longer along the beam at 1 mm (0.31-0.35 against 0.20-0.23) and, in the 2CH, less coherent across it at 2-4 mm
   ['4CH-ED:radialCorr1', 0.88],
   ['4CH-ES:radialCorr1', 0.35],
   // (the four-chamber end-systolic texture against the ±4 mm mean and its correlation along the beam at 8 mm, declared
   // since decision 161, came inside at decisions 220 and 221)
-  ['2CH-ED:radialCorr1', 1.71],
-  ['2CH-ES:radialCorr1', 1.24],
+  // 1.71 and 1.24 until the chordae became thin cords (decision 227): their bright rods ran along the apical beams
+  ['2CH-ED:radialCorr1', 1.51],
+  ['2CH-ES:radialCorr1', 1.03],
   ['4CH-ES:tangentialCorr4', -0.35],
-  ['2CH-ED:tangentialCorr4', -0.45],
-  ['2CH-ES:tangentialCorr4', -0.27],
+  // −0.45 until decision 227 (the 2CH-ES one, −0.27, came inside with it)
+  ['2CH-ED:tangentialCorr4', -0.28],
+  // decision 227, at the edge: the four-chamber end-systolic texture along the beam at 2 mm, and the outer sector of the
+  // two-chamber against its centre
+  ['4CH-ES:radialCorr2', -0.1],
+  ['2CH-ES:edgeRollOff', 0.12],
   // 0.49 → 0.62 with the septal crest (decision 223) and 0.65 with the tricuspid annulus reaching the septum (decision
   // 224): the septal leaflet moves in the four-chamber view (50 samples at 11 cm), 0.0985 → 0.0998 in every realization;
   // 0.83 with the crux of decision 226, whose bright block of fibrous tissue beside the septum became myocardium
@@ -244,7 +255,7 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // contrast came out of the quartiles.
   ['2CH-ED:edgeRollOff', 0.21],
   ['2CH-ED:bandGrey2', 0.23],
-  ['2CH-ES:detrendedStd', 0.16],
+  // (the 2CH-ES whole-sector texture contrast, 0.16 out, came inside with the chordae as thin cords, decision 227)
   // decision 221: without the A-lines at oblique incidence, which striped the lung region, the far two-chamber band is
   // duller (its texture correlation across the beam at 2 mm, out since 221, came back inside at decision 225, and the
   // four-chamber correlation along it at 4 mm with the atrium beside the membranous septum, decision 222)
