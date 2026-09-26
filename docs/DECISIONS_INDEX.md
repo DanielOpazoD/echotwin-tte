@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 217 (última: 217).
+Decisiones: 218 (última: 218).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -225,3 +225,4 @@ Decisiones: 217 (última: 217).
 | [215](DECISIONS.md#L1389) | 2026-09-25 | Las vistas apicales giran alrededor del eje largo del VI desde una sonda sobre él | vigente |
 | [216](DECISIONS.md#L1391) | 2026-09-25 | El A5C corta la válvula aórtica cerca de su centro | vigente |
 | [217](DECISIONS.md#L1393) | 2026-09-25 | El A5C gira hacia el eje largo y muestra la mitral y la aurícula izquierda | vigente |
+| [218](DECISIONS.md#L1395) | 2026-09-25 | La aurícula derecha envuelve el lado derecho de la raíz aórtica | vigente |
