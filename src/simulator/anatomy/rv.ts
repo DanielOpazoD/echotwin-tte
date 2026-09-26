@@ -1,7 +1,7 @@
 import { lvCavityRadius, lvRadialOffsetFactor, type LvProfileTable } from './lvShape';
 import { latticeNoise3 } from '@/core/noise';
 import { ahaSegment } from './lvGeometry';
-import { septalShiftAt, wallThicknessAt } from './lvWall';
+import { septalCrestFactor, septalShiftAt, wallThicknessAt } from './lvWall';
 import { TWO_PI, skirtOffsetAt } from './valveSkirt';
 import type { AnchorsCached } from './anchors';
 import type { HeartModel } from './heartModel';
@@ -114,8 +114,13 @@ export function rvRadii(
   const rCav = lvCavityRadius(sh, prof, az, z);
   const levelFrac = Math.min(1, Math.max(0, (z - zAnn) / Math.max(lengthNow, 1)));
   const amp = m.segAmp[ahaSegment(az, levelFrac)] ?? 1;
-  const rEpi =
-    rCav + wallThicknessAt(m, thickK, az, levelFrac, amp) * lvRadialOffsetFactor(sh, prof, az, z);
+  // the septal crest gives its thickness to the ventricle, whose free wall stays (decision 223)
+  const wFull =
+    wallThicknessAt(m, thickK, az, levelFrac, amp) * lvRadialOffsetFactor(sh, prof, az, z);
+  // below the tricuspid plane only: above it the space beside the crest is the atrium's (a smooth 0.3 cm step)
+  const below = Math.min(1, Math.max(0, (z - (A.tvCenter.z + tvZ - 0.6)) / 0.3));
+  const crestLoss = wFull * (1 - septalCrestFactor(az, z - zAnn)) * below * below * (3 - 2 * below);
+  const rEpi = rCav + wFull - crestLoss;
   const rIn = rEpi - septalShiftAt(septalShiftCm, az, levelFrac) + 0.05;
   res[0] = rIn;
   res[1] = u;
@@ -132,8 +137,8 @@ export function rvRadii(
     (1 - rvRadialContraction(u) * contraction * A.rvRadialScale);
   // tamponade: early-diastolic inward collapse of the anterior/outflow free wall
   if (rvCollapse > 0 && u < 0.55) t *= 1 - 0.65 * rvCollapse * (1 - u / 0.55);
-  res[2] = rIn + t;
-  res[3] = t;
+  res[2] = rIn + t + crestLoss;
+  res[3] = t + crestLoss;
 }
 
 /**

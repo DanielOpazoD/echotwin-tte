@@ -12,6 +12,11 @@ import {
   DESC_AORTA_Z,
 } from '@/simulator/anatomy/thoraxModel';
 import { RV_BODY_RADIAL_CONTRACTION } from '@/simulator/anatomy/rv';
+import {
+  SEPTAL_CREST_AZ,
+  SEPTAL_CREST_HALF_WIDTH,
+  SEPTAL_CREST_Z_CM,
+} from '@/simulator/anatomy/lvWall';
 
 const gf = (v: number): string => (Number.isInteger(v) ? `${v}.0` : `${v}`);
 
@@ -114,6 +119,10 @@ const float DESC_AORTA_SLEEVE = ${gf(DESC_AORTA_SLEEVE)};
 const float DESC_AORTA_SLEEVE_FORWARD = ${gf(DESC_AORTA_SLEEVE_FORWARD)};
 // right ventricular body contraction (rv.ts, decision 220): read by the generated rvRadialContraction
 const float RV_BODY_RADIAL_CONTRACTION = ${gf(RV_BODY_RADIAL_CONTRACTION)};
+// septal crest (lvWall.ts, decision 223): read by the generated septalCrestFactor
+const float SEPTAL_CREST_AZ = ${gf(SEPTAL_CREST_AZ)};
+const float SEPTAL_CREST_HALF_WIDTH = ${gf(SEPTAL_CREST_HALF_WIDTH)};
+const float SEPTAL_CREST_Z_CM = ${gf(SEPTAL_CREST_Z_CM)};
 
 // value noise on a 128^3 lattice with smoothstep weights (same as core/noise.ts latticeNoise3)
 float lat(vec3 p, int ch) {

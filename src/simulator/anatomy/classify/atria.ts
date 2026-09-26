@@ -62,6 +62,8 @@ export const RA_SEPTAL_RELEASE_RAMP_CM = 0.6;
 export const RA_SEPTAL_RELEASE_CM = 4;
 export const RA_MEMBRANOUS_TO: readonly [number, number, number] = [-1.45, -0.85, 0.05];
 export const RA_MEMBRANOUS_R_CM = 0.5;
+/** Reach (cm) from the ventricular epicardium over which the atrium follows the septal crest (decision 223). */
+export const RA_CREST_REACH_CM = 1.5;
 
 /** Distance to the superior vena cava, which enters the roof of the atrium from above (decision 219). */
 export function svcDistance(A: AnchorsCached, x: number, y: number, z: number): number {
@@ -207,6 +209,16 @@ export function classifyAtria(c: ClassifyCtx): boolean {
     dMs = smax(dMs, z - zBotR, 0.1);
     dMs = smax(dMs, -Math.max(c.dEllR - c.wallT - 0.05, zAnn - 0.25 - z), 0.1);
     dFreeRa = smin(dFreeRa, dMs, 0.3);
+  }
+  // where the atrium borders the septal crest it takes the thickness the crest gave up (decision 223): its surface moves
+  // with the septum's, within RA_CREST_REACH_CM of the ventricular epicardium, so no new lobe meets it at a crease
+  if (c.crestLoss > 0) {
+    const dEpi = c.dEllR - c.wallT;
+    // only outside the epicardium: inside it the gaps between the outflow tract and the septum are not the atrium's
+    const w =
+      Math.min(1, Math.max(0, dEpi / 0.05)) *
+      Math.min(1, Math.max(0, 1 - dEpi / RA_CREST_REACH_CM));
+    dFreeRa -= c.crestLoss * w;
   }
   // The base the ventricle vacates as its annulus descends belongs to the atrium: the atrioventricular plane works as a
   // piston and the atria lengthen by what the ventricles shorten (Carlsson 2004: the total heart volume barely changes).

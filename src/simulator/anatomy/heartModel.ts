@@ -13,7 +13,7 @@ import {
   type SegmentAmplitudes,
 } from './lvGeometry';
 import { buildHeartFrame, type HeartFrame } from './heartFrame';
-import { wallThicknessAt } from './lvWall';
+import { septalCrestFactor, wallThicknessAt } from './lvWall';
 import { classifyHeart } from './classify';
 import { anchorsCached } from './anchors';
 import type { HeartPose } from './heartPose';
@@ -204,6 +204,7 @@ export function lvEpicardialRadiusAt(m: HeartModel, hp: HeartPose, az: number, z
   return (
     lvCavityRadius(m.lv.shape, hp.prof, az, z) +
     wallThicknessAt(m, hp.thickK, az, levelFrac, amp) *
+      septalCrestFactor(az, z - hp.zAnn) *
       lvRadialOffsetFactor(m.lv.shape, hp.prof, az, z)
   );
 }

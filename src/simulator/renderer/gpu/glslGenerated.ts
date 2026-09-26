@@ -79,6 +79,39 @@ float septalShiftAt(float shiftCm, float az, float levelFrac) {
   }
   return shiftCm * c * c * zw;
 }
+// src/simulator/anatomy/lvWall.ts: septalCrestFactor
+float septalCrestFactor(float az, float zRel) {
+  float da = abs(az - SEPTAL_CREST_AZ);
+  if (da > PI) {
+    da = 2.0 * PI - da;
+  }
+  if (da >= SEPTAL_CREST_HALF_WIDTH) {
+    return 1.0;
+  }
+  float cw = cos((da / SEPTAL_CREST_HALF_WIDTH) * (PI / 2.0));
+  float d = zRel - SEPTAL_CREST_Z_CM;
+  float f = 1.0;
+  if (d <= 0.0) {
+    f = 0.2;
+  } else {
+    if (d < 0.1) {
+      f = 0.2 + 1.1 * d;
+    } else {
+      if (d < 0.2) {
+        f = 0.31 + 1.2 * (d - 0.1);
+      } else {
+        if (d < 0.5) {
+          f = 0.43 + 0.7 * (d - 0.2);
+        } else {
+          if (d < 1.0) {
+            f = 0.64 + 0.72 * (d - 0.5);
+          }
+        }
+      }
+    }
+  }
+  return 1.0 - cw * cw * (1.0 - f);
+}
 // src/simulator/anatomy/lvSegments.ts: lvSegmentCode
 float lvSegmentCode(float azimuthRad, float levelFrac, float rvAzA, float rvAzP) {
   float septal = (rvAzA + rvAzP) * 0.5;
@@ -237,4 +270,4 @@ float sliceHalfWidthCm(float rCm, float focusCm) {
 `;
 
 /** Shader constants the generated functions read (must be #defines or constants of the including shader). */
-export const GLSL_GENERATED_FREE_IDENTIFIERS: readonly string[] = ["DESC_AORTA_R","DESC_AORTA_SLEEVE","DESC_AORTA_SLEEVE_FORWARD","DESC_AORTA_WALL","DESC_AORTA_X","DESC_AORTA_Z","FOCUS_HALF_APERTURE_MM","FOCUS_HALF_ELEVATION_MM","FOCUS_WAIST_ELEVATION_MM","FOCUS_WAIST_LATERAL_MM","MEMBRANE_CM","MYO_ANISO_FLOOR","MYO_HELIX_ENDO_DEG","MYO_HELIX_EPI_DEG","REVERB_DECAY","REVERB_DIFFUSE","REVERB_DIFFUSE_DECAY_CM","REVERB_GAIN","REVERB_PERIOD_MIN_CM","REVERB_WIDTH_CM","RV_BODY_RADIAL_CONTRACTION","SLICE_HALF_BASE_CM","SLICE_HALF_SLOPE"];
+export const GLSL_GENERATED_FREE_IDENTIFIERS: readonly string[] = ["DESC_AORTA_R","DESC_AORTA_SLEEVE","DESC_AORTA_SLEEVE_FORWARD","DESC_AORTA_WALL","DESC_AORTA_X","DESC_AORTA_Z","FOCUS_HALF_APERTURE_MM","FOCUS_HALF_ELEVATION_MM","FOCUS_WAIST_ELEVATION_MM","FOCUS_WAIST_LATERAL_MM","MEMBRANE_CM","MYO_ANISO_FLOOR","MYO_HELIX_ENDO_DEG","MYO_HELIX_EPI_DEG","REVERB_DECAY","REVERB_DIFFUSE","REVERB_DIFFUSE_DECAY_CM","REVERB_GAIN","REVERB_PERIOD_MIN_CM","REVERB_WIDTH_CM","RV_BODY_RADIAL_CONTRACTION","SEPTAL_CREST_AZ","SEPTAL_CREST_HALF_WIDTH","SEPTAL_CREST_Z_CM","SLICE_HALF_BASE_CM","SLICE_HALF_SLOPE"];

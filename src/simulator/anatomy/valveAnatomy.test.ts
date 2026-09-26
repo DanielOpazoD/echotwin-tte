@@ -17,6 +17,7 @@ import { AV_PHI0, rootRadiusAt } from './aorticValve';
 import { rvCrescent } from './rv';
 import { tvInflowSdf, skirtDistance, skirtHit, skirtOffset } from './valveSkirt';
 import { smin } from './sdf';
+import { SEPTAL_CREST_AZ, SEPTAL_CREST_Z_CM } from './lvWall';
 import { SimulatorCore } from '@/simulator/core/simulatorCore';
 import { baseInput } from '@/simulator/core/baseInput';
 import { createThoraxModel, type ThoraxModel } from './thoraxModel';
@@ -1307,6 +1308,43 @@ describe('right atrium at the membranous septum (decision 222)', () => {
           if (!ok) problems.push(`${key}: ${gap.toFixed(2)} cm to structure ${next}`);
         }
       }
+    }
+    expect(problems).toEqual([]);
+  });
+});
+
+describe('septal crest under the membranous septum (decision 223)', () => {
+  it('under the commissure of the non-coronary and right coronary sinuses the septum narrows toward the annulus, as CT shows', () => {
+    // By CT the muscular septum is 3.0-3.4 mm thick 1 mm below the membranous septum and 9.7-10.7 mm 10 mm below it
+    // (Schamroth Pravda et al., Europace 2024). The model kept its full thickness up to the septum's basal edge (the
+    // same 1.0-1.5 cm at both heights). Measured at end-diastole across the wall, outward from the LV axis at the
+    // commissure's azimuth, 1 mm and 1 cm below the crest.
+    const s = makeSample();
+    const problems: string[] = [];
+    for (const input of CASE_INPUTS) {
+      const { heart, tables } = setup(input.id);
+      const pose = computeHeartPose(heart, cycleStateAt(tables, 0));
+      const across = (zRel: number): number => {
+        const z = pose.zAnn + SEPTAL_CREST_Z_CM + zRel;
+        let t = 0,
+          seen = false;
+        for (let r = 0; r < 6; r += 0.01) {
+          const x = r * Math.cos(SEPTAL_CREST_AZ),
+            y = r * Math.sin(SEPTAL_CREST_AZ);
+          const hit = classifyHeart(heart, pose, x + pose.swingX, y, z, s);
+          if (hit && s.structure === Structure.LvWallSeptal) {
+            t += 0.01;
+            seen = true;
+          } else if (seen) break;
+        }
+        return t;
+      };
+      const top = across(0.1),
+        low = across(1.0);
+      if (!(top <= 0.45 * low && low >= 0.6))
+        problems.push(
+          `${input.id}: ${top.toFixed(2)} cm 1 mm below the crest against ${low.toFixed(2)} 1 cm below`,
+        );
     }
     expect(problems).toEqual([]);
   });

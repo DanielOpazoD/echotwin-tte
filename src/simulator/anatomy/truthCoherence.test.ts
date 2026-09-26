@@ -89,6 +89,9 @@ describe('the drawn heart matches the truth its measurements are scored against'
         ['hocm-sam', 1.68],
         // the tricuspid regurgitation of the case (effective orifice 0.3 cm²) carries the difference
         ['pulmonary-hypertension-rv', 1.29],
+        // it ejects what its left ventricle ejects in total (68 of 69 mL): the forward flow subtracts a regurgitant volume
+        // the right ventricle's geometry does not know; the septal crest (decision 223) added the last mL
+        ['artifact-challenge', 1.21],
       ]);
       const problems: string[] = [];
       for (const input of CASE_INPUTS) {

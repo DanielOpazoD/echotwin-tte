@@ -8,7 +8,9 @@ const AORTIC_WALL_CM = 0.2;
 /** Pericardium & effusion: the outer envelope of all epicardial surfaces. True when the point is in the sac. */
 export function classifyPericardium(c: ClassifyCtx): boolean {
   const { m, hp, A, x, y, z, out, dEllR, wallT, nx0, ny0, nz0, rvSdf, raSleeve } = c;
-  const dLvEpi = dEllR - wallT; // the epicardium is the outer face of the wall shell
+  // the epicardium is the outer face of the wall shell; the sac keeps the septum's full thickness where its crest narrows
+  // (decision 223), so no hole opens between the root, the crest and the atrium
+  const dLvEpi = dEllR - wallT - c.crestLoss;
   const fw = m.anatomy.rv.freeWallThicknessCm;
   const dRvEpi = rvSdf[0]! - fw; // crescent and tricuspid inflow, computed just before (this point is outside the RV)
   const la = A.laCenter,

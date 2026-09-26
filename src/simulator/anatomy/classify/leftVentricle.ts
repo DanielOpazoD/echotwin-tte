@@ -3,7 +3,7 @@ import { sdRoundCone, smax, smin } from '../sdf';
 import { lvCavitySdf, lvProfileG } from '../lvShape';
 import { fastAtan2, latticeNoise3 } from '@/core/noise';
 import { insideMitralOutline, mitralHingeZ, mitralInflowSdf } from '../mitralValve';
-import { septalShiftAt, wallThicknessAt } from '../lvWall';
+import { septalCrestFactor, septalShiftAt, wallThicknessAt } from '../lvWall';
 import { aha17FromCode, lvSegmentCode, lvWallKind } from '../lvSegments';
 import { setSample, type ClassifyCtx } from './context';
 
@@ -58,7 +58,10 @@ export function classifyLeftVentricle(c: ClassifyCtx): boolean {
           0.5)
       : 0;
   const dCavR = dCav - regional + trab;
-  const tNow = wallThicknessAt(m, hp.thickK, az, levelFrac, amp);
+  const tFull = wallThicknessAt(m, hp.thickK, az, levelFrac, amp);
+  // the septum narrows under the membranous septum (decision 223); the atrium and the ventricle take the space
+  const tNow = tFull * septalCrestFactor(az, z - zAnn);
+  c.crestLoss = tFull - tNow;
 
   // Mitral inflow: the ventricle opens onto the whole annulus. The bullet profile is centred on the long axis and the
   // annulus 0.9 cm behind it, so the posterior and commissural hinges used to lie 0.2-0.8 cm (diastole) and up to
