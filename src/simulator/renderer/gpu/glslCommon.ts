@@ -11,6 +11,7 @@ import {
   DESC_AORTA_X,
   DESC_AORTA_Z,
 } from '@/simulator/anatomy/thoraxModel';
+import { RV_BODY_RADIAL_CONTRACTION } from '@/simulator/anatomy/rv';
 
 const gf = (v: number): string => (Number.isInteger(v) ? `${v}.0` : `${v}`);
 
@@ -111,6 +112,8 @@ const float DESC_AORTA_R = ${gf(DESC_AORTA_R)};
 const float DESC_AORTA_WALL = ${gf(DESC_AORTA_WALL)};
 const float DESC_AORTA_SLEEVE = ${gf(DESC_AORTA_SLEEVE)};
 const float DESC_AORTA_SLEEVE_FORWARD = ${gf(DESC_AORTA_SLEEVE_FORWARD)};
+// right ventricular body contraction (rv.ts, decision 220): read by the generated rvRadialContraction
+const float RV_BODY_RADIAL_CONTRACTION = ${gf(RV_BODY_RADIAL_CONTRACTION)};
 
 // value noise on a 128^3 lattice with smoothstep weights (same as core/noise.ts latticeNoise3)
 float lat(vec3 p, int ch) {

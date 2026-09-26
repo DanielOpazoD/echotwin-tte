@@ -529,7 +529,7 @@ vec4 rvRadii(float az, float z, float contraction, float tvZ, float rvCollapse) 
   float rIn = rEpi - septalShiftAt(SEPTAL_SHIFT, az, levelFrac) + 0.05;
   if (u <= 0.0 || u >= 1.0) return vec4(rIn, u, rIn, 0.0);
   float tvPlane = TV_CZ + tvZ;
-  float t = RV_T * rvAzProfile(RV_AZA, RV_AZP, u) * rvAxialTaper(tvPlane, RV_APEX_FRAC * L, z) * (1.0 - rvRadialContraction(u) * contraction);
+  float t = RV_T * rvAzProfile(RV_AZA, RV_AZP, u) * rvAxialTaper(tvPlane, RV_APEX_FRAC * L, z) * (1.0 - rvRadialContraction(u) * contraction * RV_RADIAL_SCALE);
   if (rvCollapse > 0.0 && u < 0.55) t *= 1.0 - 0.65 * rvCollapse * (1.0 - u / 0.55);
   return vec4(rIn, u, rIn + t, t);
 }
@@ -807,7 +807,10 @@ bool classifyHeart(vec3 p0, out Sample s) {
       float u0 = rr0.y;
       if (u0 > 0.0 && u0 < 1.0) {
         float r0 = length(p.xy);
-        raSleeve = max(max(max(rr0.x + 0.1 - r0, r0 - (rr0.z - RV_FW)), max(rvFloorZ(TV_CZ, 0.0, 0.0, u0, tvOff) - z, z - rvFloorZ(TV_CZ, TVZ, PV_Z, u0, tvOff))), length(vec2(x - TVS_CX, y - TVS_CY)) - (TVS_R + RA_SLEEVE_MARGIN_CM));
+        // the end-diastolic floor without the septal lag of the moment (decision 220): mirrors classifyAtria
+        float rhoT = length(vec2(x - TVS_CX, y - TVS_CY));
+        float tvOffEd = tvOff - TVS_LIFT - (rhoT > 1e-6 ? TVS_TILTC * (x - TVS_CX) / rhoT : TVS_TILTC);
+        raSleeve = max(max(max(rr0.x + 0.1 - r0, r0 - (rr0.z - RV_FW)), max(rvFloorZ(TV_CZ, 0.0, 0.0, u0, tvOffEd) - z, z - rvFloorZ(TV_CZ, TVZ, PV_Z, u0, tvOff))), rhoT - (TVS_R + RA_SLEEVE_MARGIN_CM));
       }
     }
     dFreeRa = min(dFreeRa, raSleeve);

@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 219 (última: 219).
+Decisiones: 220 (última: 220).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -227,3 +227,4 @@ Decisiones: 219 (última: 219).
 | [217](DECISIONS.md#L1393) | 2026-09-25 | El A5C gira hacia el eje largo y muestra la mitral y la aurícula izquierda | vigente |
 | [218](DECISIONS.md#L1395) | 2026-09-25 | La aurícula derecha envuelve el lado derecho de la raíz aórtica | vigente |
 | [219](DECISIONS.md#L1397) | 2026-09-25 | Las venas cavas desembocan en la aurícula derecha, la suprahepática en la cava y la aurícula tiene techo sobre el orificio tricuspídeo | vigente |
+| [220](DECISIONS.md#L1399) | 2026-09-25 | La bisagra septal de la tricúspide baja con la mitral y el VD expulsa lo que el VI envía hacia delante | vigente |

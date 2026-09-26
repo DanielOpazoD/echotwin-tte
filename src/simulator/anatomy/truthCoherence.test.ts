@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { CASE_INPUTS, loadCaseById } from '@/cases';
 import { measureModel } from './measureModel';
 import { computeGroundTruth } from '@/simulator/hemodynamics/groundTruth';
+import { buildBeatTables } from '@/simulator/cardiac-cycle/cycleModel';
 
 /**
  * The truth a measurement is scored against must be what the image shows (decision 161). The panel of 2026-09-22
@@ -69,4 +70,47 @@ describe('the drawn heart matches the truth its measurements are scored against'
       moved: [],
     });
   });
+
+  it(
+    'the right ventricle ejects what the left one sends forward (decision 220)',
+    { timeout: 600_000 },
+    () => {
+      // Without a shunt both ventricles move the same blood: the right ventricle's stroke volume equals the left one's
+      // forward volume (its total less the mitral and aortic regurgitant volumes) plus any tricuspid regurgitant volume.
+      // Until decision 220 the geometric right ventricle ejected 76-81 % of it in the normal hearts (61 of 75 mL in the
+      // reference case): its radial contraction was calibrated with the tricuspid annulus descending by TAPSE all round.
+      // Within 20 % in every case and 5 % in the reference one, except where the case's own right ventricle is larger than
+      // its forward flow can explain, declared with the ratio as baseline (±0.05).
+      const KNOWN_RATIOS: ReadonlyMap<string, number> = new Map([
+        // enlarged right ventricle (192 mL declared by its dimensions) with 35 mL of forward flow after the regurgitant
+        // mitral volume; its tricuspid regurgitation has no volume in the beat tables
+        ['hfref-severe-mr', 2.3],
+        // the systolic anterior motion's mitral regurgitation takes 18 mL of the 70 the ventricle ejects
+        ['hocm-sam', 1.68],
+        // the tricuspid regurgitation of the case (effective orifice 0.3 cm²) carries the difference
+        ['pulmonary-hypertension-rv', 1.29],
+      ]);
+      const problems: string[] = [];
+      for (const input of CASE_INPUTS) {
+        const c = loadCaseById(input.id);
+        const t = buildBeatTables(
+          60 / c.rhythm.heartRateBpm,
+          c.physiology,
+          c.rhythm,
+          c.hemodynamics,
+        );
+        const forward = t.strokeVolumeMl - t.regurgitation.mrVolumeMl - t.regurgitation.arVolumeMl;
+        const m = measureModel(c, undefined, 90000);
+        const row = (id: string) => m.rows.find((r) => r.id === id)!.value;
+        const rvSv = (row('rv-edv') * row('rv-ef')) / 100;
+        const ratio = rvSv / forward;
+        const baseline = KNOWN_RATIOS.get(c.id);
+        const tol = c.id === 'normal-excellent-window' ? 0.05 : 0.2;
+        const text = `${c.id}: right ${rvSv.toFixed(0)} mL against ${forward.toFixed(0)} forward (${ratio.toFixed(2)})`;
+        if (baseline === undefined ? Math.abs(ratio - 1) > tol : Math.abs(ratio - baseline) > 0.05)
+          problems.push(baseline === undefined ? text : `${text}, baseline ${baseline}`);
+      }
+      expect(problems).toEqual([]);
+    },
+  );
 });

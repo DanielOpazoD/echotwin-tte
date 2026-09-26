@@ -105,11 +105,11 @@ export const afDiastolicCase: CaseDefinitionInput = {
     'lavi',
     'la-emptying',
     'ravi',
-    'ra-long',
+    // the right atrial long axis (5.0-5.5 cm since the septal tricuspid hinge descends with the mitral one, decision 220)
+    // stays inside its range; the dilated atrium shows in its volume index
     'la-ao',
     // without atrial contraction the right ventricle fills less by end-diastole with the same systole: its geometric
-    // ejection fraction reads 44.8 % against 48.9 in the sinus-rhythm normal heart it shares its physiology with, once
-    // the infundibulum is no longer counted as atrium at end-systole (decision 149)
-    'rv-ef',
+    // ejection fraction reads 51.6 % against 57.8 in the sinus-rhythm normal heart it shares its physiology with (decision
+    // 220; 44.8 against 48.9 before), lower but inside the normal range, so it is no longer declared
   ],
 };

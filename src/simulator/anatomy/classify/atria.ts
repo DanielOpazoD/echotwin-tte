@@ -184,10 +184,14 @@ export function classifyAtria(c: ClassifyCtx): boolean {
     const u = rad[1]!;
     if (u > 0 && u < 1) {
       const r = Math.hypot(x, y);
+      // the end-diastolic floor has the annulus's own shape, without the septal lag of the moment (decision 220)
+      const rhoT = Math.hypot(x - V.tv.cx, y - V.tv.cy);
+      const tvOffEd =
+        tvOff - V.tv.lift - (rhoT > 1e-6 ? (V.tv.tiltC * (x - V.tv.cx)) / rhoT : V.tv.tiltC);
       dSleeve = Math.max(
         rad[0]! + 0.1 - r,
         r - (rad[2]! - m.anatomy.rv.freeWallThicknessCm),
-        rvFloorZ(A.tvCenter.z, 0, 0, u, tvOff) - z,
+        rvFloorZ(A.tvCenter.z, 0, 0, u, tvOffEd) - z,
         z - rvFloorZ(A.tvCenter.z, hp.tvZ, hp.pvZ, u, tvOff),
         Math.hypot(x - V.tv.cx, y - V.tv.cy) - (V.tv.R + RA_SLEEVE_MARGIN_CM),
       );

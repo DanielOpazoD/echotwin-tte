@@ -160,21 +160,23 @@ const KNOWN_GEOMETRY_DEVIATIONS: ReadonlyMap<string, number> = new Map([
 const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // black pixels where a clinical image has none (its cavities and background keep a haze above grey 20)
   ['4CH-ED:darkFraction', 1.93],
-  ['4CH-ES:darkFraction', 0.77],
+  // the right ventricle contracts in systole since decision 220 and leaves less black blood in the four-chamber view
+  ['4CH-ES:darkFraction', 0.39],
   ['4CH-ED:bandDark2', 0.44],
   ['4CH-ES:bandDark2', 0.44],
   ['2CH-ED:bandDark2', 0.14],
   ['2CH-ES:bandDark2', 0.24],
   ['4CH-ED:bandDark4', 3.72],
-  ['4CH-ES:bandDark4', 2.96],
+  ['4CH-ES:bandDark4', 2.39],
   ['2CH-ED:bandDark4', 2.67],
   ['2CH-ES:bandDark4', 2.32],
   ['4CH-ED:bandDark6', 27.09],
-  ['4CH-ES:bandDark6', 2.37],
+  ['4CH-ES:bandDark6', 1.2],
   ['2CH-ED:bandDark6', 6.66],
   ['2CH-ES:bandDark6', 3.58],
   ['4CH-ED:bandDark8', 12.12],
-  ['4CH-ES:bandDark8', 1.63],
+  // up from 1.63 at decision 220: the contracted right ventricle leaves the atria deeper in the sector at end-systole
+  ['4CH-ES:bandDark8', 1.86],
   ['2CH-ED:bandDark8', 1.09],
   ['2CH-ES:bandDark8', 0.22],
   // the rib shadow over the inferior side of the two-chamber sector went away with the probe on the long axis (decision
@@ -195,7 +197,7 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['2CH-ED:gradientP95', 1.7],
   ['2CH-ES:gradientP95', 1.52],
   ['4CH-ED:ridgeFraction', 1.7],
-  ['4CH-ES:ridgeFraction', 1.21],
+  ['4CH-ES:ridgeFraction', 1.01],
   ['2CH-ES:ridgeFraction', 1.35],
   ['2CH-ED:ridgeFraction', 2.15],
   // more texture contrast over the whole sector: the blood pool and background are grainier than the clinical haze
@@ -205,8 +207,7 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['4CH-ED:radialCorr1', 1.33],
   ['4CH-ES:radialCorr1', 0.8],
   // at end-systole since the atrium shrank to its declared volume (decision 161): a little more texture against the
-  // ±4 mm mean and a slightly negative correlation along the beam at 8 mm
-  ['4CH-ES:detrendedStd', 0.13],
+  // ±4 mm mean (inside since decision 220) and a slightly negative correlation along the beam at 8 mm
   ['4CH-ES:radialCorr8', -0.55],
   ['2CH-ED:radialCorr1', 2.42],
   ['2CH-ES:radialCorr1', 2.22],
@@ -222,7 +223,6 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // chest-wall muscle came down to its clinical grey (decision 156), is inside
   ['4CH-ED:bandGrey4', -0.27],
   ['2CH-ED:bandGrey4', -0.17],
-  ['4CH-ES:bandGrey6', -0.25],
   ['4CH-ES:bandGrey8', -0.29],
   ['2CH-ES:bandGrey8', -0.11],
   // a duller bright end at end-systole

@@ -34,20 +34,40 @@ export function rvFloorZ(tvCz: number, tvZ: number, pvZ: number, u: number, off:
 }
 
 /**
- * Fraction of the RV crescent's cavity thickness lost at full contraction, at groove fraction u (decision 214): 0.42 over
- * the inflow and the body, falling smoothly toward the anterior groove to the radial shortening of the outflow cones
- * (0.15, `rvOutflowScale`), which run from u 0.38 to the pulmonary valve at u 0.03. The infundibulum contracts less than
- * the sinus (fractional area change 28 ± 9 % against 42 ± 14 %; Geva et al., Circulation 1998;98:339-345) and there is no
- * clear boundary between the outlet and the rest of the ventricle (Ho and Nihoyannopoulos, Heart 2006;92 Suppl 1:i2-13).
- * The crescent used to lose 35 % everywhere, up to the edge of the cones that lose 15 %: in the long axis its anterior
- * wall pulled 1.3 cm away from the probe beside the outflow tract, which stayed, and in systole the two lumens separated
- * with a centimetre of wall between them. The body takes up the ejection the outlet gives away (0.35 → 0.42): the normal
- * case keeps its RV ejection fraction (51 → 50 %; 47 % without it, and five normal ventricles fell below 45 %) and its
- * four-chamber fractional area change goes from 40 to 42 % (normal 49 ± 7 %, Lang et al., JASE 2015).
+ * Fraction of the RV crescent's cavity thickness lost at full contraction by a normal right ventricle, at groove
+ * fraction u: RV_BODY_RADIAL_CONTRACTION over the inflow and the body, falling smoothly toward the anterior groove to the
+ * radial shortening of the outflow cones (0.15, `rvOutflowScale`), which run from u 0.38 to the pulmonary valve at u 0.03
+ * (decision 214). The infundibulum contracts less than the sinus (fractional area change 28 ± 9 % against 42 ± 14 %; Geva
+ * et al., Circulation 1998;98:339-345) and there is no clear boundary between the outlet and the rest of the ventricle
+ * (Ho and Nihoyannopoulos, Heart 2006;92 Suppl 1:i2-13). `rvRadialScale` scales it by the case's systolic function.
+ */
+export const RV_BODY_RADIAL_CONTRACTION = 0.75;
+/**
+ * The body value: 0.42 until decision 220, when the tricuspid annulus descended by TAPSE all round. Once its septal hinge
+ * descends with the mitral one, as the septal points of the atrioventricular plane do in healthy hearts (right-sided
+ * displacement 22 ± 3 mm averaged over septal, outflow and lateral points against 16 ± 2 mm on the left, which shares the
+ * septal ones; Lindholm et al., Int J Cardiovasc Imaging 2022;38:2235-2248), the normal case ejected 57 mL against the
+ * left ventricle's 75. With 0.75 the right ventricle ejects what the left one does (74 mL, ejection fraction 57.8 %, normal
+ * 3D 58 ± 6.5 %), its four-chamber fractional area change is 44 % (49 ± 7 %, Lang et al., JASE 2015) and its cavity in the
+ * mid short axis shrinks 37 % in systole where it shrank 5 %. The value is a fraction of the crescent's thickness along
+ * the LV radius, thin at its tips: what an image shows of it are those areas.
  */
 export function rvRadialContraction(u: number): number {
   const s = Math.min(1, Math.max(0, (u - 0.15) / 0.35));
-  return 0.15 + 0.27 * s * s * (3 - 2 * s);
+  return 0.15 + (RV_BODY_RADIAL_CONTRACTION - 0.15) * s * s * (3 - 2 * s);
+}
+
+/** TAPSE of the reference normal heart (cm), against which a case's right ventricular systolic function is scaled. */
+export const RV_REFERENCE_TAPSE_CM = 2.2;
+/**
+ * Radial contraction of a case's right ventricle relative to a normal one, from its TAPSE: (TAPSE / 2.2)^1.5 (decision
+ * 220). The cases declare their right ventricular systolic function only through TAPSE and S′, and the free wall that
+ * shortens is the one that moves inward. The exponent makes the geometric ejection fraction cross 45 % near a TAPSE of
+ * 1.7 cm, the two thresholds of right ventricular dysfunction in the guidelines (Rudski et al., JASE 2010): 47.8 % at
+ * 1.8 cm, 41.3 % at 1.6 and 39.0 % at 1.3; with the TAPSE ratio itself the 1.6 cm case read 45.7 %.
+ */
+export function rvRadialScale(tapseCm: number): number {
+  return Math.min(1.2, Math.pow(tapseCm / RV_REFERENCE_TAPSE_CM, 1.5));
 }
 
 /**
@@ -109,7 +129,7 @@ export function rvRadii(
     A.rvT *
     rvAzProfile(A.rvAzA, A.rvAzP, u) *
     rvAxialTaper(tvPlane, A.rvApexFrac * L, z) *
-    (1 - rvRadialContraction(u) * contraction);
+    (1 - rvRadialContraction(u) * contraction * A.rvRadialScale);
   // tamponade: early-diastolic inward collapse of the anterior/outflow free wall
   if (rvCollapse > 0 && u < 0.55) t *= 1 - 0.65 * rvCollapse * (1 - u / 0.55);
   res[2] = rIn + t;
