@@ -72,13 +72,6 @@ const PLAX_AP = R(v3(-0.5, 0.866, 0)); // from lateral(x)/anterior(y): anterosep
  */
 const A2C_RIGHT = R(v3(Math.cos(1.117), Math.sin(1.117), 0)); // 64°
 const AV_CENTER = v3(-0.7, 1.35, -0.25);
-/**
- * Turn of the A5C plane about the long axis from the septal–lateral direction toward the inferior wall (decisions 139 and
- * 215). 6° from the probe of decision 139; from the probe on the long axis 6° kept 1 and 38 samples of left atrium in the
- * pulmonary hypertension and tamponade cases (50 required, decision 85), and 12° keeps it in all twelve with the same
- * apical segments.
- */
-const A5C_TURN = (-12 * Math.PI) / 180;
 
 export function buildViewTargets(): ViewTarget[] {
   return [
@@ -300,19 +293,19 @@ export function buildViewTargets(): ViewTarget[] {
       id: 'a5c',
       name: 'Apical cinco cámaras (A5C)',
       window: 'apical',
-      // The four-chamber plane moved forward onto the outflow tract, keeping its septal–lateral orientation, and aimed at
-      // the aortic valve 0.55 cm behind its centre so the cusps and both atria stay in the sector (decision 85). It was
-      // rotated 19° toward the anterior wall and aimed 1 cm into the ventricle: the plane grazed the back of the root
-      // 0.9 cm from its centre, and the valve showed 1.3-2.1 cm from the septum, under the middle of the ventricle where
-      // the mitral valve belongs, instead of against the septum between both atria. Seen from the apical probe on the
-      // long axis and aimed from the beam's compressed origin (decision 139), that plane cut the valve and the left
-      // atrium at their edges (0.26% of left atrium in the normal case against the 1% the view needs; 43 atrial samples
-      // in systole in the tamponade case against 50). Turned 6° toward the inferolateral wall and aimed 0.3 cm further
-      // toward the inferior wall, it keeps valve, root and both atria in all twelve cases (left atrium 1.2-6.6% of the
-      // sector); 8° failed the difficult window (root no longer on the septal side) and 4° the tamponade.
-      planeRight: R(v3(Math.cos(A5C_TURN), Math.sin(A5C_TURN), 0)),
+      // The four-chamber plane moved forward onto the outflow tract, keeping its septal–lateral orientation, through the
+      // aortic valve 0.5 cm on the atrial side of its centre (decision 216): the plane cuts 91 % of the annulus and 95 % of
+      // the sinuses, and both atria flank the root. From decision 85 to 215 it was aimed 0.55, then 0.85 cm behind the
+      // centre and turned 6-12° toward the inferior wall to keep the body of the left atrium: the root was cut 0.85 cm off
+      // its axis, a chord of 1.8 of its 2.5 cm, and the sinus wall and cusps, sectioned tangentially, drew a bright
+      // granular mass under the ventricle where the outflow tract should open (Daniel: «la válvula aórtica se ve
+      // extraña»). Tilted onto the valve from the apex, the plane leaves the cavity apex a few millimetres off it, as
+      // in a heart: through the valve centre (0.39 cm in the normal case) the anterior apical segment showed at both
+      // phases; 0.5 cm behind it, only where the window sits off the axis. The left atrium in the plane is its appendage
+      // in ten cases: this model's atria do not wrap the back of the root (docs/LIMITATIONS.md).
+      planeRight: R(v3(1, 0, 0)),
       planeDown: R(v3(0, 0, -1)),
-      target: v3(AV_CENTER.x, AV_CENTER.y - 0.85, AV_CENTER.z),
+      target: v3(AV_CENTER.x, AV_CENTER.y - 0.5, AV_CENTER.z),
       skin: { u: 6.8, v: -2.8 },
       requiredLandmarks: [
         { landmarkId: 'lvot', weight: 1.3, required: true },
