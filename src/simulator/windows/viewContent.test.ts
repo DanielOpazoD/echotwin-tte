@@ -210,6 +210,10 @@ const KNOWN_VIEW_LIMITATIONS: ReadonlySet<string> = new Set([
   // The two-chamber plane clips the pulmonary trunk beside the left atrial appendage, 12-14 cm deep at the anterior edge
   // of the sector. The lung hid it until the A2C preset stopped sliding under the lingula (decisions 72 and 83).
   'a2c/pulmonary artery',
+  // The five-chamber plane holds the left atrial appendage beside the root but not the body of the left atrium (0 % in
+  // the normal case against the 1 % the view needs): since decision 216 it passes 0.5 cm from the centre of the aortic
+  // valve, and the atria of the model do not wrap the back of the root (KNOWN_A5C_WITHOUT_LA_BODY below).
+  'a5c/left atrium',
 ]);
 
 describe('standard views contain the structures they are meant to show', () => {
@@ -359,7 +363,27 @@ describe('apical presets keep the ventricle clear of lung where the window allow
   );
 });
 
-describe('apical five-chamber view (decision 85)', () => {
+/**
+ * Cases whose five-chamber view holds the left atrial appendage but not the body of the left atrium (model debt,
+ * docs/LIMITATIONS.md, «En el A5C la aurícula izquierda es sólo la orejuela»): since decision 216 the plane passes 0.5 cm
+ * from the centre of the aortic valve, and the atria of the model, ellipsoids behind the root, do not wrap its back as a
+ * heart's do; the dilated atria of the HFrEF and atrial fibrillation cases reach the plane. A case that gains the body of
+ * the atrium fails as stale.
+ */
+const KNOWN_A5C_WITHOUT_LA_BODY: ReadonlySet<string> = new Set([
+  'normal-excellent-window',
+  'normal-difficult-window',
+  'inferior-rwma',
+  'aortic-stenosis-moderate',
+  'aortic-stenosis-severe',
+  'hocm-sam',
+  'mvp-primary-mr',
+  'pulmonary-hypertension-rv',
+  'pericardial-effusion-tamponade',
+  'artifact-challenge',
+]);
+
+describe('apical five-chamber view (decisions 85 and 216)', () => {
   it(
     'puts the aortic valve against the septum, between both atria, not under the middle of the ventricle',
     { timeout: 180_000 },
@@ -369,8 +393,10 @@ describe('apical five-chamber view (decision 85)', () => {
       // the heart's septal–lateral axis in the drawn plane, not across the image: the image coordinate depends on where the
       // probe looks from, and the same anatomical cut seen from a probe on the long axis failed a comparison made across the
       // image in two cases. Along that axis the root lies 0.81-1.04 cm from the basal cavity centre from either probe, and
-      // the removed plane put it 0.06-0.26 cm from it with no left atrium in eight cases.
+      // the removed plane put it 0.06-0.26 cm from it with no left atrium in eight cases. Through the valve centre (decision
+      // 216) the root lies 0.8-1.0 cm from it; the left atrium in the plane is its appendage (KNOWN_A5C_WITHOUT_LA_BODY).
       const problems: string[] = [];
+      const withoutLaBody: string[] = [];
       for (const input of CASE_INPUTS) {
         const c = loadCaseById(input.id);
         const thorax = createThoraxModel(
@@ -406,7 +432,15 @@ describe('apical five-chamber view (decision 85)', () => {
           ),
         );
         const s = makeSample();
-        const mean = { root: [0, 0], septum: [0, 0], cavity: [0, 0], valve: 0, ra: 0, la: 0 };
+        const mean = {
+          root: [0, 0],
+          septum: [0, 0],
+          cavity: [0, 0],
+          valve: 0,
+          ra: 0,
+          la: 0,
+          laa: 0,
+        };
         for (let dep = 0.2; dep < 17; dep += 0.1)
           for (let lat = -8; lat < 8; lat += 0.1) {
             const p = torsoToHeart(
@@ -426,17 +460,26 @@ describe('apical five-chamber view (decision 85)', () => {
             if (s.structure === Structure.LvCavity && p.z > 1 && p.z < 3) acc('cavity');
             if (s.structure === Structure.RaCavity) mean.ra++;
             if (s.structure === Structure.LaCavity) mean.la++;
+            if (s.structure === Structure.LaAppendage) mean.laa++;
           }
         const at = (k: 'root' | 'septum' | 'cavity') => mean[k][0]! / Math.max(1, mean[k][1]!);
         const toCavity = Math.abs(at('cavity') - at('root'));
         // on the septal side of the basal cavity centre, and not at it
         const septalSide = (at('root') - at('septum')) * (at('cavity') - at('root')) > 0;
-        if (!(mean.valve > 0 && mean.ra > 50 && mean.la > 50 && septalSide && toCavity >= 0.6))
+        if (!(
+          mean.valve > 0 &&
+          mean.ra > 50 &&
+          mean.la + mean.laa > 50 &&
+          septalSide &&
+          toCavity >= 0.6
+        ))
           problems.push(
-            `${input.id}: valve samples ${mean.valve}, RA ${mean.ra}, LA ${mean.la}; root ${septalSide ? 'on the septal side' : 'NOT between septum and cavity centre'}, ${toCavity.toFixed(2)} cm from the basal cavity centre along the septal–lateral axis`,
+            `${input.id}: valve samples ${mean.valve}, RA ${mean.ra}, LA ${mean.la} + appendage ${mean.laa}; root ${septalSide ? 'on the septal side' : 'NOT between septum and cavity centre'}, ${toCavity.toFixed(2)} cm from the basal cavity centre along the septal–lateral axis`,
           );
+        if (mean.la <= 50) withoutLaBody.push(input.id);
       }
       expect(problems).toEqual([]);
+      expect(withoutLaBody.sort()).toEqual([...KNOWN_A5C_WITHOUT_LA_BODY].sort());
     },
   );
 });
