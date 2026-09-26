@@ -3,7 +3,14 @@ import { Structure } from './tissue';
 import type { TissueSample } from './tissue';
 import { lvCavityRadius, lvProfileG } from './lvShape';
 import { rvRadialScale } from './rv';
-import { AV_AXIS, MITRAL_SHORT_AXIS_CM, heartToTorso, torsoToHeart } from './heartFrame';
+import {
+  AV_AXIS,
+  MITRAL_CENTRE_X,
+  MITRAL_CENTRE_Y,
+  MITRAL_SHORT_AXIS_CM,
+  heartToTorso,
+  torsoToHeart,
+} from './heartFrame';
 import { DESC_AORTA_X, DESC_AORTA_Z } from './thoraxModel';
 import { computeHeartPose } from './heartPose';
 import { classifyHeart } from './classify';
@@ -88,8 +95,13 @@ export interface Anchors {
 export const RV_GROOVE_ANTERIOR_RAD = 1.6;
 export const RV_GROOVE_INFERIOR_RAD = 3.7;
 
-/** Case LA volume (mL) whose clipped, stretched ellipsoid measures what the case declares (decision 161). */
-export const LA_VOLUME_REF = 55;
+/**
+ * Case LA volume (mL) whose clipped, stretched ellipsoid measures what the case declares (decision 161). The drawn
+ * maximal volume of the undeclared cases spreads over ±5 %, the tolerance of the truth check, because each case clips
+ * its ellipsoid differently; the value centres the extremes. 55 until decision 226, whose narrowed neck called atrium the
+ * inflow column atrial to the hinges and put the difficult window past +5 %: 55.08 leaves +5.0 % and −4.9 %.
+ */
+export const LA_VOLUME_REF = 55.08;
 
 export function anchors(m: HeartModel): Anchors {
   const a = m.anatomy;
@@ -157,7 +169,7 @@ export function anchors(m: HeartModel): Anchors {
   const ivcDir = normalize(add(tInf, scale(tPost, 0.25)));
   const hvA = add(ivcA, scale(ivcDir, 2.4));
   return {
-    mvCenter: v3(0.2, -0.9, 0),
+    mvCenter: v3(MITRAL_CENTRE_X, MITRAL_CENTRE_Y, 0),
     mvR: a.mitral.annulusDiameterCm / 2,
     avCenter: v3(-0.7, 1.35, -0.25),
     avAxis: AV_AXIS,
@@ -282,7 +294,7 @@ export function heartLandmarks(m: HeartModel): Landmark[] {
     { id: 'lv-apex', label: 'Ápex VI', p: v3(0, 0, L - 0.3), radius: 0.8 },
     { id: 'lv-apical-cavity', label: 'Cavidad apical VI', p: v3(0, 0, L * 0.8), radius: 0.9 },
     { id: 'lv-mid', label: 'Cavidad VI (mitad)', p: v3(0, 0, L * 0.5), radius: 1.2 },
-    { id: 'mv', label: 'Válvula mitral', p: v3(0.2, -0.9, 0.7), radius: 1.2 },
+    { id: 'mv', label: 'Válvula mitral', p: v3(A.mvCenter.x, A.mvCenter.y, 0.7), radius: 1.2 },
     { id: 'av', label: 'Válvula aórtica', p: A.avCenter, radius: 1.0 },
     { id: 'lvot', label: 'TSVI', p: add(A.avCenter, scale(A.avAxis, -0.55)), radius: 0.9 },
     {

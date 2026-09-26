@@ -59,7 +59,8 @@ export interface SkirtDesc {
   closed: number;
   zones: SkirtZone[];
   /**
-   * Radial extension of the annulus (cm) at azimuths k·TV_BUMP_STEP_RAD, k = 0…TV_BUMP_N − 1 (decision 224), none
+   * Radial extension of the annulus (cm) at azimuths TV_BUMP_PHI0 + k·TV_BUMP_STEP_RAD, k = 0…TV_BUMP_N − 1 (decisions
+   * 224 and 226), none
    * outside; the leaflets, the ring and the inflow column are drawn in coordinates where it is a circle again.
    */
   bump: Float64Array;
@@ -93,13 +94,17 @@ export function skirtOffsetAt(k: SkirtDesc, x: number, y: number): number {
   return skirtOffset(k, fastAtan2(y - k.cy, x - k.cx));
 }
 
-/** Azimuth step (rad) and length of the tricuspid annulus extension table (decision 224): 0, 10°, …, 80°. */
+/**
+ * Azimuth of the first entry, step (rad) and length of the tricuspid annulus extension table (decisions 224 and 226):
+ * −30°, −20°, …, 80°.
+ */
+export const TV_BUMP_PHI0 = -Math.PI / 6;
 export const TV_BUMP_STEP_RAD = Math.PI / 18;
-export const TV_BUMP_N = 9;
+export const TV_BUMP_N = 12;
 
 /** The annulus extension (cm) at azimuth `phi` (rad, −π…π), interpolated in its table. */
 export function skirtBumpAt(k: SkirtDesc, phi: number): number {
-  const f = phi / TV_BUMP_STEP_RAD;
+  const f = (phi - TV_BUMP_PHI0) / TV_BUMP_STEP_RAD;
   if (f <= 0 || f >= TV_BUMP_N - 1) return 0;
   const i = Math.floor(f);
   const t = f - i;

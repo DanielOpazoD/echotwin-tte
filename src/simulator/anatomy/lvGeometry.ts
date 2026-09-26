@@ -1,10 +1,12 @@
 import type { AnatomyConfig } from '@/cases/schema';
 import { aha17FromCode, lvSegmentCode } from './lvSegments';
 import { RV_GROOVE_ANTERIOR_RAD, RV_GROOVE_INFERIOR_RAD } from './anchors';
+import { MITRAL_CENTRE_X } from './heartFrame';
 import {
   allocLvProfileTable,
   axialWallFactor,
   buildLvProfile,
+  lvNeckGain,
   lvShapeFor,
   lvShellVolume,
   type LvProfileTable,
@@ -29,11 +31,20 @@ export function lvGeometryFromVolume(
   lengthCm: number,
   sphericity: number,
   anatomy: AnatomyConfig['lv'],
+  annulusR = Infinity,
 ): LvGeometry {
   const shape = lvShapeFor(sphericity);
   // cavity volume between the annulus plane and the apex: π·ratio·R²·L·∫g²
   const rMax = Math.sqrt(edvMl / (Math.PI * shape.ratio * lengthCm * shape.I));
-  const edProfile = buildLvProfile(shape, rMax, lengthCm, 0, allocLvProfileTable());
+  const edProfile = buildLvProfile(
+    shape,
+    rMax,
+    lengthCm,
+    0,
+    allocLvProfileTable(),
+    lvNeckGain(shape, rMax, annulusR),
+    Number.isFinite(annulusR) ? MITRAL_CENTRE_X : 0,
+  );
   const tBase = (anatomy.ivsdCm + anatomy.lvpwdCm) / 2;
   const tMean = (zeta: number): number =>
     tBase * axialWallFactor(zeta, anatomy.apexWallThicknessCm / tBase);

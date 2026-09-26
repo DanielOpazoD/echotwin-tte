@@ -77,6 +77,8 @@ const SCALARS = [
   'ZANN',
   'LV_RMAX',
   'LV_PZC',
+  'LV_NECK_K',
+  'LV_NECK_X',
   'LV_THICK_K',
   'LENGTH_NOW',
   'RADIAL_SCALE',
@@ -386,6 +388,8 @@ export function packScene(
   set('ZANN', hp.zAnn);
   set('LV_RMAX', hp.rMax);
   set('LV_PZC', hp.prof.zc);
+  set('LV_NECK_K', hp.prof.neckK);
+  set('LV_NECK_X', hp.prof.neckX);
   set('LV_THICK_K', hp.thickK);
   set('LENGTH_NOW', hp.lengthNow);
   d.set(hp.prof.R, PARAM_OFFSET['LV_PROF_R']);

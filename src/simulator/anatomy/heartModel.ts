@@ -72,6 +72,7 @@ export function createHeartModel(
     anatomy.lv.lengthEdCm,
     anatomy.lv.sphericity,
     anatomy.lv,
+    anatomy.mitral.annulusDiameterCm / 2,
   );
   return {
     anatomy,

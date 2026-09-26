@@ -108,7 +108,7 @@ export const aorticStenosisSevereCase: CaseDefinitionInput = {
     // axes fell inside their ranges once the atrium was drawn at its declared volume (decision 161)
     'la-transverse',
     'lavi',
-    'lv-mass', // increased mass from the thick walls
+    // (its mass, over the range until decision 226, falls inside it with the base narrowed into the mitral annulus)
     'apex-thickness', // the hypertrophy reaches the apex
     'ao-ascending', // post-stenotic dilation of the ascending aorta
   ],

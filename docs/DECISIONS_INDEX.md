@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 225 (última: 225).
+Decisiones: 226 (última: 226).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -233,3 +233,4 @@ Decisiones: 225 (última: 225).
 | [223](DECISIONS.md#L1405) | 2026-09-25 | La cresta del septo se afila bajo el septo membranoso | vigente |
 | [224](DECISIONS.md#L1407) | 2026-09-25 | El anillo tricuspídeo anteroseptal llega al septo y a la raíz | vigente |
 | [225](DECISIONS.md#L1409) | 2026-09-25 | Los papilares nacen del tercio medio y se apoyan en la pared | vigente |
+| [226](DECISIONS.md#L1411) | 2026-09-25 | La cruz del cuatro cámaras: las dos válvulas auriculoventriculares nacen del septo | vigente |

@@ -7,6 +7,7 @@ import {
   buildLvProfile,
   lvCavityRadius,
   lvCavitySdf,
+  lvNeckGain,
   lvRadialOffsetFactor,
   solveThickening,
   type LvProfileTable,
@@ -24,10 +25,11 @@ import {
   fitOpenLeaflets,
   mitralFreeEdge,
   mitralInflowSdf,
+  MV_SYSTOLIC_SHORTENING,
   papillaryTether,
   type MitralValve,
 } from './mitralValve';
-import { ROOT_EXCURSION, PV_ROOT_EXCURSION } from './heartFrame';
+import { MITRAL_CENTRE_X, ROOT_EXCURSION, PV_ROOT_EXCURSION } from './heartFrame';
 import {
   TWO_PI,
   buildCuspChains,
@@ -38,6 +40,7 @@ import {
   skirtTip,
   tvInflowSdf,
   TV_BUMP_N,
+  TV_BUMP_PHI0,
   TV_BUMP_STEP_RAD,
   type SkirtDesc,
 } from './valveSkirt';
@@ -80,11 +83,15 @@ export const TV_ANTERIOR_TILT_CM = 0.6;
  * annulus was a circle, which left the ring 0.4-1.9 cm off the septum from 10° to 40° of its azimuth (the membranous
  * septum lies at ~15°, the four-chamber plane at 0°), filled with right ventricular wall and later with atrium. Each
  * pose extends the ring there to TV_BUMP_CLEAR_CM off the right ventricle's septal boundary (its inner radius), up to
- * TV_BUMP_MAX_CM, full from 10° to 40° and half at 50°; the four-chamber hinge (0°) and the free wall do not move.
+ * TV_BUMP_MAX_CM, full from 10° to 40° and half at 50°; the free wall does not move. Since decision 226 the septal hinge
+ * of the four-chamber view (0°) and the posteroseptal annulus down to −20° (half) reach the septum too: the neck of the
+ * ventricle, narrowed into the mitral annulus, moved the septum 0.18 cm away from them at their level, and they already
+ * stood 0.28 cm of ventricle off it; the septal border of the annulus now runs along the septum.
  */
 export const TV_BUMP_CLEAR_CM = 0.1;
 export const TV_BUMP_MAX_CM = 1.8;
-const TV_BUMP_WINDOW = [0, 1, 1, 1, 1, 0.5, 0, 0, 0];
+// −30° … 80°
+const TV_BUMP_WINDOW = [0, 0.5, 1, 1, 1, 1, 1, 1, 0.5, 0, 0, 0];
 
 /** Closed tricuspid leaflets: depth of the central coaptation below the hinges (cm) and the profile's vertex fractions. */
 const TV_TENTING_CM = 0.3;
@@ -210,7 +217,20 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
     rMax0 < lv.rMax && F > 0
       ? Math.max(0.5, Math.sqrt(Math.max(0.25, (rMax0 * rMax0 - F * lv.rMax * lv.rMax) / (1 - F))))
       : rMax0;
-  const prof = buildLvProfile(sh, rMax, lengthNow, zAnn, allocLvProfileTable());
+  // the neck narrows laterally into the annulus as it is now (decision 226)
+  const prof = buildLvProfile(
+    sh,
+    rMax,
+    lengthNow,
+    zAnn,
+    allocLvProfileTable(),
+    lvNeckGain(
+      sh,
+      rMax,
+      (m.anatomy.mitral.annulusDiameterCm / 2) * (1 - MV_SYSTOLIC_SHORTENING * state.contraction),
+    ),
+    MITRAL_CENTRE_X,
+  );
   // incompressible myocardium: the thickening factor keeps the shell volume of the end-diastolic wall
   const tBase = (lv.ivsd + lv.lvpwd) / 2;
   const tMean = (zeta: number): number => tBase * axialWallFactor(zeta, lv.apexT / tBase);
@@ -398,7 +418,7 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
   for (let kb = 1; kb < TV_BUMP_N - 1; kb++) {
     const win = TV_BUMP_WINDOW[kb]!;
     if (win <= 0) continue;
-    const ang = kb * TV_BUMP_STEP_RAD;
+    const ang = TV_BUMP_PHI0 + kb * TV_BUMP_STEP_RAD;
     const zb = tv.cz + skirtOffset(tv, ang);
     const levelFrac = Math.min(1, Math.max(0, (zb - zAnn) / Math.max(lengthNow, 1)));
     const ca = Math.cos(ang),

@@ -31,6 +31,15 @@ export const RA_ROOF_DESCENT_SHARE = 0.5;
  * right ventricular wall and the fat of the atrioventricular groove, as in a heart.
  */
 export const RA_SLEEVE_MARGIN_CM = 0.5;
+/**
+ * The vestibule opens onto the septal side of the tricuspid orifice (decision 226): the orifice column and the cavity
+ * are joined with a smooth minimum of RA_VESTIBULE_UNION_CM where the direction from the orifice centre points toward the
+ * septum (its cosine above RA_VESTIBULE_SEPTAL_COS, full RA_VESTIBULE_SEPTAL_RAMP beyond), and with a sharp one on the
+ * free-wall side, which keeps its vestibule wall down to the annulus.
+ */
+export const RA_VESTIBULE_UNION_CM = 0.6;
+export const RA_VESTIBULE_SEPTAL_COS = 0.2;
+export const RA_VESTIBULE_SEPTAL_RAMP = 0.3;
 
 /**
  * The anteromedial right atrium (decision 218): the atrial wall that wraps the right side of the aortic root, where the
@@ -287,11 +296,18 @@ export function classifyAtria(c: ClassifyCtx): boolean {
     // Only on the floor side of the atrium: the test was a cylinder over the ring, so the roof had no wall over a strip
     // the width of the annulus, which the four-chamber view cuts (decision 219). The floor half keeps it, since the
     // curved floor of the ellipsoid leaves a vestibule up to 1 cm above the orifice that only this rule opens.
-    if (
-      Math.hypot(x - V.tv.cx, y - V.tv.cy) * skirtWarpScale(V.tv, x - V.tv.cx, y - V.tv.cy) <
-        V.tv.R &&
-      z > czR
-    ) {
+    // On the septal side the vestibule opens onto the orifice: the orifice column and the cavity are one smooth volume,
+    // so no fold of wall stands between the ring and the atrium that reaches the septum beyond it (decision 226). The
+    // free-wall side keeps its vestibule wall down to the annulus.
+    const oxT = x - V.tv.cx,
+      oyT = y - V.tv.cy;
+    const dOrifice = Math.hypot(oxT, oyT) - V.tv.R / skirtWarpScale(V.tv, oxT, oyT);
+    const toward = oxT / Math.max(1e-6, Math.hypot(oxT, oyT));
+    const septalSide = Math.min(
+      1,
+      Math.max(0, (toward - RA_VESTIBULE_SEPTAL_COS) / RA_VESTIBULE_SEPTAL_RAMP),
+    );
+    if (z > czR && smin(dFreeRa, dOrifice, 1e-3 + RA_VESTIBULE_UNION_CM * septalSide) < 0) {
       // past the annulus the blood belongs to the ventricle, as it does on the left where the LV cavity
       // claims the mitral orifice: calling it atrium instead stretched ra-long past its reference range
       const past = z > A.tvCenter.z + hp.tvZ + tvOff;

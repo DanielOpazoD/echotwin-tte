@@ -12,6 +12,7 @@ import {
   DESC_AORTA_Z,
 } from '@/simulator/anatomy/thoraxModel';
 import { RV_BODY_RADIAL_CONTRACTION } from '@/simulator/anatomy/rv';
+import { LV_NECK_ZETA } from '@/simulator/anatomy/lvShape';
 import {
   SEPTAL_CREST_AZ,
   SEPTAL_CREST_HALF_WIDTH,
@@ -123,6 +124,8 @@ const float RV_BODY_RADIAL_CONTRACTION = ${gf(RV_BODY_RADIAL_CONTRACTION)};
 const float SEPTAL_CREST_AZ = ${gf(SEPTAL_CREST_AZ)};
 const float SEPTAL_CREST_HALF_WIDTH = ${gf(SEPTAL_CREST_HALF_WIDTH)};
 const float SEPTAL_CREST_Z_CM = ${gf(SEPTAL_CREST_Z_CM)};
+// lateral neck of the LV (lvShape.ts, decision 226): read by the generated lvNeckWeight
+const float LV_NECK_ZETA = ${gf(LV_NECK_ZETA)};
 
 // value noise on a 128^3 lattice with smoothstep weights (same as core/noise.ts latticeNoise3)
 float lat(vec3 p, int ch) {

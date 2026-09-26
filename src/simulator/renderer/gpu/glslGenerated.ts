@@ -33,6 +33,17 @@ float axialWallFactor(float zeta, float apexFrac) {
   float u = min(1.0, (zeta - 0.5) / 0.5);
   return 1.0 - (1.0 - apexFrac) * u * u;
 }
+// src/simulator/anatomy/lvShape.ts: lvNeckWeight
+float lvNeckWeight(float zeta) {
+  if (zeta >= LV_NECK_ZETA) {
+    return 0.0;
+  }
+  if (zeta <= 0.0) {
+    return 1.0;
+  }
+  float u = 1.0 - zeta / LV_NECK_ZETA;
+  return u * u;
+}
 // src/simulator/anatomy/rv.ts: rvAxialTaper
 float rvAxialTaper(float tvPlane, float zApex, float z) {
   if (z <= tvPlane) {
@@ -270,4 +281,4 @@ float sliceHalfWidthCm(float rCm, float focusCm) {
 `;
 
 /** Shader constants the generated functions read (must be #defines or constants of the including shader). */
-export const GLSL_GENERATED_FREE_IDENTIFIERS: readonly string[] = ["DESC_AORTA_R","DESC_AORTA_SLEEVE","DESC_AORTA_SLEEVE_FORWARD","DESC_AORTA_WALL","DESC_AORTA_X","DESC_AORTA_Z","FOCUS_HALF_APERTURE_MM","FOCUS_HALF_ELEVATION_MM","FOCUS_WAIST_ELEVATION_MM","FOCUS_WAIST_LATERAL_MM","MEMBRANE_CM","MYO_ANISO_FLOOR","MYO_HELIX_ENDO_DEG","MYO_HELIX_EPI_DEG","REVERB_DECAY","REVERB_DIFFUSE","REVERB_DIFFUSE_DECAY_CM","REVERB_GAIN","REVERB_PERIOD_MIN_CM","REVERB_WIDTH_CM","RV_BODY_RADIAL_CONTRACTION","SEPTAL_CREST_AZ","SEPTAL_CREST_HALF_WIDTH","SEPTAL_CREST_Z_CM","SLICE_HALF_BASE_CM","SLICE_HALF_SLOPE"];
+export const GLSL_GENERATED_FREE_IDENTIFIERS: readonly string[] = ["DESC_AORTA_R","DESC_AORTA_SLEEVE","DESC_AORTA_SLEEVE_FORWARD","DESC_AORTA_WALL","DESC_AORTA_X","DESC_AORTA_Z","FOCUS_HALF_APERTURE_MM","FOCUS_HALF_ELEVATION_MM","FOCUS_WAIST_ELEVATION_MM","FOCUS_WAIST_LATERAL_MM","LV_NECK_ZETA","MEMBRANE_CM","MYO_ANISO_FLOOR","MYO_HELIX_ENDO_DEG","MYO_HELIX_EPI_DEG","REVERB_DECAY","REVERB_DIFFUSE","REVERB_DIFFUSE_DECAY_CM","REVERB_GAIN","REVERB_PERIOD_MIN_CM","REVERB_WIDTH_CM","RV_BODY_RADIAL_CONTRACTION","SEPTAL_CREST_AZ","SEPTAL_CREST_HALF_WIDTH","SEPTAL_CREST_Z_CM","SLICE_HALF_BASE_CM","SLICE_HALF_SLOPE"];

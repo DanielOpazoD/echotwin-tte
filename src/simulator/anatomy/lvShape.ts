@@ -128,6 +128,27 @@ export function lvProfileDGExact(sh: LvShape, zeta: number): number {
   return Math.max(-6, d);
 }
 
+/**
+ * The ventricle narrows laterally into the mitral annulus (decision 226). The neck of the bullet profile is round and
+ * centred on the long axis, 0.72 of the widest radius, wider from septum to lateral wall than the annulus it opens into,
+ * so the septal hinge of the four-chamber view stood 0.46 cm inside the cavity with a block of fibrous tissue above it.
+ * Over the basal LV_NECK_ZETA of the length the lateral axis of the cross-section is shortened by 1 + neckK·w(ζ),
+ * w = (1 − ζ/LV_NECK_ZETA)² (1 at and above the annulus), and its centre moves toward the annulus centre's lateral
+ * offset neckX·w, with neckK such that the neck's lateral radius at the annular plane is the annulus radius; the posterior
+ * annulus, which lies outside the neck, keeps the inflow union.
+ */
+export const LV_NECK_ZETA = 0.2;
+export function lvNeckWeight(zeta: number): number {
+  if (zeta >= LV_NECK_ZETA) return 0;
+  if (zeta <= 0) return 1;
+  const u = 1 - zeta / LV_NECK_ZETA;
+  return u * u;
+}
+/** Lateral narrowing gain of the neck for a widest radius `rMax` and a mitral annulus of radius `annulusR` (≥ 0). */
+export function lvNeckGain(sh: LvShape, rMax: number, annulusR: number): number {
+  return Math.max(0, (sh.g0 * rMax) / annulusR - 1);
+}
+
 /** Cross-section factor: real-space radius at azimuth az for a profile radius ρ is ρ·ellipseFactor(az). */
 export function ellipseFactor(ratio: number, az: number): number {
   const c = Math.cos(az),
@@ -143,6 +164,8 @@ export interface LvProfileTable {
   rMax: number; // maximal cavity radius (lateral)
   length: number; // annulus plane → apex now
   zAnn: number; // annulus plane z
+  neckK: number; // lateral narrowing gain of the neck (lvNeckGain)
+  neckX: number; // lateral offset of the neck's centre at the annulus (the mitral centre's)
 }
 
 export function allocLvProfileTable(): LvProfileTable {
@@ -153,6 +176,8 @@ export function allocLvProfileTable(): LvProfileTable {
     rMax: 1,
     length: 1,
     zAnn: 0,
+    neckK: 0,
+    neckX: 0,
   };
 }
 
@@ -166,9 +191,13 @@ export function buildLvProfile(
   length: number,
   zAnn: number,
   out: LvProfileTable,
+  neckK = 0,
+  neckX = 0,
 ): LvProfileTable {
   const zc = zAnn + sh.zetaC * length;
   out.zc = zc;
+  out.neckK = neckK;
+  out.neckX = neckX;
   out.rMax = rMax;
   out.length = length;
   out.zAnn = zAnn;
@@ -214,8 +243,13 @@ export function lvCavitySdf(
   z: number,
   outNormal?: Float64Array,
 ): number {
+  // the lateral axis shortened toward the annulus (decision 226): the profile is read at x stretched by s
+  const w = lvNeckWeight((z - tab.zAnn) / Math.max(tab.length, 1e-3));
+  const s = 1 + tab.neckK * w;
+  const xr = xs - tab.neckX * w;
+  const xn = xr * s;
   const ys = y / ratio;
-  const rho2 = xs * xs + ys * ys;
+  const rho2 = xn * xn + ys * ys;
   const rho = Math.sqrt(rho2);
   const dz = z - tab.zc;
   const phi = rho > 1e-9 ? Math.atan2(rho, dz) : dz >= 0 ? 0 : Math.PI;
@@ -236,12 +270,12 @@ export function lvCavitySdf(
     nz = cosP + S * sinP;
   const ir = rho > 1e-9 ? 1 / rho : 0;
   if (outNormal) {
-    outNormal[0] = nr * xs * ir;
+    outNormal[0] = nr * xn * ir * s;
     outNormal[1] = (nr * ys * ir) / ratio;
     outNormal[2] = nz;
   }
   // distances in the y-scaled space are stretched by 1/ratio along y: correct toward the real distance
-  const q = rho2 > 1e-12 ? Math.sqrt((xs * xs + ratio * ratio * ys * ys) / rho2) : 1;
+  const q = rho2 > 1e-12 ? Math.sqrt((xr * xr + ratio * ratio * ys * ys) / rho2) : 1;
   const corr = 1 - (1 - q) * sinP * sinP;
   return (rad - R) * f * corr;
 }
@@ -249,7 +283,16 @@ export function lvCavitySdf(
 /** Cavity radius (real space, from the long axis) at azimuth az and height z. */
 export function lvCavityRadius(sh: LvShape, tab: LvProfileTable, az: number, z: number): number {
   const zeta = (z - tab.zAnn) / Math.max(tab.length, 1e-3);
-  return tab.rMax * lvProfileG(sh, zeta) * ellipseFactor(sh.ratio, az);
+  const w = lvNeckWeight(zeta);
+  const S = 1 + tab.neckK * w,
+    ox = tab.neckX * w;
+  const rho = tab.rMax * lvProfileG(sh, zeta);
+  // along az from the axis, to the cross-section ((x − ox)·S)² + (y/ratio)² = ρ²
+  const c = Math.cos(az),
+    sn = Math.sin(az) / sh.ratio;
+  const a = c * c * S * S + sn * sn,
+    b = c * ox * S * S;
+  return (b + Math.sqrt(Math.max(0, b * b - a * (ox * ox * S * S - rho * rho)))) / a;
 }
 
 /** Radial (cylindrical) offset that a normal offset `t` of the surface produces at height z. */
