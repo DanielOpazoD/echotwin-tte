@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 226 (última: 226).
+Decisiones: 227 (última: 227).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -234,3 +234,4 @@ Decisiones: 226 (última: 226).
 | [224](DECISIONS.md#L1407) | 2026-09-25 | El anillo tricuspídeo anteroseptal llega al septo y a la raíz | vigente |
 | [225](DECISIONS.md#L1409) | 2026-09-25 | Los papilares nacen del tercio medio y se apoyan en la pared | vigente |
 | [226](DECISIONS.md#L1411) | 2026-09-25 | La cruz del cuatro cámaras: las dos válvulas auriculoventriculares nacen del septo | vigente |
+| [227](DECISIONS.md#L1413) | 2026-09-25 | Las cuerdas tendinosas son cordones finos, no varillas brillantes | vigente |

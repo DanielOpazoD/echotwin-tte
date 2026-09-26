@@ -94,6 +94,8 @@ void main() {
   }
   vec4 props = uTissue[s.tissue];
   float nd = abs(inHeart ? dot(s.n, dirH) : dot(s.n, dirT));
+  // a cord's sample carries its axis: it reflects with the beam across it (decision 227)
+  if (s.tissue == T_CHORDAE) nd = cordAlignment(nd);
   float sigma, specular;
   acoustic(s.tissue, s.structure, s.sdf, s.extra, nd, s.m, dirH, s.transmural, sigma, specular);
   // complex scatterer phasor anchored in tissue coordinates (moves with the tissue); across the plane its lattice cell is
@@ -104,6 +106,12 @@ void main() {
     float wm = membraneWeight(dot(s.n, nrm), e);
     sigma *= wm;
     specular *= wm;
+  }
+  // and a cord by the fraction it fills (decision 227)
+  if (s.tissue == T_CHORDAE) {
+    float wc = cordWeight(dot(s.n, nrm), e);
+    sigma *= wc;
+    specular *= wc;
   }
   vec3 q = s.m * SCATTER_FREQ - (SCATTER_FREQ - 1.0 / (2.0 * e)) * dot(s.m, nrm) * nrm;
   // flowing blood is a new realization in every frame (decision 163)
@@ -241,7 +249,8 @@ void main() {
   float sigma = a.x;
   float specular = c.x;
   // a valve membrane takes no elevation average: the side planes miss it (decision 147)
-  if (ELEV_N > 1.0 && int(b.y * 255.0 + 0.5) != T_VALVE) { // three elevation samples (high tier); one otherwise
+  int tid = int(b.y * 255.0 + 0.5);
+  if (ELEV_N > 1.0 && tid != T_VALVE && tid != T_CHORDAE) { // three elevation samples (high tier); one otherwise
     // slice thickness: weighted mean of σ and specular over the three elevation planes (¼ ½ ¼); side samples outside
     // the body or in lung are dropped and the weights renormalised, as in the CPU renderer
     vec4 sa = texelFetch(uSideA, ivec2(si, li), 0);

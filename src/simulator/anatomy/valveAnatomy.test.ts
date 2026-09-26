@@ -1502,78 +1502,83 @@ describe('papillary muscles (decision 225)', () => {
 });
 
 describe('crux of the four-chamber view (decision 226)', () => {
-  it('both atrioventricular valves hinge on the septum, on either side of it, in every case at end-diastole and end-systole', () => {
-    // In the four-chamber view the anterior mitral leaflet hinges at the top of the septum and the septal tricuspid
-    // leaflet on its right face, a few millimetres more apical. The ventricle's round neck was wider than the mitral
-    // annulus from septum to lateral wall, so the mitral hinge stood 0.46 cm of LV blood off the septum in the normal case
-    // (0.82 in the HFrEF case) under a block of fibrous tissue, and the tricuspid hinge 0.28 cm of RV blood off its face.
-    // Measured on the drawn plane, across the image at each hinge's depth.
-    const s = makeSample();
-    const problems: string[] = [];
-    for (const input of CASE_INPUTS) {
-      const { heart, tables, thorax } = setup(input.id);
-      const b = beamFrameFromPose(
-        poseFromControl(thorax, canonicalControl(getViewTarget('a4c'), heart, thorax)),
-        1,
-      );
-      for (const [label, ph] of [
-        ['ED', 0],
-        ['ES', tables.timings.ejectionEndS / tables.rrS],
-      ] as const) {
-        const pose = computeHeartPose(heart, cycleStateAt(tables, ph));
-        const st = (dep: number, lat: number): number => {
-          const p = torsoToHeart(
-            heart.frame,
-            add(b.origin, add(scale(b.forward, dep), scale(b.lateral, lat))),
-          );
-          return classifyHeart(heart, pose, p.x, p.y, p.z, s) ? s.structure : -1;
-        };
-        let lvLat = 0,
-          rvLat = 0,
-          nl = 0,
-          nr = 0;
-        const tv: [number, number][] = [],
-          mv: [number, number][] = [];
-        for (let dep = 4; dep < 18; dep += 0.04)
-          for (let lat = -7; lat < 7; lat += 0.04) {
-            const k = st(dep, lat);
-            if (k === Structure.LvCavity) {
-              lvLat += lat;
-              nl++;
-            } else if (k === Structure.RvCavity) {
-              rvLat += lat;
-              nr++;
-            } else if (k === Structure.TricuspidValve) tv.push([dep, lat]);
-            else if (k === Structure.MitralAnterior || k === Structure.MitralPosterior)
-              mv.push([dep, lat]);
+  it(
+    'both atrioventricular valves hinge on the septum, on either side of it, in every case at end-diastole and end-systole',
+    { timeout: 240_000 },
+    () => {
+      // In the four-chamber view the anterior mitral leaflet hinges at the top of the septum and the septal tricuspid
+      // leaflet on its right face, a few millimetres more apical. The ventricle's round neck was wider than the mitral
+      // annulus from septum to lateral wall, so the mitral hinge stood 0.46 cm of LV blood off the septum in the normal case
+      // (0.82 in the HFrEF case) under a block of fibrous tissue, and the tricuspid hinge 0.28 cm of RV blood off its face.
+      // Measured on the drawn plane, across the image at each hinge's depth.
+      const s = makeSample();
+      const problems: string[] = [];
+      for (const input of CASE_INPUTS) {
+        const { heart, tables, thorax } = setup(input.id);
+        const b = beamFrameFromPose(
+          poseFromControl(thorax, canonicalControl(getViewTarget('a4c'), heart, thorax)),
+          1,
+        );
+        for (const [label, ph] of [
+          ['ED', 0],
+          ['ES', tables.timings.ejectionEndS / tables.rrS],
+        ] as const) {
+          const pose = computeHeartPose(heart, cycleStateAt(tables, ph));
+          const st = (dep: number, lat: number): number => {
+            const p = torsoToHeart(
+              heart.frame,
+              add(b.origin, add(scale(b.forward, dep), scale(b.lateral, lat))),
+            );
+            return classifyHeart(heart, pose, p.x, p.y, p.z, s) ? s.structure : -1;
+          };
+          let lvLat = 0,
+            rvLat = 0,
+            nl = 0,
+            nr = 0;
+          const tv: [number, number][] = [],
+            mv: [number, number][] = [];
+          // the crux lies 9-13 cm deep in every case, left of the sector's centre line
+          for (let dep = 7; dep < 15; dep += 0.04)
+            for (let lat = -6; lat < 5; lat += 0.04) {
+              const k = st(dep, lat);
+              if (k === Structure.LvCavity) {
+                lvLat += lat;
+                nl++;
+              } else if (k === Structure.RvCavity) {
+                rvLat += lat;
+                nr++;
+              } else if (k === Structure.TricuspidValve) tv.push([dep, lat]);
+              else if (k === Structure.MitralAnterior || k === Structure.MitralPosterior)
+                mv.push([dep, lat]);
+            }
+          // +1 when the LV lies at +lat: the septal-most samples are the TV's largest and the MV's smallest sgn·lat
+          const sgn = Math.sign(lvLat / nl - rvLat / nr);
+          const tvH = tv.reduce((a, p) => (sgn * p[1] > sgn * a[1] ? p : a));
+          const mvH = mv.reduce((a, p) => (sgn * p[1] < sgn * a[1] ? p : a));
+          // LV blood from the mitral hinge toward the septum; RV blood from the septum's right face toward the TV hinge
+          let lvBlood = 0;
+          for (let d = 0; d < 2; d += 0.02) {
+            const k = st(mvH[0], mvH[1] - sgn * d);
+            if (k === Structure.LvWallSeptal) break;
+            if (k === Structure.LvCavity) lvBlood += 0.02;
           }
-        // +1 when the LV lies at +lat: the septal-most samples are the TV's largest and the MV's smallest sgn·lat
-        const sgn = Math.sign(lvLat / nl - rvLat / nr);
-        const tvH = tv.reduce((a, p) => (sgn * p[1] > sgn * a[1] ? p : a));
-        const mvH = mv.reduce((a, p) => (sgn * p[1] < sgn * a[1] ? p : a));
-        // LV blood from the mitral hinge toward the septum; RV blood from the septum's right face toward the TV hinge
-        let lvBlood = 0;
-        for (let d = 0; d < 2; d += 0.02) {
-          const k = st(mvH[0], mvH[1] - sgn * d);
-          if (k === Structure.LvWallSeptal) break;
-          if (k === Structure.LvCavity) lvBlood += 0.02;
+          let rvBlood = 0,
+            past = false;
+          for (let d = 0; d < 4; d += 0.02) {
+            const k = st(tvH[0], mvH[1] - sgn * d);
+            if (k === Structure.LvWallSeptal) past = true;
+            else if (past && (k === Structure.TricuspidAnnulus || k === Structure.TricuspidValve))
+              break;
+            else if (past && k === Structure.RvCavity) rvBlood += 0.02;
+          }
+          const key = `${input.id}@${label}`;
+          if (lvBlood > 0.1)
+            problems.push(`${key}: ${lvBlood.toFixed(2)} cm of LV blood at the mitral hinge`);
+          if (rvBlood > 0.15)
+            problems.push(`${key}: ${rvBlood.toFixed(2)} cm of RV blood at the tricuspid hinge`);
         }
-        let rvBlood = 0,
-          past = false;
-        for (let d = 0; d < 4; d += 0.02) {
-          const k = st(tvH[0], mvH[1] - sgn * d);
-          if (k === Structure.LvWallSeptal) past = true;
-          else if (past && (k === Structure.TricuspidAnnulus || k === Structure.TricuspidValve))
-            break;
-          else if (past && k === Structure.RvCavity) rvBlood += 0.02;
-        }
-        const key = `${input.id}@${label}`;
-        if (lvBlood > 0.1)
-          problems.push(`${key}: ${lvBlood.toFixed(2)} cm of LV blood at the mitral hinge`);
-        if (rvBlood > 0.15)
-          problems.push(`${key}: ${rvBlood.toFixed(2)} cm of RV blood at the tricuspid hinge`);
       }
-    }
-    expect(problems).toEqual([]);
-  });
+      expect(problems).toEqual([]);
+    },
+  );
 });

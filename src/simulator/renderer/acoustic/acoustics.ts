@@ -263,6 +263,27 @@ export function focusingGain(rCm: number, focusCm: number): number {
  */
 export const MEMBRANE_CM = 0.1;
 /**
+ * A chorda tendinea is a cord thinner than the slice and than the beam (decision 227): its diameter (cm; primary chordae
+ * 0.5-1.5 mm) is the classifier's capsule. The classifier gives its samples the cord's axis in place of a surface normal.
+ */
+export const CORD_CM = 0.09;
+/**
+ * Fraction of the slice a cord fills: 1 where it crosses the plane (its axis along the plane normal) and its diameter
+ * over the slice thickness where it lies in the plane.
+ */
+export function cordWeight(axisDotPlane: number, sliceHalfWidthCm: number): number {
+  const inPlane = Math.sqrt(Math.max(0, 1 - axisDotPlane * axisDotPlane));
+  return CORD_CM / (CORD_CM + 2 * sliceHalfWidthCm * inPlane);
+}
+/**
+ * Alignment of a cord's interface echo with the beam: a cylinder reflects back along its surface normal, which is
+ * radial, so the echo is strongest with the beam across the cord and none with the beam along it — the sine of the angle
+ * between beam and axis, in place of the |n·beam| of a flat interface.
+ */
+export function cordAlignment(axisDotBeam: number): number {
+  return Math.sqrt(Math.max(0, 1 - axisDotBeam * axisDotBeam));
+}
+/**
  * Fraction of the slice a membrane fills: 1 when it stands across the plane (|n·N| = 0) and its thickness over the
  * slice thickness (2 × half width) when it lies in the plane.
  */
@@ -345,6 +366,7 @@ export const ACOUSTIC_GLSL_CONSTANTS: Readonly<
   GRAIN_THRESHOLD,
   GRAIN_OFFSET,
   MEMBRANE_CM,
+  CORD_CM,
   MYO_ANISO_FLOOR,
   MYO_ANISO_RADIAL_EPS,
   MYO_HELIX_ENDO_DEG,

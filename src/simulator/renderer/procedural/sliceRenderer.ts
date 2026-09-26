@@ -86,6 +86,8 @@ import {
   RINGDOWN_GAIN,
   focusingGain,
   membraneWeight,
+  cordAlignment,
+  cordWeight,
   beamAttenWindowLines,
   COMPOUND_LOOKS,
   LOOK_SHIFT,
@@ -659,9 +661,11 @@ export class ProceduralSliceRenderer implements RendererBackend {
     /** Incoherent backscatter σ and coherent specular echo of a classified sample, before attenuation. */
     const acoustic = (q: TissueSample, inH: boolean, a: { sigma: number; spec: number }): void => {
       const props = TISSUE_PROPS[q.tissue]!;
-      const nd = Math.abs(
+      const nd0 = Math.abs(
         inH ? q.nx * dhx + q.ny * dhy + q.nz * dhz : q.nx * dx + q.ny * dy + q.nz * dz,
       );
+      // a cord's sample carries its axis: it reflects with the beam across it (decision 227)
+      const nd = q.tissue === Tissue.Chordae ? cordAlignment(nd0) : nd0;
       let sigma = props.reflect;
       if (q.tissue === Tissue.Blood && harm) sigma *= BLOOD_HARMONIC_SIGMA;
       // myocardial backscatter is strongest with the beam across the fibres: in the LV walls they run
@@ -799,6 +803,15 @@ export class ProceduralSliceRenderer implements RendererBackend {
           ? s.nx * nrmH.x + s.ny * nrmH.y + s.nz * nrmH.z
           : s.nx * nX + s.ny * nY + s.nz * nZ;
         const w = membraneWeight(nn, sliceHalfWidthCm(r, focus));
+        sigma *= w;
+        specular *= w;
+      } else if (tissue === Tissue.Chordae) {
+        // a cord thinner than the slice reads by the fraction of the slice it fills, and takes no elevation average
+        // either (decision 227)
+        const w = cordWeight(
+          s.nx * nrmH.x + s.ny * nrmH.y + s.nz * nrmH.z,
+          sliceHalfWidthCm(r, focus),
+        );
         sigma *= w;
         specular *= w;
       } else if (nElev > 1) {

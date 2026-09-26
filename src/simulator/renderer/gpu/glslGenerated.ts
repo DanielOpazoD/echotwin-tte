@@ -274,6 +274,15 @@ float membraneWeight(float normalDotPlane, float sliceHalfWidthCm) {
   float along = abs(normalDotPlane);
   return MEMBRANE_CM / (MEMBRANE_CM + 2.0 * sliceHalfWidthCm * along);
 }
+// src/simulator/renderer/acoustic/acoustics.ts: cordWeight
+float cordWeight(float axisDotPlane, float sliceHalfWidthCm) {
+  float inPlane = sqrt(max(0.0, 1.0 - axisDotPlane * axisDotPlane));
+  return CORD_CM / (CORD_CM + 2.0 * sliceHalfWidthCm * inPlane);
+}
+// src/simulator/renderer/acoustic/acoustics.ts: cordAlignment
+float cordAlignment(float axisDotBeam) {
+  return sqrt(max(0.0, 1.0 - axisDotBeam * axisDotBeam));
+}
 // src/simulator/renderer/acoustic/psf.ts: sliceHalfWidthCm
 float sliceHalfWidthCm(float rCm, float focusCm) {
   return SLICE_HALF_BASE_CM + SLICE_HALF_SLOPE * abs(rCm - focusCm);
@@ -281,4 +290,4 @@ float sliceHalfWidthCm(float rCm, float focusCm) {
 `;
 
 /** Shader constants the generated functions read (must be #defines or constants of the including shader). */
-export const GLSL_GENERATED_FREE_IDENTIFIERS: readonly string[] = ["DESC_AORTA_R","DESC_AORTA_SLEEVE","DESC_AORTA_SLEEVE_FORWARD","DESC_AORTA_WALL","DESC_AORTA_X","DESC_AORTA_Z","FOCUS_HALF_APERTURE_MM","FOCUS_HALF_ELEVATION_MM","FOCUS_WAIST_ELEVATION_MM","FOCUS_WAIST_LATERAL_MM","LV_NECK_ZETA","MEMBRANE_CM","MYO_ANISO_FLOOR","MYO_HELIX_ENDO_DEG","MYO_HELIX_EPI_DEG","REVERB_DECAY","REVERB_DIFFUSE","REVERB_DIFFUSE_DECAY_CM","REVERB_GAIN","REVERB_PERIOD_MIN_CM","REVERB_WIDTH_CM","RV_BODY_RADIAL_CONTRACTION","SEPTAL_CREST_AZ","SEPTAL_CREST_HALF_WIDTH","SEPTAL_CREST_Z_CM","SLICE_HALF_BASE_CM","SLICE_HALF_SLOPE"];
+export const GLSL_GENERATED_FREE_IDENTIFIERS: readonly string[] = ["CORD_CM","DESC_AORTA_R","DESC_AORTA_SLEEVE","DESC_AORTA_SLEEVE_FORWARD","DESC_AORTA_WALL","DESC_AORTA_X","DESC_AORTA_Z","FOCUS_HALF_APERTURE_MM","FOCUS_HALF_ELEVATION_MM","FOCUS_WAIST_ELEVATION_MM","FOCUS_WAIST_LATERAL_MM","LV_NECK_ZETA","MEMBRANE_CM","MYO_ANISO_FLOOR","MYO_HELIX_ENDO_DEG","MYO_HELIX_EPI_DEG","REVERB_DECAY","REVERB_DIFFUSE","REVERB_DIFFUSE_DECAY_CM","REVERB_GAIN","REVERB_PERIOD_MIN_CM","REVERB_WIDTH_CM","RV_BODY_RADIAL_CONTRACTION","SEPTAL_CREST_AZ","SEPTAL_CREST_HALF_WIDTH","SEPTAL_CREST_Z_CM","SLICE_HALF_BASE_CM","SLICE_HALF_SLOPE"];
