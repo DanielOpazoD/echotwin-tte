@@ -1,8 +1,8 @@
 import { normalExcellentCase } from '@/cases/normal-excellent';
 import { validateCase } from '@/cases/schema';
-import { createHeartModel, computeHeartPose } from '@/simulator/anatomy/heartModel';
-import { createThoraxModel } from '@/simulator/anatomy/thoraxModel';
-import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
+import { buildCaseModels } from '@/simulator/anatomy/caseModels';
+import { computeHeartPose } from '@/simulator/anatomy/heartModel';
+import { cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { ProceduralSliceRenderer } from '@/simulator/renderer/procedural/sliceRenderer';
 import {
   allocPolarFrame,
@@ -16,13 +16,11 @@ import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
 import { canonicalControl, VIEW_TARGETS } from '@/simulator/windows/viewTargets';
 
 const c = validateCase(normalExcellentCase).case!;
-const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, {
+const { thorax, heart, tables } = buildCaseModels(c, {
   position: 'left-lateral',
   respiration: 'expiration',
   headElevationDeg: 0,
 });
-const heart = createHeartModel(c.anatomy, c.physiology, thorax.heartOffset, c.seed);
-const tables = buildBeatTables(60 / c.rhythm.heartRateBpm, c.physiology, c.rhythm, c.hemodynamics);
 const renderer = new ProceduralSliceRenderer();
 const settings = { ...DEFAULT_ACQUISITION };
 const spec = polarSpecFor(settings, 'medium');

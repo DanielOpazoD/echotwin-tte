@@ -1,11 +1,17 @@
 import type { CaseDefinition } from '@/cases/schema';
 import { createHeartModel, heartLandmarks, type HeartModel } from './heartModel';
 import { createThoraxModel, type PatientState, type ThoraxModel } from './thoraxModel';
-import { buildBeatTables, type BeatTables } from '@/simulator/cardiac-cycle/cycleModel';
+import {
+  buildBeatTables,
+  cycleStateAt,
+  type BeatTables,
+} from '@/simulator/cardiac-cycle/cycleModel';
+import { fitDiaphragmMap } from './diaphragm';
 
 /**
  * The models of a case for a patient state: thorax → heart (placed by the thorax, with the IVC collapse the
- * patient's breathing dictates) → beat tables at the case's heart rate, with the heart's landmarks cached.
+ * patient's breathing dictates) → beat tables at the case's heart rate, with the heart's landmarks cached → the
+ * diaphragm fitted under the right heart (decision 229).
  *
  * This is the only place that chains the three constructors (it lives in `anatomy` so the core, the renderer's
  * clinical comparison, the app and the workers can all import it without a cycle). The 2026-09-16 engineering audit (B2) found the
@@ -41,5 +47,7 @@ export function buildCaseModels(caseDef: CaseDefinition, patient: PatientState):
     caseDef.rhythm,
     caseDef.hemodynamics,
   );
+  // the diaphragm meets the right heart it carries (decision 229)
+  thorax.diaphragmMap = fitDiaphragmMap(heart, cycleStateAt(tables, 0));
   return { caseDef, thorax, heart, tables };
 }

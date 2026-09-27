@@ -176,7 +176,9 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['4CH-ES:bandDark4', 2.83],
   ['2CH-ED:bandDark4', 2.67],
   ['2CH-ES:bandDark4', 2.32],
-  ['4CH-ED:bandDark6', 27.45],
+  // decision 229: the diaphragm under the right heart takes the lung out of the four-chamber sector's deep corner (fat and
+  // 0.3 % of liver where it was) and the band grows darker: 27.45 → 27.60 quartile widths
+  ['4CH-ED:bandDark6', 27.6],
   ['4CH-ES:bandDark6', 1.2],
   ['2CH-ED:bandDark6', 6.66],
   ['2CH-ES:bandDark6', 3.85],

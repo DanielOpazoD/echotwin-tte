@@ -6,7 +6,6 @@ import {
   computeHeartPose,
   createHeartModel,
   heartDirToTorso,
-  heartLandmarks,
   heartToTorso,
   torsoToHeart,
   type HeartModel,
@@ -20,6 +19,7 @@ import {
   type ThoraxModel,
 } from '@/simulator/anatomy/thoraxModel';
 import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
+import { buildCaseModels } from '@/simulator/anatomy/caseModels';
 import { makeSample, Structure } from '@/simulator/anatomy/tissue';
 import { canonicalControl, canonicalPlane, getViewTarget, VIEW_TARGETS } from './viewTargets';
 import {
@@ -220,15 +220,8 @@ describe('standard views contain the structures they are meant to show', () => {
     headElevationDeg: 0,
   };
   const c = loadCaseById('normal-excellent-window');
-  const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, patient);
-  const heart = createHeartModel(c.anatomy, c.physiology, thorax.heartOffset, c.seed);
-  heartLandmarks(heart);
-  const tables = buildBeatTables(
-    60 / c.rhythm.heartRateBpm,
-    c.physiology,
-    c.rhythm,
-    c.hemodynamics,
-  );
+  // the app's chain, with the diaphragm fitted under the heart (decision 229)
+  const { thorax, heart, tables } = buildCaseModels(c, patient);
 
   for (const view of VIEW_TARGETS) {
     const spec = EXPECTED[view.id];

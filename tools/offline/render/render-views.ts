@@ -6,9 +6,9 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { encodePng } from './png';
 import { loadCaseById } from '@/cases';
-import { createHeartModel, computeHeartPose } from '@/simulator/anatomy/heartModel';
-import { createThoraxModel } from '@/simulator/anatomy/thoraxModel';
-import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
+import { buildCaseModels } from '@/simulator/anatomy/caseModels';
+import { computeHeartPose } from '@/simulator/anatomy/heartModel';
+import { cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { ProceduralSliceRenderer } from '@/simulator/renderer/procedural/sliceRenderer';
 import {
   allocPolarFrame,
@@ -24,13 +24,12 @@ import { canonicalControl, VIEW_TARGETS } from '@/simulator/windows/viewTargets'
 const outDir = process.argv[2] ?? 'tools/offline/render/out';
 mkdirSync(outDir, { recursive: true });
 const c = loadCaseById(process.argv[4] ?? 'normal-excellent-window');
-const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, {
+// the app's chain (with the diaphragm fitted under the heart, decision 229)
+const { thorax, heart, tables } = buildCaseModels(c, {
   position: 'left-lateral',
   respiration: 'expiration',
   headElevationDeg: 0,
 });
-const heart = createHeartModel(c.anatomy, c.physiology, thorax.heartOffset, c.seed);
-const tables = buildBeatTables(60 / c.rhythm.heartRateBpm, c.physiology, c.rhythm, c.hemodynamics);
 const renderer = new ProceduralSliceRenderer();
 const settings = { ...DEFAULT_ACQUISITION };
 const spec = polarSpecFor(settings, 'high');
