@@ -38,10 +38,17 @@ import { AtlasRenderer as AtlasBackend } from '@/simulator/renderer/atlas/atlasR
 import {
   applyConsole,
   createConsoleState,
+  NO_ARTIFACTS,
   persistenceOverTime,
   type ArtifactSettings,
   type ConsoleState,
 } from '@/simulator/renderer/postprocess/consolePipeline';
+import {
+  caseArtifactLevels,
+  consoleArtifacts,
+  scenePhysicsFor,
+  type ArtifactLevels,
+} from '@/simulator/renderer/scenePhysics';
 import {
   buildScanLut,
   computeSectorMapping,
@@ -134,14 +141,14 @@ export class SimulatorCore {
   /** Tier the last step rendered with (the quality choice resolved against the GPU, decision 154). */
   private tier: QualityTier = 'medium';
   private consoleState: ConsoleState;
-  private artifacts: ArtifactSettings = { sideLobe: 0, mirror: 0, beamWidth: 0 };
-  private clutterBoost = 0;
-  private caseArtifacts = { sideLobe: 0, mirror: 0, beamWidth: 0, clutter: 0 };
+  /** The artifact levels in force: the case's, or the artifact lab's while it is open. */
+  private artifactLevels: ArtifactLevels = { sideLobe: 0, mirror: 0, beamWidth: 0, clutter: 0 };
+  private artifacts: ArtifactSettings = NO_ARTIFACTS;
+  private caseArtifacts: ArtifactLevels = this.artifactLevels;
 
   private applyArtifactOverrides(o: SimInput['artifactOverrides']): void {
-    const a = o ?? this.caseArtifacts;
-    this.artifacts = { sideLobe: a.sideLobe, mirror: a.mirror, beamWidth: a.beamWidth };
-    this.clutterBoost = a.clutter;
+    this.artifactLevels = o ?? this.caseArtifacts;
+    this.artifacts = consoleArtifacts(this.artifactLevels);
   }
   private input: SimInput;
   /** Phase of the last frame handed out (live or cine): what a review marker refers to. */
@@ -211,18 +218,8 @@ export class SimulatorCore {
     this.truth = computeGroundTruth(caseDef, this.tables);
     this.syncBeatTables(false);
     this.consoleState = createConsoleState(caseDef.seed);
-    // case-configurable artifacts (spec 12): geometric ones (rib/lung/calcium shadow) come from the anatomy;
-    // these three are applied in the console pipeline and the near-field clutter boosts the physics term
-    const art = (type: string) =>
-      caseDef.artifacts
-        .filter((x) => x.enabled && x.type === type)
-        .reduce((m, x) => Math.max(m, x.intensity), 0);
-    this.caseArtifacts = {
-      sideLobe: art('side-lobe'),
-      mirror: art('mirror'),
-      beamWidth: art('beam-width'),
-      clutter: art('near-field-clutter'),
-    };
+    // case-configurable artifacts (spec 12): geometric ones (rib/lung/calcium shadow) come from the anatomy
+    this.caseArtifacts = caseArtifactLevels(caseDef);
     this.applyArtifactOverrides(input.artifactOverrides);
     // the GPU port (same frames, ~10× faster) feeds the atlas when available; the CPU renderer stays the
     // reference and the fallback (Node tests, browsers without WebGL2 float targets)
@@ -496,20 +493,11 @@ export class SimulatorCore {
   }
 
   private physics(): ScenePhysics {
-    const s = this.input.settings;
-    return {
-      frequencyMHz: s.frequencyMHz,
-      harmonics: s.harmonics,
-      clutterLevel:
-        Math.min(1, this.caseDef.acousticWindow.clutterLevel + 0.6 * this.clutterBoost) +
-        this.caseDef.acousticWindow.emphysemaScatter * 0.5,
-      windowAttenuation: this.caseDef.acousticWindow.chestWallAttenuation,
-      seed: this.caseDef.seed,
-      beamWidth: this.artifacts.beamWidth,
-      sideLobe: this.artifacts.sideLobe,
+    return scenePhysicsFor(this.caseDef, this.input.settings, {
+      artifacts: this.artifactLevels,
       // the frame the console is about to form: the flowing blood's speckle changes with it (decision 163)
       bloodFrame: this.consoleState.frameIndex,
-    };
+    });
   }
 
   private scene(phase: number): Scene {

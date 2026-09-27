@@ -70,6 +70,13 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: { three: ['three'], react: ['react', 'react-dom'] },
+        // the chunk that carries the WebGL2 port keeps its name, whatever module Rollup would name it after: it is shared by
+        // the lazy core and the backend comparison, and when the scene physics joined it (decision 238) it came out as
+        // `scenePhysics-*.js` and fell under the budget of an ordinary chunk
+        chunkFileNames: (chunk) =>
+          chunk.moduleIds.some((id) => id.includes('/renderer/gpu/webgl2Renderer'))
+            ? 'assets/webgl2Renderer-[hash].js'
+            : 'assets/[name]-[hash].js',
       },
     },
   },

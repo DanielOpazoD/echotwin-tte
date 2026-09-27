@@ -11,6 +11,11 @@ import {
   type Scene,
 } from '@/simulator/renderer/types';
 import { applyConsole, createConsoleState } from '@/simulator/renderer/postprocess/consolePipeline';
+import {
+  caseArtifactLevels,
+  consoleArtifacts,
+  scenePhysicsFor,
+} from '@/simulator/renderer/scenePhysics';
 import { computeSectorMapping, scanConvert } from '@/simulator/renderer/scanConvert';
 import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
 import { canonicalControl, VIEW_TARGETS } from '@/simulator/windows/viewTargets';
@@ -43,18 +48,12 @@ for (let i = 0; i < N; i++) {
     heart,
     heartPose: computeHeartPose(heart, cycleStateAt(tables, phase)),
     thorax,
-    physics: {
-      frequencyMHz: 2.5,
-      harmonics: true,
-      clutterLevel: 0.1,
-      windowAttenuation: 0.1,
-      seed: 101,
-    },
+    physics: scenePhysicsFor(c, settings),
   };
   const t0 = performance.now();
   renderer.render(scene, beam, spec, phase, frame);
   const t1 = performance.now();
-  applyConsole(frame, settings, cs, disp);
+  applyConsole(frame, settings, cs, disp, consoleArtifacts(caseArtifactLevels(c)));
   const t2 = performance.now();
   scanConvert(disp, spec, mapping, rgba);
   const t3 = performance.now();

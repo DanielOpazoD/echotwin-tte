@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 237 (última: 237).
+Decisiones: 238 (última: 238).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -245,3 +245,4 @@ Decisiones: 237 (última: 237).
 | [235](DECISIONS.md#L1429) | 2026-09-25 | El examen empieza desde cero y no puntúa medidas libres | vigente |
 | [236](DECISIONS.md#L1431) | 2026-09-25 | El registro del docente dice lo mismo que el informe | vigente |
 | [237](DECISIONS.md#L1433) | 2026-09-25 | Una sola cadena construye los modelos, también en las herramientas y los goldens | vigente |
+| [238](DECISIONS.md#L1435) | 2026-09-25 | Una sola física de la escena: la calibración mide la imagen que la app muestra | vigente |
