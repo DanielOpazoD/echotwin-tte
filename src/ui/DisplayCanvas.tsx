@@ -978,18 +978,19 @@ function drawOverlay(
       const x0 = ecgX(hud.cineWindow.startS, layout);
       const x1 = ecgX(hud.cineWindow.endS, layout);
       ctx.fillStyle = 'rgba(255,200,87,0.09)';
-      ctx.fillRect(x0, ey, Math.max(1, x1 - x0), eh);
+      // on a strip's sweep the band may run past the right edge and on from the left (decision 231)
+      if (x1 >= x0) ctx.fillRect(x0, ey, Math.max(1, x1 - x0), eh);
+      else {
+        ctx.fillRect(x0, ey, layout.x0 + layout.width - x0, eh);
+        ctx.fillRect(layout.x0, ey, Math.max(1, x1 - layout.x0), eh);
+      }
     }
     ctx.strokeStyle = '#57d38c';
     ctx.lineWidth = 1.2;
     ctx.beginPath();
-    let first = true;
-    for (const p of ecgTracePoints(hud.ecg, layout)) {
-      if (first) {
-        ctx.moveTo(p.x, p.y);
-        first = false;
-      } else ctx.lineTo(p.x, p.y);
-    }
+    // one polyline, or two on a strip's sweep, split at its head (decision 231)
+    for (const line of ecgTracePoints(hud.ecg, layout))
+      line.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
     ctx.stroke();
     ctx.lineWidth = 1;
     ctx.fillStyle = '#ffc857';
@@ -1002,7 +1003,7 @@ function drawOverlay(
       ctx.lineTo(px, ey - 1);
       ctx.closePath();
       ctx.fill();
-    } else ctx.fillRect(W - 9, ey, 2, eh);
+    } else ctx.fillRect(layout.sweep ? Math.round(ecgX(layout.headS, layout)) : W - 9, ey, 2, eh);
   }
   ctx.lineWidth = 1.5;
   for (const ms of measurements) {

@@ -6,6 +6,7 @@ import {
   cineOffsetOnEcg,
   ecgLayoutOf,
   ecgPoint,
+  ecgTimeAtX,
   ecgTracePoints,
   ecgX,
   type EcgLayout,
@@ -32,7 +33,9 @@ describe('ecgTrace', () => {
   it('returns points in input order, skipping dropped samples', () => {
     // interleaved (time, amplitude) pairs, as the simulator sends them
     const ecg = Float64Array.of(6.5, 0, 8, 0.2, 9, 0.8, 10, 0.4);
-    const pts = ecgTracePoints(ecg, layout);
+    const lines = ecgTracePoints(ecg, layout);
+    expect(lines).toHaveLength(1);
+    const pts = lines[0]!;
     expect(pts).toHaveLength(3);
     expect(pts.map((p) => p.x)).toEqual([...pts.map((p) => p.x)].sort((a, b) => a - b));
     expect(pts[0]?.x).toBeCloseTo(ecgPoint({ t: 8, v: 0.2 }, layout)!.x);
@@ -103,5 +106,34 @@ describe('scrubbing the cine on the ECG strip (decision 190)', () => {
     expect(cineOffsetOnEcg(onStrip, { ...hud, frozen: false }, store({}))).toBeNull();
     expect(cineOffsetOnEcg(onStrip, hud, store({ activeTool: 'caliper' }))).toBeNull();
     expect(cineOffsetOnEcg(onStrip, hud, store({ reviewMode: true }))).toBeNull();
+  });
+});
+
+describe('the ECG on a strip sweep (decision 231)', () => {
+  const sweep: EcgLayout = {
+    x0: 0,
+    width: 400,
+    y: 100,
+    height: 30,
+    spanS: 2,
+    headS: 10,
+    sweep: { headColumn: 100, columns: 400 },
+  };
+  it('writes the newest sample just before the head and older ones back from it, wrapping at the edge', () => {
+    expect(ecgPoint({ t: 10, v: 0 }, sweep)?.x).toBeCloseTo(99.5);
+    expect(ecgPoint({ t: 9.5, v: 0 }, sweep)?.x).toBeCloseTo(-0.5 + 400);
+    expect(ecgPoint({ t: 8.5, v: 0 }, sweep)?.x).toBeCloseTo(199.5);
+    // older than one sweep: overwritten
+    expect(ecgPoint({ t: 7.9, v: 0 }, sweep)).toBeNull();
+  });
+  it('draws two lines, split at the head', () => {
+    const ecg = Float64Array.of(8.2, 0, 9, 0.1, 9.6, 0.2, 9.9, 0.3, 10, 0.4);
+    const lines = ecgTracePoints(ecg, sweep);
+    expect(lines).toHaveLength(2);
+    expect(lines.every((l) => l.every((p, i) => i === 0 || p.x > l[i - 1]!.x))).toBe(true);
+  });
+  it('a point of the trace reads back the time drawn there, so scrubbing picks the frame under the pointer', () => {
+    for (const t of [8.1, 8.9, 9.4, 9.95])
+      expect(ecgTimeAtX(ecgX(t, sweep), sweep)).toBeCloseTo(t, 6);
   });
 });

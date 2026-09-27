@@ -62,6 +62,12 @@ export interface StripInfo {
   height: number;
   /** Seconds per pixel column. */
   secondsPerColumn: number;
+  /**
+   * The strip is written as a sweep (decision 231): `headColumn` is the column the next sample goes into, where the
+   * sweep marker stands, of `columns`; the newest written column is the one before it. 0 without a strip.
+   */
+  headColumn: number;
+  columns: number;
   /** Spectral: velocity (m/s) at top/bottom rows. M-mode: depth (cm) at top/bottom. */
   topValue: number;
   bottomValue: number;

@@ -1,6 +1,7 @@
 /**
  * Geometry of the ECG trace drawn under the image (DisplayCanvas): a sliding window of `spanS`
- * seconds ending at `headS`. The caller keeps the canvas calls; this module only maps samples to
+ * seconds ending at `headS`, or, with a Doppler or M-mode strip on screen, a sweep written as the
+ * strip is (decision 231). The caller keeps the canvas calls; this module only maps samples to
  * screen points.
  */
 import type { SimOutput } from '@/simulator/core/protocol';
@@ -24,6 +25,23 @@ export interface EcgLayout {
   spanS: number;
   /** Window end (sweep head) in seconds. */
   headS: number;
+  /**
+   * With a strip on screen the ECG is written as the strip is (decision 231): a sweep of `columns` columns over the
+   * trace whose newest sample sits just before `headColumn`, where the strip's sweep marker stands. Until then the ECG
+   * scrolled 3 s over the strip's 2 s sweep, and the E wave of a mitral inflow showed 80 ms before the R that
+   * precedes it by 480 ms.
+   */
+  sweep?: { headColumn: number; columns: number } | null;
+}
+
+/** Fractional column (0…columns) of a time on a sweep, or null outside the last sweep. */
+function sweepColumn(tS: number, l: EcgLayout, clamp: boolean): number | null {
+  const sw = l.sweep!;
+  let age = l.headS - tS;
+  if (clamp) age = Math.max(0, Math.min(l.spanS, age));
+  else if (age < 0 || age > l.spanS) return null;
+  const c = sw.headColumn - 0.5 - (age / l.spanS) * sw.columns;
+  return ((c % sw.columns) + sw.columns) % sw.columns;
 }
 
 /** Screen point of an ECG sample under a sliding window ending at headS. */
@@ -31,29 +49,51 @@ export function ecgPoint(
   p: { t: number; v: number },
   l: EcgLayout,
 ): { x: number; y: number } | null {
+  const y = l.y + l.height - BOTTOM_PAD_PX - p.v * (l.height - VALUE_PAD_PX);
+  if (l.sweep) {
+    const c = sweepColumn(p.t, l, false);
+    return c === null ? null : { x: l.x0 + (c / l.sweep.columns) * l.width, y };
+  }
   const t0 = l.headS - l.spanS;
   if (p.t < t0) return null;
-  return {
-    x: l.x0 + ((p.t - t0) / l.spanS) * l.width,
-    y: l.y + l.height - BOTTOM_PAD_PX - p.v * (l.height - VALUE_PAD_PX),
-  };
+  return { x: l.x0 + ((p.t - t0) / l.spanS) * l.width, y };
 }
 
-/** Visible samples as screen points, in input order. */
-export function ecgTracePoints(ecg: Float64Array, l: EcgLayout): { x: number; y: number }[] {
-  const points: { x: number; y: number }[] = [];
+/** Visible samples as screen polylines, in input order: one, or two on a sweep, split at its head (decision 231). */
+export function ecgTracePoints(ecg: Float64Array, l: EcgLayout): { x: number; y: number }[][] {
+  const lines: { x: number; y: number }[][] = [];
+  let line: { x: number; y: number }[] = [];
   // interleaved (time, amplitude) pairs, as the simulator sends them (decision 173)
   for (let i = 0; i + 1 < ecg.length; i += 2) {
     const pt = ecgPoint({ t: ecg[i]!, v: ecg[i + 1]! }, l);
-    if (pt) points.push(pt);
+    if (!pt) continue;
+    const prev = line[line.length - 1];
+    if (prev && pt.x < prev.x) {
+      lines.push(line);
+      line = [];
+    }
+    line.push(pt);
   }
-  return points;
+  if (line.length) lines.push(line);
+  return lines;
 }
 
 /** Screen x of a time on the strip, clamped to the trace (px). */
 export function ecgX(tS: number, l: EcgLayout): number {
+  if (l.sweep) return l.x0 + (sweepColumn(tS, l, true)! / l.sweep.columns) * l.width;
   const f = (tS - (l.headS - l.spanS)) / l.spanS;
   return l.x0 + Math.max(0, Math.min(1, f)) * l.width;
+}
+
+/** The time a point of the trace shows: the inverse of `ecgX` within the window or the last sweep. */
+export function ecgTimeAtX(x: number, l: EcgLayout): number {
+  if (l.sweep) {
+    const sw = l.sweep;
+    const c = ((x - l.x0) / l.width) * sw.columns;
+    const back = (((sw.headColumn - 0.5 - c) % sw.columns) + sw.columns) % sw.columns;
+    return l.headS - (back / sw.columns) * l.spanS;
+  }
+  return l.headS - l.spanS + ((x - l.x0) / l.width) * l.spanS;
 }
 
 /**
@@ -68,14 +108,30 @@ export function cineOffsetAtX(
   length: number,
 ): number {
   if (length < 2 || win.endS <= win.startS) return 0;
-  const t = l.headS - l.spanS + ((x - l.x0) / l.width) * l.spanS;
+  const t = ecgTimeAtX(x, l);
   const f = (t - win.endS) / (win.endS - win.startS);
   return Math.max(-(length - 1), Math.min(0, Math.round(f * (length - 1))));
 }
 
-/** Where the ECG strip lies: along the bottom of the sector in 2D and colour, of the whole display with a strip. */
+/**
+ * Where the ECG strip lies: along the bottom of the sector in 2D and colour; with a Doppler or M-mode strip, along the
+ * bottom of the whole display and written on the strip's own sweep, so a wave sits over the columns written at its
+ * instant (decision 231).
+ */
 export function ecgLayoutOf(hud: SimOutput, modality: SimStore['modality']): EcgLayout {
   const eh = 30;
+  const st = hud.strip;
+  if (modality !== '2d' && modality !== 'color' && st?.kind && st.columns > 0) {
+    return {
+      x0: st.x,
+      width: st.width,
+      y: hud.height - eh - 6,
+      height: eh,
+      spanS: st.secondsPerColumn * st.columns,
+      headS: hud.ecgHead,
+      sweep: { headColumn: st.headColumn, columns: st.columns },
+    };
+  }
   return {
     x0: 8,
     width: hud.width - 16,

@@ -871,6 +871,8 @@ export class SimulatorCore {
       width: W,
       height: H - sectorH,
       secondsPerColumn: 0,
+      headColumn: 0,
+      columns: 0,
       topValue: 0,
       bottomValue: 0,
       kind: null,
