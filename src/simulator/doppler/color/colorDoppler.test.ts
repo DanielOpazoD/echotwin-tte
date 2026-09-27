@@ -324,172 +324,162 @@ function wouldBlend(before: ColorField, rawNow: ColorField, minDelta = 0.002): n
 }
 
 describe('colour persistence through SimulatorCore (decisions 56 and 94)', () => {
-  it(
-    'blends every update with the previous field by the weight of the time since it, shows the latest one, and resets on modality and spec changes',
-    { timeout: 120_000 },
-    () => {
-      const c = loadCaseById('normal-excellent-window');
-      const p = 0.5;
-      // identical cores and steps: the one without persistence yields the raw field of every update
-      const raw = new SimulatorCore(c, colorInput(0));
-      const kept = new SimulatorCore(c, colorInput(p));
-      const probe = canonicalControl(getViewTarget('a4c'), kept.models.heart, kept.models.thorax);
-      raw.setInput(colorInput(0, { probe }));
-      kept.setInput(colorInput(p, { probe }));
-      const settings = { ...DEFAULT_COLOR, persistence: p };
-      const live: Uint8Array[] = [];
-      let lut: ScanLut | null = null;
-      let prev: ColorField | null = null;
-      let version = 0;
-      let updates = 0;
-      let blended = 0;
-      let mismatches = 0;
-      let discriminating = 0;
-      let wrongField = 0;
-      let timeS = 0;
-      let updateTimeS = NaN;
-      const weights = new Set<number>();
-      // ten updates: six caught too little changing flow once systole moved to its Weissler time (decision 162)
-      for (let i = 0; i < 60 && updates < 10; i++) {
-        const outRaw = raw.step(0.1);
-        const out = kept.step(0.1);
-        timeS += 0.1;
-        expect(Boolean(out)).toBe(Boolean(outRaw));
-        if (!out) continue;
-        live.push(new Uint8Array(out.rgba));
-        const r = raw.lastColorField;
-        const k = kept.lastColorField;
-        expect(k.version).toBe(r.version);
-        if (k.version === version) continue; // no colour update on this frame
-        expect(k.version).toBe(version + 1); // the GPU present pass uploads the field when the version changes
-        version = k.version;
-        updates++;
-        // the field updates every other frame: the history weight is p per two frame intervals of the cadence, of elapsed time
-        const w = persistenceOverTime(p, timeS - updateTimeS, 2 / out.cadenceHz);
-        if (prev) weights.add(Number(w.toFixed(6)));
-        updateTimeS = timeS;
-        const { vel: rv, variance: rs, power: rp } = r.field!;
-        const { vel: kv, variance: ks } = k.field!;
-        for (let s = 0; s < kv.length; s++) {
-          const vPrev = prev ? prev.vel[s]! : NaN;
-          const both = !Number.isNaN(rv[s]!) && !Number.isNaN(vPrev);
-          const ev = both
-            ? circularBlend(w, rv[s]!, rp[s]!, vPrev, prev!.power[s]!, settings)
-            : rv[s]!;
-          const es = both ? rs[s]! * (1 - w) + prev!.variance[s]! * w : rs[s]!;
-          const velOk = Number.isNaN(ev) ? Number.isNaN(kv[s]!) : Math.abs(kv[s]! - ev) < 1e-5;
-          if (!velOk || !(Math.abs(ks[s]! - es) < 1e-5)) mismatches++;
-          if (both && Math.abs(rv[s]! - vPrev) > 0.05) blended++;
-        }
-        // the composite must show the field of this update, not the one before it
-        if (prev) {
-          const fspec = kept.lastFrame!.spec;
-          lut ??= buildScanLut(
-            fspec,
-            computeSectorMapping(
-              fspec,
-              W,
-              H,
-              DEFAULT_ACQUISITION.invertLR,
-              DEFAULT_ACQUISITION.zoom,
-            ),
-          );
-          const now = redMinusBlue(k.field!, lut, settings);
-          const before = redMinusBlue(prev, lut, settings);
-          const px = live[live.length - 1]!;
-          for (let q = 0, o = 0; q < now.length; q++, o += 4) {
-            if (Math.abs(now[q]! - before[q]!) <= 30) continue; // this pixel cannot tell the two fields apart
-            discriminating++;
-            if (Math.abs(px[o]! - px[o + 2]! - now[q]!) > 2) wrongField++;
-          }
-        }
-        prev = copyField(k.field!);
+  it('blends every update with the previous field by the weight of the time since it, shows the latest one, and resets on modality and spec changes', () => {
+    const c = loadCaseById('normal-excellent-window');
+    const p = 0.5;
+    // identical cores and steps: the one without persistence yields the raw field of every update
+    const raw = new SimulatorCore(c, colorInput(0));
+    const kept = new SimulatorCore(c, colorInput(p));
+    const probe = canonicalControl(getViewTarget('a4c'), kept.models.heart, kept.models.thorax);
+    raw.setInput(colorInput(0, { probe }));
+    kept.setInput(colorInput(p, { probe }));
+    const settings = { ...DEFAULT_COLOR, persistence: p };
+    const live: Uint8Array[] = [];
+    let lut: ScanLut | null = null;
+    let prev: ColorField | null = null;
+    let version = 0;
+    let updates = 0;
+    let blended = 0;
+    let mismatches = 0;
+    let discriminating = 0;
+    let wrongField = 0;
+    let timeS = 0;
+    let updateTimeS = NaN;
+    const weights = new Set<number>();
+    // ten updates: six caught too little changing flow once systole moved to its Weissler time (decision 162)
+    for (let i = 0; i < 60 && updates < 10; i++) {
+      const outRaw = raw.step(0.1);
+      const out = kept.step(0.1);
+      timeS += 0.1;
+      expect(Boolean(out)).toBe(Boolean(outRaw));
+      if (!out) continue;
+      live.push(new Uint8Array(out.rgba));
+      const r = raw.lastColorField;
+      const k = kept.lastColorField;
+      expect(k.version).toBe(r.version);
+      if (k.version === version) continue; // no colour update on this frame
+      expect(k.version).toBe(version + 1); // the GPU present pass uploads the field when the version changes
+      version = k.version;
+      updates++;
+      // the field updates every other frame: the history weight is p per two frame intervals of the cadence, of elapsed time
+      const w = persistenceOverTime(p, timeS - updateTimeS, 2 / out.cadenceHz);
+      if (prev) weights.add(Number(w.toFixed(6)));
+      updateTimeS = timeS;
+      const { vel: rv, variance: rs, power: rp } = r.field!;
+      const { vel: kv, variance: ks } = k.field!;
+      for (let s = 0; s < kv.length; s++) {
+        const vPrev = prev ? prev.vel[s]! : NaN;
+        const both = !Number.isNaN(rv[s]!) && !Number.isNaN(vPrev);
+        const ev = both
+          ? circularBlend(w, rv[s]!, rp[s]!, vPrev, prev!.power[s]!, settings)
+          : rv[s]!;
+        const es = both ? rs[s]! * (1 - w) + prev!.variance[s]! * w : rs[s]!;
+        const velOk = Number.isNaN(ev) ? Number.isNaN(kv[s]!) : Math.abs(kv[s]! - ev) < 1e-5;
+        if (!velOk || !(Math.abs(ks[s]! - es) < 1e-5)) mismatches++;
+        if (both && Math.abs(rv[s]! - vPrev) > 0.05) blended++;
       }
-      expect(updates).toBe(10);
-      // the first blend comes one frame after the first field, half the colour interval: its weight (about p^0.5) is far from
-      // the setting, so a weight per update would not pass the blend check
-      expect(Math.max(...[...weights].map((x) => Math.abs(x - p)))).toBeGreaterThan(0.1);
-      expect(mismatches).toBe(0);
-      expect(blended).toBeGreaterThan(100);
-      expect(discriminating).toBeGreaterThan(100);
-      expect(wrongField).toBe(0);
-      // freezing reviews the cine: each frame must show the colour its live composite showed
-      let coloredPixels = 0;
-      for (let j = 0; j < live.length; j++) {
-        kept.setInput(colorInput(p, { probe, frozen: true, cineOffset: j - (live.length - 1) }));
-        const a = live[j]!;
-        const b = new Uint8Array(kept.step(0.1)!.rgba);
-        expect(b.length).toBe(a.length);
-        let differing = 0;
-        for (let o = 0; o < a.length; o++) if (a[o] !== b[o]) differing++;
-        expect(differing).toBe(0);
-        for (let o = 0; o < a.length; o += 4)
-          if (a[o] !== a[o + 1] || a[o + 1] !== a[o + 2]) coloredPixels++;
-      }
-      expect(coloredPixels).toBeGreaterThan(1000);
-      // the two resets: the first update after them is raw, because there is no previous field to blend.
-      // short steps keep the phase near the one that has flow, so the comparison is not made on an empty field.
-      const nextUpdate = (
-        dt: number,
-        over: Partial<SimInput> = {},
-      ): { kept: ColorField; raw: ColorField } => {
-        raw.setInput(colorInput(0, { probe, ...over }));
-        kept.setInput(colorInput(p, { probe, ...over }));
-        const v0 = kept.lastColorField.version;
-        for (let i = 0; i < 40 && kept.lastColorField.version === v0; i++) {
-          raw.step(dt);
-          kept.step(dt);
-        }
-        expect(kept.lastColorField.version).toBe(v0 + 1);
-        expect(raw.lastColorField.version).toBe(kept.lastColorField.version);
-        // copies: the core keeps writing into those two buffers as it steps
-        return {
-          kept: copyField(kept.lastColorField.field!),
-          raw: copyField(raw.lastColorField.field!),
-        };
-      };
-      // unfreeze and stop at an update with flow in the box: how much colour there is depends on the cardiac phase
-      let flow = nextUpdate(0.1);
-      for (let i = 0; i < 12 && coloredSamples(flow.raw) < 200; i++) flow = nextUpdate(0.1);
-      expect(coloredSamples(flow.raw)).toBeGreaterThan(200);
-      // attempts at different phases until both resets are observable: an attempt can land where the box holds almost no
-      // flow in one of the two fields, and four of them (0.3 s of the cycle) stopped sufficing when the apical probe moved
-      // onto the LV axis (decision 215: 77 and 15 observable samples before and after, all from the first attempt)
-      const withDepth = (depthCm: number) => ({
-        ...DEFAULT_ACQUISITION,
-        tgcDb: [...DEFAULT_ACQUISITION.tgcDb],
-        depthCm,
-      });
-      let depth = DEFAULT_ACQUISITION.depthCm;
-      let before = flow.kept;
-      let observableModality = 0;
-      let observableSpec = 0;
-      for (
-        let attempt = 0;
-        attempt < 12 && (observableModality <= 50 || observableSpec <= 50);
-        attempt++
-      ) {
-        // modality: colour → 2D → colour, at the current depth
-        raw.setInput(colorInput(0, { probe, modality: '2d', settings: withDepth(depth) }));
-        kept.setInput(colorInput(p, { probe, modality: '2d', settings: withDepth(depth) }));
-        raw.step(0.02);
-        kept.step(0.02);
-        const afterModality = nextUpdate(0.02, { settings: withDepth(depth) });
-        expect(fieldDiff(afterModality.kept, afterModality.raw)).toBe(0);
-        observableModality += wouldBlend(before, afterModality.raw);
-        // polar spec: the other depth re-allocates the frame and both colour buffers
-        depth = depth === 16 ? 13 : 16;
-        const afterSpec = nextUpdate(0.02, { settings: withDepth(depth) });
+      // the composite must show the field of this update, not the one before it
+      if (prev) {
         const fspec = kept.lastFrame!.spec;
-        expect(fspec.depthCm).toBe(depth);
-        expect(afterSpec.kept.vel.length).toBe(fspec.lines * fspec.samples);
-        expect(fieldDiff(afterSpec.kept, afterSpec.raw)).toBe(0);
-        observableSpec += wouldBlend(afterModality.kept, afterSpec.raw);
-        before = afterSpec.kept;
+        lut ??= buildScanLut(
+          fspec,
+          computeSectorMapping(fspec, W, H, DEFAULT_ACQUISITION.invertLR, DEFAULT_ACQUISITION.zoom),
+        );
+        const now = redMinusBlue(k.field!, lut, settings);
+        const before = redMinusBlue(prev, lut, settings);
+        const px = live[live.length - 1]!;
+        for (let q = 0, o = 0; q < now.length; q++, o += 4) {
+          if (Math.abs(now[q]! - before[q]!) <= 30) continue; // this pixel cannot tell the two fields apart
+          discriminating++;
+          if (Math.abs(px[o]! - px[o + 2]! - now[q]!) > 2) wrongField++;
+        }
       }
-      // without the resets those fields would have been blended with the previous one
-      expect(observableModality).toBeGreaterThan(50);
-      expect(observableSpec).toBeGreaterThan(50);
-    },
-  );
+      prev = copyField(k.field!);
+    }
+    expect(updates).toBe(10);
+    // the first blend comes one frame after the first field, half the colour interval: its weight (about p^0.5) is far from
+    // the setting, so a weight per update would not pass the blend check
+    expect(Math.max(...[...weights].map((x) => Math.abs(x - p)))).toBeGreaterThan(0.1);
+    expect(mismatches).toBe(0);
+    expect(blended).toBeGreaterThan(100);
+    expect(discriminating).toBeGreaterThan(100);
+    expect(wrongField).toBe(0);
+    // freezing reviews the cine: each frame must show the colour its live composite showed
+    let coloredPixels = 0;
+    for (let j = 0; j < live.length; j++) {
+      kept.setInput(colorInput(p, { probe, frozen: true, cineOffset: j - (live.length - 1) }));
+      const a = live[j]!;
+      const b = new Uint8Array(kept.step(0.1)!.rgba);
+      expect(b.length).toBe(a.length);
+      let differing = 0;
+      for (let o = 0; o < a.length; o++) if (a[o] !== b[o]) differing++;
+      expect(differing).toBe(0);
+      for (let o = 0; o < a.length; o += 4)
+        if (a[o] !== a[o + 1] || a[o + 1] !== a[o + 2]) coloredPixels++;
+    }
+    expect(coloredPixels).toBeGreaterThan(1000);
+    // the two resets: the first update after them is raw, because there is no previous field to blend.
+    // short steps keep the phase near the one that has flow, so the comparison is not made on an empty field.
+    const nextUpdate = (
+      dt: number,
+      over: Partial<SimInput> = {},
+    ): { kept: ColorField; raw: ColorField } => {
+      raw.setInput(colorInput(0, { probe, ...over }));
+      kept.setInput(colorInput(p, { probe, ...over }));
+      const v0 = kept.lastColorField.version;
+      for (let i = 0; i < 40 && kept.lastColorField.version === v0; i++) {
+        raw.step(dt);
+        kept.step(dt);
+      }
+      expect(kept.lastColorField.version).toBe(v0 + 1);
+      expect(raw.lastColorField.version).toBe(kept.lastColorField.version);
+      // copies: the core keeps writing into those two buffers as it steps
+      return {
+        kept: copyField(kept.lastColorField.field!),
+        raw: copyField(raw.lastColorField.field!),
+      };
+    };
+    // unfreeze and stop at an update with flow in the box: how much colour there is depends on the cardiac phase
+    let flow = nextUpdate(0.1);
+    for (let i = 0; i < 12 && coloredSamples(flow.raw) < 200; i++) flow = nextUpdate(0.1);
+    expect(coloredSamples(flow.raw)).toBeGreaterThan(200);
+    // attempts at different phases until both resets are observable: an attempt can land where the box holds almost no
+    // flow in one of the two fields, and four of them (0.3 s of the cycle) stopped sufficing when the apical probe moved
+    // onto the LV axis (decision 215: 77 and 15 observable samples before and after, all from the first attempt)
+    const withDepth = (depthCm: number) => ({
+      ...DEFAULT_ACQUISITION,
+      tgcDb: [...DEFAULT_ACQUISITION.tgcDb],
+      depthCm,
+    });
+    let depth = DEFAULT_ACQUISITION.depthCm;
+    let before = flow.kept;
+    let observableModality = 0;
+    let observableSpec = 0;
+    for (
+      let attempt = 0;
+      attempt < 12 && (observableModality <= 50 || observableSpec <= 50);
+      attempt++
+    ) {
+      // modality: colour → 2D → colour, at the current depth
+      raw.setInput(colorInput(0, { probe, modality: '2d', settings: withDepth(depth) }));
+      kept.setInput(colorInput(p, { probe, modality: '2d', settings: withDepth(depth) }));
+      raw.step(0.02);
+      kept.step(0.02);
+      const afterModality = nextUpdate(0.02, { settings: withDepth(depth) });
+      expect(fieldDiff(afterModality.kept, afterModality.raw)).toBe(0);
+      observableModality += wouldBlend(before, afterModality.raw);
+      // polar spec: the other depth re-allocates the frame and both colour buffers
+      depth = depth === 16 ? 13 : 16;
+      const afterSpec = nextUpdate(0.02, { settings: withDepth(depth) });
+      const fspec = kept.lastFrame!.spec;
+      expect(fspec.depthCm).toBe(depth);
+      expect(afterSpec.kept.vel.length).toBe(fspec.lines * fspec.samples);
+      expect(fieldDiff(afterSpec.kept, afterSpec.raw)).toBe(0);
+      observableSpec += wouldBlend(afterModality.kept, afterSpec.raw);
+      before = afterSpec.kept;
+    }
+    // without the resets those fields would have been blended with the previous one
+    expect(observableModality).toBeGreaterThan(50);
+    expect(observableSpec).toBeGreaterThan(50);
+  });
 });

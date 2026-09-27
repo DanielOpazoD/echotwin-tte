@@ -30,5 +30,5 @@ describe('quality tier', () => {
     expect(out!.stats['tier']).toBe('medium');
     expect(out!.polar.lines).toBe(medium.lines);
     expect(out!.polar.samples).toBe(medium.samples);
-  }, 60_000);
+  });
 });

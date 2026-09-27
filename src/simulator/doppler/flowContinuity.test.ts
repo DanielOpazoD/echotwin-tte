@@ -116,35 +116,31 @@ function longestStraightBorder(caseId: string, viewId: string, phase: number): n
 }
 
 describe('the flows draw no straight colour border (decision 166)', () => {
-  it(
-    'in five views of every case, at the E and A peaks, in mid-diastole and in systole',
-    { timeout: 900_000 },
-    () => {
-      const long: string[] = [];
-      for (const input of CASE_INPUTS) {
-        const { tables } = buildCaseModels(loadCaseById(input.id), {
-          position: 'left-lateral',
-          respiration: 'expiration',
-          headElevationDeg: 0,
-        });
-        const tm = tables.timings;
-        const rr = tables.rrS;
-        const phases: Record<string, number> = {
-          E: (tm.mitralOpenS + tm.eAccelS) / rr,
-          'mid-diastole': (tm.mitralOpenS + tm.eAccelS + 0.5 * tm.eDecelS) / rr,
-          systole: (tm.ejectionStartS + 0.35 * (tm.ejectionEndS - tm.ejectionStartS)) / rr,
-        };
-        if (tm.hasAWave) phases['A'] = (tm.aStartS + 0.5 * (rr - tm.aStartS)) / rr;
-        for (const view of VIEWS)
-          for (const [name, phase] of Object.entries(phases)) {
-            const cm = longestStraightBorder(input.id, view, phase);
-            const key = `${input.id} ${view} ${name}`;
-            if (cm > MAX_STRAIGHT_BORDER_CM + 1e-9) long.push(`${key}: ${(cm * 10).toFixed(0)} mm`);
-          }
-      }
-      expect(long, 'straight colour borders longer than 5 mm').toEqual([]);
-    },
-  );
+  it('in five views of every case, at the E and A peaks, in mid-diastole and in systole', () => {
+    const long: string[] = [];
+    for (const input of CASE_INPUTS) {
+      const { tables } = buildCaseModels(loadCaseById(input.id), {
+        position: 'left-lateral',
+        respiration: 'expiration',
+        headElevationDeg: 0,
+      });
+      const tm = tables.timings;
+      const rr = tables.rrS;
+      const phases: Record<string, number> = {
+        E: (tm.mitralOpenS + tm.eAccelS) / rr,
+        'mid-diastole': (tm.mitralOpenS + tm.eAccelS + 0.5 * tm.eDecelS) / rr,
+        systole: (tm.ejectionStartS + 0.35 * (tm.ejectionEndS - tm.ejectionStartS)) / rr,
+      };
+      if (tm.hasAWave) phases['A'] = (tm.aStartS + 0.5 * (rr - tm.aStartS)) / rr;
+      for (const view of VIEWS)
+        for (const [name, phase] of Object.entries(phases)) {
+          const cm = longestStraightBorder(input.id, view, phase);
+          const key = `${input.id} ${view} ${name}`;
+          if (cm > MAX_STRAIGHT_BORDER_CM + 1e-9) long.push(`${key}: ${(cm * 10).toFixed(0)} mm`);
+        }
+    }
+    expect(long, 'straight colour borders longer than 5 mm').toEqual([]);
+  });
 });
 
 /**

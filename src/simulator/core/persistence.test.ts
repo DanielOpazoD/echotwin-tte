@@ -71,18 +71,14 @@ describe('persistence over time (decision 94)', () => {
   });
 
   for (const k of [1, 2, 3]) {
-    it(
-      `the displayed image follows a gain step with the same time response when the loop renders every ${k} frame interval(s)`,
-      { timeout: 120_000 },
-      () => {
-        const { fractions, reported, intervals } = stepResponse(k);
-        const expected = intervals.map((t) => 1 - P ** t);
-        expect(
-          fractions.map((f, i) => Math.abs(f - expected[i]!) < 0.02),
-          `fraction of the step after ${intervals.join(', ')} intervals: ${fractions.map((f) => f.toFixed(3)).join(', ')} against ${expected.map((f) => f.toFixed(3)).join(', ')}`,
-        ).toEqual([true, true, true]);
-        expect(reported).toBeCloseTo(P ** k, 2);
-      },
-    );
+    it(`the displayed image follows a gain step with the same time response when the loop renders every ${k} frame interval(s)`, () => {
+      const { fractions, reported, intervals } = stepResponse(k);
+      const expected = intervals.map((t) => 1 - P ** t);
+      expect(
+        fractions.map((f, i) => Math.abs(f - expected[i]!) < 0.02),
+        `fraction of the step after ${intervals.join(', ')} intervals: ${fractions.map((f) => f.toFixed(3)).join(', ')} against ${expected.map((f) => f.toFixed(3)).join(', ')}`,
+      ).toEqual([true, true, true]);
+      expect(reported).toBeCloseTo(P ** k, 2);
+    });
   }
 });

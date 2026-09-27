@@ -37,7 +37,6 @@ describe('one scene physics (decision 238)', () => {
       const { bloodFrame: _cal, ...calibrationPhysics } = calibration;
       expect(calibrationPhysics).toEqual(appPhysics);
     },
-    120_000,
   );
 
   it('no module outside scenePhysics.ts writes a scene physics of its own (src/, tools/, the goldens)', () => {

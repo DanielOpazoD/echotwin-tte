@@ -105,7 +105,7 @@ describe('bone attenuation is integrated over distance', () => {
     };
   };
 
-  it('the same rib shadows alike in the low, medium and high tiers', { timeout: 120_000 }, () => {
+  it('the same rib shadows alike in the low, medium and high tiers', () => {
     // on a rib (bone along most lines) and 1 mm inside a rib's edge (a short path along a few lines): the offsets come
     // from the rib geometry at the apical probe, not from fixed numbers — a fixed ±1.4 cm landed on the rib only while
     // the probe sat where the ribs were 3.1 cm apart, and missed it once decision 139 moved it 3 cm lateral

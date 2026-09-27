@@ -57,42 +57,38 @@ function logCorrelation(a: PolarFrame, b: PolarFrame, keep: (st: number) => bool
 }
 
 describe('the flowing blood decorrelates from frame to frame (decision 163)', () => {
-  it(
-    'the LV cavity speckle changes between consecutive frames while the walls keep theirs',
-    { timeout: 120_000 },
-    () => {
-      const c = loadCaseById('normal-excellent-window');
-      const setup = new SimulatorCore(c, baseInput());
-      const probe = canonicalControl(getViewTarget('a4c'), setup.models.heart, setup.models.thorax);
-      const core = new SimulatorCore(
-        c,
-        baseInput({
-          probe,
-          settings: {
-            ...DEFAULT_ACQUISITION,
-            tgcDb: [...DEFAULT_ACQUISITION.tgcDb],
-            persistence: 0,
-          },
-        }),
-      );
-      const marks = core.phaseMarks();
-      const fps = core.step(1 / 30)!.cadenceHz;
-      const target = (marks.eEnd + marks.aStart) / 2;
-      let out = core.step(1 / fps)!;
-      for (let n = 0; n < 200 && Math.abs(out.phase - target) > 0.6 / fps / out.rrS; n++)
-        out = core.step(1 / fps)!;
-      const first = core.lastFrame!;
-      const a: PolarFrame = {
-        ...first,
-        amplitude: new Float32Array(first.amplitude),
-        structure: new Uint8Array(first.structure),
-      };
-      core.step(1 / fps);
-      const b = core.lastFrame!;
-      const cavity = logCorrelation(a, b, (st) => st === Structure.LvCavity);
-      const wall = logCorrelation(a, b, (st) => LV_WALL.has(st));
-      expect(wall, 'LV walls, log-amplitude correlation between frames').toBeGreaterThan(0.98);
-      expect(cavity, 'LV cavity, log-amplitude correlation between frames').toBeLessThan(0.85);
-    },
-  );
+  it('the LV cavity speckle changes between consecutive frames while the walls keep theirs', () => {
+    const c = loadCaseById('normal-excellent-window');
+    const setup = new SimulatorCore(c, baseInput());
+    const probe = canonicalControl(getViewTarget('a4c'), setup.models.heart, setup.models.thorax);
+    const core = new SimulatorCore(
+      c,
+      baseInput({
+        probe,
+        settings: {
+          ...DEFAULT_ACQUISITION,
+          tgcDb: [...DEFAULT_ACQUISITION.tgcDb],
+          persistence: 0,
+        },
+      }),
+    );
+    const marks = core.phaseMarks();
+    const fps = core.step(1 / 30)!.cadenceHz;
+    const target = (marks.eEnd + marks.aStart) / 2;
+    let out = core.step(1 / fps)!;
+    for (let n = 0; n < 200 && Math.abs(out.phase - target) > 0.6 / fps / out.rrS; n++)
+      out = core.step(1 / fps)!;
+    const first = core.lastFrame!;
+    const a: PolarFrame = {
+      ...first,
+      amplitude: new Float32Array(first.amplitude),
+      structure: new Uint8Array(first.structure),
+    };
+    core.step(1 / fps);
+    const b = core.lastFrame!;
+    const cavity = logCorrelation(a, b, (st) => st === Structure.LvCavity);
+    const wall = logCorrelation(a, b, (st) => LV_WALL.has(st));
+    expect(wall, 'LV walls, log-amplitude correlation between frames').toBeGreaterThan(0.98);
+    expect(cavity, 'LV cavity, log-amplitude correlation between frames').toBeLessThan(0.85);
+  });
 });

@@ -239,85 +239,72 @@ function shortAxisClock(f: Frame): {
 }
 
 describe('the LV segments on the images of the app (decision 181)', () => {
-  it(
-    'number as septum the arc of a short-axis cut the RV touches, counter-clockwise, in every case',
-    { timeout: 600_000 },
-    () => {
-      const off: string[] = [];
-      for (const input of CASE_INPUTS)
-        for (const view of ['psax-mv', 'psax-pm']) {
-          const f = frameOf(input.id, view);
-          const ring = view === 'psax-mv' ? [1, 2, 3, 4, 5, 6] : [7, 8, 9, 10, 11, 12];
-          if (!counterClockwise(f, ring))
-            off.push(`${input.id} ${view}: the ring is not numbered counter-clockwise`);
-          const { septum, rv } = arcs(f);
-          const rvDeg = 2 * rv.filter(Boolean).length;
-          const miss = mismatchDeg(septum, rv);
-          // the insertions sit within a few degrees of the boundaries; the RV spans the septum, 120° of the ring
-          if (miss > 20 || rvDeg < 100 || rvDeg > 150)
-            off.push(`${input.id} ${view}: RV over ${rvDeg}°, septum and RV differ over ${miss}°`);
-        }
-      expect(off).toEqual([]);
-    },
-  );
-
-  it(
-    "turn the papillary short axis toward the average patient's: RV near 10, insertions near 12 and 8, papillary muscles near 4 and 8 (decision 182)",
-    { timeout: 600_000 },
-    () => {
-      const off: string[] = [];
-      for (const input of CASE_INPUTS) {
-        const c = shortAxisClock(frameOf(input.id, 'psax-pm'));
-        const [ant, inf] = c.insertions;
-        const [al, pm] = c.papillary;
-        // hours clockwise of where an average patient's image puts each landmark
-        const turn = [c.rv - 10, ant - 12, inf - 8, al - 4, pm - 8].map((d) => ((d + 18) % 12) - 6);
-        const mean = turn.reduce((a, d) => a + d, 0) / turn.length;
-        // 0.69-0.80 h in the twelve cases; 1.07-1.14 from the sternal edge, 0.83-0.95 from 1.2 cm and 0.77-0.90 from
-        // 1.6 cm. A landmark 1.5 h off would be another cut, not a turned one.
-        if (Math.abs(mean) > 0.85 || turn.some((d) => Math.abs(d) > 1.5))
-          off.push(
-            `${input.id}: turned ${mean.toFixed(2)} h; RV ${c.rv.toFixed(1)}, insertions ${ant.toFixed(1)} and ${inf.toFixed(1)}, papillary ${al.toFixed(1)} and ${pm.toFixed(1)} o'clock`,
-          );
+  it('number as septum the arc of a short-axis cut the RV touches, counter-clockwise, in every case', () => {
+    const off: string[] = [];
+    for (const input of CASE_INPUTS)
+      for (const view of ['psax-mv', 'psax-pm']) {
+        const f = frameOf(input.id, view);
+        const ring = view === 'psax-mv' ? [1, 2, 3, 4, 5, 6] : [7, 8, 9, 10, 11, 12];
+        if (!counterClockwise(f, ring))
+          off.push(`${input.id} ${view}: the ring is not numbered counter-clockwise`);
+        const { septum, rv } = arcs(f);
+        const rvDeg = 2 * rv.filter(Boolean).length;
+        const miss = mismatchDeg(septum, rv);
+        // the insertions sit within a few degrees of the boundaries; the RV spans the septum, 120° of the ring
+        if (miss > 20 || rvDeg < 100 || rvDeg > 150)
+          off.push(`${input.id} ${view}: RV over ${rvDeg}°, septum and RV differ over ${miss}°`);
       }
-      expect(off).toEqual([]);
-    },
-  );
+    expect(off).toEqual([]);
+  });
 
-  it(
-    'put each wall of the long-axis views on the side the display convention gives it',
-    { timeout: 600_000 },
-    () => {
-      const off: string[] = [];
-      // [view, walls expected left of (or, for PLAX, nearer the probe than) the LV centre, walls on the other side]
-      const sides: [string, number[], number[]][] = [
-        ['a4c', [3, 9], [6, 12]],
-        ['a2c', [4, 10], [1, 7]],
-        ['a3c', [5, 11], [2, 8]],
-        ['plax', [2, 8], [5, 11]],
-      ];
-      for (const input of CASE_INPUTS)
-        for (const [view, first, second] of sides) {
-          const f = frameOf(input.id, view);
-          const a = centroid(f.out, first),
-            b = centroid(f.out, second);
-          if (!a || !b) {
-            off.push(`${input.id} ${view}: a wall is missing`);
-            continue;
-          }
-          const ok = view === 'plax' ? a.y < f.cy && b.y > f.cy : a.x < f.cx && b.x > f.cx;
-          if (!ok)
-            off.push(
-              `${input.id} ${view}: ${first.join('/')} at (${a.x.toFixed(1)}, ${a.y.toFixed(1)}), ${second.join('/')} at (${b.x.toFixed(1)}, ${b.y.toFixed(1)}), LV centre (${f.cx.toFixed(1)}, ${f.cy.toFixed(1)})`,
-            );
-          // and the RV on the septal side of the four-chamber view
-          if (view === 'a4c') {
-            const rvX = structureCentroidX(f.out, Structure.RvCavity);
-            if (rvX === null || rvX > f.cx)
-              off.push(`${input.id} a4c: the RV is not left of the LV`);
-          }
+  it("turn the papillary short axis toward the average patient's: RV near 10, insertions near 12 and 8, papillary muscles near 4 and 8 (decision 182)", () => {
+    const off: string[] = [];
+    for (const input of CASE_INPUTS) {
+      const c = shortAxisClock(frameOf(input.id, 'psax-pm'));
+      const [ant, inf] = c.insertions;
+      const [al, pm] = c.papillary;
+      // hours clockwise of where an average patient's image puts each landmark
+      const turn = [c.rv - 10, ant - 12, inf - 8, al - 4, pm - 8].map((d) => ((d + 18) % 12) - 6);
+      const mean = turn.reduce((a, d) => a + d, 0) / turn.length;
+      // 0.69-0.80 h in the twelve cases; 1.07-1.14 from the sternal edge, 0.83-0.95 from 1.2 cm and 0.77-0.90 from
+      // 1.6 cm. A landmark 1.5 h off would be another cut, not a turned one.
+      if (Math.abs(mean) > 0.85 || turn.some((d) => Math.abs(d) > 1.5))
+        off.push(
+          `${input.id}: turned ${mean.toFixed(2)} h; RV ${c.rv.toFixed(1)}, insertions ${ant.toFixed(1)} and ${inf.toFixed(1)}, papillary ${al.toFixed(1)} and ${pm.toFixed(1)} o'clock`,
+        );
+    }
+    expect(off).toEqual([]);
+  });
+
+  it('put each wall of the long-axis views on the side the display convention gives it', () => {
+    const off: string[] = [];
+    // [view, walls expected left of (or, for PLAX, nearer the probe than) the LV centre, walls on the other side]
+    const sides: [string, number[], number[]][] = [
+      ['a4c', [3, 9], [6, 12]],
+      ['a2c', [4, 10], [1, 7]],
+      ['a3c', [5, 11], [2, 8]],
+      ['plax', [2, 8], [5, 11]],
+    ];
+    for (const input of CASE_INPUTS)
+      for (const [view, first, second] of sides) {
+        const f = frameOf(input.id, view);
+        const a = centroid(f.out, first),
+          b = centroid(f.out, second);
+        if (!a || !b) {
+          off.push(`${input.id} ${view}: a wall is missing`);
+          continue;
         }
-      expect(off).toEqual([]);
-    },
-  );
+        const ok = view === 'plax' ? a.y < f.cy && b.y > f.cy : a.x < f.cx && b.x > f.cx;
+        if (!ok)
+          off.push(
+            `${input.id} ${view}: ${first.join('/')} at (${a.x.toFixed(1)}, ${a.y.toFixed(1)}), ${second.join('/')} at (${b.x.toFixed(1)}, ${b.y.toFixed(1)}), LV centre (${f.cx.toFixed(1)}, ${f.cy.toFixed(1)})`,
+          );
+        // and the RV on the septal side of the four-chamber view
+        if (view === 'a4c') {
+          const rvX = structureCentroidX(f.out, Structure.RvCavity);
+          if (rvX === null || rvX > f.cx) off.push(`${input.id} a4c: the RV is not left of the LV`);
+        }
+      }
+    expect(off).toEqual([]);
+  });
 });

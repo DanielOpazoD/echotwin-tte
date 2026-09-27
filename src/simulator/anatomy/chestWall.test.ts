@@ -96,17 +96,13 @@ describe('the heart behind the chest wall', () => {
     expect(CASE_INPUTS.map((c) => c.id).filter((id) => !(id in KNOWN_INTRUSION_CM))).toEqual([]);
   });
   for (const input of CASE_INPUTS) {
-    it(
-      `${input.id}: heart tissue inside the chest wall stays at its declared depth`,
-      { timeout: 120_000 },
-      () => {
-        const [ed, sys] = KNOWN_INTRUSION_CM[input.id]!;
-        const measured = [deepestIntrusion(input.id, false), deepestIntrusion(input.id, true)];
-        expect(
-          measured.map((m, i) => Math.abs(m - [ed, sys][i]!) <= TOLERANCE_CM),
-          `intrusion (cm) at end-diastole and systole: ${measured.map((m) => m.toFixed(2)).join(', ')} against ${ed}, ${sys}`,
-        ).toEqual([true, true]);
-      },
-    );
+    it(`${input.id}: heart tissue inside the chest wall stays at its declared depth`, () => {
+      const [ed, sys] = KNOWN_INTRUSION_CM[input.id]!;
+      const measured = [deepestIntrusion(input.id, false), deepestIntrusion(input.id, true)];
+      expect(
+        measured.map((m, i) => Math.abs(m - [ed, sys][i]!) <= TOLERANCE_CM),
+        `intrusion (cm) at end-diastole and systole: ${measured.map((m) => m.toFixed(2)).join(', ')} against ${ed}, ${sys}`,
+      ).toEqual([true, true]);
+    });
   }
 });

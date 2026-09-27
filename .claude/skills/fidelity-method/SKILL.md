@@ -78,7 +78,7 @@ La misión y los objetivos que este método sirve están en `docs/MISION.md`: gu
 ## Antes de commitear
 
 1. `npm run lint` y `npx tsc --noEmit -p tsconfig.json` limpios.
-2. `npx vitest run --testTimeout=180000 --maxWorkers=3` en verde. Si cambias anatomía, revisa la imagen afectada antes de `npm run golden:update`.
+2. `VITEST_TIER=all npx vitest run --maxWorkers=3` en verde (cada nivel lleva su límite de tiempo en `vite.config.ts`, el mismo que el CI). Si cambias anatomía, revisa la imagen afectada antes de `npm run golden:update`.
 3. `npx vite build` y después `npx playwright test`, en verde y con la máquina tranquila (regla 15).
 4. Documenta la decisión con sus números en `docs/DECISIONS.md` y los defectos abiertos en `docs/LIMITATIONS.md`, incluidos los errores propios que la medición destapó.
 5. El mensaje de commit termina con la línea `Co-Authored-By` que indique el sistema.

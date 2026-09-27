@@ -235,7 +235,7 @@ describe('M-mode strip through the simulator (decision 84)', () => {
       // one more sweep after every column of a sweep came from neighbouring bins
       if (converged >= 0 && steps > converged + Math.ceil(secondsShown / DT) + 2) break;
     }
-  }, 600_000);
+  });
 
   /** Columns of the last sweep, oldest first. */
   const lastSweep = (): number[] => {

@@ -337,5 +337,5 @@ describe('LV wall labels of the structure map', () => {
     expect(a2c(Structure.LvWallInferior)).toBeGreaterThan(0.005);
     // and the four-chamber plane cuts the septum
     expect(wallShare('a4c')(Structure.LvWallSeptal)).toBeGreaterThan(0.005);
-  }, 120_000);
+  });
 });
