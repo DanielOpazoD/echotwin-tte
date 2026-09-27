@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 230 (última: 230).
+Decisiones: 231 (última: 231).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -238,3 +238,4 @@ Decisiones: 230 (última: 230).
 | [228](DECISIONS.md#L1415) | 2026-09-25 | Los comentarios de los sombreadores salen del paquete | vigente |
 | [229](DECISIONS.md#L1417) | 2026-09-25 | El corazón derecho descansa sobre el diafragma | vigente |
 | [230](DECISIONS.md#L1419) | 2026-09-25 | Cada modo espectral abre con sus propios ajustes | vigente |
+| [231](DECISIONS.md#L1421) | 2026-09-25 | El ECG se escribe sobre la tira que lo lleva | vigente |
