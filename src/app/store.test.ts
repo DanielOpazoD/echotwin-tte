@@ -234,3 +234,56 @@ describe('views reached with their preset are not acquired by hand', () => {
     expect(useSimStore.getState().handViewProgress).toEqual({ a4c: 70 });
   });
 });
+
+/**
+ * Each spectral mode opens with its own velocity window and keeps the one the learner leaves it with (decision 230). One
+ * set used to serve pulsed wave, continuous wave and tissue Doppler: continuous wave opened on ±1 m/s and tissue Doppler on
+ * a scale outside its own slider.
+ */
+describe('spectral settings follow the mode', () => {
+  it('each spectral mode opens inside its own slider, with its own window', async () => {
+    const store = await freshStore();
+    const { SPECTRAL_MODE_DEFAULTS, SPECTRAL_SCALE_RANGE } =
+      await import('@/simulator/doppler/spectral/spectrum');
+    for (const m of ['pw', 'cw', 'tdi'] as const) {
+      store.getState().setModality('2d');
+      store.getState().setModality(m);
+      const sp = store.getState().spectral;
+      expect(sp.scaleMps, m).toBe(SPECTRAL_MODE_DEFAULTS[m].scaleMps);
+      expect(sp.wallFilterMps, m).toBe(SPECTRAL_MODE_DEFAULTS[m].wallFilterMps);
+      expect(sp.scaleMps, `${m} inside its slider`).toBeGreaterThanOrEqual(
+        SPECTRAL_SCALE_RANGE[m].min,
+      );
+      expect(sp.scaleMps, `${m} inside its slider`).toBeLessThanOrEqual(
+        SPECTRAL_SCALE_RANGE[m].max,
+      );
+    }
+    // continuous wave holds the fastest jets of the cases; tissue Doppler keeps the slow tissue velocities
+    store.getState().setModality('cw');
+    expect(store.getState().spectral.scaleMps).toBeGreaterThanOrEqual(5);
+    store.getState().setModality('tdi');
+    expect(store.getState().spectral.scaleMps).toBeLessThanOrEqual(0.4);
+    expect(store.getState().spectral.wallFilterMps).toBeLessThanOrEqual(0.02);
+  });
+
+  it('a mode keeps what the learner set in it, and the others keep theirs', async () => {
+    const store = await freshStore();
+    const st = () => store.getState();
+    st().setModality('tdi');
+    st().setSpectral({ scaleMps: 0.3, gainDb: 6 });
+    st().setModality('pw');
+    expect(st().spectral.scaleMps).toBe(1.0);
+    expect(st().spectral.gainDb).toBe(0);
+    st().setSpectral({ scaleMps: 1.5 });
+    st().setModality('2d');
+    st().setModality('tdi');
+    expect(st().spectral.scaleMps).toBe(0.3);
+    expect(st().spectral.gainDb).toBe(6);
+    st().setModality('pw');
+    expect(st().spectral.scaleMps).toBe(1.5);
+    // settings that are not per mode stay with the machine
+    st().setSpectral({ sweepSpeedMmPerS: 100 });
+    st().setModality('cw');
+    expect(st().spectral.sweepSpeedMmPerS).toBe(100);
+  });
+});

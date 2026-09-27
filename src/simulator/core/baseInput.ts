@@ -1,7 +1,8 @@
 import type { SimInput } from './protocol';
 import { DEFAULT_ACQUISITION } from '@/simulator/renderer/types';
 import { DEFAULT_COLOR } from '@/simulator/doppler/color/colorDoppler';
-import { DEFAULT_SPECTRAL } from '@/simulator/doppler/spectral/spectrum';
+import { spectralDefaultsFor, type SpectralModality } from '@/simulator/doppler/spectral/spectrum';
+import { isSpectralModality } from '@/simulator/renderer/modality';
 
 /**
  * A complete SimInput with the default acquisition, for tests and offline measurement scripts. It lives outside any
@@ -9,6 +10,8 @@ import { DEFAULT_SPECTRAL } from '@/simulator/doppler/spectral/spectrum';
  * tests, so the 30-second core smoke test ran twice per suite.
  */
 export function baseInput(over: Partial<SimInput> = {}): SimInput {
+  // a spectral mode opens with its own settings, as in the app (decision 230)
+  const mode = over.modality ?? '2d';
   return {
     probe: { u: 3.4, v: 0.4, rotationDeg: 25, tiltDeg: 6, rockDeg: -4, pressure: 0.55 },
     patient: { position: 'left-lateral', respiration: 'expiration', headElevationDeg: 0 },
@@ -17,7 +20,7 @@ export function baseInput(over: Partial<SimInput> = {}): SimInput {
     frozen: false,
     cineOffset: 0,
     color: { ...DEFAULT_COLOR },
-    spectral: { ...DEFAULT_SPECTRAL },
+    spectral: spectralDefaultsFor(isSpectralModality(mode) ? (mode as SpectralModality) : 'pw'),
     cursorThetaRad: 0,
     gateDepthCm: 9,
     quality: 'low',

@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 229 (última: 229).
+Decisiones: 230 (última: 230).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -237,3 +237,4 @@ Decisiones: 229 (última: 229).
 | [227](DECISIONS.md#L1413) | 2026-09-25 | Las cuerdas tendinosas son cordones finos, no varillas brillantes | vigente |
 | [228](DECISIONS.md#L1415) | 2026-09-25 | Los comentarios de los sombreadores salen del paquete | vigente |
 | [229](DECISIONS.md#L1417) | 2026-09-25 | El corazón derecho descansa sobre el diafragma | vigente |
+| [230](DECISIONS.md#L1419) | 2026-09-25 | Cada modo espectral abre con sus propios ajustes | vigente |
