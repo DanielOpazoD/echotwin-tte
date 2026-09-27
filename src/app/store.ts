@@ -7,7 +7,14 @@ import {
   type ImagingModality,
 } from '@/simulator/renderer/types';
 import { DEFAULT_COLOR, type ColorSettings } from '@/simulator/doppler/color/colorDoppler';
-import { DEFAULT_SPECTRAL, type SpectralSettings } from '@/simulator/doppler/spectral/spectrum';
+import {
+  DEFAULT_SPECTRAL,
+  SPECTRAL_MODE_DEFAULTS,
+  spectralVelocitySetup,
+  type SpectralModality,
+  type SpectralSettings,
+  type SpectralVelocitySetup,
+} from '@/simulator/doppler/spectral/spectrum';
 import {
   DEFAULT_QUALITY,
   type QualityChoice,
@@ -34,6 +41,7 @@ import type { PhaseMarks } from '@/simulator/core/protocol';
 import { frameBus } from './frameBus';
 import { easeInOut, lerpControl, presetDurationMs } from '@/simulator/probe/interpolate';
 import { modePolicy, type ProductMode } from './modePolicy';
+import { isSpectralModality } from '@/simulator/renderer/modality';
 
 export type { ProductMode };
 
@@ -109,7 +117,10 @@ export interface SimStore {
    */
   cinePlaying: boolean;
   color: ColorSettings;
+  /** The spectral settings of the mode on screen; each spectral mode keeps its own velocity window (decision 230). */
   spectral: SpectralSettings;
+  /** The velocity settings each spectral mode had when the learner left it, restored on return (decision 230). */
+  spectralByMode: Partial<Record<SpectralModality, SpectralVelocitySetup>>;
   cursorThetaRad: number;
   gateDepthCm: number;
   quality: QualityChoice;
@@ -390,6 +401,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
   cinePlaying: false,
   color: { ...DEFAULT_COLOR },
   spectral: { ...DEFAULT_SPECTRAL },
+  spectralByMode: {},
   cursorThetaRad: 0.05,
   gateDepthCm: 9,
   quality: DEFAULT_QUALITY,
@@ -470,7 +482,25 @@ export const useSimStore = create<SimStore>((set, get) => ({
       tgc[band] = Math.max(-15, Math.min(15, db));
       return { settings: { ...s.settings, tgcDb: tgc } };
     }),
-  setModality: (m) => set({ modality: m, frozen: false, cineOffset: 0, cinePlaying: false }),
+  setModality: (m) =>
+    set((s) => {
+      const out: Partial<SimStore> = {
+        modality: m,
+        frozen: false,
+        cineOffset: 0,
+        cinePlaying: false,
+      };
+      // each spectral mode opens with its own velocity window, or with the one the learner left it with (decision 230)
+      const from = isSpectralModality(s.modality) ? (s.modality as SpectralModality) : null;
+      const to = isSpectralModality(m) ? (m as SpectralModality) : null;
+      if (from && from !== to)
+        out.spectralByMode = { ...s.spectralByMode, [from]: spectralVelocitySetup(s.spectral) };
+      if (to && to !== from) {
+        const memory = (out.spectralByMode ?? s.spectralByMode)[to];
+        out.spectral = { ...s.spectral, ...(memory ?? SPECTRAL_MODE_DEFAULTS[to]) };
+      }
+      return out;
+    }),
   toggleFreeze: () => set((s) => ({ frozen: !s.frozen, cineOffset: 0, cinePlaying: false })),
   setCineOffset: (o) =>
     set(() => ({

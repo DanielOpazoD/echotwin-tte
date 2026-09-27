@@ -31,6 +31,54 @@ export const DEFAULT_SPECTRAL: SpectralSettings = {
   volume: 0.5,
 };
 
+/** The spectral modes, each with its own velocity settings (decision 230). */
+export type SpectralModality = 'pw' | 'cw' | 'tdi';
+/** The settings a machine keeps per spectral mode: the velocity window, its filter and its gain. */
+export type SpectralVelocitySetup = Pick<
+  SpectralSettings,
+  'scaleMps' | 'baselineShiftMps' | 'wallFilterMps' | 'gainDb'
+>;
+
+/**
+ * What each spectral mode opens with (decision 230). One set of settings used to serve the three modes: continuous wave
+ * opened on the ±1 m/s of pulsed wave and cut a 4.7 m/s stenotic jet at 1.00 m/s, and tissue Doppler opened on the same
+ * scale, outside its own slider (0.1–0.4 m/s), with an 8 cm/s wall filter that erased the 5–8 cm/s of s′ and a′. Continuous
+ * wave opens wide enough for the fastest jets of the cases (aortic stenosis 4.7, mitral regurgitation 4.7–5.2 m/s) with a
+ * higher wall filter against the slow flow the whole line crosses; tissue Doppler opens on the tissue velocities (e′ and
+ * s′ up to 0.15 m/s) with a wall filter that keeps them. The wall filters are the velocities of typical high-pass
+ * frequencies at 2.5 MHz, v = f·c/(2·f₀): about 260 Hz for pulsed wave, 650 Hz for continuous wave and 30 Hz for tissue
+ * Doppler — machine presets, not published values. The Doppler tests through the core already set these values by hand.
+ */
+export const SPECTRAL_MODE_DEFAULTS: Readonly<Record<SpectralModality, SpectralVelocitySetup>> = {
+  pw: { scaleMps: 1.0, baselineShiftMps: 0, wallFilterMps: 0.08, gainDb: 0 },
+  cw: { scaleMps: 6.0, baselineShiftMps: 0, wallFilterMps: 0.2, gainDb: 0 },
+  tdi: { scaleMps: 0.2, baselineShiftMps: 0, wallFilterMps: 0.01, gainDb: 0 },
+};
+
+/** The velocity scale each mode's slider offers (m/s, ± Nyquist for pulsed wave and tissue Doppler). */
+export const SPECTRAL_SCALE_RANGE: Readonly<
+  Record<SpectralModality, { min: number; max: number }>
+> = {
+  pw: { min: 0.3, max: 2.5 },
+  cw: { min: 0.3, max: 7 },
+  tdi: { min: 0.1, max: 0.4 },
+};
+
+/** The complete spectral settings a mode opens with. */
+export function spectralDefaultsFor(m: SpectralModality): SpectralSettings {
+  return { ...DEFAULT_SPECTRAL, ...SPECTRAL_MODE_DEFAULTS[m] };
+}
+
+/** The per-mode part of a set of spectral settings. */
+export function spectralVelocitySetup(s: SpectralSettings): SpectralVelocitySetup {
+  return {
+    scaleMps: s.scaleMps,
+    baselineShiftMps: s.baselineShiftMps,
+    wallFilterMps: s.wallFilterMps,
+    gainDb: s.gainDb,
+  };
+}
+
 export const SPECTRAL_BINS = 128;
 
 /** Velocity range shown: [vMin, vMax] given scale and baseline shift. */

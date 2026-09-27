@@ -31,6 +31,7 @@ import {
   valveEventTimes,
 } from '@/simulator/cardiac-cycle/cycleModel';
 import { SimulatorCore } from '@/simulator/core/simulatorCore';
+import { computeGroundTruth } from '@/simulator/hemodynamics/groundTruth';
 import { baseInput } from '@/simulator/core/baseInput';
 import { canonicalControl, canonicalPlane, getViewTarget } from '@/simulator/windows/viewTargets';
 import { beamFrameFromPose, controlAimingAt, poseFromControl } from '@/simulator/probe/pose';
@@ -737,6 +738,103 @@ describe('the spectral envelope reads the velocity in the sample volume (decisio
         0.97,
       );
       expect(edge / jet).toBeLessThan(1.08);
+    },
+  );
+
+  /**
+   * Each spectral mode opens with its own settings (decision 230). One set used to serve the three: continuous wave opened
+   * on the ±1 m/s of pulsed wave and cut a severe stenotic jet at 1.00 m/s, and tissue Doppler opened with an 8 cm/s wall
+   * filter that erased s′. These run the core with the settings a mode opens with (`baseInput` without `spectral`, as
+   * the app's store gives them), never with values set by hand.
+   */
+  it(
+    'continuous wave opens with a scale that holds a severe stenotic jet (decision 230)',
+    { timeout: 120_000 },
+    () => {
+      const as = loadCaseById('aortic-stenosis-severe');
+      const m = new SimulatorCore(as, baseInput()).models;
+      const t = m.tables.timings;
+      const f = buildFlowParams(as, m.heart, m.tables);
+      const peak = (t.ejectionStartS + 0.35 * (t.ejectionEndS - t.ejectionStartS)) / m.tables.rrS;
+      const hpPeak = computeHeartPose(m.heart, cycleStateAt(m.tables, peak));
+      const vc = v3(
+        f.avCenter.x + 0.5 * f.avAxis.x,
+        f.avCenter.y + 0.5 * f.avAxis.y,
+        f.avCenter.z + hpPeak.zAnn * ROOT_EXCURSION + 0.5 * f.avAxis.z,
+      );
+      const a5c = canonicalControl(getViewTarget('a5c'), m.heart, m.thorax);
+      const ctrl = controlAimingAt(
+        m.thorax,
+        a5c.u,
+        a5c.v,
+        heartToTorso(m.heart.frame, vc),
+        canonicalPlane(getViewTarget('a5c'), m.heart).right,
+        a5c.pressure,
+      );
+      const input = baseInput({ probe: ctrl, modality: 'cw', quality: 'low', gateDepthCm: 10 });
+      const core = new SimulatorCore(as, input);
+      let edge = 0;
+      for (const { phase, col } of strip(core, 2.2)) {
+        const tb = phase * m.tables.rrS;
+        if (tb < t.ejectionStartS || tb > t.ejectionEndS) continue;
+        edge = Math.min(edge, outerEdge(col, input.spectral, -1));
+      }
+      // the line from the apex reads the jet 7-12% under the case (declared); on the pulsed-wave scale it read 1.00 m/s
+      expect(
+        -edge,
+        `severe stenosis on the scale continuous wave opens with: ${edge.toFixed(2)} m/s`,
+      ).toBeGreaterThan(0.85 * computeGroundTruth(as, m.tables).aorticValve.vmaxMps);
+    },
+  );
+
+  it(
+    'tissue Doppler opens with a scale and a wall filter that keep s′ and e′ (decision 230)',
+    { timeout: 120_000 },
+    () => {
+      const t = tables.timings;
+      const a4c = canonicalControl(getViewTarget('a4c'), heart, thorax);
+      const q = { tissue: 0 } as unknown as TissueSample;
+      const hp0 = computeHeartPose(heart, cycleStateAt(tables, 0));
+      let first = NaN,
+        last = NaN;
+      for (let x = -0.5; x > -5; x -= 0.05)
+        if (classifyHeart(heart, hp0, x, 0, 1.0, q) && q.tissue === Tissue.Myocardium) {
+          if (Number.isNaN(first)) first = x;
+          last = x;
+        } else if (!Number.isNaN(first)) break;
+      const septum = v3((first + last) / 2, 0, 1.0);
+      const tdi = aim(a4c, heartToTorso(heart.frame, septum));
+      const input = baseInput({
+        probe: a4c,
+        modality: 'tdi',
+        quality: 'low',
+        cursorThetaRad: tdi.theta,
+        gateDepthCm: tdi.r,
+      });
+      const core = new SimulatorCore(c, input);
+      let sTissue = 0,
+        sEdge = 0,
+        eTissue = 0,
+        eEdge = 0;
+      for (const { phase, col } of strip(core, 2.2)) {
+        const tb = phase * tables.rrS;
+        const tv = sampleTissueVelocity(heart, tables, phase, septum.x, septum.y, septum.z);
+        const v = -(tv.vx * tdi.dirHeart.x + tv.vy * tdi.dirHeart.y + tv.vz * tdi.dirHeart.z);
+        if (tb > t.ejectionStartS && tb < t.ejectionEndS) {
+          sTissue = Math.max(sTissue, v);
+          sEdge = Math.max(sEdge, outerEdge(col, input.spectral, 1));
+        }
+        if (tb > t.mitralOpenS && tb < t.aStartS) {
+          eTissue = Math.min(eTissue, v);
+          eEdge = Math.min(eEdge, outerEdge(col, input.spectral, -1));
+        }
+      }
+      const msg = `s′ tissue ${sTissue.toFixed(3)} edge ${sEdge.toFixed(3)}, e′ tissue ${eTissue.toFixed(3)} edge ${eEdge.toFixed(3)}`;
+      expect(sTissue, msg).toBeGreaterThan(0.03);
+      // an 8 cm/s wall filter left s′ at 0
+      expect(sEdge / sTissue, msg).toBeGreaterThan(0.9);
+      expect(eEdge / eTissue, msg).toBeGreaterThan(0.97);
+      expect(eEdge / eTissue, msg).toBeLessThan(1.1);
     },
   );
 });

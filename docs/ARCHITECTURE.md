@@ -40,7 +40,7 @@ Qué importa cada capa lo dice la tabla siguiente, generada desde los imports re
 | `simulator/renderer` | `cases`, `clinical`, `core`, `simulator/anatomy`, `simulator/cardiac-cycle`, `simulator/probe`, `simulator/windows` |
 | `simulator/view-recognition` | `clinical`, `core`, `simulator/anatomy`, `simulator/probe`, `simulator/renderer`, `simulator/windows` |
 | `simulator/windows` | `core`, `simulator/anatomy`, `simulator/probe` |
-| `ui` | `app`, `cases`, `clinical`, `education`, `simulator/anatomy`, `simulator/core`, `simulator/measurements`, `simulator/probe`, `simulator/renderer`, `simulator/view-recognition`, `simulator/windows`, `workers` |
+| `ui` | `app`, `cases`, `clinical`, `education`, `simulator/anatomy`, `simulator/core`, `simulator/doppler`, `simulator/measurements`, `simulator/probe`, `simulator/renderer`, `simulator/view-recognition`, `simulator/windows`, `workers` |
 | `workers` | `cases`, `simulator/anatomy`, `simulator/cardiac-cycle`, `simulator/core`, `simulator/renderer`, `simulator/windows` |
 <!-- /generado -->
 

@@ -11,6 +11,7 @@ import { PresetViews } from './PresetViews';
 import { MeasurementPanel } from './MeasurementPanel';
 import { ArtifactLab } from './ArtifactLab';
 import { formatMHz } from './format';
+import { SPECTRAL_SCALE_RANGE, type SpectralModality } from '@/simulator/doppler/spectral/spectrum';
 import { ReviewPanel } from './ReviewPanel';
 import { IconAcquire, IconDoppler, IconImage, IconLab, IconMeasure, IconReview } from './icons';
 import { useSlidingPill } from './useSlidingPill';
@@ -564,8 +565,8 @@ function DopplerTab() {
           <Slider
             label="Escala"
             value={s.spectral.scaleMps}
-            min={mod === 'tdi' ? 0.1 : 0.3}
-            max={mod === 'cw' ? 7 : mod === 'tdi' ? 0.4 : 2.5}
+            min={SPECTRAL_SCALE_RANGE[mod as SpectralModality].min}
+            max={SPECTRAL_SCALE_RANGE[mod as SpectralModality].max}
             step={0.05}
             format={(v) => `±${v.toFixed(2)} m/s`}
             onChange={(v) => s.setSpectral({ scaleMps: v })}
