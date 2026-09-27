@@ -22,6 +22,14 @@ describe('summarizeEnvelope', () => {
     expect(s.vtiCm).toBeCloseTo(8, 6); // 2 intervals × 4 m/s × 0.01 s
   });
 
+  it('averages the mean gradient over the flow, not over the columns without it (decision 232)', () => {
+    const flow = summarizeEnvelope([2, 4, 2], 0.01);
+    const padded = summarizeEnvelope([0, 0, 2, 4, 2, 0, 0, 0], 0.01);
+    // 4·(4 + 16 + 4)/3 = 32 mmHg; averaging the five empty columns in gave 12
+    expect(flow.meanGradientMmHg).toBeCloseTo(32, 6);
+    expect(padded.meanGradientMmHg).toBeCloseTo(32, 6);
+  });
+
   it('returns zeros for an empty or single-point envelope', () => {
     expect(summarizeEnvelope([], 0.01)).toEqual({
       vtiCm: 0,

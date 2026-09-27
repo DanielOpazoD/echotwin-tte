@@ -712,7 +712,7 @@ const FREE_TOOL_HINT: Partial<Record<SimStore['activeTool'], string>> = {
   caliper: 'Marca los dos extremos de la distancia sobre la imagen 2D.',
   velocity: 'Haz clic en el pico del espectro Doppler.',
   vti: 'Traza la envolvente punto a punto; doble clic cierra el trazado.',
-  'auto-vti': 'Marca el inicio y el fin del latido sobre el espectro.',
+  'auto-vti': 'Marca el inicio y el fin del flujo (la eyección o el llenado) sobre el espectro.',
   time: 'Marca los dos instantes del intervalo sobre el strip.',
   slope: 'Marca el pico y luego un punto sobre la pendiente de caída.',
   simpson: 'Traza el endocardio con al menos 5 puntos; doble clic cierra.',
