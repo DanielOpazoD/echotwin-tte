@@ -1,10 +1,11 @@
 import { useSimStore } from '@/app/store';
+import { examSummaryOf } from '@/app/examSummary';
 import { useShallow } from 'zustand/shallow';
 import { formatClinical } from '@/clinical/reference-values';
 import { buildEducationalReport } from '@/education/report';
-import { buildExamSummary, scoreAcquisition } from '@/education/scoring/scoring';
+import { scoreAcquisition } from '@/education/scoring/scoring';
 import { loadCaseById } from '@/cases';
-import { EXAM_CASE_NAME, modePolicy, showsCaseIdentity } from '@/app/modePolicy';
+import { EXAM_CASE_NAME, showsCaseIdentity } from '@/app/modePolicy';
 import {
   expectedFindings,
   FINDINGS,
@@ -19,6 +20,7 @@ export function ReportScreen() {
     useShallow((st) => ({
       caseId: st.caseId,
       examFinished: st.examFinished,
+      examResult: st.examResult,
       finishExam: st.finishExam,
       impressionSelection: st.impressionSelection,
       measurements: st.measurements,
@@ -28,25 +30,18 @@ export function ReportScreen() {
       viewProgress: st.viewProgress,
     })),
   );
-  const hideTruth = s.mode === 'exam' && !s.examFinished;
-  const report = buildEducationalReport(s.measurements, s.truth, hideTruth);
+  // one predicate for everything the exam keeps back until it is finished: the case, the truth and the scores
+  const revealed = showsCaseIdentity(s.mode, s.examFinished);
+  const report = buildEducationalReport(s.measurements, s.truth, !revealed);
   const caseDef = loadCaseById(s.caseId);
   const acquisition = scoreAcquisition(caseDef, s.viewProgress);
   const expected = s.truth ? expectedFindings(s.truth) : [];
   const impression = s.impressionSelection.length
     ? scoreImpression(s.impressionSelection, expected)
     : null;
-  const summary =
-    s.truth && (s.mode !== 'exam' || s.examFinished)
-      ? buildExamSummary(
-          caseDef,
-          s.truth,
-          s.viewProgress,
-          s.measurements,
-          impression?.score ?? null,
-          { freeMeasurements: modePolicy(s.mode).freeMeasurementsScored },
-        )
-      : null;
+  // the exam shows the summary recorded when it was finished (decision 236); practice, the live one
+  const summary = s.mode === 'exam' ? s.examResult : examSummaryOf(s);
+  const sheetClosed = s.mode === 'exam' && s.examFinished;
   const domains: { id: FindingDomain; label: string }[] = [
     { id: 'global', label: 'Global' },
     { id: 'lv', label: 'Ventrículo izquierdo' },
@@ -56,13 +51,9 @@ export function ReportScreen() {
     { id: 'pericardium', label: 'Pericardio' },
     { id: 'rhythm-diastole', label: 'Ritmo y diástole' },
   ];
-  const showImpressionTruth = s.mode !== 'exam' || s.examFinished;
   return (
     <div className="screen">
-      <h2>
-        Informe educacional —{' '}
-        {showsCaseIdentity(s.mode, s.examFinished) ? s.caseId : EXAM_CASE_NAME}
-      </h2>
+      <h2>Informe educacional — {revealed ? s.caseId : EXAM_CASE_NAME}</h2>
       <p className="small">
         Simulador educacional con pacientes sintéticos. No utilizar para diagnóstico ni toma de
         decisiones clínicas reales.
@@ -75,7 +66,7 @@ export function ReportScreen() {
       <h3>Vistas requeridas</h3>
       {/* the views a case requires name its diagnosis (aortic valve short axis and A5C for a stenosis, the RV-focused view
           for pulmonary hypertension): during the exam the learner is asked for a complete study (decision 234) */}
-      {!showsCaseIdentity(s.mode, s.examFinished) ? (
+      {!revealed ? (
         <p className="small" data-exam-views="hidden">
           Adquiere un estudio transtorácico completo; la puntuación cuenta las vistas que el caso
           necesita y se muestran al finalizar.
@@ -87,8 +78,8 @@ export function ReportScreen() {
               <th>Vista</th>
               <th>Mínimo</th>
               {/* the best score of each view would say which view the image showed (decision 154) */}
-              {!hideTruth && <th>Mejor score alcanzado</th>}
-              {!hideTruth && <th>Estado</th>}
+              {revealed && <th>Mejor score alcanzado</th>}
+              {revealed && <th>Estado</th>}
             </tr>
           </thead>
           <tbody>
@@ -96,8 +87,8 @@ export function ReportScreen() {
               <tr key={v.viewId}>
                 <td>{v.viewId.toUpperCase()}</td>
                 <td>{v.required}</td>
-                {!hideTruth && <td>{v.achieved}</td>}
-                {!hideTruth && (
+                {revealed && <td>{v.achieved}</td>}
+                {revealed && (
                   <td>
                     <span className={`pill ${v.ok ? 'ok' : 'warn'}`}>
                       {v.ok ? 'ok' : v.achieved ? 'incompleta' : 'no adquirida'}
@@ -122,7 +113,7 @@ export function ReportScreen() {
               const checked = s.impressionSelection.includes(f.id);
               const isExpected = expected.includes(f.id);
               const cls =
-                showImpressionTruth && s.impressionSelection.length
+                revealed && s.impressionSelection.length
                   ? checked && isExpected
                     ? 'ok'
                     : checked && !isExpected
@@ -133,7 +124,12 @@ export function ReportScreen() {
                   : '';
               return (
                 <label key={f.id} className={`finding ${cls}`} data-finding={f.id}>
-                  <input type="checkbox" checked={checked} onChange={() => s.toggleFinding(f.id)} />
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    disabled={sheetClosed}
+                    onChange={() => s.toggleFinding(f.id)}
+                  />
                   {f.label}
                 </label>
               );
@@ -141,7 +137,7 @@ export function ReportScreen() {
           </fieldset>
         ))}
       </div>
-      {impression && showImpressionTruth && (
+      {impression && revealed && (
         <p data-impression-result="1">
           Impresión: <b>{impression.score}/100</b> · correctos {impression.correct.length} ·
           omitidos {impression.missed.length} · sobrantes {impression.wrong.length}
@@ -153,7 +149,7 @@ export function ReportScreen() {
           )}
         </p>
       )}
-      {impression && !showImpressionTruth && (
+      {impression && !revealed && (
         <p className="small">
           Impresión registrada ({s.impressionSelection.length} hallazgos); se evalúa al finalizar el
           examen.
@@ -195,9 +191,9 @@ export function ReportScreen() {
             <th>Medición</th>
             <th>Valor</th>
             <th>Rango normal</th>
-            <th>{hideTruth ? 'Modalidad' : 'Modalidad / vista'}</th>
-            {!hideTruth && <th>Calidad vista</th>}
-            {!hideTruth && <th>Técnica</th>}
+            <th>{!revealed ? 'Modalidad' : 'Modalidad / vista'}</th>
+            {revealed && <th>Calidad vista</th>}
+            {revealed && <th>Técnica</th>}
             {s.mode !== 'exam' && <th>Modelo (verdad)</th>}
             {s.mode !== 'exam' && <th>Desviación</th>}
           </tr>
@@ -225,8 +221,8 @@ export function ReportScreen() {
                 {r.modality}
                 {r.view ? ` / ${r.view}` : ''}
               </td>
-              {!hideTruth && <td>{r.viewScore ?? '—'}</td>}
-              {!hideTruth && (
+              {revealed && <td>{r.viewScore ?? '—'}</td>}
+              {revealed && (
                 <td>
                   {r.technique ? (
                     <>

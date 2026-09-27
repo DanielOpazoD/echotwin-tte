@@ -179,7 +179,7 @@ describe('local progress', () => {
     expect(back.events.length).toBe(5);
     const sum = summarizeProgress(back);
     expect(sum.bestViewScores['plax']).toBe(82);
-    expect(sum.viewAttempts['plax']).toBe(2);
+    expect(sum.viewImprovements['plax']).toBe(2);
     expect(sum.meanTechniqueScore).toBeCloseTo(0.75, 6);
     expect(sum.completedTasks).toBe(1);
     expect(sum.casesOpened).toEqual(['normal-excellent-window']);

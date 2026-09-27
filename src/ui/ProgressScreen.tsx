@@ -43,7 +43,9 @@ export function ProgressScreen() {
           <tr>
             <th>Vista</th>
             <th>Mejor score</th>
-            <th>Intentos registrados</th>
+            <th title="Veces que la mejor puntuación a mano subió 5 puntos o más (los preajustes no cuentan)">
+              Mejoras registradas
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -51,7 +53,7 @@ export function ProgressScreen() {
             <tr key={v.id} data-progress-view={v.id}>
               <td>{v.name}</td>
               <td>{sum.bestViewScores[v.id] ?? '—'}</td>
-              <td>{sum.viewAttempts[v.id] ?? 0}</td>
+              <td>{sum.viewImprovements[v.id] ?? 0}</td>
             </tr>
           ))}
         </tbody>

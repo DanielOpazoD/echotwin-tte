@@ -61,18 +61,8 @@ export function App() {
         lastHudRef.current = now;
         setHud(out);
         const st = useSimStore.getState();
-        if (out.view?.bestViewId && !out.frozen) {
-          const prev = st.viewProgress[out.view.bestViewId] ?? 0;
+        if (out.view?.bestViewId && !out.frozen)
           st.recordViewScore(out.view.bestViewId, out.view.score);
-          if (out.view.score >= prev + 5 || (prev === 0 && out.view.score > 0))
-            st.recordEvent({
-              t: Date.now(),
-              kind: 'view',
-              caseId: st.caseId,
-              viewId: out.view.bestViewId,
-              score: out.view.score,
-            });
-        }
         // curriculum: evaluate the automatic task checks against the learner's current state (≈ 8 Hz)
         if (modePolicy(st.mode).evaluateCurriculum) {
           const impression = st.truth

@@ -21,7 +21,8 @@ export type ProgressEvent =
       total: number;
       acquisition: number;
       measurements: number;
-      impression: number;
+      /** null when no impression was marked (it then weighs nothing in the total) */
+      impression: number | null;
     }
   | { t: number; kind: 'impression'; caseId: string; score: number };
 
@@ -84,7 +85,8 @@ export function completeTask(p: ProgressState, taskId: string, t: number): Progr
 
 export interface ProgressSummary {
   bestViewScores: Record<string, number>;
-  viewAttempts: Record<string, number>;
+  /** How many times the view's best score by hand was first set or rose by 5 points or more: improvements, not attempts (decision 236). */
+  viewImprovements: Record<string, number>;
   measurementsCount: number;
   meanTechniqueScore: number | null;
   techniqueTrend: { t: number; score: number }[];
@@ -95,7 +97,7 @@ export interface ProgressSummary {
 
 export function summarizeProgress(p: ProgressState): ProgressSummary {
   const bestViewScores: Record<string, number> = {};
-  const viewAttempts: Record<string, number> = {};
+  const viewImprovements: Record<string, number> = {};
   const trend: { t: number; score: number }[] = [];
   const cases = new Set<string>();
   const exams: { t: number; caseId: string; total: number }[] = [];
@@ -105,7 +107,7 @@ export function summarizeProgress(p: ProgressState): ProgressSummary {
   for (const e of p.events) {
     if (e.kind === 'view') {
       bestViewScores[e.viewId] = Math.max(bestViewScores[e.viewId] ?? 0, e.score);
-      viewAttempts[e.viewId] = (viewAttempts[e.viewId] ?? 0) + 1;
+      viewImprovements[e.viewId] = (viewImprovements[e.viewId] ?? 0) + 1;
     } else if (e.kind === 'measurement') {
       mN++;
       if (e.techniqueScore !== null) {
@@ -118,7 +120,7 @@ export function summarizeProgress(p: ProgressState): ProgressSummary {
   }
   return {
     bestViewScores,
-    viewAttempts,
+    viewImprovements,
     measurementsCount: mN,
     meanTechniqueScore: tN ? tSum / tN : null,
     techniqueTrend: trend,

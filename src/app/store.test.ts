@@ -342,6 +342,27 @@ describe('views reached with their preset are not acquired by hand', () => {
 });
 
 /**
+ * The learner's record is what the teacher reads (decision 236): the views reached with a preset are not the learner's,
+ * and a score that wavers by a point does not add an entry.
+ */
+describe("the learner's record keeps the views reached by hand (decision 236)", () => {
+  it('a preset view records nothing; by hand, the first score and each rise of 5 or more over the best', async () => {
+    const store = await freshStore();
+    const views = () =>
+      store
+        .getState()
+        .progress.events.filter((e) => e.kind === 'view')
+        .map((e) => (e.kind === 'view' ? `${e.viewId} ${e.score}` : ''));
+    store.setState({ presetViews: ['a4c'] });
+    store.getState().recordViewScore('a4c', 97);
+    expect(store.getState().viewProgress['a4c']).toBe(97);
+    expect(views()).toEqual([]);
+    for (const score of [60, 63, 70, 69, 72, 78]) store.getState().recordViewScore('plax', score);
+    expect(views()).toEqual(['plax 60', 'plax 70', 'plax 78']);
+  });
+});
+
+/**
  * Each spectral mode opens with its own velocity window and keeps the one the learner leaves it with (decision 230). One
  * set used to serve pulsed wave, continuous wave and tissue Doppler: continuous wave opened on ±1 m/s and tissue Doppler on
  * a scale outside its own slider.
