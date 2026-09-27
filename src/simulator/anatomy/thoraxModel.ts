@@ -34,7 +34,32 @@ export interface ThoraxModel {
   diaphragmRiseCm: number;
   /** IVC diameter reduction 0..1 for the respiratory state (the sniff collapses a normal IVC). */
   ivcCollapse: number;
+  /** The diaphragm under the right heart (decision 229), fitted to the heart by `buildCaseModels`; none until then. */
+  diaphragmMap: DiaphragmMap;
 }
+
+/**
+ * Heights (torso y, cm) of the diaphragm under the right heart (decision 229, `diaphragm.ts`): a grid of
+ * `DIAPHRAGM_MAP_N` × `DIAPHRAGM_MAP_N` nodes 1 cm apart from (`x0`, `z0`), row-major in z, sampled bilinearly;
+ * `DIAPHRAGM_MAP_NONE_CM` where the heart does not reach.
+ */
+export interface DiaphragmMap {
+  x0: number;
+  z0: number;
+  h: Float32Array;
+}
+export const DIAPHRAGM_MAP_N = 20;
+export const DIAPHRAGM_MAP_NONE_CM = -100;
+export const NO_DIAPHRAGM_MAP: DiaphragmMap = {
+  x0: 0,
+  z0: 0,
+  h: new Float32Array(DIAPHRAGM_MAP_N * DIAPHRAGM_MAP_N).fill(DIAPHRAGM_MAP_NONE_CM),
+};
+/**
+ * Fat, not lung, this far above the diaphragm under the heart (cm): the pericardial and cardiophrenic fat where the
+ * interpolated diaphragm dips below the heart between the grid's nodes, or the heart rises from it in systole.
+ */
+export const UNDERSIDE_FAT_CM = 0.6;
 
 /**
  * How much further lateral the left lung's cardiac notch reaches in the left lateral decubitus position (cm). Turning onto
@@ -108,6 +133,7 @@ export function createThoraxModel(
     abdomenSlope,
     diaphragmRiseCm: diaphragmRise,
     ivcCollapse,
+    diaphragmMap: NO_DIAPHRAGM_MAP,
   };
 }
 
@@ -116,6 +142,33 @@ export function liverDomeY(t: ThoraxModel, x: number, z: number): number {
   const ex = (x + 2) / 7,
     ez = (z + 7) / 8;
   return -8.5 + 3.5 * Math.max(0, 1 - ex * ex - ez * ez) + t.diaphragmRiseCm;
+}
+
+/** Height of the diaphragm under the right heart at (x, z), bilinear in its grid (decision 229). */
+export function diaphragmMapY(m: DiaphragmMap, x: number, z: number): number {
+  const N = DIAPHRAGM_MAP_N;
+  const fx = x - m.x0,
+    fz = z - m.z0;
+  if (!(fx >= 0 && fz >= 0 && fx < N - 1 && fz < N - 1)) return DIAPHRAGM_MAP_NONE_CM;
+  const i = Math.floor(fx),
+    j = Math.floor(fz);
+  const u = fx - i,
+    v = fz - j;
+  const a = m.h[j * N + i]!,
+    b = m.h[j * N + i + 1]!,
+    c = m.h[(j + 1) * N + i]!,
+    d = m.h[(j + 1) * N + i + 1]!;
+  return (a * (1 - u) + b * u) * (1 - v) + (c * (1 - u) + d * u) * v;
+}
+
+/** Upper surface (y) of the diaphragm: the liver dome, raised to meet the right heart that rests on it (decision 229). */
+export function diaphragmY(t: ThoraxModel, x: number, z: number): number {
+  return Math.max(liverDomeY(t, x, z), diaphragmMapY(t.diaphragmMap, x, z));
+}
+
+/** True just above the diaphragm under the right heart, where the pleura does not reach (decision 229). */
+export function isUnderHeart(t: ThoraxModel, x: number, y: number, z: number): boolean {
+  return y < diaphragmMapY(t.diaphragmMap, x, z) + UNDERSIDE_FAT_CM;
 }
 
 /** Anterior skin surface height z_s(x, y). */
@@ -376,9 +429,10 @@ export function classifyThorax(
     return true;
   }
   // Below the diaphragm: the liver dome (highest to the right of the midline, under the right heart) with the
-  // diaphragm as a bright fibrous layer on top; the subcostal window images the heart through it
+  // diaphragm as a bright fibrous layer on top, raised to meet the right heart that rests on it (decision 229); the
+  // subcostal window images the heart through it
   {
-    const yDome = liverDomeY(t, x, z);
+    const yDome = diaphragmY(t, x, z);
     if (y < yDome && z > -14) {
       const fibrous = y > yDome - 0.25;
       out.tissue = fibrous ? Tissue.Fibrous : Tissue.Liver;
@@ -424,14 +478,15 @@ export function classifyThorax(
     }
   }
   // Lungs: lateral to the cardiac notch borders (the acoustic windows), and everywhere beyond the pericardial fat pad and
-  // the corridor under the chest wall that is not mediastinum (decision 150)
+  // the corridor under the chest wall that is not mediastinum (decision 150), except under the heart, which rests on the
+  // diaphragm (decision 229)
   const lungL = x > leftLungBorderX(t, y);
   const lungR = x < rightLungBorderX(t);
   const aroundHeart =
     heartDistCm > PERICARDIAL_FAT_CM &&
     depth > T + ANTERIOR_CORRIDOR_CM &&
     mediastinumDistance(x, y, z) > 0;
-  if (lungL || lungR || aroundHeart) {
+  if ((lungL || lungR || aroundHeart) && !isUnderHeart(t, x, y, z)) {
     out.tissue = Tissue.Lung;
     out.structure = Structure.Lung;
     out.sdf = -1;

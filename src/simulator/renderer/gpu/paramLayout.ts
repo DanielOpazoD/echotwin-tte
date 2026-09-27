@@ -3,7 +3,7 @@ import { heartAnchors } from '@/simulator/anatomy/heartModel';
 import { LV_PROF_BINS } from '@/simulator/anatomy/lvShape';
 import { MV_BINS } from '@/simulator/anatomy/mitralValve';
 import { TV_BUMP_N } from '@/simulator/anatomy/valveSkirt';
-import type { ThoraxModel } from '@/simulator/anatomy/thoraxModel';
+import { DIAPHRAGM_MAP_N, type ThoraxModel } from '@/simulator/anatomy/thoraxModel';
 import type { BeamFrame } from '@/simulator/probe/pose';
 import { contactQuality } from '@/simulator/probe/pose';
 import type { PolarFrameSpec, Scene } from '../types';
@@ -258,6 +258,9 @@ const SCALARS = [
   'TH_LUNGSHIFT',
   'TH_ABD',
   'TH_DIAPH',
+  // origin of the diaphragm's grid under the right heart (decision 229)
+  'DM_X0',
+  'DM_Z0',
 ] as const;
 type ScalarName = (typeof SCALARS)[number];
 
@@ -279,6 +282,7 @@ const ARRAYS: [string, number][] = [
   ['TVS_ZONES', 3 * 6],
   ['TVS_PROF', 3 * 8],
   ['TVS_BUMP', TV_BUMP_N],
+  ['DM_H', DIAPHRAGM_MAP_N * DIAPHRAGM_MAP_N],
   ['LINE_DROP', 256],
 ];
 
@@ -603,6 +607,9 @@ export function packScene(
   set('TH_LUNGSHIFT', thorax.lungShiftCm);
   set('TH_ABD', thorax.abdomenSlope);
   set('TH_DIAPH', thorax.diaphragmRiseCm);
+  set('DM_X0', thorax.diaphragmMap.x0);
+  set('DM_Z0', thorax.diaphragmMap.z0);
+  d.set(thorax.diaphragmMap.h, PARAM_OFFSET['DM_H']);
   const contact = contactQuality(beam.contact);
   const ld = PARAM_OFFSET['LINE_DROP']!;
   for (let li = 0; li < 256; li++)

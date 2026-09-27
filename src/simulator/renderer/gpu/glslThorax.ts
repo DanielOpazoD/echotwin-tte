@@ -4,6 +4,9 @@ import {
   FAT_FRACTION,
   PERICARDIAL_FAT_CM,
   SKIN_CM,
+  DIAPHRAGM_MAP_N,
+  DIAPHRAGM_MAP_NONE_CM,
+  UNDERSIDE_FAT_CM,
 } from '@/simulator/anatomy/thoraxModel';
 
 const f = (v: number): string => (Number.isInteger(v) ? `${v}.0` : `${v}`);
@@ -15,6 +18,9 @@ const float ANTERIOR_CORRIDOR_CM = ${f(ANTERIOR_CORRIDOR_CM)};
 const float SKIN_CM = ${f(SKIN_CM)};
 const float FAT_FRACTION = ${f(FAT_FRACTION)};
 const float FASCIA_HALF_CM = ${f(FASCIA_HALF_CM)};
+const int DM_N = ${DIAPHRAGM_MAP_N};
+const float DM_NONE = ${f(DIAPHRAGM_MAP_NONE_CM)};
+const float UNDERSIDE_FAT_CM = ${f(UNDERSIDE_FAT_CM)};
 float skinZ(float x, float y) {
   float ax = min(abs(x) / TH_AW, 0.999);
   float inner = 1.0 - pow(ax, TH_N);
@@ -27,6 +33,19 @@ float liverDomeY(float x, float z) {
   float ex = (x + 2.0) / 7.0, ez = (z + 7.0) / 8.0;
   return -8.5 + 3.5 * max(0.0, 1.0 - ex * ex - ez * ez) + TH_DIAPH;
 }
+// the diaphragm under the right heart, bilinear in its grid (thoraxModel.ts diaphragmMapY, decision 229)
+float diaphragmMapY(float x, float z) {
+  float fx = x - DM_X0, fz = z - DM_Z0;
+  float nm = float(DM_N - 1);
+  if (!(fx >= 0.0 && fz >= 0.0 && fx < nm && fz < nm)) return DM_NONE;
+  int i = int(floor(fx)), j = int(floor(fz));
+  float u = fx - float(i), v = fz - float(j);
+  int k = DM_H_BASE + j * DM_N + i;
+  float a = P(k), b = P(k + 1), c = P(k + DM_N), d = P(k + DM_N + 1);
+  return mix(mix(a, b, u), mix(c, d, u), v);
+}
+float diaphragmY(float x, float z) { return max(liverDomeY(x, z), diaphragmMapY(x, z)); }
+bool isUnderHeart(float x, float y, float z) { return y < diaphragmMapY(x, z) + UNDERSIDE_FAT_CM; }
 float leftLungBorderX(float y) {
   float base = 2.4 + max(0.0, 3.5 - y) * 0.75;
   return min(9.0, max(2.0, base)) - TH_LUNGSHIFT;
@@ -87,7 +106,7 @@ bool classifyThorax(vec3 p, out Sample s, float heartDist) {
     return true;
   }
   {
-    float yDome = liverDomeY(x, z);
+    float yDome = diaphragmY(x, z);
     if (y < yDome && z > -14.0) {
       bool fibrous = y > yDome - 0.25;
       s.tissue = fibrous ? T_FIBROUS : T_LIVER; s.structure = fibrous ? S_DIAPH : S_LIVER; s.sdf = fibrous ? -0.1 : -1.0;
@@ -110,9 +129,10 @@ bool classifyThorax(vec3 p, out Sample s, float heartDist) {
   bool lungR = x < rightLungBorderX();
 
   // the pleural cavities wrap the pericardium (decision 144)
-  // beyond the pericardial fat pad and the corridor, outside the posterior and superior mediastinum (thoraxModel.ts, decision 150)
+  // beyond the pericardial fat pad and the corridor, outside the posterior and superior mediastinum (thoraxModel.ts, decision 150),
+  // and not under the heart, which rests on the diaphragm (decision 229)
   bool aroundHeart = heartDist > PERICARDIAL_FAT_CM && depth > T + ANTERIOR_CORRIDOR_CM && mediastinumDistance(x, y, z) > 0.0;
-  if (lungL || lungR || aroundHeart) { s.tissue = T_LUNG; s.structure = S_LUNG; s.sdf = -1.0; s.n = vec3(0.0, 0.0, 1.0); return true; }
+  if ((lungL || lungR || aroundHeart) && !isUnderHeart(x, y, z)) { s.tissue = T_LUNG; s.structure = S_LUNG; s.sdf = -1.0; s.n = vec3(0.0, 0.0, 1.0); return true; }
   s.tissue = T_FAT; s.structure = S_NONE; s.sdf = -1.0;
   return true;
 }
