@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 233 (última: 233).
+Decisiones: 234 (última: 234).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -241,3 +241,4 @@ Decisiones: 233 (última: 233).
 | [231](DECISIONS.md#L1421) | 2026-09-25 | El ECG se escribe sobre la tira que lo lleva | vigente |
 | [232](DECISIONS.md#L1423) | 2026-09-25 | El trazado automático mide el flujo que hay en la selección | vigente |
 | [233](DECISIONS.md#L1425) | 2026-09-25 | La presión de la aurícula derecha sale de la cava | vigente |
+| [234](DECISIONS.md#L1427) | 2026-09-25 | El examen no nombra el caso | vigente |

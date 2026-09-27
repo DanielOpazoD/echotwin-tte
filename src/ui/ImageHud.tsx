@@ -1,5 +1,5 @@
 import { useHudStore, useSimStore } from '@/app/store';
-import { modePolicy } from '@/app/modePolicy';
+import { EXAM_CASE_NAME, modePolicy, showsCaseIdentity } from '@/app/modePolicy';
 import { listCases } from '@/cases';
 import { isStripModality } from '@/simulator/renderer/modality';
 import type { ProductMode } from '@/app/modePolicy';
@@ -23,6 +23,7 @@ export function ImageHud() {
   const show = useSimStore((s) => s.ui.showHud);
   const mode = useSimStore((s) => s.mode);
   const caseId = useSimStore((s) => s.caseId);
+  const examFinished = useSimStore((s) => s.examFinished);
   const truth = useSimStore((s) => s.truth);
   const depthCm = useSimStore((s) => s.settings.depthCm);
   const frequencyMHz = useSimStore((s) => s.settings.frequencyMHz);
@@ -32,7 +33,9 @@ export function ImageHud() {
   if (!show) return null;
   const gpuReason = typeof hud?.stats?.['gpu'] === 'string' ? hud.stats['gpu'] : null;
   const tier = typeof hud?.stats?.['tier'] === 'string' ? hud.stats['tier'] : null;
-  const title = listCases().find((c) => c.id === caseId)?.title ?? caseId;
+  const title = showsCaseIdentity(mode, examFinished)
+    ? (listCases().find((c) => c.id === caseId)?.title ?? caseId)
+    : EXAM_CASE_NAME;
   // the view line sits bottom-right on the 2D image; with a strip below the sector it joins the top-right group, off
   // the strip's velocity scale
   const viewLine = modePolicy(mode).showViewFeedback ? <ViewLine mode={mode} /> : null;

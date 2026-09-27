@@ -1,5 +1,5 @@
 import { useSimStore } from '@/app/store';
-import { modePolicy } from '@/app/modePolicy';
+import { modePolicy, showsCaseIdentity } from '@/app/modePolicy';
 import { useShallow } from 'zustand/shallow';
 import { loadCaseById } from '@/cases';
 import { MEASUREMENT_SPECS, type MeasurementSpec } from '@/simulator/measurements/protocol';
@@ -24,11 +24,15 @@ export function MeasurementPanel() {
       caseId: st.caseId,
       measurements: st.measurements,
       mode: st.mode,
+      examFinished: st.examFinished,
       setActiveMeasurement: st.setActiveMeasurement,
     })),
   );
   const caseDef = loadCaseById(s.caseId);
-  const requiredIds = caseDef.requiredMeasurements.map((r) => r.measurementId);
+  // the measurements a case requires name its diagnosis: during an exam they stay in their groups (decision 234)
+  const requiredIds = showsCaseIdentity(s.mode, s.examFinished)
+    ? caseDef.requiredMeasurements.map((r) => r.measurementId)
+    : [];
   const latestOf = (id: string) => {
     for (let i = s.measurements.length - 1; i >= 0; i--)
       if (s.measurements[i]!.measurementId === id) return s.measurements[i]!;
