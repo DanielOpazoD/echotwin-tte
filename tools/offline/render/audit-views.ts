@@ -6,8 +6,8 @@
  *   npx tsx tools/offline/render/audit-views.ts [caseId]
  */
 import { loadCaseById } from '@/cases';
-import { createHeartModel, heartLandmarks, heartToTorso } from '@/simulator/anatomy/heartModel';
-import { createThoraxModel } from '@/simulator/anatomy/thoraxModel';
+import { heartLandmarks, heartToTorso } from '@/simulator/anatomy/heartModel';
+import { buildCaseModels, REST_PATIENT } from '@/simulator/anatomy/caseModels';
 import {
   VIEW_TARGETS,
   canonicalBeam,
@@ -17,12 +17,7 @@ import {
 import { cross, dot, normalize, scale, sub } from '@/core/vec3';
 
 const c = loadCaseById(process.argv[2] ?? 'normal-excellent-window');
-const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, {
-  position: 'left-lateral',
-  respiration: 'expiration',
-  headElevationDeg: 0,
-});
-const heart = createHeartModel(c.anatomy, c.physiology, thorax.heartOffset, c.seed);
+const { thorax, heart } = buildCaseModels(c, REST_PATIENT);
 const landmarks = heartLandmarks(heart);
 const deg = (r: number) => (r * 180) / Math.PI;
 for (const view of VIEW_TARGETS) {
