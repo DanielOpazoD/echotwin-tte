@@ -75,6 +75,14 @@ export interface StripCtx {
  * image and the gate/auto-trace read-outs over them. Columns are written at their own instants (decision 115);
  * M-mode columns are formed from lines traced per phase bin (decision 84).
  */
+/**
+ * How far one column of an auto-traced envelope may stand above both of its neighbours before it is taken for a line and
+ * not a flow (decision 232). A flow rises steeply — up to 0.47 m/s per column (6.3 ms) in the jet of the severe stenosis
+ * and 0.75 at the onset of the severe regurgitation — but keeps rising or falls back over several columns; it does not
+ * gain and lose half a metre per second within one.
+ */
+const SPIKE_MPS = 0.5;
+
 export class StripEngine {
   private stripSpectral: Float32Array | null = null;
   /** What the screen shows of the spectral strip (decision 115): the estimate with its grain; the envelope reads `stripSpectral`. */
@@ -679,25 +687,17 @@ export class StripEngine {
       const x0 = Math.max(0, Math.min(cols - 1, Math.round(Math.min(req.x0, req.x1))));
       const x1 = Math.max(0, Math.min(cols - 1, Math.round(Math.max(req.x0, req.x1))));
       const baselineBin = (vMax / (vMax - vMin)) * SPECTRAL_BINS;
-      const velocitiesMps: number[] = [];
-      for (let x = x0; x <= x1; x++) {
+      /** Outer edge (m/s) of the envelope of column x on one side of the baseline; 0 without signal there. */
+      const edgeOn = (x: number, above: boolean): number => {
         let max = 0;
         for (let b = 0; b < SPECTRAL_BINS; b++)
           max = Math.max(max, strip[x * SPECTRAL_BINS + b] ?? 0);
         const thr = envelopeThreshold(max, ctx.input.spectral);
-        // dominant side: the side of the baseline with more energy
-        let above = 0,
-          below = 0;
-        for (let b = 0; b < SPECTRAL_BINS; b++) {
-          const v = strip[x * SPECTRAL_BINS + b] ?? 0;
-          if (b < baselineBin) above += v;
-          else below += v;
-        }
         // walk outward from the brightest bin of that side through the contiguous signal (gaps ≤ 2 bins), so that isolated
         // noise far from it does not pull the envelope to the top of the scale. It used to start at the baseline and stop at
         // the gap the wall filter leaves under a narrow laminar spectrum (decision 96).
         let edgeBin = baselineBin;
-        if (above >= below) {
+        if (above) {
           let peak = -1;
           for (let b = Math.floor(baselineBin) - 1, best = thr; b >= 0; b--)
             if ((strip[x * SPECTRAL_BINS + b] ?? 0) > best)
@@ -722,11 +722,15 @@ export class StripEngine {
             } else if (++gap > 2) break;
           }
         }
-        velocitiesMps.push(vMax - (edgeBin / SPECTRAL_BINS) * (vMax - vMin));
-      }
+        const v = vMax - (edgeBin / SPECTRAL_BINS) * (vMax - vMin);
+        // an edge inside the band the wall filter removes, one bin beyond it, is not a flow (decision 232)
+        return Math.abs(v) <= ctx.input.spectral.wallFilterMps + (vMax - vMin) / SPECTRAL_BINS
+          ? 0
+          : v;
+      };
       // valve clicks have no envelope: across a click the trace joins the columns on either side (decision 103), as a
       // sonographer ignores the line; the VTI would otherwise add a spike to the top of the scale at each one
-      const core = velocitiesMps.map((_, i) =>
+      const core = Array.from({ length: x1 - x0 + 1 }, (_, i) =>
         isClickColumn(
           strip.subarray((x0 + i) * SPECTRAL_BINS, (x0 + i + 1) * SPECTRAL_BINS),
           ctx.input.spectral,
@@ -737,6 +741,35 @@ export class StripEngine {
       const click = core.map((_, i) =>
         core.slice(Math.max(0, i - reach), i + reach + 1).some(Boolean),
       );
+      // one side for the whole selection, the side that holds more flow outside the valve clicks (decision 232): picked
+      // column by column, the trace of a beat across a stenotic jet added the mitral inflow of diastole to the jet of
+      // systole; picked by the single fastest column, a click tail left beyond the bridge (one column of −2.44 m/s before
+      // the mitral opening of the severe stenosis) took a whole filling to the other side
+      const up: number[] = [],
+        down: number[] = [];
+      for (let x = x0; x <= x1; x++) {
+        up.push(edgeOn(x, true));
+        down.push(edgeOn(x, false));
+      }
+      // a column that stands above both of its neighbours by more than SPIKE_MPS is a line, not a flow: the part of a
+      // valve click that fell between two columns and is too faint to be found as one (the mitral opening of the severe
+      // stenosis, 2 ms wide, between columns 6.3 ms apart, read 2.44 m/s on one side and 1.59 on the other among zeros)
+      for (const side of [up, down])
+        for (let i = 0; i < side.length; i++) {
+          const prev = i > 0 ? side[i - 1]! : side[i + 1];
+          const next = i < side.length - 1 ? side[i + 1]! : prev;
+          if (prev === undefined || next === undefined) continue;
+          if (Math.abs(side[i]!) - Math.max(Math.abs(prev), Math.abs(next)) > SPIKE_MPS)
+            side[i] = (prev + next) / 2;
+        }
+      let flowUp = 0,
+        flowDown = 0;
+      for (let i = 0; i < up.length; i++) {
+        if (click[i]) continue;
+        flowUp += up[i]!;
+        flowDown -= down[i]!;
+      }
+      const velocitiesMps = flowUp >= flowDown ? up : down;
       for (let i = 0; i < velocitiesMps.length; i++) {
         if (!click[i]) continue;
         let a = i - 1,

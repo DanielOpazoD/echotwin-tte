@@ -22,7 +22,10 @@ export function summarizeEnvelope(velocitiesMps: readonly number[], dtS: number)
   return {
     vtiCm: vtiFromEnvelope(vel, dtS),
     vmaxMps,
-    meanGradientMmHg: meanGradientFromEnvelope(vel),
+    // the mean gradient is the mean over the flow, not over the time selected (decision 232): a trace that runs past the
+    // end of ejection, or over the whole beat, holds columns without flow (0), and averaging them in divided the gradient
+    // of a severe stenosis by three
+    meanGradientMmHg: meanGradientFromEnvelope(vel.filter((v) => v > 0)),
     peakGradientMmHg: simplifiedBernoulli(vmaxMps),
   };
 }

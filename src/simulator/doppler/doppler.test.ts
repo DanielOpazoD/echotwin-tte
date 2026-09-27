@@ -32,6 +32,7 @@ import {
 } from '@/simulator/cardiac-cycle/cycleModel';
 import { SimulatorCore } from '@/simulator/core/simulatorCore';
 import { computeGroundTruth } from '@/simulator/hemodynamics/groundTruth';
+import { summarizeEnvelope } from '@/simulator/measurements/vti';
 import { baseInput } from '@/simulator/core/baseInput';
 import { canonicalControl, canonicalPlane, getViewTarget } from '@/simulator/windows/viewTargets';
 import { beamFrameFromPose, controlAimingAt, poseFromControl } from '@/simulator/probe/pose';
@@ -1317,6 +1318,136 @@ describe('the spectral display is an estimate with its granular texture (decisio
         }
       expect(checked).toBeGreaterThan(100);
       expect(mismatched / checked).toBeLessThan(0.05);
+    },
+  );
+
+  /**
+   * Continuous wave from an apical view through the aortic vena contracta or the mitral valve, with the settings continuous
+   * wave opens with (decision 230): the strip of the first sweep, the columns where its first two beats start, and the
+   * auto-trace of a selection of it as the app requests it.
+   */
+  function apicalCwStrip(caseId: string, view: 'a5c' | 'a4c', through: 'aortic' | 'mitral') {
+    const k = loadCaseById(caseId);
+    const m = new SimulatorCore(k, baseInput()).models;
+    const t = m.tables.timings;
+    const rr = m.tables.rrS;
+    const f = buildFlowParams(k, m.heart, m.tables);
+    const peak = (t.ejectionStartS + 0.35 * (t.ejectionEndS - t.ejectionStartS)) / rr;
+    const hpPeak = computeHeartPose(m.heart, cycleStateAt(m.tables, peak));
+    const target =
+      through === 'aortic'
+        ? v3(
+            f.avCenter.x + 0.5 * f.avAxis.x,
+            f.avCenter.y + 0.5 * f.avAxis.y,
+            f.avCenter.z + hpPeak.zAnn * ROOT_EXCURSION + 0.5 * f.avAxis.z,
+          )
+        : v3(f.mvCenter.x, f.mvCenter.y, hpPeak.zAnn);
+    const start = canonicalControl(getViewTarget(view), m.heart, m.thorax);
+    const ctrl = controlAimingAt(
+      m.thorax,
+      start.u,
+      start.v,
+      heartToTorso(m.heart.frame, target),
+      canonicalPlane(getViewTarget(view), m.heart).right,
+      start.pressure,
+    );
+    const core = new SimulatorCore(
+      k,
+      baseInput({ probe: ctrl, modality: 'cw', quality: 'low', gateDepthCm: 10 }),
+    );
+    // most of the first sweep, so the columns written so far run in order
+    for (let s = 0; s < 1.9; s += 0.02) core.step(0.02);
+    const st = core.spectralStrip;
+    const starts: number[] = [];
+    for (let col = 1; col < st.head; col++)
+      if (st.phase[col]! < st.phase[col - 1]! - 0.5) starts.push(col);
+    expect(starts.length, 'two beat starts in the sweep').toBeGreaterThanOrEqual(2);
+    const [b0, b1] = starts as [number, number];
+    const trace = (x0: number, x1: number) => {
+      const r = core.request({ kind: 'autoTrace', x0, x1 });
+      expect(r?.kind).toBe('autoTrace');
+      return r?.kind === 'autoTrace'
+        ? { v: r.velocitiesMps, spc: r.secondsPerColumn }
+        : { v: [], spc: 0 };
+    };
+    /** Time in the beat (ms) of a strip column. */
+    const tbMs = (col: number) => st.phase[col]! * rr * 1000;
+    /** The first column of the first beat at or after a time in the beat (ms). */
+    const firstAt = (ms: number) => {
+      let col = b0;
+      while (col < b1 && tbMs(col) < ms) col++;
+      return col;
+    };
+    return { t, b0, b1, trace, tbMs, firstAt };
+  }
+
+  /**
+   * The auto-trace reads the flow the selection holds, whether the learner marks the ejection or the whole beat (decision
+   * 232). It took the side of the baseline column by column and averaged the gradient over every column selected: across
+   * one beat of a severe stenosis it added the mitral inflow to the jet and read a mean gradient of 14 mmHg for 36.
+   */
+  it(
+    'the auto-trace of a severe stenosis reads the same VTI and mean gradient over the ejection and over the whole beat (decision 232)',
+    { timeout: 120_000 },
+    () => {
+      const { t, b0, b1, trace, tbMs } = apicalCwStrip('aortic-stenosis-severe', 'a5c', 'aortic');
+      // the jet as a sonographer marks it: from where its envelope leaves the baseline to where it returns, around its peak
+      const whole = trace(b0, b1 - 1);
+      let p = 0;
+      for (let i = 1; i < whole.v.length; i++)
+        if (Math.abs(whole.v[i]!) > Math.abs(whole.v[p]!)) p = i;
+      let a = p,
+        b = p;
+      while (a > 0 && whole.v[a - 1] !== 0) a--;
+      while (b < whole.v.length - 1 && whole.v[b + 1] !== 0) b++;
+      // that run is the ejection of the model, neither cut short nor spilling into the rest of the beat
+      const onset = tbMs(b0 + a) - t.ejectionStartS * 1000;
+      const end = tbMs(b0 + b) - t.ejectionEndS * 1000;
+      expect(Math.abs(onset), `jet onset ${onset.toFixed(0)} ms from the ejection`).toBeLessThan(
+        15,
+      );
+      expect(Math.abs(end), `jet end ${end.toFixed(0)} ms from the ejection`).toBeLessThan(15);
+      const ej = trace(b0 + a, b0 + b);
+      const eject = summarizeEnvelope(ej.v, ej.spc);
+      const beat = summarizeEnvelope(whole.v, whole.spc);
+      const msg = `ejection: VTI ${eject.vtiCm.toFixed(1)} cm, mean ${eject.meanGradientMmHg.toFixed(1)} mmHg; whole beat: VTI ${beat.vtiCm.toFixed(1)}, mean ${beat.meanGradientMmHg.toFixed(1)}`;
+      expect(eject.meanGradientMmHg, msg).toBeGreaterThan(30);
+      expect(Math.abs(beat.vtiCm / eject.vtiCm - 1), msg).toBeLessThan(0.03);
+      expect(Math.abs(beat.meanGradientMmHg / eject.meanGradientMmHg - 1), msg).toBeLessThan(0.05);
+    },
+  );
+
+  /**
+   * A filling marked from before the mitral valve opens reads the filling (clean-context review of decision 232). The side
+   * of the single fastest column followed whatever else the selection held: in the severe stenosis, the part of the mitral
+   * opening click that fell between two columns (one column of −2.44 m/s at 498 ms: VTI 0.8 cm and Vmax 2.44 m/s for a
+   * filling of 5.6 cm and 0.47 m/s); in the severe regurgitation, the regurgitant jet still running before the opening
+   * (VTI 3.8 cm and Vmax 2.06 m/s for 15.6 cm and 1.03 m/s, from 80 ms before). The side that holds more flow is the
+   * filling's, and a single column standing far above both neighbours is a line.
+   */
+  it(
+    'the auto-trace of a filling marked from before the mitral opening reads the filling (decision 232)',
+    { timeout: 180_000 },
+    () => {
+      for (const [caseId, view, through, befores] of [
+        ['aortic-stenosis-severe', 'a5c', 'aortic', [5, 15, 30]],
+        ['hfref-severe-mr', 'a4c', 'mitral', [20, 40, 80]],
+      ] as const) {
+        const { t, trace, firstAt } = apicalCwStrip(caseId, view, through);
+        const aEnd = firstAt(t.aEndS * 1000);
+        // the filling alone, from just after the opening to the end of the A wave: the reference
+        const ref = trace(firstAt(t.mitralOpenS * 1000 + 10), aEnd);
+        const filling = summarizeEnvelope(ref.v, ref.spc);
+        const side = (v: number[]) => Math.sign(v.reduce((a, x) => a + x, 0));
+        for (const beforeMs of befores) {
+          const tr = trace(firstAt(t.mitralOpenS * 1000 - beforeMs), aEnd);
+          const got = summarizeEnvelope(tr.v, tr.spc);
+          const msg = `${caseId} from ${beforeMs} ms before the opening: VTI ${got.vtiCm.toFixed(2)} cm, Vmax ${got.vmaxMps.toFixed(2)} m/s; the filling alone ${filling.vtiCm.toFixed(2)} cm, ${filling.vmaxMps.toFixed(2)} m/s`;
+          expect(side(tr.v), msg).toBe(side(ref.v));
+          expect(Math.abs(got.vmaxMps / filling.vmaxMps - 1), msg).toBeLessThan(0.1);
+          expect(Math.abs(got.vtiCm / filling.vtiCm - 1), msg).toBeLessThan(0.1);
+        }
+      }
     },
   );
 });
