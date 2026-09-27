@@ -31,12 +31,11 @@ import {
   emptyProgress,
   loadProgress,
   saveProgress,
-  type ProgressEvent,
   type ProgressState,
 } from '@/education/progress';
-import { expectedFindings, getFinding, scoreImpression } from '@/education/impression';
-import { buildExamSummary } from '@/education/scoring/scoring';
-import { loadCaseById } from '@/cases';
+import { getFinding } from '@/education/impression';
+import { examSummaryOf } from './examSummary';
+import type { ExamSummary } from '@/education/scoring/scoring';
 import type { PhaseMarks } from '@/simulator/core/protocol';
 import { frameBus } from './frameBus';
 import { easeInOut, lerpControl, presetDurationMs } from '@/simulator/probe/interpolate';
@@ -134,7 +133,6 @@ export interface SimStore {
     'none' | 'caliper' | 'velocity' | 'vti' | 'auto-vti' | 'time' | 'slope' | 'simpson' | 'tapse';
   /** Local learning progress (events + completed curriculum tasks), persisted in localStorage. */
   progress: ProgressState;
-  recordEvent: (e: ProgressEvent) => void;
   completeTasks: (taskIds: string[]) => void;
   resetLearningProgress: () => void;
   /** Structured impression selected by the learner for the current case. */
@@ -189,6 +187,11 @@ export interface SimStore {
     viewId: string;
   } | null;
   examFinished: boolean;
+  /**
+   * The exam's summary as it was when the learner finished, the one recorded for the teacher and the one the report shows
+   * (decision 236): recomputed from the live session, it drifted from the record as soon as anything changed after.
+   */
+  examResult: ExamSummary | null;
   error: string | null;
   workerMode: 'worker' | 'inline' | 'starting';
   /** The 3D navigator has its model (decision 203): the start screen ticks it off. Not persisted. */
@@ -463,6 +466,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
   presetViews: [],
   presetAnim: null,
   examFinished: false,
+  examResult: null,
   error: null,
   workerMode: 'starting',
   navigatorReady: false,
@@ -527,6 +531,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
       return {
         mode: m,
         examFinished: false,
+        examResult: null,
         ...(m === 'exam' ? freshSession() : {}),
         ui: {
           ...s.ui,
@@ -661,12 +666,6 @@ export const useSimStore = create<SimStore>((set, get) => ({
   },
   setCycleInfo: (marks, lvLengthCm) => set({ phaseMarks: marks, lvLengthCm }),
   setArtifactLab: (v) => set({ artifactLab: v }),
-  recordEvent: (e) =>
-    set((s) => {
-      const progress = addEvent(s.progress, e);
-      saveProgress(typeof localStorage !== 'undefined' ? localStorage : null, progress);
-      return { progress };
-    }),
   completeTasks: (ids) =>
     set((s) => {
       let progress = s.progress;
@@ -683,6 +682,8 @@ export const useSimStore = create<SimStore>((set, get) => ({
   },
   toggleFinding: (id) =>
     set((s) => {
+      // the answer sheet closes when the exam is finished (decision 236)
+      if (s.mode === 'exam' && s.examFinished) return s;
       const f = getFinding(id);
       let sel = s.impressionSelection.filter((x) => x !== id);
       if (!s.impressionSelection.includes(id)) {
@@ -753,27 +754,28 @@ export const useSimStore = create<SimStore>((set, get) => ({
       // the same state when nothing changes: a new one, even empty, notifies every subscriber (decision 173)
       const overall = (s.viewProgress[viewId] ?? 0) < score;
       // a view reached with its preset does not count as acquired by hand (decision 174)
-      const byHand = !s.presetViews.includes(viewId) && (s.handViewProgress[viewId] ?? 0) < score;
+      const handBefore = s.handViewProgress[viewId] ?? 0;
+      const byHand = !s.presetViews.includes(viewId) && handBefore < score;
       if (!overall && !byHand) return s;
+      // the learner's record keeps only what they reached by hand, and only the first score and each rise of 5 points
+      // or more over the best so far, so that a preset or a score that wavers does not fill it (decision 236)
+      const record = byHand && (score >= handBefore + 5 || handBefore === 0);
+      const progress = record
+        ? addEvent(s.progress, { t: Date.now(), kind: 'view', caseId: s.caseId, viewId, score })
+        : s.progress;
+      if (record) saveProgress(typeof localStorage !== 'undefined' ? localStorage : null, progress);
       return {
         viewProgress: overall ? { ...s.viewProgress, [viewId]: score } : s.viewProgress,
         handViewProgress: byHand ? { ...s.handViewProgress, [viewId]: score } : s.handViewProgress,
+        progress,
       };
     }),
   finishExam: () =>
     set((s) => {
       let progress = s.progress;
-      if (s.truth) {
-        const caseDef = loadCaseById(s.caseId);
-        const impression = scoreImpression(s.impressionSelection, expectedFindings(s.truth)).score;
-        const summary = buildExamSummary(
-          caseDef,
-          s.truth,
-          s.viewProgress,
-          s.measurements,
-          impression,
-          { freeMeasurements: modePolicy(s.mode).freeMeasurementsScored },
-        );
+      // the summary the report shows, not a second computation of it (decision 236)
+      const summary = examSummaryOf(s);
+      if (summary) {
         progress = addEvent(progress, {
           t: Date.now(),
           kind: 'exam',
@@ -781,11 +783,17 @@ export const useSimStore = create<SimStore>((set, get) => ({
           total: summary.total,
           acquisition: summary.acquisition.total,
           measurements: summary.measurements.total,
-          impression,
+          impression: summary.impression,
         });
         saveProgress(typeof localStorage !== 'undefined' ? localStorage : null, progress);
       }
-      return { examFinished: true, frozen: true, progress, ui: { ...s.ui, screen: 'report' } };
+      return {
+        examFinished: true,
+        examResult: summary,
+        frozen: true,
+        progress,
+        ui: { ...s.ui, screen: 'report' },
+      };
     }),
   resetProgress: () =>
     set({
@@ -793,6 +801,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
       handViewProgress: {},
       presetViews: [],
       examFinished: false,
+      examResult: null,
       measurements: [],
     }),
   setError: (e) => set({ error: e }),
@@ -826,6 +835,7 @@ function freshSession() {
     handViewProgress: {},
     presetViews: [],
     examFinished: false,
+    examResult: null,
     presetAnim: null,
     targetViewId: null,
     impressionSelection: [],
