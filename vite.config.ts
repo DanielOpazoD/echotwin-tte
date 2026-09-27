@@ -1,10 +1,33 @@
 /// <reference types="vitest/config" />
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { stripGlslTemplateComments } from './src/simulator/renderer/gpu/glslStrip';
+
+/**
+ * The shaders' comments stay in the source, next to the lines they explain, and leave the bundle (decision 228): the
+ * build strips them, with the indentation, from the template literals of the GLSL modules. Tests and the dev server read
+ * the sources as written.
+ */
+function glslStrip(): Plugin {
+  return {
+    name: 'echotwin-glsl-strip',
+    apply: 'build',
+    enforce: 'pre',
+    transform(code, id) {
+      if (
+        !/[\\/]src[\\/]simulator[\\/]renderer[\\/]gpu[\\/]glsl(Common|Heart|Thorax|Passes|Image|Generated)\.ts$/.test(
+          id,
+        )
+      )
+        return null;
+      return { code: stripGlslTemplateComments(code), map: null };
+    },
+  };
+}
 
 /**
  * Test tiers. Tests that drive SimulatorCore through several beats or render frames take seconds to minutes
@@ -38,7 +61,7 @@ const testTier = process.env['VITEST_TIER'] ?? 'fast';
 const coverageShard = process.env['VITEST_COVERAGE_SHARD'] === '1';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), glslStrip()],
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   build: {
     target: 'es2022',
@@ -50,7 +73,7 @@ export default defineConfig({
       },
     },
   },
-  worker: { format: 'es' },
+  worker: { format: 'es', plugins: () => [glslStrip()] },
   test: {
     environment: 'node',
     include: testTier === 'slow' ? SLOW_TEST_FILES : ['src/**/*.test.ts', 'src/**/*.test.tsx'],
