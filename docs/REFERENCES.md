@@ -47,6 +47,11 @@ En el código, cada referencia vive en `src/clinical/guidelines/references.ts` c
 | `zhang-pm-2026` | Evaluation of Left Ventricular Papillary Muscles Using Targeted Views by Echocardiography | Zhang L, Xie Y, Zhang X, et al. J Clin Med 2026;15(9):3496. DOI 10.3390/jcm15093496 | VERIFIED (texto completo en PMC13163397): 245 adultos sanos; longitud telediastólica 28 ± 3 mm (anterolateral) y 28 ± 2 (posteromedial), telesistólica 21 ± 3; diámetro medio 8,5 ± 0,9 y 8,1 ± 0,9 mm; origen en el tercio medio (0,33–0,66 de la distancia ápex–anillo desde el ápex) en el 97 y el 93 %; distancia vertical de la punta al anillo mitral 22,4 ± 3,3 mm en sístole precoz y 22,3 ± 3,5 en la tardía; distancia interpapilar 21,8 ± 1,7 mm en telediástole y 10,6 ± 2,1 en telesístole |
 | `li-pm-2024` | Left Ventricular Papillary Muscle: Anatomy, Pathophysiology, and Multimodal Evaluation | Li S, Wang Z, Fu W, et al. Diagnostics (Basel) 2024 (PMC11202998) | VERIFIED (texto completo): por TC multidetector (Axel, 25 sujetos) los músculos papilares se unen a la pared a través de una red de trabéculas entrelazadas, no directamente al miocardio compacto |
 
+### Brillo relativo de las estructuras cardíacas (limitación del pericardio)
+| Id en código | Documento | Cita | Estado |
+|---|---|---|---|
+| `lattanzi-ibi-1987` | In vivo radiofrequency ultrasound analysis of normal human heart structures | Lattanzi F, Picano E, Mazzarisi A, et al. J Clin Ultrasound 1987;15(6):371-375 | VERIFIED (resumen en Europe PMC, PMID 3134434): 20 sujetos jóvenes sanos, modo M; índice de backscatter integrado (integral de la señal de radiofrecuencia rectificada en una ventana de 3 µs, 2,35 mm, en las paredes sin sus reflexiones endo- y epicárdicas, y de 1 µs, 0,8 mm, en la mitral) en porcentaje del de la interfaz pericárdica: septo 22 ± 4 %, pared posterior 17 ± 3 %, velo anterior mitral 5 ± 2 %. La ventana del pericardio no consta en el resumen |
+
 ## Mapeo a `src/clinical/reference-values` y discrepancias
 | Regla en código | Valor en código | Valor verificado | Acción |
 |---|---|---|---|
