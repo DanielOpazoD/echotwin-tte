@@ -43,6 +43,7 @@ Cada medida del protocolo lleva un id semántico. Declara su herramienta, modali
 | `tapse` | TAPSE | `tapse` | m-mode, cmm | a4c, rv-focused | cualquiera | — | 12 % |
 | `rv-basal` | Diámetro basal del VD | `caliper` | 2d | rv-focused, a4c | telediástole | — | 10 % |
 | `ivc-diameter` | Diámetro de la vena cava inferior | `caliper` | 2d, m-mode | subcostal-ivc | cualquiera | — | 12 % |
+| `ivc-diameter-inspiration` | Diámetro de la vena cava inferior en inspiración | `caliper` | 2d, m-mode | subcostal-ivc | cualquiera | — | 15 % |
 | `rv-s-prime` | S′ tricuspídea (Doppler tisular) | `velocity` | tdi | a4c, rv-focused | sístole | ≤ 20° | 12 % |
 | `rvot-acceleration-time` | Tiempo de aceleración pulmonar | `time` | pw | psax-av | sístole | — | 15 % |
 | `tr-vmax` | Velocidad máxima de la insuficiencia tricuspídea | `velocity` | cw | a4c, rv-focused, psax-av | sístole | ≤ 20° | 8 % |

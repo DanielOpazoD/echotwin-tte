@@ -1,10 +1,14 @@
 import { rangeFlag, rangeText } from '@/clinical/guidelines/normalRanges';
 import type { Measurement } from '@/simulator/measurements/types';
 import type { StructuredEchoTruth } from '@/simulator/hemodynamics/groundTruth';
-import { AORTIC_STENOSIS_RULES, formatClinical } from '@/clinical/reference-values';
+import {
+  AORTIC_STENOSIS_RULES,
+  formatClinical,
+  RIGHT_HEART_RULES,
+} from '@/clinical/reference-values';
 import { getMeasurementSpec } from '@/simulator/measurements/protocol';
 import { discProfileFromContour } from '@/simulator/measurements/simpson';
-import { simpsonBiplaneVolume } from '@/clinical/formulas';
+import { rvspFromTr, simpsonBiplaneVolume } from '@/clinical/formulas';
 
 /**
  * Educational report assembly (spec 26). Deterministic; compares user measurements with the model
@@ -325,15 +329,52 @@ export function deriveCalculations(ms: Measurement[], bsaM2: number | null = nul
     });
   }
   const tr = v('tr-vmax');
-  if (tr !== null)
+  if (tr !== null) {
+    const rap = rightAtrialPressure(v('ivc-diameter'), v('ivc-diameter-inspiration'));
     rows.push({
       id: 'rvsp',
-      label: 'PSVD estimada (PAD 3 mmHg)',
-      value: `${(4 * tr * tr + 3).toFixed(0)} mmHg`,
+      label: `PSVD estimada (PAD ${rap.rapMmHg} mmHg)`,
+      value: `${rvspFromTr(tr, rap.rapMmHg).toFixed(0)} mmHg`,
       formula: '4·Vmax IT² + PAD',
-      inputs: `Vmax IT ${tr.toFixed(2)} m/s, PAD 3 mmHg (asumida)`,
+      inputs: `Vmax IT ${tr.toFixed(2)} m/s, PAD ${rap.rapMmHg} mmHg (${rap.basis})`,
     });
+  }
   return rows;
+}
+
+/**
+ * Right atrial pressure from the inferior vena cava (decision 233), as the ASE estimates it: a cava of at most 2.1 cm that
+ * collapses more than 50 % with a sniff gives 3 mmHg, a wider one that collapses less gives 15, anything else 8. The report
+ * used to assume 3 whatever the cava: a pulmonary hypertension with a dilated, barely collapsing cava read 53 mmHg for 72.
+ * Without the inspiratory diameter the collapse is unknown and the intermediate value applies.
+ */
+export function rightAtrialPressure(
+  expiratoryCm: number | null,
+  inspiratoryCm: number | null,
+): { rapMmHg: number; basis: string } {
+  const r = RIGHT_HEART_RULES.rapFromIvc.value;
+  if (expiratoryCm === null || expiratoryCm <= 0)
+    return { rapMmHg: r.intermediate.rapMmHg, basis: 'sin VCI medida: valor intermedio' };
+  if (inspiratoryCm === null)
+    return {
+      rapMmHg: r.intermediate.rapMmHg,
+      basis: `VCI ${expiratoryCm.toFixed(1)} cm sin colapso medido: valor intermedio`,
+    };
+  const collapsePct = (1 - inspiratoryCm / expiratoryCm) * 100;
+  const small = expiratoryCm <= r.normal.ivcMaxCm;
+  // more than half collapses and less than half does not: a cava that collapses exactly half is in neither branch
+  const rapMmHg =
+    small && collapsePct > r.normal.collapsePct
+      ? r.normal.rapMmHg
+      : !small && collapsePct < r.normal.collapsePct
+        ? r.high.rapMmHg
+        : r.intermediate.rapMmHg;
+  // the diameter to the tenth of a millimetre the rule was decided on (2.14 cm is above 2.1), and a cava wider in
+  // inspiration than in expiration does not collapse
+  return {
+    rapMmHg,
+    basis: `VCI ${expiratoryCm.toFixed(2)} cm, colapso ${Math.max(0, collapsePct).toFixed(0)} %`,
+  };
 }
 
 /** Educational impression lines for the modelled pathologies (thresholds: ASE/EACVI, see docs/REFERENCES.md). */

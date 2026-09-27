@@ -1,7 +1,13 @@
 // @tier fast
 import { describe, expect, it } from 'vitest';
-import { buildEducationalReport, deriveCalculations, pathologyImpressions } from './report';
-import { loadCaseById } from '@/cases';
+import {
+  buildEducationalReport,
+  deriveCalculations,
+  pathologyImpressions,
+  rightAtrialPressure,
+} from './report';
+import { CASE_INPUTS, loadCaseById } from '@/cases';
+import { getMeasurementSpec } from '@/simulator/measurements/protocol';
 import { computeGroundTruth } from '@/simulator/hemodynamics/groundTruth';
 import type { Measurement, TechniqueFinding } from '@/simulator/measurements/types';
 
@@ -232,10 +238,53 @@ describe('deriveCalculations', () => {
 
   it('computes the aortic peak gradient and the RV systolic pressure with Bernoulli', () => {
     const rows = deriveCalculations([protocol('av-vmax', 4), protocol('tr-vmax', 3)]);
+    // without the cava the right atrial pressure is the ASE's intermediate 8 mmHg (decision 233; it was an assumed 3)
     expect(rows.map((r) => [r.id, r.value])).toEqual([
       ['av-peak-gradient', '64 mmHg'],
-      ['rvsp', '39 mmHg'],
+      ['rvsp', '44 mmHg'],
     ]);
+  });
+
+  it('estimates the right atrial pressure from the cava as the ASE does (decision 233)', () => {
+    expect(rightAtrialPressure(1.7, 0.5).rapMmHg).toBe(3);
+    expect(rightAtrialPressure(2.5, 2.0).rapMmHg).toBe(15);
+    expect(rightAtrialPressure(2.5, 1.0).rapMmHg).toBe(8);
+    expect(rightAtrialPressure(1.8, 1.2).rapMmHg).toBe(8);
+    expect(rightAtrialPressure(2.0, null).rapMmHg).toBe(8);
+    expect(rightAtrialPressure(null, null).rapMmHg).toBe(8);
+    // exactly half a collapse is in neither branch of the rule: 2.4 → 1.2 cm read 15 (clean-context review, decision 233)
+    expect(rightAtrialPressure(2.4, 1.2).rapMmHg).toBe(8);
+    expect(rightAtrialPressure(2.2, 1.1).rapMmHg).toBe(8);
+    expect(rightAtrialPressure(2.0, 1.0).rapMmHg).toBe(8);
+    expect(rightAtrialPressure(2.4, 1.21).rapMmHg).toBe(15);
+    expect(rightAtrialPressure(2.0, 0.99).rapMmHg).toBe(3);
+    // the basis shows the diameter the rule was decided on, and a cava wider in inspiration as no collapse
+    expect(rightAtrialPressure(2.14, 2.0).basis).toContain('VCI 2.14 cm');
+    expect(rightAtrialPressure(2.14, 2.0).rapMmHg).toBe(15);
+    expect(rightAtrialPressure(1.8, 2.0).basis).toContain('colapso 0 %');
+    const rows = deriveCalculations([
+      protocol('tr-vmax', 3.55),
+      protocol('ivc-diameter', 2.5),
+      protocol('ivc-diameter-inspiration', 2.0),
+    ]);
+    expect(rows.find((r) => r.id === 'rvsp')?.value).toBe('65 mmHg');
+    expect(rows.find((r) => r.id === 'rvsp')?.inputs).toContain('colapso 20 %');
+  });
+
+  it('with the cava measured as the case draws it, the right atrial pressure falls in the ASE range that holds the case own (decision 233)', () => {
+    const problems: string[] = [];
+    for (const { id } of CASE_INPUTS) {
+      const c = loadCaseById(id);
+      const t = computeGroundTruth(c);
+      const exp = getMeasurementSpec('ivc-diameter')!.truth(t)!;
+      const insp = getMeasurementSpec('ivc-diameter-inspiration')!.truth(t)!;
+      const { rapMmHg } = rightAtrialPressure(exp, insp);
+      const [lo, hi] = rapMmHg === 3 ? [0, 5] : rapMmHg === 8 ? [5, 10] : [10, 20];
+      const own = c.hemodynamics.rapMmHg;
+      if (own < lo || own > hi)
+        problems.push(`${id}: cava gives ${rapMmHg} (${lo}–${hi}), the case ${own}`);
+    }
+    expect(problems).toEqual([]);
   });
 
   it('computes E/A and E/e′ with the available annular velocities', () => {

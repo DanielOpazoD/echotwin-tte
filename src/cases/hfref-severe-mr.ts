@@ -37,7 +37,9 @@ export const hfrefSevereMrCase: CaseDefinitionInput = {
     aorta: { lvotDiameterCm: 2.1, annulusCm: 2.4, sinusCm: 3.3, ascendingCm: 3.2 },
     mitral: { ...normalExcellentCase.anatomy.mitral, annulusDiameterCm: 3.6, maxOpeningDeg: 55 },
     tricuspid: { annulusDiameterCm: 3.8 },
-    ivc: { diameterCm: 2.2, collapsePct: 40 },
+    // 55 % until decision 233 was 40 %: with 2.2 cm that is the ASE's high right atrial pressure (15), not the 8 the case
+    // declares
+    ivc: { diameterCm: 2.2, collapsePct: 55 },
   },
   physiology: {
     edvMl: 250,
