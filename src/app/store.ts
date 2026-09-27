@@ -522,12 +522,12 @@ export const useSimStore = create<SimStore>((set, get) => ({
   setMode: (m) =>
     set((s) => {
       const policy = modePolicy(m);
+      // an exam starts from scratch, as a case load does: the pose, the impression, the preset and the artifact lab left
+      // behind by the practice would otherwise be scored as the learner's (A4C scored 97 the instant the exam began)
       return {
         mode: m,
         examFinished: false,
-        viewProgress: m === 'exam' ? {} : s.viewProgress,
-        handViewProgress: m === 'exam' ? {} : s.handViewProgress,
-        measurements: m === 'exam' ? [] : s.measurements,
+        ...(m === 'exam' ? freshSession() : {}),
         ui: {
           ...s.ui,
           showHints: policy.hintsEnabled,
@@ -697,8 +697,12 @@ export const useSimStore = create<SimStore>((set, get) => ({
     // from now on this view's score is the preset's, not the learner's (decision 174)
     if (!get().presetViews.includes(viewId))
       set((s) => ({ presetViews: [...s.presetViews, viewId] }));
+    const token = ++presetToken;
     const begin = (to: ProbeControl) =>
       set((s) => {
+        // the pose arrives asynchronously: a session started or a preset cancelled meanwhile does not get it, even if it
+        // went back to practice by then
+        if (token !== presetToken || s.mode === 'exam') return s;
         const from = { ...s.probe };
         return {
           presetAnim: {
@@ -732,7 +736,10 @@ export const useSimStore = create<SimStore>((set, get) => ({
         console.warn('preset view request failed', e instanceof Error ? e.message : e);
       });
   },
-  cancelPreset: () => set({ presetAnim: null }),
+  cancelPreset: () => {
+    presetToken++;
+    set({ presetAnim: null });
+  },
   tickPresetAnimation: (nowMs) =>
     set((s) => {
       const a = s.presetAnim;
@@ -765,6 +772,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
           s.viewProgress,
           s.measurements,
           impression,
+          { freeMeasurements: modePolicy(s.mode).freeMeasurementsScored },
         );
         progress = addEvent(progress, {
           t: Date.now(),
@@ -796,23 +804,34 @@ export const useSimStore = create<SimStore>((set, get) => ({
     set((s) => {
       const progress = addEvent(s.progress, { t: Date.now(), kind: 'case', caseId: id });
       saveProgress(typeof localStorage !== 'undefined' ? localStorage : null, progress);
-      return {
-        caseId: id,
-        measurements: [],
-        frozen: false,
-        cineOffset: 0,
-        probe: { ...START_PROBE },
-        viewProgress: {},
-        handViewProgress: {},
-        presetViews: [],
-        examFinished: false,
-        presetAnim: null,
-        impressionSelection: [],
-        artifactLab: null,
-        progress,
-      };
+      return { caseId: id, ...freshSession(), progress };
     }),
 }));
+
+/** The preset pose request in flight: a later request, a cancellation or a fresh session supersedes it. */
+let presetToken = 0;
+
+/**
+ * What a session starts from, when a case is loaded and when an exam begins (decision 235): one list, so that the two
+ * cannot drift apart (the exam start left the artifact lab on and the case load the target view).
+ */
+function freshSession() {
+  presetToken++;
+  return {
+    measurements: [],
+    frozen: false,
+    cineOffset: 0,
+    probe: { ...START_PROBE },
+    viewProgress: {},
+    handViewProgress: {},
+    presetViews: [],
+    examFinished: false,
+    presetAnim: null,
+    targetViewId: null,
+    impressionSelection: [],
+    artifactLab: null,
+  };
+}
 
 function clampProbe(p: ProbeControl): ProbeControl {
   return {

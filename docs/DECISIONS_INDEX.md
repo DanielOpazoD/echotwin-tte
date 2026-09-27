@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 234 (última: 234).
+Decisiones: 235 (última: 235).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -242,3 +242,4 @@ Decisiones: 234 (última: 234).
 | [232](DECISIONS.md#L1423) | 2026-09-25 | El trazado automático mide el flujo que hay en la selección | vigente |
 | [233](DECISIONS.md#L1425) | 2026-09-25 | La presión de la aurícula derecha sale de la cava | vigente |
 | [234](DECISIONS.md#L1427) | 2026-09-25 | El examen no nombra el caso | vigente |
+| [235](DECISIONS.md#L1429) | 2026-09-25 | El examen empieza desde cero y no puntúa medidas libres | vigente |

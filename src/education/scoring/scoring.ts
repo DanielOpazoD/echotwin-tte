@@ -87,18 +87,26 @@ export interface MeasurementScore {
 
 const MIN_VIEW_SCORE_FOR_VALID = 50;
 
+export interface MeasurementScoringOptions {
+  /** Free measurements may stand for required ones (`modePolicy(mode).freeMeasurementsScored`); default true. */
+  freeMeasurements?: boolean;
+}
+
 /**
  * Matching user measurement: by semantic id when the protocol panel was used (the last one taken
- * wins, as on a real machine); otherwise the closest free measurement of the right kind.
+ * wins, as on a real machine); otherwise, when free measurements are scored, the closest free
+ * measurement of the right kind.
  */
 function bestMatch(
   id: string,
   kind: Measurement['kind'],
   truth: number,
   ms: Measurement[],
+  freeMeasurements: boolean,
 ): Measurement | null {
   const semantic = ms.filter((m) => m.measurementId === id);
   if (semantic.length) return semantic[semantic.length - 1]!;
+  if (!freeMeasurements) return null;
   let best: Measurement | null = null;
   for (const m of ms) {
     if (m.kind !== kind || m.measurementId) continue;
@@ -111,12 +119,13 @@ export function scoreMeasurements(
   caseDef: CaseDefinition,
   truth: StructuredEchoTruth,
   measurements: Measurement[],
+  { freeMeasurements = true }: MeasurementScoringOptions = {},
 ): MeasurementScore {
   const rows: MeasurementScoreRow[] = [];
   for (const req of caseDef.requiredMeasurements) {
     const t = truthFor(req.measurementId, truth);
     if (!t) continue;
-    const m = bestMatch(req.measurementId, t.kind, t.value, measurements);
+    const m = bestMatch(req.measurementId, t.kind, t.value, measurements, freeMeasurements);
     if (!m) {
       rows.push({
         measurementId: req.measurementId,
@@ -129,7 +138,9 @@ export function scoreMeasurements(
         viewScore: null,
         technicallyValid: false,
         points: 0,
-        comment: 'No medida.',
+        comment: freeMeasurements
+          ? 'No medida.'
+          : 'No medida desde la lista del protocolo (en el examen una medición libre no cuenta).',
       });
       continue;
     }
@@ -194,9 +205,10 @@ export function buildExamSummary(
   progress: ViewProgress,
   measurements: Measurement[],
   impression: number | null = null,
+  options: MeasurementScoringOptions = {},
 ): ExamSummary {
   const acquisition = scoreAcquisition(caseDef, progress);
-  const ms = scoreMeasurements(caseDef, truth, measurements);
+  const ms = scoreMeasurements(caseDef, truth, measurements, options);
   // acquisition 40 % · measurements 40 % · impression 20 % (50/50 when no impression was submitted)
   const total =
     impression === null

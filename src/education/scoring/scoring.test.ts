@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildExamSummary, scoreAcquisition, scoreMeasurements } from './scoring';
 import { loadCaseById } from '@/cases';
+import { modePolicy } from '@/app/modePolicy';
 import { computeGroundTruth } from '@/simulator/hemodynamics/groundTruth';
 import type { Measurement } from '@/simulator/measurements/types';
 
@@ -55,6 +56,34 @@ describe('scoring (spec 28)', () => {
     expect(vti.points).toBeLessThan(100);
     expect(vti.points).toBeGreaterThan(0);
     expect(r.rows.find((x) => x.measurementId === 'mitral-e')!.points).toBe(0);
+  });
+  it('a volley of free measurements scores nothing in exam; the protocol list still does (decision 235)', () => {
+    const as = loadCaseById('aortic-stenosis-severe');
+    const asTruth = computeGroundTruth(as);
+    // 40 values of each kind spread geometrically over 0.1–100: one lands within 10 % of any true value
+    const volley: Measurement[] = [];
+    for (const kind of ['linear', 'vti', 'velocity'] as const)
+      for (let i = 0; i < 40; i++)
+        volley.push(m({ id: `${kind}-${i}`, kind, value: 0.1 * 1000 ** (i / 39) }));
+    const practice = modePolicy('sandbox').freeMeasurementsScored;
+    const exam = modePolicy('exam').freeMeasurementsScored;
+    // outside the exam the closest free value stands for each required one: the volley passes
+    expect(scoreMeasurements(as, asTruth, volley, { freeMeasurements: practice }).total).toBe(100);
+    // in the exam only a measurement chosen from the protocol list counts
+    const inExam = scoreMeasurements(as, asTruth, volley, { freeMeasurements: exam });
+    expect(inExam.total).toBe(0);
+    expect(inExam.rows.every((r) => r.measured === null)).toBe(true);
+    const chosen = scoreMeasurements(
+      as,
+      asTruth,
+      [
+        ...volley,
+        m({ kind: 'linear', value: asTruth.lvot.diameterCm, measurementId: 'lvot-diameter' }),
+      ],
+      { freeMeasurements: exam },
+    );
+    expect(chosen.rows.find((r) => r.measurementId === 'lvot-diameter')!.points).toBe(100);
+    expect(chosen.rows.find((r) => r.measurementId === 'av-vmax')!.measured).toBeNull();
   });
   it('exam summary is reproducible and lists omissions and recommendations', () => {
     const a = buildExamSummary(c, truth, { plax: 88 }, []);

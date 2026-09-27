@@ -177,6 +177,112 @@ describe('useSimStore', () => {
     });
   });
 
+  it('an exam starts from scratch: pose, preset, impression, freeze and artifact lab of the practice stay behind (decision 235)', async () => {
+    const store = await freshStore();
+    const { START_PROBE } = await import('./store');
+    const s = store.getState();
+    s.setArtifactLab({ sideLobe: 0, mirror: 0, beamWidth: 0, clutter: 0 });
+    s.setProbe({ u: 6.1, v: -3.2, rotationDeg: -70, tiltDeg: 30 });
+    s.recordViewScore('a4c', 97);
+    s.toggleFinding('ef-normal');
+    s.setTargetView('a4c');
+    s.toggleFreeze();
+    store.setState({
+      presetViews: ['a4c'],
+      presetAnim: {
+        from: s.probe,
+        to: { ...s.probe, u: 7 },
+        startMs: 0,
+        durationMs: 1000,
+        viewId: 'a4c',
+      },
+    });
+    store.getState().setMode('exam');
+    const exam = store.getState();
+    expect(exam.probe).toEqual(START_PROBE);
+    // the artifact lab, hidden in the exam, would keep the artifacts the learner switched off in practice
+    expect(exam.artifactLab).toBeNull();
+    expect(exam.presetAnim).toBeNull();
+    expect(exam.presetViews).toEqual([]);
+    expect(exam.targetViewId).toBeNull();
+    expect(exam.impressionSelection).toEqual([]);
+    expect(exam.frozen).toBe(false);
+    expect(exam.viewProgress).toEqual({});
+  });
+
+  it('a preset pose that arrives after the exam began does not move the probe, even back in practice (decision 235)', async () => {
+    const store = await freshStore();
+    const { START_PROBE } = await import('./store');
+    // the worker answers with the preset's pose on the next tick, when the exam has already begun
+    const { frameBus } = await import('./frameBus');
+    const to = { ...START_PROBE, u: 8, rotationDeg: -60 };
+    vi.spyOn(frameBus, 'request').mockResolvedValue({ kind: 'canonicalControl', control: to });
+    for (const back of [false, true]) {
+      store.getState().startPresetView('a4c');
+      store.getState().setMode('exam');
+      // a learner who leaves the exam before the pose arrives is not handed a preset they asked for before it
+      if (back) store.getState().setMode('sandbox');
+      await new Promise((r) => setTimeout(r, 0));
+      expect(store.getState().presetAnim, `back in practice: ${back}`).toBeNull();
+      expect(store.getState().probe).toEqual(START_PROBE);
+      store.getState().setMode('sandbox');
+    }
+  });
+
+  it('loading a case and starting an exam reset the same session (decision 235)', async () => {
+    const store = await freshStore();
+    const dirty = () => {
+      store.getState().setTargetView('a4c');
+      store.getState().setArtifactLab({ sideLobe: 0.5, mirror: 0, beamWidth: 0, clutter: 0 });
+      store.getState().recordViewScore('plax', 70);
+    };
+    dirty();
+    store.getState().loadCase('aortic-stenosis-severe');
+    const loaded = store.getState();
+    dirty();
+    store.getState().setMode('exam');
+    const exam = store.getState();
+    for (const s of [loaded, exam]) {
+      expect(s.targetViewId).toBeNull();
+      expect(s.artifactLab).toBeNull();
+      expect(s.viewProgress).toEqual({});
+    }
+  });
+
+  it('the exam records nothing for a volley of free measurements (decision 235)', async () => {
+    const store = await freshStore();
+    const { loadCaseById } = await import('@/cases');
+    const { computeGroundTruth } = await import('@/simulator/hemodynamics/groundTruth');
+    store.getState().setMode('exam');
+    const s = store.getState();
+    const volley = (['linear', 'vti', 'velocity'] as const).flatMap((kind) =>
+      Array.from({ length: 40 }, (_, i) => ({
+        id: `${kind}-${i}`,
+        kind,
+        label: 'Libre',
+        value: 0.1 * 1000 ** (i / 39),
+        units: 'cm',
+        modality: '2d',
+        sourceViewId: null,
+        viewScore: 90,
+        frameId: 0,
+        phase: 0,
+        timeS: 0,
+        geometry: [],
+        imageQualityScore: 90,
+        userAssisted: false,
+        referenceGuidelineIds: [],
+        createdAt: '2026-09-27T00:00:00Z',
+      })),
+    );
+    store.setState({ truth: computeGroundTruth(loadCaseById(s.caseId)), measurements: volley });
+    store.getState().finishExam();
+    expect(store.getState().progress.events.at(-1)).toMatchObject({
+      kind: 'exam',
+      measurements: 0,
+    });
+  });
+
   it('finishing the exam without a truth still freezes and opens the report', async () => {
     const store = await freshStore();
     store.getState().setMode('exam');

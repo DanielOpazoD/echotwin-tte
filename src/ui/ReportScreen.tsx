@@ -4,7 +4,7 @@ import { formatClinical } from '@/clinical/reference-values';
 import { buildEducationalReport } from '@/education/report';
 import { buildExamSummary, scoreAcquisition } from '@/education/scoring/scoring';
 import { loadCaseById } from '@/cases';
-import { EXAM_CASE_NAME, showsCaseIdentity } from '@/app/modePolicy';
+import { EXAM_CASE_NAME, modePolicy, showsCaseIdentity } from '@/app/modePolicy';
 import {
   expectedFindings,
   FINDINGS,
@@ -44,6 +44,7 @@ export function ReportScreen() {
           s.viewProgress,
           s.measurements,
           impression?.score ?? null,
+          { freeMeasurements: modePolicy(s.mode).freeMeasurementsScored },
         )
       : null;
   const domains: { id: FindingDomain; label: string }[] = [
