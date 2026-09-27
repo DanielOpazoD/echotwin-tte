@@ -13,6 +13,11 @@ export interface ModePolicy {
   evaluateCurriculum: boolean;
   /** Physics overlay and dev panel may be shown. */
   devToolsAllowed: boolean;
+  /**
+   * A free caliper (no protocol id) may stand for a required measurement, matched to the closest true value. Not in exam:
+   * that match lets a volley of random measurements score full marks (decision 235).
+   */
+  freeMeasurementsScored: boolean;
 }
 
 /**
@@ -38,6 +43,7 @@ export function modePolicy(mode: ProductMode): ModePolicy {
     learningScreensEnabled: !exam,
     evaluateCurriculum: !exam,
     devToolsAllowed: !exam,
+    freeMeasurementsScored: !exam,
   };
 }
 

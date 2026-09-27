@@ -8,6 +8,7 @@ const ALL_ON: ModePolicy = {
   learningScreensEnabled: true,
   evaluateCurriculum: true,
   devToolsAllowed: true,
+  freeMeasurementsScored: true,
 };
 
 const EXPECTED: Record<ProductMode, ModePolicy> = {
@@ -21,6 +22,8 @@ const EXPECTED: Record<ProductMode, ModePolicy> = {
     learningScreensEnabled: false,
     evaluateCurriculum: false,
     devToolsAllowed: false,
+    // a free caliper matched to the closest true value would let a random volley score full marks (decision 235)
+    freeMeasurementsScored: false,
   },
 };
 
