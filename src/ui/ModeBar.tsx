@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useSlidingPill } from './useSlidingPill';
 import { useHudStore, useSimStore } from '@/app/store';
 import { useShallow } from 'zustand/shallow';
-import { modePolicy } from '@/app/modePolicy';
+import { exportCaseTag, modePolicy } from '@/app/modePolicy';
 import { exportDisplayPng } from '@/app/exportImage';
 import { useRestartTutorial } from './Tutorial';
 import { IconPause, IconPlay, IconSliders } from './icons';
@@ -146,7 +146,13 @@ function ContextChip() {
 /** ⋯ menu: interface toggles (checkable) plus the secondary actions, per the minimal-console spec. */
 function OverflowMenu() {
   const s = useSimStore(
-    useShallow((st) => ({ caseId: st.caseId, mode: st.mode, setUi: st.setUi, ui: st.ui })),
+    useShallow((st) => ({
+      caseId: st.caseId,
+      examFinished: st.examFinished,
+      mode: st.mode,
+      setUi: st.setUi,
+      ui: st.ui,
+    })),
   );
   const policy = modePolicy(s.mode);
   const restartTutorial = useRestartTutorial();
@@ -229,7 +235,7 @@ function OverflowMenu() {
           <ActionItem
             label="Guardar imagen PNG"
             onClick={() => {
-              exportDisplayPng(s.caseId);
+              exportDisplayPng(exportCaseTag(s.mode, s.examFinished, s.caseId));
               setOpen(false);
             }}
           />

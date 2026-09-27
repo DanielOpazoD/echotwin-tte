@@ -4,6 +4,7 @@ import { formatClinical } from '@/clinical/reference-values';
 import { buildEducationalReport } from '@/education/report';
 import { buildExamSummary, scoreAcquisition } from '@/education/scoring/scoring';
 import { loadCaseById } from '@/cases';
+import { EXAM_CASE_NAME, showsCaseIdentity } from '@/app/modePolicy';
 import {
   expectedFindings,
   FINDINGS,
@@ -57,7 +58,10 @@ export function ReportScreen() {
   const showImpressionTruth = s.mode !== 'exam' || s.examFinished;
   return (
     <div className="screen">
-      <h2>Informe educacional — {s.caseId}</h2>
+      <h2>
+        Informe educacional —{' '}
+        {showsCaseIdentity(s.mode, s.examFinished) ? s.caseId : EXAM_CASE_NAME}
+      </h2>
       <p className="small">
         Simulador educacional con pacientes sintéticos. No utilizar para diagnóstico ni toma de
         decisiones clínicas reales.
@@ -68,33 +72,42 @@ export function ReportScreen() {
         </p>
       )}
       <h3>Vistas requeridas</h3>
-      <table>
-        <thead>
-          <tr>
-            <th>Vista</th>
-            <th>Mínimo</th>
-            {/* the best score of each view would say which view the image showed (decision 154) */}
-            {!hideTruth && <th>Mejor score alcanzado</th>}
-            {!hideTruth && <th>Estado</th>}
-          </tr>
-        </thead>
-        <tbody>
-          {acquisition.perView.map((v) => (
-            <tr key={v.viewId}>
-              <td>{v.viewId.toUpperCase()}</td>
-              <td>{v.required}</td>
-              {!hideTruth && <td>{v.achieved}</td>}
-              {!hideTruth && (
-                <td>
-                  <span className={`pill ${v.ok ? 'ok' : 'warn'}`}>
-                    {v.ok ? 'ok' : v.achieved ? 'incompleta' : 'no adquirida'}
-                  </span>
-                </td>
-              )}
+      {/* the views a case requires name its diagnosis (aortic valve short axis and A5C for a stenosis, the RV-focused view
+          for pulmonary hypertension): during the exam the learner is asked for a complete study (decision 234) */}
+      {!showsCaseIdentity(s.mode, s.examFinished) ? (
+        <p className="small" data-exam-views="hidden">
+          Adquiere un estudio transtorácico completo; la puntuación cuenta las vistas que el caso
+          necesita y se muestran al finalizar.
+        </p>
+      ) : (
+        <table>
+          <thead>
+            <tr>
+              <th>Vista</th>
+              <th>Mínimo</th>
+              {/* the best score of each view would say which view the image showed (decision 154) */}
+              {!hideTruth && <th>Mejor score alcanzado</th>}
+              {!hideTruth && <th>Estado</th>}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {acquisition.perView.map((v) => (
+              <tr key={v.viewId}>
+                <td>{v.viewId.toUpperCase()}</td>
+                <td>{v.required}</td>
+                {!hideTruth && <td>{v.achieved}</td>}
+                {!hideTruth && (
+                  <td>
+                    <span className={`pill ${v.ok ? 'ok' : 'warn'}`}>
+                      {v.ok ? 'ok' : v.achieved ? 'incompleta' : 'no adquirida'}
+                    </span>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
       <h3>Impresión estructurada</h3>
       <p className="small">
         Marca los hallazgos que sustentan tu impresión. Se comparan con los que el modelo del caso

@@ -15,6 +15,18 @@ export interface ModePolicy {
   devToolsAllowed: boolean;
 }
 
+/**
+ * Whether the screen may name the case (decision 234). A case's title is its diagnosis («Estenosis aórtica severa…»), and
+ * so are the measurements it requires: during an exam the image, the case selector, the report and the measurement list
+ * said what the learner was asked to find. They name it again once the exam is finished, for the debrief.
+ */
+export function showsCaseIdentity(mode: ProductMode, examFinished: boolean): boolean {
+  return mode !== 'exam' || examFinished;
+}
+
+/** Name shown for the case while its identity is hidden. */
+export const EXAM_CASE_NAME = 'Caso de examen';
+
 /** What each product mode hides or disables. Extracted so the rules live in one place. */
 export function modePolicy(mode: ProductMode): ModePolicy {
   const exam = mode === 'exam';
@@ -27,4 +39,9 @@ export function modePolicy(mode: ProductMode): ModePolicy {
     evaluateCurriculum: !exam,
     devToolsAllowed: !exam,
   };
+}
+
+/** The case's name in an exported file: its id, or a neutral tag while the exam hides it (decision 234). */
+export function exportCaseTag(mode: ProductMode, examFinished: boolean, caseId: string): string {
+  return showsCaseIdentity(mode, examFinished) ? caseId : 'examen';
 }

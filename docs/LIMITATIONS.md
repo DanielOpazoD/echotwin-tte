@@ -158,6 +158,7 @@ La referencia son 505 secuencias apicales de calidad Good de CAMUS (Leclerc et a
 - Validación cuantitativa contra un simulador físico (PyMUST/OpenBCSim/i4h) y contra imágenes reales anonimizadas; hoy sólo hay goldens internos y rangos fisiológicos.
 - Modelo de PSF y speckle con estadística de Rayleigh medible; atenuación y velocidad del sonido en unidades físicas por tejido.
 - Casos con distribución de parámetros (no un solo paciente por caso), semillas por sesión y registro exportable de trayectorias de sonda y mediciones.
+- El examen no nombra el caso (decisión 234), pero el caso lo elige quien usa la app en el selector, que fuera del examen muestra los títulos (el diagnóstico), y pasar al examen conserva el caso elegido: la ceguera sirve cuando el caso lo prepara otra persona (el docente); no hay sorteo de un caso para el examen.
 - Tolerancias validadas con expertos y estudio de validez educativa: la puntuación de examen es determinista y está probada, pero sus pesos (50/50, ×0,4, −3 puntos por punto porcentual) son elecciones de diseño sin validación.
 - Métricas de rendimiento automatizadas y presupuesto de cuadro; hoy `bench.ts` se ejecuta a mano.
 

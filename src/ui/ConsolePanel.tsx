@@ -2,7 +2,7 @@ import { hasGate, isSpectralModality, MODALITIES } from '@/simulator/renderer/mo
 import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { useSimStore, type ConsoleTab, type SimStore } from '@/app/store';
 import { useShallow } from 'zustand/shallow';
-import { modePolicy } from '@/app/modePolicy';
+import { EXAM_CASE_NAME, modePolicy, showsCaseIdentity } from '@/app/modePolicy';
 import { Section, Slider, Segmented, Toggle } from './controls';
 import { VIEW_TARGETS } from '@/simulator/windows/viewDefinitions';
 import { MEASUREMENT_SPECS } from '@/simulator/measurements/protocol';
@@ -161,6 +161,7 @@ function AcquireTab() {
   const s = useSimStore(
     useShallow((st) => ({
       caseId: st.caseId,
+      examFinished: st.examFinished,
       loadCase: st.loadCase,
       mode: st.mode,
       patient: st.patient,
@@ -248,11 +249,16 @@ function AcquireTab() {
             onChange={(e) => s.loadCase(e.target.value)}
             disabled={s.mode === 'exam'}
           >
-            {listCases().map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.title}
-              </option>
-            ))}
+            {showsCaseIdentity(s.mode, s.examFinished) ? (
+              listCases().map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.title}
+                </option>
+              ))
+            ) : (
+              // the titles name the diagnoses: during an exam the selector names none (decision 234)
+              <option value={s.caseId}>{EXAM_CASE_NAME}</option>
+            )}
           </select>
         </div>
         <div className="row">
