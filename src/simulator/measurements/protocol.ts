@@ -548,6 +548,29 @@ export const MEASUREMENT_SPECS: MeasurementSpec[] = [
     group: 'right',
   },
   {
+    // decision 233: with the expiratory diameter it gives the collapse the right atrial pressure is estimated from
+    id: 'ivc-diameter-inspiration',
+    label: 'Diámetro de la vena cava inferior en inspiración',
+    shortLabel: 'VCI insp',
+    kind: 'linear',
+    units: 'cm',
+    tool: 'caliper',
+    modalities: ['2d', 'm-mode'],
+    views: ['subcostal-ivc'],
+    phase: 'any',
+    placement: {
+      structures: [Structure.Ivc],
+      segment: 'cavity',
+      label: 'VCI en el mismo sitio que en espiración, con el paciente en inspiración',
+    },
+    instruction:
+      'Subcostal, VCI en su eje largo, con la respiración en «Insp» (inspiración brusca, olfateo): caliper de borde interno a borde interno en el mismo sitio que el diámetro en espiración.',
+    truth: (t) => t.rightHeart.ivcCm * (1 - t.rightHeart.ivcCollapsePct / 100),
+    tolerancePct: 15,
+    referenceIds: ['ase-right-heart-2025'],
+    group: 'right',
+  },
+  {
     id: 'rv-s-prime',
     label: 'S′ tricuspídea (Doppler tisular)',
     shortLabel: 'S′ VD',
