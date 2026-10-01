@@ -138,4 +138,54 @@ describe('continuous wave through narrow fast jets (decision 240)', () => {
     // dynamic obstruction: a dagger that peaks late
     expect(when, msg).toBeGreaterThan(0.6);
   });
+
+  it('the severe stenosis leaves the opposite channel dark in mid-systole (decision 246)', () => {
+    const id = 'aortic-stenosis-severe';
+    const c = loadCaseById(id);
+    const m = new SimulatorCore(c, baseInput()).models;
+    const f = buildFlowParams(c, m.heart, m.tables);
+    const T = m.tables.timings;
+    const peak = (T.ejectionStartS + 0.35 * (T.ejectionEndS - T.ejectionStartS)) / m.tables.rrS;
+    const hp = computeHeartPose(m.heart, cycleStateAt(m.tables, peak));
+    const a = f.avAxis;
+    const vc = v3(
+      f.avCenter.x + 0.5 * a.x,
+      f.avCenter.y + 0.5 * a.y,
+      f.avCenter.z + hp.zAnn * ROOT_EXCURSION + 0.5 * a.z,
+    );
+    const control = canonicalControl(getViewTarget('a5c'), m.heart, m.thorax);
+    const beam = beamFrameFromPose(poseFromControl(m.thorax, control));
+    const d = sub(heartToTorso(m.heart.frame, vc), beam.origin);
+    const input = baseInput({
+      probe: control,
+      modality: 'cw',
+      quality: 'low',
+      cursorThetaRad: Math.atan2(dot(d, beam.lateral), dot(d, beam.forward)),
+      gateDepthCm: Math.hypot(dot(d, beam.forward), dot(d, beam.lateral)),
+    });
+    const core = new SimulatorCore(c, input);
+    for (let s = 0; s < 1.9; s += 0.02) core.step(0.02);
+    const st = core.spectralStrip;
+    const { vMin, vMax } = spectralRange(input.spectral);
+    let opposite = 0,
+      nOpp = 0,
+      jet = 0,
+      nJet = 0;
+    for (let col = 0; col < st.head; col++) {
+      const u =
+        (st.phase[col]! * m.tables.rrS - T.ejectionStartS) / (T.ejectionEndS - T.ejectionStartS);
+      if (u < 0.25 || u > 0.5) continue;
+      for (let b = 0; b < SPECTRAL_BINS; b++) {
+        const v = vMax - ((b + 0.5) / SPECTRAL_BINS) * (vMax - vMin);
+        const shown = st.display![col * SPECTRAL_BINS + b]!;
+        if (v > 0.2 && v < 1.5) [opposite, nOpp] = [opposite + shown, nOpp + 1];
+        if (v < -0.5 && v > -3) [jet, nJet] = [jet + shown, nJet + 1];
+      }
+    }
+    const ratio = opposite / nOpp / (jet / nJet);
+    expect(
+      ratio,
+      `opposite band at ${(100 * ratio).toFixed(0)} % of the jet's brightness`,
+    ).toBeLessThan(0.1);
+  });
 });

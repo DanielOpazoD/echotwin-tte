@@ -163,11 +163,27 @@ export function accumulateSpectrum(
       lo = Math.max(0, lo);
       hi = Math.min(SPECTRAL_BINS - 1, hi);
     }
+    // the turbulent spread stops at the baseline (decision 246): the velocities in a turbulent jet lie between its own and
+    // zero, and reversed ones, weak, only in its mixing layer. A Gaussian tail that crossed the baseline filled the opposite
+    // channel of a continuous-wave stenotic jet: at its systolic peak 16.7 % of the column's energy lay above +0.1 m/s.
+    // Past the baseline only the estimate's resolution spreads it. Only continuous wave does this: PW and TDI keep the tail,
+    // whose bins wrap with aliasing.
+    const zeroBin = (vMax / span) * SPECTRAL_BINS;
+    const crossesAt = !aliasing && (zeroBin - centerBin) * baselineSide > 0 ? zeroBin : NaN;
     for (let b = lo; b <= hi; b++) {
       const o = b + 0.5 - centerBin;
-      const d = o / (o * baselineSide > 0 ? downBins : upBins);
+      const towardBaseline = o * baselineSide > 0;
+      let w: number;
+      if (towardBaseline && (b + 0.5 - crossesAt) * baselineSide > 0) {
+        const d0 = (crossesAt - centerBin) / downBins;
+        const beyond = (b + 0.5 - crossesAt) / upBins;
+        w = Math.exp(-0.5 * (d0 * d0 + beyond * beyond));
+      } else {
+        const d = o / (towardBaseline ? downBins : upBins);
+        w = Math.exp(-0.5 * d * d);
+      }
       const k = aliasing ? ((b % SPECTRAL_BINS) + SPECTRAL_BINS) % SPECTRAL_BINS : b;
-      out[k] = (out[k] ?? 0) + smp.weight * Math.exp(-0.5 * d * d);
+      out[k] = (out[k] ?? 0) + smp.weight * w;
     }
   }
 }
