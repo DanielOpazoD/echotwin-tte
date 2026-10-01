@@ -13,6 +13,8 @@ import { SEGMENT_RGB, segmentCss, segmentNames, type SegmentModelChoice } from '
  * the current plane shows of each segment, an inspector for the selected one, and the same selection as the cut map.
  * What the plane shows comes from the view analysis (`segmentCoverage`): the tissue the beam crosses, not the view's
  * name. The polar map follows the usual display convention: anterior up, septum left, lateral right, inferior down.
+ * Decision 242: the panel says it in fewer words and less room — the colour key carries the segments of each state,
+ * the explanations live in the tips, the map is drawn smaller.
  */
 const REASON_ES: Record<string, string> = {
   not_in_plane: 'fuera del plano',
@@ -40,9 +42,9 @@ export function coverageText(c: SegmentCoverage | undefined): string {
   return REASON_ES[c.reason ?? ''] ?? 'no evaluable';
 }
 
-const SIZE = 232;
+const SIZE = 176;
 const C = SIZE / 2;
-const R = 94;
+const R = 72;
 
 function polar(r: number, thetaDeg: number): [number, number] {
   const t = (thetaDeg * Math.PI) / 180;
@@ -114,38 +116,41 @@ export function SegmentPanel() {
   const cov = selected ? covOf(selected) : undefined;
   return (
     <div className="segment-panel" aria-label="Segmentos del ventrículo izquierdo">
-      <Segmented<SegmentModelChoice>
-        ariaLabel="Modelo de segmentación"
-        value={model}
-        onChange={(m) =>
-          setUi({
-            segmentModel: m,
-            selectedSegment: m === 'LV_16' && selected === 17 ? null : selected,
-          })
-        }
-        options={[
-          {
-            id: 'LV_AHA17',
-            label: '17 · anatómico',
-            title:
-              'AHA 17 segmentos: identidad anatómica; el 17 es el casquete apical, sin cavidad',
-          },
-          {
-            id: 'LV_16',
-            label: '16 · motilidad',
-            title:
-              'Modelo de 16 segmentos para la motilidad regional: los cuatro apicales cubren todo el ápex',
-          },
-        ]}
-      />
-      <Toggle
-        label="Colorear segmentos (corte y corazón 3D)"
-        value={navSegments}
-        onChange={(v) =>
-          setUi({ navSegments: v, navSplit: v ? true : useSimStore.getState().ui.navSplit })
-        }
-        title="El mapa del corte y el corazón 3D colorean el miocardio del VI según el segmento de cada tejido; el corte además numera los que atraviesa el plano"
-      />
+      <div className="segment-controls">
+        <Segmented<SegmentModelChoice>
+          ariaLabel="Modelo de segmentación"
+          value={model}
+          onChange={(m) =>
+            setUi({
+              segmentModel: m,
+              selectedSegment: m === 'LV_16' && selected === 17 ? null : selected,
+            })
+          }
+          options={[
+            {
+              id: 'LV_AHA17',
+              label: '17 · anatómico',
+              title:
+                'AHA 17 segmentos: identidad anatómica; el 17 es el casquete apical, sin cavidad',
+            },
+            {
+              id: 'LV_16',
+              label: '16 · motilidad',
+              title:
+                'Modelo de 16 segmentos para la motilidad regional: los cuatro apicales cubren todo el ápex',
+            },
+          ]}
+        />
+        <Toggle
+          label="Colorear"
+          ariaLabel="Colorear segmentos en el corte y el corazón 3D"
+          value={navSegments}
+          onChange={(v) =>
+            setUi({ navSegments: v, navSplit: v ? true : useSimStore.getState().ui.navSplit })
+          }
+          title="El mapa del corte y el corazón 3D colorean el miocardio del VI según el segmento de cada tejido; el corte además numera los que atraviesa el plano"
+        />
+      </div>
       <svg
         className="bullseye"
         viewBox={`0 0 ${SIZE} ${SIZE}`}
@@ -261,22 +266,38 @@ export function SegmentPanel() {
           lateral
         </text>
       </svg>
-      <ul className="bullseye-legend">
-        <li>
-          <i className="sw ok" /> evaluable en este corte
-        </li>
-        <li>
-          <i className="sw partial" /> en el plano, no evaluable
-        </li>
-        <li>
-          <i className="sw out" /> fuera del plano
-        </li>
+      {/* the colour key names the segments of each state: it is also the plane's summary (decision 242) */}
+      <ul className="bullseye-legend" aria-live="polite">
+        {view ? (
+          <>
+            <li>
+              <i className="sw ok" /> evaluables {assessable.length ? assessable.join(', ') : '—'}
+            </li>
+            {partial.length > 0 && (
+              <li
+                data-tip={`En el plano, sin evaluar: ${partial
+                  .map(
+                    (p) =>
+                      `${p.segmentId} (${(REASON_ES[p.reason ?? ''] ?? '').replace(/^en el plano, /, '')})`,
+                  )
+                  .join(', ')}`}
+              >
+                <i className="sw partial" /> parciales {partial.map((p) => p.segmentId).join(', ')}
+              </li>
+            )}
+            <li>
+              <i className="sw out" /> fuera del plano
+            </li>
+          </>
+        ) : (
+          <li>Analizando el corte…</li>
+        )}
       </ul>
       {upDeg !== null && (
         <div className="small segment-orientation">
-          ▲ Arriba en la imagen: pared {wallAtPolarAngle(upDeg)}
+          ▲ arriba: pared {wallAtPolarAngle(upDeg)}
           <InfoTip
-            text={`En un eje corto la posición horaria depende de la ventana; los segmentos se reconocen por las inserciones del VD.${
+            text={`El triángulo del mapa marca la pared que queda arriba en la imagen. En un eje corto la posición horaria depende de la ventana; los segmentos se reconocen por las inserciones del VD.${
               insertions
                 ? ' Los triángulos ámbar de la imagen marcan esas inserciones: el tabique (2, 3, 8 y 9) queda entre ellas.'
                 : ''
@@ -284,23 +305,6 @@ export function SegmentPanel() {
           />
         </div>
       )}
-      <div className="small segment-summary" aria-live="polite">
-        {view ? (
-          <>
-            En este corte:{' '}
-            {assessable.length
-              ? `evaluables ${assessable.join(', ')}`
-              : 'ningún segmento evaluable'}
-            {partial.length > 0 &&
-              ` · en el plano sin evaluar ${partial
-                .map((p) => `${p.segmentId} (${REASON_ES[p.reason ?? ''] ?? ''})`)
-                .join(', ')}`}
-            .
-          </>
-        ) : (
-          'Analizando el corte…'
-        )}
-      </div>
       {info && names && (
         <div className="segment-inspector" aria-live="polite">
           <div className="segment-title">
@@ -321,13 +325,13 @@ export function SegmentPanel() {
                 ? ' (con el casquete de su cuadrante)'
                 : ''}
             </dd>
-            <dt>Vistas de referencia</dt>
+            <dt>Vistas</dt>
             <dd>
               {info.canonicalViews.length
                 ? info.canonicalViews.map((v) => getViewTarget(v).name).join(', ')
                 : 'ninguna propia: se ve en cortes apicales que alcanzan el ápex'}
             </dd>
-            <dt>En este corte</dt>
+            <dt>Corte</dt>
             <dd>
               {coverageText(cov)}
               {cov && cov.inPlane
@@ -338,12 +342,14 @@ export function SegmentPanel() {
                   }`
                 : ''}
             </dd>
-            <dt>Territorio coronario habitual</dt>
-            <dd>{TERRITORY_ES[info.coronaryTerritoryHint]} (orientativo: la irrigación varía)</dd>
+            <dt>Territorio</dt>
+            <dd data-tip="Territorio coronario habitual: orientativo, la irrigación varía">
+              {TERRITORY_ES[info.coronaryTerritoryHint]} (orientativo)
+            </dd>
             {model === 'LV_AHA17' && info.id === 17 && (
               <>
                 <dt>Motilidad</dt>
-                <dd>no se puntúa: el modelo de 16 reparte el ápex entre 13–16</dd>
+                <dd>no se puntúa (en el de 16, el ápex va en 13–16)</dd>
               </>
             )}
           </dl>

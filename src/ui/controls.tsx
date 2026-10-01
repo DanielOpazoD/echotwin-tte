@@ -80,13 +80,15 @@ export function Toggle(props: {
   onChange: (v: boolean) => void;
   title?: string;
   tour?: string;
+  /** The switch's accessible name when the visible label is a shortened one. */
+  ariaLabel?: string;
 }) {
   return (
     <div className="row" data-tip={props.title} data-tour={props.tour}>
       <label>{props.label}</label>
       <button
         className={`switch${props.value ? ' on' : ''}`}
-        aria-label={props.label}
+        aria-label={props.ariaLabel ?? props.label}
         aria-pressed={props.value}
         onClick={() => props.onChange(!props.value)}
       >

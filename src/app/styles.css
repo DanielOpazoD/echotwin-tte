@@ -1339,10 +1339,6 @@ select:hover {
   background: #262c36;
   border: 1px solid var(--border);
 }
-.segment-summary {
-  color: var(--muted);
-  line-height: 1.4;
-}
 .segment-inspector {
   background: var(--panel-2);
   border: 1px solid var(--border);
@@ -3057,4 +3053,130 @@ canvas.overlay.armed {
   backdrop-filter: blur(4px);
   border-radius: 6px;
   padding: 2px 7px;
+}
+
+/* ---- the rail, compact (decision 242): the LV segments in fewer words and less room, the view guide at the bottom
+   edge and smaller, the navigator's tools out of the probe's way ---- */
+.segment-panel {
+  padding: 6px 8px;
+  gap: 4px;
+  font-size: var(--fs-sm);
+}
+/* the model and the colour switch share one row */
+.segment-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.segment-controls .seg {
+  flex-wrap: nowrap;
+}
+.segment-controls .seg button {
+  padding: 2px 6px;
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+.segment-controls .row {
+  margin: 0;
+  gap: 5px;
+}
+.segment-controls .row label {
+  font-size: var(--fs-sm);
+}
+.segment-panel .bullseye-seg text {
+  font-size: var(--fs-sm);
+}
+.segment-panel .bullseye-dir {
+  font-size: 9px;
+}
+.segment-panel .bullseye-legend {
+  justify-content: center;
+  gap: 2px 8px;
+  font-size: var(--fs-xs);
+}
+.segment-orientation {
+  text-align: center;
+}
+.segment-inspector {
+  padding: 4px 6px;
+}
+.segment-inspector dl {
+  margin-top: 4px;
+  gap: 1px 6px;
+}
+/* the guide: a slimmer header on the rail's bottom edge, a smaller ring and a shorter box */
+.rail-head.guide-head {
+  margin-top: auto;
+  margin-bottom: 2px;
+  padding: 4px 8px;
+  font-size: var(--fs-sm);
+}
+#view-guidance {
+  max-height: 38%;
+}
+#view-guidance .guidance {
+  padding: 6px 8px;
+  font-size: var(--fs-sm);
+}
+#view-guidance .guidance .score {
+  gap: 8px;
+}
+#view-guidance .score-ring {
+  width: 34px;
+  height: 34px;
+}
+#view-guidance .score-ring svg {
+  width: 34px;
+  height: 34px;
+}
+#view-guidance .guidance .score b {
+  font-size: 14px;
+}
+#view-guidance .guidance ul {
+  margin-top: 4px;
+}
+#view-guidance .guidance li {
+  margin: 2px 0;
+}
+/* the navigator's tools: a smaller dial and, beside it, the camera buttons in a 2 × 2 block, both in the corner over
+   the shoulder, where the probe does not go. The block lets the pointer through outside its controls, and a drag on
+   the torso keeps the pointer (TorsoView), so crossing them does not stop it */
+.torso-tools {
+  flex-direction: row-reverse;
+  align-items: flex-start;
+  gap: 4px;
+  pointer-events: none;
+}
+.torso-tools > * {
+  pointer-events: auto;
+}
+.dial {
+  padding: 2px;
+}
+.dial-lbl {
+  font-size: 10px;
+}
+.dial-val {
+  font-size: 15px;
+}
+.torso-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, 20px);
+  gap: 2px;
+  padding: 2px;
+  border-radius: 7px;
+}
+.torso-buttons button.icon-btn {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+}
+/* the layers menu hangs from the tools' right edge: from the button, now left of the dial, it left the rail */
+.torso-tools .menu-wrap {
+  position: static;
+}
+.torso-tools .menu.down {
+  right: 0;
+  top: calc(100% + 6px);
 }
