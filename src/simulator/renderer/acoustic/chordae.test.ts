@@ -61,59 +61,55 @@ describe('chordae are thin cords (decision 227)', () => {
     expect(checked).toBeGreaterThan(3);
   });
 
-  it(
-    'the cords, which run near the long axis, echo less along the apical beams than across the parasternal one',
-    { timeout: 240_000 },
-    () => {
-      const c = loadCaseById('normal-excellent-window');
-      const { thorax, heart, tables } = buildCaseModels(c, {
-        position: 'left-lateral',
-        respiration: 'expiration',
-        headElevationDeg: 0,
-      });
-      const spec = polarSpecFor(DEFAULT_ACQUISITION, CALIBRATED_TIER);
-      // mean displayed grey of the cord samples per view (ED and early systole); until decision 227 the apical views
-      // read 190-207 against 143-145 in the parasternal long axis
-      const grey = (view: string): number => {
-        let g = 0,
-          n = 0;
-        for (const ph of [0, 0.25]) {
-          const beam = beamFrameFromPose(
-            poseFromControl(thorax, canonicalControl(getViewTarget(view), heart, thorax)),
-            1,
-          );
-          const scene: Scene = {
-            heart,
-            heartPose: computeHeartPose(heart, cycleStateAt(tables, ph)),
-            thorax,
-            physics: {
-              frequencyMHz: DEFAULT_ACQUISITION.frequencyMHz,
-              harmonics: DEFAULT_ACQUISITION.harmonics,
-              clutterLevel: c.acousticWindow.clutterLevel,
-              windowAttenuation: c.acousticWindow.chestWallAttenuation,
-              seed: c.seed,
-            },
-          };
-          const f = allocPolarFrame(spec);
-          new ProceduralSliceRenderer().render(scene, beam, spec, ph, f);
-          const disp = new Uint8ClampedArray(spec.lines * spec.samples);
-          applyConsole(f, DEFAULT_ACQUISITION, createConsoleState(c.seed), disp);
-          for (let i = 0; i < disp.length; i++)
-            if (f.structure[i] === Structure.Chordae && f.tissue[i] === Tissue.Chordae) {
-              g += disp[i]!;
-              n++;
-            }
-        }
-        expect(n, `${view}: cords in the image`).toBeGreaterThan(3);
-        return g / n;
-      };
-      const parasternal = grey('plax');
-      const apical = ['a2c', 'a3c', 'a5c', 'rv-focused'].map(grey);
-      const mean = apical.reduce((a, b) => a + b, 0) / apical.length;
-      expect(
-        mean,
-        `apical ${apical.map((v) => v.toFixed(0)).join(', ')} against parasternal ${parasternal.toFixed(0)}`,
-      ).toBeLessThan(parasternal);
-    },
-  );
+  it('the cords, which run near the long axis, echo less along the apical beams than across the parasternal one', () => {
+    const c = loadCaseById('normal-excellent-window');
+    const { thorax, heart, tables } = buildCaseModels(c, {
+      position: 'left-lateral',
+      respiration: 'expiration',
+      headElevationDeg: 0,
+    });
+    const spec = polarSpecFor(DEFAULT_ACQUISITION, CALIBRATED_TIER);
+    // mean displayed grey of the cord samples per view (ED and early systole); until decision 227 the apical views
+    // read 190-207 against 143-145 in the parasternal long axis
+    const grey = (view: string): number => {
+      let g = 0,
+        n = 0;
+      for (const ph of [0, 0.25]) {
+        const beam = beamFrameFromPose(
+          poseFromControl(thorax, canonicalControl(getViewTarget(view), heart, thorax)),
+          1,
+        );
+        const scene: Scene = {
+          heart,
+          heartPose: computeHeartPose(heart, cycleStateAt(tables, ph)),
+          thorax,
+          physics: {
+            frequencyMHz: DEFAULT_ACQUISITION.frequencyMHz,
+            harmonics: DEFAULT_ACQUISITION.harmonics,
+            clutterLevel: c.acousticWindow.clutterLevel,
+            windowAttenuation: c.acousticWindow.chestWallAttenuation,
+            seed: c.seed,
+          },
+        };
+        const f = allocPolarFrame(spec);
+        new ProceduralSliceRenderer().render(scene, beam, spec, ph, f);
+        const disp = new Uint8ClampedArray(spec.lines * spec.samples);
+        applyConsole(f, DEFAULT_ACQUISITION, createConsoleState(c.seed), disp);
+        for (let i = 0; i < disp.length; i++)
+          if (f.structure[i] === Structure.Chordae && f.tissue[i] === Tissue.Chordae) {
+            g += disp[i]!;
+            n++;
+          }
+      }
+      expect(n, `${view}: cords in the image`).toBeGreaterThan(3);
+      return g / n;
+    };
+    const parasternal = grey('plax');
+    const apical = ['a2c', 'a3c', 'a5c', 'rv-focused'].map(grey);
+    const mean = apical.reduce((a, b) => a + b, 0) / apical.length;
+    expect(
+      mean,
+      `apical ${apical.map((v) => v.toFixed(0)).join(', ')} against parasternal ${parasternal.toFixed(0)}`,
+    ).toBeLessThan(parasternal);
+  });
 });

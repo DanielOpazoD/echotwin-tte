@@ -46,22 +46,18 @@ describe('heart model geometry', () => {
     expect(s.tissue).toBe(Tissue.Myocardium);
     expect(classifyHeart(model, edPose, 25, 25, 25, s)).toBe(false);
   });
-  it(
-    'LV cavity volume at ED ≈ EDV and at ES ≈ ESV (Monte Carlo, ±12%)',
-    { timeout: 60_000 },
-    () => {
-      const rng = createRng(5);
-      const L = model.lv.lengthCm;
-      const box = { min: { x: -4, y: -4, z: -1 }, max: { x: 4, y: 4, z: L + 0.5 } };
-      // papillary muscles are counted with the cavity, as in the ASE tracing convention
-      const cav = [Structure.LvCavity, Structure.PapillaryMuscle];
-      const vED = estimateStructureVolume(model, edPose, cav, 200000, () => rng.next(), box);
-      const vES = estimateStructureVolume(model, esPose, cav, 200000, () => rng.next(), box);
-      expect(Math.abs(vED - edState.lvVolumeMl) / edState.lvVolumeMl).toBeLessThan(0.1);
-      expect(Math.abs(vES - esState.lvVolumeMl) / esState.lvVolumeMl).toBeLessThan(0.12);
-      expect(vES).toBeLessThan(vED * 0.5);
-    },
-  );
+  it('LV cavity volume at ED ≈ EDV and at ES ≈ ESV (Monte Carlo, ±12%)', () => {
+    const rng = createRng(5);
+    const L = model.lv.lengthCm;
+    const box = { min: { x: -4, y: -4, z: -1 }, max: { x: 4, y: 4, z: L + 0.5 } };
+    // papillary muscles are counted with the cavity, as in the ASE tracing convention
+    const cav = [Structure.LvCavity, Structure.PapillaryMuscle];
+    const vED = estimateStructureVolume(model, edPose, cav, 200000, () => rng.next(), box);
+    const vES = estimateStructureVolume(model, esPose, cav, 200000, () => rng.next(), box);
+    expect(Math.abs(vED - edState.lvVolumeMl) / edState.lvVolumeMl).toBeLessThan(0.1);
+    expect(Math.abs(vES - esState.lvVolumeMl) / esState.lvVolumeMl).toBeLessThan(0.12);
+    expect(vES).toBeLessThan(vED * 0.5);
+  });
   it('wall thickens in systole (incompressible myocardium)', () => {
     expect(edPose.thickK).toBeCloseTo(1, 1);
     expect(esPose.thickK).toBeGreaterThan(1.25);

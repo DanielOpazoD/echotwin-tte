@@ -1,4 +1,5 @@
 /// <reference types="vitest/config" />
+import { DurationSequencer } from './tools/ci/durationSequencer';
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
@@ -55,6 +56,15 @@ function testFilesWithMarker(marker: string): string[] {
 }
 const SLOW_TEST_FILES = testFilesWithMarker('// @tier slow');
 const testTier = process.env['VITEST_TIER'] ?? 'fast';
+/**
+ * One time limit per tier, the same here and in CI (decision 239): a limit is there to fail a hang, not to measure speed
+ * (the tracer's cost has a guard of its own). Tests used to declare 70 limits of their own, from 30 s to 900 s, and the
+ * local scripts raised the default to 180 s while CI kept 60 s, so a test could pass here and time out there. A fast test
+ * takes at most ~10 s in CI; the slowest slow test, ~5 min under coverage. Hooks (`beforeAll`) share the limit of their tier.
+ */
+const FAST_LIMIT_MS = 60_000;
+const SLOW_LIMIT_MS = 900_000;
+const TEST_FILES = ['src/**/*.test.ts', 'src/**/*.test.tsx'];
 // CI runs the suite in shards that emit blob reports; a merge job applies the thresholds once.
 // A shard's coverage map is partial and would always fail the per-area floors, so collection-only
 // runs skip them (see .github/workflows/ci.yml).
@@ -83,17 +93,49 @@ export default defineConfig({
   worker: { format: 'es', plugins: () => [glslStrip()] },
   test: {
     environment: 'node',
-    include: testTier === 'slow' ? SLOW_TEST_FILES : ['src/**/*.test.ts', 'src/**/*.test.tsx'],
-    exclude: ['e2e/**', 'node_modules/**', ...(testTier === 'fast' ? SLOW_TEST_FILES : [])],
-    // Many unit tests render frames or step the simulator core; on a shared CI runner some took over the 5 s default
-    // (the LVOT auto-trace failed CI at 2c6cc27 in 5.9 s). A minute keeps them from failing on time alone while a hang
-    // still fails; the heaviest tests declare longer limits of their own (external audit F11, decision 88).
-    testTimeout: 60_000,
+    // shards balanced by the time their files take, not by their count (decision 239)
+    sequence: { sequencer: DurationSequencer },
+    // each tier is a project with its own limit; VITEST_TIER picks which run
+    projects: [
+      ...(testTier === 'slow'
+        ? []
+        : [
+            {
+              extends: true as const,
+              test: {
+                name: 'fast',
+                include: TEST_FILES,
+                exclude: ['e2e/**', 'node_modules/**', ...SLOW_TEST_FILES],
+                testTimeout: FAST_LIMIT_MS,
+                hookTimeout: FAST_LIMIT_MS,
+              },
+            },
+          ]),
+      ...(testTier === 'fast'
+        ? []
+        : [
+            {
+              extends: true as const,
+              test: {
+                name: 'slow',
+                include: SLOW_TEST_FILES,
+                testTimeout: SLOW_LIMIT_MS,
+                // a beforeAll that steps the core for the file's tests takes as long as a test (the M-mode strip's does)
+                hookTimeout: SLOW_LIMIT_MS,
+              },
+            },
+          ]),
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'json-summary'],
       include: ['src/**'],
-      exclude: ['src/**/*.test.ts', 'src/**/*.test.tsx', 'src/tests/goldens/**'],
+      exclude: [
+        'src/**/*.test.ts',
+        'src/**/*.test.tsx',
+        'src/**/*.testkit.ts',
+        'src/tests/goldens/**',
+      ],
       // keep the report when a test fails so a red run still shows what it covered
       reportOnFailure: true,
       // Floors measured on the full suite (2026-09-14): global 67 % lines / 60 % branches.

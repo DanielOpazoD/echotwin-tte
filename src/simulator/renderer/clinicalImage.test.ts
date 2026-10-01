@@ -334,85 +334,75 @@ describe('the default console against clinical optimal-window images (CAMUS Good
     );
   });
 
-  it(
-    'apical grey levels, contrast and texture fall inside the clinical interquartile range',
-    { timeout: 360_000 },
-    () => {
-      const out = { outside: [] as string[], stale: [] as string[], moved: [] as string[] };
-      for (const [key, view, ed] of CONDITIONS) {
-        const stats = renderOnce(view, ed).flatMap((r) => apicalStats(r));
-        audit(
-          key,
-          CHECKED.map(([metric, get]) => [metric, meanStat(stats, get), CAMUS_GOOD[key][metric]]),
-          KNOWN_DEVIATIONS,
-          out,
-        );
-      }
-      // one assertion, so a failure lists undeclared, stale and moved entries together
-      expect(
+  it('apical grey levels, contrast and texture fall inside the clinical interquartile range', () => {
+    const out = { outside: [] as string[], stale: [] as string[], moved: [] as string[] };
+    for (const [key, view, ed] of CONDITIONS) {
+      const stats = renderOnce(view, ed).flatMap((r) => apicalStats(r));
+      audit(
+        key,
+        CHECKED.map(([metric, get]) => [metric, meanStat(stats, get), CAMUS_GOOD[key][metric]]),
+        KNOWN_DEVIATIONS,
         out,
-        'undeclared deviations from CAMUS Good, declared ones that no longer deviate, and declared ones that moved from their baseline',
-      ).toEqual({ outside: [], stale: [], moved: [] });
-    },
-  );
-
-  it(
-    'the whole sector, without labels, reads like clinical images or deviates as declared',
-    { timeout: 240_000 },
-    () => {
-      const out = { outside: [] as string[], stale: [] as string[], moved: [] as string[] };
-      for (const [key, view, ed] of CONDITIONS) {
-        const g = renderOnce(view, ed).flatMap((r) =>
-          Array.from({ length: NOISE_REALIZATIONS }, (_, fi) =>
-            sectorStats(presentApical(r, {}, fi)),
-          ),
-        );
-        const ref = CAMUS_GOOD_SECTOR[key];
-        audit(
-          key,
-          SECTOR_METRICS.filter((m) => ref[m]).map((m) => [
-            m,
-            g.reduce((a, x) => a + x[m], 0) / g.length,
-            ref[m]!,
-          ]),
-          KNOWN_SECTOR_DEVIATIONS,
-          out,
-        );
-      }
-      expect(out, 'undeclared, stale and moved whole-sector deviations from CAMUS Good').toEqual({
-        outside: [],
-        stale: [],
-        moved: [],
-      });
-    },
-  );
-
-  it(
-    'the left ventricle sits in the apical sector where clinical images put it',
-    { timeout: 180_000 },
-    () => {
-      const out = { outside: [] as string[], stale: [] as string[], moved: [] as string[] };
-      for (const [key, view, ed] of CONDITIONS) {
-        const g = renderOnce(view, ed).flatMap((r) =>
-          Array.from({ length: NOISE_REALIZATIONS }, (_, fi) =>
-            apicalGeometry(presentApical(r, {}, fi), key.startsWith('4CH') ? '4CH' : '2CH'),
-          ),
-        );
-        const ref = CAMUS_GOOD_GEOMETRY[key];
-        audit(
-          key,
-          (Object.keys(ref) as ApicalGeometryMetric[]).map((m) => [
-            m,
-            g.reduce((a, x) => a + x[m], 0) / g.length,
-            ref[m]!,
-          ]),
-          KNOWN_GEOMETRY_DEVIATIONS,
-          out,
-        );
-      }
-      expect(out, 'undeclared, stale and moved apical geometry deviations from CAMUS Good').toEqual(
-        { outside: [], stale: [], moved: [] },
       );
-    },
-  );
+    }
+    // one assertion, so a failure lists undeclared, stale and moved entries together
+    expect(
+      out,
+      'undeclared deviations from CAMUS Good, declared ones that no longer deviate, and declared ones that moved from their baseline',
+    ).toEqual({ outside: [], stale: [], moved: [] });
+  });
+
+  it('the whole sector, without labels, reads like clinical images or deviates as declared', () => {
+    const out = { outside: [] as string[], stale: [] as string[], moved: [] as string[] };
+    for (const [key, view, ed] of CONDITIONS) {
+      const g = renderOnce(view, ed).flatMap((r) =>
+        Array.from({ length: NOISE_REALIZATIONS }, (_, fi) =>
+          sectorStats(presentApical(r, {}, fi)),
+        ),
+      );
+      const ref = CAMUS_GOOD_SECTOR[key];
+      audit(
+        key,
+        SECTOR_METRICS.filter((m) => ref[m]).map((m) => [
+          m,
+          g.reduce((a, x) => a + x[m], 0) / g.length,
+          ref[m]!,
+        ]),
+        KNOWN_SECTOR_DEVIATIONS,
+        out,
+      );
+    }
+    expect(out, 'undeclared, stale and moved whole-sector deviations from CAMUS Good').toEqual({
+      outside: [],
+      stale: [],
+      moved: [],
+    });
+  });
+
+  it('the left ventricle sits in the apical sector where clinical images put it', () => {
+    const out = { outside: [] as string[], stale: [] as string[], moved: [] as string[] };
+    for (const [key, view, ed] of CONDITIONS) {
+      const g = renderOnce(view, ed).flatMap((r) =>
+        Array.from({ length: NOISE_REALIZATIONS }, (_, fi) =>
+          apicalGeometry(presentApical(r, {}, fi), key.startsWith('4CH') ? '4CH' : '2CH'),
+        ),
+      );
+      const ref = CAMUS_GOOD_GEOMETRY[key];
+      audit(
+        key,
+        (Object.keys(ref) as ApicalGeometryMetric[]).map((m) => [
+          m,
+          g.reduce((a, x) => a + x[m], 0) / g.length,
+          ref[m]!,
+        ]),
+        KNOWN_GEOMETRY_DEVIATIONS,
+        out,
+      );
+    }
+    expect(out, 'undeclared, stale and moved apical geometry deviations from CAMUS Good').toEqual({
+      outside: [],
+      stale: [],
+      moved: [],
+    });
+  });
 });

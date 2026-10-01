@@ -33,28 +33,24 @@ describe('heart surface meshes', () => {
   };
   const groups = buildHeartMeshes(heart, pose, { stepCm: 0.8, bounds });
 
-  it(
-    'builds a surface for every navigator layer, inside the requested bounds',
-    { timeout: 60_000 },
-    () => {
-      expect(groups).toHaveLength(MESH_GROUPS.length);
-      for (const g of groups) {
-        expect(g.positions.length, `${g.id} has vertices`).toBeGreaterThan(0);
-        expect(g.indices.length % 3, `${g.id} is triangulated`).toBe(0);
-        for (let i = 0; i < g.positions.length; i += 3)
-          for (let axis = 0; axis < 3; axis++) {
-            const v = g.positions[i + axis] ?? 0;
-            expect(v).toBeGreaterThanOrEqual(bounds.min[axis]! - 0.9);
-            expect(v).toBeLessThanOrEqual(bounds.max[axis]! + 0.9);
-          }
-      }
-      // the ventricular myocardium is the bulk of the model; the valves are thin sheets
-      const byId = new Map(groups.map((g) => [g.id, g]));
-      expect(byId.get('lv-myocardium')!.indices.length).toBeGreaterThan(
-        byId.get('valves')!.indices.length,
-      );
-    },
-  );
+  it('builds a surface for every navigator layer, inside the requested bounds', () => {
+    expect(groups).toHaveLength(MESH_GROUPS.length);
+    for (const g of groups) {
+      expect(g.positions.length, `${g.id} has vertices`).toBeGreaterThan(0);
+      expect(g.indices.length % 3, `${g.id} is triangulated`).toBe(0);
+      for (let i = 0; i < g.positions.length; i += 3)
+        for (let axis = 0; axis < 3; axis++) {
+          const v = g.positions[i + axis] ?? 0;
+          expect(v).toBeGreaterThanOrEqual(bounds.min[axis]! - 0.9);
+          expect(v).toBeLessThanOrEqual(bounds.max[axis]! + 0.9);
+        }
+    }
+    // the ventricular myocardium is the bulk of the model; the valves are thin sheets
+    const byId = new Map(groups.map((g) => [g.id, g]));
+    expect(byId.get('lv-myocardium')!.indices.length).toBeGreaterThan(
+      byId.get('valves')!.indices.length,
+    );
+  });
 
   it('carries on the LV myocardium the segment of the tissue at each vertex (decision 152)', () => {
     const lv = groups.find((g) => g.id === 'lv-myocardium')!;
@@ -81,7 +77,7 @@ describe('heart surface meshes', () => {
     expect(agree / n).toBeGreaterThan(0.8);
   });
 
-  it('is deterministic for the same heart and phase', { timeout: 60_000 }, () => {
+  it('is deterministic for the same heart and phase', () => {
     const again = buildHeartMeshes(heart, pose, { stepCm: 0.8, bounds });
     for (let i = 0; i < groups.length; i++) {
       expect(again[i]!.positions.length).toBe(groups[i]!.positions.length);

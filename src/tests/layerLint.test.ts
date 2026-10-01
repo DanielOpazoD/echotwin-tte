@@ -72,12 +72,12 @@ describe('layer fences as ESLint resolves them', () => {
       const flagged = await lintImports(file, imports);
       for (const m of imports) expect(flagged.has(m), `${file} must not import ${m}`).toBe(true);
     }
-  }, 60_000);
+  });
 
   it('still allows the imports each layer is meant to make', async () => {
     for (const [file, imports] of ALLOWED) {
       const flagged = await lintImports(file, imports);
       for (const m of imports) expect(flagged.has(m), `${file} may import ${m}`).toBe(false);
     }
-  }, 60_000);
+  });
 });

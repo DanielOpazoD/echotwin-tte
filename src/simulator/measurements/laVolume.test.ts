@@ -101,32 +101,24 @@ function biplane(caseId: string, depthCm: number) {
 describe('the LA volume of the images (decision 180)', () => {
   const tolerance = getMeasurementSpec('la-volume')!.tolerancePct / 100;
 
-  it(
-    'is within the scoring tolerance of every case, at a depth that holds the atrium',
-    { timeout: 600_000 },
-    () => {
-      const off: string[] = [];
-      for (const input of CASE_INPUTS) {
-        const declared = computeGroundTruth(loadCaseById(input.id)).la.volumeMl;
-        const b = biplane(input.id, 20);
-        if (b.cut) off.push(`${input.id}: the atrium reaches the bottom of a 20 cm sector`);
-        if (Math.abs(b.volumeMl / declared - 1) > tolerance)
-          off.push(`${input.id}: ${b.volumeMl.toFixed(0)} mL against ${declared.toFixed(0)}`);
-      }
-      expect(off).toEqual([]);
-    },
-  );
+  it('is within the scoring tolerance of every case, at a depth that holds the atrium', () => {
+    const off: string[] = [];
+    for (const input of CASE_INPUTS) {
+      const declared = computeGroundTruth(loadCaseById(input.id)).la.volumeMl;
+      const b = biplane(input.id, 20);
+      if (b.cut) off.push(`${input.id}: the atrium reaches the bottom of a 20 cm sector`);
+      if (Math.abs(b.volumeMl / declared - 1) > tolerance)
+        off.push(`${input.id}: ${b.volumeMl.toFixed(0)} mL against ${declared.toFixed(0)}`);
+    }
+    expect(off).toEqual([]);
+  });
 
-  it(
-    'flags a dilated atrium the default depth cuts, which loses a sixth of its volume',
-    { timeout: 300_000 },
-    () => {
-      const at16 = biplane('hfref-severe-mr', 16),
-        at20 = biplane('hfref-severe-mr', 20);
-      expect(at16.cut).toBe(true);
-      expect(at20.cut).toBe(false);
-      expect(at16.volumeMl / at20.volumeMl).toBeLessThan(0.9);
-      expect(biplane('normal-excellent-window', 16).cut).toBe(false);
-    },
-  );
+  it('flags a dilated atrium the default depth cuts, which loses a sixth of its volume', () => {
+    const at16 = biplane('hfref-severe-mr', 16),
+      at20 = biplane('hfref-severe-mr', 20);
+    expect(at16.cut).toBe(true);
+    expect(at20.cut).toBe(false);
+    expect(at16.volumeMl / at20.volumeMl).toBeLessThan(0.9);
+    expect(biplane('normal-excellent-window', 16).cut).toBe(false);
+  });
 });

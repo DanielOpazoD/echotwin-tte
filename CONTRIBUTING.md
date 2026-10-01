@@ -92,7 +92,7 @@ Si el puerto está ocupado, Playwright falla en vez de probar lo que no es.
 
 Rama `feat/<nombre>` desde `main`, commit con mensaje en imperativo y PR en GitHub
 (`DanielOpazoD/echotwin-tte`). El workflow `.github/workflows/ci.yml` corre en cada PR y en cada push a `main`:
-lint, formato y tipos; la suite completa con cobertura en tres shards; el build con el presupuesto de bundle; y los
+lint, formato y tipos; la suite completa con cobertura en cuatro shards, con un límite de tiempo por nivel (rápido 60 s, lento 900 s; decisión 239); el build con el presupuesto de bundle; y los
 E2E sobre `dist/`. El trabajo `check` resume los demás y es el check que exige la protección de `main`, también a los
 administradores; `main` no admite force push. Un PR se mergea con `check` en verde y se vigila el run de `main`.
 

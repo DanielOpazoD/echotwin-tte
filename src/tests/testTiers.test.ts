@@ -62,4 +62,19 @@ describe('test tiers', () => {
     }
     expect(wrong).toEqual([]);
   });
+
+  it('no test sets a time limit of its own: each tier has one, the same here and in CI (decision 239)', () => {
+    const own: string[] = [];
+    for (const p of files) {
+      readFileSync(p, 'utf8')
+        .split('\n')
+        .forEach((line, i) => {
+          // a waitFor's own deadline is a wait, not the test's limit
+          if (line.includes('waitFor')) return;
+          if (/\{ timeout: [\d_]+ \}|^\s*\}, [\d_]+\);|^\s*[\d_]+_000,\s*$/.test(line))
+            own.push(`${p.slice(process.cwd().length + 1)}:${i + 1}`);
+        });
+    }
+    expect(own, 'drop the limit: vite.config.ts gives each tier its own').toEqual([]);
+  });
 });

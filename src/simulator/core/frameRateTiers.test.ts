@@ -1,4 +1,4 @@
-// @tier fast
+// @tier slow
 import { describe, expect, it } from 'vitest';
 import { SimulatorCore } from './simulatorCore';
 import { baseInput } from './baseInput';
@@ -11,7 +11,7 @@ import { loadCaseById } from '@/cases';
  * 16 cm and 80° in the low, medium and high tiers.
  */
 describe('the frame rate of the HUD', () => {
-  it('is the same in the three quality tiers, in 2D and in colour', { timeout: 300_000 }, () => {
+  it('is the same in the three quality tiers, in 2D and in colour', () => {
     const c = loadCaseById('normal-excellent-window');
     for (const modality of ['2d', 'color'] as const) {
       const reported = new Set<number>();
