@@ -1,7 +1,8 @@
 import { loadCaseById } from '@/cases';
 import { computeHeartPose } from '@/simulator/anatomy/heartModel';
 import { cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
-import { buildCaseModels } from '@/simulator/anatomy/caseModels';
+import { buildCaseModels, REST_PATIENT } from '@/simulator/anatomy/caseModels';
+import { scenePhysicsFor } from '@/simulator/renderer/scenePhysics';
 import { ProceduralSliceRenderer } from '@/simulator/renderer/procedural/sliceRenderer';
 import { createWebgl2Renderer } from '@/simulator/renderer/gpu/webgl2Renderer';
 import { enumDefinesGlsl } from '@/simulator/renderer/gpu/glslCommon';
@@ -86,11 +87,7 @@ function canonicalSetup(
   probeOffsetV = 0,
 ) {
   const c = loadCaseById(caseId);
-  const { thorax, heart, tables } = buildCaseModels(c, {
-    position: 'left-lateral',
-    respiration: 'expiration',
-    headElevationDeg: 0,
-  });
+  const { thorax, heart, tables } = buildCaseModels(c, REST_PATIENT);
   const canonical = canonicalControl(getViewTarget(viewId), heart, thorax);
   // an offset along the ribs' spacing puts a rib under the probe, which the presets avoid
   const ctrl = { ...canonical, v: canonical.v + probeOffsetV };
@@ -100,15 +97,9 @@ function canonicalSetup(
     heart,
     heartPose: computeHeartPose(heart, cycleStateAt(tables, ph)),
     thorax,
-    physics: {
-      frequencyMHz: settings.frequencyMHz,
-      harmonics: settings.harmonics,
-      clutterLevel: c.acousticWindow.clutterLevel,
-      windowAttenuation: c.acousticWindow.chestWallAttenuation,
-      seed: c.seed,
-      // a frame other than the first, so the flowing blood's lattice shift reaches the comparison (decision 163)
-      bloodFrame: 7,
-    },
+    // the app's physics (decision 238), at a frame other than the first so the flowing blood's lattice shift reaches
+    // the comparison (decision 163)
+    physics: scenePhysicsFor(c, settings, { bloodFrame: 7 }),
   });
   return { c, heart, beam, spec, scene: sceneAt(phase), sceneAt };
 }

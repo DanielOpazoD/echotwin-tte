@@ -20,6 +20,11 @@ import {
   type Scene,
 } from '@/simulator/renderer/types';
 import { applyConsole, createConsoleState } from '@/simulator/renderer/postprocess/consolePipeline';
+import {
+  caseArtifactLevels,
+  consoleArtifacts,
+  scenePhysicsFor,
+} from '@/simulator/renderer/scenePhysics';
 import { computeSectorMapping, scanConvert } from '@/simulator/renderer/scanConvert';
 import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
 import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
@@ -80,19 +85,13 @@ for (const input of CASE_INPUTS) {
         heart,
         heartPose: computeHeartPose(heart, cycleStateAt(tables, phase)),
         thorax,
-        physics: {
-          frequencyMHz: settings.frequencyMHz,
-          harmonics: settings.harmonics,
-          clutterLevel: c.acousticWindow.clutterLevel,
-          windowAttenuation: c.acousticWindow.chestWallAttenuation,
-          seed: c.seed,
-        },
+        physics: scenePhysicsFor(c, settings),
       };
       const frame = allocPolarFrame(spec);
       renderer.render(scene, beam, spec, phase, frame);
       const cs = createConsoleState(c.seed);
       const disp = new Uint8ClampedArray(spec.lines * spec.samples);
-      applyConsole(frame, settings, cs, disp);
+      applyConsole(frame, settings, cs, disp, consoleArtifacts(caseArtifactLevels(c)));
       scanConvert(disp, spec, mapping, rgba);
       const file = `${c.id}/${viewId}-${label}.png`;
       writeFileSync(join(outDir, file), encodePng(W, H, rgba));

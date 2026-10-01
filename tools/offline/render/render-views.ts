@@ -17,6 +17,11 @@ import {
   type Scene,
 } from '@/simulator/renderer/types';
 import { applyConsole, createConsoleState } from '@/simulator/renderer/postprocess/consolePipeline';
+import {
+  caseArtifactLevels,
+  consoleArtifacts,
+  scenePhysicsFor,
+} from '@/simulator/renderer/scenePhysics';
 import { computeSectorMapping, scanConvert } from '@/simulator/renderer/scanConvert';
 import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
 import { canonicalControl, VIEW_TARGETS } from '@/simulator/windows/viewTargets';
@@ -51,13 +56,7 @@ for (const id of views) {
       heart,
       heartPose: computeHeartPose(heart, state),
       thorax,
-      physics: {
-        frequencyMHz: settings.frequencyMHz,
-        harmonics: settings.harmonics,
-        clutterLevel: c.acousticWindow.clutterLevel,
-        windowAttenuation: c.acousticWindow.chestWallAttenuation,
-        seed: c.seed,
-      },
+      physics: scenePhysicsFor(c, settings),
     };
     const frame = allocPolarFrame(spec);
     renderer.render(scene, beam, spec, phase, frame); // warm-up
@@ -66,7 +65,7 @@ for (const id of views) {
     const t1 = performance.now();
     const cs = createConsoleState(c.seed);
     const disp = new Uint8ClampedArray(spec.lines * spec.samples);
-    applyConsole(frame, settings, cs, disp);
+    applyConsole(frame, settings, cs, disp, consoleArtifacts(caseArtifactLevels(c)));
     const t2 = performance.now();
     scanConvert(disp, spec, mapping, rgba);
     const t3 = performance.now();

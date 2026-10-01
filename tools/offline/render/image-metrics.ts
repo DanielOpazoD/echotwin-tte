@@ -20,6 +20,11 @@ import {
   type Scene,
 } from '@/simulator/renderer/types';
 import { applyConsole, createConsoleState } from '@/simulator/renderer/postprocess/consolePipeline';
+import {
+  caseArtifactLevels,
+  consoleArtifacts,
+  scenePhysicsFor,
+} from '@/simulator/renderer/scenePhysics';
 import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
 import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
 import { Structure, Tissue } from '@/simulator/anatomy/tissue';
@@ -35,13 +40,7 @@ function scene(settings: AcquisitionSettings): Scene {
     heart,
     heartPose: computeHeartPose(heart, cycleStateAt(tables, PHASE)),
     thorax,
-    physics: {
-      frequencyMHz: settings.frequencyMHz,
-      harmonics: settings.harmonics,
-      clutterLevel: c.acousticWindow.clutterLevel + c.acousticWindow.emphysemaScatter * 0.5,
-      windowAttenuation: c.acousticWindow.chestWallAttenuation,
-      seed: c.seed,
-    },
+    physics: scenePhysicsFor(c, settings),
   };
 }
 
@@ -217,7 +216,13 @@ for (const tier of ['medium', 'high'] as const) {
     const grey = (gainDb: number): { myo: number; blood: number; peri95: number; sat: number } => {
       const s2 = { ...settings, gainDb };
       const disp = new Uint8ClampedArray(L * N);
-      applyConsole(frame, s2, createConsoleState(c.seed), disp);
+      applyConsole(
+        frame,
+        s2,
+        createConsoleState(c.seed),
+        disp,
+        consoleArtifacts(caseArtifactLevels(c)),
+      );
       const gm: number[] = [],
         gb: number[] = [],
         gp: number[] = [];

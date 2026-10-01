@@ -1,6 +1,6 @@
 import { loadCaseById } from '@/cases';
 import { computeHeartPose } from '@/simulator/anatomy/heartModel';
-import { buildCaseModels } from '@/simulator/anatomy/caseModels';
+import { buildCaseModels, REST_PATIENT } from '@/simulator/anatomy/caseModels';
 import { cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { Structure } from '@/simulator/anatomy/tissue';
 import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
@@ -13,7 +13,12 @@ import {
   type RegionImage,
 } from '@/clinical/regionStats';
 import { ProceduralSliceRenderer } from './procedural/sliceRenderer';
-import { applyConsole, createConsoleState } from './postprocess/consolePipeline';
+import {
+  applyConsole,
+  createConsoleState,
+  type ArtifactSettings,
+} from './postprocess/consolePipeline';
+import { caseArtifactLevels, consoleArtifacts, scenePhysicsFor } from './scenePhysics';
 import { buildScanLut, computeSectorMapping, scanConvertLut } from './scanConvert';
 import {
   allocPolarFrame,
@@ -38,6 +43,8 @@ import {
 export interface ApicalRender {
   frame: PolarFrame;
   seed: number;
+  /** The case's console artifacts, which the presentation applies as the app does. */
+  artifacts: ArtifactSettings;
 }
 
 /** The console controls a clinical comparison may vary; anything else would change the render itself. */
@@ -56,11 +63,7 @@ export function renderApical(
   scatterSeed?: number,
 ): ApicalRender {
   const c = loadCaseById(caseId);
-  const { thorax, heart, tables } = buildCaseModels(c, {
-    position: 'left-lateral',
-    respiration: 'expiration',
-    headElevationDeg: 0,
-  });
+  const { thorax, heart, tables } = buildCaseModels(c, REST_PATIENT);
   const phase = ed ? 0 : tables.timings.ejectionEndS / tables.rrS;
   const settings = DEFAULT_ACQUISITION;
   const spec = polarSpecFor(settings, CALIBRATED_TIER);
@@ -72,17 +75,16 @@ export function renderApical(
     heart,
     heartPose: computeHeartPose(heart, cycleStateAt(tables, phase)),
     thorax,
-    physics: {
-      frequencyMHz: settings.frequencyMHz,
-      harmonics: settings.harmonics,
-      clutterLevel: c.acousticWindow.clutterLevel,
-      windowAttenuation: c.acousticWindow.chestWallAttenuation,
-      seed: scatterSeed ?? c.seed,
-    },
+    // the app's physics, near-field clutter included (decision 238)
+    physics: scenePhysicsFor(c, settings, { seed: scatterSeed ?? c.seed }),
   };
   const frame = allocPolarFrame(spec);
   new ProceduralSliceRenderer().render(scene, beam, spec, phase, frame);
-  return { frame, seed: scatterSeed ?? c.seed };
+  return {
+    frame,
+    seed: scatterSeed ?? c.seed,
+    artifacts: consoleArtifacts(caseArtifactLevels(c)),
+  };
 }
 
 /**
@@ -128,7 +130,7 @@ export function presentApical(
   const display = new Uint8ClampedArray(spec.lines * spec.samples);
   const state = createConsoleState(render.seed);
   state.frameIndex = frameIndex;
-  applyConsole(frame, settings, state, display);
+  applyConsole(frame, settings, state, display, render.artifacts);
   const W = 640,
     H = 640;
   const mapping = computeSectorMapping(spec, W, H, false);

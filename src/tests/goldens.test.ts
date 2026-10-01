@@ -14,6 +14,11 @@ import {
   type Scene,
 } from '@/simulator/renderer/types';
 import { applyConsole, createConsoleState } from '@/simulator/renderer/postprocess/consolePipeline';
+import {
+  caseArtifactLevels,
+  consoleArtifacts,
+  scenePhysicsFor,
+} from '@/simulator/renderer/scenePhysics';
 import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
 import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
 import { encodePng } from '../../tools/offline/render/png';
@@ -75,13 +80,8 @@ describe('golden frames by seed', () => {
   const settings = { ...DEFAULT_ACQUISITION };
   const spec = polarSpecFor(settings, 'low');
   const renderer = new ProceduralSliceRenderer();
-  const physics = {
-    frequencyMHz: 2.5,
-    harmonics: true,
-    clutterLevel: 0.1,
-    windowAttenuation: 0.1,
-    seed: c.seed,
-  };
+  // the app's physics for the case, near-field clutter included (decision 238)
+  const physics = scenePhysicsFor(c, settings);
   const results: Record<string, number[]> = {};
   const displays: Record<string, Uint8ClampedArray> = {};
   for (const id of ['plax', 'psax-pm', 'a4c', 'a2c']) {
@@ -97,7 +97,13 @@ describe('golden frames by seed', () => {
       const frame = allocPolarFrame(spec);
       renderer.render(scene, beam, spec, phase, frame);
       const disp = new Uint8ClampedArray(spec.lines * spec.samples);
-      applyConsole(frame, settings, createConsoleState(c.seed), disp);
+      applyConsole(
+        frame,
+        settings,
+        createConsoleState(c.seed),
+        disp,
+        consoleArtifacts(caseArtifactLevels(c)),
+      );
       results[`${id}@${phase}`] = grid(disp, spec.lines, spec.samples);
       displays[`${id}@${phase}`] = disp;
     }

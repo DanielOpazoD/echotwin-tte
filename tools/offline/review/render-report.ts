@@ -23,6 +23,11 @@ import { cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { ProceduralSliceRenderer } from '@/simulator/renderer/procedural/sliceRenderer';
 import { allocPolarFrame, polarSpecFor, type Scene } from '@/simulator/renderer/types';
 import { applyConsole, createConsoleState } from '@/simulator/renderer/postprocess/consolePipeline';
+import {
+  caseArtifactLevels,
+  consoleArtifacts,
+  scenePhysicsFor,
+} from '@/simulator/renderer/scenePhysics';
 import { computeSectorMapping, polarToPixel, scanConvert } from '@/simulator/renderer/scanConvert';
 import { beamFrameFromPose, contactQuality, poseFromControl } from '@/simulator/probe/pose';
 import { probePointAt, probeTorsoPointAt } from '@/simulator/core/probePoint';
@@ -137,19 +142,13 @@ for (const { phase, suffix } of renders) {
     heart,
     heartPose: pose,
     thorax,
-    physics: {
-      frequencyMHz: settings.frequencyMHz,
-      harmonics: settings.harmonics,
-      clutterLevel: c.acousticWindow.clutterLevel,
-      windowAttenuation: c.acousticWindow.chestWallAttenuation,
-      seed: c.seed,
-    },
+    physics: scenePhysicsFor(c, settings),
   };
   const frame = allocPolarFrame(spec);
   renderer.render(scene, beam, spec, phase, frame);
   const cs = createConsoleState(c.seed);
   const disp = new Uint8ClampedArray(spec.lines * spec.samples);
-  applyConsole(frame, settings, cs, disp);
+  applyConsole(frame, settings, cs, disp, consoleArtifacts(caseArtifactLevels(c)));
   const rgba = new Uint8ClampedArray(W * H * 4);
   scanConvert(disp, spec, mapping, rgba);
   for (const m of report.markers) {

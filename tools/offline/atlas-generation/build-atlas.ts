@@ -19,6 +19,11 @@ import {
   type Scene,
 } from '@/simulator/renderer/types';
 import { applyConsole, createConsoleState } from '@/simulator/renderer/postprocess/consolePipeline';
+import {
+  caseArtifactLevels,
+  consoleArtifacts,
+  scenePhysicsFor,
+} from '@/simulator/renderer/scenePhysics';
 import { computeSectorMapping, scanConvert } from '@/simulator/renderer/scanConvert';
 import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
 import { canonicalControl, VIEW_TARGETS } from '@/simulator/windows/viewTargets';
@@ -47,18 +52,18 @@ for (const view of VIEW_TARGETS) {
       heart,
       heartPose: computeHeartPose(heart, cycleStateAt(tables, phase)),
       thorax,
-      physics: {
-        frequencyMHz: settings.frequencyMHz,
-        harmonics: settings.harmonics,
-        clutterLevel: c.acousticWindow.clutterLevel,
-        windowAttenuation: c.acousticWindow.chestWallAttenuation,
-        seed: c.seed,
-      },
+      physics: scenePhysicsFor(c, settings),
     };
     const frame = allocPolarFrame(spec);
     renderer.render(scene, beam, spec, phase, frame);
     const disp = new Uint8ClampedArray(spec.lines * spec.samples);
-    applyConsole(frame, { ...settings, persistence: 0 }, cs, disp);
+    applyConsole(
+      frame,
+      { ...settings, persistence: 0 },
+      cs,
+      disp,
+      consoleArtifacts(caseArtifactLevels(c)),
+    );
     scanConvert(disp, spec, mapping, tile);
     const gx = (p % 4) * TW,
       gy = Math.floor(p / 4) * TH;
