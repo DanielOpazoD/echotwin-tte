@@ -1,7 +1,7 @@
 import { Structure, Tissue } from '../tissue';
 import { sdCapsule, sdRoundCone, smin } from '../sdf';
-import { skirtOffsetAt, tvInflowSdf } from '../valveSkirt';
-import { rvCrescent } from '../rv';
+import { skirtOffsetAt } from '../valveSkirt';
+import { rvCrescent, rvInflowSdf } from '../rv';
 import { setSample, type ClassifyCtx } from './context';
 
 /** RV free-wall thickness now: thickens with the contraction. */
@@ -33,7 +33,7 @@ export function classifyRightVentricle(c: ClassifyCtx): boolean {
   const rvTmp = c.rvSdf;
   rvCrescent(m, hp, A, x, y, z, az, rvTmp);
   const dRv = rvTmp[0]!;
-  const dRvU = smin(dRv, tvInflowSdf(x, y, z, V.tv, hp.tvZ), 0.3);
+  const dRvU = smin(dRv, rvInflowSdf(x, y, z, V.tv, hp.tvZ, rvTmp[2]!), 0.3);
   const fw = rvFreeWallNow(m.anatomy.rv.freeWallThicknessCm, s);
   const k = rvOutflowScale(s);
   // outflow: infundibulum → subpulmonary region as two tapering segments bowed anteriorly over the aortic root

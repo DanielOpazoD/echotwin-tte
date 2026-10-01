@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 242 (última: 242).
+Decisiones: 243 (última: 243).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -250,3 +250,4 @@ Decisiones: 242 (última: 242).
 | [240](DECISIONS.md#L1439) | 2026-09-25 | Los chorros conservan su velocidad como un chorro libre y la obstrucción de la MCH se alcanza con el CW | vigente |
 | [241](DECISIONS.md#L1441) | 2026-09-25 | La equivalencia GPU/CPU cubre los doce casos y las doce vistas | vigente |
 | [242](DECISIONS.md#L1443) | 2026-09-25 | El riel izquierdo, compacto: segmentos con menos texto, la guía abajo y las herramientas del navegador fuera del camino de la sonda | vigente |
+| [243](DECISIONS.md#L1445) | 2026-09-25 | La pared libre del VD cuelga del anillo tricuspídeo y se mueve con él | vigente |

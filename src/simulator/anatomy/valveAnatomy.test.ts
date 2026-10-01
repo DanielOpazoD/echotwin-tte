@@ -14,8 +14,8 @@ import {
 } from './heartModel';
 import { mitralFreeEdge, mitralLeafletPoint, MV_BINS } from './mitralValve';
 import { AV_PHI0, rootRadiusAt } from './aorticValve';
-import { rvCrescent } from './rv';
-import { tvInflowSdf, skirtDistance, skirtHit, skirtOffset } from './valveSkirt';
+import { rvCrescent, rvInflowSdf } from './rv';
+import { skirtDistance, skirtHit, skirtOffset } from './valveSkirt';
 import { smin } from './sdf';
 import { SEPTAL_CREST_AZ, SEPTAL_CREST_Z_CM } from './lvWall';
 import { SimulatorCore } from '@/simulator/core/simulatorCore';
@@ -917,7 +917,7 @@ describe('right ventricular outflow junction', () => {
     const a = heartAnchors(heart),
       temp = new Float64Array(3);
     rvCrescent(heart, pose, a, p.x, p.y, p.z, Math.atan2(p.y, p.x), temp);
-    return smin(temp[0]!, tvInflowSdf(p.x, p.y, p.z, pose.valves.tv, pose.tvZ), 0.3);
+    return smin(temp[0]!, rvInflowSdf(p.x, p.y, p.z, pose.valves.tv, pose.tvZ, temp[2]!), 0.3);
   }
 
   it.each(['normal-excellent-window', 'aortic-stenosis-severe', 'pulmonary-hypertension-rv'])(

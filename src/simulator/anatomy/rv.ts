@@ -2,7 +2,13 @@ import { lvCavityRadius, lvRadialOffsetFactor, type LvProfileTable } from './lvS
 import { latticeNoise3 } from '@/core/noise';
 import { ahaSegment } from './lvGeometry';
 import { septalCrestFactor, septalShiftAt, wallThicknessAt } from './lvWall';
-import { TWO_PI, skirtOffsetAt } from './valveSkirt';
+import {
+  TV_SYSTOLIC_SHORTENING,
+  TWO_PI,
+  skirtOffsetAt,
+  tvInflowSdf,
+  type SkirtDesc,
+} from './valveSkirt';
 import type { AnchorsCached } from './anchors';
 import type { HeartModel } from './heartModel';
 import type { HeartPose } from './heartPose';
@@ -41,7 +47,7 @@ export function rvFloorZ(tvCz: number, tvZ: number, pvZ: number, u: number, off:
  * et al., Circulation 1998;98:339-345) and there is no clear boundary between the outlet and the rest of the ventricle
  * (Ho and Nihoyannopoulos, Heart 2006;92 Suppl 1:i2-13). `rvRadialScale` scales it by the case's systolic function.
  */
-export const RV_BODY_RADIAL_CONTRACTION = 0.75;
+export const RV_BODY_RADIAL_CONTRACTION = 0.9;
 /**
  * The body value: 0.42 until decision 220, when the tricuspid annulus descended by TAPSE all round. Once its septal hinge
  * descends with the mitral one, as the septal points of the atrioventricular plane do in healthy hearts (right-sided
@@ -55,6 +61,79 @@ export const RV_BODY_RADIAL_CONTRACTION = 0.75;
 export function rvRadialContraction(u: number): number {
   const s = Math.min(1, Math.max(0, (u - 0.15) / 0.35));
   return 0.15 + (RV_BODY_RADIAL_CONTRACTION - 0.15) * s * s * (3 - 2 * s);
+}
+
+/** Height (cm) apical of the tricuspid plane down to which the free wall stays at the annulus (decision 243). */
+export const RV_HINGE_PLATEAU_CM = 1;
+/** Height (cm) over which the free wall then leaves the annulus for the crescent (decision 243). */
+export const RV_HINGE_CM = 3;
+/** Azimuth (rad) beyond the edge of the tricuspid annulus over which the hanging of the free wall fades (decision 243). */
+export const RV_HINGE_FADE_RAD = 0.3;
+
+/**
+ * How much of the free wall hangs from the tricuspid annulus (decision 243), at height h (cm) apical of the tricuspid
+ * plane and `dAz` (rad) from the azimuth of the annulus centre, which spans ±`halfAz` around the LV axis: all of it down
+ * to RV_HINGE_PLATEAU_CM, so the inlet keeps the annular width where the open leaflets hang, then none RV_HINGE_CM
+ * further down (smoothly, so the wall leaves the annulus along the axis and joins the crescent without a corner), and
+ * none away from the annulus. Until then the crescent pulled its free wall in up to the tricuspid plane, narrower than
+ * the annulus even in diastole (6.2 against 6.6 cm from the LV axis in the normal case) and 2.5 cm inside it in systole,
+ * while the inflow column, which does not contract, kept the annular width 1.6 cm below the hinges and closed by 3 cm:
+ * in systole it stood out of the crescent and the free wall of the four-chamber views folded around it, and when the
+ * annulus rose in early diastole the fold sprang open.
+ */
+export function rvHingeWeight(dAz: number, halfAz: number, h: number): number {
+  const a = Math.min(1, Math.max(0, (halfAz + RV_HINGE_FADE_RAD - dAz) / RV_HINGE_FADE_RAD));
+  const g = Math.min(1, Math.max(0, (h - RV_HINGE_PLATEAU_CM) / RV_HINGE_CM));
+  return a * a * (3 - 2 * a) * (1 - g * g * (3 - 2 * g));
+}
+
+/**
+ * Distance (cm) from the LV axis to the far edge of a tricuspid annulus of radius R whose centre is `rc` from the axis,
+ * along an azimuth `dAz` (rad) from that centre; past the annulus, the distance to where the azimuth is tangent to it.
+ */
+export function rvHingeRadius(rc: number, R: number, dAz: number): number {
+  const sn = rc * Math.sin(dAz);
+  return rc * Math.cos(dAz) + Math.sqrt(Math.max(0, R * R - sn * sn));
+}
+
+/** Depth (cm) below the tricuspid hinges down to which the inflow column may stand out of the free wall (decision 243). */
+export const RV_INFLOW_REACH_CM = 0.5;
+
+/**
+ * Slack (cm) of the inflow column beyond the free wall at height h (cm) apical of the hinges (decision 243): 1.5 cm per
+ * cm short of RV_INFLOW_REACH_CM, none beyond it, where the wall hanging from the annulus holds the inlet.
+ */
+export function rvInflowSlack(h: number): number {
+  return 1.5 * Math.max(0, RV_INFLOW_REACH_CM - h);
+}
+
+/**
+ * The tricuspid inflow column held inside the free wall at `rOut` (decision 243): it joins the orifice to the cavity at
+ * the hinges and RV_INFLOW_REACH_CM below them stays within the wall.
+ */
+export function rvInflowSdf(
+  x: number,
+  y: number,
+  z: number,
+  tv: SkirtDesc,
+  tvZ: number,
+  rOut: number,
+): number {
+  const h = z - (tv.cz + skirtOffsetAt(tv, x, y));
+  return Math.max(tvInflowSdf(x, y, z, tv, tvZ), Math.hypot(x, y) - rOut - rvInflowSlack(h));
+}
+
+/**
+ * Radial state of the right ventricular free wall (0 relaxed, 1 fully contracted) (decision 243): the global contraction,
+ * but never more than the excursion of the annulus the wall hangs from over the case's TAPSE, so the wall relaxes with
+ * whichever of the two relaxes first. With the contraction alone, which relaxes after the tricuspid annulus has recoiled
+ * (0.85 against 0.71 at 0.60 of the normal cycle), the band of free wall hanging from the rising annulus swept inward over
+ * a still contracted body in early diastole; with the excursion alone, the fibrillation case, whose annulus is still 30 %
+ * displaced when its next beat begins, entered systole with its wall partly contracted (end-diastolic volume 90 mL
+ * against 108). Without a TAPSE it is the contraction.
+ */
+export function rvRadialState(tvZ: number, tapseCm: number, contraction: number): number {
+  return tapseCm > 0 ? Math.min(contraction, Math.max(0, tvZ / tapseCm)) : contraction;
 }
 
 /** TAPSE of the reference normal heart (cm), against which a case's right ventricular systolic function is scaled. */
@@ -134,7 +213,15 @@ export function rvRadii(
     A.rvT *
     rvAzProfile(A.rvAzA, A.rvAzP, u) *
     rvAxialTaper(tvPlane, A.rvApexFrac * L, z) *
-    (1 - rvRadialContraction(u) * contraction * A.rvRadialScale);
+    (1 - rvRadialContraction(u) * rvRadialState(tvZ, A.rvTapseCm, contraction) * A.rvRadialScale);
+  // the free wall hangs from the annulus, which shortens 20 % in systole about its septal edge (decision 243)
+  const tvR = A.tvR * (1 - TV_SYSTOLIC_SHORTENING * contraction);
+  const tvCx = A.tvCenter.x + (A.tvR - tvR);
+  const rc = Math.hypot(tvCx, A.tvCenter.y);
+  let dAz = az - Math.atan2(A.tvCenter.y, tvCx);
+  dAz = Math.abs(dAz - TWO_PI * Math.round(dAz / TWO_PI));
+  const wH = rvHingeWeight(dAz, Math.asin(Math.min(1, tvR / rc)), z - tvPlane);
+  if (wH > 0) t += wH * Math.max(0, rvHingeRadius(rc, tvR, dAz) - rIn - crestLoss - t);
   // tamponade: early-diastolic inward collapse of the anterior/outflow free wall
   if (rvCollapse > 0 && u < 0.55) t *= 1 - 0.65 * rvCollapse * (1 - u / 0.55);
   res[2] = rIn + t + crestLoss;

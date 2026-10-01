@@ -38,28 +38,22 @@ import {
   skirtOffsetAt,
   skirtBumpAt,
   skirtTip,
-  tvInflowSdf,
   TV_BUMP_N,
   TV_BUMP_PHI0,
   TV_BUMP_STEP_RAD,
   type SkirtDesc,
+  TV_SYSTOLIC_SHORTENING,
 } from './valveSkirt';
 import { septalCrestFactor, septalShiftAt, wallThicknessAt } from './lvWall';
 import { ahaSegment } from './lvGeometry';
-import { rvFloorZ, rvRadii } from './rv';
+import { rvFloorZ, rvInflowSdf, rvRadii } from './rv';
 import { anchorsCached } from './anchors';
 import type { HeartModel } from './heartModel';
 
 /** Scratch for the RV radii queried by the pose solver (single-threaded). */
 const rvRad = new Float64Array(4);
 
-/**
- * Systolic shortening of the tricuspid annular dimensions. In healthy adults the annulus is largest in late diastole
- * and smallest in mid-to-late systole, with fractional area change 35 ± 10 % and perimeter and diameters shortening by
- * 20 % or more (3D echocardiography, n = 209); the septal edge is anchored to the fibrous septum and the free-wall side
- * moves.
- */
-export const TV_SYSTOLIC_SHORTENING = 0.2;
+export { TV_SYSTOLIC_SHORTENING };
 /**
  * Shape of the tricuspid annulus (decision 138). It is a saddle whose high, most atrial points lie at the anteroseptal
  * commissure and the posterolateral region and whose low points are anterolateral and posteroseptal, about 5 mm from
@@ -506,7 +500,7 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
         const r = Math.hypot(px, py);
         d = Math.max(rvRad[0]! - r, r - rvRad[2]!, zBase - pz, pz - A.rvApexFrac * m.lv.lengthCm);
       }
-      return smin(d, tvInflowSdf(px, py, pz, tv, tvZ), 0.3);
+      return smin(d, rvInflowSdf(px, py, pz, tv, tvZ, rvRad[2]!), 0.3);
     };
     // zones first (the saddle and the inflow column refer to zone 0), then each open profile fitted
     for (const [phi, halfSpan, lenFrac, opened] of zoneDefs)

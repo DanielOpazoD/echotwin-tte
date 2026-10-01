@@ -37,6 +37,8 @@ export interface Anchors {
   rvT: number;
   /** Radial contraction of the RV free wall relative to a normal heart, from the case's TAPSE (decision 220). */
   rvRadialScale: number;
+  /** TAPSE of the case (cm): the free wall's radial state is its annulus's excursion over it (decision 243). */
+  rvTapseCm: number;
   rvAzA: number;
   rvAzP: number;
   rvApexFrac: number;
@@ -189,6 +191,7 @@ export function anchors(m: HeartModel): Anchors {
     rvR: v3(1.1 * rvR + 0.4, 1.1 * rvR + 1.6, L * 0.46),
     rvT: a.rv.basalDiameterCm,
     rvRadialScale: rvRadialScale(m.physiology.tapseCm),
+    rvTapseCm: m.physiology.tapseCm,
     rvAzA: RV_GROOVE_ANTERIOR_RAD,
     rvAzP: RV_GROOVE_INFERIOR_RAD,
     rvApexFrac: Math.min(0.9, Math.max(0.7, (a.rv.lengthCm + 0.8) / L)),

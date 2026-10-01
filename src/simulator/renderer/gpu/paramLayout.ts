@@ -134,6 +134,7 @@ const SCALARS = [
   'RA_RZ',
   'RV_T',
   'RV_RADIAL_SCALE',
+  'RV_TAPSE',
   'RV_AZA',
   'RV_AZP',
   'RV_APEX_FRAC',
@@ -453,6 +454,7 @@ export function packScene(
   set('RA_RZ', A.raR.z);
   set('RV_T', A.rvT);
   set('RV_RADIAL_SCALE', A.rvRadialScale);
+  set('RV_TAPSE', A.rvTapseCm);
   set('RV_AZA', A.rvAzA);
   set('RV_AZP', A.rvAzP);
   set('RV_APEX_FRAC', A.rvApexFrac);
