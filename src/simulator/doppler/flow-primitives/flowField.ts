@@ -134,6 +134,24 @@ function logisticFall(rho: number, rHalf: number, w: number): number {
  * Velocity across a jet at `rho` from its axis, `s` cm from its orifice: the core velocity on the axis (a narrow jet keeps
  * its peak, which a CW or PW measurement reads), ½ near `rHalf`, and nothing beyond `jetReach`.
  */
+/**
+ * Centreline speed of a jet, as a fraction of its orifice speed, at distance x from an orifice of diameter d (decision
+ * 240): a round turbulent jet decays as U_c/U_J = B/(x/d) with B = 5.8 (Pope, Turbulent Flows, 2000, eq. 5.6, on the
+ * measurements of Hussein, Capp & George 1994), so it keeps its speed over its first B·d. The regurgitant jets used to
+ * keep it over a fixed 1–1.5 cm and then fall (constants of the first version, without a source): the tricuspid jet of
+ * pulmonary hypertension (d 0.6 cm) had lost half its speed at 2.9 cm, where a free jet still has all of it, and the
+ * continuous-wave reading changed with every degree of cursor as the line crossed its axis nearer or farther from the
+ * orifice.
+ */
+const JET_DECAY_B = 5.8;
+function freeJetCentreline(x: number, dCm: number): number {
+  return x <= JET_DECAY_B * dCm ? 1 : (JET_DECAY_B * dCm) / x;
+}
+
+/** Where the SAM–septal contact narrows the outflow tract (cm along the aortic axis from the valve) and over what length. */
+const LVOT_OBSTRUCTION_T = -0.6;
+const LVOT_OBSTRUCTION_SIGMA_CM = 0.45;
+
 function jetProfile(rho: number, rHalf: number, s: number, shear: Shear = SLOW_SHEAR): number {
   const w = shear.orifice + shear.growth * Math.max(0, s);
   if (rho >= rHalf + 3 * w) return 0;
@@ -523,13 +541,15 @@ export function sampleFlow(
     const rho = Math.sqrt(qx * qx + qy * qy + qz * qz);
     const rLvot = Math.sqrt(p.lvotAreaCm2 / Math.PI);
     // a subaortic/dynamic obstruction narrows the effective area around the septal contact point (t ≈ −0.6)
-    const narrowAt = (tt: number): number => {
-      if (!p.lvotObstruction) return 0;
-      const tm = tables.timings;
-      const u = (phase * tables.rrS - tm.ejectionStartS) / (tm.ejectionEndS - tm.ejectionStartS);
-      const w = Math.exp(-((tt + 0.6) * (tt + 0.6)) / (2 * 0.45 * 0.45));
-      return lvotNarrowing(p.lvotObstruction.fMax, p.lvotObstruction.dynamic, u) * w;
-    };
+    const tmE = tables.timings;
+    const uEject =
+      (phase * tables.rrS - tmE.ejectionStartS) / (tmE.ejectionEndS - tmE.ejectionStartS);
+    const narrowPeak = p.lvotObstruction
+      ? lvotNarrowing(p.lvotObstruction.fMax, p.lvotObstruction.dynamic, uEject)
+      : 0;
+    const narrowAt = (tt: number): number =>
+      narrowPeak *
+      Math.exp(-((tt - LVOT_OBSTRUCTION_T) ** 2) / (2 * LVOT_OBSTRUCTION_SIGMA_CM ** 2));
     if (t < LVOT_ENTRANCE_T) {
       // the cavity converges on the entrance of the outflow tract (decision 166): a hemispheric sink carries the aortic
       // flow through every hemisphere around the entrance, capped at the tract's velocity, so its colour ends on a curve
@@ -576,12 +596,31 @@ export function sampleFlow(
       const rHalf = 0.917 * R;
       const sShear = Math.max(0, t - 1);
       const shear = p.avAreaCm2 < 2.0 ? FAST_JET_SHEAR : SLOW_SHEAR;
-      if (rho < jetReach(rHalf, sShear, shear)) {
+      // Beyond a subaortic obstruction the stream does not fill the tract again: it leaves the SAM–septal orifice as a free
+      // jet that keeps its speed over B·d of the orifice's diameter and crosses the valve (decision 240). Filling the tract
+      // right after the narrowing left 1 cm of fast flow for the continuous-wave line to find (the obstruction of the
+      // obstructive cardiomyopathy read 2.9 m/s from the A5C aimed at it, and 2.4 one degree off, for 4.0).
+      let vJet = 0;
+      if (narrowPeak > 0 && t > LVOT_OBSTRUCTION_T) {
+        const aEff = p.lvotAreaCm2 * (1 - narrowPeak);
+        const rEff = Math.sqrt(aEff / Math.PI);
+        const along = t - LVOT_OBSTRUCTION_T;
+        const rHalfJet = 0.917 * rEff * (1 + along * 0.45);
+        if (rho < jetReach(rHalfJet, along, FAST_JET_SHEAR))
+          vJet =
+            (qao / aEff / 100) *
+            freeJetCentreline(along, 2 * rEff) *
+            jetProfile(rho, rHalfJet, along, FAST_JET_SHEAR) *
+            fadeOut(t, 4, 5.5);
+      }
+      const reach = rho < jetReach(rHalf, sShear, shear);
+      if (reach || vJet > 0) {
         const v = qao / area / 100;
-        const prof = jetProfile(rho, rHalf, sShear, shear) * fadeOut(t, 4, 5.5);
-        out.vx += ax.x * v * prof;
-        out.vy += ax.y * v * prof;
-        out.vz += ax.z * v * prof;
+        const vTract = reach ? v * jetProfile(rho, rHalf, sShear, shear) * fadeOut(t, 4, 5.5) : 0;
+        const vOut = Math.max(vTract, vJet);
+        out.vx += ax.x * vOut;
+        out.vy += ax.y * vOut;
+        out.vz += ax.z * vOut;
         const stenotic =
           p.avAreaCm2 < 2.0 && t > 0
             ? Math.min(0.6, (2.0 - p.avAreaCm2) * 0.5)
@@ -676,7 +715,7 @@ export function sampleFlow(
         const rHalf = 0.84 * Rj;
         if (dzj >= 0 && rho < jetReach(rHalf, dzj, FAST_JET_SHEAR)) {
           const prof = jetProfile(rho, rHalf, dzj, FAST_JET_SHEAR);
-          const decay = (dzj < 1.0 ? 1 : 1 / (1 + (dzj - 1.0) / 1.6)) * fadeOut(dzj, 3.5, 4.5);
+          const decay = freeJetCentreline(dzj, (2 * r0) / 1.1) * fadeOut(dzj, 3.5, 4.5);
           out.vz -= vmax * prof * decay; // toward the RA (−z)
           // the case's turbulence for the jet, 0.25 when it declares none (decision 171)
           out.dispersion = Math.max(
@@ -821,7 +860,7 @@ export function sampleRegurgitantJets(
         const rHalf = 0.84 * (r0 + along * 0.3);
         if (rho < jetReach(rHalf, along, FAST_JET_SHEAR)) {
           const prof = jetProfile(rho, rHalf, along, FAST_JET_SHEAR);
-          const decay = (along < 1.2 ? 1 : 1 / (1 + (along - 1.2) / 1.8)) * fadeOut(along, 4, 5.5);
+          const decay = freeJetCentreline(along, (2 * r0) / 1.1) * fadeOut(along, 4, 5.5);
           const v = vj * prof * decay;
           out.vx += dirX * v;
           out.vz += dirZ * v;
@@ -873,7 +912,7 @@ export function sampleRegurgitantJets(
         const rHalf = 0.84 * (r0 + along * 0.35);
         if (rho < jetReach(rHalf, along, FAST_JET_SHEAR)) {
           const prof = jetProfile(rho, rHalf, along, FAST_JET_SHEAR);
-          const decay = (along < 1.5 ? 1 : 1 / (1 + (along - 1.5) / 2.0)) * fadeOut(along, 4.5, 6);
+          const decay = freeJetCentreline(along, (2 * r0) / 1.1) * fadeOut(along, 4.5, 6);
           const v = vj * prof * decay;
           out.vx -= ax.x * v;
           out.vy -= ax.y * v;
