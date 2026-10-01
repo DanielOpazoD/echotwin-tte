@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 240 (última: 240).
+Decisiones: 241 (última: 241).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -248,3 +248,4 @@ Decisiones: 240 (última: 240).
 | [238](DECISIONS.md#L1435) | 2026-09-25 | Una sola física de la escena: la calibración mide la imagen que la app muestra | vigente |
 | [239](DECISIONS.md#L1437) | 2026-09-25 | Un límite de tiempo por nivel, el mismo aquí y en el CI, y la respiración en tres archivos | vigente |
 | [240](DECISIONS.md#L1439) | 2026-09-25 | Los chorros conservan su velocidad como un chorro libre y la obstrucción de la MCH se alcanza con el CW | vigente |
+| [241](DECISIONS.md#L1441) | 2026-09-25 | La equivalencia GPU/CPU cubre los doce casos y las doce vistas | vigente |
