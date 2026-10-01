@@ -464,9 +464,15 @@ describe('beats of atrial fibrillation fill and eject by their own intervals (de
       // it ejects what the previous beat filled, and its volume continues where that beat ended
       if (i > 0 && Math.abs(tb.lvVolumeMl[0]! - (k.physiology.esvMl + eject)) > 0.02 * sv)
         problems.push(`RR ${rr}: starts at ${tb.lvVolumeMl[0]!.toFixed(1)} mL`);
-      fills.push([rr, tb.endVolumeMl - (k.physiology.esvMl + eject) + eject]);
+      // the diastole the beat has, from the mitral opening to the next QRS: its ejection, and so its opening, also depend
+      // on the RR before it
+      fills.push([rr - t.mitralOpenS, tb.endVolumeMl - (k.physiology.esvMl + eject) + eject]);
       if (complete && Math.abs(fills[i]![1] - sv) > 0.03 * sv)
         problems.push(`RR ${rr}: a complete E wave filled ${fills[i]![1].toFixed(1)} mL for ${sv}`);
+      // the volume closes on itself: the beat empties to the case's end-systolic volume before it fills (with the
+      // regurgitation computed from pressure alone a short beat lost more than it held, decision 245)
+      if (Math.min(...tb.lvVolumeMl) < k.physiology.esvMl - 0.2)
+        problems.push(`RR ${rr}: emptied to ${Math.min(...tb.lvVolumeMl).toFixed(1)} mL`);
       prev = tb;
       prevRr = rr;
     }
@@ -474,9 +480,10 @@ describe('beats of atrial fibrillation fill and eject by their own intervals (de
     // filling grows with the diastole it has and stops growing once the E wave fits (Frank–Starling in AF)
     const sorted = [...fills].sort((a, b) => a[0] - b[0]);
     for (let j = 1; j < sorted.length; j++)
-      expect(sorted[j]![1], `filling at RR ${sorted[j]![0]}`).toBeGreaterThanOrEqual(
-        sorted[j - 1]![1] - 0.5,
-      );
+      expect(
+        sorted[j]![1],
+        `filling over ${sorted[j]![0].toFixed(3)} s of diastole`,
+      ).toBeGreaterThanOrEqual(sorted[j - 1]![1] - 0.5);
     expect(sorted[0]![1]).toBeLessThan(0.5 * sv);
   });
 });
@@ -670,5 +677,141 @@ describe('the timing of systole and of the right-sided valves', () => {
       expect(aPrime, id).toBeGreaterThanOrEqual(6);
       expect(Math.abs(aPrime / target - 1), id).toBeLessThan(0.05);
     }
+  });
+});
+
+/**
+ * Mitral regurgitation runs from mitral closure to mitral opening, driven by the left ventricle's pressure over the
+ * atrium's (decision 245). It used to follow the ejection ±20 ms at the speed of the arterial pressure alone: 314 ms in
+ * the HFrEF case for 400 from closure to opening, and 5.24 m/s in the obstructive cardiomyopathy, whose ventricle pushes
+ * against a 64 mmHg outflow gradient as well.
+ */
+describe('mitral regurgitation through all of systole (decision 245)', () => {
+  const tablesOf = async (id: string) => {
+    const { loadCaseById } = await import('@/cases');
+    const { caseOutflow } = await import('./outflow');
+    const c = loadCaseById(id);
+    const tables = buildBeatTables(
+      60 / c.rhythm.heartRateBpm,
+      c.physiology,
+      c.rhythm,
+      c.hemodynamics,
+      {
+        outflow: caseOutflow(c),
+      },
+    );
+    return { c, tables };
+  };
+  /** First and last instants (s) with regurgitant flow, and its peak speed (m/s) and when it peaks (fraction of ejection). */
+  const regurgitation = (
+    c: { hemodynamics: { regurgitation: { mr?: { eroaCm2: number } } } },
+    tb: ReturnType<typeof buildBeatTables>,
+  ) => {
+    const ero = c.hemodynamics.regurgitation.mr!.eroaCm2;
+    const dt = tb.rrS / tb.n;
+    let first = NaN,
+      last = NaN,
+      peak = 0,
+      when = 0;
+    for (let i = 0; i < tb.n; i++) {
+      const v = (tb.mrFlowMlps[i] ?? 0) / ero / 100;
+      if (v < 0.5) continue;
+      const t = (i + 0.5) * dt;
+      if (Number.isNaN(first)) first = t;
+      last = t;
+      if (v > peak) {
+        peak = v;
+        when =
+          (t - tb.timings.ejectionStartS) / (tb.timings.ejectionEndS - tb.timings.ejectionStartS);
+      }
+    }
+    return { first, last, peak, when };
+  };
+
+  it('lasts from mitral closure to mitral opening in every regurgitant case', async () => {
+    const problems: string[] = [];
+    for (const id of [
+      'hfref-severe-mr',
+      'mvp-primary-mr',
+      'hocm-sam',
+      'af-diastolic',
+      'artifact-challenge',
+    ]) {
+      const { c, tables } = await tablesOf(id);
+      const r = regurgitation(c, tables);
+      const opening = tables.timings.mitralOpenS;
+      // 0.5 m/s from 20 ms into isovolumic contraction until 10 ms before the valve opens
+      if (!(r.first < 0.05)) problems.push(`${id}: starts at ${(r.first * 1000).toFixed(0)} ms`);
+      if (!(r.last > opening - 0.012))
+        problems.push(
+          `${id}: ends at ${(r.last * 1000).toFixed(0)} ms, the valve opens at ${(opening * 1000).toFixed(0)}`,
+        );
+    }
+    expect(problems).toEqual([]);
+    const { c, tables } = await tablesOf('hfref-severe-mr');
+    const r = regurgitation(c, tables);
+    expect((r.last - r.first) * 1000, 'HFrEF regurgitation, ms').toBeGreaterThan(360);
+  });
+
+  it('in the obstructive cardiomyopathy the ventricle adds the outflow gradient, late in systole', async () => {
+    const { c, tables } = await tablesOf('hocm-sam');
+    const r = regurgitation(c, tables);
+    // without the gradient: √((systolic − 15)/4) = 5.24 m/s at the arterial peak
+    const unobstructed = Math.sqrt((c.hemodynamics.systolicBpMmHg - 15) / 4);
+    const msg = `peak ${r.peak.toFixed(2)} m/s at ${r.when.toFixed(2)} of ejection; ${unobstructed.toFixed(2)} unobstructed`;
+    expect(r.peak, msg).toBeGreaterThan(6.0);
+    expect(r.when, msg).toBeGreaterThan(0.6);
+    // an unobstructed ventricle peaks with the arterial pressure, at its own systolic level
+    const mvp = await tablesOf('mvp-primary-mr');
+    const m = regurgitation(mvp.c, mvp.tables);
+    expect(m.peak).toBeCloseTo(Math.sqrt((mvp.c.hemodynamics.systolicBpMmHg - 15) / 4), 1);
+  });
+
+  it('without regurgitation end-systole is aortic closure, and a capped beat reports the speed it draws (review of decision 245)', async () => {
+    const { listCases } = await import('@/cases');
+    const problems: string[] = [];
+    for (const { id } of listCases()) {
+      const { c, tables } = await tablesOf(id);
+      if (!c.hemodynamics.regurgitation.mr && tables.endSystoleS !== tables.timings.ejectionEndS)
+        problems.push(
+          `${id}: end-systole ${(tables.endSystoleS * 1000).toFixed(0)} ms, aortic closure ${(tables.timings.ejectionEndS * 1000).toFixed(0)}`,
+        );
+      // the annulus does not shorten through isovolumic relaxation: tissue Doppler would read post-systolic shortening
+      const dt = tables.rrS / tables.n;
+      let sPeak = 0,
+        late = 0;
+      for (let i = 0; i < tables.n; i++) {
+        const t = (i + 0.5) * dt;
+        const v = tables.longitudinalVelocity[i] ?? 0;
+        if (t > tables.timings.ejectionStartS && t < tables.timings.ejectionEndS)
+          sPeak = Math.max(sPeak, v);
+        if (t > tables.timings.ejectionEndS + 0.03 && t < tables.timings.mitralOpenS)
+          late = Math.max(late, v);
+      }
+      if (late > 0.1 * sPeak)
+        problems.push(
+          `${id}: shortening at ${((100 * late) / sPeak).toFixed(0)} % of s′ after aortic closure`,
+        );
+    }
+    expect(problems).toEqual([]);
+    // a short beat of atrial fibrillation regurgitates only what it holds, at the speed its flow draws
+    const { loadCaseById } = await import('@/cases');
+    const k = loadCaseById('af-diastolic');
+    const tb = buildBeatTables(0.38, k.physiology, k.rhythm, k.hemodynamics, {
+      chain: {
+        ejectMl: 12.4,
+        mvAreaCm2: 3,
+        previousRrS: 0.75,
+        startLongitudinal: 0.5,
+        startRvLongitudinal: 0.5,
+      },
+    });
+    let drawn = 0;
+    for (let i = 0; i < tb.n; i++)
+      drawn = Math.max(
+        drawn,
+        (tb.mrFlowMlps[i] ?? 0) / k.hemodynamics.regurgitation.mr!.eroaCm2 / 100,
+      );
+    expect(tb.regurgitation.mrVmaxMps).toBeCloseTo(drawn, 2);
   });
 });

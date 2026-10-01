@@ -1,4 +1,5 @@
 import type { CaseDefinition } from '@/cases/schema';
+import { caseOutflow } from '@/simulator/cardiac-cycle/outflow';
 import {
   computeHeartPose,
   heartLandmarks,
@@ -281,6 +282,7 @@ export class SimulatorCore {
       tricuspidEFactor = 1 + variation.tricuspid * depth;
     }
     this.tables = buildBeatTables(c.rrS, phys, this.caseDef.rhythm, this.caseDef.hemodynamics, {
+      outflow: caseOutflow(this.caseDef),
       chain: {
         ejectMl,
         rvEjectMl: breathing ? (first ? svNominal : clampSv(prev.tricuspidFillMl)) : undefined,
@@ -723,6 +725,7 @@ export class SimulatorCore {
     return {
       ejectionStart: t.ejectionStartS / rr,
       ejectionEnd: t.ejectionEndS / rr,
+      endSystole: this.tables.endSystoleS / rr,
       mitralOpen: t.mitralOpenS / rr,
       eEnd: (t.mitralOpenS + t.eAccelS + t.eDecelS) / rr,
       aStart: t.hasAWave ? t.aStartS / rr : 1,

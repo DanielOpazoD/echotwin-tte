@@ -1,4 +1,10 @@
 import {
+  caseLvotObstruction,
+  caseOutflow,
+  lvotNarrowing,
+  solveLvotObstruction,
+} from '@/simulator/cardiac-cycle/outflow';
+import {
   heartAnchors,
   ROOT_EXCURSION,
   type HeartModel,
@@ -7,7 +13,6 @@ import {
 import type { BeatTables } from '@/simulator/cardiac-cycle/cycleModel';
 import { sampleTable } from '@/simulator/cardiac-cycle/cycleModel';
 import type { CaseDefinition } from '@/cases/schema';
-import { circularArea } from '@/clinical/formulas';
 import { smoothstep } from '@/core/vec3';
 import { Structure } from '@/simulator/anatomy/tissue';
 import { lvotRadiusAt } from '@/simulator/anatomy/aorticValve';
@@ -383,46 +388,7 @@ export function pulmonaryVeinPeaks(c: CaseDefinition): {
   return { sMps: Math.max(0, s), dMps: d, arMps: ar };
 }
 
-/** Fractional LVOT narrowing along the ejection (dynamic: late-peaking as SAM contact develops; static: constant). */
-export function lvotNarrowing(fMax: number, dynamic: boolean, u: number): number {
-  if (fMax <= 0) return 0;
-  if (!dynamic) return fMax;
-  const s = Math.min(1, Math.max(0, (u - 0.25) / 0.6));
-  return fMax * s * s * (3 - 2 * s);
-}
-
-/** Solve the maximal LVOT narrowing so that the peak LVOT velocity matches the case's peak gradient. */
-export function solveLvotObstruction(
-  tables: BeatTables,
-  lvotAreaCm2: number,
-  peakGradientMmHg: number,
-  dynamic: boolean,
-): { fMax: number; dynamic: boolean } | null {
-  if (peakGradientMmHg <= 0) return null;
-  const vTarget = Math.sqrt(peakGradientMmHg / 4);
-  const tm = tables.timings;
-  const vmaxFor = (fMax: number): number => {
-    let best = 0;
-    for (let i = 0; i < tables.n; i++) {
-      const q = tables.aorticFlowMlps[i] ?? 0;
-      if (q <= 0) continue;
-      const t = ((i + 0.5) / tables.n) * tables.rrS;
-      const u = (t - tm.ejectionStartS) / (tm.ejectionEndS - tm.ejectionStartS);
-      const area = lvotAreaCm2 * (1 - lvotNarrowing(fMax, dynamic, u));
-      best = Math.max(best, q / Math.max(area, 0.05) / 100);
-    }
-    return best;
-  };
-  let lo = 0,
-    hi = 0.97;
-  if (vmaxFor(hi) < vTarget) return { fMax: hi, dynamic };
-  for (let it = 0; it < 30; it++) {
-    const mid = (lo + hi) / 2;
-    if (vmaxFor(mid) < vTarget) lo = mid;
-    else hi = mid;
-  }
-  return { fMax: (lo + hi) / 2, dynamic };
-}
+export { lvotNarrowing, solveLvotObstruction };
 
 export function buildFlowParams(
   c: CaseDefinition,
@@ -440,7 +406,7 @@ export function buildFlowParams(
     ? Math.sqrt(Math.max(0, (c.hemodynamics.paspMmHg - c.hemodynamics.rapMmHg) / 4))
     : null;
   return {
-    lvotAreaCm2: circularArea(c.anatomy.aorta.lvotDiameterCm),
+    lvotAreaCm2: caseOutflow(c).lvotAreaCm2,
     avR: A.avR,
     avAreaCm2: c.hemodynamics.avEffectiveAreaCm2,
     mvAreaCm2: tables.mvEffectiveAreaCm2,
@@ -461,12 +427,7 @@ export function buildFlowParams(
     mrJetDirRad: ((c.hemodynamics.regurgitation.mr?.jetDirectionDeg ?? 0) * Math.PI) / 180,
     arEroCm2: c.hemodynamics.regurgitation.ar?.eroaCm2 ?? 0,
     trEroCm2: c.hemodynamics.regurgitation.tr?.eroaCm2 ?? null,
-    lvotObstruction: solveLvotObstruction(
-      tables,
-      circularArea(c.anatomy.aorta.lvotDiameterCm),
-      c.hemodynamics.lvotPeakGradientMmHg,
-      c.anatomy.mitral.samSeverity > 0,
-    ),
+    lvotObstruction: caseLvotObstruction(c, tables),
     pulmonaryVeins: {
       laCenter: A.laCenter,
       laR: A.laR,

@@ -64,7 +64,7 @@ export function renderApical(
 ): ApicalRender {
   const c = loadCaseById(caseId);
   const { thorax, heart, tables } = buildCaseModels(c, REST_PATIENT);
-  const phase = ed ? 0 : tables.timings.ejectionEndS / tables.rrS;
+  const phase = ed ? 0 : tables.endSystoleS / tables.rrS;
   const settings = DEFAULT_ACQUISITION;
   const spec = polarSpecFor(settings, CALIBRATED_TIER);
   const beam = beamFrameFromPose(

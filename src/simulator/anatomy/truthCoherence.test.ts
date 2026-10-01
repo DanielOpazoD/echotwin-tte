@@ -4,6 +4,7 @@ import { CASE_INPUTS, loadCaseById } from '@/cases';
 import { measureModel } from './measureModel';
 import { computeGroundTruth } from '@/simulator/hemodynamics/groundTruth';
 import { buildBeatTables } from '@/simulator/cardiac-cycle/cycleModel';
+import { caseOutflow } from '@/simulator/cardiac-cycle/outflow';
 
 /**
  * The truth a measurement is scored against must be what the image shows (decision 161). The panel of 2026-09-22
@@ -77,23 +78,36 @@ describe('the drawn heart matches the truth its measurements are scored against'
     // Within 20 % in every case and 5 % in the reference one, except where the case's own right ventricle is larger than
     // its forward flow can explain, declared with the ratio as baseline (±0.05).
     const KNOWN_RATIOS: ReadonlyMap<string, number> = new Map([
-      // enlarged right ventricle (192 mL declared by its dimensions) with 35 mL of forward flow after the regurgitant
-      // mitral volume; its tricuspid regurgitation has no volume in the beat tables (2.30 until the neck of the
-      // ventricle narrowed into the mitral annulus, decision 226, and moved its septum at the base; 2.24 until the free
-      // wall hung from the tricuspid annulus and the body's contraction rose from 0.75 to 0.9, decision 243)
-      ['hfref-severe-mr', 2.47],
-      // the systolic anterior motion's mitral regurgitation takes 18 mL of the 70 the ventricle ejects
-      ['hocm-sam', 1.68],
+      // Since decision 245 the mitral regurgitation runs through all of systole and the forward flow falls; the right
+      // ventricle's geometry does not know it (its end-systole is pulmonary closure, with the free wall of decision 243).
+      // enlarged right ventricle (192 mL declared by its dimensions) with 22 mL of forward flow after the regurgitant
+      // mitral volume; its tricuspid regurgitation has no volume in the beat tables (2.24 before decisions 243 and 245)
+      ['hfref-severe-mr', 3.79],
+      // the systolic anterior motion's mitral regurgitation takes 30 mL of the 70 the ventricle ejects (1.68 before)
+      ['hocm-sam', 2.14],
+      // the primary regurgitation leaves 29 mL forward of the ventricle's stroke
+      ['mvp-primary-mr', 2.04],
+      // its mild regurgitation, through all of systole since decision 245, leaves 42 mL forward
+      ['af-diastolic', 1.32],
       // the tricuspid regurgitation of the case (effective orifice 0.3 cm²) carries the difference
       ['pulmonary-hypertension-rv', 1.29],
       // it ejects what its left ventricle ejects in total (68 of 69 mL): the forward flow subtracts a regurgitant volume
       // the right ventricle's geometry does not know; the septal crest (decision 223) added the last mL
-      ['artifact-challenge', 1.21],
+      ['artifact-challenge', 1.36],
     ]);
     const problems: string[] = [];
     for (const input of CASE_INPUTS) {
       const c = loadCaseById(input.id);
-      const t = buildBeatTables(60 / c.rhythm.heartRateBpm, c.physiology, c.rhythm, c.hemodynamics);
+      // the tables the app draws, with the case's outflow obstruction (decision 245)
+      const t = buildBeatTables(
+        60 / c.rhythm.heartRateBpm,
+        c.physiology,
+        c.rhythm,
+        c.hemodynamics,
+        {
+          outflow: caseOutflow(c),
+        },
+      );
       const forward = t.strokeVolumeMl - t.regurgitation.mrVolumeMl - t.regurgitation.arVolumeMl;
       const m = measureModel(c, undefined, 90000);
       const row = (id: string) => m.rows.find((r) => r.id === id)!.value;

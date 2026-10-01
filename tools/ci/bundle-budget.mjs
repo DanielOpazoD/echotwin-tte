@@ -12,10 +12,12 @@ const KB = 1024;
 const BUDGETS = [
   // entry: the imaging app without three.js, the secondary screens, the backend-comparison hook and — since the
   // navigator model comes from the mesh worker and the inline core loads on demand (audit B7) — without the
-  // anatomy engine: 499 kB measured on 2026-09-16, down from 703 kB.
-  [/^index-.*\.js$/, 575 * KB],
+  // anatomy engine: 499 kB measured on 2026-09-16, down from 703 kB. It had grown to 574.9 kB by decision 244, of which
+  // ~205 kB were React's DOM renderer: the react chunk named `react-dom` but not `react-dom/client`, the module the app
+  // imports, nor its scheduler (decision 245). 369 kB since then.
+  [/^index-.*\.js$/, 400 * KB],
   [/^three-.*\.js$/, 600 * KB], // three.js, loaded with the navigator
-  [/^react-.*\.js$/, 40 * KB],
+  [/^react-.*\.js$/, 230 * KB], // React and its DOM renderer: 216 kB at decision 245
   [/^TorsoView-.*\.js$/, 60 * KB],
   [/^sim\.worker-.*\.js$/, 320 * KB],
   // the WebGL2 port and its shaders: shared by the simulation worker and the lazy backend comparison. 119.7 kB at

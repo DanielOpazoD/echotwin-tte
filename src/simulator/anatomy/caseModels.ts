@@ -7,6 +7,7 @@ import {
   type BeatTables,
 } from '@/simulator/cardiac-cycle/cycleModel';
 import { fitDiaphragmMap } from './diaphragm';
+import { caseOutflow } from '@/simulator/cardiac-cycle/outflow';
 
 /**
  * The models of a case for a patient state: thorax → heart (placed by the thorax, with the IVC collapse the
@@ -53,6 +54,7 @@ export function buildCaseModels(caseDef: CaseDefinition, patient: PatientState):
     caseDef.physiology,
     caseDef.rhythm,
     caseDef.hemodynamics,
+    { outflow: caseOutflow(caseDef) },
   );
   // the diaphragm meets the right heart it carries (decision 229)
   thorax.diaphragmMap = fitDiaphragmMap(heart, cycleStateAt(tables, 0));

@@ -1364,7 +1364,9 @@ describe('the spectral display is an estimate with its granular texture (decisio
   it('the auto-trace of a filling marked from before the mitral opening reads the filling (decision 232)', () => {
     for (const [caseId, view, through, befores] of [
       ['aortic-stenosis-severe', 'a5c', 'aortic', [5, 15, 30]],
-      ['hfref-severe-mr', 'a4c', 'mitral', [20, 40, 80]],
+      // the regurgitation runs on through isovolumic relaxation (decision 245): from 80 ms before the opening the
+      // selection holds more regurgitant flow than filling, and the trace rightly follows it
+      ['hfref-severe-mr', 'a4c', 'mitral', [10, 20, 40]],
     ] as const) {
       const { t, trace, firstAt } = apicalCwStrip(caseId, view, through);
       const aEnd = firstAt(t.aEndS * 1000);
