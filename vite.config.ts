@@ -1,4 +1,5 @@
 /// <reference types="vitest/config" />
+import { DurationSequencer } from './tools/ci/durationSequencer';
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
@@ -92,6 +93,8 @@ export default defineConfig({
   worker: { format: 'es', plugins: () => [glslStrip()] },
   test: {
     environment: 'node',
+    // shards balanced by the time their files take, not by their count (decision 239)
+    sequence: { sequencer: DurationSequencer },
     // each tier is a project with its own limit; VITEST_TIER picks which run
     projects: [
       ...(testTier === 'slow'
