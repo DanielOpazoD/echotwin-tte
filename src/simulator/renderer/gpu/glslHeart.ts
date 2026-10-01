@@ -582,7 +582,15 @@ vec4 rvRadii(float az, float z, float contraction, float tvZ, float rvCollapse) 
   float rIn = rEpi - septalShiftAt(SEPTAL_SHIFT, az, levelFrac) + 0.05;
   if (u <= 0.0 || u >= 1.0) return vec4(rIn, u, rIn, 0.0);
   float tvPlane = TV_CZ + tvZ;
-  float t = RV_T * rvAzProfile(RV_AZA, RV_AZP, u) * rvAxialTaper(tvPlane, RV_APEX_FRAC * L, z) * (1.0 - rvRadialContraction(u) * contraction * RV_RADIAL_SCALE);
+  float t = RV_T * rvAzProfile(RV_AZA, RV_AZP, u) * rvAxialTaper(tvPlane, RV_APEX_FRAC * L, z) * (1.0 - rvRadialContraction(u) * rvRadialState(tvZ, RV_TAPSE, contraction) * RV_RADIAL_SCALE);
+  // decision 243: the free wall hangs from the annulus, which shortens about its septal edge
+  float tvR = TV_R * (1.0 - TV_SYSTOLIC_SHORTENING * contraction);
+  float tvCx = TV_CX + (TV_R - tvR);
+  float rc = length(vec2(tvCx, TV_CY));
+  float dAz = az - atan(TV_CY, tvCx);
+  dAz = abs(dAz - TWO_PI * floor(dAz / TWO_PI + 0.5));
+  float wH = rvHingeWeight(dAz, asin(min(1.0, tvR / rc)), z - tvPlane);
+  if (wH > 0.0) t += wH * max(0.0, rvHingeRadius(rc, tvR, dAz) - rIn - crestLossR - t);
   if (rvCollapse > 0.0 && u < 0.55) t *= 1.0 - 0.65 * rvCollapse * (1.0 - u / 0.55);
   return vec4(rIn, u, rIn + t + crestLossR, t + crestLossR);
 }
@@ -981,7 +989,9 @@ bool classifyHeart(vec3 p0, out Sample s) {
   // ---------- RV ----------
   vec3 rvc = rvCrescent(p, az);
   float dRv = rvc.x;
-  float dRvU = smin(dRv, tvInflowSdf(p), 0.3);
+  // decision 243: the inflow column inside the free wall below the hinges (rv.ts rvInflowSdf)
+  float dIn = max(tvInflowSdf(p), length(p.xy) - rvc.z - rvInflowSlack(p.z - (TVS_CZ + tvOffsetAt(p.xy))));
+  float dRvU = smin(dRv, dIn, 0.3);
   {
     float sc = CONTRACTION;
     float fw = rvFreeWallNow(RV_FW, sc);

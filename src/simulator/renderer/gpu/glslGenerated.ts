@@ -75,6 +75,25 @@ float rvRadialContraction(float u) {
   float s = min(1.0, max(0.0, (u - 0.15) / 0.35));
   return 0.15 + (RV_BODY_RADIAL_CONTRACTION - 0.15) * s * s * (3.0 - 2.0 * s);
 }
+// src/simulator/anatomy/rv.ts: rvRadialState
+float rvRadialState(float tvZ, float tapseCm, float contraction) {
+  return tapseCm > 0.0 ? min(contraction, max(0.0, tvZ / tapseCm)) : contraction;
+}
+// src/simulator/anatomy/rv.ts: rvHingeWeight
+float rvHingeWeight(float dAz, float halfAz, float h) {
+  float a = min(1.0, max(0.0, (halfAz + RV_HINGE_FADE_RAD - dAz) / RV_HINGE_FADE_RAD));
+  float g = min(1.0, max(0.0, (h - RV_HINGE_PLATEAU_CM) / RV_HINGE_CM));
+  return a * a * (3.0 - 2.0 * a) * (1.0 - g * g * (3.0 - 2.0 * g));
+}
+// src/simulator/anatomy/rv.ts: rvHingeRadius
+float rvHingeRadius(float rc, float R, float dAz) {
+  float sn = rc * sin(dAz);
+  return rc * cos(dAz) + sqrt(max(0.0, R * R - sn * sn));
+}
+// src/simulator/anatomy/rv.ts: rvInflowSlack
+float rvInflowSlack(float h) {
+  return 1.5 * max(0.0, RV_INFLOW_REACH_CM - h);
+}
 // src/simulator/anatomy/lvWall.ts: septalShiftAt
 float septalShiftAt(float shiftCm, float az, float levelFrac) {
   if (shiftCm <= 0.0) {
@@ -290,4 +309,4 @@ float sliceHalfWidthCm(float rCm, float focusCm) {
 `;
 
 /** Shader constants the generated functions read (must be #defines or constants of the including shader). */
-export const GLSL_GENERATED_FREE_IDENTIFIERS: readonly string[] = ["CORD_CM","DESC_AORTA_R","DESC_AORTA_SLEEVE","DESC_AORTA_SLEEVE_FORWARD","DESC_AORTA_WALL","DESC_AORTA_X","DESC_AORTA_Z","FOCUS_HALF_APERTURE_MM","FOCUS_HALF_ELEVATION_MM","FOCUS_WAIST_ELEVATION_MM","FOCUS_WAIST_LATERAL_MM","LV_NECK_ZETA","MEMBRANE_CM","MYO_ANISO_FLOOR","MYO_HELIX_ENDO_DEG","MYO_HELIX_EPI_DEG","REVERB_DECAY","REVERB_DIFFUSE","REVERB_DIFFUSE_DECAY_CM","REVERB_GAIN","REVERB_PERIOD_MIN_CM","REVERB_WIDTH_CM","RV_BODY_RADIAL_CONTRACTION","SEPTAL_CREST_AZ","SEPTAL_CREST_HALF_WIDTH","SEPTAL_CREST_Z_CM","SLICE_HALF_BASE_CM","SLICE_HALF_SLOPE"];
+export const GLSL_GENERATED_FREE_IDENTIFIERS: readonly string[] = ["CORD_CM","DESC_AORTA_R","DESC_AORTA_SLEEVE","DESC_AORTA_SLEEVE_FORWARD","DESC_AORTA_WALL","DESC_AORTA_X","DESC_AORTA_Z","FOCUS_HALF_APERTURE_MM","FOCUS_HALF_ELEVATION_MM","FOCUS_WAIST_ELEVATION_MM","FOCUS_WAIST_LATERAL_MM","LV_NECK_ZETA","MEMBRANE_CM","MYO_ANISO_FLOOR","MYO_HELIX_ENDO_DEG","MYO_HELIX_EPI_DEG","REVERB_DECAY","REVERB_DIFFUSE","REVERB_DIFFUSE_DECAY_CM","REVERB_GAIN","REVERB_PERIOD_MIN_CM","REVERB_WIDTH_CM","RV_BODY_RADIAL_CONTRACTION","RV_HINGE_CM","RV_HINGE_FADE_RAD","RV_HINGE_PLATEAU_CM","RV_INFLOW_REACH_CM","SEPTAL_CREST_AZ","SEPTAL_CREST_HALF_WIDTH","SEPTAL_CREST_Z_CM","SLICE_HALF_BASE_CM","SLICE_HALF_SLOPE"];

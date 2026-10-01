@@ -11,7 +11,14 @@ import {
   DESC_AORTA_X,
   DESC_AORTA_Z,
 } from '@/simulator/anatomy/thoraxModel';
-import { RV_BODY_RADIAL_CONTRACTION } from '@/simulator/anatomy/rv';
+import {
+  RV_BODY_RADIAL_CONTRACTION,
+  RV_INFLOW_REACH_CM,
+  RV_HINGE_CM,
+  RV_HINGE_PLATEAU_CM,
+  RV_HINGE_FADE_RAD,
+} from '@/simulator/anatomy/rv';
+import { TV_SYSTOLIC_SHORTENING } from '@/simulator/anatomy/valveSkirt';
 import { LV_NECK_ZETA } from '@/simulator/anatomy/lvShape';
 import {
   SEPTAL_CREST_AZ,
@@ -120,6 +127,12 @@ const float DESC_AORTA_SLEEVE = ${gf(DESC_AORTA_SLEEVE)};
 const float DESC_AORTA_SLEEVE_FORWARD = ${gf(DESC_AORTA_SLEEVE_FORWARD)};
 // right ventricular body contraction (rv.ts, decision 220): read by the generated rvRadialContraction
 const float RV_BODY_RADIAL_CONTRACTION = ${gf(RV_BODY_RADIAL_CONTRACTION)};
+// free wall hung from the tricuspid annulus and reach of the inflow column (rv.ts, decision 243)
+const float RV_HINGE_PLATEAU_CM = ${gf(RV_HINGE_PLATEAU_CM)};
+const float RV_HINGE_CM = ${gf(RV_HINGE_CM)};
+const float RV_HINGE_FADE_RAD = ${gf(RV_HINGE_FADE_RAD)};
+const float TV_SYSTOLIC_SHORTENING = ${gf(TV_SYSTOLIC_SHORTENING)};
+const float RV_INFLOW_REACH_CM = ${gf(RV_INFLOW_REACH_CM)};
 // septal crest (lvWall.ts, decision 223): read by the generated septalCrestFactor
 const float SEPTAL_CREST_AZ = ${gf(SEPTAL_CREST_AZ)};
 const float SEPTAL_CREST_HALF_WIDTH = ${gf(SEPTAL_CREST_HALF_WIDTH)};

@@ -79,8 +79,9 @@ describe('the drawn heart matches the truth its measurements are scored against'
     const KNOWN_RATIOS: ReadonlyMap<string, number> = new Map([
       // enlarged right ventricle (192 mL declared by its dimensions) with 35 mL of forward flow after the regurgitant
       // mitral volume; its tricuspid regurgitation has no volume in the beat tables (2.30 until the neck of the
-      // ventricle narrowed into the mitral annulus, decision 226, and moved its septum at the base)
-      ['hfref-severe-mr', 2.24],
+      // ventricle narrowed into the mitral annulus, decision 226, and moved its septum at the base; 2.24 until the free
+      // wall hung from the tricuspid annulus and the body's contraction rose from 0.75 to 0.9, decision 243)
+      ['hfref-severe-mr', 2.47],
       // the systolic anterior motion's mitral regurgitation takes 18 mL of the 70 the ventricle ejects
       ['hocm-sam', 1.68],
       // the tricuspid regurgitation of the case (effective orifice 0.3 cm²) carries the difference

@@ -30,7 +30,16 @@ export const TARGETS: GenTarget[] = [
   },
   {
     file: 'src/simulator/anatomy/rv.ts',
-    functions: ['rvAxialTaper', 'rvAzProfile', 'rvFloorZ', 'rvRadialContraction'],
+    functions: [
+      'rvAxialTaper',
+      'rvAzProfile',
+      'rvFloorZ',
+      'rvRadialContraction',
+      'rvRadialState',
+      'rvHingeWeight',
+      'rvHingeRadius',
+      'rvInflowSlack',
+    ],
   },
   { file: 'src/simulator/anatomy/lvWall.ts', functions: ['septalShiftAt', 'septalCrestFactor'] },
   { file: 'src/simulator/anatomy/lvSegments.ts', functions: ['lvSegmentCode', 'lvWallKind'] },

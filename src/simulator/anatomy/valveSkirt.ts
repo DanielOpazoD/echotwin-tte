@@ -320,6 +320,14 @@ export function tvInflowSdf(x: number, y: number, z: number, tv: SkirtDesc, tvZ:
   return rho - tv.R + 0.04 + tvInflowTaper(h, 0.25 + 0.3 * tvZ, bulge);
 }
 
+/**
+ * Systolic shortening of the tricuspid annular dimensions. In healthy adults the annulus is largest in late diastole
+ * and smallest in mid-to-late systole, with fractional area change 35 ± 10 % and perimeter and diameters shortening by
+ * 20 % or more (3D echocardiography, n = 209); the septal edge is anchored to the fibrous septum and the free-wall side
+ * moves.
+ */
+export const TV_SYSTOLIC_SHORTENING = 0.2;
+
 /** How far the right ventricular inflow widens beyond the annulus toward the free wall (cm, decision 138). */
 export const TV_INFLOW_BULGE_CM = 0.2;
 

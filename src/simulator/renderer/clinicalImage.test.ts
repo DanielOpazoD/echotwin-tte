@@ -178,12 +178,12 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // decision 229: the diaphragm under the right heart takes the lung out of the four-chamber sector's deep corner (fat and
   // 0.3 % of liver where it was) and the band grows darker: 27.45 → 27.60 quartile widths
   ['4CH-ED:bandDark6', 27.6],
-  ['4CH-ES:bandDark6', 1.2],
+  ['4CH-ES:bandDark6', 1.71],
   ['2CH-ED:bandDark6', 6.66],
   ['2CH-ES:bandDark6', 3.85],
-  ['4CH-ED:bandDark8', 12.12],
+  ['4CH-ED:bandDark8', 12.43],
   // up from 1.63 at decision 220: the contracted right ventricle leaves the atria deeper in the sector at end-systole
-  ['4CH-ES:bandDark8', 1.86],
+  ['4CH-ES:bandDark8', 1.7],
   // decision 221: the A-lines that lit this band at oblique incidence are gone
   ['2CH-ED:bandDark8', 1.31],
   ['2CH-ES:bandDark8', 0.22],
@@ -193,7 +193,7 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // 1.18 → 1.35 with the RV body contracting 0.42 (decision 214): 0.0044 → 0.0047 of the band's pixels dark, against
   // CAMUS Good median 0, p75 0.002 and p90 0.015 — an IQR of 0.002 turns 0.0003 into 0.17 widths
   // decision 221: the A-lines that lit this band at oblique incidence are gone
-  ['4CH-ES:bandDark10', 1.14],
+  ['4CH-ES:bandDark10', 1.3],
   ['2CH-ED:bandDark10', 0.21],
   // decision 221: the A-lines that lit this band at oblique incidence are gone
   ['2CH-ES:bandDark10', 0.73],
@@ -208,9 +208,9 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['4CH-ES:gradientP95', 0.44],
   ['2CH-ED:gradientP95', 1.13],
   ['2CH-ES:gradientP95', 0.9],
-  ['4CH-ED:ridgeFraction', 1.23],
+  ['4CH-ED:ridgeFraction', 1.07],
   // 0.36 → 0.56 at decision 226: thin bright lines at the systolic crux, where both valves now hinge on the septum
-  ['4CH-ES:ridgeFraction', 0.56],
+  ['4CH-ES:ridgeFraction', 0.37],
   ['2CH-ES:ridgeFraction', 0.45],
   ['2CH-ED:ridgeFraction', 1.2],
   // more texture contrast over the whole sector: the blood pool and background are grainier than the clinical haze
