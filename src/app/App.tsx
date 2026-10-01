@@ -186,27 +186,6 @@ export function App() {
                   </Suspense>
                 </ErrorBoundary>
               )}
-              {/* the view guide stays hidden until asked for: the learner reads the image first (decision 141) */}
-              {railVisible && (
-                <button
-                  className="rail-head"
-                  onClick={() => useSimStore.getState().setUi({ guidanceOpen: !ui.guidanceOpen })}
-                  aria-expanded={ui.guidanceOpen}
-                  aria-controls="view-guidance"
-                  data-tip="Puntuación de la vista, referencias que faltan y explicaciones"
-                >
-                  <span className="chev" aria-hidden="true">
-                    <IconChevronRight size={13} />
-                  </span>
-                  Guía de la vista
-                  <RailScore />
-                </button>
-              )}
-              {railVisible && ui.guidanceOpen && (
-                <div id="view-guidance">
-                  <GuidancePanel />
-                </div>
-              )}
               {/* LV segments of the plane (decision 152): a learning aid, hidden like the guide until asked for */}
               {railVisible && modePolicy(mode).hintsEnabled && (
                 <button
@@ -225,6 +204,28 @@ export function App() {
               {railVisible && ui.segmentsOpen && (
                 <div id="lv-segments">
                   <SegmentPanel />
+                </div>
+              )}
+              {/* the view guide stays hidden until asked for: the learner reads the image first (decision 141); it
+                  sits at the rail's bottom edge, in a smaller header (decision 242) */}
+              {railVisible && (
+                <button
+                  className="rail-head guide-head"
+                  onClick={() => useSimStore.getState().setUi({ guidanceOpen: !ui.guidanceOpen })}
+                  aria-expanded={ui.guidanceOpen}
+                  aria-controls="view-guidance"
+                  data-tip="Puntuación de la vista, referencias que faltan y explicaciones"
+                >
+                  <span className="chev" aria-hidden="true">
+                    <IconChevronRight size={13} />
+                  </span>
+                  Guía de la vista
+                  <RailScore />
+                </button>
+              )}
+              {railVisible && ui.guidanceOpen && (
+                <div id="view-guidance">
+                  <GuidancePanel />
                 </div>
               )}
             </div>

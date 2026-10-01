@@ -6,6 +6,7 @@ import { useSimStore } from '@/app/store';
  * front of the patient and lets the user rotate the probe by dragging the marker dot.
  * 0° = marker toward the patient's right shoulder (upper-left on screen); positive = clockwise. Decision 188: the value
  * sits in the middle and the ±15° buttons went away (a click on the ring jumps there, Page Up/Down and Q E step 15°).
+ * Decision 242: drawn at 60 px, with its words and knob larger in the drawing's units so they read the same.
  */
 const R = 28;
 const CX = 44,
@@ -42,8 +43,8 @@ export function RotationDial() {
     >
       <svg
         viewBox="0 0 88 88"
-        width={76}
-        height={76}
+        width={60}
+        height={60}
         role="slider"
         tabIndex={0}
         aria-label="Rotación de la sonda (marcador)"
@@ -116,7 +117,7 @@ export function RotationDial() {
           x2={mx}
           y2={my}
         />
-        <circle className="dial-knob" cx={mx} cy={my} r={5.5} />
+        <circle className="dial-knob" cx={mx} cy={my} r={7} />
         <text className="dial-val" x={CX} y={CY + 4} textAnchor="middle">
           {Math.round(rotation)}°
         </text>

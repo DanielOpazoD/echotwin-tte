@@ -572,6 +572,12 @@ export function TorsoView() {
         .nudgeProbe({ rotationDeg: Math.sign(e.deltaY) * (e.shiftKey ? 10 : 3) });
     };
     const dom = renderer.domElement;
+    // a drag keeps the pointer (decision 242): the mouse events of a drag that crosses the dial or the camera buttons
+    // go on to the canvas, so those controls neither light up, nor show their tip, nor take the gesture on the way
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.pointerType === 'mouse') dom.setPointerCapture(e.pointerId);
+    };
+    dom.addEventListener('pointerdown', onPointerDown);
     dom.addEventListener('mousedown', onDown);
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
@@ -813,6 +819,7 @@ export function TorsoView() {
       el.removeChild(tipEl);
       meshWorker.terminate();
       ro.disconnect();
+      dom.removeEventListener('pointerdown', onPointerDown);
       dom.removeEventListener('mousedown', onDown);
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
@@ -854,7 +861,7 @@ export function TorsoView() {
             data-tip-key="Ctrl/⌘+rueda"
             aria-label="Acercar"
           >
-            <IconPlus size={14} />
+            <IconPlus size={12} />
           </button>
           <button
             className="icon-btn"
@@ -862,7 +869,7 @@ export function TorsoView() {
             data-tip="Alejar"
             aria-label="Alejar"
           >
-            <IconMinus size={14} />
+            <IconMinus size={12} />
           </button>
           <button
             className="icon-btn"
@@ -870,7 +877,7 @@ export function TorsoView() {
             data-tip="Centrar la cámara en la sonda"
             aria-label="Centrar la cámara en la sonda"
           >
-            <IconCrosshair size={14} />
+            <IconCrosshair size={12} />
           </button>
           <LayerMenu />
         </div>
@@ -918,7 +925,7 @@ function LayerMenu() {
         data-tip="Capas del navegador 3D"
         onClick={() => setOpen(!open)}
       >
-        <IconLayers size={14} />
+        <IconLayers size={12} />
       </button>
       {open && (
         <div className="menu down" role="menu" aria-label="Capas del navegador 3D">

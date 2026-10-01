@@ -65,6 +65,21 @@ describe('SegmentPanel', () => {
     expect(screen.getByText(/evaluables 3, 6, 9, 12, 14, 16, 17/)).toBeTruthy();
   });
 
+  it('the colour key lists the segments of each state, with the reasons in its tip, and the short switch keeps its full name (decision 242)', () => {
+    seed();
+    render(<SegmentPanel />);
+    const partial = screen.getByText(/parciales 13/);
+    expect(partial.getAttribute('data-tip')).toBe(
+      'En el plano, sin evaluar: 13 (corte demasiado pequeño o tangencial)',
+    );
+    expect(screen.getByText(/^fuera del plano$/)).toBeTruthy();
+    const sw = screen.getByRole('button', {
+      name: 'Colorear segmentos en el corte y el corazón 3D',
+    });
+    fireEvent.click(sw);
+    expect(useSimStore.getState().ui.navSegments).toBe(true);
+  });
+
   it('draws 17 segments in the anatomical model and 16 in the wall-motion model, whose apex has no 17', () => {
     seed();
     render(<SegmentPanel />);
