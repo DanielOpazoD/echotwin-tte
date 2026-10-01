@@ -6,9 +6,9 @@
  * Usage: npx tsx tools/offline/render/image-metrics.ts [caseId] [phase]
  */
 import { loadCaseById } from '@/cases';
-import { createHeartModel, computeHeartPose } from '@/simulator/anatomy/heartModel';
-import { createThoraxModel } from '@/simulator/anatomy/thoraxModel';
-import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
+import { computeHeartPose } from '@/simulator/anatomy/heartModel';
+import { buildCaseModels, REST_PATIENT } from '@/simulator/anatomy/caseModels';
+import { cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { ProceduralSliceRenderer } from '@/simulator/renderer/procedural/sliceRenderer';
 import {
   allocPolarFrame,
@@ -27,20 +27,7 @@ import { Structure, Tissue } from '@/simulator/anatomy/tissue';
 const caseId = process.argv[2] ?? 'normal-excellent-window';
 const PHASE = Number(process.argv[3] ?? 0.35);
 const c = loadCaseById(caseId);
-const thorax = createThoraxModel(
-  c.bodyHabitus,
-  c.acousticWindow,
-  { position: 'left-lateral', respiration: 'expiration', headElevationDeg: 0 },
-  c.anatomy.ivc.collapsePct,
-);
-const heart = createHeartModel(
-  c.anatomy,
-  c.physiology,
-  thorax.heartOffset,
-  c.seed,
-  thorax.ivcCollapse,
-);
-const tables = buildBeatTables(60 / c.rhythm.heartRateBpm, c.physiology, c.rhythm, c.hemodynamics);
+const { thorax, heart, tables } = buildCaseModels(c, REST_PATIENT);
 const renderer = new ProceduralSliceRenderer();
 
 function scene(settings: AcquisitionSettings): Scene {

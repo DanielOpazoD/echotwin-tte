@@ -31,22 +31,31 @@ describe('buildCaseModels', () => {
     expect(m.caseDef).toBe(c);
   });
 
-  it('is the only place in src/ (outside tests) that calls the model constructors', () => {
+  it('is the only chain that builds the models: in src/, in tools/ and in the goldens (decision 237)', () => {
+    // the builder and the constructors' own modules; the anatomy's unit tests build variants on purpose, but the goldens
+    // stand for the app's image and the offline tools measure it, so they take the app's models
+    const OWN = new Set(
+      ['caseModels', 'heartModel', 'thoraxModel', 'diaphragm'].map(
+        (m) => `src/simulator/anatomy/${m}.ts`,
+      ),
+    );
+    const APP_CHAIN_TESTS = new Set(['src/tests/goldens.test.ts']);
     const offenders: string[] = [];
     const walk = (dir: string) => {
       for (const name of readdirSync(dir)) {
         const p = join(dir, name);
-        if (statSync(p).isDirectory()) walk(p);
-        else if (/\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name)) {
-          const rel = p.slice(process.cwd().length + 1);
-          // the builder, the constructors themselves and the offline measurer (which builds per case on purpose)
-          if (rel.startsWith('src/simulator/anatomy/')) continue;
-          const s = readFileSync(p, 'utf8');
-          if (/\b(createHeartModel|createThoraxModel)\(/.test(s)) offenders.push(rel);
+        if (statSync(p).isDirectory()) {
+          if (name !== 'node_modules' && name !== 'out') walk(p);
+          continue;
         }
+        const rel = p.slice(process.cwd().length + 1);
+        if (!/\.tsx?$/.test(name) || OWN.has(rel)) continue;
+        if (/\.test\.tsx?$/.test(name) && !APP_CHAIN_TESTS.has(rel)) continue;
+        const s = readFileSync(p, 'utf8');
+        if (/\b(createHeartModel|createThoraxModel|fitDiaphragmMap)\(/.test(s)) offenders.push(rel);
       }
     };
-    walk(join(process.cwd(), 'src'));
+    for (const dir of ['src', 'tools']) walk(join(process.cwd(), dir));
     expect(offenders, 'build the models through buildCaseModels').toEqual([]);
   });
 });

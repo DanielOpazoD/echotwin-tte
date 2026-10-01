@@ -19,6 +19,13 @@ import { fitDiaphragmMap } from './diaphragm';
  * worker and the backend-comparison hook — and the main-thread copy already omitted the IVC collapse, so the
  * navigator cut a different vena cava from the one the beam imaged.
  */
+/** The patient every case starts with and the offline tools render: left lateral, in expiration, lying flat. */
+export const REST_PATIENT: PatientState = {
+  position: 'left-lateral',
+  respiration: 'expiration',
+  headElevationDeg: 0,
+};
+
 export interface CaseModels {
   caseDef: CaseDefinition;
   thorax: ThoraxModel;

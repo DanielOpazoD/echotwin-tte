@@ -4,10 +4,8 @@ import {
   ROOT_EXCURSION,
   classifyHeart,
   computeHeartPose,
-  createHeartModel,
   estimateStructureVolume,
   heartAnchors,
-  heartLandmarks,
   heartToTorso,
   lvCavityRadiusAt,
   lvEpicardialRadiusAt,
@@ -15,8 +13,9 @@ import {
 } from './heartModel';
 import { cross, dot, normalize, sub, type Vec3 } from '@/core/vec3';
 import { LVOT_TAPER_CM } from './aorticValve';
-import { createThoraxModel, type PatientState } from './thoraxModel';
-import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
+import type { PatientState } from './thoraxModel';
+import { cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
+import { buildCaseModels, REST_PATIENT } from './caseModels';
 import { makeSample, Structure, Tissue } from './tissue';
 import { createRng } from '@/core/random';
 import { bsaMosteller } from '@/clinical/formulas';
@@ -50,26 +49,13 @@ export interface ModelMeasurements {
   rows: MeasureRow[];
 }
 
-const DEFAULT_PATIENT: PatientState = {
-  position: 'left-lateral',
-  respiration: 'expiration',
-  headElevationDeg: 0,
-};
-
 export function measureModel(
   c: CaseDefinition,
-  patient: PatientState = DEFAULT_PATIENT,
+  patient: PatientState = REST_PATIENT,
   mcSamples = 160000,
 ): ModelMeasurements {
-  const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, patient);
-  const heart = createHeartModel(c.anatomy, c.physiology, thorax.heartOffset, c.seed);
-  heartLandmarks(heart);
-  const tables = buildBeatTables(
-    60 / c.rhythm.heartRateBpm,
-    c.physiology,
-    c.rhythm,
-    c.hemodynamics,
-  );
+  // the models the app images (decision 237)
+  const { heart, tables } = buildCaseModels(c, patient);
   const edPose = computeHeartPose(heart, cycleStateAt(tables, 0.0));
   const esPose = computeHeartPose(
     heart,

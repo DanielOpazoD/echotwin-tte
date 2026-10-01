@@ -3,9 +3,9 @@ import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadCaseById } from '@/cases';
-import { createHeartModel, computeHeartPose } from '@/simulator/anatomy/heartModel';
-import { createThoraxModel } from '@/simulator/anatomy/thoraxModel';
-import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
+import { computeHeartPose } from '@/simulator/anatomy/heartModel';
+import { buildCaseModels, REST_PATIENT } from '@/simulator/anatomy/caseModels';
+import { cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { ProceduralSliceRenderer } from '@/simulator/renderer/procedural/sliceRenderer';
 import {
   allocPolarFrame,
@@ -71,18 +71,7 @@ function polarPng(display: Uint8ClampedArray, lines: number, samples: number): B
 
 describe('golden frames by seed', () => {
   const c = loadCaseById('normal-excellent-window');
-  const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, {
-    position: 'left-lateral',
-    respiration: 'expiration',
-    headElevationDeg: 0,
-  });
-  const heart = createHeartModel(c.anatomy, c.physiology, thorax.heartOffset, c.seed);
-  const tables = buildBeatTables(
-    60 / c.rhythm.heartRateBpm,
-    c.physiology,
-    c.rhythm,
-    c.hemodynamics,
-  );
+  const { thorax, heart, tables } = buildCaseModels(c, REST_PATIENT);
   const settings = { ...DEFAULT_ACQUISITION };
   const spec = polarSpecFor(settings, 'low');
   const renderer = new ProceduralSliceRenderer();
