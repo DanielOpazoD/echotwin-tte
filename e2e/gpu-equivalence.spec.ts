@@ -71,6 +71,17 @@ const MATRIX: [string, string[], number[], ('low' | 'medium' | 'high')?, number?
   ['normal-excellent-window', ['plax', 'a4c'], [0.35], 'high'],
   // the probe on a rib (1.4 cm off the apical preset): bone attenuation integrated over distance on both backends (decision 89)
   ['normal-excellent-window', ['a4c'], [0.1], 'medium', 1.4],
+  // every case and every view at least once (decision 241): until then 5 of the 12 cases and 6 of the 12 views were
+  // compared, and a min → max in the GLSL mirror of a path only the others draw failed nothing. Each view goes with a case
+  // whose anatomy it cuts: the dilated ventricle and its regurgitant mitral, the inferior wall, the outflow of the
+  // moderate stenosis, the prolapsing leaflets, the atria of the diastolic case, the apex behind a difficult window
+  ['hfref-severe-mr', ['a2c'], [0.35]],
+  ['inferior-rwma', ['a3c'], [0.35]],
+  ['aortic-stenosis-moderate', ['a5c'], [0.35]],
+  ['mvp-primary-mr', ['psax-mv'], [0.35]],
+  ['af-diastolic', ['rv-focused'], [0.6]],
+  ['normal-difficult-window', ['psax-apex'], [0.35]],
+  ['artifact-challenge', ['a4c'], [0]],
 ];
 for (const [caseId, views, phases, tier, offsetV] of MATRIX) {
   for (const viewId of views) {
