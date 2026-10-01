@@ -107,6 +107,9 @@ jobs:
       - run: npm ci
       # tipos, vite build y el presupuesto de bundle (tools/ci/bundle-budget.mjs)
       - run: npm run build
+      # coste del trazador CPU frente a su línea base (decisión 247): falla si crece más de un 25 %
+      - name: Coste del trazador CPU
+        run: npx tsx tools/ci/tracer-budget.ts
       - uses: actions/upload-artifact@v4
         with:
           name: dist
