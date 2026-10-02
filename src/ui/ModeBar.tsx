@@ -5,7 +5,7 @@ import { useShallow } from 'zustand/shallow';
 import { exportCaseTag, modePolicy } from '@/app/modePolicy';
 import { exportDisplayPng } from '@/app/exportImage';
 import { useRestartTutorial } from './Tutorial';
-import { IconPause, IconPlay, IconSliders } from './icons';
+import { IconPause, IconPlay, IconSliders, IconTorso } from './icons';
 import { MODALITY_LIST } from '@/simulator/renderer/modality';
 import { ActionItem, CheckItem, MenuCap, usePopover } from './menu';
 
@@ -84,22 +84,17 @@ export function ModeBar() {
         </div>
       )}
       <span className="spacer" style={{ flex: 1 }} />
-      {/* off the image: in the Doppler modes it covered the spectral strip */}
-      <span
-        className="disclaimer"
-        data-tip="Simulador educacional con pacientes sintéticos · no apto para diagnóstico"
-      >
-        Simulador educacional con pacientes sintéticos · no apto para diagnóstico
-      </span>
+      {/* no label (decision 244): the button is an icon, its name stays «Torso 3D» for assistive technology */}
       <button
         onClick={() => s.setUi({ showTorso: !s.ui.showTorso })}
-        className={s.ui.showTorso ? 'active' : ''}
+        className={`icon-btn${s.ui.showTorso ? ' active' : ''}`}
+        aria-label="Torso 3D"
         data-tip={s.ui.minimal || s.mode === 'exam' ? undefined : 'Mostrar u ocultar el torso 3D'}
         data-tip-key={s.ui.minimal || s.mode === 'exam' ? undefined : 'H'}
         aria-pressed={s.ui.showTorso}
         disabled={s.ui.minimal || s.mode === 'exam'}
       >
-        Torso 3D
+        <IconTorso />
       </button>
       <OverflowMenu />
       {s.workerMode === 'inline' && (

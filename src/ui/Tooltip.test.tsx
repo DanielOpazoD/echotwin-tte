@@ -81,6 +81,13 @@ describe('the tooltip layer', () => {
       vi.advanceTimersByTime(1);
     });
     expect(screen.getByRole('tooltip').textContent).toContain('Reanudar');
+    // the freeze key takes the press of Space before it gets here (decision 244): the release reads it again
+    btn.setAttribute('data-tip', 'Congelar la imagen');
+    fireEvent.keyUp(document, { key: ' ' });
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(screen.getByRole('tooltip').textContent).toContain('Congelar la imagen');
     btn.remove();
     fireEvent.pointerOver(screen.getByRole('button', { name: 'sin ayuda' }));
     expect(screen.queryByRole('tooltip')).toBeNull();

@@ -12,12 +12,11 @@ test.describe('EchoTwin TTE core flow', () => {
     await waitForFrames(page, 3);
   });
 
-  test('loads the normal case, shows the disclaimer and renders a non-black image', async ({
+  test('loads the normal case, keeps the mode bar free of notices and renders a non-black image', async ({
     page,
   }) => {
-    await expect(
-      page.getByText('Simulador educacional con pacientes sintéticos', { exact: false }).first(),
-    ).toBeVisible();
+    // the bar carries controls only (decision 244)
+    await expect(page.locator('.modebar')).not.toContainText('pacientes sintéticos');
     await expect(
       page.getByText('Normal — ventana excelente', { exact: false }).first(),
     ).toBeVisible();
@@ -94,6 +93,58 @@ test.describe('EchoTwin TTE core flow', () => {
     expect(ms[0]!.kind).toBe('linear');
     expect(ms[0]!.units).toBe('cm');
     expect(ms[0]!.value).toBeGreaterThan(0.5);
+  });
+
+  test('Space freezes and resumes from anywhere, and types a space in a text field', async ({
+    page,
+  }) => {
+    // decision 244: one global key, whatever has the focus; the focused button is not pressed by it
+    const frozen = async () => (await getStore(page))['frozen'] as boolean;
+    const screenId = async () => ((await getStore(page))['ui'] as { screen: string }).screen;
+    const space = async (expected: boolean, where: string) => {
+      await page.keyboard.press('Space');
+      await expect.poll(frozen, { message: where }).toBe(expected);
+    };
+    await page.locator('body').click({ position: { x: 5, y: 5 } });
+    await space(true, 'the body');
+    // a preset of the side panel: Space does not start it
+    await page.getByRole('button', { name: 'A4C', exact: true }).focus();
+    await space(false, 'a side-panel button');
+    expect((await getStore(page))['presetAnim']).toBeNull();
+    expect((await getStore(page))['targetViewId']).not.toBe('a4c');
+    await page.getByRole('tab', { name: 'Medir' }).focus();
+    await space(true, 'a console tab');
+    await page.getByRole('slider', { name: 'Cine' }).focus();
+    await space(false, 'the cine slider');
+    await page.getByRole('button', { name: 'Torso 3D' }).focus();
+    await space(true, 'the torso toggle');
+    expect(((await getStore(page))['ui'] as { showTorso: boolean }).showTorso).toBe(true);
+    await page
+      .locator('.torso-3d canvas')
+      .first()
+      .click({ position: { x: 150, y: 250 } });
+    await space(false, 'the 3D torso');
+    // another screen: the report tab and its sections
+    await page.getByRole('button', { name: 'Informe' }).click();
+    await space(true, 'the report tab');
+    await page.getByRole('button', { name: 'Progreso' }).click();
+    await page.getByRole('button', { name: 'Currículo' }).focus();
+    await space(false, 'a section button');
+    expect(await screenId()).toBe('progress');
+    await page.getByRole('button', { name: 'Caso' }).click();
+    const finding = page.locator('[data-finding="ef-normal"] input');
+    await finding.focus();
+    await space(true, 'a finding checkbox');
+    await expect(finding).not.toBeChecked();
+    // where text is typed, Space is a character
+    await page.getByRole('button', { name: 'Simulador' }).click();
+    await page.keyboard.press('r');
+    const note = page.getByRole('textbox', { name: 'Nota general de la revisión' });
+    await note.focus();
+    const before = await frozen();
+    await page.keyboard.type('a b');
+    await expect(note).toHaveValue('a b');
+    expect(await frozen()).toBe(before);
   });
 
   test('PW Doppler shows a spectral strip and M-mode a trace', async ({ page }) => {

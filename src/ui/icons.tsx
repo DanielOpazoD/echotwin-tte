@@ -176,3 +176,13 @@ export function IconPause({ size }: { size?: number }) {
     </I>
   );
 }
+
+/** Head and shoulders: show or hide the 3D torso navigator. */
+export function IconTorso({ size }: { size?: number }) {
+  return (
+    <I size={size}>
+      <circle cx="12" cy="6.5" r="3" />
+      <path d="M4.5 21v-3.5a5 5 0 0 1 5-5h5a5 5 0 0 1 5 5V21" />
+    </I>
+  );
+}

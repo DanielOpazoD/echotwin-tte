@@ -186,7 +186,8 @@ export function SegmentPanel() {
               onFocus={() => setHover(s.id, 'polar')}
               onBlur={() => setHover(null, 'polar')}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
+                // Space is the freeze everywhere (decision 244): Enter selects
+                if (e.key === 'Enter') {
                   e.preventDefault();
                   select(s.id);
                 }
