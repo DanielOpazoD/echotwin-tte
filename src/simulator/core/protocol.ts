@@ -151,6 +151,8 @@ export interface SimOutput {
 export interface PhaseMarks {
   ejectionStart: number;
   ejectionEnd: number;
+  /** The least left ventricular volume (decision 245): aortic closure, or later with mitral regurgitation. */
+  endSystole: number;
   mitralOpen: number;
   eEnd: number;
   aStart: number;

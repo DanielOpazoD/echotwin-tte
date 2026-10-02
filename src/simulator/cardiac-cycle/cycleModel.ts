@@ -1,4 +1,5 @@
 import type { PhysiologyConfig, RhythmConfig, HemodynamicConfig } from '@/cases/schema';
+import { lvotNarrowing, solveLvotObstruction } from './outflow';
 import {
   computeCycleTimings,
   ejectionShape,
@@ -51,6 +52,12 @@ export interface BeatTables {
   volumeCorrectionMl: number;
   /** Volume (mL) and annular displacements when the beat ends: where the next beat of atrial fibrillation starts. */
   endVolumeMl: number;
+  /**
+   * End-systole (s): the least left ventricular volume, never before aortic closure (decision 245). Without mitral
+   * regurgitation it is aortic closure; with it the ventricle keeps emptying into the atrium until the mitral valve opens.
+   * The smallest cavity is the end-systolic frame of the chamber quantification guideline (ASE/EACVI 2015).
+   */
+  endSystoleS: number;
   endLongitudinal: number;
   endRvLongitudinal: number;
   /** Longitudinal (annular) displacement toward apex as a fraction of MAPSE, [0,1]. */
@@ -75,6 +82,11 @@ export interface BeatOptions {
    * annuli were when that beat ended, and the factors on the early inflow waves of this beat.
    */
   chain?: ChainedBeat;
+  /**
+   * The outflow tract (decision 245): its area and whether its obstruction is dynamic (SAM). With it the left ventricular
+   * pressure that drives the mitral regurgitation adds a subaortic gradient; without it, only a valvular one.
+   */
+  outflow?: { lvotAreaCm2: number; dynamicObstruction: boolean };
 }
 
 export interface ChainedBeat {
@@ -133,26 +145,59 @@ export function buildBeatTables(
   const dt = rrS / n;
 
   // Regurgitant jets (spec 63): velocity from the simplified Bernoulli pressure difference, volume = ERO × VTI.
-  // MR follows the systolic shape; AR decays through diastole with the case's pressure half-time.
+  // AR decays through diastole with the case's pressure half-time. MR runs from mitral closure to mitral opening, driven
+  // by the left ventricle's pressure over the atrium's (decision 245): it used to follow the ejection ±20 ms at a speed
+  // set by the arterial pressure alone, so it lasted 314–339 ms instead of the 400–475 ms from closure to opening, and in
+  // the obstructive cardiomyopathy it read 5.24 m/s where the ventricle pushes against a 64 mmHg outflow gradient too.
   const mrFlow = new Float32Array(n);
   const arFlow = new Float32Array(n);
   const mr = hemo.regurgitation.mr;
   const ar = hemo.regurgitation.ar;
-  const mrVmax = mr && mr.eroaCm2 > 0 ? Math.sqrt(Math.max(1, hemo.systolicBpMmHg - 15) / 4) : 0;
   const arVmax = ar && ar.eroaCm2 > 0 ? Math.sqrt(Math.max(1, hemo.diastolicBpMmHg - 12) / 4) : 0;
   const arPht = ar?.phtMs ?? 450;
-  let mrVti = 0,
-    arVti = 0;
+  const et = timings.ejectionEndS - timings.ejectionStartS;
+  // left ventricular pressure (mmHg) at time t of the beat, with an outflow gradient during ejection
+  const lap = MR_LA_PRESSURE_MMHG;
+  const dbp = hemo.diastolicBpMmHg,
+    sbp = hemo.systolicBpMmHg;
+  const ivr = Math.max(0.01, timings.mitralOpenS - timings.ejectionEndS);
+  const lvPressure = (t: number, gradient: (t: number) => number): number => {
+    if (t < SYSTOLIC_CLOSURE_S || t >= timings.mitralOpenS) return lap;
+    if (t < timings.ejectionStartS) {
+      // isovolumic contraction: from the atrium's pressure to the aorta's diastolic one
+      const x =
+        (t - SYSTOLIC_CLOSURE_S) / Math.max(1e-3, timings.ejectionStartS - SYSTOLIC_CLOSURE_S);
+      return lap + (dbp - lap) * 0.5 * (1 - Math.cos(Math.PI * x));
+    }
+    if (t < timings.ejectionEndS) {
+      const u = (t - timings.ejectionStartS) / et;
+      return dbp + (sbp - dbp) * aorticPulse(u) + gradient(t);
+    }
+    // isovolumic relaxation: an exponential fall from the end-systolic pressure, reaching the atrium's at mitral opening
+    const pEs = dbp + (sbp - dbp) * aorticPulse(1);
+    const s = t - timings.ejectionEndS;
+    const tail = Math.exp(-ivr / LV_RELAXATION_TAU_S);
+    return lap + ((pEs - lap) * (Math.exp(-s / LV_RELAXATION_TAU_S) - tail)) / (1 - tail);
+  };
+  let mrVmax = 0,
+    mrVti = 0;
+  const fillMr = (gradient: (t: number) => number): void => {
+    mrVmax = 0;
+    mrVti = 0;
+    if (!mr || mr.eroaCm2 <= 0) return;
+    for (let i = 0; i < n; i++) {
+      const t = (i + 0.5) * dt;
+      const v = Math.sqrt(Math.max(0, lvPressure(t, gradient) - lap) / 4);
+      mrFlow[i] = v * 100 * mr.eroaCm2;
+      mrVti += v * 100 * dt;
+      mrVmax = Math.max(mrVmax, v);
+    }
+  };
+  // first without the outflow gradient, which needs the forward flow the regurgitation leaves; then with it
+  fillMr(() => 0);
+  let arVti = 0;
   for (let i = 0; i < n; i++) {
     const t = (i + 0.5) * dt;
-    if (mrVmax > 0) {
-      const u =
-        (t - timings.ejectionStartS + 0.02) /
-        (timings.ejectionEndS - timings.ejectionStartS + 0.04);
-      const v = u > 0 && u < 1 ? mrVmax * Math.pow(Math.sin(Math.PI * u), 0.8) : 0;
-      mrFlow[i] = v * 100 * mr!.eroaCm2;
-      mrVti += v * 100 * dt;
-    }
     if (arVmax > 0) {
       const tDia =
         t >= timings.ejectionEndS ? t - timings.ejectionEndS : t + rrS - timings.ejectionEndS; // time since AV closure
@@ -162,16 +207,56 @@ export function buildBeatTables(
       arVti += v * 100 * dt;
     }
   }
+  let shapeInt = 0;
+  for (let i = 0; i < 400; i++) shapeInt += ejectionShape((i + 0.5) / 400) * (et / 400);
+  if (mr && mr.eroaCm2 > 0) {
+    const kFirst = Math.max(5, svTotal - mr.eroaCm2 * mrVti) / shapeInt;
+    const aorticFirst = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const t = (i + 0.5) * dt;
+      if (t > timings.ejectionStartS && t < timings.ejectionEndS)
+        aorticFirst[i] = kFirst * ejectionShape((t - timings.ejectionStartS) / et);
+    }
+    const obstruction = opts.outflow
+      ? solveLvotObstruction(
+          { n, rrS, timings, aorticFlowMlps: aorticFirst },
+          opts.outflow.lvotAreaCm2,
+          hemo.lvotPeakGradientMmHg,
+          opts.outflow.dynamicObstruction,
+        )
+      : null;
+    // the valvular and the subaortic gradients are in series and add
+    fillMr((t) => {
+      const q = aorticFirst[Math.min(n - 1, Math.floor(t / dt))] ?? 0;
+      if (q <= 0) return 0;
+      const vAv = q / hemo.avEffectiveAreaCm2 / 100;
+      let g = 4 * vAv * vAv;
+      if (obstruction && opts.outflow) {
+        const u = (t - timings.ejectionStartS) / et;
+        const area =
+          opts.outflow.lvotAreaCm2 * (1 - lvotNarrowing(obstruction.fMax, obstruction.dynamic, u));
+        const vL = q / Math.max(0.05, area) / 100;
+        g += 4 * vL * vL;
+      }
+      return g;
+    });
+  }
+  // a beat cannot regurgitate more than it ejects: a short beat of atrial fibrillation that filled little lost to the
+  // regurgitation computed from pressure alone more than it held, and its volume no longer closed
+  if (mrVmax > 0 && mr!.eroaCm2 * mrVti > svTotal - MIN_FORWARD_ML) {
+    const k = Math.max(0, svTotal - MIN_FORWARD_ML) / (mr!.eroaCm2 * mrVti);
+    for (let i = 0; i < n; i++) mrFlow[i] = (mrFlow[i] ?? 0) * k;
+    mrVti *= k;
+    // a beat that holds little drives the jet with a lower pressure: its speed falls with its volume
+    mrVmax *= k;
+  }
   const rvolMr = mrVmax > 0 ? mr!.eroaCm2 * mrVti : 0;
   const rvolAr = arVmax > 0 ? ar!.eroaCm2 * arVti : 0;
   // forward (aortic) ejection = total − MR; mitral inflow = total − AR (the AR volume enters through the aorta)
-  const sv = Math.max(5, svTotal - rvolMr);
+  const sv = Math.max(MIN_FORWARD_ML, svTotal - rvolMr);
   const svMitral = Math.max(5, svTotal - rvolAr);
 
   // Ejection: Q_ao = k·shape(u), ∫ = SV
-  const et = timings.ejectionEndS - timings.ejectionStartS;
-  let shapeInt = 0;
-  for (let i = 0; i < 400; i++) shapeInt += ejectionShape((i + 0.5) / 400) * (et / 400);
   const kAo = sv / shapeInt;
 
   // Filling: E and A shapes with peak velocities; solve mitral flow area A_mv so ∫Q_mv = SV. The velocity integral is
@@ -300,9 +385,17 @@ export function buildBeatTables(
   // that the annulus recoils at the case's e′ (peak MAPSE·d(long)/dt), because tissue Doppler reads this very curve.
   // It used to be 0.09·(10/e′) s, which in the normal heart (e′ 11 cm/s) recoiled at 4.6 cm/s and kept 86% of the
   // systolic descent at mid-E: every diastolic frame showed the base too apical and tissue Doppler measured e′ 4.7.
+  // the annuli shorten with the ejection and stop at aortic closure: a regurgitant mitral valve keeps emptying the ventricle
+  // through isovolumic relaxation, but the myocardium is no longer shortening, and an annulus that followed that volume
+  // drew post-systolic shortening on tissue Doppler (decision 245). Their course reaches its full excursion at aortic closure.
+  const atClosure = vol[Math.min(n - 1, Math.floor(timings.ejectionEndS / dt))] ?? esvRef;
+  const esvAnnulus = esvRef + Math.max(0, atClosure - minV);
   const contraction = new Float32Array(n);
   for (let i = 0; i < n; i++)
-    contraction[i] = (edvRef - (vol[i] ?? edvRef)) / Math.max(edvRef - esvRef, 1e-6);
+    contraction[i] = Math.min(
+      1,
+      (edvRef - (vol[i] ?? edvRef)) / Math.max(edvRef - esvAnnulus, 1e-6),
+    );
   const longitudinal = new Float32Array(n);
   const longVel = new Float32Array(n);
   const eWaveEnd = timings.mitralOpenS + timings.eAccelS + timings.eDecelS;
@@ -320,6 +413,29 @@ export function buildBeatTables(
   // (e′ precedes E), so it can move faster than the volume curve alone allows
   // sysSpeed compresses the ejection course the same way (decision 106): the tricuspid annulus reaches its excursion
   // earlier in systole than the volume curve when its case S′ asks for it
+  // the ventricle shortens until its volume is least: at aortic closure, or with a regurgitant mitral valve at its opening,
+  // the ventricle still emptying into the atrium through isovolumic relaxation (decision 245)
+  let shortenEndS = timings.ejectionEndS;
+  {
+    // only a regurgitant mitral valve empties the ventricle past aortic closure: a volume that drifts by a few thousandths
+    // of a mL through isovolumic relaxation (the periodicity correction) is not a later end-systole
+    let regurgitates = false;
+    for (let i = 0; i < n; i++) {
+      const t = (i + 0.5) * dt;
+      if (t > timings.ejectionEndS && t < timings.mitralOpenS && (mrFlow[i] ?? 0) > 0.5)
+        regurgitates = true;
+    }
+    let least = Infinity;
+    if (regurgitates)
+      for (let i = 0; i < n; i++) {
+        const t = (i + 0.5) * dt;
+        if (t < timings.ejectionStartS || t > timings.mitralOpenS) continue;
+        if ((vol[i] ?? 0) < least - 1e-6) {
+          least = vol[i] ?? 0;
+          shortenEndS = Math.max(timings.ejectionEndS, t);
+        }
+      }
+  }
   const simulate = (
     tauE: number,
     speed: number,
@@ -352,8 +468,12 @@ export function buildBeatTables(
                   Math.min(timings.aEndS, timings.aStartS + (t - timings.aStartS) * atrialSpeed),
                 )
               : (contraction[i] ?? 0);
-        const tau = t < timings.ejectionEndS ? 0.03 : t > earlyEnd ? 0.035 : tauE;
-        l += ((target - l) * dt) / tau;
+        const tau = t < timings.ejectionEndS ? SYSTOLIC_TAU_S : t > earlyEnd ? 0.035 : tauE;
+        // past aortic closure the annulus only recoils: the myocardium has stopped shortening, and a follower still short of
+        // its target kept shortening through isovolumic relaxation and into early diastole (7–14 % of s′ in every case,
+        // 22 % with a regurgitant mitral valve, decision 245)
+        const step = ((target - l) * dt) / tau;
+        if (t < timings.ejectionEndS || step < 0) l += step;
         into[i] = l;
       }
     }
@@ -483,6 +603,7 @@ export function buildBeatTables(
     lvVolumeMl: vol,
     volumeCorrectionMl: af ? 0 : drift,
     endVolumeMl: v,
+    endSystoleS: shortenEndS,
     endLongitudinal: longitudinal[n - 1] ?? 0,
     endRvLongitudinal: rvLongitudinal[n - 1] ?? 0,
     aorticFlowMlps: aorticFlow,
@@ -564,6 +685,33 @@ export const DIASTASIS_OPENING = 0.5;
 
 /** Time (s) the leaflets take to close from diastasis at the onset of systole when no atrial contraction closes them first. */
 const SYSTOLIC_CLOSURE_S = 0.03;
+
+/** Left atrial pressure (mmHg) under a regurgitant mitral valve: the 15 the model has always assumed, not a case value. */
+const MR_LA_PRESSURE_MMHG = 15;
+/** Time constant (s) of the annuli following the contraction through ejection. */
+const SYSTOLIC_TAU_S = 0.03;
+/** The least a beat ejects forward (mL), the floor the forward stroke volume always had. */
+const MIN_FORWARD_ML = 5;
+/**
+ * Time constant (s) of isovolumic relaxation: a typical normal value of the monoexponential τ (some 30–50 ms), taken as an
+ * assumption for every case (decision 245). It shapes the fall of the regurgitant jet's speed; where it ends, at mitral
+ * opening, is the case's own.
+ */
+const LV_RELAXATION_TAU_S = 0.045;
+
+/**
+ * Aortic pressure over ejection as a fraction of the pulse pressure above the diastolic one (decision 245): up to the
+ * systolic peak at 0.4 of ejection, then down to 0.55 at the dicrotic notch — a shape assumed from the textbook waveform,
+ * without a published table behind its numbers.
+ */
+function aorticPulse(u: number): number {
+  if (u <= 0) return 0;
+  if (u < 0.4) {
+    const s = Math.sin((Math.PI / 2) * (u / 0.4));
+    return s * s;
+  }
+  return 1 - 0.45 * Math.pow(Math.min(1, (u - 0.4) / 0.6), 1.5);
+}
 
 /**
  * Leaflet opening of an atrioventricular valve at phase p: it follows the inflow while that opens it wider than

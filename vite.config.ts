@@ -79,7 +79,10 @@ export default defineConfig({
     chunkSizeWarningLimit: 1200,
     rollupOptions: {
       output: {
-        manualChunks: { three: ['three'], react: ['react', 'react-dom'] },
+        manualChunks: {
+          three: ['three'],
+          react: ['react', 'react-dom', 'react-dom/client', 'scheduler'],
+        },
         // the chunk that carries the WebGL2 port keeps its name, whatever module Rollup would name it after: it is shared by
         // the lazy core and the backend comparison, and when the scene physics joined it (decision 238) it came out as
         // `scenePhysics-*.js` and fell under the budget of an ordinary chunk

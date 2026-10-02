@@ -59,7 +59,9 @@ export const artifactChallengeCase: CaseDefinitionInput = {
     diastolicBpMmHg: 78,
     rapMmHg: 3,
     paspMmHg: 34,
-    avEffectiveAreaCm2: 1.4,
+    // 1.4 until decision 245: with the mitral regurgitation running through all of systole the forward flow falls and
+    // the aortic jet read 1.96 m/s, below the mild stenosis the case describes (≈ 2.5)
+    avEffectiveAreaCm2: 1.2,
     trPresent: true,
     lvotPeakGradientMmHg: 0,
     regurgitation: { mr: { eroaCm2: 0.1, jetDirectionDeg: 0 } },

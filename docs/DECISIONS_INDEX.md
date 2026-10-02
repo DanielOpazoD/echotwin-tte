@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 244 (última: 244).
+Decisiones: 245 (última: 245).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -252,3 +252,4 @@ Decisiones: 244 (última: 244).
 | [242](DECISIONS.md#L1443) | 2026-09-25 | El riel izquierdo, compacto: segmentos con menos texto, la guía abajo y las herramientas del navegador fuera del camino de la sonda | vigente |
 | [243](DECISIONS.md#L1445) | 2026-09-25 | La pared libre del VD cuelga del anillo tricuspídeo y se mueve con él | vigente |
 | [244](DECISIONS.md#L1447) | 2026-09-25 | Interfaz más limpia: sin el aviso de «Moviendo la sonda», Espacio congela desde cualquier parte, Informe, Currículo y Progreso en una pestaña y la barra inferior sin descargo | vigente |
+| [245](DECISIONS.md#L1449) | 2026-09-25 | La insuficiencia mitral dura toda la sístole y la mueve la presión del ventrículo | vigente |

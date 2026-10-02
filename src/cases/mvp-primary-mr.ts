@@ -5,7 +5,7 @@ import { normalExcellentCase } from './normal-excellent';
 export const mvpPrimaryMrCase: CaseDefinitionInput = {
   ...normalExcellentCase,
   id: 'mvp-primary-mr',
-  title: 'Prolapso mitral con insuficiencia mitral primaria moderada-severa',
+  title: 'Prolapso mitral con insuficiencia mitral primaria severa',
   seed: 808,
   history:
     'Paciente sintética de 52 años con soplo holosistólico apical y disnea progresiva. Sin datos reales de paciente.',
@@ -93,7 +93,7 @@ export const mvpPrimaryMrCase: CaseDefinitionInput = {
     },
   ],
   impressionTruth: [
-    'Prolapso de la valva posterior mitral con insuficiencia mitral primaria excéntrica (dirigida anteromedialmente) de grado moderado-severo (ORE ≈ 0,45 cm²).',
+    'Prolapso de la valva posterior mitral con insuficiencia mitral primaria excéntrica (dirigida anteromedialmente) severa: ORE ≈ 0,45 cm², volumen regurgitante ≈ 78 mL y fracción regurgitante ≈ 73 % (umbrales de severidad 0,40 cm², 60 mL y 50 %).',
     'Ventrículo izquierdo dilatado e hiperdinámico (FEVI ≈ 65 %) por sobrecarga de volumen; aurícula izquierda severamente dilatada.',
     'Presión sistólica pulmonar levemente elevada.',
   ],

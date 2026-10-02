@@ -57,10 +57,7 @@ export function measureModel(
   // the models the app images (decision 237)
   const { heart, tables } = buildCaseModels(c, patient);
   const edPose = computeHeartPose(heart, cycleStateAt(tables, 0.0));
-  const esPose = computeHeartPose(
-    heart,
-    cycleStateAt(tables, tables.timings.ejectionEndS / tables.rrS),
-  );
+  const esPose = computeHeartPose(heart, cycleStateAt(tables, tables.endSystoleS / tables.rrS));
   let maxLongPhase = 0;
   for (let i = 0, best = -1; i < 64; i++) {
     const st = cycleStateAt(tables, i / 64);
@@ -189,7 +186,13 @@ export function measureModel(
   // right ventricle and moved with the valve: placing the pulmonary root beside the aortic root (decision 112) took another
   // 4-23 mL off without changing the chamber.
   const rvED = vol(edPose, rvStructs, [-8.5, -3.5, -8.5], [1.5, 7, 8.5]);
-  const rvES = vol(esPose, rvStructs, [-8.5, -3.5, -8.5], [1.5, 7, 8.5]);
+  // the right ventricle ends its systole at pulmonary closure, with the aortic one in this model: a regurgitant mitral
+  // valve moves the left ventricle's end-systole to mitral opening (decision 245), not the right one's
+  const rvEsPose = computeHeartPose(
+    heart,
+    cycleStateAt(tables, tables.timings.ejectionEndS / tables.rrS),
+  );
+  const rvES = vol(rvEsPose, rvStructs, [-8.5, -3.5, -8.5], [1.5, 7, 8.5]);
   const laMax = vol(esPose, [Structure.LaCavity], [-3.5, -7, -7], [4.5, 1.5, 1.5]);
   const laMin = vol(edPose, [Structure.LaCavity], [-3.5, -7, -7], [4.5, 1.5, 1.5]);
   // The box reaches the tricuspid annulus at end-systole: until decision 148 it stopped at z = 1.5 cm and cut off the

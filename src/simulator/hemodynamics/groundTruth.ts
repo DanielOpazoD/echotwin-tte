@@ -8,15 +8,11 @@ import type { WallMotionId } from '@/clinical/segmentation/catalog';
 import { buildBeatTables, type BeatTables } from '@/simulator/cardiac-cycle/cycleModel';
 import { lvGeometryFromVolume } from '@/simulator/anatomy/heartModel';
 import { lvProfileG } from '@/simulator/anatomy/lvShape';
-import {
-  lvotNarrowing,
-  pulmonaryVeinPeaks,
-  solveLvotObstruction,
-} from '@/simulator/doppler/flow-primitives/flowField';
+import { caseLvotObstruction, caseOutflow } from '@/simulator/cardiac-cycle/outflow';
+import { lvotNarrowing, pulmonaryVeinPeaks } from '@/simulator/doppler/flow-primitives/flowField';
 import {
   bsaMosteller,
   cardiacOutput,
-  circularArea,
   continuityAva,
   ejectionFraction,
   meanGradientFromEnvelope,
@@ -133,9 +129,11 @@ export function geometricEdd(c: CaseDefinition, edvMl: number): number {
 
 export function computeGroundTruth(c: CaseDefinition, tables?: BeatTables): StructuredEchoTruth {
   const rr = 60 / c.rhythm.heartRateBpm;
-  const t = tables ?? buildBeatTables(rr, c.physiology, c.rhythm, c.hemodynamics);
+  const t =
+    tables ??
+    buildBeatTables(rr, c.physiology, c.rhythm, c.hemodynamics, { outflow: caseOutflow(c) });
   const bsa = bsaMosteller(c.demographics.heightCm, c.demographics.weightKg);
-  const lvotArea = circularArea(c.anatomy.aorta.lvotDiameterCm);
+  const lvotArea = caseOutflow(c).lvotAreaCm2;
   const dt = t.rrS / t.n;
   // LVOT and AV velocity envelopes from the SAME ejection flow curve
   const lvotEnv: number[] = [];
@@ -159,12 +157,7 @@ export function computeGroundTruth(c: CaseDefinition, tables?: BeatTables): Stru
   const sv = t.strokeVolumeMl; // total (EDV − ESV)
   const ef = ejectionFraction(t.edvMl, t.esvMl);
   // LVOT peak with a subaortic/dynamic obstruction (same solver as the flow field)
-  const obs = solveLvotObstruction(
-    t,
-    lvotArea,
-    c.hemodynamics.lvotPeakGradientMmHg,
-    c.anatomy.mitral.samSeverity > 0,
-  );
+  const obs = caseLvotObstruction(c, t);
   let lvotPeakV = lvotVmax;
   if (obs) {
     lvotPeakV = 0;

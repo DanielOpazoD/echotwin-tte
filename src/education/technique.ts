@@ -24,6 +24,8 @@ import type {
 export interface PhaseMarks {
   ejectionStart: number;
   ejectionEnd: number;
+  /** The smallest cavity (decision 245); aortic closure when omitted. */
+  endSystole?: number;
   mitralOpen: number;
   eEnd: number;
   aStart: number;
@@ -89,10 +91,11 @@ function phaseWindow(
     case 'ed':
       return { lo: -0.06, hi: 0.04, label: 'telediástole (inicio del QRS)' };
     case 'es':
+      // from aortic closure to the smallest cavity, which a regurgitant mitral valve delays to its opening (decision 245)
       return {
         lo: m.ejectionEnd - 0.05,
-        hi: m.ejectionEnd + 0.05,
-        label: 'telesístole (fin de la eyección)',
+        hi: Math.max(m.ejectionEnd, m.endSystole ?? m.ejectionEnd) + 0.05,
+        label: 'telesístole (cierre aórtico a cavidad mínima)',
       };
     case 'mid-systole':
       return {

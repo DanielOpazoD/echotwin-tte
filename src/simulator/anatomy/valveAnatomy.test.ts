@@ -1358,6 +1358,9 @@ describe('tricuspid annulus on the septum (decision 224)', () => {
     const KNOWN_ANNULUS_PARTITIONS: ReadonlyMap<string, [number, number]> = new Map([
       ['aortic-stenosis-severe@0@40', [1, 0.71]],
       ['aortic-stenosis-severe@0.35@40', [2, 0.21]],
+      // a fold of atrial wall 0.4 cm thick at the edge of the ring, which opens and closes with 0.1 mm of annular
+      // position (it appeared when the annulus stopped shortening after aortic closure, decision 245)
+      ['mvp-primary-mr@0@40', [2, 0.4]],
     ]);
     const WALLS = new Set<number>([
       Structure.LvWallSeptal,
