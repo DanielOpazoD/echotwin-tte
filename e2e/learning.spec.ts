@@ -69,6 +69,8 @@ test('a curriculum task completes when the learner reaches the view by hand, not
     null,
     { timeout: 20000 },
   );
+  // the curriculum and the progress are sections of the «Informe» tab (decision 244)
+  await page.getByRole('button', { name: 'Informe' }).click();
   await page.getByRole('button', { name: 'Currículo' }).click();
   await expect(page.locator('[data-task="plax-70"]')).toHaveAttribute('data-done', '1');
   await expect(page.locator('[data-task="a4c-70"]')).toHaveAttribute('data-done', '0');
@@ -79,6 +81,7 @@ test('a curriculum task completes when the learner reaches the view by hand, not
   };
   expect(st.progress.completedTasks['plax-70']).toBeTruthy();
   expect(st.progress.events.some((e) => e.kind === 'view')).toBe(true);
+  await page.getByRole('button', { name: 'Informe' }).click();
   await page.getByRole('button', { name: 'Progreso' }).click();
   await expect(page.locator('[data-progress-view="plax"] td').nth(1)).not.toHaveText('—');
 });

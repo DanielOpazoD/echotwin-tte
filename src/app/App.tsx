@@ -18,6 +18,7 @@ import { ShortcutsDialog } from '@/ui/ShortcutsDialog';
 import { Tutorial } from '@/ui/Tutorial';
 import { TooltipLayer } from '@/ui/Tooltip';
 import { Splash } from '@/ui/Splash';
+import { isReportSection, ReportSections, type ReportSectionId } from '@/ui/ReportSections';
 import type { SimOutput } from '@/simulator/core/protocol';
 import { DopplerAudio } from '@/simulator/doppler/audio/dopplerAudio';
 import { frameBus } from './frameBus';
@@ -39,6 +40,11 @@ const ProgressScreen = lazy(() =>
   import('@/ui/ProgressScreen').then((m) => ({ default: m.ProgressScreen })),
 );
 const screenFallback = <div className="screen small">Cargando…</div>;
+const SECTION_LABEL: Record<ReportSectionId, string> = {
+  report: 'El informe',
+  curriculum: 'El currículo',
+  progress: 'El progreso',
+};
 
 export function App() {
   const [size, setSize] = useState({ width: 640, height: 520 });
@@ -133,24 +139,21 @@ export function App() {
             <ReferencesScreen />
           </Suspense>
         </ErrorBoundary>
-      ) : ui.screen === 'report' ? (
-        <ErrorBoundary key="report" label="El informe">
-          <Suspense fallback={screenFallback}>
-            <ReportScreen />
-          </Suspense>
-        </ErrorBoundary>
-      ) : ui.screen === 'curriculum' ? (
-        <ErrorBoundary key="curriculum" label="El currículo">
-          <Suspense fallback={screenFallback}>
-            <CurriculumScreen />
-          </Suspense>
-        </ErrorBoundary>
-      ) : ui.screen === 'progress' ? (
-        <ErrorBoundary key="progress" label="El progreso">
-          <Suspense fallback={screenFallback}>
-            <ProgressScreen />
-          </Suspense>
-        </ErrorBoundary>
+      ) : isReportSection(ui.screen) ? (
+        // the case report, the curriculum and the progress: sections of one tab (decision 244)
+        <ReportSections>
+          <ErrorBoundary key={ui.screen} label={SECTION_LABEL[ui.screen]}>
+            <Suspense fallback={screenFallback}>
+              {ui.screen === 'report' ? (
+                <ReportScreen />
+              ) : ui.screen === 'curriculum' ? (
+                <CurriculumScreen />
+              ) : (
+                <ProgressScreen />
+              )}
+            </Suspense>
+          </ErrorBoundary>
+        </ReportSections>
       ) : (
         <>
           <div className="left" style={{ display: railVisible ? 'flex' : 'none' }}>

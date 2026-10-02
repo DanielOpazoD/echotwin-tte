@@ -28,7 +28,7 @@ describe.each<[ProductMode, boolean]>([
     expect(buttons.length).toBe(12);
     for (const b of buttons) expect(b).toHaveProperty('disabled', disabled);
     if (disabled) {
-      expect(screen.getByText(/Deshabilitadas en examen/)).toBeTruthy();
+      expect(screen.getByText('No disponibles en modo examen')).toBeTruthy();
     }
   });
 });

@@ -63,6 +63,13 @@ describe('ModeBar overflow menu', () => {
       expect(screen.getByRole('button', { name })).toBeTruthy();
     }
   });
+
+  it('carries no disclaimer and shows the torso toggle as an icon (decision 244)', () => {
+    render(<ModeBar />);
+    expect(screen.queryByText(/pacientes sintéticos/)).toBeNull();
+    expect(document.querySelector('.modebar')?.textContent).not.toContain('Torso 3D');
+    expect(screen.getByRole('button', { name: 'Torso 3D' }).querySelector('svg')).toBeTruthy();
+  });
 });
 
 describe('ModeBar context chip', () => {

@@ -3,20 +3,16 @@ import { useShallow } from 'zustand/shallow';
 import { modePolicy } from '@/app/modePolicy';
 import { useRef } from 'react';
 import { useSlidingPill } from './useSlidingPill';
+import { isReportSection } from './ReportSections';
 
 /**
  * Slim top bar: brand and run state on the left, the screens as one segmented control in the middle, product mode
  * and quality on the right. Case, vitals and acquisition telemetry live in the on-image HUD (ImageHud) so this row
- * never truncates.
+ * never truncates. The case report, the curriculum and the progress are one tab, «Informe» (decision 244).
  */
-const SCREENS: {
-  id: 'simulator' | 'report' | 'curriculum' | 'progress' | 'references';
-  label: string;
-}[] = [
+const SCREENS: { id: 'simulator' | 'report' | 'references'; label: string }[] = [
   { id: 'simulator', label: 'Simulador' },
   { id: 'report', label: 'Informe' },
-  { id: 'curriculum', label: 'Currículo' },
-  { id: 'progress', label: 'Progreso' },
   { id: 'references', label: 'Referencias' },
 ];
 
@@ -33,7 +29,9 @@ export function TopBar() {
       ui: st.ui,
     })),
   );
-  const pill = useSlidingPill(navRef, s.ui.screen);
+  // the curriculum and the progress are sections of the «Informe» tab
+  const current = isReportSection(s.ui.screen) ? 'report' : s.ui.screen;
+  const pill = useSlidingPill(navRef, current);
   const policy = modePolicy(s.mode);
   return (
     <div className="topbar" role="banner">
@@ -55,10 +53,12 @@ export function TopBar() {
         {SCREENS.map((sc) => (
           <button
             key={sc.id}
-            className={s.ui.screen === sc.id ? 'active' : ''}
-            aria-current={s.ui.screen === sc.id ? 'page' : undefined}
-            onClick={() => s.setUi({ screen: sc.id })}
-            disabled={sc.id !== 'simulator' && sc.id !== 'report' && !policy.learningScreensEnabled}
+            className={current === sc.id ? 'active' : ''}
+            aria-current={current === sc.id ? 'page' : undefined}
+            onClick={() => {
+              if (current !== sc.id) s.setUi({ screen: sc.id });
+            }}
+            disabled={sc.id === 'references' && !policy.learningScreensEnabled}
           >
             {sc.label}
           </button>

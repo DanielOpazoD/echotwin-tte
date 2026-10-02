@@ -57,8 +57,6 @@ function PresetButton({ id, label, sub, title }: Preset) {
 
 export function PresetViews() {
   const mode = useSimStore((s) => s.mode);
-  const anim = useSimStore((s) => s.presetAnim);
-  const cancel = useSimStore((s) => s.cancelPreset);
   const disabled = !modePolicy(mode).presetsEnabled;
   return (
     <div className="section">
@@ -78,18 +76,6 @@ export function PresetViews() {
         {SECONDARY.map((p) => (
           <PresetButton key={p.id} {...p} />
         ))}
-      </div>
-      <div className={`small preset-status${anim ? ' moving' : ''}`} aria-live="polite">
-        {disabled
-          ? 'Deshabilitadas en examen: la vista debe obtenerse manipulando la sonda.'
-          : anim
-            ? `Moviendo la sonda hacia ${anim.viewId.toUpperCase()}…`
-            : null}
-        {anim && (
-          <button className="ghost" onClick={cancel} style={{ marginLeft: 'auto' }}>
-            Detener
-          </button>
-        )}
       </div>
     </div>
   );

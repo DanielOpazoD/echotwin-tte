@@ -227,7 +227,6 @@ export interface SimStore {
   recordViewScore: (viewId: string, score: number) => void;
   /** Start moving the probe to a predefined view (disabled in exam mode). */
   startPresetView: (viewId: string) => void;
-  cancelPreset: () => void;
   /** Advance the preset animation; called from the animation loop. */
   tickPresetAnimation: (nowMs: number) => void;
   finishExam: () => void;
@@ -736,10 +735,6 @@ export const useSimStore = create<SimStore>((set, get) => ({
       .catch((e: unknown) => {
         console.warn('preset view request failed', e instanceof Error ? e.message : e);
       });
-  },
-  cancelPreset: () => {
-    presetToken++;
-    set({ presetAnim: null });
   },
   tickPresetAnimation: (nowMs) =>
     set((s) => {

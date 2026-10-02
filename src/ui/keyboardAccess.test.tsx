@@ -26,7 +26,7 @@ function Harness(): React.JSX.Element {
 describe('keyboard access', () => {
   afterEach(() => cleanup());
 
-  it('the arrows and Space belong to the focused tab or button, and act as shortcuts elsewhere', () => {
+  it('the arrows belong to the focused tab and act as shortcuts elsewhere', () => {
     render(<Harness />);
     const probe = () => useSimStore.getState().probe;
     const u0 = probe().u;
@@ -34,14 +34,9 @@ describe('keyboard access', () => {
     expect(probe().u).toBe(u0);
     fireEvent.keyDown(document.body, { key: 'ArrowRight' });
     expect(probe().u).not.toBe(u0);
-    const frozen = useSimStore.getState().frozen;
-    fireEvent.keyDown(screen.getByRole('button', { name: 'Congelar' }), { key: ' ' });
-    expect(useSimStore.getState().frozen).toBe(frozen);
-    fireEvent.keyDown(document.body, { key: ' ' });
-    expect(useSimStore.getState().frozen).toBe(!frozen);
-    // letters stay shortcuts on a button: they are not what a button does
+    // Enter stays the button's; letters stay shortcuts on a button: they are not what a button does
+    expect(focusOwnsKey(screen.getByRole('button', { name: 'Congelar' }), 'Enter')).toBe(true);
     expect(focusOwnsKey(screen.getByRole('button', { name: 'Congelar' }), 'c')).toBe(false);
-    if (useSimStore.getState().frozen) useSimStore.getState().toggleFreeze();
   });
 
   it('the rotation dial takes focus and turns with the arrows, Page keys and Shift', () => {

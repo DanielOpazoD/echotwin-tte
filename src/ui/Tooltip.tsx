@@ -101,7 +101,7 @@ export function TooltipLayer() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') return hide();
       // a key can change what the element says (Space turns «Congelar» into «Reanudar»): read it again once React
-      // has drawn it
+      // has drawn it. Also on the release: the press of Space never gets here, the freeze key takes it (decision 244)
       window.setTimeout(() => {
         const el = target.current;
         if (!el?.isConnected) return;
@@ -115,6 +115,7 @@ export function TooltipLayer() {
     document.addEventListener('focusout', onFocusOut);
     document.addEventListener('pointerdown', onDown, true);
     document.addEventListener('keydown', onKey, true);
+    document.addEventListener('keyup', onKey, true);
     window.addEventListener('scroll', hide, true);
     return () => {
       clear();
@@ -124,6 +125,7 @@ export function TooltipLayer() {
       document.removeEventListener('focusout', onFocusOut);
       document.removeEventListener('pointerdown', onDown, true);
       document.removeEventListener('keydown', onKey, true);
+      document.removeEventListener('keyup', onKey, true);
       window.removeEventListener('scroll', hide, true);
     };
   }, []);

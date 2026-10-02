@@ -1,6 +1,6 @@
 # Protocolo de validación externa
 
-Propuesta 8 del plan de mejora (aprobada el 2026-09-10). Define cómo se validará EchoTwin TTE con personas externas al desarrollo en tres estudios independientes y acumulativos. Nada de este protocolo se ha ejecutado todavía: el simulador sólo cuenta con validación interna (`docs/VALIDATION.md`). Los materiales que el protocolo necesita ya existen en el repositorio: el conjunto de revisión exportable (`npm run review:export`), la exportación anónima del progreso (pantalla «Progreso») y el versionado de casos y reglas clínicas.
+Propuesta 8 del plan de mejora (aprobada el 2026-09-10). Define cómo se validará EchoTwin TTE con personas externas al desarrollo en tres estudios independientes y acumulativos. Nada de este protocolo se ha ejecutado todavía: el simulador sólo cuenta con validación interna (`docs/VALIDATION.md`). Los materiales que el protocolo necesita ya existen en el repositorio: el conjunto de revisión exportable (`npm run review:export`), la exportación anónima del progreso (pestaña «Informe», sección «Progreso») y el versionado de casos y reglas clínicas.
 
 ## Principios
 - **Sin datos de pacientes en el repositorio ni en los exportables.** Las imágenes reales comparadas en el estudio 2 permanecen en el centro que las custodia; al repositorio sólo vuelven puntuaciones agregadas.
@@ -51,7 +51,7 @@ Propuesta 8 del plan de mejora (aprobada el 2026-09-10). Define cómo se validar
 - Transferencia: adquisición de PLAX y A4C en un voluntario sano con un equipo real, puntuadas por un experto ciego con la misma rúbrica de vista (plano, referencias, centrado, profundidad, ganancia).
 - Cuestionario de carga cognitiva y utilidad percibida (NASA-TLX abreviado, 5 ítems Likert).
 
-**Datos.** Cada participante exporta su progreso anónimo desde «Progreso» (JSON sin identificadores, generado por `exportProgressJson`); el investigador asigna un código y guarda la correspondencia fuera del repositorio.
+**Datos.** Cada participante exporta su progreso anónimo desde «Informe» › «Progreso» (JSON sin identificadores, generado por `exportProgressJson`); el investigador asigna un código y guarda la correspondencia fuera del repositorio.
 
 **Análisis.** Diferencia pre-post entre grupos (ANCOVA con la puntuación pre como covariable); tamaño del efecto (d de Cohen) y su IC; correlación entre la puntuación en el simulador y la transferencia. **Criterio de éxito preregistrado:** d ≥ 0,5 en la puntuación de adquisición y en la técnica de medición, sin aumento de la carga cognitiva.
 

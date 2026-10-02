@@ -715,15 +715,6 @@ select:hover {
 .display-wrap canvas.overlay {
   pointer-events: auto;
 }
-.disclaimer {
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  font-size: var(--fs-xs);
-  color: var(--faint);
-  letter-spacing: 0.01em;
-}
 /* LV segments on the ultrasound image (decision 153): the toggle under the case title and the name beside the pointer */
 .img-seg {
   position: absolute;
@@ -1508,6 +1499,33 @@ select:hover {
   margin: 0 auto;
   width: 100%;
 }
+.screen-group {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+/* the sections of the «Informe» tab (decision 244): a small segmented control aligned with the text below it */
+.screen-group-head {
+  width: 100%;
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: 16px 32px 0;
+}
+.nav-seg.screen-tabs {
+  display: inline-flex;
+  margin: 0;
+  background: var(--panel);
+}
+.nav-seg.screen-tabs button {
+  padding: 3px 12px;
+  font-size: var(--fs-md);
+}
+.screen-group > .screen {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding-top: 16px;
+}
 .screen h2 {
   margin: 0 0 6px;
   font-size: 18px;
@@ -2274,30 +2292,6 @@ canvas.overlay.armed {
 .display-wrap.frozen::after {
   opacity: 1;
 }
-/* while a preset moves the probe, its status reads as a live notice */
-.preset-status {
-  margin-top: 4px;
-  line-height: 1.45;
-}
-.preset-status.moving {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 9px;
-  border-radius: 8px;
-  background: var(--accent-soft);
-  border: 1px solid var(--accent-line);
-  color: var(--text);
-}
-.preset-status.moving::before {
-  content: '';
-  flex: 0 0 auto;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--accent);
-  animation: pulse 1.2s ease-in-out infinite;
-}
 
 /* ---- sheets over the simulator (decision 185): the keyboard shortcuts ---- */
 .sheet-backdrop {
@@ -2392,9 +2386,6 @@ canvas.overlay.armed {
   color: var(--accent);
   border-color: var(--accent-line);
   outline: none;
-}
-.preset-status:empty {
-  display: none;
 }
 .protocol-cap {
   margin: 2px 0 4px;
@@ -2634,8 +2625,7 @@ canvas.overlay.armed {
     opacity: 1;
   }
 }
-/* the mode bar never wraps a label: at 1105 px «Torso 3D» broke in two lines and doubled the bar's height; the
-   disclaimer, which ellipsises, gives way first */
+/* the mode bar never wraps a label: at 1105 px «Torso 3D» broke in two lines and doubled the bar's height */
 .modebar > button,
 .modebar .seg-bar button,
 .modebar .cine button,
@@ -2643,10 +2633,12 @@ canvas.overlay.armed {
   white-space: nowrap;
   flex-shrink: 0;
 }
-.modebar .disclaimer {
-  flex: 0 1000 auto;
+/* the torso toggle is an icon, as wide as the ⋯ menu beside it (decision 244) */
+.modebar > button.icon-btn {
+  width: 30px;
+  height: 30px;
 }
-/* frozen, the cine slider is what gives way after the disclaimer: at 1105 px the bar overflowed by 12 px */
+/* frozen, the cine slider is what gives way: at 1105 px the bar overflowed by 12 px */
 .modebar .cine {
   flex: 0 1 auto;
   min-width: 0;

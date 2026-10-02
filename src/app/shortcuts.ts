@@ -37,7 +37,7 @@ export const TORSO_GESTURES: { keys: string; action: string }[] = [
   { keys: 'Ctrl/⌘ + rueda', action: 'Acercar o alejar la cámara' },
 ];
 
-/** Roles whose widgets move with the arrow keys and act with Space (WAI-ARIA composite widgets and the slider). */
+/** Roles whose widgets move with the arrow keys (WAI-ARIA composite widgets and the slider). */
 const ARROW_ROLES = new Set([
   'tab',
   'tablist',
@@ -61,9 +61,9 @@ const ARROW_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', '
 
 /**
  * Whether the focused element handles this key itself, so the global shortcut must yield (decision 176): every key in a
- * form field or an editable element; the arrows, Home, End and Space in a tab, a slider or another composite widget;
- * Space and Enter on a button, a link or a summary. With focus on a tab ArrowRight moved the probe and Space froze the
- * image while it pressed the button.
+ * form field or an editable element; the arrows, Home and End in a tab, a slider or another composite widget; Enter on
+ * a button, a link or a summary. With focus on a tab ArrowRight moved the probe. Space is not decided here: it is the
+ * freeze everywhere but where text is typed (`typesText`, decision 244).
  */
 export function focusOwnsKey(target: EventTarget | null, key: string): boolean {
   const t = target as HTMLElement | null;
@@ -71,13 +71,69 @@ export function focusOwnsKey(target: EventTarget | null, key: string): boolean {
   if (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA') return true;
   if (t.isContentEditable) return true;
   const role = t.getAttribute('role');
-  if (role && ARROW_ROLES.has(role) && (ARROW_KEYS.has(key) || key === ' ')) return true;
+  if (role && ARROW_ROLES.has(role) && ARROW_KEYS.has(key)) return true;
   const pressable =
     t.tagName === 'BUTTON' || t.tagName === 'A' || t.tagName === 'SUMMARY' || role === 'button';
-  return pressable && (key === ' ' || key === 'Enter');
+  return pressable && key === 'Enter';
+}
+
+/** Input types that hold no typed text: Space on them is the freeze, not a character (a slider, a checkbox, a button). */
+const NON_TEXT_INPUTS = new Set([
+  'range',
+  'checkbox',
+  'radio',
+  'button',
+  'submit',
+  'reset',
+  'color',
+  'file',
+  'image',
+]);
+
+/** Whether Space types into the focused element (a text field, a text area, an editable element) or opens a select. */
+export function typesText(target: EventTarget | null): boolean {
+  const t = target as HTMLElement | null;
+  if (!t || typeof t.tagName !== 'string') return false;
+  if (t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable) return true;
+  return t.tagName === 'INPUT' && !NON_TEXT_INPUTS.has((t as HTMLInputElement).type);
+}
+
+/**
+ * Space freezes and resumes the scanner from anywhere in the program (decision 244): a button, a tab, a slider, the 3D
+ * torso, the console, another screen. One listener on the window, in the capture phase, so it runs before any other
+ * and is the only one: it takes the default (the focused button is not pressed by the key, the page does not scroll)
+ * and stops the event there. Only where text is typed does Space stay a character. Holding the key toggles once.
+ */
+function useFreezeKey(): void {
+  useEffect(() => {
+    let taken = false;
+    const isSpace = (e: KeyboardEvent) => e.key === ' ' || e.code === 'Space';
+    const onDown = (e: KeyboardEvent) => {
+      taken = false;
+      if (!isSpace(e) || e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return;
+      if (typesText(e.target)) return;
+      taken = true;
+      e.preventDefault();
+      e.stopPropagation();
+      if (!e.repeat) useSimStore.getState().toggleFreeze();
+    };
+    // a button can also act on the release of Space: the release of a taken press is taken too
+    const onUp = (e: KeyboardEvent) => {
+      if (!taken || !isSpace(e)) return;
+      taken = false;
+      e.preventDefault();
+    };
+    window.addEventListener('keydown', onDown, true);
+    window.addEventListener('keyup', onUp, true);
+    return () => {
+      window.removeEventListener('keydown', onDown, true);
+      window.removeEventListener('keyup', onUp, true);
+    };
+  }, []);
 }
 
 export function useShortcuts(): void {
+  useFreezeKey();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (focusOwnsKey(e.target, e.key)) return;
@@ -130,10 +186,6 @@ export function useShortcuts(): void {
           }
           break;
         }
-        case ' ':
-          e.preventDefault();
-          s.toggleFreeze();
-          break;
         case '2':
           s.setModality('2d');
           break;

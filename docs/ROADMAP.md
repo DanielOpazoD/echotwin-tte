@@ -78,7 +78,7 @@ Estado real según el código el 2026-09-10. Los hitos M0–M6 siguen la especif
 | Generación offline de atlas (`atlas:build`) | parcial | `build-atlas.ts` genera hojas de contacto de 16 fases por vista para inspección; no exporta un paquete de anclas cargable |
 | Goldens por semilla y renders offline | hecho | `goldens.test.ts`, `render-views.ts` |
 | Pruebas E2E | hecho | 46 pruebas Playwright (`core-flow` 10, `gpu-equivalence` 26, `gpu-live` 4 sólo con GPU real, `measurements` 4, `learning` 2); ver `docs/VALIDATION.md` |
-| Protocolo de validación externa (puntuación experta por vista/versión, comparación ciega con imágenes reales anonimizadas, piloto con residentes) preregistrado, con conjunto de revisión exportable y progreso anónimo exportable | hecho (protocolo) / pendiente (ejecución) | `docs/VALIDATION_PROTOCOL.md`, `npm run review:export`, pantalla «Progreso» |
+| Protocolo de validación externa (puntuación experta por vista/versión, comparación ciega con imágenes reales anonimizadas, piloto con residentes) preregistrado, con conjunto de revisión exportable y progreso anónimo exportable | hecho (protocolo) / pendiente (ejecución) | `docs/VALIDATION_PROTOCOL.md`, `npm run review:export`, sección «Progreso» de la pestaña «Informe» |
 | Validación contra PyMUST / OpenBCSim / referencia CUDA | pendiente | carpetas vacías |
 | Rendimiento objetivo en navegador (render < 16 ms a calidad media) | parcial | trazador ≈ 10 ms en Node (ruido de retícula); en el navegador, con ancla completa, `stepMs` ≈ 2–3 ms; barridos ≈ 15–30 ms según núcleo |
 | Documentación | hecho | `docs/` (este conjunto) |
