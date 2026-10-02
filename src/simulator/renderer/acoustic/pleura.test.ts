@@ -15,7 +15,15 @@ import { applyConsole, createConsoleState } from '@/simulator/renderer/postproce
 import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
 import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
 import { Tissue } from '@/simulator/anatomy/tissue';
-import { pleuralCoherence, pleuralIncidenceCos, PLEURA_SLOPE_WINDOW_CM } from './acoustics';
+import {
+  ATTEN_NP_PER_DB,
+  pleuralCoherence,
+  pleuralIncidenceCos,
+  pleuralReverberation,
+  PLEURA_SLOPE_WINDOW_CM,
+  REVERB_DECAY,
+  SOFT_TISSUE_ATTEN_DB,
+} from './acoustics';
 
 /**
  * The pleural line and its A-lines are specular (decision 221): they come back to the probe where the pleura faces the
@@ -110,5 +118,28 @@ describe('pleura and A-lines follow the incidence (decision 221)', () => {
         out.push(`${view}: ${(share(square) * 100).toFixed(2)} % bright behind a square pleura`);
     }
     expect(out).toEqual([]);
+  });
+});
+
+/**
+ * A-lines fade like echoes from their depth (decision 250). An A-line seen a pleura depth further down has made one more
+ * round trip between the pleura and the probe face: it lost what a bounce takes and the attenuation of that much more
+ * tissue, as any echo from its depth did; the console's depth gain gives back the second and leaves the first. Drawn
+ * without the path, each order kept its strength while the tissue around it lost it, and the gain lifted it.
+ */
+describe('A-lines are attenuated over their path (decision 250)', () => {
+  it('each order is the one before it times the bounce loss and the attenuation of one more pleura depth', () => {
+    const f = 2.5;
+    for (const entry of [1.2, 2, 3.5]) {
+      const order = (j: number) => pleuralReverberation(entry + j * entry, entry, 1, 0, 1, f);
+      for (const j of [1, 2]) {
+        const expected =
+          REVERB_DECAY * Math.exp(-ATTEN_NP_PER_DB * SOFT_TISSUE_ATTEN_DB * f * entry);
+        expect(order(j + 1) / order(j), `entry ${entry} cm, order ${j} → ${j + 1}`).toBeCloseTo(
+          expected,
+          2,
+        );
+      }
+    }
   });
 });

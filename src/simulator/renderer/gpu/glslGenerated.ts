@@ -250,7 +250,7 @@ float myoHelixGain(float dphi, float dz, float u) {
   return MYO_ANISO_FLOOR + (1.0 - MYO_ANISO_FLOOR) * (1.0 - c * c);
 }
 // src/simulator/renderer/acoustic/acoustics.ts: pleuralReverberation
-float pleuralReverberation(float rCm, float entryCm, float transmission, float modulation, float coherence) {
+float pleuralReverberation(float rCm, float entryCm, float transmission, float modulation, float coherence, float attenFrequencyMHz) {
   if (rCm <= entryCm) {
     return 0.0;
   }
@@ -266,7 +266,8 @@ float pleuralReverberation(float rCm, float entryCm, float transmission, float m
     decay *= REVERB_DECAY;
   }
   float diffuse = REVERB_DIFFUSE * exp(-d / REVERB_DIFFUSE_DECAY_CM) * modulation;
-  return transmission * (REVERB_GAIN * band * coherence + diffuse);
+  float path = exp(-ATTEN_NP_PER_DB * SOFT_TISSUE_ATTEN_DB * attenFrequencyMHz * d);
+  return transmission * (path * REVERB_GAIN * band * coherence + diffuse);
 }
 // src/simulator/renderer/acoustic/acoustics.ts: pleuralIncidenceCos
 float pleuralIncidenceCos(float dEntryCm, float arcCm) {
@@ -309,4 +310,4 @@ float sliceHalfWidthCm(float rCm, float focusCm) {
 `;
 
 /** Shader constants the generated functions read (must be #defines or constants of the including shader). */
-export const GLSL_GENERATED_FREE_IDENTIFIERS: readonly string[] = ["CORD_CM","DESC_AORTA_R","DESC_AORTA_SLEEVE","DESC_AORTA_SLEEVE_FORWARD","DESC_AORTA_WALL","DESC_AORTA_X","DESC_AORTA_Z","FOCUS_HALF_APERTURE_MM","FOCUS_HALF_ELEVATION_MM","FOCUS_WAIST_ELEVATION_MM","FOCUS_WAIST_LATERAL_MM","LV_NECK_ZETA","MEMBRANE_CM","MYO_ANISO_FLOOR","MYO_HELIX_ENDO_DEG","MYO_HELIX_EPI_DEG","REVERB_DECAY","REVERB_DIFFUSE","REVERB_DIFFUSE_DECAY_CM","REVERB_GAIN","REVERB_PERIOD_MIN_CM","REVERB_WIDTH_CM","RV_BODY_RADIAL_CONTRACTION","RV_HINGE_CM","RV_HINGE_FADE_RAD","RV_HINGE_PLATEAU_CM","RV_INFLOW_REACH_CM","SEPTAL_CREST_AZ","SEPTAL_CREST_HALF_WIDTH","SEPTAL_CREST_Z_CM","SLICE_HALF_BASE_CM","SLICE_HALF_SLOPE"];
+export const GLSL_GENERATED_FREE_IDENTIFIERS: readonly string[] = ["ATTEN_NP_PER_DB","CORD_CM","DESC_AORTA_R","DESC_AORTA_SLEEVE","DESC_AORTA_SLEEVE_FORWARD","DESC_AORTA_WALL","DESC_AORTA_X","DESC_AORTA_Z","FOCUS_HALF_APERTURE_MM","FOCUS_HALF_ELEVATION_MM","FOCUS_WAIST_ELEVATION_MM","FOCUS_WAIST_LATERAL_MM","LV_NECK_ZETA","MEMBRANE_CM","MYO_ANISO_FLOOR","MYO_HELIX_ENDO_DEG","MYO_HELIX_EPI_DEG","REVERB_DECAY","REVERB_DIFFUSE","REVERB_DIFFUSE_DECAY_CM","REVERB_GAIN","REVERB_PERIOD_MIN_CM","REVERB_WIDTH_CM","RV_BODY_RADIAL_CONTRACTION","RV_HINGE_CM","RV_HINGE_FADE_RAD","RV_HINGE_PLATEAU_CM","RV_INFLOW_REACH_CM","SEPTAL_CREST_AZ","SEPTAL_CREST_HALF_WIDTH","SEPTAL_CREST_Z_CM","SLICE_HALF_BASE_CM","SLICE_HALF_SLOPE","SOFT_TISSUE_ATTEN_DB"];

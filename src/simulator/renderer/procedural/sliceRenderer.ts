@@ -489,7 +489,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
       REVERB_MOD_BASE +
       REVERB_MOD_AMP *
         latticeNoise3(li * REVERB_MOD_LINE_FREQ, r * REVERB_MOD_DEPTH_FREQ, REVERB_MOD_Z, latC);
-    const a = pleuralReverberation(r, entryR, entryT, nn, coherence);
+    const a = pleuralReverberation(r, entryR, entryT, nn, coherence, ctx.fAtten);
     // reverberation energy is incoherent: a phasor tied to the line and the depth, one per look (decision 145)
     const px2 = li * REVERB_PHASOR_LINE_FREQ,
       pr = r * SCATTER_FREQ;

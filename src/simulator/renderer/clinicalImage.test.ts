@@ -164,6 +164,11 @@ const KNOWN_GEOMETRY_DEVIATIONS: ReadonlyMap<string, number> = new Map([
  * phases 1–3 of the fidelity plan. The near field came inside at decision 156.
  */
 const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
+  // decision 250: the A-lines lose their path through the chest wall; the deep two-chamber sector lost the bright replicas
+  // that had lifted its grey and its coherence across the beam
+  ['2CH-ED:tangentialCorr2', -0.2],
+  ['2CH-ES:greyP95', -0.12],
+  ['2CH-ES:tangentialCorr4', -0.22],
   // black pixels where a clinical image has none (its cavities and background keep a haze above grey 20)
   ['4CH-ED:darkFraction', 1.93],
   // the right ventricle contracts in systole since decision 220 and leaves less black blood in the four-chamber view
@@ -206,15 +211,15 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['2CH-ES:gradientP50', 2.27],
   ['4CH-ED:gradientP95', 0.61],
   ['4CH-ES:gradientP95', 0.44],
-  ['2CH-ED:gradientP95', 1.13],
-  ['2CH-ES:gradientP95', 0.9],
+  ['2CH-ED:gradientP95', 0.89],
+  ['2CH-ES:gradientP95', 0.66],
   ['4CH-ED:ridgeFraction', 1.07],
   // 0.36 → 0.56 at decision 226: thin bright lines at the systolic crux, where both valves now hinge on the septum
   ['4CH-ES:ridgeFraction', 0.37],
-  ['2CH-ES:ridgeFraction', 0.45],
-  ['2CH-ED:ridgeFraction', 1.2],
+  ['2CH-ES:ridgeFraction', 0.13],
+  ['2CH-ED:ridgeFraction', 1.01],
   // more texture contrast over the whole sector: the blood pool and background are grainier than the clinical haze
-  ['2CH-ED:detrendedStd', 0.4],
+  ['2CH-ED:detrendedStd', 0.14],
   // (4CH-ED, on the edge since the papillary muscles rose out of the mid-cavity band at decision 225, came inside with the
   // chordae as thin cords, decision 227)
   // texture longer along the beam at 1 mm (0.31-0.35 against 0.20-0.23) and, in the 2CH, less coherent across it at 2-4 mm
@@ -223,8 +228,8 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // (the four-chamber end-systolic texture against the ±4 mm mean and its correlation along the beam at 8 mm, declared
   // since decision 161, came inside at decisions 220 and 221)
   // 1.71 and 1.24 until the chordae became thin cords (decision 227): their bright rods ran along the apical beams
-  ['2CH-ED:radialCorr1', 1.51],
-  ['2CH-ES:radialCorr1', 1.03],
+  ['2CH-ED:radialCorr1', 1.3],
+  ['2CH-ES:radialCorr1', 0.77],
   ['4CH-ES:tangentialCorr4', -0.35],
   // −0.45 until decision 227 (the 2CH-ES one, −0.27, came inside with it)
   ['2CH-ED:tangentialCorr4', -0.28],
@@ -262,7 +267,7 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // the four-chamber end-systolic sector past the clinical quartile (130 against 85-124); the two-chamber edge roll-off
   // (0.21 and 0.12 out) and its end-diastolic cavity band (−0.17) came inside with it
   ['4CH-ES:bandGrey0', 0.16],
-  ['2CH-ES:tangentialCorr8', -0.27],
+  ['2CH-ES:tangentialCorr8', -0.1],
 ]);
 
 /**

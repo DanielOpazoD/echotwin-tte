@@ -322,6 +322,7 @@ export function pleuralReverberation(
   transmission: number,
   modulation: number,
   coherence: number,
+  attenFrequencyMHz: number,
 ): number {
   if (rCm <= entryCm) return 0;
   const d = rCm - entryCm;
@@ -336,7 +337,11 @@ export function pleuralReverberation(
     decay *= REVERB_DECAY;
   }
   const diffuse = REVERB_DIFFUSE * Math.exp(-d / REVERB_DIFFUSE_DECAY_CM) * modulation;
-  return transmission * (REVERB_GAIN * band * coherence + diffuse);
+  // an echo seen d past the pleura has travelled d further through tissue, as any echo from that depth (decision 250): the
+  // console's depth gain gives that back and leaves the loss per bounce. Drawn without it, the gain lifted each order
+  // over the one before it relative to the tissue around it
+  const path = Math.exp(-ATTEN_NP_PER_DB * SOFT_TISSUE_ATTEN_DB * attenFrequencyMHz * d);
+  return transmission * (path * REVERB_GAIN * band * coherence + diffuse);
 }
 
 export function heteroDb(tissue: number): number {
@@ -414,6 +419,7 @@ export const ACOUSTIC_GLSL_CONSTANTS: Readonly<
   PHASOR_IM_A,
   PHASOR_IM_B,
   ATTEN_NP_PER_DB,
+  SOFT_TISSUE_ATTEN_DB,
   CALCIUM_ATTEN_THRESHOLD,
   CALCIUM_ATTEN_NP,
   CALCIUM_ATTEN_REF_CM,
