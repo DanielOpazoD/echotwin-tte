@@ -2,13 +2,7 @@ import { lvCavityRadius, lvRadialOffsetFactor, type LvProfileTable } from './lvS
 import { latticeNoise3 } from '@/core/noise';
 import { ahaSegment } from './lvGeometry';
 import { septalCrestFactor, septalShiftAt, wallThicknessAt } from './lvWall';
-import {
-  TV_SYSTOLIC_SHORTENING,
-  TWO_PI,
-  skirtOffsetAt,
-  tvInflowSdf,
-  type SkirtDesc,
-} from './valveSkirt';
+import { tvShortening, TWO_PI, skirtOffsetAt, tvInflowSdf, type SkirtDesc } from './valveSkirt';
 import type { AnchorsCached } from './anchors';
 import type { HeartModel } from './heartModel';
 import type { HeartPose } from './heartPose';
@@ -215,7 +209,7 @@ export function rvRadii(
     rvAxialTaper(tvPlane, A.rvApexFrac * L, z) *
     (1 - rvRadialContraction(u) * rvRadialState(tvZ, A.rvTapseCm, contraction) * A.rvRadialScale);
   // the free wall hangs from the annulus, which shortens 20 % in systole about its septal edge (decision 243)
-  const tvR = A.tvR * (1 - TV_SYSTOLIC_SHORTENING * contraction);
+  const tvR = A.tvR * (1 - tvShortening(contraction, A.rvRadialScale));
   const tvCx = A.tvCenter.x + (A.tvR - tvR);
   const rc = Math.hypot(tvCx, A.tvCenter.y);
   let dAz = az - Math.atan2(A.tvCenter.y, tvCx);
