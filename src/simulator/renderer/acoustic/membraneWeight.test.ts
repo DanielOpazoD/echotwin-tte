@@ -28,7 +28,7 @@ describe('thin-membrane partial volume', () => {
   });
 
   it('at the focus of a 2.5 MHz beam a face-on cusp keeps about a fifth of its echo, a tilted one about half', () => {
-    const e = sliceHalfWidthCm(9, 9);
+    const e = sliceHalfWidthCm(9);
     expect(membraneWeight(1, e)).toBeGreaterThan(0.12);
     expect(membraneWeight(1, e)).toBeLessThan(0.3);
     expect(membraneWeight(Math.cos(Math.PI / 3), e)).toBeGreaterThan(0.25);

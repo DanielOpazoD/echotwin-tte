@@ -70,7 +70,7 @@ void main() {
   vec3 dirH = vec3(dot(dirT, ex), dot(dirT, ey), dot(dirT, ez));
   float r = (float(si) + 0.5) * dr;
   // slice thickness: the side passes sample the planes at ±sliceHalfWidthCm (elevation beam width, acoustic/psf.ts)
-  float e = sliceHalfWidthCm(r, FOCUS);
+  float e = sliceHalfWidthCm(r);
   vec3 pT = vec3(B_OX, B_OY, B_OZ) + dirT * r + bN * (ELEV_OFFSET + uElevK * e);
   vec3 hfO = vec3(HF_OX, HF_OY, HF_OZ);
   vec3 pH = vec3(dot(pT - hfO, ex), dot(pT - hfO, ey), dot(pT - hfO, ez));

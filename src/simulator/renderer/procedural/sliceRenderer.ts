@@ -800,22 +800,19 @@ export class ProceduralSliceRenderer implements RendererBackend {
         const nn = inHeart
           ? s.nx * nrmH.x + s.ny * nrmH.y + s.nz * nrmH.z
           : s.nx * nX + s.ny * nY + s.nz * nZ;
-        const w = membraneWeight(nn, sliceHalfWidthCm(r, focus));
+        const w = membraneWeight(nn, sliceHalfWidthCm(r));
         sigma *= w;
         specular *= w;
       } else if (tissue === Tissue.Chordae) {
         // a cord thinner than the slice reads by the fraction of the slice it fills, and takes no elevation average
         // either (decision 227)
-        const w = cordWeight(
-          s.nx * nrmH.x + s.ny * nrmH.y + s.nz * nrmH.z,
-          sliceHalfWidthCm(r, focus),
-        );
+        const w = cordWeight(s.nx * nrmH.x + s.ny * nrmH.y + s.nz * nrmH.z, sliceHalfWidthCm(r));
         sigma *= w;
         specular *= w;
       } else if (nElev > 1) {
         // slice thickness: the beam's elevational width grows away from the focus; backscatter and interface
         // echo are the weighted mean over the slice (¼ ½ ¼), which blurs obliquely cut structures
-        const e = sliceHalfWidthCm(r, focus);
+        const e = sliceHalfWidthCm(r);
         let accS = sigma * 0.5,
           accP = specular * 0.5,
           wsum = 0.5;
@@ -843,8 +840,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
         nhy = inHeart ? nrmH.y : nY,
         nhz = inHeart ? nrmH.z : nZ;
       const across =
-        (SCATTER_FREQ - 1 / (2 * sliceHalfWidthCm(r, focus))) *
-        (s.mx * nhx + s.my * nhy + s.mz * nhz);
+        (SCATTER_FREQ - 1 / (2 * sliceHalfWidthCm(r))) * (s.mx * nhx + s.my * nhy + s.mz * nhz);
       // flowing blood is a new realization in every frame (decision 163)
       const qx =
           s.mx * SCATTER_FREQ - across * nhx + (tissue === Tissue.Blood ? ctx.bloodShift : 0),
@@ -862,7 +858,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
           line.grainScale[si] = sigma * GRAIN_GAIN * transmission * lk.smooth;
           line.grainCells[si] = gf;
         } else {
-          const ga = gf - Math.min(gf, 1 / (2 * sliceHalfWidthCm(r, focus)));
+          const ga = gf - Math.min(gf, 1 / (2 * sliceHalfWidthCm(r)));
           const gm = (s.mx * nhx + s.my * nhy + s.mz * nhz) * ga;
           grain =
             sigma *
