@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 246 (última: 246).
+Decisiones: 247 (última: 247).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -254,3 +254,4 @@ Decisiones: 246 (última: 246).
 | [244](DECISIONS.md#L1447) | 2026-09-25 | Interfaz más limpia: sin el aviso de «Moviendo la sonda», Espacio congela desde cualquier parte, Informe, Currículo y Progreso en una pestaña y la barra inferior sin descargo | vigente |
 | [245](DECISIONS.md#L1449) | 2026-09-25 | La insuficiencia mitral dura toda la sístole y la mueve la presión del ventrículo | vigente |
 | [246](DECISIONS.md#L1451) | 2026-09-25 | El ensanchamiento turbulento del espectro se detiene en la línea de base | vigente |
+| [247](DECISIONS.md#L1453) | 2026-09-25 | El coste del trazador CPU tiene una guarda en el CI | vigente |
