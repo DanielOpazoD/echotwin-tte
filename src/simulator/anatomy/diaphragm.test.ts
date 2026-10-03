@@ -24,13 +24,16 @@ import { add, dot, normalize, scale, sub } from '@/core/vec3';
  * The right heart rests on the diaphragm (decision 229). Until then the liver dome was a paraboloid under the right heart
  * and the heart floated above it, with lung in the gap: the subcostal beams crossed a pleura before the heart in 14–16 % of
  * their lines, and the junction of the inferior vena cava with the right atrium — what the subcostal view of the cava is
- * for — was drawn as lung reverberation.
+ * for — was drawn as lung reverberation. The left ventricle's diaphragmatic face, its AHA inferior wall, rests there too
+ * (decision 262): the fibrous pericardium is fixed to the central tendon and to the left side of the diaphragm, so no lung
+ * can lie between them; until then 2–3 cm of gap, 70–84 % of it lung, separated the inferior wall from the diaphragm.
  */
-const RIGHT_HEART: ReadonlySet<number> = new Set([
+const RESTING: ReadonlySet<number> = new Set([
   Structure.RvWall,
   Structure.RvCavity,
   Structure.RaWall,
   Structure.RaCavity,
+  Structure.LvWallInferior,
 ]);
 const LINING: ReadonlySet<number> = new Set([
   Structure.Pericardium,
@@ -38,8 +41,8 @@ const LINING: ReadonlySet<number> = new Set([
   Structure.PericardialEffusion,
 ]);
 
-describe('the right heart rests on the diaphragm (decision 229)', () => {
-  it('leaves no lung between the right ventricle or atrium and the diaphragm under them', () => {
+describe('the heart rests on the diaphragm (decisions 229 and 262)', () => {
+  it('leaves no lung between the right ventricle, the right atrium or the LV inferior wall and the diaphragm under them', () => {
     const s = makeSample();
     const problems: string[] = [];
     for (const { id } of CASE_INPUTS) {
@@ -53,14 +56,15 @@ describe('the right heart rests on the diaphragm (decision 229)', () => {
           ? s.structure
           : -1;
       };
-      let lung = 0,
-        gap = 0,
-        columns = 0;
-      // torso columns (cm) whose lowest chamber is the right ventricle or atrium
-      for (let x = -6; x <= 8; x += 1)
-        for (let z = -12; z <= 0; z += 1) {
+      const per = new Map<boolean, { columns: number; lung: number; gap: number }>([
+        [false, { columns: 0, lung: 0, gap: 0 }],
+        [true, { columns: 0, lung: 0, gap: 0 }],
+      ]);
+      // torso columns (cm) whose lowest chamber is the right ventricle or atrium, or the LV inferior wall
+      for (let x = -6; x <= 12; x += 1)
+        for (let z = -14; z <= 2; z += 1) {
           let yb = NaN;
-          for (let y = -12; y < 4; y += 0.1)
+          for (let y = -14; y < 4; y += 0.1)
             if (heartAt(x, y, z) >= 0) {
               yb = y;
               break;
@@ -71,25 +75,28 @@ describe('the right heart rests on the diaphragm (decision 229)', () => {
             const st = heartAt(x, yb + d, z);
             if (st >= 0 && !LINING.has(st)) k = st;
           }
-          if (!RIGHT_HEART.has(k)) continue;
+          if (!RESTING.has(k)) continue;
+          const acc = per.get(k === Structure.LvWallInferior)!;
           // at the acute margin a sliver of free wall covers the lung's cardiophrenic recess: whole chambers only
           let top = yb;
           while (top < yb + 1.6 && heartAt(x, top + 0.1, z) >= 0) top += 0.1;
           if (top < yb + 1.5) continue;
-          columns++;
+          acc.columns++;
           // down from the heart to the diaphragm or the liver
-          for (let y = yb - 0.05; y > -14; y -= 0.05) {
+          for (let y = yb - 0.05; y > -16; y -= 0.05) {
             const h = torsoToHeart(heart.frame, { x, y, z });
             if (classifyHeart(heart, pose, h.x + pose.swingX, h.y, h.z, s)) continue;
             classifyThorax(thorax, x, y, z, s, s.sdf);
             if (s.structure === Structure.Diaphragm || s.structure === Structure.Liver) break;
-            gap++;
-            if (s.structure === Structure.Lung) lung++;
+            acc.gap++;
+            if (s.structure === Structure.Lung) acc.lung++;
           }
         }
-      if (columns < 20) problems.push(`${id}: only ${columns} columns under the right heart`);
-      if (lung > 0)
-        problems.push(`${id}: ${lung} of ${gap} samples under the right heart are lung`);
+      for (const [lv, { columns, lung, gap }] of per) {
+        const where = lv ? 'the LV inferior wall' : 'the right heart';
+        if (columns < 20) problems.push(`${id}: only ${columns} columns under ${where}`);
+        if (lung > 0) problems.push(`${id}: ${lung} of ${gap} samples under ${where} are lung`);
+      }
     }
     expect(problems).toEqual([]);
   });

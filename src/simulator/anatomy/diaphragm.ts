@@ -23,12 +23,20 @@ import {
  * the pericardial sac at the lowest point of a column is the right ventricle or the right atrium, the diaphragm rises to
  * that point; around those columns it falls away by `DIAPHRAGM_FALL` per cm, and the liver dome rules beyond. The grid is
  * sampled bilinearly (`diaphragmMapY`), on the CPU and on the GPU alike.
+ *
+ * The left ventricle's diaphragmatic face rests there too (decision 262): the fibrous pericardium is fixed to the central
+ * tendon and to the muscle of the diaphragm's left side, and the heart's inferior surface is the two ventricles, so its
+ * AHA inferior wall lies on it. Until then 2–3 cm of gap separated that wall from the diaphragm, 70–84 % of it lung.
+ * Decision 229 had kept it out believing the lowest point of an LV column was its inferolateral wall, which faces the
+ * lung; the AHA inferior wall alone brings the same liver into the apical two-chamber and short-axis views, so that was
+ * not why.
  */
 const RESTING: ReadonlySet<number> = new Set([
   Structure.RvWall,
   Structure.RvCavity,
   Structure.RaWall,
   Structure.RaCavity,
+  Structure.LvWallInferior,
 ]);
 /** Veins that leave the heart downward: their tubes are not the heart's underside. */
 const DESCENDING: ReadonlySet<number> = new Set([
