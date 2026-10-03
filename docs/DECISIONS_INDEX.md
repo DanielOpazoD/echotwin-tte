@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 254 (última: 254).
+Decisiones: 255 (última: 255).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -262,3 +262,4 @@ Decisiones: 254 (última: 254).
 | [252](DECISIONS.md#L1463) | 2026-09-25 | El foco en elevación es el de la lente | vigente |
 | [253](DECISIONS.md#L1465) | 2026-09-25 | El Doppler tisular del VD lee el S′ del caso en el sitio de la ASE | vigente |
 | [254](DECISIONS.md#L1467) | 2026-09-25 | Seis criterios del panel medidos antes de tocar nada: el signo de la D, la vista paraesternal derecha, el gris del pulmón, las aurículas, la boca de pez mitral y el subcostal de cuatro cámaras | vigente |
+| [255](DECISIONS.md#L1469) | 2026-09-25 | El derrame pericárdico respeta el seno oblicuo | vigente |
