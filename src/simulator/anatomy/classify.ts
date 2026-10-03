@@ -9,7 +9,7 @@ import { classifyLeftVentricle } from './classify/leftVentricle';
 import { classifyAorticRoot } from './classify/aorticRoot';
 import { classifyAtria } from './classify/atria';
 import { classifyRightVentricle } from './classify/rightVentricle';
-import { classifyPericardium } from './classify/pericardium';
+import { classifyPericardium, posteriorColumnDistance } from './classify/pericardium';
 
 /**
  * What a miss reports in `out.sdf` when the point lies outside the heart's bounding sphere: on a miss `out.sdf` is the
@@ -55,6 +55,21 @@ export function classifyHeart(
   c.y = y;
   c.z = z;
   c.out = out;
+  const A = c.A;
+  c.colDist = posteriorColumnDistance(
+    x0,
+    y,
+    z,
+    A.colU.x,
+    A.colU.y,
+    A.colU.z,
+    A.colAorta.x,
+    A.colAorta.y,
+    A.colAorta.z,
+    A.colSpine.x,
+    A.colSpine.y,
+    A.colSpine.z,
+  );
   rootCoordinates(c);
   if (classifyValves(c)) return true;
   if (classifyLeftVentricle(c)) return true;

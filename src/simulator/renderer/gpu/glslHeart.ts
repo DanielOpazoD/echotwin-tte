@@ -639,6 +639,8 @@ bool classifyHeart(vec3 p0, out Sample s) {
   float x = p.x, y = p.y, z = p.z;
   vec3 bd = p - vec3(BOUND_CX, BOUND_CY, BOUND_CZ);
   if (dot(bd, bd) > BOUND_R * BOUND_R) { s.sdf = FAR_FROM_HEART_CM; return false; }
+  // the descending aorta and the vertebral body, which the heart yields to (decision 273)
+  float colDist = posteriorColumnDistance(p0.x, p0.y, p0.z, COL_UX, COL_UY, COL_UZ, COL_AX, COL_AY, COL_AZ, COL_SX, COL_SY, COL_SZ);
   float zAnn = ZANN;
 
   // ---------- aortic root coordinates ----------
@@ -831,6 +833,8 @@ bool classifyHeart(vec3 p0, out Sample s) {
 
   // the base the ventricle vacated as the annulus descended, atrium now (decision 133); read again by the pericardium
   float raSleeve = 1e3;
+  // the left atrium's epicardium, read by the pericardium (decision 273)
+  float laEpi = 1e3;
   // ---------- atria ----------
   vec3 la = vec3(LA_CX, LA_CY, LA_CZ);
   vec3 lr = vec3(LA_RX, LA_RY, LA_RZ);
@@ -848,13 +852,14 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float tIas = iasThickness(fo);
     float dEllLa = sdEllipsoid(p, vec3(la.x, la.y, czL), vec3(lr.x * bo, lr.y * bo, rzL));
     float dFreeLa = smax(smax(dEllLa, la.y - 0.72 * lr.y * bo - y, 0.6), zTop + 0.15 * rzL - z, 0.5);
+    laEpi = min(dFreeLa - LA_WALL_CM, sdCapsule(p, vec3(la.x + lr.x * 0.55, la.y + lr.y * 0.55, czL + 0.4), vec3(la.x + lr.x * 0.95, la.y + lr.y * 0.55 + 2.0, czL + 0.9), 0.55 * bo) - LAA_WALL_CM);
     float d = smax(dFreeLa, xIas + tIas / 2.0 - x, 0.3);
     if (d < 0.0) {
       setSample(s, T_BLOOD, d, vec3((x - la.x) / lr.x, (y - la.y) / lr.y, (z - czL) / rzL), p, 0.0, S_LA_CAV);
       return true;
     }
-    if (dFreeLa < 0.25 && x > xIas + tIas / 2.0) {
-      setSample(s, T_MYO, -min(dFreeLa, 0.25 - dFreeLa), vec3((x - la.x) / lr.x, (y - la.y) / lr.y, (z - czL) / rzL), p, 0.0, S_LA_WALL);
+    if (dFreeLa < LA_WALL_CM && x > xIas + tIas / 2.0) {
+      setSample(s, T_MYO, -min(dFreeLa, LA_WALL_CM - dFreeLa), vec3((x - la.x) / lr.x, (y - la.y) / lr.y, (z - czL) / rzL), p, 0.0, S_LA_WALL);
       return true;
     }
     float zTopR = ra.z - rar.z + RA_ROOF_DESCENT_SHARE * TVZ;
@@ -934,8 +939,8 @@ bool classifyHeart(vec3 p0, out Sample s) {
         setSample(s, T_BLOOD, dApp, vec3(0.0, 1.0, 0.0), p, 0.0, S_LAA);
         return true;
       }
-      if (dApp < 0.18) {
-        setSample(s, T_MYO, -min(dApp, 0.18 - dApp), vec3(0.0, 1.0, 0.0), p, 0.0, S_LA_WALL);
+      if (dApp < LAA_WALL_CM) {
+        setSample(s, T_MYO, -min(dApp, LAA_WALL_CM - dApp), vec3(0.0, 1.0, 0.0), p, 0.0, S_LA_WALL);
         return true;
       }
     }
@@ -950,7 +955,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
       float px = la.x + sx * lr.x * bo * kz * cos(t);
       float py0 = la.y - lr.y * bo * kz * sin(t);
       float pz = czL + dzN * rzL;
-      float dPv = sdCapsule(p, vec3(px, py0, pz), vec3(px + PV_COURSE[3 * i], py0 + PV_COURSE[3 * i + 1], pz + PV_COURSE[3 * i + 2]), PV_RADIUS);
+      float dPv = smax(sdCapsule(p, vec3(px, py0, pz), vec3(px + PV_COURSE[3 * i], py0 + PV_COURSE[3 * i + 1], pz + PV_COURSE[3 * i + 2]), PV_RADIUS), 0.12 - colDist, 0.2);
       if (dPv < 0.0) {
         setSample(s, T_BLOOD, dPv, vec3(0.0, -1.0, 0.0), p, 0.0, S_PVEIN);
         return true;
@@ -1052,7 +1057,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float dLvEpi = dEllR - wallT - crestLoss;
     float fw = RV_FW;
     float dRvEpi = dRvU - fw;
-    float dLaEpi = sdEllipsoid(p, la, lr + 0.25);
+    float dLaEpi = laEpi;
     float dRaEpi = min(sdEllipsoid(p, ra, rar + 0.22), raSleeve + 0.22);
     // the sac around the outflow tract and the trunk stays where the pericardium is anchored (decision 111)
     vec3 rvotA = vec3(RVOT_AX, RVOT_AY, RVOT_AZ);
@@ -1061,15 +1066,15 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float dRvotEpi = sdCapsule(p, rvotA, rvotB, RVOT_RA + fw);
     vec3 paStj = vec3(PA_SX, PA_SY, PA_SZ);
     float dPaEpi = min(sdRoundCone(p, rvotB, paStj, PA_ROOT_R + 0.2, PA_R + 0.2), sdCapsule(p, paStj, paEnd, PA_R + 0.2));
-    float dEpi = smin(smin(smin(dLvEpi, dRvEpi, 0.8), smin(dLaEpi, dRaEpi, 0.8), 0.8), smin(dRvotEpi, dPaEpi, 0.8), 0.8);
+    float dEpi = smax(smin(smin(smin(dLvEpi, dRvEpi, 0.8), smin(dLaEpi, dRaEpi, 0.8), 0.8), smin(dRvotEpi, dPaEpi, 0.8), 0.8), PERICARDIUM_CM - colDist, 0.2);
     // decision 255: the effusion thins over the left atrium
-    float eff = effusionAt(EFFUSION, dLaEpi, min(min(min(dLvEpi, dRvEpi), min(dRaEpi, dRvotEpi)), dPaEpi));
+    float eff = EFFUSION > 0.0 ? min(effusionAt(EFFUSION, sdEllipsoid(p, la, lr + 0.25), min(min(min(dLvEpi, dRvEpi), min(dRaEpi, dRvotEpi)), dPaEpi)), max(0.0, dEpi + colDist - 2.0 * PERICARDIUM_CM)) : 0.0;
     vec3 nEpi = n0;
     if (dEpi < 0.0) {
       setSample(s, T_FAT, dEpi, nEpi, p, 0.0, S_EPI_FAT);
       return true;
     }
-    if (dEpi < 0.12) {
+    if (dEpi < PERICARDIUM_CM) {
       float de = max(dEpi, 0.0);
       setSample(s, T_PERI, -min(de, 0.12 - de), nEpi, p, 0.0, S_PERI);
       return true;

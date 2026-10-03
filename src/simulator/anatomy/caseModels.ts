@@ -52,6 +52,7 @@ export function buildCaseModels(caseDef: CaseDefinition, patient: PatientState):
     thorax.heartOffset,
     caseDef.seed,
     thorax.ivcCollapse,
+    thorax.columnShiftCm,
   );
   heartLandmarks(heart);
   const tables = buildBeatTables(

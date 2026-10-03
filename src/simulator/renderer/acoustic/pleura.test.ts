@@ -14,7 +14,7 @@ import {
 import { applyConsole, createConsoleState } from '@/simulator/renderer/postprocess/consolePipeline';
 import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
 import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
-import { Tissue } from '@/simulator/anatomy/tissue';
+import { Structure, Tissue } from '@/simulator/anatomy/tissue';
 import {
   ATTEN_NP_PER_DB,
   pleuralCoherence,
@@ -63,9 +63,11 @@ describe('pleura and A-lines follow the incidence (decision 221)', () => {
     // bright share (display grey > 170) of the lung behind the pleura; until decision 221, 5.5 and 7.1 % behind an
     // oblique pleura against 2.6 and 4.0 % behind a square one. The square pleura of the papillary short axis was the
     // lung under the LV inferior wall, which became diaphragm and liver at decision 262 (4864 samples to 464): the mitral
-    // short axis faces the pleura instead
+    // short axis faced the pleura instead, until the mediastinal fat around the descending aorta reached the heart
+    // (decision 273) and the lung behind the ventricle there gave way to it (2204 samples to 985); the apical short axis
+    // is the one left facing a pleura with lines enough
     const OBLIQUE = new Set(['psax-pm', 'psax-apex']),
-      SQUARE = new Set(['psax-apex', 'psax-mv']);
+      SQUARE = new Set(['psax-apex']);
     for (const view of ['psax-pm', 'psax-apex', 'psax-mv']) {
       const spec = polarSpecFor(DEFAULT_ACQUISITION, 'high');
       const beam = beamFrameFromPose(
@@ -93,11 +95,13 @@ describe('pleura and A-lines follow the incidence (decision 221)', () => {
         dr = spec.depthCm / S,
         dTheta = spec.sectorRad / L,
         w = Math.round(WINDOW_CM / dr);
+      // the pleura: the gas of the lung, not that of the gastric fundus under the diaphragm (decision 271), whose line
+      // is drawn as lung past its entry
       const entry = new Int32Array(L).fill(-1);
       for (let li = 0; li < L; li++)
         for (let s = 0; s < S; s++)
           if (f.tissue[li * S + s] === Tissue.Lung) {
-            entry[li] = s;
+            if (f.structure[li * S + s] === Structure.Lung) entry[li] = s;
             break;
           }
       const oblique: [number, number] = [0, 0],

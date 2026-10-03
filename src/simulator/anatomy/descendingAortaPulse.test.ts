@@ -36,12 +36,13 @@ function lumenAreas(id: string): { areas: number[]; ejection: [number, number]; 
   const q = makeSample();
   const step = 0.05;
   const areas: number[] = [];
+  const zc = DESC_AORTA_Z + thorax.columnShiftCm;
   for (let k = 0; k < PHASES; k++) {
     const st = cycleStateAt(tables, k / PHASES);
     const da = descAortaScale(thorax, st.aorticPressure);
     let n = 0;
     for (let x = DESC_AORTA_X - 2; x <= DESC_AORTA_X + 2; x += step)
-      for (let z = DESC_AORTA_Z - 2; z <= DESC_AORTA_Z + 2; z += step)
+      for (let z = zc - 2; z <= zc + 2; z += step)
         if (
           classifyThorax(thorax, x, -3, z, q, 5, da) &&
           q.structure === Structure.DescendingAorta &&

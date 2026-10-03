@@ -52,7 +52,10 @@ export const TARGETS: GenTarget[] = [
     file: 'src/simulator/anatomy/classify/atria.ts',
     functions: ['atrialScale', 'iasThickness', 'raCollapseScale'],
   },
-  { file: 'src/simulator/anatomy/classify/pericardium.ts', functions: ['effusionAt'] },
+  {
+    file: 'src/simulator/anatomy/classify/pericardium.ts',
+    functions: ['effusionAt', 'posteriorColumnDistance'],
+  },
   {
     file: 'src/simulator/anatomy/classify/rightVentricle.ts',
     functions: ['rvFreeWallNow', 'rvOutflowScale'],

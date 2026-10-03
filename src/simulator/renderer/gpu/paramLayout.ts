@@ -126,6 +126,15 @@ const SCALARS = [
   'LA_RX',
   'LA_RY',
   'LA_RZ',
+  'COL_UX',
+  'COL_UY',
+  'COL_UZ',
+  'COL_AX',
+  'COL_AY',
+  'COL_AZ',
+  'COL_SX',
+  'COL_SY',
+  'COL_SZ',
   'RA_CX',
   'RA_CY',
   'RA_CZ',
@@ -260,6 +269,7 @@ const SCALARS = [
   'TH_ABD',
   'TH_DIAPH',
   'TH_DA_SCALE',
+  'TH_COL_SHIFT',
   // origin of the diaphragm's grid under the right heart (decision 229)
   'DM_X0',
   'DM_Z0',
@@ -448,6 +458,16 @@ export function packScene(
   set('LA_RX', A.laR.x);
   set('LA_RY', A.laR.y);
   set('LA_RZ', A.laR.z);
+  // the posterior column in the heart frame (decision 273)
+  set('COL_UX', A.colU.x);
+  set('COL_UY', A.colU.y);
+  set('COL_UZ', A.colU.z);
+  set('COL_AX', A.colAorta.x);
+  set('COL_AY', A.colAorta.y);
+  set('COL_AZ', A.colAorta.z);
+  set('COL_SX', A.colSpine.x);
+  set('COL_SY', A.colSpine.y);
+  set('COL_SZ', A.colSpine.z);
   set('RA_CX', A.raCenter.x);
   set('RA_CY', A.raCenter.y);
   set('RA_CZ', A.raCenter.z);
@@ -613,6 +633,7 @@ export function packScene(
   set('TH_DIAPH', thorax.diaphragmRiseCm);
   // the descending aorta's pulse (decision 272)
   set('TH_DA_SCALE', descAortaScale(thorax, hp.state.aorticPressure));
+  set('TH_COL_SHIFT', thorax.columnShiftCm);
   set('DM_X0', thorax.diaphragmMap.x0);
   set('DM_Z0', thorax.diaphragmMap.z0);
   d.set(thorax.diaphragmMap.h, PARAM_OFFSET['DM_H']);

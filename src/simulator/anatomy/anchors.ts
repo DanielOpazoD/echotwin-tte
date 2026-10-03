@@ -11,7 +11,7 @@ import {
   heartToTorso,
   torsoToHeart,
 } from './heartFrame';
-import { DESC_AORTA_X, DESC_AORTA_Z } from './thoraxModel';
+import { DESC_AORTA_X, DESC_AORTA_Z, SPINE_Z } from './thoraxModel';
 import { computeHeartPose } from './heartPose';
 import { classifyHeart } from './classify';
 import type { HeartModel } from './heartModel';
@@ -395,7 +395,7 @@ export function heartLandmarks(m: HeartModel): Landmark[] {
         v3(
           DESC_AORTA_X,
           heartToTorso(m.frame, v3(A.mvCenter.x, A.mvCenter.y - A.mvR, A.mvCenter.z)).y,
-          DESC_AORTA_Z,
+          DESC_AORTA_Z + m.columnShiftCm,
         ),
       ),
       radius: 1.0,
@@ -431,6 +431,13 @@ export interface AnchorsCached extends Anchors {
   /** basis ⊥ the pulmonary trunk axis (pulmonary cusps) */
   pvE1: Vec3;
   pvE2: Vec3;
+  /**
+   * The posterior column in the heart frame (decision 273): the torso's vertical as a unit vector, and a point on the axis
+   * of the descending aorta and of the vertebral body.
+   */
+  colU: Vec3;
+  colAorta: Vec3;
+  colSpine: Vec3;
 }
 
 export function anchorsCached(m: HeartModel): AnchorsCached {
@@ -446,7 +453,13 @@ export function anchorsCached(m: HeartModel): AnchorsCached {
     const helperP = Math.abs(base.paDir.y) < 0.9 ? v3(0, 1, 0) : v3(1, 0, 0);
     const pvE1 = normalize(cross(helperP, base.paDir));
     const pvE2 = cross(base.paDir, pvE1);
-    a = { ...base, avE1: e1, avE2: e2, avBend, pvE1, pvE2 };
+    const cs = m.columnShiftCm;
+    const colAorta = torsoToHeart(m.frame, v3(DESC_AORTA_X, 0, DESC_AORTA_Z + cs));
+    const colSpine = torsoToHeart(m.frame, v3(0, 0, SPINE_Z + cs));
+    const colU = normalize(
+      sub(torsoToHeart(m.frame, v3(DESC_AORTA_X, 1, DESC_AORTA_Z + cs)), colAorta),
+    );
+    a = { ...base, avE1: e1, avE2: e2, avBend, pvE1, pvE2, colU, colAorta, colSpine };
     (m as HeartModel & { _anchors?: AnchorsCached })._anchors = a;
     placePulmonaryRoot(m, a);
   }

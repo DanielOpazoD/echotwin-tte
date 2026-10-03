@@ -58,6 +58,8 @@ export interface HeartModel {
   regionalMeanFrac: number;
   /** Inferior vena cava diameter reduction 0..1 for the current respiratory state (sniff / inspiration). */
   ivcCollapse: number;
+  /** Torso-z shift of the posterior column (vertebral body, descending aorta) behind this heart (decision 273). */
+  columnShiftCm: number;
 }
 
 export function createHeartModel(
@@ -66,6 +68,7 @@ export function createHeartModel(
   offset: Vec3 = v3(),
   seed = 1,
   ivcCollapse = 0,
+  columnShiftCm = 0,
 ): HeartModel {
   const lv = lvGeometryFromVolume(
     physiology.edvMl,
@@ -85,6 +88,7 @@ export function createHeartModel(
     wallNoise: noiseLattice(seed ^ 0x5157),
     regionalMeanFrac: regionalMeanFraction(segmentAmplitudes(anatomy)),
     ivcCollapse: Math.min(0.95, Math.max(0, ivcCollapse)),
+    columnShiftCm,
   };
 }
 
