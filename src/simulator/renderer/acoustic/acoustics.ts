@@ -219,7 +219,7 @@ export function calciumAttenDb(extraReflect: number): number {
 export const TRANSMISSION_FLOOR = 1e-4;
 /** Near-field clutter: reverberation in the chest wall under the footprint, incoherent, fixed to the probe. */
 export const CLUTTER_MAX_CM = 4.5;
-export const CLUTTER_DECAY_CM = 1.8;
+export const CLUTTER_DECAY_CM = 0.8;
 export const CLUTTER_BASE = 0.15;
 export const CLUTTER_AMP = 0.5;
 export const CLUTTER_MOD_FREQ = 6;

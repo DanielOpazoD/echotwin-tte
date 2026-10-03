@@ -40,6 +40,7 @@ export const KNOWN_SETS: readonly {
     values: true,
   },
   { file: 'src/simulator/core/mmodeStrip.test.ts', name: 'KNOWN_TEXTURE_LIMITATIONS' },
+  { file: 'src/simulator/renderer/nearFieldClutter.test.ts', name: 'KNOWN_RV_EXCESS' },
   {
     file: 'src/simulator/renderer/clinicalImage.test.ts',
     name: 'KNOWN_DEVIATIONS',
