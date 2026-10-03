@@ -85,7 +85,7 @@ export const CURRICULUM: Module[] = [
         tasks: [
           {
             id: 'plax-70',
-            title: 'PLAX con score ≥ 70 (caso normal)',
+            title: 'PLAX con puntuación ≥ 70 (caso normal)',
             why: 'El eje largo es la referencia de todas las medidas lineales del VI y de la raíz aórtica; un plano oblicuo las sobreestima.',
             caseId: 'normal-excellent-window',
             viewId: 'plax',
@@ -124,7 +124,7 @@ export const CURRICULUM: Module[] = [
         tasks: [
           {
             id: 'a4c-70',
-            title: 'A4C con score ≥ 70',
+            title: 'A4C con puntuación ≥ 70',
             why: 'El acortamiento apical es el error más frecuente: Simpson subestima volúmenes y la FE parece mejor.',
             caseId: 'normal-excellent-window',
             viewId: 'a4c',

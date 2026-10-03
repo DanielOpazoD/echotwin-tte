@@ -188,7 +188,7 @@ async function assertProjectedCaliper(
 test('sector calipers follow zoom, inversion and resize without changing the measured value', async ({
   page,
 }) => {
-  await page.getByRole('button', { name: 'Freeze', exact: true }).click();
+  await page.getByRole('button', { name: 'Congelar', exact: true }).click();
   await page.waitForFunction(
     () => (window as unknown as CaliperWindow).__echotwin.useHudStore.getState().hud.frozen,
   );
@@ -226,7 +226,7 @@ test('sector calipers follow zoom, inversion and resize without changing the mea
 test('zoom between the first and second caliper clicks preserves physical calibration', async ({
   page,
 }) => {
-  await page.getByRole('button', { name: 'Freeze', exact: true }).click();
+  await page.getByRole('button', { name: 'Congelar', exact: true }).click();
   await page.waitForFunction(
     () => (window as unknown as CaliperWindow).__echotwin.useHudStore.getState().hud.frozen,
   );

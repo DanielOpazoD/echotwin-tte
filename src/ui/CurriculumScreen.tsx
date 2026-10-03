@@ -21,7 +21,7 @@ export function CurriculumScreen() {
       <h2>Currículo por etapas</h2>
       <p className="small">
         {completed}/{total} tareas completadas. Las tareas se verifican automáticamente mientras
-        trabajas en el simulador (modo sandbox o guiado); ninguna mueve la sonda por ti.
+        trabajas en el simulador (modo libre o guiado); ninguna mueve la sonda por ti.
       </p>
       {CURRICULUM.map((m) => (
         <section key={m.id} className="module">

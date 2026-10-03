@@ -1,3 +1,5 @@
+import { viewLabel } from '@/simulator/windows/viewLabels';
+import { modalityLabel } from '@/simulator/renderer/modality';
 import { useSimStore } from '@/app/store';
 import { examSummaryOf, impressionCorrected } from '@/app/examSummary';
 import { useShallow } from 'zustand/shallow';
@@ -58,7 +60,7 @@ export function ReportScreen() {
   ];
   return (
     <div className="screen">
-      <h2>Informe educacional — {revealed ? s.caseId : EXAM_CASE_NAME}</h2>
+      <h2>Informe educacional — {revealed ? caseDef.title : EXAM_CASE_NAME}</h2>
       <p className="small">
         Simulador educacional con pacientes sintéticos. No utilizar para diagnóstico ni toma de
         decisiones clínicas reales.
@@ -83,14 +85,14 @@ export function ReportScreen() {
               <th>Vista</th>
               <th>Mínimo</th>
               {/* the best score of each view would say which view the image showed (decision 154) */}
-              {revealed && <th>Mejor score alcanzado</th>}
+              {revealed && <th>Mejor puntuación</th>}
               {revealed && <th>Estado</th>}
             </tr>
           </thead>
           <tbody>
             {acquisition.perView.map((v) => (
               <tr key={v.viewId}>
-                <td>{v.viewId.toUpperCase()}</td>
+                <td>{viewLabel(v.viewId)}</td>
                 <td>{v.required}</td>
                 {revealed && <td>{v.achieved}</td>}
                 {revealed && (
@@ -239,8 +241,8 @@ export function ReportScreen() {
                 )}
               </td>
               <td>
-                {r.modality}
-                {r.view ? ` / ${r.view}` : ''}
+                {modalityLabel(r.modality)}
+                {r.view ? ` / ${viewLabel(r.view)}` : ''}
               </td>
               {revealed && <td>{r.viewScore ?? '—'}</td>}
               {revealed && (

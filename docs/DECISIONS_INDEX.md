@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 258 (última: 258).
+Decisiones: 259 (última: 259).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -266,3 +266,4 @@ Decisiones: 258 (última: 258).
 | [256](DECISIONS.md#L1471) | 2026-09-25 | El torso sigue en el examen, sólo con piel y costillas | vigente |
 | [257](DECISIONS.md#L1473) | 2026-09-25 | La impresión no revela las respuestas antes de «Corregir» | vigente |
 | [258](DECISIONS.md#L1475) | 2026-09-25 | Las cavidades tienen la neblina de una imagen clínica, y la calibración mide la imagen con la persistencia de la app | vigente |
+| [259](DECISIONS.md#L1477) | 2026-09-25 | Los textos no muestran claves del código ni mezclan idiomas, y una prueba lee las pantallas como un alumno | vigente |

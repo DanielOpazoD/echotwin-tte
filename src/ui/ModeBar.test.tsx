@@ -59,7 +59,7 @@ describe('ModeBar overflow menu', () => {
 
   it('keeps modality keys, freeze and torso in the first row', () => {
     render(<ModeBar />);
-    for (const name of ['2D', 'Color', 'M', 'CMM', 'PW', 'CW', 'TDI', 'Freeze', 'Torso 3D']) {
+    for (const name of ['2D', 'Color', 'M', 'CMM', 'PW', 'CW', 'TDI', 'Congelar', 'Torso 3D']) {
       expect(screen.getByRole('button', { name })).toBeTruthy();
     }
   });

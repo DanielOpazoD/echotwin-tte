@@ -28,7 +28,7 @@ Qué importa cada capa lo dice la tabla siguiente, generada desde los imports re
 | `cases` | — |
 | `clinical` | — |
 | `core` | — |
-| `education` | `cases`, `clinical`, `simulator/anatomy`, `simulator/hemodynamics`, `simulator/measurements`, `simulator/renderer`, `simulator/view-recognition` |
+| `education` | `cases`, `clinical`, `simulator/anatomy`, `simulator/hemodynamics`, `simulator/measurements`, `simulator/renderer`, `simulator/view-recognition`, `simulator/windows` |
 | `main.tsx` | `app` |
 | `simulator/anatomy` | `cases`, `clinical`, `core`, `simulator/cardiac-cycle` |
 | `simulator/cardiac-cycle` | `cases`, `core` |

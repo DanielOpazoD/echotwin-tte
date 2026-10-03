@@ -138,3 +138,8 @@ export const MODALITY_LIST: readonly ModalityDescriptor[] = [
 export const isStripModality = (m: ImagingModality): boolean => MODALITIES[m].strip !== null;
 export const isSpectralModality = (m: ImagingModality): boolean => MODALITIES[m].spectral;
 export const hasGate = (m: ImagingModality): boolean => MODALITIES[m].gate;
+
+/** The label a text shows for a modality («2D», «Modo M», «PW»), never its id (`m-mode`, decision 259). */
+export function modalityLabel(id: string): string {
+  return (MODALITIES as Readonly<Record<string, ModalityDescriptor | undefined>>)[id]?.label ?? id;
+}

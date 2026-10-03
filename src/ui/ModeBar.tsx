@@ -64,7 +64,7 @@ export function ModeBar() {
         aria-pressed={s.frozen}
       >
         <i className="run-dot" aria-hidden="true" />
-        {s.frozen ? 'Live' : 'Freeze'}
+        {s.frozen ? 'Reanudar' : 'Congelar'}
       </button>
       {s.frozen && hud && (
         <div className="cine">

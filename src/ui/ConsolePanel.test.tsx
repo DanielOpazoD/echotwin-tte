@@ -149,7 +149,7 @@ describe('ConsolePanel tabs', () => {
       act(() => screen.getByRole('tab', { name: 'Medir' }).click());
       const shown = container.textContent ?? '';
       const learning = mode === 'sandbox';
-      expect(shown.includes('2d · a4c'), `${mode}: view in the list`).toBe(learning);
+      expect(shown.includes('2D · A4C'), `${mode}: view in the list`).toBe(learning);
       expect(shown.includes('inválida'), `${mode}: technique grade`).toBe(learning);
       expect(shown.includes('2.00 cm'), `${mode}: the value itself`).toBe(true);
     }

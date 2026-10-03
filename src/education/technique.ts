@@ -1,3 +1,5 @@
+import { viewLabel } from '@/simulator/windows/viewLabels';
+import { modalityLabel } from '@/simulator/renderer/modality';
 import type { MeasurementSpec, PhaseRequirement } from '@/simulator/measurements/protocol';
 import { Structure, Tissue } from '@/simulator/anatomy/tissue';
 
@@ -134,30 +136,30 @@ export function evaluateTechnique(spec: MeasurementSpec, ctx: MeasurementContext
     add(
       'modality',
       'invalid',
-      `Modalidad ${ctx.modality.toUpperCase()} no válida para ${spec.label}: requiere ${spec.modalities.map((m) => m.toUpperCase()).join('/')}.`,
+      `Modalidad ${modalityLabel(ctx.modality)} no válida para ${spec.label}: requiere ${spec.modalities.map(modalityLabel).join('/')}.`,
     );
-  else add('modality', 'ok', `Modalidad ${ctx.modality.toUpperCase()} adecuada.`);
+  else add('modality', 'ok', `Modalidad ${modalityLabel(ctx.modality)} adecuada.`);
 
   // view
   if (!ctx.viewId || !spec.views.includes(ctx.viewId))
     add(
       'view',
       'invalid',
-      `Vista ${ctx.viewId ? ctx.viewId.toUpperCase() : 'no reconocida'}: ${spec.label} se mide en ${spec.views.map((v) => v.toUpperCase()).join('/')}.`,
+      `Vista ${ctx.viewId ? viewLabel(ctx.viewId) : 'no reconocida'}: ${spec.label} se mide en ${spec.views.map(viewLabel).join('/')}.`,
     );
   else if ((ctx.viewScore ?? 0) < 35)
     add(
       'view-quality',
       'invalid',
-      `Vista ${ctx.viewId.toUpperCase()} con calidad ${ctx.viewScore ?? 0}/100: plano oblicuo o incompleto; la medida no es válida aunque el número coincida.`,
+      `Vista ${viewLabel(ctx.viewId)} con calidad ${ctx.viewScore ?? 0}/100: plano oblicuo o incompleto; la medida no es válida aunque el número coincida.`,
     );
   else if ((ctx.viewScore ?? 0) < 55)
     add(
       'view-quality',
       'warn',
-      `Vista ${ctx.viewId.toUpperCase()} con calidad ${ctx.viewScore}/100: optimiza el plano antes de medir.`,
+      `Vista ${viewLabel(ctx.viewId)} con calidad ${ctx.viewScore}/100: optimiza el plano antes de medir.`,
     );
-  else add('view', 'ok', `Vista ${ctx.viewId.toUpperCase()} con calidad ${ctx.viewScore}/100.`);
+  else add('view', 'ok', `Vista ${viewLabel(ctx.viewId)} con calidad ${ctx.viewScore}/100.`);
 
   // phase (only for frame-based measurements; spectral tools pick their own instant)
   if (
