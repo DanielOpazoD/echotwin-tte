@@ -126,10 +126,11 @@ bool classifyThorax(vec3 p, out Sample s, float heartDist) {
     if (d < 0.0) { s.tissue = T_SPINE; s.structure = S_SPINE; s.sdf = d; return true; }
   }
   {
+    float ra = DESC_AORTA_R * TH_DA_SCALE;
     float dx = x - DESC_AORTA_X, dz = z - DESC_AORTA_Z;
-    float d = sqrt(dx * dx + dz * dz) - DESC_AORTA_R;
-    if (d < 0.0) { s.tissue = T_BLOOD; s.structure = S_DESC_AO; s.sdf = d; s.n = vec3(dx / DESC_AORTA_R, 0.0, dz / DESC_AORTA_R); return true; }
-    if (d < DESC_AORTA_WALL) { s.tissue = T_VESSEL; s.structure = S_DESC_AO; s.sdf = -min(d, DESC_AORTA_WALL - d); s.n = vec3(dx / DESC_AORTA_R, 0.0, dz / DESC_AORTA_R); return true; }
+    float d = sqrt(dx * dx + dz * dz) - ra;
+    if (d < 0.0) { s.tissue = T_BLOOD; s.structure = S_DESC_AO; s.sdf = d; s.n = vec3(dx / ra, 0.0, dz / ra); return true; }
+    if (d < DESC_AORTA_WALL) { s.tissue = T_VESSEL; s.structure = S_DESC_AO; s.sdf = -min(d, DESC_AORTA_WALL - d); s.n = vec3(dx / ra, 0.0, dz / ra); return true; }
   }
   bool lungL = x > leftLungBorderX(y);
   bool lungR = x < rightLungBorderX();

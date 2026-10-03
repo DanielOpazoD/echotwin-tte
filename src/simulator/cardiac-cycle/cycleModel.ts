@@ -672,6 +672,41 @@ export interface CycleState {
   aorticFlowMlps: number;
   edvMl: number;
   esvMl: number;
+  /**
+   * Arterial pressure in the descending aorta behind the left atrium, as a fraction of the pulse pressure above the
+   * diastolic one (decision 272): 0 at the foot of the pulse, 1 at the systolic peak.
+   */
+  aorticPressure: number;
+}
+
+/**
+ * Transit time (s) of the pulse from the aortic valve to the descending aorta behind the left atrium: some 20 cm of
+ * ascending aorta and arch at the aortic pulse wave velocity of a young adult (carotid–femoral 6.2 m/s under 30 years,
+ * Reference Values for Arterial Stiffness' Collaboration, Eur Heart J 2010;31:2338-2350). The path length is an assumption
+ * and the delay does not grow shorter with age, as the stiffer aorta of the old would make it.
+ */
+const DESC_AORTA_PULSE_DELAY_S = 0.032;
+/**
+ * Time constant (s) of the diastolic fall of arterial pressure (the windkessel's resistance × compliance), an assumed
+ * typical adult value: the pressure decays from the dicrotic notch toward the next upstroke, which starts from the
+ * diastolic pressure.
+ */
+const ARTERIAL_DECAY_TAU_S = 1.5;
+
+/**
+ * Pressure in the descending aorta at time `t` (s) of the beat, as a fraction of the pulse pressure (decision 272): the
+ * aortic pulse over ejection, then an exponential diastolic decay from the dicrotic notch that reaches the diastolic
+ * pressure as the next ejection starts, delayed by the transit of the pulse along the arch.
+ */
+export function aorticPressureFraction(tables: BeatTables, t: number): number {
+  const tm = tables.timings;
+  const rr = tables.rrS;
+  const et = Math.max(1e-3, tm.ejectionEndS - tm.ejectionStartS);
+  const s = (((t - DESC_AORTA_PULSE_DELAY_S - tm.ejectionStartS) % rr) + rr) % rr;
+  if (s < et) return aorticPulse(s / et);
+  const diastole = Math.max(1e-3, rr - et);
+  const tail = Math.exp(-diastole / ARTERIAL_DECAY_TAU_S);
+  return (aorticPulse(1) * (Math.exp(-(s - et) / ARTERIAL_DECAY_TAU_S) - tail)) / (1 - tail);
 }
 
 /**
@@ -812,5 +847,6 @@ export function cycleStateAt(tables: BeatTables, phase: number): CycleState {
     aorticFlowMlps: qao,
     edvMl: tables.edvMl,
     esvMl: tables.esvMl,
+    aorticPressure: aorticPressureFraction(tables, t),
   };
 }

@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 271 (última: 271).
+Decisiones: 272 (última: 272).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -279,3 +279,4 @@ Decisiones: 271 (última: 271).
 | [269](DECISIONS.md#L1497) | 2026-09-25 | El ventrículo derecho del taponamiento se colapsa en la protodiástole | vigente |
 | [270](DECISIONS.md#L1499) | 2026-09-25 | El pulmón detrás del corazón es pulmón, no tejido | vigente |
 | [271](DECISIONS.md#L1501) | 2026-09-25 | El fondo gástrico bajo el hemidiafragma izquierdo | vigente |
+| [272](DECISIONS.md#L1503) | 2026-09-25 | La aorta descendente late | vigente |

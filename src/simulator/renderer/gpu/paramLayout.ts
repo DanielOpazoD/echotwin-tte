@@ -3,7 +3,7 @@ import { heartAnchors } from '@/simulator/anatomy/heartModel';
 import { LV_PROF_BINS } from '@/simulator/anatomy/lvShape';
 import { MV_BINS } from '@/simulator/anatomy/mitralValve';
 import { TV_BUMP_N } from '@/simulator/anatomy/valveSkirt';
-import { DIAPHRAGM_MAP_N, type ThoraxModel } from '@/simulator/anatomy/thoraxModel';
+import { descAortaScale, DIAPHRAGM_MAP_N, type ThoraxModel } from '@/simulator/anatomy/thoraxModel';
 import type { BeamFrame } from '@/simulator/probe/pose';
 import { contactQuality } from '@/simulator/probe/pose';
 import type { PolarFrameSpec, Scene } from '../types';
@@ -259,6 +259,7 @@ const SCALARS = [
   'TH_LUNGSHIFT',
   'TH_ABD',
   'TH_DIAPH',
+  'TH_DA_SCALE',
   // origin of the diaphragm's grid under the right heart (decision 229)
   'DM_X0',
   'DM_Z0',
@@ -610,6 +611,8 @@ export function packScene(
   set('TH_LUNGSHIFT', thorax.lungShiftCm);
   set('TH_ABD', thorax.abdomenSlope);
   set('TH_DIAPH', thorax.diaphragmRiseCm);
+  // the descending aorta's pulse (decision 272)
+  set('TH_DA_SCALE', descAortaScale(thorax, hp.state.aorticPressure));
   set('DM_X0', thorax.diaphragmMap.x0);
   set('DM_Z0', thorax.diaphragmMap.z0);
   d.set(thorax.diaphragmMap.h, PARAM_OFFSET['DM_H']);

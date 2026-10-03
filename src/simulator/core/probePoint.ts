@@ -2,7 +2,12 @@ import type { BeamFrame } from '@/simulator/probe/pose';
 import { classifyHeart, type HeartModel } from '@/simulator/anatomy/heartModel';
 import type { HeartPose } from '@/simulator/anatomy/heartPose';
 import { torsoToHeart } from '@/simulator/anatomy/heartFrame';
-import { classifyThorax, isAnteriorLung, type ThoraxModel } from '@/simulator/anatomy/thoraxModel';
+import {
+  classifyThorax,
+  descAortaScale,
+  isAnteriorLung,
+  type ThoraxModel,
+} from '@/simulator/anatomy/thoraxModel';
 import { makeSample, Structure, Tissue } from '@/simulator/anatomy/tissue';
 import { ctx as classifyCtx } from '@/simulator/anatomy/classify/context';
 import type { ProbePointInfo } from './protocol';
@@ -66,7 +71,16 @@ export function probeTorsoPointAt(
     q.structure = Structure.Lung;
     q.sdf = -1;
   } else if (classifyHeart(heart, pose, h.x, h.y, h.z, q)) inHeart = true;
-  else classifyThorax(thorax, p.x, p.y, p.z, q, q.sdf);
+  else
+    classifyThorax(
+      thorax,
+      p.x,
+      p.y,
+      p.z,
+      q,
+      q.sdf,
+      descAortaScale(thorax, pose.state.aorticPressure),
+    );
   const nearRoot = inHeart && classifyCtx.rootT > -50;
   return {
     rCm: Math.hypot(along, lat),

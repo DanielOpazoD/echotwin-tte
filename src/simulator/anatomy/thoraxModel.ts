@@ -36,6 +36,11 @@ export interface ThoraxModel {
   ivcCollapse: number;
   /** The diaphragm under the right heart (decision 229), fitted to the heart by `buildCaseModels`; none until then. */
   diaphragmMap: DiaphragmMap;
+  /**
+   * Systolic expansion of the descending aorta's lumen area over its diastolic one (decision 272), set from the patient's
+   * age by `buildCaseModels`; 0, a still aorta, until then.
+   */
+  descAortaAreaStrain: number;
 }
 
 /**
@@ -134,6 +139,7 @@ export function createThoraxModel(
     diaphragmRiseCm: diaphragmRise,
     ivcCollapse,
     diaphragmMap: NO_DIAPHRAGM_MAP,
+    descAortaAreaStrain: 0,
   };
 }
 
@@ -310,6 +316,41 @@ export const DESC_AORTA_WALL = 0.2;
  * there). An ellipse in the transverse plane around the aorta, shifted forward by `DESC_AORTA_SLEEVE_FORWARD`.
  */
 export const DESC_AORTA_SLEEVE = 0.3;
+/**
+ * Area strain of the proximal descending aorta, (Amax − Amin)/Amin, by decade of age (MRI in 100 healthy subjects,
+ * Redheuil et al., Hypertension 2010;55:319-326, table 1): 33 ± 8 % in the twenties and 31 ± 12 % in the thirties, falling
+ * to 13–14 % after sixty as the wall stiffens. [age at the middle of the decade, strain]
+ */
+const DESC_AORTA_AREA_STRAIN_BY_AGE: readonly (readonly [number, number])[] = [
+  [25, 0.33],
+  [35, 0.31],
+  [45, 0.19],
+  [55, 0.18],
+  [65, 0.13],
+  [75, 0.14],
+];
+
+/** Area strain of the descending aorta at an age, interpolated between the decades (decision 272). */
+export function descendingAortaAreaStrain(ageYears: number): number {
+  const tab = DESC_AORTA_AREA_STRAIN_BY_AGE;
+  if (ageYears <= tab[0]![0]) return tab[0]![1];
+  for (let i = 1; i < tab.length; i++) {
+    const [a1, s1] = tab[i]!;
+    if (ageYears <= a1) {
+      const [a0, s0] = tab[i - 1]!;
+      return s0 + ((s1 - s0) * (ageYears - a0)) / (a1 - a0);
+    }
+  }
+  return tab[tab.length - 1]![1];
+}
+
+/**
+ * Scale of the descending aorta's lumen radius at a fraction of the pulse pressure (decision 272): the area grows by the
+ * strain at the systolic peak from its diastolic size, `DESC_AORTA_R`.
+ */
+export function descAortaScale(t: ThoraxModel, aorticPressure: number): number {
+  return Math.sqrt(1 + t.descAortaAreaStrain * aorticPressure);
+}
 export const DESC_AORTA_SLEEVE_FORWARD = 0.6;
 export const ANTERIOR_CORRIDOR_CM = 2.5;
 /**
@@ -368,6 +409,7 @@ export function classifyThorax(
   z: number,
   out: TissueSample,
   heartDistCm = 0,
+  daScale = 1,
 ): boolean {
   const zs = skinZ(t, x, y);
   const depth = zs - z; // depth below skin along z
@@ -468,23 +510,25 @@ export function classifyThorax(
   }
   // Descending aorta (behind the left atrium, left of the spine)
   {
+    // the lumen expands with the pulse (decision 272); the posterior mediastinal fat around it stays put
+    const r = DESC_AORTA_R * daScale;
     const dx = x - DESC_AORTA_X,
       dz = z - DESC_AORTA_Z;
-    const d = Math.sqrt(dx * dx + dz * dz) - DESC_AORTA_R;
+    const d = Math.sqrt(dx * dx + dz * dz) - r;
     if (d < 0) {
       out.tissue = Tissue.Blood;
       out.structure = Structure.DescendingAorta;
       out.sdf = d;
-      out.nx = dx / DESC_AORTA_R;
-      out.nz = dz / DESC_AORTA_R;
+      out.nx = dx / r;
+      out.nz = dz / r;
       return true;
     }
     if (d < DESC_AORTA_WALL) {
       out.tissue = Tissue.VesselWall;
       out.structure = Structure.DescendingAorta;
       out.sdf = -Math.min(d, DESC_AORTA_WALL - d);
-      out.nx = dx / DESC_AORTA_R;
-      out.nz = dz / DESC_AORTA_R;
+      out.nx = dx / r;
+      out.nz = dz / r;
       return true;
     }
   }

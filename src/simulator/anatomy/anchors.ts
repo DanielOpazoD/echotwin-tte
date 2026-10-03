@@ -475,6 +475,7 @@ function extremeState(m: HeartModel, systole: boolean): CycleState {
     aorticFlowMlps: 0,
     edvMl,
     esvMl,
+    aorticPressure: k,
   };
 }
 
