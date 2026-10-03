@@ -34,6 +34,12 @@ const snap = (over: Partial<LearnerSnapshot> = {}): LearnerSnapshot => ({
   ...over,
 });
 
+/** The tasks whose own check passes, prerequisites aside (those have their own tests below). */
+const passing = (s: LearnerSnapshot): string[] =>
+  allTasks()
+    .filter((t) => t.check(s))
+    .map((t) => t.id);
+
 describe('curriculum', () => {
   it('asks for the whole normal heart by hand: A3C, the RV, the subcostal views, the three apical planes, TAPSE and e′ (decision 174)', () => {
     const hand = {
@@ -44,7 +50,7 @@ describe('curriculum', () => {
       a4c: 70,
       a2c: 61,
     };
-    const done = evaluateTasks(snap({ handViewProgress: hand }));
+    const done = passing(snap({ handViewProgress: hand }));
     for (const id of [
       'a3c-60',
       'rv-focused-55',
@@ -54,33 +60,31 @@ describe('curriculum', () => {
     ])
       expect(done, id).toContain(id);
     // the three apical planes together, each by hand
-    expect(evaluateTasks(snap({ handViewProgress: { ...hand, a2c: 50 } }))).not.toContain(
+    expect(passing(snap({ handViewProgress: { ...hand, a2c: 50 } }))).not.toContain(
       'apical-segments',
     );
-    expect(evaluateTasks(snap({ viewProgress: hand }))).toEqual([]);
+    expect(passing(snap({ viewProgress: hand }))).toEqual([]);
     const measured = (id: string, score: number): Measurement =>
       ({ measurementId: id, technique: { score } }) as unknown as Measurement;
-    expect(evaluateTasks(snap({ measurements: [measured('tapse', 0.8)] }))).toContain('tapse-ok');
-    expect(evaluateTasks(snap({ measurements: [measured('tapse', 0.5)] }))).not.toContain(
-      'tapse-ok',
-    );
-    expect(evaluateTasks(snap({ measurements: [measured('e-prime-septal', 0.9)] }))).toContain(
+    expect(passing(snap({ measurements: [measured('tapse', 0.8)] }))).toContain('tapse-ok');
+    expect(passing(snap({ measurements: [measured('tapse', 0.5)] }))).not.toContain('tapse-ok');
+    expect(passing(snap({ measurements: [measured('e-prime-septal', 0.9)] }))).toContain(
       'e-prime-septal-ok',
     );
     // the biplane tasks need a good trace in each apical plane (decision 180)
     const traced = (id: string, view: string, score: number): Measurement =>
       ({ measurementId: id, sourceViewId: view, technique: { score } }) as unknown as Measurement;
     const la = (a2cScore: number) =>
-      evaluateTasks(
+      passing(
         snap({
           measurements: [traced('la-volume', 'a4c', 0.9), traced('la-volume', 'a2c', a2cScore)],
         }),
       );
     expect(la(0.8)).toContain('la-volume-biplane');
     expect(la(0.3)).not.toContain('la-volume-biplane');
-    expect(
-      evaluateTasks(snap({ measurements: [traced('lv-edv-simpson', 'a4c', 1)] })),
-    ).not.toContain('simpson-biplane');
+    expect(passing(snap({ measurements: [traced('lv-edv-simpson', 'a4c', 1)] }))).not.toContain(
+      'simpson-biplane',
+    );
   });
   it('has unique task ids, non-empty rationale and only known case ids', () => {
     const tasks = allTasks();
@@ -112,19 +116,17 @@ describe('curriculum', () => {
     expect(measured.length, 'measurement and Doppler tasks have a view too').toBeGreaterThan(10);
   });
   it('checks pass only when the learner state meets the criterion', () => {
-    expect(evaluateTasks(snap())).toEqual([]);
-    expect(evaluateTasks(snap({ handViewProgress: { plax: 72 } }))).toContain('plax-70');
-    expect(evaluateTasks(snap({ handViewProgress: { plax: 65 } }))).not.toContain('plax-70');
+    expect(passing(snap())).toEqual([]);
+    expect(passing(snap({ handViewProgress: { plax: 72 } }))).toContain('plax-70');
+    expect(passing(snap({ handViewProgress: { plax: 65 } }))).not.toContain('plax-70');
     // a score reached with the view's preset does not complete the task (decision 174)
-    expect(evaluateTasks(snap({ viewProgress: { plax: 90 } }))).not.toContain('plax-70');
-    expect(evaluateTasks(snap({ modality: 'color', colorScaleMps: 0.3 }))).toContain(
-      'colour-low-scale',
+    expect(passing(snap({ viewProgress: { plax: 90 } }))).not.toContain('plax-70');
+    expect(passing(snap({ modality: 'color', colorScaleMps: 0.3 }))).toContain('colour-low-scale');
+    expect(passing(snap({ modality: 'pw', gateStructure: 18, gateFlowAngleDeg: 12 }))).toContain(
+      'pw-lvot-aligned',
     );
     expect(
-      evaluateTasks(snap({ modality: 'pw', gateStructure: 18, gateFlowAngleDeg: 12 })),
-    ).toContain('pw-lvot-aligned');
-    expect(
-      evaluateTasks(snap({ modality: 'pw', gateStructure: 18, gateFlowAngleDeg: 35 })),
+      passing(snap({ modality: 'pw', gateStructure: 18, gateFlowAngleDeg: 35 })),
     ).not.toContain('pw-lvot-aligned');
     const m: Measurement = {
       id: 'x',
@@ -146,16 +148,104 @@ describe('curriculum', () => {
       referenceGuidelineIds: [],
       createdAt: '',
     };
-    expect(evaluateTasks(snap({ measurements: [m] }))).toContain('lvot-diameter-ok');
+    expect(passing(snap({ measurements: [m] }))).toContain('lvot-diameter-ok');
     expect(
-      evaluateTasks(snap({ measurements: [{ ...m, technique: { score: 0.3, findings: [] } }] })),
+      passing(snap({ measurements: [{ ...m, technique: { score: 0.3, findings: [] } }] })),
     ).not.toContain('lvot-diameter-ok');
+    expect(passing(snap({ caseId: 'aortic-stenosis-severe', impressionScore: 80 }))).toContain(
+      'impression-as',
+    );
+    expect(passing(snap({ caseId: 'normal-excellent-window', impressionScore: 80 }))).not.toContain(
+      'impression-as',
+    );
+  });
+});
+
+describe('prerequisites and the tasks the panel asked for (decision 260)', () => {
+  const tasks = allTasks();
+  const byId = new Map(tasks.map((t) => [t.id, t]));
+  const measured = (id: string, score: number, more: Partial<Measurement> = {}): Measurement =>
+    ({ measurementId: id, technique: { score }, ...more }) as unknown as Measurement;
+
+  it('every prerequisite exists, none is the task itself and the graph has no cycle', () => {
+    const order: string[] = [];
+    const state = new Map<string, 'open' | 'done'>();
+    const visit = (id: string, path: string[]): void => {
+      expect(state.get(id), `cycle ${[...path, id].join(' → ')}`).not.toBe('open');
+      if (state.get(id) === 'done') return;
+      state.set(id, 'open');
+      for (const r of byId.get(id)!.requires ?? []) {
+        expect(byId.has(r), `${id} requires ${r}`).toBe(true);
+        expect(r).not.toBe(id);
+        visit(r, [...path, id]);
+      }
+      state.set(id, 'done');
+      order.push(id);
+    };
+    for (const t of tasks) visit(t.id, []);
+    expect(order.length).toBe(tasks.length);
+    // the curriculum has a spine: most tasks build on another one
+    expect(tasks.filter((t) => t.requires?.length).length).toBeGreaterThan(tasks.length / 2);
+  });
+
+  it('a task whose check passes waits for the ones it builds on, also within one pass', () => {
+    // the mitral short axis by hand, without the PLAX it builds on
+    expect(evaluateTasks(snap({ handViewProgress: { 'psax-mv': 80 } }))).toEqual([]);
+    expect(evaluateTasks(snap({ handViewProgress: { 'psax-mv': 80 } }), { 'plax-70': 1 })).toEqual([
+      'psax-mv-60',
+    ]);
+    // both reached in the same pass complete together, in order
+    expect(evaluateTasks(snap({ handViewProgress: { plax: 75, 'psax-mv': 80 } }))).toEqual([
+      'plax-70',
+      'psax-mv-60',
+    ]);
+    // a completed task is not completed again
+    expect(evaluateTasks(snap({ handViewProgress: { plax: 75 } }), { 'plax-70': 1 })).toEqual([]);
+  });
+
+  it('CW in aortic stenosis: the aortic Vmax by continuous Doppler in the severe stenosis', () => {
+    const cw = byId.get('cw-as-vmax')!;
+    const as = (m: Measurement) => snap({ caseId: 'aortic-stenosis-severe', measurements: [m] });
+    expect(cw.check(as(measured('av-vmax', 0.8, { modality: 'cw' })))).toBe(true);
+    expect(cw.check(as(measured('av-vmax', 0.8, { modality: 'pw' })))).toBe(false);
+    expect(cw.check(as(measured('av-vmax', 0.5, { modality: 'cw' })))).toBe(false);
     expect(
-      evaluateTasks(snap({ caseId: 'aortic-stenosis-severe', impressionScore: 80 })),
-    ).toContain('impression-as');
+      cw.check(snap({ measurements: [measured('av-vmax', 0.8, { modality: 'cw' })] })),
+      'another case',
+    ).toBe(false);
+  });
+
+  it('the apical short axis, the IVC collapse, segmental motion and the grading of the MR', () => {
+    expect(byId.get('psax-apex-55')!.check(snap({ handViewProgress: { 'psax-apex': 60 } }))).toBe(
+      true,
+    );
+    const ivc = byId.get('ivc-collapse')!;
+    const ph = (ms: Measurement[]) =>
+      snap({ caseId: 'pulmonary-hypertension-rv', measurements: ms });
+    expect(ivc.check(ph([measured('ivc-diameter', 0.9)]))).toBe(false);
     expect(
-      evaluateTasks(snap({ caseId: 'normal-excellent-window', impressionScore: 80 })),
-    ).not.toContain('impression-as');
+      ivc.check(ph([measured('ivc-diameter', 0.9), measured('ivc-diameter-inspiration', 0.9)])),
+    ).toBe(true);
+    const rwma = byId.get('rwma-inferior')!;
+    const inf = (a2c: number, impressionScore: number) =>
+      snap({ caseId: 'inferior-rwma', handViewProgress: { a2c }, impressionScore });
+    expect(rwma.check(inf(65, 80))).toBe(true);
+    expect(rwma.check(inf(50, 80))).toBe(false);
+    expect(rwma.check(inf(65, 60))).toBe(false);
+    const mr = byId.get('mr-grading')!;
+    const traced = (view: string) => measured('la-volume', 0.9, { sourceViewId: view });
+    const mvp = (impressionScore: number, views: string[]) =>
+      snap({ caseId: 'mvp-primary-mr', impressionScore, measurements: views.map(traced) });
+    expect(mr.check(mvp(75, ['a4c', 'a2c']))).toBe(true);
+    expect(mr.check(mvp(75, ['a4c']))).toBe(false);
+    expect(mr.check(mvp(50, ['a4c', 'a2c']))).toBe(false);
+    // each one builds on what it needs
+    expect(byId.get('cw-as-vmax')!.requires).toContain('lvot-vti-ok');
+    expect(ivc.requires).toContain('subcostal-ivc-60');
+    expect(rwma.requires).toContain('apical-segments');
+    expect(mr.requires).toEqual(
+      expect.arrayContaining(['la-volume-biplane', 'colour-normal-scale']),
+    );
   });
 });
 

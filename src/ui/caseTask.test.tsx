@@ -22,19 +22,42 @@ beforeEach(() => {
 });
 
 describe('«Abrir tarea»', () => {
-  it('every task with a case or a view has the button, and none of the old «Abrir caso» ones is left', () => {
-    const { container } = render(<CurriculumScreen />);
+  it('every task with a case or a view has the button once unlocked, and none of the old «Abrir caso» ones is left', () => {
+    // every task done but the one looked at: all of them unlocked (decision 260)
+    const all = Object.fromEntries(allTasks().map((t) => [t.id, 1]));
     const withTarget = allTasks().filter((t) => t.caseId || t.viewId);
     expect(withTarget.length).toBeGreaterThan(20);
     for (const t of withTarget) {
+      cleanup();
+      const { [t.id]: _self, ...others } = all;
+      useSimStore.setState({ progress: { ...initialSim.progress, completedTasks: others } });
+      const { container } = render(<CurriculumScreen />);
       const b = container.querySelector(`[data-open-task="${t.id}"]`);
       expect(b?.textContent, t.id).toBe('Abrir tarea');
+      expect(container.textContent).not.toContain('Abrir caso');
     }
-    expect(container.textContent).not.toContain('Abrir caso');
+  });
+
+  it('a locked task says what comes before it and has no button (decision 260)', () => {
+    const { container, rerender } = render(<CurriculumScreen />);
+    const li = () => container.querySelector('[data-task="a2c-55"]')!;
+    expect(li().getAttribute('data-locked')).toBe('1');
+    expect(li().textContent).toContain('bloqueada');
+    expect(li().querySelector('.requires')?.textContent).toBe(
+      `Antes: ${allTasks().find((t) => t.id === 'a4c-70')!.title}`,
+    );
+    expect(container.querySelector('[data-open-task="a2c-55"]')).toBeNull();
+    // the first task of the curriculum is never locked
+    expect(container.querySelector('[data-task="plax-70"]')?.getAttribute('data-locked')).toBe('0');
+    useSimStore.getState().completeTasks(['a4c-70']);
+    rerender(<CurriculumScreen />);
+    expect(li().getAttribute('data-locked')).toBe('0');
+    expect(container.querySelector('[data-open-task="a2c-55"]')).not.toBeNull();
   });
 
   it('opens the task in its case, in the guided mode, with its view as the target and the guide open', () => {
     useSimStore.setState({ caseId: 'hfref-severe-mr', mode: 'sandbox' });
+    useSimStore.getState().completeTasks(['a4c-70']);
     useSimStore.getState().setUi({ screen: 'curriculum', guidanceOpen: false });
     const { container } = render(<CurriculumScreen />);
     fireEvent.click(container.querySelector('[data-open-task="a2c-55"]')!);

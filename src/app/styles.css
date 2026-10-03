@@ -1898,6 +1898,10 @@ select:hover {
 .curriculum .tasks li:last-child {
   margin-bottom: 0;
 }
+.curriculum .tasks li.locked > b,
+.curriculum .tasks li.locked .why {
+  opacity: 0.55;
+}
 .curriculum .tasks li.done {
   border-color: #234a35;
   background: #12211a;

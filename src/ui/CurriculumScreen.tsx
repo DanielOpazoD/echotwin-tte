@@ -1,6 +1,6 @@
 import { useSimStore } from '@/app/store';
 import { useShallow } from 'zustand/shallow';
-import { CURRICULUM } from '@/education/curriculum';
+import { allTasks, CURRICULUM, isUnlocked } from '@/education/curriculum';
 import { listCases } from '@/cases';
 import { getViewTarget } from '@/simulator/windows/viewDefinitions';
 
@@ -14,7 +14,9 @@ export function CurriculumScreen() {
   );
   const done = s.progress.completedTasks;
   const cases = listCases();
-  const total = CURRICULUM.flatMap((m) => m.lessons.flatMap((l) => l.tasks)).length;
+  const tasks = allTasks();
+  const byId = new Map(tasks.map((t) => [t.id, t]));
+  const total = tasks.length;
   const completed = Object.keys(done).length;
   return (
     <div className="screen curriculum">
@@ -33,18 +35,27 @@ export function CurriculumScreen() {
               <ul className="tasks">
                 {l.tasks.map((t) => {
                   const ok = Boolean(done[t.id]);
+                  // a task waits for the ones it builds on (decision 260)
+                  const locked = !ok && !isUnlocked(t, done);
                   const caseTitle = t.caseId ? cases.find((c) => c.id === t.caseId)?.title : null;
+                  const before = (t.requires ?? [])
+                    .filter((id) => !done[id])
+                    .map((id) => byId.get(id)?.title ?? id);
                   return (
                     <li
                       key={t.id}
-                      className={ok ? 'done' : ''}
+                      className={ok ? 'done' : locked ? 'locked' : ''}
                       data-task={t.id}
                       data-done={ok ? '1' : '0'}
+                      data-locked={locked ? '1' : '0'}
                     >
-                      <span className={`pill ${ok ? 'ok' : ''}`}>{ok ? 'hecha' : 'pendiente'}</span>{' '}
+                      <span className={`pill ${ok ? 'ok' : ''}`}>
+                        {ok ? 'hecha' : locked ? 'bloqueada' : 'pendiente'}
+                      </span>{' '}
                       <b>{t.title}</b>
                       <div className="small why">{t.why}</div>
-                      {(t.caseId || t.viewId) && (
+                      {locked && <div className="small requires">Antes: {before.join(' · ')}</div>}
+                      {!locked && (t.caseId || t.viewId) && (
                         <button
                           className="small"
                           data-open-task={t.id}

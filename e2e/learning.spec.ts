@@ -131,6 +131,16 @@ test('«Abrir tarea» opens the task in its case with its view as the target, an
   await page.locator('select[aria-label="Caso"]').selectOption('hfref-severe-mr');
   await expect(page.locator('[data-case-card]')).toContainText('miocardiopatía dilatada');
   await page.getByRole('button', { name: 'Informe', exact: true }).click();
+  // the two-chamber task builds on the four-chamber one (decision 250)
+  await page.evaluate(() =>
+    (
+      window as unknown as {
+        __echotwin: { useSimStore: { getState: () => { completeTasks: (ids: string[]) => void } } };
+      }
+    ).__echotwin.useSimStore
+      .getState()
+      .completeTasks(['a4c-70']),
+  );
   await page.getByRole('button', { name: 'Currículo' }).click();
   await page.locator('[data-open-task="a2c-55"]').click();
   // back on the simulator, in the task's case, in the guided mode, with the two-chamber view as the target
