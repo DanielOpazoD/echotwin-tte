@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 262 (última: 262).
+Decisiones: 263 (última: 263).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -270,3 +270,4 @@ Decisiones: 262 (última: 262).
 | [260](DECISIONS.md#L1479) | 2026-09-25 | El currículo tiene prerrequisitos y las tareas que faltaban: CW en la estenosis aórtica, eje corto apical, colapso de la cava, motilidad segmentaria y grado de la IM | vigente |
 | [261](DECISIONS.md#L1481) | 2026-09-25 | La ventana difícil es clutter, no atenuación | vigente |
 | [262](DECISIONS.md#L1483) | 2026-09-25 | La cara diafragmática del VI se apoya en el diafragma | vigente |
+| [263](DECISIONS.md#L1485) | 2026-09-25 | La reverberación no se refuerza tras la sangre ni el líquido, y el derrame dispersa 30 dB menos que la sangre | vigente |

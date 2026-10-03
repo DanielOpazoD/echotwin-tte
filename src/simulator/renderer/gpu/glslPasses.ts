@@ -190,6 +190,8 @@ void main() {
   int li = int(gl_FragCoord.y);
   float dr = DEPTH / SAMPLES;
   float transmission = P(LINE_DROP_BASE + li);
+  // the soft-tissue transmission the chest-wall reverberation carries (decision 263)
+  float softTransmission = transmission;
   float lungEntryR = -1.0, lungEntryT = 0.0;
   int lungEntryK = -1;
   bool dead = false;
@@ -207,6 +209,8 @@ void main() {
     }
     transmission *= exp(-a.y);
     if (transmission < TRANSMISSION_FLOOR) transmission = TRANSMISSION_FLOOR;
+    softTransmission *= exp(-ATTEN_NP_PER_DB * SOFT_TISSUE_ATTEN_DB * F_ATTEN * dr);
+    if (softTransmission < TRANSMISSION_FLOOR) softTransmission = TRANSMISSION_FLOOR;
   }
   vec4 a = texelFetch(uPassA, ivec2(si, li), 0);
   vec4 b = texelFetch(uPassB, ivec2(si, li), 0);
@@ -272,7 +276,8 @@ void main() {
     // decision 258: the haze of the cavities at every depth, its grains in the image plane
     float hth = -SECTOR / 2.0 + SECTOR * (float(li) + 0.5) / LINES;
     cm += clutterHaze(lat(vec3(r * sin(hth), r * cos(hth), 0.0) * vec3(CLUTTER_HAZE_FREQ, CLUTTER_HAZE_FREQ, 0.0) + vec3(B_OX, B_OY, B_OZ) * CLUTTER_HAZE_PROBE + CLUTTER_HAZE_OFFSET, 1));
-    cm *= CLUTTER;
+    // decision 263: not reinforced behind fluid or blood
+    cm *= CLUTTER * min(1.0, softTransmission / transmission);
   }
   vec3 cc = vec3(B_OX * CLUTTER_FREQ + float(li) * CLUTTER_LINE_FREQ, B_OY * CLUTTER_FREQ + B_OZ * CLUTTER_FREQ, r * SCATTER_FREQ);
   float ringDown = r < RINGDOWN_CM ? RINGDOWN_GAIN * (1.0 - r / RINGDOWN_CM) : 0.0; // transducer ring-down
