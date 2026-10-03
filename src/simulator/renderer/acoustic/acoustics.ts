@@ -127,8 +127,12 @@ export const PLEURA_Z = 1;
 export const BLOOD_HARMONIC_SIGMA = 0.6;
 /** Lattice offsets of the heterogeneity noise (material coordinates · HETERO_FREQ + offset). */
 export const HETERO_OFFSET: readonly [number, number, number] = [5.3, 1.7, 9.1];
-/** Calcified tissue adds bright, grainy backscatter: gain · (base + amp · lattice(m · freq + offset)). */
-export const CALCIUM_GAIN = 1.5;
+/**
+ * Calcified tissue adds bright, grainy backscatter: gain · (base + amp · lattice(m · freq + offset)). Soft tissue against
+ * hydroxyapatite reflects far more than against fibrous tissue; with 1.5 the closed severely stenotic valve read darker
+ * than a healthy one (decision 266).
+ */
+export const CALCIUM_GAIN = 7.8;
 export const CALCIUM_BASE = 0.6;
 export const CALCIUM_AMP = 0.8;
 export const CALCIUM_FREQ = 6;
