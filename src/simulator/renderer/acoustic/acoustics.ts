@@ -197,10 +197,24 @@ export function softTissueTransmission(
       depthCm,
   );
 }
-/** Calcified tissue (extraReflect above the threshold) adds ≈ 10 dB/cm at 2.5 MHz: NP per 0.07 cm of sample. */
+/** Calcification (a sample's extraReflect) below which a leaflet is fibrous and above which it holds calcium. */
 export const CALCIUM_ATTEN_THRESHOLD = 0.4;
-export const CALCIUM_ATTEN_NP = 0.09;
-export const CALCIUM_ATTEN_REF_CM = 0.07;
+/** Attenuation of calcium (dB·cm⁻¹·MHz⁻¹, one way): the model's own `Tissue.Calcium` (decision 251). */
+export const CALCIUM_ATTEN_DB = 25;
+
+/**
+ * Attenuation (dB·cm⁻¹·MHz⁻¹, one way) that a sample's calcification adds (decision 251): the share of the sample that
+ * is calcium, rising from none at CALCIUM_ATTEN_THRESHOLD to all of it at 1, takes calcium's attenuation. It used to add
+ * a fixed ≈ 4.4 dB·cm⁻¹·MHz⁻¹ (0.09 Np per 0.07 cm at 2.5 MHz), a sixth of calcium's: the severely stenotic valve cast
+ * a 5–8 dB shadow on the image, where a calcified valve shadows what lies behind it.
+ */
+export function calciumAttenDb(extraReflect: number): number {
+  const share = Math.max(
+    0,
+    (extraReflect - CALCIUM_ATTEN_THRESHOLD) / (1 - CALCIUM_ATTEN_THRESHOLD),
+  );
+  return Math.min(1, share) * CALCIUM_ATTEN_DB;
+}
 /** A poor acoustic window attenuates the chest wall tissues (fat, muscle, skin) up to this factor more. */
 export const WINDOW_ATTEN_GAIN = 1.5;
 /** Transmission floor: nothing below it is drawn, and the march never underflows. */
@@ -421,8 +435,7 @@ export const ACOUSTIC_GLSL_CONSTANTS: Readonly<
   ATTEN_NP_PER_DB,
   SOFT_TISSUE_ATTEN_DB,
   CALCIUM_ATTEN_THRESHOLD,
-  CALCIUM_ATTEN_NP,
-  CALCIUM_ATTEN_REF_CM,
+  CALCIUM_ATTEN_DB,
   WINDOW_ATTEN_GAIN,
   TRANSMISSION_FLOOR,
   CLUTTER_MAX_CM,

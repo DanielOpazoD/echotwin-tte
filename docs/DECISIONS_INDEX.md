@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 250 (última: 250).
+Decisiones: 251 (última: 251).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -258,3 +258,4 @@ Decisiones: 250 (última: 250).
 | [248](DECISIONS.md#L1455) | 2026-09-25 | La ficha del caso en la consola y «Abrir tarea» con su vista objetivo | vigente |
 | [249](DECISIONS.md#L1457) | 2026-09-25 | La documentación nombra GitLab sólo donde cuenta la historia | vigente |
 | [250](DECISIONS.md#L1459) | 2026-09-25 | Las líneas A se atenúan por su camino como cualquier eco de su profundidad | vigente |
+| [251](DECISIONS.md#L1461) | 2026-09-25 | Una válvula calcificada hace sombra | vigente |

@@ -32,9 +32,7 @@ import {
   BLOOD_HARMONIC_SIGMA,
   bloodShiftCells,
   CALCIUM_AMP,
-  CALCIUM_ATTEN_NP,
-  CALCIUM_ATTEN_REF_CM,
-  CALCIUM_ATTEN_THRESHOLD,
+  calciumAttenDb,
   CALCIUM_BASE,
   CALCIUM_FREQ,
   CALCIUM_GAIN,
@@ -974,9 +972,9 @@ export class ProceduralSliceRenderer implements RendererBackend {
       // two-way amplitude loss integrated over the sample's length (decision 89): 0.23 Np per dB·cm⁻¹·MHz⁻¹ of one-way
       // attenuation, so a layer loses the same whatever the sampling. Bone, calcium and spine used a fixed 1.2 Np per
       // sample, which made a rib's shadow depend on the quality tier (17 dB between low and high behind 4 mm of rib).
-      let attenNp = ATTEN_NP_PER_DB * props.attenuation * fAtten * dr;
-      if (s.extraReflect > CALCIUM_ATTEN_THRESHOLD)
-        attenNp += CALCIUM_ATTEN_NP * s.extraReflect * (dr / CALCIUM_ATTEN_REF_CM); // calcified tissue ≈ 10 dB/cm at 2.5 MHz
+      // a calcified leaflet's calcium attenuates as calcium does (decision 251)
+      let attenNp =
+        ATTEN_NP_PER_DB * (props.attenuation + calciumAttenDb(s.extraReflect)) * fAtten * dr;
       if (!inHeart && (tissue === Tissue.Fat || tissue === Tissue.Muscle || tissue === Tissue.Skin))
         attenNp *= 1 + WINDOW_ATTEN_GAIN * ctx.windowAttenuation;
       if (atten) atten[idx] = attenNp;
