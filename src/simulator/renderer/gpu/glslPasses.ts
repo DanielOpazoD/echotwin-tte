@@ -136,7 +136,6 @@ void main() {
   float lungFlag = s.tissue == T_LUNG ? 1.0 : 0.0;
   // two-way amplitude loss integrated over the sample's length for every tissue, bone included (decision 89)
   float attenNp = ATTEN_NP_PER_DB * (props.z + calciumAttenDb(s.extra)) * F_ATTEN * dr;
-  if (!inHeart && (s.tissue == T_FAT || s.tissue == T_MUSCLE || s.tissue == T_SKIN)) attenNp *= 1.0 + WINDOW_ATTEN_GAIN * WINDOW_ATTEN;
   outA = vec4(sigma, attenNp, lungFlag, 1.0);
   outB = vec4(float(s.structure) / 255.0, float(s.tissue) / 255.0, s.extra, float(s.segment) / 255.0);
   outC = vec4(specular, zr, zi, gcoef);

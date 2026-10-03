@@ -215,8 +215,6 @@ export function calciumAttenDb(extraReflect: number): number {
   );
   return Math.min(1, share) * CALCIUM_ATTEN_DB;
 }
-/** A poor acoustic window attenuates the chest wall tissues (fat, muscle, skin) up to this factor more. */
-export const WINDOW_ATTEN_GAIN = 1.5;
 /** Transmission floor: nothing below it is drawn, and the march never underflows. */
 export const TRANSMISSION_FLOOR = 1e-4;
 /** Near-field clutter: reverberation in the chest wall under the footprint, incoherent, fixed to the probe. */
@@ -465,7 +463,6 @@ export const ACOUSTIC_GLSL_CONSTANTS: Readonly<
   SOFT_TISSUE_ATTEN_DB,
   CALCIUM_ATTEN_THRESHOLD,
   CALCIUM_ATTEN_DB,
-  WINDOW_ATTEN_GAIN,
   TRANSMISSION_FLOOR,
   CLUTTER_MAX_CM,
   CLUTTER_DECAY_CM,

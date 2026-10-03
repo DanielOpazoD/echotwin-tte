@@ -91,7 +91,8 @@ export interface ScenePhysics {
   frequencyMHz: number;
   harmonics: boolean;
   clutterLevel: number; // 0..1 from case + window
-  windowAttenuation: number; // 0..1 extra chest-wall attenuation
+  /** 0..1 how poor the window is: reverberation clutter in the chest wall (decision 261; it no longer adds attenuation). */
+  windowAttenuation: number;
   seed: number;
   /** Case "beam-width" artifact 0..1: widens the lateral beam away from the focus (renderer PSF). */
   beamWidth?: number;
