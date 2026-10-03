@@ -102,7 +102,6 @@ import {
   SPECULAR_HARMONIC,
   SPECULAR_WINDOW_MIN,
   TRANSMISSION_FLOOR,
-  WINDOW_ATTEN_GAIN,
 } from '../acoustic/acoustics';
 
 // lattice offsets as scalars: the inner loops read them per sample
@@ -433,7 +432,6 @@ export class ProceduralSliceRenderer implements RendererBackend {
       fwdH: torsoToHeartDir(hf, beam.forward),
       latH: torsoToHeartDir(hf, beam.lateral),
       nrmH: torsoToHeartDir(hf, beam.normal),
-      windowAttenuation: physics.windowAttenuation,
       bloodShift: bloodShiftCells(physics.bloodFrame ?? 0),
       thorax,
       latA: noiseLattice(physics.seed),
@@ -985,10 +983,8 @@ export class ProceduralSliceRenderer implements RendererBackend {
       // attenuation, so a layer loses the same whatever the sampling. Bone, calcium and spine used a fixed 1.2 Np per
       // sample, which made a rib's shadow depend on the quality tier (17 dB between low and high behind 4 mm of rib).
       // a calcified leaflet's calcium attenuates as calcium does (decision 251)
-      let attenNp =
+      const attenNp =
         ATTEN_NP_PER_DB * (props.attenuation + calciumAttenDb(s.extraReflect)) * fAtten * dr;
-      if (!inHeart && (tissue === Tissue.Fat || tissue === Tissue.Muscle || tissue === Tissue.Skin))
-        attenNp *= 1 + WINDOW_ATTEN_GAIN * ctx.windowAttenuation;
       if (atten) atten[idx] = attenNp;
       transmission *= Math.exp(-attenNp);
       if (transmission < TRANSMISSION_FLOOR) transmission = TRANSMISSION_FLOOR;
@@ -1106,7 +1102,6 @@ interface LineContext {
   fwdH: { x: number; y: number; z: number };
   latH: { x: number; y: number; z: number };
   nrmH: { x: number; y: number; z: number };
-  windowAttenuation: number;
   /** Lattice shift of the flowing blood's scatterers in this frame (decision 163). */
   bloodShift: number;
   thorax: Scene['thorax'];

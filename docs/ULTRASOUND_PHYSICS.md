@@ -79,7 +79,6 @@ Las costillas son cartílago a menos de 5 cm del esternón y hueso más allá; s
 | `BLOOD_HARMONIC_SIGMA` | 0,6 | retrodispersión de la sangre con armónicos |
 | `SPECULAR_HARMONIC` | 1,1 | eco especular con armónicos |
 | `ATTEN_NP_PER_DB` | 0,23 | nepers de amplitud de ida y vuelta por dB/cm/MHz |
-| `WINDOW_ATTEN_GAIN` | 1,5 | atenuación extra de la pared con mala ventana |
 | `BEAM_ATTEN_MAX_HALF_ANGLE_RAD` | 0,208 | semiángulo máximo de la media de la marcha del haz (rad; 24 líneas de la malla calibrada) |
 | `BEAM_ATTEN_MAX_LINES` | 36 | líneas que recorre como máximo el bucle GPU de esa media (la malla más densa pide 34) |
 | `TRANSMISSION_FLOOR` | 0,0001 | suelo de la transmisión |

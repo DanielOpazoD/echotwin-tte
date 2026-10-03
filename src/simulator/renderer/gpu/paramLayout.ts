@@ -53,7 +53,6 @@ const SCALARS = [
   'HARM',
   'CLUTTER',
   'CONTACT',
-  'WINDOW_ATTEN',
   'ELEV_OFFSET',
   'ELEV_N',
   'FOCUS',
@@ -369,7 +368,6 @@ export function packScene(
       Math.sqrt(2.5 / f),
   );
   set('CONTACT', contactQuality(beam.contact));
-  set('WINDOW_ATTEN', physics.windowAttenuation);
   set('ELEV_OFFSET', elevationOffsetCm);
   set('ELEV_N', spec.elevationSamples);
   set('FOCUS', spec.focusCm);
