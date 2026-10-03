@@ -2,6 +2,7 @@ import type { PolarFrameSpec } from '../types';
 import {
   SCATTER_FREQ,
   SCATTER_FREQ_RATIO,
+  ELEVATION_FOCUS_CM,
   SLICE_HALF_BASE_CM,
   SLICE_HALF_SLOPE,
 } from './acoustics';
@@ -285,9 +286,12 @@ export function formEnvelope(
   }
 }
 
-/** Half-width (cm) of the elevational slice at depth r: the offset of the two side planes of the slice-thickness passes. */
-export function sliceHalfWidthCm(rCm: number, focusCm: number): number {
-  return SLICE_HALF_BASE_CM + SLICE_HALF_SLOPE * Math.abs(rCm - focusCm);
+/**
+ * Half-width (cm) of the elevational slice at depth r: the offset of the two side planes of the slice-thickness passes.
+ * Narrowest at the lens's elevation focus, whatever the transmit focus (decision 252).
+ */
+export function sliceHalfWidthCm(rCm: number): number {
+  return SLICE_HALF_BASE_CM + SLICE_HALF_SLOPE * Math.abs(rCm - ELEVATION_FOCUS_CM);
 }
 
 /** Axial radius cap of an M-mode line kernel: the line is sampled several times finer than a frame (decision 84). */
@@ -416,7 +420,7 @@ export function buildLineKernels(
     const r = (si + 0.5) * dr;
     lateralCells[si] =
       10 / lateralFwhmMm(r, frame.focusCm, frequencyMHz, harmonics, beamWidthBoost);
-    elevationCells[si] = 1 / (2 * sliceHalfWidthCm(r, frame.focusCm));
+    elevationCells[si] = 1 / (2 * sliceHalfWidthCm(r));
   }
   return {
     key: lineKernelKey(frame, samples, frequencyMHz, harmonics, beamWidthBoost),

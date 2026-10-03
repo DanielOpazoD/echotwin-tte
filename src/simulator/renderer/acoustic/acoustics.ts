@@ -124,7 +124,7 @@ export const CALCIUM_BASE = 0.6;
 export const CALCIUM_AMP = 0.8;
 export const CALCIUM_FREQ = 6;
 export const CALCIUM_OFFSET: readonly [number, number, number] = [3.3, 1.1, 9.2];
-/** Elevational slice half-width (cm) at depth r: base + slope · |r − focus| (decision 48). */
+/** Elevational slice half-width (cm) at depth r: base + slope · |r − elevation focus| (decisions 48 and 250). */
 export const SLICE_HALF_BASE_CM = 0.2;
 export const SLICE_HALF_SLOPE = 0.04;
 /**
@@ -248,6 +248,14 @@ export const FOCUS_HALF_APERTURE_MM = 7;
 export const FOCUS_HALF_ELEVATION_MM = 6.5;
 export const FOCUS_WAIST_LATERAL_MM = 2;
 export const FOCUS_WAIST_ELEVATION_MM = 2;
+/**
+ * Depth (cm) of the elevation focus (decision 252). A one-dimensional phased array steers and focuses only in the image
+ * plane; across it the slice is focused by the cylindrical lens on the face, at one depth whatever the console's
+ * transmit focus. Both the slice thickness and the beam's elevation taper followed the transmit focus, so moving the
+ * focus marker thinned the slice where it went. 9 cm, the console's default focus: an adult cardiac lens focuses in
+ * the mid field, and the default image does not change (the depth is an assumption; no figure for a given probe here).
+ */
+export const ELEVATION_FOCUS_CM = 9;
 /** Lateral half-width of the transmit beam at depth r (cm): the aperture tapering to the waist at the focus. */
 export function beamHalfWidthCm(rCm: number, focusCm: number): number {
   const taper = 1 - rCm / Math.max(1, focusCm);
@@ -259,8 +267,9 @@ export function beamHalfWidthCm(rCm: number, focusCm: number): number {
   );
 }
 export function focusingGain(rCm: number, focusCm: number): number {
-  const taper = 1 - rCm / Math.max(1, focusCm);
   const wl = beamHalfWidthCm(rCm, focusCm) * 10;
+  // across the plane the lens focuses at its own depth (decision 252)
+  const taper = 1 - rCm / ELEVATION_FOCUS_CM;
   const we = Math.sqrt(
     FOCUS_HALF_ELEVATION_MM * FOCUS_HALF_ELEVATION_MM * taper * taper +
       FOCUS_WAIST_ELEVATION_MM * FOCUS_WAIST_ELEVATION_MM,
@@ -457,6 +466,7 @@ export const ACOUSTIC_GLSL_CONSTANTS: Readonly<
   FOCUS_HALF_ELEVATION_MM,
   FOCUS_WAIST_LATERAL_MM,
   FOCUS_WAIST_ELEVATION_MM,
+  ELEVATION_FOCUS_CM,
   BEAM_ATTEN_MAX_HALF_ANGLE_RAD,
   BEAM_ATTEN_MAX_LINES,
   BEAM_ATTEN_MIN_ARC_CM,
