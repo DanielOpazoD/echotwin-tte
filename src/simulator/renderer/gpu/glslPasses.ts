@@ -47,6 +47,9 @@ void acoustic(int tissue, int structure, float sdf, float extra, float nd, vec3 
       float dphi = rr > MYO_ANISO_RADIAL_EPS ? dot(dirH.xy, vec2(-m.y, m.x)) / rr : 0.0;
       // the fibre helix across the wall (decision 144); a wall sample without a depth (the RV free wall) takes the mid-wall
       sigma *= myoHelixGain(dphi, dirH.z, transmural >= 0.0 ? transmural : 0.5);
+    } else if (structure == S_PAP || structure == S_RV_PAP) {
+      // decision 265: the papillary fibres run along the muscle, near the long axis
+      sigma *= papillaryFibreGain(dirH.z);
     } else if (structure != S_LA_WALL && structure != S_RA_WALL && structure != S_IAS) {
       sigma *= MYO_ANISO_FLOOR + (1.0 - MYO_ANISO_FLOOR) * nd * nd;
     }

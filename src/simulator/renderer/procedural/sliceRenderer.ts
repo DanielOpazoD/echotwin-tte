@@ -61,6 +61,7 @@ import {
   MYO_ANISO_FLOOR,
   MYO_ANISO_RADIAL_EPS,
   myoHelixGain,
+  papillaryFibreGain,
   PHASOR_IM_A,
   PHASOR_IM_B,
   PHASOR_NORM,
@@ -691,6 +692,12 @@ export class ProceduralSliceRenderer implements RendererBackend {
           const dphi = rr > MYO_ANISO_RADIAL_EPS ? (dhy * q.mx - dhx * q.my) / rr : 0;
           // the fibre helix across the wall (decision 144); a wall sample without a depth (the RV free wall) takes the mid-wall
           sigma *= myoHelixGain(dphi, dhz, q.transmural >= 0 ? q.transmural : 0.5);
+        } else if (
+          inH &&
+          (q.structure === Structure.PapillaryMuscle || q.structure === Structure.RvPapillary)
+        ) {
+          // the papillary fibres run along the muscle, near the long axis (decision 265)
+          sigma *= papillaryFibreGain(dhz);
         } else if (
           !inH ||
           (q.structure !== Structure.LaWall &&

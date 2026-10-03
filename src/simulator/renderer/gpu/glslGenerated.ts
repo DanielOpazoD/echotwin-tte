@@ -259,6 +259,10 @@ float myoHelixGain(float dphi, float dz, float u) {
   float c = cos(alpha) * dphi + sin(alpha) * dz;
   return MYO_ANISO_FLOOR + (1.0 - MYO_ANISO_FLOOR) * (1.0 - c * c);
 }
+// src/simulator/renderer/acoustic/acoustics.ts: papillaryFibreGain
+float papillaryFibreGain(float dz) {
+  return MYO_ANISO_FLOOR + (1.0 - MYO_ANISO_FLOOR) * (1.0 - dz * dz);
+}
 // src/simulator/renderer/acoustic/acoustics.ts: pleuralReverberation
 float pleuralReverberation(float rCm, float entryCm, float transmission, float modulation, float coherence, float attenFrequencyMHz) {
   if (rCm <= entryCm) {

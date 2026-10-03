@@ -61,6 +61,7 @@ export const TARGETS: GenTarget[] = [
     file: 'src/simulator/renderer/acoustic/acoustics.ts',
     functions: [
       'myoHelixGain',
+      'papillaryFibreGain',
       'pleuralReverberation',
       'pleuralIncidenceCos',
       'pleuralCoherence',
