@@ -319,6 +319,7 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
     -(1 - ROOT_EXCURSION) * zAnn,
     papillaryTether(tipAL[0], tipAL[1], tipAL[2], antAnnX, antAnnY, antAnnZ, m.anatomy.mitral),
     papillaryTether(tipPM[0], tipPM[1], tipPM[2], antAnnX, antAnnY, antAnnZ, m.anatomy.mitral),
+    state.avOpen,
   );
   {
     // inflow below the annulus: from the outline where it lies farthest outside the cavity profile, straight to just
