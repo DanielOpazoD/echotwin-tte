@@ -34,7 +34,7 @@ import {
   type ProgressState,
 } from '@/education/progress';
 import { getFinding } from '@/education/impression';
-import { examSummaryOf } from './examSummary';
+import { examSummaryOf, impressionCorrected } from './examSummary';
 import type { ExamSummary } from '@/education/scoring/scoring';
 import type { PhaseMarks } from '@/simulator/core/protocol';
 import { frameBus } from './frameBus';
@@ -137,7 +137,13 @@ export interface SimStore {
   resetLearningProgress: () => void;
   /** Structured impression selected by the learner for the current case. */
   impressionSelection: string[];
+  /** The learner pressed «Corregir» on the impression (practice; the exam corrects it when finished, decision 257). */
+  impressionChecked: boolean;
   toggleFinding: (id: string) => void;
+  /** «Corregir»: shows which findings were right; the sheet stays closed until «Rehacer». */
+  checkImpression: () => void;
+  /** «Rehacer»: an empty sheet, not yet corrected. */
+  redoImpression: () => void;
   /** Artifact laboratory overrides (null = case defaults). */
   artifactLab: { sideLobe: number; mirror: number; beamWidth: number; clutter: number } | null;
   setArtifactLab: (
@@ -503,6 +509,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
   activeMeasurementId: null,
   progress: loadProgress(typeof localStorage !== 'undefined' ? localStorage : null),
   impressionSelection: [],
+  impressionChecked: false,
   artifactLab: null,
   phaseMarks: null,
   lvLengthCm: null,
@@ -736,8 +743,8 @@ export const useSimStore = create<SimStore>((set, get) => ({
   },
   toggleFinding: (id) =>
     set((s) => {
-      // the answer sheet closes when the exam is finished (decision 236)
-      if (s.mode === 'exam' && s.examFinished) return s;
+      // the answer sheet closes when the exam is finished (decision 236) and, in practice, once corrected (decision 257)
+      if (impressionCorrected(s)) return s;
       const f = getFinding(id);
       let sel = s.impressionSelection.filter((x) => x !== id);
       if (!s.impressionSelection.includes(id)) {
@@ -747,6 +754,12 @@ export const useSimStore = create<SimStore>((set, get) => ({
       }
       return { impressionSelection: sel };
     }),
+  checkImpression: () =>
+    set((s) =>
+      s.mode === 'exam' || !s.impressionSelection.length ? s : { impressionChecked: true },
+    ),
+  redoImpression: () =>
+    set((s) => (s.mode === 'exam' ? s : { impressionSelection: [], impressionChecked: false })),
   startPresetView: (viewId) => {
     if (get().mode === 'exam') return;
     // from now on this view's score is the preset's, not the learner's (decision 174)
@@ -889,6 +902,7 @@ function freshSession() {
     presetAnim: null,
     targetViewId: null,
     impressionSelection: [],
+    impressionChecked: false,
     artifactLab: null,
   };
 }

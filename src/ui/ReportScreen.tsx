@@ -1,5 +1,5 @@
 import { useSimStore } from '@/app/store';
-import { examSummaryOf } from '@/app/examSummary';
+import { examSummaryOf, impressionCorrected } from '@/app/examSummary';
 import { useShallow } from 'zustand/shallow';
 import { formatClinical } from '@/clinical/reference-values';
 import { buildEducationalReport } from '@/education/report';
@@ -22,9 +22,12 @@ export function ReportScreen() {
       examFinished: st.examFinished,
       examResult: st.examResult,
       finishExam: st.finishExam,
+      checkImpression: st.checkImpression,
+      impressionChecked: st.impressionChecked,
       impressionSelection: st.impressionSelection,
       measurements: st.measurements,
       mode: st.mode,
+      redoImpression: st.redoImpression,
       toggleFinding: st.toggleFinding,
       truth: st.truth,
       viewProgress: st.viewProgress,
@@ -41,7 +44,9 @@ export function ReportScreen() {
     : null;
   // the exam shows the summary recorded when it was finished (decision 236); practice, the live one
   const summary = s.mode === 'exam' ? s.examResult : examSummaryOf(s);
-  const sheetClosed = s.mode === 'exam' && s.examFinished;
+  // nothing says which findings are right until the impression is corrected (decision 257); then the sheet closes
+  const corrected = impressionCorrected(s);
+  const sheetClosed = corrected;
   const domains: { id: FindingDomain; label: string }[] = [
     { id: 'global', label: 'Global' },
     { id: 'lv', label: 'Ventrículo izquierdo' },
@@ -105,7 +110,10 @@ export function ReportScreen() {
         Marca los hallazgos que sustentan tu impresión. Se comparan con los que el modelo del caso
         implica (umbrales de las guías); la puntuación es la F1 entre ambos conjuntos.
       </p>
-      <div className="impression-form" data-impression-score={impression?.score ?? ''}>
+      <div
+        className="impression-form"
+        data-impression-score={corrected ? (impression?.score ?? '') : ''}
+      >
         {domains.map((d) => (
           <fieldset key={d.id}>
             <legend className="small">{d.label}</legend>
@@ -113,7 +121,7 @@ export function ReportScreen() {
               const checked = s.impressionSelection.includes(f.id);
               const isExpected = expected.includes(f.id);
               const cls =
-                revealed && s.impressionSelection.length
+                corrected && s.impressionSelection.length
                   ? checked && isExpected
                     ? 'ok'
                     : checked && !isExpected
@@ -137,7 +145,20 @@ export function ReportScreen() {
           </fieldset>
         ))}
       </div>
-      {impression && revealed && (
+      {s.mode !== 'exam' && (
+        <p className="impression-actions">
+          {corrected ? (
+            <button className="ghost" onClick={() => s.redoImpression()}>
+              Rehacer
+            </button>
+          ) : (
+            <button onClick={() => s.checkImpression()} disabled={!s.impressionSelection.length}>
+              Corregir
+            </button>
+          )}
+        </p>
+      )}
+      {impression && corrected && (
         <p data-impression-result="1">
           Impresión: <b>{impression.score}/100</b> · correctos {impression.correct.length} ·
           omitidos {impression.missed.length} · sobrantes {impression.wrong.length}
@@ -257,7 +278,8 @@ export function ReportScreen() {
           )}
         </tbody>
       </table>
-      {s.mode !== 'exam' && s.truth && (
+      {/* the model's summary and impression are the answer key: in practice they wait for «Corregir» (decision 257) */}
+      {s.mode !== 'exam' && corrected && s.truth && (
         <>
           <h3>Resumen del modelo (solo aprendizaje)</h3>
           <ul>
@@ -294,12 +316,16 @@ export function ReportScreen() {
           </ul>
         </>
       )}
-      <h3>Impresión</h3>
-      <ul>
-        {report.impression.map((l, i) => (
-          <li key={i}>{l}</li>
-        ))}
-      </ul>
+      {(s.mode === 'exam' || corrected) && (
+        <>
+          <h3>Impresión</h3>
+          <ul data-model-impression>
+            {report.impression.map((l, i) => (
+              <li key={i}>{l}</li>
+            ))}
+          </ul>
+        </>
+      )}
       {summary && (
         <>
           <h3>

@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useHudStore, useSimStore } from './store';
 import { modePolicy } from './modePolicy';
+import { correctedImpressionScore } from './examSummary';
 import { useSimulation } from './useSimulation';
 import { useShortcuts } from './shortcuts';
 import { DisplayCanvas } from '@/ui/DisplayCanvas';
@@ -11,7 +12,6 @@ import { ExamNotice, GuidancePanel } from '@/ui/GuidancePanel';
 import { ErrorBoundary, firstLine } from '@/ui/ErrorBoundary';
 import { SegmentPanel } from '@/ui/SegmentPanel';
 import { evaluateTasks, type LearnerSnapshot } from '@/education/curriculum';
-import { expectedFindings, scoreImpression } from '@/education/impression';
 import { DevPanel } from '@/ui/DevPanel';
 import { IconChevronRight } from '@/ui/icons';
 import { ShortcutsDialog } from '@/ui/ShortcutsDialog';
@@ -71,9 +71,6 @@ export function App() {
           st.recordViewScore(out.view.bestViewId, out.view.score);
         // curriculum: evaluate the automatic task checks against the learner's current state (≈ 8 Hz)
         if (modePolicy(st.mode).evaluateCurriculum) {
-          const impression = st.truth
-            ? scoreImpression(st.impressionSelection, expectedFindings(st.truth)).score
-            : null;
           const snapshot: LearnerSnapshot = {
             caseId: st.caseId,
             mode: st.mode,
@@ -88,7 +85,7 @@ export function App() {
             gateStructure: out.gate?.structure ?? null,
             gateFlowAngleDeg: out.gate?.flowAngleDeg ?? null,
             measurements: st.measurements,
-            impressionScore: st.impressionSelection.length ? impression : null,
+            impressionScore: correctedImpressionScore(st),
             settings: {
               depthCm: st.settings.depthCm,
               gainDb: st.settings.gainDb,

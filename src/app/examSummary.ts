@@ -12,6 +12,33 @@ export interface ExamInputs {
   viewProgress: ViewProgress;
   measurements: Measurement[];
   impressionSelection: string[];
+  impressionChecked: boolean;
+}
+
+/**
+ * Whether the impression has been corrected (decision 257): in practice when the learner pressed «Corregir», in the exam
+ * when it was finished. Until then nothing says which findings are right — no colours, no score, no model impression —
+ * and the sheet stays open; afterwards it is closed until «Rehacer».
+ */
+export function impressionCorrected(s: {
+  mode: ProductMode;
+  examFinished: boolean;
+  impressionChecked: boolean;
+}): boolean {
+  return s.mode === 'exam' ? s.examFinished : s.impressionChecked;
+}
+
+/**
+ * The impression score the curriculum sees: none until the impression is corrected, so that a task cannot complete
+ * while the learner toggles findings until it does — that would tell which ones are right (decision 257).
+ */
+export function correctedImpressionScore(
+  s: Pick<ExamInputs, 'truth' | 'impressionSelection' | 'mode' | 'impressionChecked'> & {
+    examFinished: boolean;
+  },
+): number | null {
+  if (!s.truth || !s.impressionSelection.length || !impressionCorrected(s)) return null;
+  return scoreImpression(s.impressionSelection, expectedFindings(s.truth)).score;
 }
 
 /**
@@ -21,9 +48,11 @@ export interface ExamInputs {
  */
 export function examSummaryOf(s: ExamInputs): ExamSummary | null {
   if (!s.truth) return null;
-  const impression = s.impressionSelection.length
-    ? scoreImpression(s.impressionSelection, expectedFindings(s.truth)).score
-    : null;
+  // the exam scores the sheet it is finished with; practice only once the learner asked for the correction (decision 257)
+  const impression =
+    s.impressionSelection.length && (s.mode === 'exam' || s.impressionChecked)
+      ? scoreImpression(s.impressionSelection, expectedFindings(s.truth)).score
+      : null;
   return buildExamSummary(
     loadCaseById(s.caseId),
     s.truth,
