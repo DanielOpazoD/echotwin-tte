@@ -108,12 +108,19 @@ test('the guidance panel explains causes and the report scores a structured impr
   await page.locator('[data-finding="as-none"] input').check();
   await page.locator('[data-finding="mr-none"] input').check();
   await page.locator('[data-finding="normal-study"] input').check();
-  await expect(page.locator('[data-impression-result]')).toContainText('100/100');
   await page.locator('[data-finding="as-severe"] input').check(); // exclusive group: replaces as-none
   const st = (await getStore(page)) as unknown as { impressionSelection: string[] };
   expect(st.impressionSelection).toContain('as-severe');
   expect(st.impressionSelection).not.toContain('as-none');
-  await expect(page.locator('[data-impression-result]')).not.toContainText('100/100');
+  // nothing says which findings are right before «Corregir» (decision 257)
+  await expect(page.locator('[data-impression-result]')).toHaveCount(0);
+  await expect(page.locator('.finding.ok, .finding.bad, .finding.missed')).toHaveCount(0);
+  await page.locator('[data-finding="as-none"] input').check();
+  await page.getByRole('button', { name: 'Corregir' }).click();
+  await expect(page.locator('[data-impression-result]')).toContainText('100/100');
+  await expect(page.locator('[data-finding="as-none"] input')).toBeDisabled();
+  await page.getByRole('button', { name: 'Rehacer' }).click();
+  await expect(page.locator('[data-finding="as-none"] input')).not.toBeChecked();
 });
 
 test('«Abrir tarea» opens the task in its case with its view as the target, and the console shows the case history', async ({
