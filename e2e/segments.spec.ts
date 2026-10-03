@@ -32,7 +32,7 @@ test('the image button shows the LV segments and the pointer names the one under
   await toggle.click();
   await expect(toggle).toHaveAttribute('aria-pressed', 'true');
   // freeze, so the segment stays under the pointer while the heart would beat
-  await page.getByRole('button', { name: 'Freeze' }).click();
+  await page.getByRole('button', { name: 'Congelar' }).click();
   await page.waitForTimeout(500);
   // the overlay paints the myocardium: a translucent wash, not an opaque mask
   const washed = await page.evaluate(() => {

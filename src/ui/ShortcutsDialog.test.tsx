@@ -41,7 +41,7 @@ describe('the shortcuts sheet', () => {
   it('lists every shortcut with its keys', () => {
     useSimStore.setState({ ui: { ...initial.ui, shortcutsOpen: true } });
     render(<ShortcutsDialog />);
-    expect(screen.getByText('Freeze / Live')).toBeTruthy();
+    expect(screen.getByText('Congelar / reanudar')).toBeTruthy();
     expect(screen.getByText('Espacio')).toBeTruthy();
     expect(screen.getByText('Mostrar u ocultar esta lista de atajos')).toBeTruthy();
     // the pointer gestures on the 3D navigator (decision 188), each phrase in its chip

@@ -1,4 +1,10 @@
-import { hasGate, isSpectralModality, MODALITIES } from '@/simulator/renderer/modality';
+import { viewLabel } from '@/simulator/windows/viewLabels';
+import {
+  hasGate,
+  isSpectralModality,
+  MODALITIES,
+  modalityLabel,
+} from '@/simulator/renderer/modality';
 import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { useSimStore, type ConsoleTab, type SimStore } from '@/app/store';
 import { useShallow } from 'zustand/shallow';
@@ -679,7 +685,7 @@ function DopplerTab() {
         </Section>
       )}
       {mod === 'm-mode' && (
-        <Section title="M-mode">
+        <Section title="Modo M">
           <div className="row">
             <label>Velocidad de barrido</label>
             <Segmented
@@ -776,8 +782,8 @@ function MeasureTab() {
             </div>
             {spec && (
               <div className="small">
-                {spec.modalities.map((m) => m.toUpperCase()).join('/')} ·{' '}
-                {spec.views.map((v) => v.toUpperCase()).join('/')}
+                {spec.modalities.map(modalityLabel).join('/')} ·{' '}
+                {spec.views.map(viewLabel).join('/')}
               </div>
             )}
             <p className="capture-hint">{spec ? spec.instruction : FREE_TOOL_HINT[s.activeTool]}</p>
@@ -865,8 +871,8 @@ function MeasureList({
           <span className="m-label">
             {m.label}
             <span className="m-src">
-              {m.modality}
-              {showView && m.sourceViewId ? ` · ${m.sourceViewId}` : ''}
+              {modalityLabel(m.modality)}
+              {showView && m.sourceViewId ? ` · ${viewLabel(m.sourceViewId)}` : ''}
             </span>
           </span>
           <span className="m-value">{line(m)}</span>

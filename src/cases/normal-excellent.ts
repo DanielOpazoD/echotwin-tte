@@ -108,10 +108,10 @@ export const normalExcellentCase: CaseDefinitionInput = {
     { type: 'near-field-clutter', intensity: 0.3, enabled: true },
   ],
   learningObjectives: [
-    'Obtener PLAX con septum, pared posterior, válvula mitral, LVOT, válvula aórtica y AI alineados.',
+    'Obtener PLAX con septo, pared posterior, válvula mitral, TSVI, válvula aórtica y AI alineados.',
     'Rotar 90° en sentido horario hacia PSAX y recorrer los niveles aórtico, mitral y papilar.',
     'Adquirir A4C con ápex verdadero y evitar acortamiento.',
-    'Medir LVOT y VTI con un Doppler pulsado bien alineado.',
+    'Medir el TSVI y su VTI con un Doppler pulsado bien alineado.',
   ],
   requiredViews: [
     { viewId: 'plax', minScore: 70 },

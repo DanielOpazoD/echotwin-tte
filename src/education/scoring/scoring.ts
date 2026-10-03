@@ -1,3 +1,4 @@
+import { viewLabel } from '@/simulator/windows/viewLabels';
 import type { Measurement } from '@/simulator/measurements/types';
 import type { StructuredEchoTruth } from '@/simulator/hemodynamics/groundTruth';
 import type { CaseDefinition } from '@/cases/schema';
@@ -218,15 +219,13 @@ export function buildExamSummary(
   const mainErrors: string[] = [];
   const recommendations: string[] = [];
   for (const v of acquisition.perView) {
-    if (v.ok) strengths.push(`Vista ${v.viewId.toUpperCase()} adquirida con ${v.achieved}/100.`);
+    if (v.ok) strengths.push(`Vista ${viewLabel(v.viewId)} adquirida con ${v.achieved}/100.`);
     else if (v.achieved > 0)
-      mainErrors.push(`Vista ${v.viewId.toUpperCase()} incompleta (${v.achieved}/${v.required}).`);
+      mainErrors.push(`Vista ${viewLabel(v.viewId)} incompleta (${v.achieved}/${v.required}).`);
   }
   const omittedViews = acquisition.perView.filter((v) => v.achieved === 0).map((v) => v.viewId);
   if (omittedViews.length)
-    recommendations.push(
-      `Practica la adquisición de: ${omittedViews.map((v) => v.toUpperCase()).join(', ')}.`,
-    );
+    recommendations.push(`Practica la adquisición de: ${omittedViews.map(viewLabel).join(', ')}.`);
   const invalidMeasurements = ms.rows
     .filter((r) => r.measured !== null && !r.technicallyValid)
     .map((r) => r.label);

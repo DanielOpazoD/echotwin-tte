@@ -46,7 +46,7 @@ export function TopBar() {
         }
       >
         <i className="run-dot" aria-hidden="true" />
-        {s.frozen ? 'FREEZE' : 'LIVE'}
+        {s.frozen ? 'CONGELADA' : 'EN VIVO'}
       </span>
       <nav className="nav-seg" aria-label="Pantallas" ref={navRef}>
         {pill && <span className="seg-pill" style={pill} aria-hidden="true" />}
@@ -68,9 +68,9 @@ export function TopBar() {
         aria-label="Modo del producto"
         value={s.mode}
         onChange={(e) => s.setMode(e.target.value as typeof s.mode)}
-        data-tip="Sandbox: todo abierto. Guiada: una vista objetivo con ayudas. Examen: sin ayudas ni presets"
+        data-tip="Libre: todo abierto. Guiada: una vista objetivo con ayudas. Examen: sin ayudas ni presets"
       >
-        <option value="sandbox">Sandbox</option>
+        <option value="sandbox">Libre</option>
         <option value="guided">Adquisición guiada</option>
         <option value="exam">Examen</option>
       </select>

@@ -31,7 +31,7 @@ describe('TopBar', () => {
   it('shows run state and enables the screens in sandbox', () => {
     seed('sandbox');
     render(<TopBar />);
-    expect(screen.getByText('LIVE')).toBeTruthy();
+    expect(screen.getByText('EN VIVO')).toBeTruthy();
     for (const name of ['Simulador', 'Informe', 'Referencias']) {
       expect(screen.getByRole('button', { name })).toHaveProperty('disabled', false);
     }

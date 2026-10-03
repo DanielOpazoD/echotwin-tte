@@ -53,7 +53,7 @@ const STEPS: {
     target: 'pw',
   },
   {
-    title: 'Freeze y medir',
+    title: 'Congelar y medir',
     body: 'Espacio congela; arrastrando sobre el ECG o con la barra de cine se elige el cuadro. Con una herramienta (Caliper, Velocidad, VTI, Tiempo) haz clic sobre la imagen. Cada medición guarda vista y calidad: medir sobre un plano malo penaliza.',
     target: 'freeze',
   },

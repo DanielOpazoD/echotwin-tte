@@ -1,3 +1,4 @@
+import { viewLabel } from '@/simulator/windows/viewLabels';
 import { useHudStore, useSimStore } from '@/app/store';
 import { EXAM_CASE_NAME, modePolicy, showsCaseIdentity } from '@/app/modePolicy';
 import { listCases } from '@/cases';
@@ -89,7 +90,7 @@ function ViewLine({ mode }: { mode: ProductMode }) {
           }}
         />
       ) : null}
-      Vista {hud?.view?.bestViewId ? `${hud.view.bestViewId.toUpperCase()} ${hud.view.score}` : '—'}
+      Vista {hud?.view?.bestViewId ? `${viewLabel(hud.view.bestViewId)} ${hud.view.score}` : '—'}
     </span>
   );
 }

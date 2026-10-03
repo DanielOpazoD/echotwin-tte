@@ -2,6 +2,7 @@ import { useSimStore } from '@/app/store';
 import { useShallow } from 'zustand/shallow';
 import { exportProgressJson, summarizeProgress } from '@/education/progress';
 import { VIEW_TARGETS } from '@/simulator/windows/viewDefinitions';
+import { listCases } from '@/cases';
 
 /** Local learning analytics (proposal 7): everything stays in this browser; export is a file the learner downloads. */
 export function ProgressScreen() {
@@ -42,7 +43,7 @@ export function ProgressScreen() {
         <thead>
           <tr>
             <th>Vista</th>
-            <th>Mejor score</th>
+            <th>Mejor puntuación</th>
             <th title="Veces que la mejor puntuación a mano subió 5 puntos o más (los preajustes no cuentan)">
               Mejoras registradas
             </th>
@@ -65,7 +66,8 @@ export function ProgressScreen() {
         <ul>
           {sum.exams.map((e, i) => (
             <li key={i}>
-              {new Date(e.t).toLocaleString()} · {e.caseId} · {e.total}/100
+              {new Date(e.t).toLocaleString()} ·{' '}
+              {listCases().find((c) => c.id === e.caseId)?.title ?? e.caseId} · {e.total}/100
             </li>
           ))}
         </ul>
