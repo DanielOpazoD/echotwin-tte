@@ -1,10 +1,9 @@
-# CI en GitHub Actions (decisión 211). El repositorio pasó a GitLab el 2026-09-16 porque los trabajos de Actions dejaron
-# de arrancar en la cuenta; volvió a GitHub el 2026-09-25 y este workflow sustituye a `.gitlab-ci.yml`.
+# CI en GitHub Actions (decisión 211).
 #
 # Un solo perfil para los PR y para `main`: en un repositorio público los runners alojados no descuentan minutos, así que
-# no hace falta la suite rápida que el plan gratuito de GitLab obligaba a usar en los MR. Corre lint, formato y tipos, la
-# suite completa con cobertura en cuatro shards (decisión 239), el build con su presupuesto de bundle y los E2E sobre `dist/` (Chromium
-# con SwiftShader; `gpu-live.spec.ts` se salta sin GPU por hardware, `gpu-equivalence.spec.ts` sí corre).
+# no hace falta una suite rápida aparte para los PR. Corre lint, formato y tipos, la suite completa con cobertura en
+# cuatro shards (decisión 239), el build con su presupuesto de bundle y los E2E sobre `dist/` (Chromium con SwiftShader;
+# `gpu-live.spec.ts` se salta sin GPU por hardware, `gpu-equivalence.spec.ts` sí corre).
 # La protección de `main` exige el check `check`, que resume los demás trabajos.
 name: CI
 on:

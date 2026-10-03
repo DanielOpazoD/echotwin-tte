@@ -98,6 +98,9 @@ administradores; `main` no admite force push. Un PR se mergea con `check` en ver
 
 Los trabajos corren en runners alojados de GitHub (gratuitos en un repositorio público) con el Node de `.nvmrc`, y el
 workflow sólo tiene permiso de lectura sobre el repositorio. Los PR de forks corren con el evento `pull_request`, sin
-secretos ni permisos de escritura. Entre el 2026-09-16 y el 2026-09-25 el proyecto vivió en GitLab con un runner
-propio, porque los trabajos de Actions dejaron de arrancar en la cuenta (decisión 211); `docs/AUDITORIA_INGENIERIA.md`
-conserva esa etapa y sus MR.
+secretos ni permisos de escritura.
+
+## Historia del repositorio
+
+Entre el 2026-09-16 y el 2026-09-25 el proyecto vivió en GitLab con un runner propio, porque los trabajos de Actions
+dejaron de arrancar en la cuenta (decisión 211); `docs/AUDITORIA_INGENIERIA.md` conserva esa etapa y sus MR.

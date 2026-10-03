@@ -184,3 +184,55 @@ describe('the Node version is stated once', () => {
     }
   });
 });
+
+describe('the repository names its current home (decision 249)', () => {
+  // the project lived on another host from 2026-09-16 to 2026-09-25 (decision 211); that stays only where history is told
+  const FORMER_HOST = /git[l]ab/i;
+  const HISTORY_FILES = new Set([
+    'docs/DECISIONS.md',
+    'docs/DECISIONS_INDEX.md',
+    'docs/AUDITORIA_INGENIERIA.md',
+  ]);
+  const files = (dir: string): string[] =>
+    existsSync(join(ROOT, dir))
+      ? readdirSync(join(ROOT, dir)).flatMap((name) => {
+          const rel = dir ? `${dir}/${name}` : name;
+          if (
+            name === 'node_modules' ||
+            name === 'dist' ||
+            (name.startsWith('.git') && name !== '.github')
+          )
+            return [];
+          if (statSync(join(ROOT, rel)).isDirectory())
+            return dir === '' &&
+              !['docs', 'src', 'tools', 'e2e', '.github', '.claude'].includes(name)
+              ? []
+              : files(rel);
+          return /\.(md|ts|tsx|js|mjs|cjs|json|ya?ml|css|html)$/.test(name) &&
+            name !== 'package-lock.json'
+            ? [rel]
+            : [];
+        })
+      : [];
+
+  it('names the former host only in history: the decision log, the dated audit or a «Historia» section', () => {
+    const outside: string[] = [];
+    for (const rel of files('')) {
+      if (HISTORY_FILES.has(rel)) continue;
+      let heading = '';
+      read(rel)
+        .split('\n')
+        .forEach((line, i) => {
+          if (rel.endsWith('.md') && /^#{1,6} /.test(line)) heading = line;
+          if (FORMER_HOST.test(line) && !/historia/i.test(heading)) outside.push(`${rel}:${i + 1}`);
+        });
+    }
+    expect(outside).toEqual([]);
+  });
+
+  it('the dated audit says it is history', () => {
+    expect(read('docs/AUDITORIA_INGENIERIA.md').split('\n').slice(0, 6).join('\n')).toMatch(
+      /\*\*Historia\.\*\*/,
+    );
+  });
+});

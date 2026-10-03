@@ -1,7 +1,7 @@
 # Validación
 
 > Las cifras de cada corrida completa (archivos y pruebas por nivel, E2E, presupuesto del bundle) se registran en
-> la sección «Verificación» de la descripción de su PR (antes, de su MR en GitLab); `npx vitest list` y
+> la sección «Verificación» de la descripción de su PR; `npx vitest list` y
 > `npx playwright test --list` dan los recuentos del árbol actual. El CI está en `.github/workflows/ci.yml` y corre
 > en runners alojados de GitHub (`CONTRIBUTING.md`).
 > Los párrafos siguientes son instantáneas fechadas de corridas anteriores y conservan las cifras de su fecha.

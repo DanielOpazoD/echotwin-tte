@@ -9,8 +9,8 @@ Estado real según el código el 2026-09-10. Los hitos M0–M6 siguen la especif
 | Núcleo matemático determinista (vec3, quat, PRNG, hash, ruido, unidades) | hecho | `src/core`, `vec3.test.ts` |
 | Esquema de casos Zod con validaciones cruzadas | hecho | `src/cases/schema.ts` |
 | Regla de capas UI ↛ fórmulas; motor ↛ app/ui/workers; `src/core` ↛ todo | hecho | `eslint.config.js` (`no-restricted-imports`); las fronteras restantes de la tabla de `ARCHITECTURE.md` siguen sin vallar porque el código las viola hoy (`docs/AUDITORIA_INGENIERIA.md`, B1) |
-| Control de versiones | hecho | remoto en GitLab (`gitlab.com/d.opazo.damiani/simuladorecocardiograma`), ramas `feat/*` y MR |
-| CI (lint, typecheck, format, unitarias en 3 shards con cobertura, build, Playwright) | hecho | `.github/workflows/ci.yml` (GitHub Actions, decisión 211; entre el 2026-09-16 y el 2026-09-25 corrió en GitLab) |
+| Control de versiones | hecho | remoto en GitHub (`github.com/DanielOpazoD/echotwin-tte`), una rama por cambio y PR |
+| CI (lint, typecheck, format, unitarias en 3 shards con cobertura, build, Playwright) | hecho | `.github/workflows/ci.yml` (GitHub Actions, decisión 211) |
 
 ## M1 — Anatomía y ciclo cardíaco
 | Entregable | Estado | Evidencia |

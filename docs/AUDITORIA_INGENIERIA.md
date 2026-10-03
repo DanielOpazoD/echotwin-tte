@@ -1,5 +1,9 @@
 # Auditoría de ingeniería de software (2026-09-16)
 
+> **Historia.** Este documento es el registro fechado de una auditoría y de los MR que la siguieron mientras el
+> repositorio vivió en GitLab (2026-09-16 a 2026-09-25); se conserva como estaba. El estado actual del CI y de la forma
+> de trabajo está en `CONTRIBUTING.md` y en la decisión 211.
+
 Alcance: la base técnica como soporte de años de evolución por equipos que rotan. Quedan fuera la fidelidad de imagen, la anatomía, la validez clínica y la estética de la UI. Cada hallazgo cita `archivo:línea` sobre `ffd6cc5` (HEAD de `main`). Las cifras salen de `grep`, scripts AST sobre el compilador de TypeScript, `vitest list`, `playwright test --list` y la API de GitLab; no de impresiones.
 
 ## Veredicto

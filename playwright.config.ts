@@ -1,9 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
-// This machine runs the own GitLab runner (its E2E job serves its checkout on 4173) and keeps stale previews of
-// old worktrees on other ports; a local run that reused whatever answered on its port tested another build and
-// reported failures that had nothing to do with the working tree. The preview is therefore never reused, and
-// the local port is an unusual one (E2E_PORT overrides it); CI keeps 4173.
+// The development machine keeps stale previews of old worktrees on several ports; a local run that reused whatever
+// answered on its port tested another build and reported failures that had nothing to do with the working tree. The
+// preview is therefore never reused, and the local port is an unusual one (E2E_PORT overrides it); CI keeps 4173.
 const PORT = process.env['CI'] ? 4173 : Number(process.env['E2E_PORT'] ?? 4190);
 
 export default defineConfig({
