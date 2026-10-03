@@ -61,8 +61,12 @@ describe('pleura and A-lines follow the incidence (decision 221)', () => {
     });
     const out: string[] = [];
     // bright share (display grey > 170) of the lung behind the pleura; until decision 221, 5.5 and 7.1 % behind an
-    // oblique pleura against 2.6 and 4.0 % behind a square one
-    for (const view of ['psax-pm', 'psax-apex']) {
+    // oblique pleura against 2.6 and 4.0 % behind a square one. The square pleura of the papillary short axis was the
+    // lung under the LV inferior wall, which became diaphragm and liver at decision 262 (4864 samples to 464): the mitral
+    // short axis faces the pleura instead
+    const OBLIQUE = new Set(['psax-pm', 'psax-apex']),
+      SQUARE = new Set(['psax-apex', 'psax-mv']);
+    for (const view of ['psax-pm', 'psax-apex', 'psax-mv']) {
       const spec = polarSpecFor(DEFAULT_ACQUISITION, 'high');
       const beam = beamFrameFromPose(
         poseFromControl(thorax, canonicalControl(getViewTarget(view), heart, thorax)),
@@ -112,9 +116,9 @@ describe('pleura and A-lines follow the incidence (decision 221)', () => {
         }
       }
       const share = (a: [number, number]) => a[0] / Math.max(1, a[1]);
-      if (!(oblique[1] > 1000 && share(oblique) < 0.015))
+      if (OBLIQUE.has(view) && !(oblique[1] > 1000 && share(oblique) < 0.015))
         out.push(`${view}: ${(share(oblique) * 100).toFixed(2)} % bright behind an oblique pleura`);
-      if (!(square[1] > 1000 && share(square) > 0.02))
+      if (SQUARE.has(view) && !(square[1] > 1000 && share(square) > 0.02))
         out.push(`${view}: ${(share(square) * 100).toFixed(2)} % bright behind a square pleura`);
     }
     expect(out).toEqual([]);

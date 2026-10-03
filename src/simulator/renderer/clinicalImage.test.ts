@@ -102,7 +102,7 @@ const KNOWN_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // std against grey level with it (3.6-4.2 against 4.2-5.7 lower quartiles). With the probe on the long axis (decision
   // 215) the four-chamber walls run closer to their scan lines and their residual texture fell 0.2 widths further.
   ['4CH-ES:myocardialLocalStd', -0.95],
-  ['2CH-ES:myocardialLocalStd', -0.8],
+  ['2CH-ES:myocardialLocalStd', -0.65],
   ['4CH-ED:myocardialDetrendedStd', -0.8],
   ['4CH-ES:myocardialDetrendedStd', -1.29],
   ['2CH-ED:myocardialDetrendedStd', -0.52],
@@ -168,6 +168,11 @@ const KNOWN_GEOMETRY_DEVIATIONS: ReadonlyMap<string, number> = new Map([
  * phases 1–3 of the fidelity plan. The near field came inside at decision 156.
  */
 const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
+  // decision 262: with the LV's diaphragmatic face on the diaphragm, liver fills the two-chamber sector beyond the
+  // inferior wall where lung reverberation was; at end-systole its texture and the outer sector move out
+  ['2CH-ES:radialCorr4', -0.17],
+  ['2CH-ES:tangentialCorr8', -0.11],
+  ['2CH-ES:edgeRollOff', 0.22],
   // decision 261: without the window's extra chest-wall attenuation the near field (0-4 cm) is brighter than clinical
   // and the gradients sharper; the cavity bands and the bright end come inside
   ['4CH-ED:radialCorr4', -0.1],
@@ -190,8 +195,8 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // quartile widths out before decision 258)
   ['4CH-ED:gradientP50', 1.26],
   ['4CH-ES:gradientP50', 0.91],
-  ['2CH-ED:gradientP50', 1.67],
-  ['2CH-ES:gradientP50', 0.92],
+  ['2CH-ED:gradientP50', 1.92],
+  ['2CH-ES:gradientP50', 1.14],
   ['4CH-ED:ridgeFraction', 0.71],
   ['4CH-ES:ridgeFraction', 0.61],
   ['2CH-ED:ridgeFraction', 0.73],
@@ -206,10 +211,10 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['2CH-ES:tangentialCorr4', -0.22],
   ['4CH-ED:radialCorr1', 1.22],
   ['4CH-ES:radialCorr1', 1.17],
-  ['2CH-ED:radialCorr1', 1.78],
-  ['2CH-ES:radialCorr1', 1.64],
+  ['2CH-ED:radialCorr1', 2.03],
+  ['2CH-ES:radialCorr1', 1.9],
   ['4CH-ES:tangentialCorr4', -0.16],
-  ['2CH-ED:tangentialCorr4', -1.25],
+  ['2CH-ED:tangentialCorr4', -1.49],
   // grey levels: the near field brighter than clinical (the app's near-field clutter, decision 238, more so without the
   // window's chest-wall attenuation of decision 261), the outer sector and the four-chamber end-systolic bright end dimmer
   ['4CH-ES:edgeRollOff', -0.25],

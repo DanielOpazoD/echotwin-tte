@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 261 (última: 261).
+Decisiones: 262 (última: 262).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -269,3 +269,4 @@ Decisiones: 261 (última: 261).
 | [259](DECISIONS.md#L1477) | 2026-09-25 | Los textos no muestran claves del código ni mezclan idiomas, y una prueba lee las pantallas como un alumno | vigente |
 | [260](DECISIONS.md#L1479) | 2026-09-25 | El currículo tiene prerrequisitos y las tareas que faltaban: CW en la estenosis aórtica, eje corto apical, colapso de la cava, motilidad segmentaria y grado de la IM | vigente |
 | [261](DECISIONS.md#L1481) | 2026-09-25 | La ventana difícil es clutter, no atenuación | vigente |
+| [262](DECISIONS.md#L1483) | 2026-09-25 | La cara diafragmática del VI se apoya en el diafragma | vigente |
