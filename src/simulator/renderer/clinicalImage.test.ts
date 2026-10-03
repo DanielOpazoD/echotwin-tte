@@ -69,6 +69,14 @@ const renderOnce = (view: 'a4c' | 'a2c', ed: boolean): ApicalRender[] => {
  * declaration that holds no longer fails the test, so the list cannot outlive the defect.
  */
 const KNOWN_DEVIATIONS: ReadonlyMap<string, number> = new Map([
+  // decision 258, through the app's persistence and with the cavity haze: the myocardium's local texture falls with
+  // the averaged receiver noise, and at end-systole the atria take some haze (82-84 against upper quartiles of 78-79)
+  // and the two-chamber contrast with them
+  ['4CH-ED:myocardialLocalStd', -0.33],
+  ['4CH-ES:atriumGrey', 0.13],
+  ['2CH-ED:myocardialResidualSkew', 0.17],
+  ['2CH-ES:atriumGrey', 0.14],
+  ['2CH-ES:contrast', -0.41],
   // Each entry holds its baseline: the signed distance outside the clinical quartiles, in quartile widths (negative
   // below the 25th percentile, positive above the 75th). A declared deviation used to be checked only for being
   // declared and not stale, so it could grow without limit (external audit F11, decision 88). Baselines measured with
@@ -90,27 +98,20 @@ const KNOWN_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // against 18.4-24: the clinical grain is more contrasted at 2-4 mm than a thresholded lattice) and the slope of local
   // std against grey level with it (3.6-4.2 against 4.2-5.7 lower quartiles). With the probe on the long axis (decision
   // 215) the four-chamber walls run closer to their scan lines and their residual texture fell 0.2 widths further.
-  ['4CH-ES:myocardialLocalStd', -0.43],
-  ['2CH-ES:myocardialLocalStd', -0.32],
-  ['4CH-ED:myocardialDetrendedStd', -0.64],
-  ['4CH-ES:myocardialDetrendedStd', -1.08],
+  ['4CH-ES:myocardialLocalStd', -0.95],
+  ['2CH-ES:myocardialLocalStd', -0.8],
+  ['4CH-ED:myocardialDetrendedStd', -0.8],
+  ['4CH-ES:myocardialDetrendedStd', -1.29],
   ['2CH-ED:myocardialDetrendedStd', -0.52],
-  ['2CH-ES:myocardialDetrendedStd', -0.73],
+  ['2CH-ES:myocardialDetrendedStd', -0.98],
   // −0.12 → −0.28 at decision 227, and 2CH-ES out: the chordae, drawn as bright rods until then, lifted the texture of
   // the mid cavity; as thin cords they leave it a little darker and more uniform than CAMUS Good, at the quartiles' edge
   ['4CH-ED:levelStdSlope', -0.28],
   ['4CH-ES:levelStdSlope', -0.65],
-  ['2CH-ES:levelStdSlope', -0.14],
   ['2CH-ED:cavityDetrendedStd', -0.13],
   ['2CH-ES:cavityDetrendedStd', -0.2],
-  // Contrast under the environment of decision 144 (docs/LIMITATIONS.md): the console the CAMUS sweep chose with the
-  // focused beam (0.7 dB/cm/MHz) lifts the mid-field walls to 106 while the cavity, read at the receiver's lower noise
-  // floor, stays at 50: 57 grey levels of contrast against 40 [33-47] in the 4CH and 56 against 44 [36-53] in the 2CH
-  // at end-diastole (59 with the probe on the long axis, decision 215); at end-systole both are inside. With the app's
-  // near-field clutter in the calibration render (decision 238) the four-chamber contrast came down to 0.48 widths out,
-  // and its end-systolic cavity grey (−0.1) inside.
-  ['4CH-ED:contrast', 0.48],
-  ['2CH-ED:contrast', 0.34],
+  // (the end-diastolic contrast, 57 grey levels against 40 [33-47] once and 0.34-0.48 widths out at decision 238, came
+  // inside with the cavity haze of decision 258)
   // the horizontal speckle cell of the myocardium sits at the edge of the clinical range: 4CH end-diastole came inside
   // with the probe on the long axis (decision 215), and both end-systolic cells fall under it (1.96 against 1.98-2.0 mm)
   ['4CH-ES:speckleCellHorizontalMm', -0.14],
@@ -164,110 +165,55 @@ const KNOWN_GEOMETRY_DEVIATIONS: ReadonlyMap<string, number> = new Map([
  * phases 1–3 of the fidelity plan. The near field came inside at decision 156.
  */
 const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
-  // decision 250: the A-lines lose their path through the chest wall; the deep two-chamber sector lost the bright replicas
-  // that had lifted its grey and its coherence across the beam
-  ['2CH-ED:tangentialCorr2', -0.2],
-  ['2CH-ES:greyP95', -0.12],
-  ['2CH-ES:tangentialCorr4', -0.22],
-  // black pixels where a clinical image has none (its cavities and background keep a haze above grey 20)
-  ['4CH-ED:darkFraction', 1.93],
-  // the right ventricle contracts in systole since decision 220 and leaves less black blood in the four-chamber view
-  ['4CH-ES:darkFraction', 0.39],
-  // decision 238: rendered with the app's near-field clutter (0.28, not the case's bare 0.10) the 2-4 cm band has no black
-  // pixels, as in CAMUS Good (it was 0.14-0.44 widths out), and the 4-6 cm band fewer (3.72, 2.83, 2.67 and 2.32 before)
-  ['4CH-ED:bandDark4', 3.38],
-  // decision 225: the papillary muscles rose 0.6-0.8 cm toward the base, and the mid-cavity bands they crossed are blacker
-  ['4CH-ES:bandDark4', 2.43],
-  ['2CH-ED:bandDark4', 2.35],
-  ['2CH-ES:bandDark4', 2.15],
-  // decision 229: the diaphragm under the right heart takes the lung out of the four-chamber sector's deep corner (fat and
-  // 0.3 % of liver where it was) and the band grows darker: 27.45 → 27.60 quartile widths
-  ['4CH-ED:bandDark6', 27.6],
-  ['4CH-ES:bandDark6', 1.71],
-  ['2CH-ED:bandDark6', 6.66],
-  ['2CH-ES:bandDark6', 3.85],
-  ['4CH-ED:bandDark8', 12.43],
-  // up from 1.63 at decision 220: the contracted right ventricle leaves the atria deeper in the sector at end-systole
-  ['4CH-ES:bandDark8', 1.7],
-  // decision 221: the A-lines that lit this band at oblique incidence are gone
-  ['2CH-ED:bandDark8', 1.31],
-  ['2CH-ES:bandDark8', 0.22],
-  // the rib shadow over the inferior side of the two-chamber sector went away with the probe on the long axis (decision
-  // 215): dark pixels at 4-8 cm fell from 5-31 quartile widths to 0.2-6.7
-  ['4CH-ED:bandDark10', 0.35],
-  // 1.18 → 1.35 with the RV body contracting 0.42 (decision 214): 0.0044 → 0.0047 of the band's pixels dark, against
-  // CAMUS Good median 0, p75 0.002 and p90 0.015 — an IQR of 0.002 turns 0.0003 into 0.17 widths
-  // decision 221: the A-lines that lit this band at oblique incidence are gone
-  ['4CH-ES:bandDark10', 1.3],
-  ['2CH-ED:bandDark10', 0.21],
-  // decision 221: the A-lines that lit this band at oblique incidence are gone
-  ['2CH-ES:bandDark10', 0.73],
-  // sharper than clinical (gradients 1.4-1.5× the median) and drawn with thin bright lines; less so since decision 221,
-  // when the A-lines at oblique incidence went (median gradient 2.2-2.9 quartile widths out, from 2.5-3.5; ridges 0.4-1.2,
-  // from 1.0-2.2)
-  ['4CH-ED:gradientP50', 2.22],
-  ['4CH-ES:gradientP50', 2.31],
-  ['2CH-ED:gradientP50', 2.92],
-  ['2CH-ES:gradientP50', 2.27],
-  ['4CH-ED:gradientP95', 0.61],
-  ['4CH-ES:gradientP95', 0.44],
-  ['2CH-ED:gradientP95', 0.89],
-  ['2CH-ES:gradientP95', 0.66],
-  ['4CH-ED:ridgeFraction', 1.07],
-  // 0.36 → 0.56 at decision 226: thin bright lines at the systolic crux, where both valves now hinge on the septum
+  // Measured since decision 258 as the app shows it, through the console's persistence, with the haze of the cavities:
+  // the black pixels of the single frame (up to 27.6 quartile widths out in the 4-6 cm band) mostly go, and what
+  // remains is the four-chamber end-diastolic cavity at 4-8 cm.
+  ['4CH-ED:bandDark4', 0.63],
+  ['4CH-ES:bandDark4', 0.3],
+  ['2CH-ED:bandDark4', 0.29],
+  ['2CH-ES:bandDark4', 0.28],
+  ['4CH-ED:bandDark6', 4.97],
+  ['4CH-ES:bandDark6', 0.55],
+  ['4CH-ED:bandDark8', 1.31],
+  ['4CH-ES:bandDark8', 0.35],
+  // sharper than clinical and drawn with thin bright lines, less so through the persistence (median gradient 2.2-2.9
+  // quartile widths out before decision 258)
+  ['4CH-ED:gradientP50', 1.01],
+  ['4CH-ES:gradientP50', 0.71],
+  ['2CH-ED:gradientP50', 1.42],
+  ['2CH-ES:gradientP50', 0.77],
+  ['4CH-ED:ridgeFraction', 0.46],
   ['4CH-ES:ridgeFraction', 0.37],
-  ['2CH-ES:ridgeFraction', 0.13],
-  ['2CH-ED:ridgeFraction', 1.01],
-  // more texture contrast over the whole sector: the blood pool and background are grainier than the clinical haze
-  ['2CH-ED:detrendedStd', 0.14],
-  // (4CH-ED, on the edge since the papillary muscles rose out of the mid-cavity band at decision 225, came inside with the
-  // chordae as thin cords, decision 227)
-  // texture longer along the beam at 1 mm (0.31-0.35 against 0.20-0.23) and, in the 2CH, less coherent across it at 2-4 mm
-  ['4CH-ED:radialCorr1', 0.88],
-  ['4CH-ES:radialCorr1', 0.35],
-  // (the four-chamber end-systolic texture against the ±4 mm mean and its correlation along the beam at 8 mm, declared
-  // since decision 161, came inside at decisions 220 and 221)
-  // 1.71 and 1.24 until the chordae became thin cords (decision 227): their bright rods ran along the apical beams
-  ['2CH-ED:radialCorr1', 1.3],
-  ['2CH-ES:radialCorr1', 0.77],
-  ['4CH-ES:tangentialCorr4', -0.35],
-  // −0.45 until decision 227 (the 2CH-ES one, −0.27, came inside with it)
-  ['2CH-ED:tangentialCorr4', -0.28],
-  // decision 227, at the edge: the four-chamber end-systolic texture along the beam at 2 mm (the outer sector of the
-  // two-chamber against its centre, 0.12 out with it, came inside at decision 238)
-  ['4CH-ES:radialCorr2', -0.1],
-  // 0.49 → 0.62 with the septal crest (decision 223) and 0.65 with the tricuspid annulus reaching the septum (decision
-  // 224): the septal leaflet moves in the four-chamber view (50 samples at 11 cm), 0.0985 → 0.0998 in every realization;
-  // 0.83 with the crux of decision 226, whose bright block of fibrous tissue beside the septum became myocardium
-  ['4CH-ED:tangentialCorr8', 0.83],
-  // decision 226: without that block the four-chamber end-diastolic texture anticorrelates along the beam at 2 and 4 mm,
-  // at the edge (and its 95th percentile of grey sits on the clinical quartile's edge, 156.6 against 161)
-  ['4CH-ED:radialCorr2', -0.15],
-  ['4CH-ED:radialCorr4', -0.16],
-  // the cavity bands (4-10 cm) darker than clinical; the near field (0-2 cm), 141-154 against 105-115 until the
-  // chest-wall muscle came down to its clinical grey (decision 156), is inside
-  ['4CH-ED:bandGrey4', -0.27],
+  ['2CH-ED:ridgeFraction', 0.54],
+  // texture longer along the beam at 1 mm (0.34 against 0.20-0.23), less coherent across it at 2-4 mm in places, and
+  // through the persistence a little smoother over the sector (local std)
+  ['4CH-ED:localStd', -0.1],
+  ['4CH-ED:tangentialCorr4', -0.48],
+  ['4CH-ES:localStd', -0.23],
+  ['4CH-ES:radialCorr4', -0.49],
+  ['2CH-ED:radialCorr2', 0.58],
+  ['2CH-ED:radialCorr8', -0.46],
+  ['2CH-ES:localStd', -0.16],
+  ['2CH-ED:tangentialCorr2', -0.77],
+  ['2CH-ES:tangentialCorr4', -0.22],
+  ['4CH-ED:radialCorr1', 1.22],
+  ['4CH-ES:radialCorr1', 1.01],
+  ['2CH-ED:radialCorr1', 1.78],
+  ['2CH-ES:radialCorr1', 1.64],
+  ['4CH-ES:tangentialCorr4', -0.16],
+  ['2CH-ED:tangentialCorr4', -1.25],
+  // grey levels: the bright end and the cavity bands at the clinical quartiles' edges, the near field of the end-systolic
+  // views brighter (the app's near-field clutter, decision 238), the outer sector dimmer at end-systole
+  ['4CH-ED:greyP95', -0.12],
+  ['4CH-ES:edgeRollOff', -0.25],
+  ['2CH-ED:greyP95', -0.11],
+  ['2CH-ES:bandGrey0', 0.13],
+  ['2CH-ES:greyP95', -0.12],
   ['4CH-ES:bandGrey8', -0.29],
   ['2CH-ES:bandGrey8', -0.11],
-  // a duller bright end at end-systole
-  // decision 221: without the bright A-lines at oblique incidence the bright end of the sector comes down
   ['4CH-ES:greyP95', -0.36],
-  // Where the rib shadow lay, the two-chamber sector shows lit tissue since decision 215 — the lung edge and, at its
-  // inferior edge, the diaphragm over the liver — with the model's sharper, beam-elongated texture: gradients, ridges and
-  // the radial correlation at 1 mm rose 0.4-1.2 widths, the outer quarter of the sector against its central half went
-  // from under the clinical ratio to over it (1.66 and 1.37 against 1.10-1.48 and 0.96-1.26), and the whole-sector texture
-  // contrast came out of the quartiles.
   ['2CH-ED:bandGrey2', 0.23],
-  // (the 2CH-ES whole-sector texture contrast, 0.16 out, came inside with the chordae as thin cords, decision 227)
-  // decision 221: without the A-lines at oblique incidence, which striped the lung region, the far two-chamber band is
-  // duller (its texture correlation across the beam at 2 mm, out since 221, came back inside at decision 225, and the
-  // four-chamber correlation along it at 4 mm with the atrium beside the membranous septum, decision 222)
-  ['2CH-ED:bandGrey10', -0.12],
-  // decision 238: the near-field clutter the app adds (0.6 × the case's near-field artifact) brightens the first 2 cm of
-  // the four-chamber end-systolic sector past the clinical quartile (130 against 85-124); the two-chamber edge roll-off
-  // (0.21 and 0.12 out) and its end-diastolic cavity band (−0.17) came inside with it
   ['4CH-ES:bandGrey0', 0.16],
-  ['2CH-ES:tangentialCorr8', -0.1],
 ]);
 
 /**

@@ -58,7 +58,13 @@ function logCorrelation(a: PolarFrame, b: PolarFrame, keep: (st: number) => bool
 
 describe('the flowing blood decorrelates from frame to frame (decision 163)', () => {
   it('the LV cavity speckle changes between consecutive frames while the walls keep theirs', () => {
-    const c = loadCaseById('normal-excellent-window');
+    // without clutter, whose haze in the cavities stays still on purpose (decision 258): the blood alone
+    const base = loadCaseById('normal-excellent-window');
+    const c = {
+      ...base,
+      acousticWindow: { ...base.acousticWindow, clutterLevel: 0, chestWallAttenuation: 0 },
+      artifacts: base.artifacts.filter((a) => a.type !== 'near-field-clutter'),
+    };
     const setup = new SimulatorCore(c, baseInput());
     const probe = canonicalControl(getViewTarget('a4c'), setup.models.heart, setup.models.thorax);
     const core = new SimulatorCore(

@@ -210,7 +210,9 @@ describe('acoustic image formation', () => {
     for (const f of [plax, a4c]) {
       const snr = localSpeckleSnr(f, spec);
       expect(snr).toBeGreaterThan(1.7);
-      expect(snr).toBeLessThan(2.35);
+      // Rayleigh is 1.91 for one look, a smoothed field above 3; the cavity haze is incoherent clutter added to the
+      // tissue too, and takes the PLAX/A4C ratio to 2.36 (2.35 until decision 258)
+      expect(snr).toBeLessThan(2.4);
     }
   });
 
