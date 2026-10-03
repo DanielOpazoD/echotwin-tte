@@ -43,14 +43,14 @@ Las costillas son cartílago a menos de 5 cm del esternón y hueso más allá; s
 | Sangre en movimiento | Los dispersores de la sangre viajan con el flujo, de 1 a 20 mm entre dos cuadros, y su speckle no se conserva de un cuadro al siguiente: cada cuadro desplaza su retículo `BLOOD_DECORRELATION_CELLS` celdas (decisión 163), como cada pulso en el modo M. El speckle del tejido sí se conserva y se mueve con él. La persistencia de la consola promedia así la sangre y no el tejido. |
 | Granos coherentes | En miocardio, músculo e hígado, una componente coherente escasa: σ × 4,8 × el exceso de un retículo a la frecuencia de grano del tejido sobre el umbral 0,72, promediado ¼ ½ ¼ sobre tres retículos que cubren el grosor del corte (decisión 145). |
 | Interfaces especulares | Un eco coherente en la muestra que cruza la interfaz (`\|sdf\| < max(\|n·d\|, 0,15)·dr`): coeficiente especular × \|n·d\|⁴ (×1,1 con armónicos) × ganancia de enfoque, con fase 0 y la PSF como único ensanchamiento. En las valvas se pondera por la fracción del corte que ocupa la lámina (`membraneWeight`, decisión 147). Del VI sólo el epicardio refleja de forma coherente. La fase de rango de estos ecos se probó y no se adoptó (decisión 158). |
-| Calcificación | `+ extraReflect · 1,5 · (0,6 + 0,8·ruido)` y una atenuación extra de 0,09·extraReflect Np por cada 0,7 mm recorridos (≈ 10 dB/cm a 2,5 MHz) cuando extraReflect > 0,4. |
+| Calcificación | `+ extraReflect · 1,5 · (0,6 + 0,8·ruido)`; la parte de la muestra que es calcio, de nada con extraReflect 0,4 a toda con 1, toma la atenuación del calcio, 25 dB·cm⁻¹·MHz⁻¹ (`calciumAttenDb`, decisión 251; antes, un añadido fijo de ≈ 4,4). La estenosis aórtica severa quita 16–20 dB al haz que cruza la válvula. |
 
 ## Haz, PSF y enfoque (`acoustic/psf.ts`, `acoustic/acoustics.ts`)
 - **Pulso axial**: anchura a media altura `0,77·(2,5/f)·1,35` mm (×1,15 con armónicos), unos 1,20 mm a 2,5 MHz con armónicos.
 - **Haz lateral de ida y vuelta**: recepción dinámica con número F ≥ 1 combinada con una transmisión gaussiana enfocada, apertura de 14 mm y λ = 1,54/f mm, ×0,8 con armónicos; el artefacto «anchura de haz» la multiplica por `1 + 1,6·intensidad·min(1, |r − foco|/6)`. A 9 cm y 2,5 MHz con armónicos mide unos 2,3 mm.
 - **Lóbulos laterales** (decisión 155): cuatro lóbulos de signo alterno y periodo λ/D (×0,8 con armónicos) tras el lóbulo principal, el primero a −35 dB; el artefacto «lóbulos laterales» los sube hasta 20 dB. El lóbulo principal se limita a 8 líneas y el núcleo entero a 32. El ruido del receptor usa la respuesta sin lóbulos.
-- **Ganancia de enfoque** (decisión 144): la sensibilidad sobre el eje de una apertura que converge hacia el foco (semiapertura 7 mm, semielemento 6,5 mm, cinturas de 2 mm); unos −11 dB junto a la cara con el foco a 9 cm. La consola devuelve lo que se pierde más allá del foco y nada de lo de antes.
-- **Grosor de corte**: semiancho `0,2 + 0,04·|r − foco|` cm. En calidad alta, σ y el eco especular son la media ¼ ½ ¼ de tres planos de elevación; en todas las calidades el speckle y los granos se descorrelacionan con el grosor del corte. Las valvas no se promedian: se ponderan por `membraneWeight`.
+- **Ganancia de enfoque** (decisión 144): la sensibilidad sobre el eje de una apertura que converge hacia el foco (semiapertura 7 mm, semielemento 6,5 mm, cinturas de 2 mm), en el plano hacia el foco de transmisión y a través de él hacia el de la lente, `ELEVATION_FOCUS_CM` = 9 cm (decisión 252); unos −11 dB junto a la cara con el foco a 9 cm. La consola devuelve lo que se pierde más allá del foco y nada de lo de antes.
+- **Grosor de corte**: semiancho `0,2 + 0,04·|r − 9|` cm, más fino en el foco de la lente, sea cual sea el foco de transmisión (decisión 252). En calidad alta, σ y el eco especular son la media ¼ ½ ¼ de tres planos de elevación; en todas las calidades el speckle y los granos se descorrelacionan con el grosor del corte. Las valvas no se promedian: se ponderan por `membraneWeight`.
 
 <!-- verificada: beam-psf -->
 | Constante | Valor | Qué es |
@@ -65,8 +65,10 @@ Las costillas son cartílago a menos de 5 cm del esternón y hueso más allá; s
 | `MAX_LATERAL_RADIUS` | 32 | radio máximo del núcleo lateral (líneas) |
 | `FOCUS_HALF_APERTURE_MM` | 7 | semiapertura de la ganancia de enfoque (mm) |
 | `FOCUS_HALF_ELEVATION_MM` | 6,5 | semielemento en elevación (mm) |
-| `SLICE_HALF_BASE_CM` | 0,2 | semigrosor del corte en el foco (cm) |
-| `SLICE_HALF_SLOPE` | 0,04 | crecimiento del semigrosor por cm lejos del foco |
+| `ELEVATION_FOCUS_CM` | 9 | profundidad del foco de la lente en elevación (cm) |
+| `SLICE_HALF_BASE_CM` | 0,2 | semigrosor del corte en el foco de la lente (cm) |
+| `SLICE_HALF_SLOPE` | 0,04 | crecimiento del semigrosor por cm lejos del foco de la lente |
+| `CALCIUM_ATTEN_DB` | 25 | atenuación del calcio de una valva calcificada (dB·cm⁻¹·MHz⁻¹) |
 | `COMPOUND_LOOKS` | 2 | miradas de compounding |
 | `BLOOD_DECORRELATION_CELLS` | 2,7 | desplazamiento del retículo de la sangre por cuadro o pulso (celdas) |
 | `GRAIN_GAIN` | 4,8 | ganancia de los granos coherentes |
