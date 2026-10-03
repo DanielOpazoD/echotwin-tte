@@ -1,5 +1,7 @@
 import {
   ANTERIOR_CORRIDOR_CM,
+  FUNDUS_MEDIAL_X_CM,
+  LIVER_LEFT_LOBE_DEPTH_CM,
   FASCIA_HALF_CM,
   FAT_FRACTION,
   PERICARDIAL_FAT_CM,
@@ -15,6 +17,8 @@ const f = (v: number): string => (Number.isInteger(v) ? `${v}.0` : `${v}`);
 export const GLSL_THORAX = /* glsl */ `
 const float PERICARDIAL_FAT_CM = ${f(PERICARDIAL_FAT_CM)};
 const float ANTERIOR_CORRIDOR_CM = ${f(ANTERIOR_CORRIDOR_CM)};
+const float FUNDUS_MEDIAL_X_CM = ${f(FUNDUS_MEDIAL_X_CM)};
+const float LIVER_LEFT_LOBE_DEPTH_CM = ${f(LIVER_LEFT_LOBE_DEPTH_CM)};
 const float SKIN_CM = ${f(SKIN_CM)};
 const float FAT_FRACTION = ${f(FAT_FRACTION)};
 const float FASCIA_HALF_CM = ${f(FASCIA_HALF_CM)};
@@ -109,21 +113,24 @@ bool classifyThorax(vec3 p, out Sample s, float heartDist) {
     float yDome = diaphragmY(x, z);
     if (y < yDome && z > -14.0) {
       bool fibrous = y > yDome - 0.25;
-      s.tissue = fibrous ? T_FIBROUS : T_LIVER; s.structure = fibrous ? S_DIAPH : S_LIVER; s.sdf = fibrous ? -0.1 : -1.0;
+      // decision 271: the gastric fundus, a gas interface, left of the midline and behind the left lobe of the liver
+      bool fundus = !fibrous && x > FUNDUS_MEDIAL_X_CM && depth > LIVER_LEFT_LOBE_DEPTH_CM;
+      s.tissue = fibrous ? T_FIBROUS : (fundus ? T_LUNG : T_LIVER); s.structure = fibrous ? S_DIAPH : (fundus ? S_STOMACH : S_LIVER); s.sdf = fibrous ? -0.1 : -1.0;
       s.n = vec3(0.0, 1.0, 0.0);
       return true;
     }
   }
   {
-    float dx = x, dz = z + 17.3;
-    float d = sqrt(dx * dx + dz * dz) - 2.2;
+    float dx = x, dz = z - SPINE_Z - TH_COL_SHIFT;
+    float d = sqrt(dx * dx + dz * dz) - SPINE_R;
     if (d < 0.0) { s.tissue = T_SPINE; s.structure = S_SPINE; s.sdf = d; return true; }
   }
   {
-    float dx = x - DESC_AORTA_X, dz = z - DESC_AORTA_Z;
-    float d = sqrt(dx * dx + dz * dz) - DESC_AORTA_R;
-    if (d < 0.0) { s.tissue = T_BLOOD; s.structure = S_DESC_AO; s.sdf = d; s.n = vec3(dx / DESC_AORTA_R, 0.0, dz / DESC_AORTA_R); return true; }
-    if (d < DESC_AORTA_WALL) { s.tissue = T_VESSEL; s.structure = S_DESC_AO; s.sdf = -min(d, DESC_AORTA_WALL - d); s.n = vec3(dx / DESC_AORTA_R, 0.0, dz / DESC_AORTA_R); return true; }
+    float ra = DESC_AORTA_R * TH_DA_SCALE;
+    float dx = x - DESC_AORTA_X, dz = z - DESC_AORTA_Z - TH_COL_SHIFT;
+    float d = sqrt(dx * dx + dz * dz) - ra;
+    if (d < 0.0) { s.tissue = T_BLOOD; s.structure = S_DESC_AO; s.sdf = d; s.n = vec3(dx / ra, 0.0, dz / ra); return true; }
+    if (d < DESC_AORTA_WALL) { s.tissue = T_VESSEL; s.structure = S_DESC_AO; s.sdf = -min(d, DESC_AORTA_WALL - d); s.n = vec3(dx / ra, 0.0, dz / ra); return true; }
   }
   bool lungL = x > leftLungBorderX(y);
   bool lungR = x < rightLungBorderX();
@@ -131,7 +138,7 @@ bool classifyThorax(vec3 p, out Sample s, float heartDist) {
   // the pleural cavities wrap the pericardium (decision 144)
   // beyond the pericardial fat pad and the corridor, outside the posterior and superior mediastinum (thoraxModel.ts, decision 150),
   // and not under the heart, which rests on the diaphragm (decision 229)
-  bool aroundHeart = heartDist > PERICARDIAL_FAT_CM && depth > T + ANTERIOR_CORRIDOR_CM && mediastinumDistance(x, y, z) > 0.0;
+  bool aroundHeart = heartDist > PERICARDIAL_FAT_CM && depth > T + ANTERIOR_CORRIDOR_CM && mediastinumDistance(x, y, z - TH_COL_SHIFT) > 0.0;
   if ((lungL || lungR || aroundHeart) && !isUnderHeart(x, y, z)) { s.tissue = T_LUNG; s.structure = S_LUNG; s.sdf = -1.0; s.n = vec3(0.0, 0.0, 1.0); return true; }
   s.tissue = T_FAT; s.structure = S_NONE; s.sdf = -1.0;
   return true;

@@ -36,6 +36,16 @@ export interface ThoraxModel {
   ivcCollapse: number;
   /** The diaphragm under the right heart (decision 229), fitted to the heart by `buildCaseModels`; none until then. */
   diaphragmMap: DiaphragmMap;
+  /**
+   * Systolic expansion of the descending aorta's lumen area over its diastolic one (decision 272), set from the patient's
+   * age by `buildCaseModels`; 0, a still aorta, until then.
+   */
+  descAortaAreaStrain: number;
+  /**
+   * Torso-z shift (cm, negative backwards) of the posterior column — vertebral body, descending aorta and posterior
+   * mediastinum — from where decisions 150 and 213 placed it for the normal case's chest wall (decision 273).
+   */
+  columnShiftCm: number;
 }
 
 /**
@@ -117,6 +127,10 @@ export function createThoraxModel(
   // started at the sector apex and could only be told apart when contraction pulled it away. Both were
   // reported from the app by a cardiologist ("the heart is too anterior", "the near field is missing").
   heartOffset.z -= Math.max(0, chestWall - 0.8);
+  // the same thicker wall pushes the vertebral body and the descending aorta back with the heart (decision 273)
+  const columnShiftCm = -(
+    Math.max(0, chestWall - 0.8) - Math.max(0, COLUMN_REFERENCE_CHEST_WALL_CM - 0.8)
+  );
   return {
     habitus,
     window,
@@ -134,6 +148,8 @@ export function createThoraxModel(
     diaphragmRiseCm: diaphragmRise,
     ivcCollapse,
     diaphragmMap: NO_DIAPHRAGM_MAP,
+    descAortaAreaStrain: 0,
+    columnShiftCm,
   };
 }
 
@@ -305,13 +321,76 @@ export const DESC_AORTA_Z = -14.5;
 export const DESC_AORTA_R = 1.0;
 export const DESC_AORTA_WALL = 0.2;
 /**
+ * Outer radius (cm) of the descending aorta at the largest systolic distension the model gives it (decision 272, the
+ * area strain of the twenties): what the heart keeps clear of (decision 273).
+ */
+export const DESC_AORTA_MAX_OUTER_R = DESC_AORTA_R * Math.sqrt(1.33) + DESC_AORTA_WALL;
+/**
+ * Chest wall (cm, with its obesity term) of the normal case, for which decisions 150 and 213 placed the posterior column
+ * (decision 273). A thicker wall pushes the heart back (`createThoraxModel`), and it used to leave the vertebral body and
+ * the aorta where they were: in the difficult window the left atrium, its veins and the inferior wall of the ventricle ran
+ * through the aorta.
+ */
+export const COLUMN_REFERENCE_CHEST_WALL_CM = 2.08;
+/** Vertebral body: a vertical cylinder in the midline. */
+export const SPINE_Z = -17.3;
+export const SPINE_R = 2.2;
+/** Centre (torso z) of the posterior mediastinal column behind the left atrium (decision 150). */
+export const POSTERIOR_MEDIASTINUM_Z = -15.5;
+/**
  * Posterior mediastinal fat around the descending aorta, reaching forward to the pericardium behind the left atrium: the
  * lung wraps the aorta laterally and behind, and does not come between it and the atrium (the oesophagus and fat lie
- * there). An ellipse in the transverse plane around the aorta, shifted forward by `DESC_AORTA_SLEEVE_FORWARD`.
+ * there). In the transverse plane, the aorta's disk widened by `DESC_AORTA_SLEEVE` and drawn forward by
+ * `DESC_AORTA_SLEEVE_REACH`, as wide as the aorta all the way (decision 273). It was an ellipse shifted forward that
+ * narrowed in front of the aorta, and the lung came in at its sides: tongues of lung 2–5 mm thick lay between the
+ * pericardium and the aorta in the long axis and, a gas interface, hid a quarter of the aorta's circle behind them.
  */
 export const DESC_AORTA_SLEEVE = 0.3;
-export const DESC_AORTA_SLEEVE_FORWARD = 0.6;
+export const DESC_AORTA_SLEEVE_REACH = 2.5;
+/**
+ * Area strain of the proximal descending aorta, (Amax − Amin)/Amin, by decade of age (MRI in 100 healthy subjects,
+ * Redheuil et al., Hypertension 2010;55:319-326, table 1): 33 ± 8 % in the twenties and 31 ± 12 % in the thirties, falling
+ * to 13–14 % after sixty as the wall stiffens. [age at the middle of the decade, strain]
+ */
+const DESC_AORTA_AREA_STRAIN_BY_AGE: readonly (readonly [number, number])[] = [
+  [25, 0.33],
+  [35, 0.31],
+  [45, 0.19],
+  [55, 0.18],
+  [65, 0.13],
+  [75, 0.14],
+];
+
+/** Area strain of the descending aorta at an age, interpolated between the decades (decision 272). */
+export function descendingAortaAreaStrain(ageYears: number): number {
+  const tab = DESC_AORTA_AREA_STRAIN_BY_AGE;
+  if (ageYears <= tab[0]![0]) return tab[0]![1];
+  for (let i = 1; i < tab.length; i++) {
+    const [a1, s1] = tab[i]!;
+    if (ageYears <= a1) {
+      const [a0, s0] = tab[i - 1]!;
+      return s0 + ((s1 - s0) * (ageYears - a0)) / (a1 - a0);
+    }
+  }
+  return tab[tab.length - 1]![1];
+}
+
+/**
+ * Scale of the descending aorta's lumen radius at a fraction of the pulse pressure (decision 272): the area grows by the
+ * strain at the systolic peak from its diastolic size, `DESC_AORTA_R`.
+ */
+export function descAortaScale(t: ThoraxModel, aorticPressure: number): number {
+  return Math.sqrt(1 + t.descAortaAreaStrain * aorticPressure);
+}
 export const ANTERIOR_CORRIDOR_CM = 2.5;
+/**
+ * Under the left hemidiaphragm (decision 271): the left lobe of the liver lies anteriorly, its lateral segment a few
+ * centimetres thick under the abdominal wall, and the gastric fundus behind it, its air bubble against the dome. Left of
+ * `FUNDUS_MEDIAL_X_CM` and deeper than `LIVER_LEFT_LOBE_DEPTH_CM` from the skin the model put liver there, so the long axis
+ * showed liver behind the posterior wall of the ventricle and the papillary short axis below the inferior wall.
+ */
+export const FUNDUS_MEDIAL_X_CM = 2;
+export const LIVER_LEFT_LOBE_DEPTH_CM = 7;
 
 /**
  * Signed distance-like measure of the mediastinum around the heart (decision 150): negative inside. Beside the heart
@@ -325,7 +404,7 @@ export const ANTERIOR_CORRIDOR_CM = 2.5;
  */
 export function mediastinumDistance(x: number, y: number, z: number): number {
   const px = (x + 0.5) / 1.8,
-    pz = (z + 15.5) / 4.0;
+    pz = (z - POSTERIOR_MEDIASTINUM_Z) / 4.0;
   const posterior = px * px + pz * pz - 1;
   const u = Math.min(1, Math.max(0, (y - 2) / 4));
   const halfWidth = 2.5 * u * u * (3 - 2 * u);
@@ -337,7 +416,7 @@ export function mediastinumDistance(x: number, y: number, z: number): number {
   }
   const rs = DESC_AORTA_R + DESC_AORTA_WALL + DESC_AORTA_SLEEVE;
   const ax = (x - DESC_AORTA_X) / rs,
-    az = (z - DESC_AORTA_Z - DESC_AORTA_SLEEVE_FORWARD) / (rs + DESC_AORTA_SLEEVE_FORWARD);
+    az = (z - DESC_AORTA_Z - Math.min(Math.max(z - DESC_AORTA_Z, 0), DESC_AORTA_SLEEVE_REACH)) / rs;
   const aorta = ax * ax + az * az - 1;
   return Math.min(posterior, superior, aorta);
 }
@@ -360,6 +439,7 @@ export function classifyThorax(
   z: number,
   out: TissueSample,
   heartDistCm = 0,
+  daScale = 1,
 ): boolean {
   const zs = skinZ(t, x, y);
   const depth = zs - z; // depth below skin along z
@@ -435,8 +515,11 @@ export function classifyThorax(
     const yDome = diaphragmY(t, x, z);
     if (y < yDome && z > -14) {
       const fibrous = y > yDome - 0.25;
-      out.tissue = fibrous ? Tissue.Fibrous : Tissue.Liver;
-      out.structure = fibrous ? Structure.Diaphragm : Structure.Liver;
+      // left of the midline and behind the left lobe of the liver lies the gastric fundus, its air bubble under the dome
+      // (decision 271): a gas interface, as the lung is
+      const fundus = !fibrous && x > FUNDUS_MEDIAL_X_CM && depth > LIVER_LEFT_LOBE_DEPTH_CM;
+      out.tissue = fibrous ? Tissue.Fibrous : fundus ? Tissue.Lung : Tissue.Liver;
+      out.structure = fibrous ? Structure.Diaphragm : fundus ? Structure.Stomach : Structure.Liver;
       out.sdf = fibrous ? -0.1 : -1;
       out.ny = 1;
       out.nz = 0;
@@ -446,8 +529,8 @@ export function classifyThorax(
   // Spine
   {
     const dx = x,
-      dz = z + 17.3;
-    const d = Math.sqrt(dx * dx + dz * dz) - 2.2;
+      dz = z - SPINE_Z - t.columnShiftCm;
+    const d = Math.sqrt(dx * dx + dz * dz) - SPINE_R;
     if (d < 0) {
       out.tissue = Tissue.Spine;
       out.structure = Structure.Spine;
@@ -457,23 +540,25 @@ export function classifyThorax(
   }
   // Descending aorta (behind the left atrium, left of the spine)
   {
+    // the lumen expands with the pulse (decision 272); the posterior mediastinal fat around it stays put
+    const r = DESC_AORTA_R * daScale;
     const dx = x - DESC_AORTA_X,
-      dz = z - DESC_AORTA_Z;
-    const d = Math.sqrt(dx * dx + dz * dz) - DESC_AORTA_R;
+      dz = z - DESC_AORTA_Z - t.columnShiftCm;
+    const d = Math.sqrt(dx * dx + dz * dz) - r;
     if (d < 0) {
       out.tissue = Tissue.Blood;
       out.structure = Structure.DescendingAorta;
       out.sdf = d;
-      out.nx = dx / DESC_AORTA_R;
-      out.nz = dz / DESC_AORTA_R;
+      out.nx = dx / r;
+      out.nz = dz / r;
       return true;
     }
     if (d < DESC_AORTA_WALL) {
       out.tissue = Tissue.VesselWall;
       out.structure = Structure.DescendingAorta;
       out.sdf = -Math.min(d, DESC_AORTA_WALL - d);
-      out.nx = dx / DESC_AORTA_R;
-      out.nz = dz / DESC_AORTA_R;
+      out.nx = dx / r;
+      out.nz = dz / r;
       return true;
     }
   }
@@ -485,7 +570,7 @@ export function classifyThorax(
   const aroundHeart =
     heartDistCm > PERICARDIAL_FAT_CM &&
     depth > T + ANTERIOR_CORRIDOR_CM &&
-    mediastinumDistance(x, y, z) > 0;
+    mediastinumDistance(x, y, z - t.columnShiftCm) > 0;
   if ((lungL || lungR || aroundHeart) && !isUnderHeart(t, x, y, z)) {
     out.tissue = Tissue.Lung;
     out.structure = Structure.Lung;

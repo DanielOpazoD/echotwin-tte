@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 270 (última: 270).
+Decisiones: 273 (última: 273).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -278,3 +278,6 @@ Decisiones: 270 (última: 270).
 | [268](DECISIONS.md#L1495) | 2026-09-25 | El movimiento sistólico anterior llega al septo | vigente |
 | [269](DECISIONS.md#L1497) | 2026-09-25 | El ventrículo derecho del taponamiento se colapsa en la protodiástole | vigente |
 | [270](DECISIONS.md#L1499) | 2026-09-25 | El pulmón detrás del corazón es pulmón, no tejido | vigente |
+| [271](DECISIONS.md#L1501) | 2026-09-25 | El fondo gástrico bajo el hemidiafragma izquierdo | vigente |
+| [272](DECISIONS.md#L1503) | 2026-09-25 | La aorta descendente late | vigente |
+| [273](DECISIONS.md#L1505) | 2026-09-25 | El corazón contra la columna posterior: aurícula izquierda, aorta descendente y vértebra | vigente |

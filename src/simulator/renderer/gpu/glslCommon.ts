@@ -4,12 +4,16 @@ import { acousticDefinesGlsl } from '../acoustic/acoustics';
 import { ENVELOPE_NORM, psfDefinesGlsl } from '../acoustic/psf';
 import { GLSL_GENERATED } from './glslGenerated';
 import {
+  DESC_AORTA_MAX_OUTER_R,
   DESC_AORTA_R,
   DESC_AORTA_SLEEVE,
-  DESC_AORTA_SLEEVE_FORWARD,
+  DESC_AORTA_SLEEVE_REACH,
   DESC_AORTA_WALL,
   DESC_AORTA_X,
   DESC_AORTA_Z,
+  POSTERIOR_MEDIASTINUM_Z,
+  SPINE_R,
+  SPINE_Z,
 } from '@/simulator/anatomy/thoraxModel';
 import {
   RV_BODY_RADIAL_CONTRACTION,
@@ -20,8 +24,11 @@ import {
 } from '@/simulator/anatomy/rv';
 import { TV_SYSTOLIC_SHORTENING } from '@/simulator/anatomy/valveSkirt';
 import {
+  LA_WALL_CM,
+  LAA_WALL_CM,
   OBLIQUE_SINUS_EFFUSION_CM,
   OBLIQUE_SINUS_TAPER_CM,
+  PERICARDIUM_CM,
 } from '@/simulator/anatomy/classify/pericardium';
 import { LV_NECK_ZETA } from '@/simulator/anatomy/lvShape';
 import {
@@ -98,6 +105,7 @@ export function enumDefinesGlsl(): string {
     S_STERNUM: Structure.Sternum,
     S_RIB: Structure.Rib,
     S_LIVER: Structure.Liver,
+    S_STOMACH: Structure.Stomach,
     S_SPINE: Structure.Spine,
     S_DESC_AO: Structure.DescendingAorta,
     S_LUNG: Structure.Lung,
@@ -128,7 +136,16 @@ const float DESC_AORTA_Z = ${gf(DESC_AORTA_Z)};
 const float DESC_AORTA_R = ${gf(DESC_AORTA_R)};
 const float DESC_AORTA_WALL = ${gf(DESC_AORTA_WALL)};
 const float DESC_AORTA_SLEEVE = ${gf(DESC_AORTA_SLEEVE)};
-const float DESC_AORTA_SLEEVE_FORWARD = ${gf(DESC_AORTA_SLEEVE_FORWARD)};
+const float DESC_AORTA_SLEEVE_REACH = ${gf(DESC_AORTA_SLEEVE_REACH)};
+const float DESC_AORTA_MAX_OUTER_R = ${gf(DESC_AORTA_MAX_OUTER_R)};
+// left atrial and pericardial layers against the posterior column (classify/pericardium.ts, decision 273)
+const float LA_WALL_CM = ${gf(LA_WALL_CM)};
+const float LAA_WALL_CM = ${gf(LAA_WALL_CM)};
+const float PERICARDIUM_CM = ${gf(PERICARDIUM_CM)};
+// vertebral body and posterior mediastinum (thoraxModel.ts)
+const float SPINE_Z = ${gf(SPINE_Z)};
+const float SPINE_R = ${gf(SPINE_R)};
+const float POSTERIOR_MEDIASTINUM_Z = ${gf(POSTERIOR_MEDIASTINUM_Z)};
 // right ventricular body contraction (rv.ts, decision 220): read by the generated rvRadialContraction
 const float RV_BODY_RADIAL_CONTRACTION = ${gf(RV_BODY_RADIAL_CONTRACTION)};
 // free wall hung from the tricuspid annulus and reach of the inflow column (rv.ts, decision 243)

@@ -166,18 +166,18 @@ const KNOWN_GEOMETRY_DEVIATIONS: ReadonlyMap<string, number> = new Map([
  * phases 1–3 of the fidelity plan. The near field came inside at decision 156.
  */
 const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
+  // decisions 271-273: the gastric fundus and the posterior column
+  ['4CH-ED:gradientP95', 0.12],
+  ['2CH-ES:gradientP95', 0.13],
+  ['2CH-ES:tangentialCorr8', -0.41],
   // decision 270: the lung's diffuse reverberation now carries its path loss, so the outer sector of the end-systolic four-chamber view darkens
   ['4CH-ES:bandGrey8', -0.2],
   ['4CH-ES:edgeRollOff', -0.12],
   // decision 264: with the chest-wall reverberation fading within 0.8 cm the near field comes inside and the two-chamber cavities darken
-  ['4CH-ES:tangentialCorr4', -0.12],
-  ['2CH-ES:ridgeFraction', 0.17],
+  ['2CH-ES:ridgeFraction', 0.53],
   // decision 263: the cavity reverberation no longer reinforced behind blood darkens the end-diastolic cavities
-  ['2CH-ED:edgeRollOff', 0.25],
   // decision 262: with the LV's diaphragmatic face on the diaphragm, liver fills the two-chamber sector beyond the
   // inferior wall where lung reverberation was; at end-systole its texture and the outer sector move out
-  ['2CH-ES:radialCorr4', -0.17],
-  ['2CH-ES:edgeRollOff', 0.45],
   // decision 261: without the window's extra chest-wall attenuation the near field (2-4 cm) is brighter than clinical
   // and the gradients sharper; the cavity bands and the bright end come inside (the 0-2 cm band at decision 264)
   ['4CH-ED:bandGrey2', 0.19],
@@ -198,25 +198,24 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // quartile widths out before decision 258)
   ['4CH-ED:gradientP50', 1.09],
   ['4CH-ES:gradientP50', 0.91],
-  ['2CH-ED:gradientP50', 1.7],
+  ['2CH-ED:gradientP50', 1.52],
   ['2CH-ES:gradientP50', 0.99],
   ['4CH-ED:ridgeFraction', 0.71],
   ['4CH-ES:ridgeFraction', 0.61],
-  ['2CH-ED:ridgeFraction', 0.73],
+  ['2CH-ED:ridgeFraction', 0.96],
   // texture longer along the beam at 1 mm (0.34 against 0.20-0.23), less coherent across it at 2-4 mm in places, and
   // through the persistence a little smoother over the sector (local std)
   ['4CH-ED:tangentialCorr4', -0.48],
   ['4CH-ES:localStd', -0.23],
-  ['4CH-ES:radialCorr4', -0.49],
-  ['2CH-ED:radialCorr2', 0.58],
-  ['2CH-ED:radialCorr8', -0.31],
-  ['2CH-ED:tangentialCorr2', -0.6],
-  ['2CH-ES:tangentialCorr4', -0.22],
-  ['4CH-ED:radialCorr1', 1.4],
-  ['4CH-ES:radialCorr1', 1.17],
+  ['4CH-ES:radialCorr4', -1.05],
+  ['2CH-ED:radialCorr2', 1.01],
+  ['2CH-ED:radialCorr8', -0.53],
+  ['2CH-ED:tangentialCorr2', -0.44],
+  ['4CH-ED:radialCorr1', 1.61],
+  ['4CH-ES:radialCorr1', 1.46],
   ['2CH-ED:radialCorr1', 2.25],
   ['2CH-ES:radialCorr1', 2.1],
-  ['2CH-ED:tangentialCorr4', -1.49],
+  ['2CH-ED:tangentialCorr4', -1.18],
   // grey levels: the 2-4 cm band brighter than clinical (the app's near-field clutter, decision 238, more so without the
   // window's chest-wall attenuation of decision 261; the 0-2 cm band came inside at 264), the four-chamber end-systolic
   // bright end dimmer

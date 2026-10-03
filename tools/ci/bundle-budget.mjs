@@ -31,7 +31,10 @@ const BUDGETS = [
   [/^(ReportScreen|CurriculumScreen|ProgressScreen|ReferencesScreen)-.*\.js$/, 80 * KB],
   [/\.js$/, 80 * KB], // any other chunk Rollup splits out
 ];
-const TOTAL_JS_BUDGET = 2000 * KB;
+// 1992 kB at decision 270; decisions 271-273 (the gastric fundus, the aortic pulse, the heart against the posterior
+// column) added 9.4 kB, most of it twice or three times over: the anatomy and the cycle are bundled in the simulation
+// worker, the mesh worker and the WebGL2 port alike
+const TOTAL_JS_BUDGET = 2060 * KB;
 
 let files;
 try {

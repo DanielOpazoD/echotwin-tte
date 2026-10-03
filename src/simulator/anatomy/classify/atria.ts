@@ -7,6 +7,7 @@ import { inflowTaper } from '../mitralValve';
 import { rvFloorZ, rvRadii } from '../rv';
 import { skirtOffsetAt, skirtWarpScale } from '../valveSkirt';
 import { setSample, type ClassifyCtx } from './context';
+import { LA_WALL_CM, LAA_WALL_CM } from './pericardium';
 import type { AnchorsCached } from '../anchors';
 import { PV_RADIUS, pulmonaryVeinSegment } from '../pulmonaryVeins';
 
@@ -132,6 +133,22 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   // (posterior clip) and under the pulmonary bifurcation (roof clip)
   const dEllLa = sdEllipsoid(x, y, z, la.x, la.y, czL, lr.x * bo, lr.y * bo, rzL);
   const dFreeLa = smax(smax(dEllLa, la.y - 0.72 * lr.y * bo - y, 0.6), zTop + 0.15 * rzL - z, 0.5);
+  // the atrium's epicardium, for the pericardial sac: the outer face of its wall and of the appendage's (decision 273)
+  c.laEpi = Math.min(
+    dFreeLa - LA_WALL_CM,
+    sdCapsule(
+      x,
+      y,
+      z,
+      la.x + lr.x * 0.55,
+      la.y + lr.y * 0.55,
+      czL + 0.4,
+      la.x + lr.x * 0.95,
+      la.y + lr.y * 0.55 + 2.0,
+      czL + 0.9,
+      0.55 * bo,
+    ) - LAA_WALL_CM,
+  );
   const d = smax(dFreeLa, xIas + tIas / 2 - x, 0.3);
   if (d < 0) {
     setSample(
@@ -149,11 +166,11 @@ export function classifyAtria(c: ClassifyCtx): boolean {
     );
     return true;
   }
-  if (dFreeLa < 0.25 && x > xIas + tIas / 2) {
+  if (dFreeLa < LA_WALL_CM && x > xIas + tIas / 2) {
     setSample(
       out,
       Tissue.Myocardium,
-      -Math.min(dFreeLa, 0.25 - dFreeLa),
+      -Math.min(dFreeLa, LA_WALL_CM - dFreeLa),
       (x - la.x) / lr.x,
       (y - la.y) / lr.y,
       (z - czL) / rzL,
@@ -379,11 +396,11 @@ export function classifyAtria(c: ClassifyCtx): boolean {
       setSample(out, Tissue.Blood, dApp, 0, 1, 0, x, y, z, 0, Structure.LaAppendage);
       return true;
     }
-    if (dApp < 0.18) {
+    if (dApp < LAA_WALL_CM) {
       setSample(
         out,
         Tissue.Myocardium,
-        -Math.min(dApp, 0.18 - dApp),
+        -Math.min(dApp, LAA_WALL_CM - dApp),
         0,
         1,
         0,
@@ -400,17 +417,22 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   // geometry lives in pulmonaryVeins.ts, shared with the venous flow sampler (decision 143)
   for (let i = 0; i < 4; i++) {
     pulmonaryVeinSegment(i, la, lr, bo, czL, rzL, PV_SEG);
-    const dPv = sdCapsule(
-      x,
-      y,
-      z,
-      PV_SEG[0]!,
-      PV_SEG[1]!,
-      PV_SEG[2]!,
-      PV_SEG[3]!,
-      PV_SEG[4]!,
-      PV_SEG[5]!,
-      PV_RADIUS,
+    // the veins pass beside the descending aorta and the vertebral body, not through them (decision 273)
+    const dPv = smax(
+      sdCapsule(
+        x,
+        y,
+        z,
+        PV_SEG[0]!,
+        PV_SEG[1]!,
+        PV_SEG[2]!,
+        PV_SEG[3]!,
+        PV_SEG[4]!,
+        PV_SEG[5]!,
+        PV_RADIUS,
+      ),
+      0.12 - c.colDist,
+      0.2,
     );
     if (dPv < 0) {
       setSample(out, Tissue.Blood, dPv, 0, -1, 0, x, y, z, 0, Structure.PulmonaryVein);

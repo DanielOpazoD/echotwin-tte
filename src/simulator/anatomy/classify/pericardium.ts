@@ -1,7 +1,48 @@
 import { Structure, Tissue } from '../tissue';
-import { sdCapsule, sdEllipsoid, sdRoundCone, smin } from '../sdf';
+import { sdCapsule, sdEllipsoid, sdRoundCone, smax, smin } from '../sdf';
 import { setSample, type ClassifyCtx } from './context';
 import { AORTIC_ROOT_WALL_CM } from '../aorticValve';
+import { DESC_AORTA_MAX_OUTER_R, SPINE_R } from '../thoraxModel';
+
+/** Left atrial wall (cm) and the appendage's. */
+export const LA_WALL_CM = 0.25;
+export const LAA_WALL_CM = 0.18;
+/** Thickness (cm) of the pericardium the sac draws outside the epicardium. */
+export const PERICARDIUM_CM = 0.12;
+
+/**
+ * Distance (cm) from a heart-frame point to the surface of the posterior column (decision 273): the descending aorta at
+ * its largest systolic size and the vertebral body, two vertical cylinders whose axes run along `u` through `a` and `s`.
+ * The heart lay across them: the left atrium of the dilated cases ran into the vertebral body, and the sac into the wall
+ * of the aorta.
+ */
+export function posteriorColumnDistance(
+  x: number,
+  y: number,
+  z: number,
+  ux: number,
+  uy: number,
+  uz: number,
+  ax: number,
+  ay: number,
+  az: number,
+  sx: number,
+  sy: number,
+  sz: number,
+): number {
+  const dax = x - ax,
+    day = y - ay,
+    daz = z - az;
+  const ta = dax * ux + day * uy + daz * uz;
+  const dA =
+    Math.sqrt(Math.max(0, dax * dax + day * day + daz * daz - ta * ta)) - DESC_AORTA_MAX_OUTER_R;
+  const dsx = x - sx,
+    dsy = y - sy,
+    dsz = z - sz;
+  const ts = dsx * ux + dsy * uy + dsz * uz;
+  const dS = Math.sqrt(Math.max(0, dsx * dsx + dsy * dsy + dsz * dsz - ts * ts)) - SPINE_R;
+  return Math.min(dA, dS);
+}
 
 /** Effusion (cm) the sac holds over the left atrium (decision 255). */
 export const OBLIQUE_SINUS_EFFUSION_CM = 0.3;
@@ -29,9 +70,9 @@ export function classifyPericardium(c: ClassifyCtx): boolean {
   const dLvEpi = dEllR - wallT - c.crestLoss;
   const fw = m.anatomy.rv.freeWallThicknessCm;
   const dRvEpi = rvSdf[0]! - fw; // crescent and tricuspid inflow, computed just before (this point is outside the RV)
-  const la = A.laCenter,
-    lr = A.laR;
-  const dLaEpi = sdEllipsoid(x, y, z, la.x, la.y, la.z, lr.x + 0.25, lr.y + 0.25, lr.z + 0.25);
+  // the atrium's own outer face (decision 273): a fixed ellipsoid 0.25 cm over its largest size, it left up to 1.7 cm of
+  // fat behind the posterior wall, where the cavity is flattened and, at end-diastole, smaller
+  const dLaEpi = c.laEpi;
   const ra = A.raCenter,
     rar = A.raR;
   const dRaEpi = Math.min(
@@ -83,18 +124,36 @@ export function classifyPericardium(c: ClassifyCtx): boolean {
   );
   // the cardiac silhouette is the smooth union of the epicardial surfaces: the grooves between chambers and
   // the space between outflow and root are filled with epicardial fat, and one pericardium wraps the whole heart
-  const dEpi = smin(
-    smin(smin(dLvEpi, dRvEpi, 0.8), smin(dLaEpi, dRaEpi, 0.8), 0.8),
-    smin(dRvotEpi, dPaEpi, 0.8),
-    0.8,
+  // the sac lies against the descending aorta and the vertebral body and does not run into them (decision 273)
+  const dEpi = smax(
+    smin(
+      smin(smin(dLvEpi, dRvEpi, 0.8), smin(dLaEpi, dRaEpi, 0.8), 0.8),
+      smin(dRvotEpi, dPaEpi, 0.8),
+      0.8,
+    ),
+    PERICARDIUM_CM - c.colDist,
+    0.2,
   );
-  // the effusion thins over the left atrium (decision 255)
-  const eff = effusionAt(hp.effusion, dLaEpi, Math.min(dLvEpi, dRvEpi, dRaEpi, dRvotEpi, dPaEpi));
+  // the effusion thins over the left atrium (decision 255), within the reach of its largest size: the oblique sinus
+  const la = A.laCenter,
+    lr = A.laR;
+  // and it lies in front of the descending aorta and the vertebral body, not across them (decision 273)
+  const eff =
+    hp.effusion > 0
+      ? Math.min(
+          effusionAt(
+            hp.effusion,
+            sdEllipsoid(x, y, z, la.x, la.y, la.z, lr.x + 0.25, lr.y + 0.25, lr.z + 0.25),
+            Math.min(dLvEpi, dRvEpi, dRaEpi, dRvotEpi, dPaEpi),
+          ),
+          Math.max(0, dEpi + c.colDist - 2 * PERICARDIUM_CM),
+        )
+      : 0;
   if (dEpi < 0) {
     setSample(out, Tissue.Fat, dEpi, nx0, ny0, nz0, x, y, z, 0, Structure.EpicardialFat);
     return true;
   }
-  if (dEpi < 0.12) {
+  if (dEpi < PERICARDIUM_CM) {
     setSample(
       out,
       Tissue.Pericardium,

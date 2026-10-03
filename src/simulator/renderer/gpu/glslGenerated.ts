@@ -211,7 +211,7 @@ float rootBend(float t) {
 // src/simulator/anatomy/thoraxModel.ts: mediastinumDistance
 float mediastinumDistance(float x, float y, float z) {
   float px = (x + 0.5) / 1.8;
-  float pz = (z + 15.5) / 4.0;
+  float pz = (z - POSTERIOR_MEDIASTINUM_Z) / 4.0;
   float posterior = px * px + pz * pz - 1.0;
   float u = min(1.0, max(0.0, (y - 2.0) / 4.0));
   float halfWidth = 2.5 * u * u * (3.0 - 2.0 * u);
@@ -223,7 +223,7 @@ float mediastinumDistance(float x, float y, float z) {
   }
   float rs = DESC_AORTA_R + DESC_AORTA_WALL + DESC_AORTA_SLEEVE;
   float ax = (x - DESC_AORTA_X) / rs;
-  float az = (z - DESC_AORTA_Z - DESC_AORTA_SLEEVE_FORWARD) / (rs + DESC_AORTA_SLEEVE_FORWARD);
+  float az = (z - DESC_AORTA_Z - min(max(z - DESC_AORTA_Z, 0.0), DESC_AORTA_SLEEVE_REACH)) / rs;
   float aorta = ax * ax + az * az - 1.0;
   return min(min(posterior, superior), aorta);
 }
@@ -244,6 +244,20 @@ float effusionAt(float eff, float dLa, float dRest) {
   float w = min(1.0, max(0.0, (dRest - dLa) / OBLIQUE_SINUS_TAPER_CM));
   float thin = min(eff, OBLIQUE_SINUS_EFFUSION_CM);
   return eff - (eff - thin) * w * w * (3.0 - 2.0 * w);
+}
+// src/simulator/anatomy/classify/pericardium.ts: posteriorColumnDistance
+float posteriorColumnDistance(float x, float y, float z, float ux, float uy, float uz, float ax, float ay, float az, float sx, float sy, float sz) {
+  float dax = x - ax;
+  float day = y - ay;
+  float daz = z - az;
+  float ta = dax * ux + day * uy + daz * uz;
+  float dA = sqrt(max(0.0, dax * dax + day * day + daz * daz - ta * ta)) - DESC_AORTA_MAX_OUTER_R;
+  float dsx = x - sx;
+  float dsy = y - sy;
+  float dsz = z - sz;
+  float ts = dsx * ux + dsy * uy + dsz * uz;
+  float dS = sqrt(max(0.0, dsx * dsx + dsy * dsy + dsz * dsz - ts * ts)) - SPINE_R;
+  return min(dA, dS);
 }
 // src/simulator/anatomy/classify/rightVentricle.ts: rvFreeWallNow
 float rvFreeWallNow(float freeWallCm, float contraction) {
@@ -333,4 +347,4 @@ float sliceHalfWidthCm(float rCm) {
 `;
 
 /** Shader constants the generated functions read (must be #defines or constants of the including shader). */
-export const GLSL_GENERATED_FREE_IDENTIFIERS: readonly string[] = ["ATTEN_NP_PER_DB","CALCIUM_ATTEN_DB","CALCIUM_ATTEN_THRESHOLD","CLUTTER_HAZE","CORD_CM","DESC_AORTA_R","DESC_AORTA_SLEEVE","DESC_AORTA_SLEEVE_FORWARD","DESC_AORTA_WALL","DESC_AORTA_X","DESC_AORTA_Z","ELEVATION_FOCUS_CM","FOCUS_HALF_APERTURE_MM","FOCUS_HALF_ELEVATION_MM","FOCUS_WAIST_ELEVATION_MM","FOCUS_WAIST_LATERAL_MM","LV_NECK_ZETA","MEMBRANE_CM","MYO_ANISO_FLOOR","MYO_HELIX_ENDO_DEG","MYO_HELIX_EPI_DEG","OBLIQUE_SINUS_EFFUSION_CM","OBLIQUE_SINUS_TAPER_CM","REVERB_DECAY","REVERB_DIFFUSE","REVERB_DIFFUSE_DECAY_CM","REVERB_GAIN","REVERB_PERIOD_MIN_CM","REVERB_WIDTH_CM","RV_BODY_RADIAL_CONTRACTION","RV_HINGE_CM","RV_HINGE_FADE_RAD","RV_HINGE_PLATEAU_CM","RV_INFLOW_REACH_CM","SEPTAL_CREST_AZ","SEPTAL_CREST_HALF_WIDTH","SEPTAL_CREST_Z_CM","SLICE_HALF_BASE_CM","SLICE_HALF_SLOPE","SOFT_TISSUE_ATTEN_DB","TV_SYSTOLIC_SHORTENING"];
+export const GLSL_GENERATED_FREE_IDENTIFIERS: readonly string[] = ["ATTEN_NP_PER_DB","CALCIUM_ATTEN_DB","CALCIUM_ATTEN_THRESHOLD","CLUTTER_HAZE","CORD_CM","DESC_AORTA_MAX_OUTER_R","DESC_AORTA_R","DESC_AORTA_SLEEVE","DESC_AORTA_SLEEVE_REACH","DESC_AORTA_WALL","DESC_AORTA_X","DESC_AORTA_Z","ELEVATION_FOCUS_CM","FOCUS_HALF_APERTURE_MM","FOCUS_HALF_ELEVATION_MM","FOCUS_WAIST_ELEVATION_MM","FOCUS_WAIST_LATERAL_MM","LV_NECK_ZETA","MEMBRANE_CM","MYO_ANISO_FLOOR","MYO_HELIX_ENDO_DEG","MYO_HELIX_EPI_DEG","OBLIQUE_SINUS_EFFUSION_CM","OBLIQUE_SINUS_TAPER_CM","POSTERIOR_MEDIASTINUM_Z","REVERB_DECAY","REVERB_DIFFUSE","REVERB_DIFFUSE_DECAY_CM","REVERB_GAIN","REVERB_PERIOD_MIN_CM","REVERB_WIDTH_CM","RV_BODY_RADIAL_CONTRACTION","RV_HINGE_CM","RV_HINGE_FADE_RAD","RV_HINGE_PLATEAU_CM","RV_INFLOW_REACH_CM","SEPTAL_CREST_AZ","SEPTAL_CREST_HALF_WIDTH","SEPTAL_CREST_Z_CM","SLICE_HALF_BASE_CM","SLICE_HALF_SLOPE","SOFT_TISSUE_ATTEN_DB","SPINE_R","TV_SYSTOLIC_SHORTENING"];
