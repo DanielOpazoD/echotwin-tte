@@ -20,6 +20,7 @@ import {
 } from './postprocess/consolePipeline';
 import { caseArtifactLevels, consoleArtifacts, scenePhysicsFor } from './scenePhysics';
 import { buildScanLut, computeSectorMapping, scanConvertLut } from './scanConvert';
+import { acquisitionFrameRate } from './frameRate';
 import {
   allocPolarFrame,
   CALIBRATED_TIER,
@@ -41,7 +42,13 @@ import {
  * maps, dynamic ranges and gains renders each view once.
  */
 export interface ApicalRender {
+  /** The measured frame. */
   frame: PolarFrame;
+  /**
+   * The frames before it, oldest first, one acquisition interval apart: the console's persistence blends them into the
+   * measured one as the app does (decision 258).
+   */
+  history: PolarFrame[];
   seed: number;
   /** The case's console artifacts, which the presentation applies as the app does. */
   artifacts: ArtifactSettings;
@@ -56,6 +63,12 @@ export type ConsoleOverride = Partial<
  * Canonical apical view of a case at end-diastole (phase 0) or end-systole (end of ejection). `scatterSeed` picks the
  * scatterer realization (and the receiver noise of its presentation); the case seed by default.
  */
+/**
+ * Frames rendered for one presentation (decision 258): the measured one and the ones before it that the console's
+ * persistence still holds (0.35 per frame by default: the fifth back weighs 0.35⁴ = 1.5 %).
+ */
+export const PERSISTENCE_FRAMES = 5;
+
 export function renderApical(
   caseId: string,
   viewId: 'a4c' | 'a2c',
@@ -71,17 +84,26 @@ export function renderApical(
     poseFromControl(thorax, canonicalControl(getViewTarget(viewId), heart, thorax)),
     1,
   );
-  const scene: Scene = {
-    heart,
-    heartPose: computeHeartPose(heart, cycleStateAt(tables, phase)),
-    thorax,
-    // the app's physics, near-field clutter included (decision 238)
-    physics: scenePhysicsFor(c, settings, { seed: scatterSeed ?? c.seed }),
-  };
-  const frame = allocPolarFrame(spec);
-  new ProceduralSliceRenderer().render(scene, beam, spec, phase, frame);
+  // The app shows each frame blended with the ones before it (persistence), the heart moving between them at the
+  // acquisition rate and the blood's scatterers moving on (decision 258): the clinical cavity, with no pixel under grey
+  // 20 at a median of 56, cannot be one frame of fully developed speckle.
+  const dtPhase = 1 / acquisitionFrameRate(settings, undefined, false) / tables.rrS;
+  const frames = Array.from({ length: PERSISTENCE_FRAMES }, (_, k) => {
+    const ph = (((phase - (PERSISTENCE_FRAMES - 1 - k) * dtPhase) % 1) + 1) % 1;
+    const scene: Scene = {
+      heart,
+      heartPose: computeHeartPose(heart, cycleStateAt(tables, ph)),
+      thorax,
+      // the app's physics, near-field clutter included (decision 238), the blood frame advancing as in the app
+      physics: scenePhysicsFor(c, settings, { seed: scatterSeed ?? c.seed, bloodFrame: k }),
+    };
+    const frame = allocPolarFrame(spec);
+    new ProceduralSliceRenderer().render(scene, beam, spec, ph, frame);
+    return frame;
+  });
   return {
-    frame,
+    frame: frames[PERSISTENCE_FRAMES - 1]!,
+    history: frames.slice(0, -1),
     seed: scatterSeed ?? c.seed,
     artifacts: consoleArtifacts(caseArtifactLevels(c)),
   };
@@ -116,8 +138,9 @@ const LV_WALL = new Set<number>([
 ]);
 
 /**
- * The displayed image of a render under a console (default acquisition unless overridden), apex up, atrium deep. The
- * console frame index selects the receiver-noise realization.
+ * The displayed image of a render under a console (default acquisition unless overridden), apex up, atrium deep: the
+ * measured frame after its history, through the console's persistence (decision 258). The console frame index selects
+ * the receiver-noise realization.
  */
 export function presentApical(
   render: ApicalRender,
@@ -129,8 +152,12 @@ export function presentApical(
   const settings = { ...DEFAULT_ACQUISITION, ...consoleOverride };
   const display = new Uint8ClampedArray(spec.lines * spec.samples);
   const state = createConsoleState(render.seed);
-  state.frameIndex = frameIndex;
-  applyConsole(frame, settings, state, display, render.artifacts);
+  // the frames before the measured one pass through the same console first, each with its own receiver noise
+  const sequence = [...render.history, frame];
+  sequence.forEach((f, k) => {
+    state.frameIndex = frameIndex * sequence.length + k;
+    applyConsole(f, settings, state, display, render.artifacts);
+  });
   const W = 640,
     H = 640;
   const mapping = computeSectorMapping(spec, W, H, false);

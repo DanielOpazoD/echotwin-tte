@@ -46,6 +46,10 @@ import {
   CLUTTER_LINE_FREQ,
   CLUTTER_MAX_CM,
   CLUTTER_MOD_DEPTH_FREQ,
+  CLUTTER_HAZE_FREQ,
+  CLUTTER_HAZE_OFFSET,
+  CLUTTER_HAZE_PROBE,
+  clutterHaze,
   CLUTTER_MOD_FREQ,
   CLUTTER_MOD_LINE_FREQ,
   CLUTTER_RE_A_X,
@@ -891,19 +895,31 @@ export class ProceduralSliceRenderer implements RendererBackend {
         sIm = 0;
       }
       let cm = 0;
-      if (r < CLUTTER_MAX_CM && clutter > 0)
+      if (clutter > 0) {
         // near-field clutter: reverberation in the chest wall under the footprint, incoherent, fixed to the probe position
-        cm =
-          clutter *
-          Math.exp(-r / CLUTTER_DECAY_CM) *
-          (CLUTTER_BASE +
-            CLUTTER_AMP *
-              latticeNoise3(
-                ox * CLUTTER_MOD_FREQ + li * CLUTTER_MOD_LINE_FREQ,
-                oy * CLUTTER_MOD_FREQ + oz * CLUTTER_MOD_FREQ,
-                r * CLUTTER_MOD_DEPTH_FREQ,
-                latC,
-              ));
+        if (r < CLUTTER_MAX_CM)
+          cm =
+            Math.exp(-r / CLUTTER_DECAY_CM) *
+            (CLUTTER_BASE +
+              CLUTTER_AMP *
+                latticeNoise3(
+                  ox * CLUTTER_MOD_FREQ + li * CLUTTER_MOD_LINE_FREQ,
+                  oy * CLUTTER_MOD_FREQ + oz * CLUTTER_MOD_FREQ,
+                  r * CLUTTER_MOD_DEPTH_FREQ,
+                  latC,
+                ));
+        // the haze of the cavities at every depth, its grains in the image plane (decision 258)
+        const th = sectorTheta(ctx.spec, li);
+        cm += clutterHaze(
+          latticeNoise3(
+            r * Math.sin(th) * CLUTTER_HAZE_FREQ + ox * CLUTTER_HAZE_PROBE + CLUTTER_HAZE_OFFSET[0],
+            r * Math.cos(th) * CLUTTER_HAZE_FREQ + oy * CLUTTER_HAZE_PROBE + CLUTTER_HAZE_OFFSET[1],
+            oz * CLUTTER_HAZE_PROBE + CLUTTER_HAZE_OFFSET[2],
+            latB,
+          ),
+        );
+        cm *= clutter;
+      }
       const cx = ox * CLUTTER_FREQ + li * CLUTTER_LINE_FREQ,
         cy = oy * CLUTTER_FREQ + oz * CLUTTER_FREQ,
         cz = r * SCATTER_FREQ;
@@ -978,6 +994,11 @@ export class ProceduralSliceRenderer implements RendererBackend {
       if (transmission < TRANSMISSION_FLOOR) transmission = TRANSMISSION_FLOOR;
     }
   }
+}
+
+/** Angle (rad) of frame line `li` from the sector's centre. */
+function sectorTheta(spec: PolarFrameSpec, li: number): number {
+  return -spec.sectorRad / 2 + (spec.sectorRad * (li + 0.5)) / spec.lines;
 }
 
 /**

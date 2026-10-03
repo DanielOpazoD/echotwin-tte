@@ -8,7 +8,7 @@ Valores del modelo, relativos entre sí. `src/tests/physicsDocs.test.ts` compara
 <!-- verificada: tissue-props -->
 | Código | Tejido | Reflectividad difusa | Coeficiente especular | Atenuación (dB/cm/MHz, ida) | Frecuencia de grano (ciclos/cm) |
 |---|---|---|---|---|---|
-| `blood` | Sangre | 0,018 | 0 | 0,18 | 7 |
+| `blood` | Sangre | 0,0126 | 0 | 0,18 | 7 |
 | `myocardium` | Miocardio | 0,21 | 0,12 | 0,9 | 6,5 |
 | `valve` | Válvula | 0,5 | 0,7 | 0,8 | 5 |
 | `pericardium` | Pericardio | 0,85 | 1 | 0,9 | 3 |
@@ -93,6 +93,7 @@ Antes de clasificar el corazón, `isAnteriorLung` comprueba si el punto cae en l
 ## Acoplamiento, clutter y ring-down
 - **Acoplamiento parcial**: `contactQuality(p) = p/0,35` si p < 0,35, si no 1; cada línea cuyo `hash3(línea)` supere el contacto se atenúa ×0,08 entera. La presión hunde el origen del haz `0,3 + 0,5·p` cm bajo la piel.
 - **Clutter de campo cercano**: para r < 4,5 cm, `clutter · exp(−r/1,8) · (0,15 + 0,5·ruido)`, con `clutter = (2,5·clutterLevel + 0,8·chestWallAttenuation)·√(2,5/f)` (×0,35 con armónicos) y `clutterLevel = min(1, nivel de la ventana + 0,6 × artefacto «clutter de campo cercano») + 0,5·enfisema`. Es un fasor incoherente fijo a la sonda, uno por mirada.
+- **Neblina de las cavidades** (decisión 258): a toda profundidad, `clutter · 0,05 · 3·h²`, con h un retículo de 3 celdas por cm en el plano de la imagen, fijo a la sonda. Son granos de neblina de unos 3 mm, estables de cuadro a cuadro, mientras el speckle de la sangre y el ruido cambian. Se calibró con la persistencia de la app contra CAMUS Good, con la sangre un tercio más baja (0,018 → 0,0126).
 - **Ring-down del transductor**: en los primeros 3,5 mm, un eco coherente débil `0,05·(1 − r/0,35 cm)`.
 
 Todo el ruido deriva de `latticeNoise3` (un retículo por semilla) y de `hash3`; con la misma semilla e índice de cuadro el cuadro es idéntico (prueba en `src/tests/goldens.test.ts`).

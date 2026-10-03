@@ -268,7 +268,13 @@ void main() {
   float grain = sigma * GRAIN_GAIN * c.w;
   // near-field clutter: reverberation in the chest wall under the footprint, incoherent, fixed to the probe position
   float cm = 0.0;
-  if (r < CLUTTER_MAX_CM && CLUTTER > 0.0) cm = CLUTTER * exp(-r / CLUTTER_DECAY_CM) * (CLUTTER_BASE + CLUTTER_AMP * lat(vec3(B_OX * CLUTTER_MOD_FREQ + float(li) * CLUTTER_MOD_LINE_FREQ, B_OY * CLUTTER_MOD_FREQ + B_OZ * CLUTTER_MOD_FREQ, r * CLUTTER_MOD_DEPTH_FREQ), 2));
+  if (CLUTTER > 0.0) {
+    if (r < CLUTTER_MAX_CM) cm = exp(-r / CLUTTER_DECAY_CM) * (CLUTTER_BASE + CLUTTER_AMP * lat(vec3(B_OX * CLUTTER_MOD_FREQ + float(li) * CLUTTER_MOD_LINE_FREQ, B_OY * CLUTTER_MOD_FREQ + B_OZ * CLUTTER_MOD_FREQ, r * CLUTTER_MOD_DEPTH_FREQ), 2));
+    // decision 258: the haze of the cavities at every depth, its grains in the image plane
+    float hth = -SECTOR / 2.0 + SECTOR * (float(li) + 0.5) / LINES;
+    cm += clutterHaze(lat(vec3(r * sin(hth), r * cos(hth), 0.0) * vec3(CLUTTER_HAZE_FREQ, CLUTTER_HAZE_FREQ, 0.0) + vec3(B_OX, B_OY, B_OZ) * CLUTTER_HAZE_PROBE + CLUTTER_HAZE_OFFSET, 1));
+    cm *= CLUTTER;
+  }
   vec3 cc = vec3(B_OX * CLUTTER_FREQ + float(li) * CLUTTER_LINE_FREQ, B_OY * CLUTTER_FREQ + B_OZ * CLUTTER_FREQ, r * SCATTER_FREQ);
   float ringDown = r < RINGDOWN_CM ? RINGDOWN_GAIN * (1.0 - r / RINGDOWN_CM) : 0.0; // transducer ring-down
   // one complex signal per compounding look: the scatterer and clutter phasors differ, the coherent echoes (specular,

@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 257 (última: 257).
+Decisiones: 258 (última: 258).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -265,3 +265,4 @@ Decisiones: 257 (última: 257).
 | [255](DECISIONS.md#L1469) | 2026-09-25 | El derrame pericárdico respeta el seno oblicuo | vigente |
 | [256](DECISIONS.md#L1471) | 2026-09-25 | El torso sigue en el examen, sólo con piel y costillas | vigente |
 | [257](DECISIONS.md#L1473) | 2026-09-25 | La impresión no revela las respuestas antes de «Corregir» | vigente |
+| [258](DECISIONS.md#L1475) | 2026-09-25 | Las cavidades tienen la neblina de una imagen clínica, y la calibración mide la imagen con la persistencia de la app | vigente |

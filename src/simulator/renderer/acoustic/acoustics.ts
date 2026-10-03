@@ -227,6 +227,26 @@ export const CLUTTER_AMP = 0.5;
 export const CLUTTER_MOD_FREQ = 6;
 export const CLUTTER_MOD_LINE_FREQ = 0.7;
 export const CLUTTER_MOD_DEPTH_FREQ = 5;
+/**
+ * Haze of the cavities (decision 258): the clutter that fills a clinical cavity at every depth, a stationary incoherent
+ * echo tied to the probe (reverberation between the chest wall's layers and the face, and off-axis echoes of the walls)
+ * whose coarse texture holds still while the blood's speckle and the receiver noise change from frame to frame. Its
+ * amplitude is CLUTTER_HAZE × 3·h² of the clutter level, with h a lattice of CLUTTER_HAZE_FREQ cells per cm in the image
+ * plane: grains of haze about 3 mm across with dimmer gaps. Calibrated against CAMUS Good through the app's persistence,
+ * with the blood a third lower (decision 258): in the four-chamber view at end-diastole the cavity reads 62 (56
+ * [46-69]), its texture against the ±4 mm mean 12.4 (13.3 [11.9-15]) and the tissue/blood contrast 44 (40 [33-47]),
+ * and 0.15 % of the sector falls under grey 20 (CAMUS p75 0.3 %). The near-field clutter alone stopped at 4.5 cm, and
+ * the cavity's speckle nulls came through black: 0.24-3.4 % of the cavity bands at 4-8 cm.
+ */
+export const CLUTTER_HAZE = 0.05;
+export const CLUTTER_HAZE_FREQ = 3;
+/** How the haze's grains change as the probe moves (per cm of probe position), and the lattice offset of the haze. */
+export const CLUTTER_HAZE_PROBE = 0.37;
+export const CLUTTER_HAZE_OFFSET: readonly [number, number, number] = [13.1, 7.7, 3.3];
+/** Haze amplitude (fraction of the clutter level) for the lattice value `h` (0-1) at a point (decision 258). */
+export function clutterHaze(h: number): number {
+  return CLUTTER_HAZE * 3 * h * h;
+}
 export const CLUTTER_FREQ = 25;
 export const CLUTTER_LINE_FREQ = 0.9;
 export const CLUTTER_RE_A_X = 3.1;
@@ -454,6 +474,10 @@ export const ACOUSTIC_GLSL_CONSTANTS: Readonly<
   CLUTTER_MOD_FREQ,
   CLUTTER_MOD_LINE_FREQ,
   CLUTTER_MOD_DEPTH_FREQ,
+  CLUTTER_HAZE,
+  CLUTTER_HAZE_FREQ,
+  CLUTTER_HAZE_PROBE,
+  CLUTTER_HAZE_OFFSET,
   CLUTTER_FREQ,
   CLUTTER_LINE_FREQ,
   CLUTTER_RE_A_X,
