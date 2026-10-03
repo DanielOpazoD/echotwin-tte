@@ -191,6 +191,17 @@ float pleuralCoherenceAt(int li, int kE, float dr) {
   return pleuralCoherence(pleuralIncidenceCos(dEntry * dr, span * rE * (SECTOR / LINES)));
 }
 
+// the chest wall's reverberation at depth r on line li, times the clutter level (decisions 238, 258, 270)
+float chestWallClutter(int li, float r) {
+  float cm = 0.0;
+  // near-field clutter: reverberation in the chest wall under the footprint, incoherent, fixed to the probe position
+  if (r < CLUTTER_MAX_CM) cm = exp(-r / CLUTTER_DECAY_CM) * (CLUTTER_BASE + CLUTTER_AMP * lat(vec3(B_OX * CLUTTER_MOD_FREQ + float(li) * CLUTTER_MOD_LINE_FREQ, B_OY * CLUTTER_MOD_FREQ + B_OZ * CLUTTER_MOD_FREQ, r * CLUTTER_MOD_DEPTH_FREQ), 2));
+  // decision 258: the haze of the cavities at every depth, its grains in the image plane
+  float hth = -SECTOR / 2.0 + SECTOR * (float(li) + 0.5) / LINES;
+  cm += clutterHaze(lat(vec3(r * sin(hth), r * cos(hth), 0.0) * vec3(CLUTTER_HAZE_FREQ, CLUTTER_HAZE_FREQ, 0.0) + vec3(B_OX, B_OY, B_OZ) * CLUTTER_HAZE_PROBE + CLUTTER_HAZE_OFFSET, 1));
+  return cm * CLUTTER;
+}
+
 void main() {
   int si = int(gl_FragCoord.x);
   int li = int(gl_FragCoord.y);
@@ -224,6 +235,8 @@ void main() {
   if (dead) {
     float n = REVERB_MOD_BASE + REVERB_MOD_AMP * lat(vec3(float(li) * REVERB_MOD_LINE_FREQ, r * REVERB_MOD_DEPTH_FREQ, REVERB_MOD_Z), 2);
     float amp = pleuralReverberation(r, lungEntryR, lungEntryT, n, pleuralCoherenceAt(li, lungEntryK, dr), F_ATTEN);
+    // decision 270: the chest wall's reverberation over the lung, with the soft-tissue loss of its depth capped at the pleura
+    if (CLUTTER > 0.0) amp += chestWallClutter(li, r) * min(exp(-ATTEN_NP_PER_DB * SOFT_TISSUE_ATTEN_DB * F_ATTEN * r), lungEntryT);
     // reverberation energy is incoherent: a phasor tied to the line and the depth
     float px2 = float(li) * REVERB_PHASOR_LINE_FREQ, pr = r * SCATTER_FREQ;
     // one phasor per compounding look (decision 145)
@@ -278,12 +291,8 @@ void main() {
   // near-field clutter: reverberation in the chest wall under the footprint, incoherent, fixed to the probe position
   float cm = 0.0;
   if (CLUTTER > 0.0) {
-    if (r < CLUTTER_MAX_CM) cm = exp(-r / CLUTTER_DECAY_CM) * (CLUTTER_BASE + CLUTTER_AMP * lat(vec3(B_OX * CLUTTER_MOD_FREQ + float(li) * CLUTTER_MOD_LINE_FREQ, B_OY * CLUTTER_MOD_FREQ + B_OZ * CLUTTER_MOD_FREQ, r * CLUTTER_MOD_DEPTH_FREQ), 2));
-    // decision 258: the haze of the cavities at every depth, its grains in the image plane
-    float hth = -SECTOR / 2.0 + SECTOR * (float(li) + 0.5) / LINES;
-    cm += clutterHaze(lat(vec3(r * sin(hth), r * cos(hth), 0.0) * vec3(CLUTTER_HAZE_FREQ, CLUTTER_HAZE_FREQ, 0.0) + vec3(B_OX, B_OY, B_OZ) * CLUTTER_HAZE_PROBE + CLUTTER_HAZE_OFFSET, 1));
-    // decision 263: not reinforced behind fluid or blood
-    cm *= CLUTTER * min(1.0, softTransmission / transmission);
+    cm = chestWallClutter(li, r);
+    cm *= min(1.0, softTransmission / transmission);
   }
   vec3 cc = vec3(B_OX * CLUTTER_FREQ + float(li) * CLUTTER_LINE_FREQ, B_OY * CLUTTER_FREQ + B_OZ * CLUTTER_FREQ, r * SCATTER_FREQ);
   float ringDown = r < RINGDOWN_CM ? RINGDOWN_GAIN * (1.0 - r / RINGDOWN_CM) : 0.0; // transducer ring-down

@@ -281,7 +281,7 @@ float pleuralReverberation(float rCm, float entryCm, float transmission, float m
   }
   float diffuse = REVERB_DIFFUSE * exp(-d / REVERB_DIFFUSE_DECAY_CM) * modulation;
   float path = exp(-ATTEN_NP_PER_DB * SOFT_TISSUE_ATTEN_DB * attenFrequencyMHz * d);
-  return transmission * (path * REVERB_GAIN * band * coherence + diffuse);
+  return transmission * path * (REVERB_GAIN * band * coherence + diffuse);
 }
 // src/simulator/renderer/acoustic/acoustics.ts: pleuralIncidenceCos
 float pleuralIncidenceCos(float dEntryCm, float arcCm) {

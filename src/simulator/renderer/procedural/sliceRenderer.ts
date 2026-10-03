@@ -216,7 +216,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
         out.segment,
       );
     }
-    this.drawLung(ctx, spec, this.re, this.im);
+    this.drawLung(ctx, spec, this.re, this.im, out.transmission);
     const kernels = this.kernels(scene, spec);
     // the march of the beam, not of the pencil line (decision 144): the echoes scaled by its transmission
     beamMarch(
@@ -482,6 +482,8 @@ export class ProceduralSliceRenderer implements RendererBackend {
     looks: number,
     re: Float32Array,
     im: Float32Array,
+    clutterEntryT: number,
+    clutterScale: number,
   ): void {
     const { latA, latB, latC } = ctx;
     const incAxial = ctx.line ? ctx.line.kernels.incoherentAxial : 1;
@@ -491,7 +493,14 @@ export class ProceduralSliceRenderer implements RendererBackend {
       REVERB_MOD_BASE +
       REVERB_MOD_AMP *
         latticeNoise3(li * REVERB_MOD_LINE_FREQ, r * REVERB_MOD_DEPTH_FREQ, REVERB_MOD_Z, latC);
-    const a = pleuralReverberation(r, entryR, entryT, nn, coherence, ctx.fAtten);
+    // the chest wall's reverberation reaches this depth over the lung too, with the soft-tissue loss of its depth capped at
+    // the transmission at the pleura (decision 270); `clutterScale` turns that into the line's units
+    const softT = Math.exp(-ATTEN_NP_PER_DB * SOFT_TISSUE_ATTEN_DB * ctx.fAtten * r);
+    const a =
+      pleuralReverberation(r, entryR, entryT, nn, coherence, ctx.fAtten) +
+      (ctx.clutter > 0
+        ? chestWallClutter(ctx, li, r) * Math.min(softT, clutterEntryT) * clutterScale
+        : 0);
     // reverberation energy is incoherent: a phasor tied to the line and the depth, one per look (decision 145)
     const px2 = li * REVERB_PHASOR_LINE_FREQ,
       pr = r * SCATTER_FREQ;
@@ -526,6 +535,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
     spec: PolarFrameSpec,
     re: Float32Array,
     im: Float32Array,
+    tr: Float32Array,
   ): void {
     const { dr } = ctx;
     const lines = spec.lines,
@@ -551,6 +561,8 @@ export class ProceduralSliceRenderer implements RendererBackend {
       const coherence = pleuralCoherence(pleuralIncidenceCos(dEntry * dr, span * rE * dTheta));
       const base = li * samples;
       this.pleuraEcho(ctx, li, base + e, rE, 1, coherence, COMPOUND_LOOKS, re, im);
+      // the line's transmission at the pleura: the beam march scales the lung's echoes by it
+      const tE = Math.max(tr[base + e]!, TRANSMISSION_FLOOR);
       for (let si = e + 1; si < samples; si++)
         this.lungEcho(
           ctx,
@@ -563,6 +575,8 @@ export class ProceduralSliceRenderer implements RendererBackend {
           COMPOUND_LOOKS,
           re,
           im,
+          tE,
+          1 / tE,
         );
     }
   }
@@ -751,7 +765,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
       const idx = base + si;
       if (dead) {
         // an M-mode line: its pleura faces the beam (a frame's lines wait for their neighbours, decision 221)
-        this.lungEcho(ctx, li, idx, r, lungEntryR, lungEntryT, 1, looks, re, im);
+        this.lungEcho(ctx, li, idx, r, lungEntryR, lungEntryT, 1, looks, re, im, lungEntryT, 1);
         st[idx] = Structure.Lung;
         tr[idx] = 0;
         ti[idx] = Tissue.Lung;
@@ -910,31 +924,10 @@ export class ProceduralSliceRenderer implements RendererBackend {
       }
       let cm = 0;
       if (clutter > 0) {
-        // near-field clutter: reverberation in the chest wall under the footprint, incoherent, fixed to the probe position
-        if (r < CLUTTER_MAX_CM)
-          cm =
-            Math.exp(-r / CLUTTER_DECAY_CM) *
-            (CLUTTER_BASE +
-              CLUTTER_AMP *
-                latticeNoise3(
-                  ox * CLUTTER_MOD_FREQ + li * CLUTTER_MOD_LINE_FREQ,
-                  oy * CLUTTER_MOD_FREQ + oz * CLUTTER_MOD_FREQ,
-                  r * CLUTTER_MOD_DEPTH_FREQ,
-                  latC,
-                ));
-        // the haze of the cavities at every depth, its grains in the image plane (decision 258)
-        const th = sectorTheta(ctx.spec, li);
-        cm += clutterHaze(
-          latticeNoise3(
-            r * Math.sin(th) * CLUTTER_HAZE_FREQ + ox * CLUTTER_HAZE_PROBE + CLUTTER_HAZE_OFFSET[0],
-            r * Math.cos(th) * CLUTTER_HAZE_FREQ + oy * CLUTTER_HAZE_PROBE + CLUTTER_HAZE_OFFSET[1],
-            oz * CLUTTER_HAZE_PROBE + CLUTTER_HAZE_OFFSET[2],
-            latB,
-          ),
-        );
+        cm = chestWallClutter(ctx, li, r);
         // reverberation is not reinforced behind fluid or blood: it carries at most the soft-tissue loss of its depth
         // (decision 263), as the receiver's depth gain expects
-        cm *= clutter * Math.min(1, softTransmission / transmission);
+        cm *= Math.min(1, softTransmission / transmission);
       }
       const cx = ox * CLUTTER_FREQ + li * CLUTTER_LINE_FREQ,
         cy = oy * CLUTTER_FREQ + oz * CLUTTER_FREQ,
@@ -1010,6 +1003,42 @@ export class ProceduralSliceRenderer implements RendererBackend {
       if (softTransmission < TRANSMISSION_FLOOR) softTransmission = TRANSMISSION_FLOOR;
     }
   }
+}
+
+/**
+ * The chest wall's reverberation at depth `r` on line `li`, times the scene's clutter level (decisions 238 and 258): the
+ * near-field term and the haze of the cavities. It is an artifact of the wall, so it appears at that depth whatever lies
+ * there, the lung included (decision 270).
+ */
+function chestWallClutter(ctx: LineContext, li: number, r: number): number {
+  const { beam } = ctx;
+  const ox = beam.origin.x,
+    oy = beam.origin.y,
+    oz = beam.origin.z;
+  let cm = 0;
+  // near-field clutter: reverberation in the chest wall under the footprint, incoherent, fixed to the probe position
+  if (r < CLUTTER_MAX_CM)
+    cm =
+      Math.exp(-r / CLUTTER_DECAY_CM) *
+      (CLUTTER_BASE +
+        CLUTTER_AMP *
+          latticeNoise3(
+            ox * CLUTTER_MOD_FREQ + li * CLUTTER_MOD_LINE_FREQ,
+            oy * CLUTTER_MOD_FREQ + oz * CLUTTER_MOD_FREQ,
+            r * CLUTTER_MOD_DEPTH_FREQ,
+            ctx.latC,
+          ));
+  // the haze of the cavities at every depth, its grains in the image plane (decision 258)
+  const th = sectorTheta(ctx.spec, li);
+  cm += clutterHaze(
+    latticeNoise3(
+      r * Math.sin(th) * CLUTTER_HAZE_FREQ + ox * CLUTTER_HAZE_PROBE + CLUTTER_HAZE_OFFSET[0],
+      r * Math.cos(th) * CLUTTER_HAZE_FREQ + oy * CLUTTER_HAZE_PROBE + CLUTTER_HAZE_OFFSET[1],
+      oz * CLUTTER_HAZE_PROBE + CLUTTER_HAZE_OFFSET[2],
+      ctx.latB,
+    ),
+  );
+  return cm * ctx.clutter;
 }
 
 /** Angle (rad) of frame line `li` from the sector's centre. */

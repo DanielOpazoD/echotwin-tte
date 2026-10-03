@@ -147,3 +147,22 @@ describe('A-lines are attenuated over their path (decision 250)', () => {
     }
   });
 });
+
+describe('the diffuse reverberation behind the pleura is attenuated over its path too (decision 270)', () => {
+  it('seen d past the pleura it carries the loss of d of soft tissue, which the depth gain gives back', () => {
+    // Behind the posterior pleura of the parasternal views (11 cm deep) the diffuse reverberation, drawn without its path
+    // loss, was lifted by the console's depth gain and stayed as bright as the myocardium for 5 cm (PLAX: 144 against a
+    // septum of 144).
+    const f = 2.5;
+    for (const entry of [2, 11])
+      for (const d of [0.5, 2, 4]) {
+        // coherence 0 leaves only the diffuse term
+        const lossy = pleuralReverberation(entry + d, entry, 1, 1, 0, f);
+        const lossless = pleuralReverberation(entry + d, entry, 1, 1, 0, 0);
+        expect(lossy / lossless, `entry ${entry} cm, ${d} cm past it`).toBeCloseTo(
+          Math.exp(-ATTEN_NP_PER_DB * SOFT_TISSUE_ATTEN_DB * f * d),
+          6,
+        );
+      }
+  });
+});

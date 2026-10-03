@@ -166,6 +166,9 @@ const KNOWN_GEOMETRY_DEVIATIONS: ReadonlyMap<string, number> = new Map([
  * phases 1–3 of the fidelity plan. The near field came inside at decision 156.
  */
 const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
+  // decision 270: the lung's diffuse reverberation now carries its path loss, so the outer sector of the end-systolic four-chamber view darkens
+  ['4CH-ES:bandGrey8', -0.2],
+  ['4CH-ES:edgeRollOff', -0.12],
   // decision 264: with the chest-wall reverberation fading within 0.8 cm the near field comes inside and the two-chamber cavities darken
   ['4CH-ES:tangentialCorr4', -0.12],
   ['2CH-ES:ridgeFraction', 0.17],
@@ -206,13 +209,13 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['4CH-ES:localStd', -0.23],
   ['4CH-ES:radialCorr4', -0.49],
   ['2CH-ED:radialCorr2', 0.58],
-  ['2CH-ED:radialCorr8', -0.46],
+  ['2CH-ED:radialCorr8', -0.31],
   ['2CH-ED:tangentialCorr2', -0.6],
   ['2CH-ES:tangentialCorr4', -0.22],
   ['4CH-ED:radialCorr1', 1.4],
   ['4CH-ES:radialCorr1', 1.17],
-  ['2CH-ED:radialCorr1', 2.03],
-  ['2CH-ES:radialCorr1', 1.9],
+  ['2CH-ED:radialCorr1', 2.25],
+  ['2CH-ES:radialCorr1', 2.1],
   ['2CH-ED:tangentialCorr4', -1.49],
   // grey levels: the 2-4 cm band brighter than clinical (the app's near-field clutter, decision 238, more so without the
   // window's chest-wall attenuation of decision 261; the 0-2 cm band came inside at 264), the four-chamber end-systolic
