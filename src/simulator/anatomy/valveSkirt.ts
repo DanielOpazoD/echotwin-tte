@@ -328,6 +328,16 @@ export function tvInflowSdf(x: number, y: number, z: number, tv: SkirtDesc, tvZ:
  */
 export const TV_SYSTOLIC_SHORTENING = 0.2;
 
+/**
+ * Fraction of its radius the tricuspid annulus has lost at contraction `contraction` (decision 253): its 20 % in a normal
+ * right ventricle, less in one whose systolic function is lower (`rvRadialScale`, from the case's TAPSE, never above
+ * the normal one). Every case shortened its annulus by 20 %, so the lateral hinge of the pulmonary hypertension case
+ * (TAPSE 1.3 cm) moved toward the septum as far as a normal one's, and tissue Doppler read its S′ 20 % high.
+ */
+export function tvShortening(contraction: number, rvRadialScale: number): number {
+  return TV_SYSTOLIC_SHORTENING * contraction * Math.min(1, rvRadialScale);
+}
+
 /** How far the right ventricular inflow widens beyond the annulus toward the free wall (cm, decision 138). */
 export const TV_INFLOW_BULGE_CM = 0.2;
 

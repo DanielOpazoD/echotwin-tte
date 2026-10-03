@@ -43,6 +43,7 @@ import {
   TV_BUMP_STEP_RAD,
   type SkirtDesc,
   TV_SYSTOLIC_SHORTENING,
+  tvShortening,
 } from './valveSkirt';
 import { septalCrestFactor, septalShiftAt, wallThicknessAt } from './lvWall';
 import { ahaSegment } from './lvGeometry';
@@ -374,7 +375,7 @@ export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
   // of the RV inflow) and posterior (inferior) — whose closed tips converge toward the orifice centre. The annulus
   // shortens in systole with its septal edge fixed (TV_SYSTOLIC_SHORTENING); leaflet lengths do not change.
   const tvOpen = state.tvOpen;
-  const tvRNow = A.tvR * (1 - TV_SYSTOLIC_SHORTENING * state.contraction);
+  const tvRNow = A.tvR * (1 - tvShortening(state.contraction, A.rvRadialScale));
   // The septal hinge hangs from the crux with the mitral one and descends with it; TAPSE is the excursion of the lateral
   // hinge (decision 220). The whole annulus used to descend by TAPSE, so the septal offset between the tricuspid and the
   // mitral hinges grew from 0.70 cm at end-diastole to 1.57-1.93 cm in systole, past the Ebstein threshold.

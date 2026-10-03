@@ -23,7 +23,10 @@ export interface GenTarget {
 }
 
 export const TARGETS: GenTarget[] = [
-  { file: 'src/simulator/anatomy/valveSkirt.ts', functions: ['annulusOffset', 'tvInflowTaper'] },
+  {
+    file: 'src/simulator/anatomy/valveSkirt.ts',
+    functions: ['annulusOffset', 'tvInflowTaper', 'tvShortening'],
+  },
   {
     file: 'src/simulator/anatomy/lvShape.ts',
     functions: ['ellipseFactor', 'axialWallFactor', 'lvNeckWeight'],

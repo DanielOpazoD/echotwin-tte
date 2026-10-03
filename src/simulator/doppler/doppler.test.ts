@@ -13,7 +13,7 @@ import {
   type VelocitySample,
 } from './spectral/spectrum';
 import { sampleFlow, buildFlowParams, sampleTissueVelocity } from './flow-primitives/flowField';
-import { loadCaseById } from '@/cases';
+import { CASE_INPUTS, loadCaseById } from '@/cases';
 import {
   classifyHeart,
   createHeartModel,
@@ -1070,18 +1070,24 @@ describe('the right ventricle ejects with the acceleration time of its pulmonary
   });
 });
 
-describe('right ventricular tissue Doppler reads the tricuspid annulus of the case (decision 106)', () => {
-  it('through the core: TDI at the free wall 1 cm from the tricuspid annulus reads the case S′ at its angle and level', () => {
+describe('right ventricular tissue Doppler reads the tricuspid annulus of the case (decisions 106 and 251)', () => {
+  it('through the core: TDI at the lateral tricuspid annulus of the right ventricular view reads the case S′', () => {
+    // The ASE site: free wall myocardium just apical of the lateral tricuspid annulus, from the view made for it. Its
+    // B-mode hinge descends with TAPSE and moves toward the septum as the annulus shortens about its septal edge; tissue
+    // Doppler used to leave the second motion out and read 0.81-0.84 of S′ (decision 253).
+    // [S′ read / case S′] where the case reads apart: the swinging heart of tamponade carries the annulus through the gate
+    const KNOWN_RATIOS: ReadonlyMap<string, number> = new Map([
+      ['pericardial-effusion-tamponade', 0.78],
+    ]);
     const results: string[] = [];
-    for (const id of ['normal-excellent-window', 'pulmonary-hypertension-rv']) {
+    for (const { id } of CASE_INPUTS) {
       const k = loadCaseById(id);
       const m = new SimulatorCore(k, baseInput()).models;
       const A = heartAnchors(m.heart);
       const t = m.tables.timings;
       const hp0 = computeHeartPose(m.heart, cycleStateAt(m.tables, 0));
       const q = { tissue: 0, structure: 0 } as unknown as TissueSample;
-      // free wall myocardium 1 cm apical to the tricuspid annulus, walking out from the orifice centre
-      const z = A.tvCenter.z + hp0.tvZ + 1.0;
+      const z = A.tvCenter.z + hp0.tvZ + 0.5;
       let first = NaN,
         last = NaN;
       for (let x = A.tvCenter.x; x > A.tvCenter.x - 5; x -= 0.02)
@@ -1090,15 +1096,10 @@ describe('right ventricular tissue Doppler reads the tricuspid annulus of the ca
           last = x;
         } else if (!Number.isNaN(first)) break;
       const p = v3((first + last) / 2, A.tvCenter.y, z);
-      const control = canonicalControl(getViewTarget('a4c'), m.heart, m.thorax);
+      const control = canonicalControl(getViewTarget('rv-focused'), m.heart, m.thorax);
       const beam = beamFrameFromPose(poseFromControl(m.thorax, control));
       const d = sub(heartToTorso(m.heart.frame, p), beam.origin);
       const theta = Math.atan2(dot(d, beam.lateral), dot(d, beam.forward));
-      const dir = v3(
-        beam.forward.x * Math.cos(theta) + beam.lateral.x * Math.sin(theta),
-        beam.forward.y * Math.cos(theta) + beam.lateral.y * Math.sin(theta),
-        beam.forward.z * Math.cos(theta) + beam.lateral.z * Math.sin(theta),
-      );
       const spectral = { ...DEFAULT_SPECTRAL, scaleMps: 0.25, wallFilterMps: 0.01 };
       const core = new SimulatorCore(
         k,
@@ -1122,16 +1123,11 @@ describe('right ventricular tissue Doppler reads the tricuspid annulus of the ca
             outerEdge(st.data!.subarray(x * SPECTRAL_BINS, (x + 1) * SPECTRAL_BINS), spectral, 1),
           );
       }
-      const rvLevel = (p.z - A.tvCenter.z) / (A.rvApexFrac * m.heart.lv.lengthCm - A.tvCenter.z);
-      const expected =
-        (k.physiology.sPrimeTricuspidCmps / 100) *
-        Math.abs(dot(dir, m.heart.frame.ez)) *
-        (1 - rvLevel);
-      // before: the free wall moved with the left ventricular curve and MAPSE, 5.3 cm/s in the normal heart for 9.9 expected
-      if (!(sPrime / expected > 0.95 && sPrime / expected < 1.15))
-        results.push(
-          `${id}: S′ ${(sPrime * 100).toFixed(1)} cm/s against ${(expected * 100).toFixed(1)} expected`,
-        );
+      const ratio = (sPrime * 100) / k.physiology.sPrimeTricuspidCmps;
+      const known = KNOWN_RATIOS.get(id);
+      const text = `${id}: S′ ${(sPrime * 100).toFixed(1)} cm/s for ${k.physiology.sPrimeTricuspidCmps} (${ratio.toFixed(2)})`;
+      if (known === undefined ? !(ratio >= 0.9 && ratio <= 1.1) : Math.abs(ratio - known) > 0.05)
+        results.push(known === undefined ? text : `${text}, declared ${known}`);
     }
     expect(results).toEqual([]);
   });

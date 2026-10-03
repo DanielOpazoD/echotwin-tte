@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 252 (última: 252).
+Decisiones: 253 (última: 253).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -260,3 +260,4 @@ Decisiones: 252 (última: 252).
 | [250](DECISIONS.md#L1459) | 2026-09-25 | Las líneas A se atenúan por su camino como cualquier eco de su profundidad | vigente |
 | [251](DECISIONS.md#L1461) | 2026-09-25 | Una válvula calcificada hace sombra | vigente |
 | [252](DECISIONS.md#L1463) | 2026-09-25 | El foco en elevación es el de la lente | vigente |
+| [253](DECISIONS.md#L1465) | 2026-09-25 | El Doppler tisular del VD lee el S′ del caso en el sitio de la ASE | vigente |

@@ -584,7 +584,7 @@ vec4 rvRadii(float az, float z, float contraction, float tvZ, float rvCollapse) 
   float tvPlane = TV_CZ + tvZ;
   float t = RV_T * rvAzProfile(RV_AZA, RV_AZP, u) * rvAxialTaper(tvPlane, RV_APEX_FRAC * L, z) * (1.0 - rvRadialContraction(u) * rvRadialState(tvZ, RV_TAPSE, contraction) * RV_RADIAL_SCALE);
   // decision 243: the free wall hangs from the annulus, which shortens about its septal edge
-  float tvR = TV_R * (1.0 - TV_SYSTOLIC_SHORTENING * contraction);
+  float tvR = TV_R * (1.0 - tvShortening(contraction, RV_RADIAL_SCALE));
   float tvCx = TV_CX + (TV_R - tvR);
   float rc = length(vec2(tvCx, TV_CY));
   float dAz = az - atan(TV_CY, tvCx);

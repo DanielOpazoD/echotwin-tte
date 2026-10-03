@@ -11,7 +11,8 @@ import {
   type HeartPose,
 } from '@/simulator/anatomy/heartModel';
 import type { BeatTables } from '@/simulator/cardiac-cycle/cycleModel';
-import { sampleTable } from '@/simulator/cardiac-cycle/cycleModel';
+import { cycleStateAt, sampleTable } from '@/simulator/cardiac-cycle/cycleModel';
+import { tvShortening } from '@/simulator/anatomy/valveSkirt';
 import type { CaseDefinition } from '@/cases/schema';
 import { smoothstep } from '@/core/vec3';
 import { Structure } from '@/simulator/anatomy/tissue';
@@ -936,8 +937,19 @@ export function sampleTissueVelocity(
       1,
       Math.max(0, (z - A.tvCenter.z) / Math.max(1, apexZ - A.tvCenter.z)),
     );
+    // The annulus also shortens about its septal edge (`tvShortening`), so its lateral hinge, and the
+    // free wall that hangs from it (decision 243), moves toward the septum as it descends: twice the shortening of the
+    // radius at the hinge, nothing at the septal edge. The B-mode drew that motion and tissue Doppler left it out, so
+    // the lateral annulus read 0.81-0.84 of the case's S′ from the apical views (decision 253).
+    const dPhase = 0.004;
+    const shortening = (ph: number) =>
+      tvShortening(cycleStateAt(tables, ph).contraction, A.rvRadialScale);
+    const rate =
+      (shortening((phase + dPhase) % 1) - shortening((phase - dPhase + 1) % 1)) /
+      (2 * dPhase * tables.rrS);
+    const lateral = Math.min(1, Math.max(0, (A.tvCenter.x + A.tvR - x) / (2 * A.tvR)));
     return {
-      vx: 0,
+      vx: (2 * A.tvR * rate * lateral * (1 - rvLevel)) / 100,
       vy: 0,
       vz:
         (heart.physiology.tapseCm *

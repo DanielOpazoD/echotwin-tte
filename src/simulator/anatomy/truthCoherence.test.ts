@@ -82,15 +82,17 @@ describe('the drawn heart matches the truth its measurements are scored against'
       // ventricle's geometry does not know it (its end-systole is pulmonary closure, with the free wall of decision 243).
       // enlarged right ventricle (192 mL declared by its dimensions) with 22 mL of forward flow after the regurgitant
       // mitral volume; its tricuspid regurgitation has no volume in the beat tables (2.24 before decisions 243 and 245)
-      ['hfref-severe-mr', 3.79],
+      // (3.79 before its tricuspid annulus shortened by its own systolic function, decision 253)
+      ['hfref-severe-mr', 3.63],
       // the systolic anterior motion's mitral regurgitation takes 30 mL of the 70 the ventricle ejects (1.68 before)
       ['hocm-sam', 2.14],
       // the primary regurgitation leaves 29 mL forward of the ventricle's stroke
       ['mvp-primary-mr', 2.04],
       // its mild regurgitation, through all of systole since decision 245, leaves 42 mL forward
       ['af-diastolic', 1.32],
-      // the tricuspid regurgitation of the case (effective orifice 0.3 cm²) carries the difference
-      ['pulmonary-hypertension-rv', 1.29],
+      // the tricuspid regurgitation of the case (effective orifice 0.3 cm²) carries the difference (1.29 while its annulus
+      // shortened as a normal one does, decision 253)
+      ['pulmonary-hypertension-rv', 1.19],
       // it ejects what its left ventricle ejects in total (68 of 69 mL): the forward flow subtracts a regurgitant volume
       // the right ventricle's geometry does not know; the septal crest (decision 223) added the last mL
       ['artifact-challenge', 1.36],
