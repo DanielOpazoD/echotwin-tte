@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 266 (última: 266).
+Decisiones: 267 (última: 267).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -274,3 +274,4 @@ Decisiones: 266 (última: 266).
 | [264](DECISIONS.md#L1487) | 2026-09-25 | La reverberación de la pared se apaga en el primer centímetro | vigente |
 | [265](DECISIONS.md#L1489) | 2026-09-25 | Los músculos papilares dispersan a través de sus fibras | vigente |
 | [266](DECISIONS.md#L1491) | 2026-09-25 | Las valvas calcificadas reflejan más que las sanas | vigente |
+| [267](DECISIONS.md#L1493) | 2026-09-25 | El miocardio de la miocardiopatía hipertrófica dispersa más que el normal | vigente |

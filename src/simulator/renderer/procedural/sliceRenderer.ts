@@ -604,6 +604,8 @@ export class ProceduralSliceRenderer implements RendererBackend {
     const incAxial = lk ? lk.incoherentAxial : 1;
     const { heart, heartPose } = ctx.scene;
     const hf = heart.frame;
+    // the LV myocardium's backscatter over normal, as an amplitude (decision 267)
+    const myoIb = Math.pow(10, heart.anatomy.lv.myocardialBackscatterDb / 20);
     const s = this.sample;
     const s2 = this.sample2;
     const acA = this.acA;
@@ -692,12 +694,15 @@ export class ProceduralSliceRenderer implements RendererBackend {
           const dphi = rr > MYO_ANISO_RADIAL_EPS ? (dhy * q.mx - dhx * q.my) / rr : 0;
           // the fibre helix across the wall (decision 144); a wall sample without a depth (the RV free wall) takes the mid-wall
           sigma *= myoHelixGain(dphi, dhz, q.transmural >= 0 ? q.transmural : 0.5);
+          // the myocardium's own backscatter over normal (disarray and fibrosis, decision 267); the RV free wall keeps it
+          if (q.structure !== Structure.RvWall) sigma *= myoIb;
         } else if (
           inH &&
           (q.structure === Structure.PapillaryMuscle || q.structure === Structure.RvPapillary)
         ) {
           // the papillary fibres run along the muscle, near the long axis (decision 265)
           sigma *= papillaryFibreGain(dhz);
+          if (q.structure === Structure.PapillaryMuscle) sigma *= myoIb;
         } else if (
           !inH ||
           (q.structure !== Structure.LaWall &&
