@@ -215,7 +215,7 @@ void main() {
   float r = (float(si) + 0.5) * dr;
   if (dead) {
     float n = REVERB_MOD_BASE + REVERB_MOD_AMP * lat(vec3(float(li) * REVERB_MOD_LINE_FREQ, r * REVERB_MOD_DEPTH_FREQ, REVERB_MOD_Z), 2);
-    float amp = pleuralReverberation(r, lungEntryR, lungEntryT, n, pleuralCoherenceAt(li, lungEntryK, dr));
+    float amp = pleuralReverberation(r, lungEntryR, lungEntryT, n, pleuralCoherenceAt(li, lungEntryK, dr), F_ATTEN);
     // reverberation energy is incoherent: a phasor tied to the line and the depth
     float px2 = float(li) * REVERB_PHASOR_LINE_FREQ, pr = r * SCATTER_FREQ;
     // one phasor per compounding look (decision 145)
