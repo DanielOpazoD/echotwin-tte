@@ -115,3 +115,22 @@ test('the guidance panel explains causes and the report scores a structured impr
   expect(st.impressionSelection).not.toContain('as-none');
   await expect(page.locator('[data-impression-result]')).not.toContainText('100/100');
 });
+
+test('«Abrir tarea» opens the task in its case with its view as the target, and the console shows the case history', async ({
+  page,
+}) => {
+  // the case card: the history of the patient under the case selector (decision 248)
+  await expect(page.locator('[data-case-card]')).toContainText('Paciente sintético de 32 años');
+  await page.locator('select[aria-label="Caso"]').selectOption('hfref-severe-mr');
+  await expect(page.locator('[data-case-card]')).toContainText('miocardiopatía dilatada');
+  await page.getByRole('button', { name: 'Informe', exact: true }).click();
+  await page.getByRole('button', { name: 'Currículo' }).click();
+  await page.locator('[data-open-task="a2c-55"]').click();
+  // back on the simulator, in the task's case, in the guided mode, with the two-chamber view as the target
+  await expect(page.locator('select[aria-label="Caso"]')).toHaveValue('normal-excellent-window');
+  await expect(page.locator('select[aria-label="Modo del producto"]')).toHaveValue('guided');
+  await expect(page.locator('select[aria-label="Vista objetivo"]')).toHaveValue('a2c');
+  await expect(page.locator('#view-guidance')).toContainText(
+    'Desde A4C rota ~60° en sentido antihorario',
+  );
+});

@@ -215,6 +215,11 @@ export interface SimStore {
   setBackend: (b: RendererBackendChoice) => void;
   setMode: (m: ProductMode) => void;
   setTargetView: (id: string | null) => void;
+  /**
+   * «Abrir tarea» of the curriculum: the task's case (loaded only when it is not the current one, so the session is kept)
+   * and its view as the target of the guided mode, with the view guide open on the simulator.
+   */
+  openTask: (task: { caseId?: string; viewId?: string }) => void;
   setUi: (u: Partial<UiPrefs>) => void;
   setTruth: (t: StructuredEchoTruth | null, caseId: string) => void;
   addMeasurement: (m: Measurement) => void;
@@ -542,6 +547,15 @@ export const useSimStore = create<SimStore>((set, get) => ({
       };
     }),
   setTargetView: (id) => set({ targetViewId: id }),
+  openTask: (task) => {
+    const st = get();
+    if (task.caseId && task.caseId !== st.caseId) st.loadCase(task.caseId);
+    if (get().mode !== 'guided') get().setMode('guided');
+    set((s) => ({
+      targetViewId: task.viewId ?? null,
+      ui: { ...s.ui, screen: 'simulator', guidanceOpen: Boolean(task.viewId) || s.ui.guidanceOpen },
+    }));
+  },
   setUi: (u) =>
     set((s) => {
       const ui = { ...s.ui, ...u };
