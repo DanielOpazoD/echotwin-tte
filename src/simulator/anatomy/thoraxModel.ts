@@ -312,6 +312,14 @@ export const DESC_AORTA_WALL = 0.2;
 export const DESC_AORTA_SLEEVE = 0.3;
 export const DESC_AORTA_SLEEVE_FORWARD = 0.6;
 export const ANTERIOR_CORRIDOR_CM = 2.5;
+/**
+ * Under the left hemidiaphragm (decision 271): the left lobe of the liver lies anteriorly, its lateral segment a few
+ * centimetres thick under the abdominal wall, and the gastric fundus behind it, its air bubble against the dome. Left of
+ * `FUNDUS_MEDIAL_X_CM` and deeper than `LIVER_LEFT_LOBE_DEPTH_CM` from the skin the model put liver there, so the long axis
+ * showed liver behind the posterior wall of the ventricle and the papillary short axis below the inferior wall.
+ */
+export const FUNDUS_MEDIAL_X_CM = 2;
+export const LIVER_LEFT_LOBE_DEPTH_CM = 7;
 
 /**
  * Signed distance-like measure of the mediastinum around the heart (decision 150): negative inside. Beside the heart
@@ -435,8 +443,11 @@ export function classifyThorax(
     const yDome = diaphragmY(t, x, z);
     if (y < yDome && z > -14) {
       const fibrous = y > yDome - 0.25;
-      out.tissue = fibrous ? Tissue.Fibrous : Tissue.Liver;
-      out.structure = fibrous ? Structure.Diaphragm : Structure.Liver;
+      // left of the midline and behind the left lobe of the liver lies the gastric fundus, its air bubble under the dome
+      // (decision 271): a gas interface, as the lung is
+      const fundus = !fibrous && x > FUNDUS_MEDIAL_X_CM && depth > LIVER_LEFT_LOBE_DEPTH_CM;
+      out.tissue = fibrous ? Tissue.Fibrous : fundus ? Tissue.Lung : Tissue.Liver;
+      out.structure = fibrous ? Structure.Diaphragm : fundus ? Structure.Stomach : Structure.Liver;
       out.sdf = fibrous ? -0.1 : -1;
       out.ny = 1;
       out.nz = 0;

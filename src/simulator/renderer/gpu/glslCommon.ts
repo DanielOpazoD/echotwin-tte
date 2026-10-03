@@ -98,6 +98,7 @@ export function enumDefinesGlsl(): string {
     S_STERNUM: Structure.Sternum,
     S_RIB: Structure.Rib,
     S_LIVER: Structure.Liver,
+    S_STOMACH: Structure.Stomach,
     S_SPINE: Structure.Spine,
     S_DESC_AO: Structure.DescendingAorta,
     S_LUNG: Structure.Lung,

@@ -1,5 +1,7 @@
 import {
   ANTERIOR_CORRIDOR_CM,
+  FUNDUS_MEDIAL_X_CM,
+  LIVER_LEFT_LOBE_DEPTH_CM,
   FASCIA_HALF_CM,
   FAT_FRACTION,
   PERICARDIAL_FAT_CM,
@@ -15,6 +17,8 @@ const f = (v: number): string => (Number.isInteger(v) ? `${v}.0` : `${v}`);
 export const GLSL_THORAX = /* glsl */ `
 const float PERICARDIAL_FAT_CM = ${f(PERICARDIAL_FAT_CM)};
 const float ANTERIOR_CORRIDOR_CM = ${f(ANTERIOR_CORRIDOR_CM)};
+const float FUNDUS_MEDIAL_X_CM = ${f(FUNDUS_MEDIAL_X_CM)};
+const float LIVER_LEFT_LOBE_DEPTH_CM = ${f(LIVER_LEFT_LOBE_DEPTH_CM)};
 const float SKIN_CM = ${f(SKIN_CM)};
 const float FAT_FRACTION = ${f(FAT_FRACTION)};
 const float FASCIA_HALF_CM = ${f(FASCIA_HALF_CM)};
@@ -109,7 +113,9 @@ bool classifyThorax(vec3 p, out Sample s, float heartDist) {
     float yDome = diaphragmY(x, z);
     if (y < yDome && z > -14.0) {
       bool fibrous = y > yDome - 0.25;
-      s.tissue = fibrous ? T_FIBROUS : T_LIVER; s.structure = fibrous ? S_DIAPH : S_LIVER; s.sdf = fibrous ? -0.1 : -1.0;
+      // decision 271: the gastric fundus, a gas interface, left of the midline and behind the left lobe of the liver
+      bool fundus = !fibrous && x > FUNDUS_MEDIAL_X_CM && depth > LIVER_LEFT_LOBE_DEPTH_CM;
+      s.tissue = fibrous ? T_FIBROUS : (fundus ? T_LUNG : T_LIVER); s.structure = fibrous ? S_DIAPH : (fundus ? S_STOMACH : S_LIVER); s.sdf = fibrous ? -0.1 : -1.0;
       s.n = vec3(0.0, 1.0, 0.0);
       return true;
     }
