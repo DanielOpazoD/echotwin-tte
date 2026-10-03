@@ -69,7 +69,8 @@ export const TISSUE_PROPS: Record<number, TissueProps> = {
     name: 'cartilage',
   },
   [Tissue.Lung]: { reflect: 1.0, specular: 1.0, attenuation: 40, grain: 3, name: 'lung' },
-  [Tissue.Fluid]: { reflect: 0.005, specular: 0, attenuation: 0.05, grain: 4, name: 'fluid' },
+  // serous fluid is cell-free: plasma and saline give no backscatter above noise, so 30 dB under blood (decision 263)
+  [Tissue.Fluid]: { reflect: 0.0004, specular: 0, attenuation: 0.05, grain: 4, name: 'fluid' },
   [Tissue.VesselWall]: {
     reflect: 0.55,
     specular: 0.6,

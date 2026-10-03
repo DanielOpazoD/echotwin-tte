@@ -28,6 +28,7 @@ import {
 import {
   ATTEN_NP_PER_DB,
   attenuationFrequencyMHz,
+  SOFT_TISSUE_ATTEN_DB,
   BLOOD_DECORRELATION_CELLS,
   BLOOD_HARMONIC_SIGMA,
   bloodShiftCells,
@@ -629,6 +630,9 @@ export class ProceduralSliceRenderer implements RendererBackend {
     const R = SCATTER_FREQ_RATIO;
     const lineDrop = hash3(li, 7, 0, seed) > contact ? 0.08 : 1;
     let transmission = lineDrop;
+    // what the line would transmit through average soft tissue: the chest-wall reverberation reaches each depth through
+    // the wall, not through the tissue on the beam's axis (decision 263)
+    let softTransmission = lineDrop;
     let lungEntryR = -1;
     let lungEntryT = 0;
     let dead = false;
@@ -916,7 +920,9 @@ export class ProceduralSliceRenderer implements RendererBackend {
             latB,
           ),
         );
-        cm *= clutter;
+        // reverberation is not reinforced behind fluid or blood: it carries at most the soft-tissue loss of its depth
+        // (decision 263), as the receiver's depth gain expects
+        cm *= clutter * Math.min(1, softTransmission / transmission);
       }
       const cx = ox * CLUTTER_FREQ + li * CLUTTER_LINE_FREQ,
         cy = oy * CLUTTER_FREQ + oz * CLUTTER_FREQ,
@@ -988,6 +994,8 @@ export class ProceduralSliceRenderer implements RendererBackend {
       if (atten) atten[idx] = attenNp;
       transmission *= Math.exp(-attenNp);
       if (transmission < TRANSMISSION_FLOOR) transmission = TRANSMISSION_FLOOR;
+      softTransmission *= Math.exp(-ATTEN_NP_PER_DB * SOFT_TISSUE_ATTEN_DB * fAtten * dr);
+      if (softTransmission < TRANSMISSION_FLOOR) softTransmission = TRANSMISSION_FLOOR;
     }
   }
 }
