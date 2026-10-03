@@ -393,9 +393,11 @@ export function pleuralReverberation(
   const diffuse = REVERB_DIFFUSE * Math.exp(-d / REVERB_DIFFUSE_DECAY_CM) * modulation;
   // an echo seen d past the pleura has travelled d further through tissue, as any echo from that depth (decision 250): the
   // console's depth gain gives that back and leaves the loss per bounce. Drawn without it, the gain lifted each order
-  // over the one before it relative to the tissue around it
+  // over the one before it relative to the tissue around it. The diffuse reverberation travels the same path (decision
+  // 271): without the loss, behind the posterior pleura of the parasternal views it stayed as bright as the myocardium
+  // for 5 cm
   const path = Math.exp(-ATTEN_NP_PER_DB * SOFT_TISSUE_ATTEN_DB * attenFrequencyMHz * d);
-  return transmission * (path * REVERB_GAIN * band * coherence + diffuse);
+  return transmission * path * (REVERB_GAIN * band * coherence + diffuse);
 }
 
 export function heteroDb(tissue: number): number {
