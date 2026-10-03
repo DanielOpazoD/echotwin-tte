@@ -19,6 +19,10 @@ import {
   RV_HINGE_FADE_RAD,
 } from '@/simulator/anatomy/rv';
 import { TV_SYSTOLIC_SHORTENING } from '@/simulator/anatomy/valveSkirt';
+import {
+  OBLIQUE_SINUS_EFFUSION_CM,
+  OBLIQUE_SINUS_TAPER_CM,
+} from '@/simulator/anatomy/classify/pericardium';
 import { LV_NECK_ZETA } from '@/simulator/anatomy/lvShape';
 import {
   SEPTAL_CREST_AZ,
@@ -132,6 +136,9 @@ const float RV_HINGE_PLATEAU_CM = ${gf(RV_HINGE_PLATEAU_CM)};
 const float RV_HINGE_CM = ${gf(RV_HINGE_CM)};
 const float RV_HINGE_FADE_RAD = ${gf(RV_HINGE_FADE_RAD)};
 const float TV_SYSTOLIC_SHORTENING = ${gf(TV_SYSTOLIC_SHORTENING)};
+// the effusion over the left atrium (pericardium.ts, decision 255)
+const float OBLIQUE_SINUS_EFFUSION_CM = ${gf(OBLIQUE_SINUS_EFFUSION_CM)};
+const float OBLIQUE_SINUS_TAPER_CM = ${gf(OBLIQUE_SINUS_TAPER_CM)};
 const float RV_INFLOW_REACH_CM = ${gf(RV_INFLOW_REACH_CM)};
 // septal crest (lvWall.ts, decision 223): read by the generated septalCrestFactor
 const float SEPTAL_CREST_AZ = ${gf(SEPTAL_CREST_AZ)};

@@ -3,6 +3,24 @@ import { sdCapsule, sdEllipsoid, sdRoundCone, smin } from '../sdf';
 import { setSample, type ClassifyCtx } from './context';
 import { AORTIC_ROOT_WALL_CM } from '../aorticValve';
 
+/** Effusion (cm) the sac holds over the left atrium (decision 255). */
+export const OBLIQUE_SINUS_EFFUSION_CM = 0.3;
+/** Distance (cm) over which the effusion thins from the ventricles to the left atrium (decision 255). */
+export const OBLIQUE_SINUS_TAPER_CM = 1;
+
+/**
+ * Effusion (cm) at a point whose nearest epicardial surfaces are the left atrium at `dLa` and the rest of the heart at
+ * `dRest` (decision 255). Behind the left atrium the parietal pericardium reflects onto the atrial wall around the
+ * four pulmonary veins and the oblique sinus between them holds little fluid, so an effusion stays anterior to the
+ * descending aorta and does not run behind the atrium; around the ventricles and the right atrium it has its full
+ * thickness. The effusion of the tamponade case was a uniform 2.2 cm shell, the same behind the atrium.
+ */
+export function effusionAt(eff: number, dLa: number, dRest: number): number {
+  const w = Math.min(1, Math.max(0, (dRest - dLa) / OBLIQUE_SINUS_TAPER_CM));
+  const thin = Math.min(eff, OBLIQUE_SINUS_EFFUSION_CM);
+  return eff - (eff - thin) * w * w * (3 - 2 * w);
+}
+
 /** Pericardium & effusion: the outer envelope of all epicardial surfaces. True when the point is in the sac. */
 export function classifyPericardium(c: ClassifyCtx): boolean {
   const { m, hp, A, x, y, z, out, dEllR, wallT, nx0, ny0, nz0, rvSdf, raSleeve } = c;
@@ -70,7 +88,8 @@ export function classifyPericardium(c: ClassifyCtx): boolean {
     smin(dRvotEpi, dPaEpi, 0.8),
     0.8,
   );
-  const eff = hp.effusion;
+  // the effusion thins over the left atrium (decision 255)
+  const eff = effusionAt(hp.effusion, dLaEpi, Math.min(dLvEpi, dRvEpi, dRaEpi, dRvotEpi, dPaEpi));
   if (dEpi < 0) {
     setSample(out, Tissue.Fat, dEpi, nx0, ny0, nz0, x, y, z, 0, Structure.EpicardialFat);
     return true;

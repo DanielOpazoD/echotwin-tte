@@ -1062,7 +1062,8 @@ bool classifyHeart(vec3 p0, out Sample s) {
     vec3 paStj = vec3(PA_SX, PA_SY, PA_SZ);
     float dPaEpi = min(sdRoundCone(p, rvotB, paStj, PA_ROOT_R + 0.2, PA_R + 0.2), sdCapsule(p, paStj, paEnd, PA_R + 0.2));
     float dEpi = smin(smin(smin(dLvEpi, dRvEpi, 0.8), smin(dLaEpi, dRaEpi, 0.8), 0.8), smin(dRvotEpi, dPaEpi, 0.8), 0.8);
-    float eff = EFFUSION;
+    // decision 255: the effusion thins over the left atrium
+    float eff = effusionAt(EFFUSION, dLaEpi, min(min(min(dLvEpi, dRvEpi), min(dRaEpi, dRvotEpi)), dPaEpi));
     vec3 nEpi = n0;
     if (dEpi < 0.0) {
       setSample(s, T_FAT, dEpi, nEpi, p, 0.0, S_EPI_FAT);
