@@ -155,13 +155,15 @@ export interface ValveGeometry {
   tvRing: [number, number, number, number];
 }
 
-/** Early-diastolic RV free-wall collapse window (tamponade): after AV closure, before the mitral E peak. */
+/** Early-diastolic RV free-wall collapse window (tamponade): after the semilunar valves close, until the ventricle relaxes. */
+const RV_COLLAPSE_CLOSURE = 0.25;
 function rvCollapseWindow(state: CycleState): number {
-  const p = state.phase;
-  // window centred just after ejection end (≈ 0.42–0.6 of the cycle for typical timings)
-  const c = 0.5;
-  const w = 0.1;
-  return Math.exp(-((p - c) * (p - c)) / (2 * w * w));
+  // early diastole (decision 269): from the closure of the semilunar valves, while the ventricle is still contracted,
+  // until it relaxes as it fills. A window fixed at 0.5 of the cycle fell inside the ejection whenever the heart rate
+  // stretched systole (the tamponade's ends at 0.57): the free wall collapsed while the aortic valve was open.
+  // the aortic valve's last quarter of closing stands for the closure of both semilunar valves
+  const a = Math.min(1, state.avOpen / RV_COLLAPSE_CLOSURE);
+  return (1 - a * a * (3 - 2 * a)) * state.contraction;
 }
 /** Late-diastolic / early-systolic RA collapse window (tamponade). */
 function raCollapseWindow(state: CycleState): number {
