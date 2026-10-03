@@ -75,6 +75,15 @@ export interface MitralValve {
   posterior: MitralLeaflet;
 }
 
+/**
+ * Systolic anterior motion (decision 268). It is driven by the ejection, beginning after the aortic valve opens and
+ * peaking in mid-systole, and at a severity of `SAM_CONTACT_SEVERITY` and above it carries the anterior leaflet past its
+ * open profile (to `SAM_MAX_BLEND` of the way from closed to open) until it meets the septum, the mitral–septal contact
+ * of obstructive hypertrophic cardiomyopathy. It followed the contraction, which peaks at end-systole, and stopped at
+ * 0.8: the leaflet stayed 19–21 mm from the septal muscle through systole.
+ */
+export const SAM_CONTACT_SEVERITY = 0.6;
+export const SAM_MAX_BLEND = 1.2;
 /** Linear shortening of the annulus at end systole (area −19 %). */
 export const MV_SYSTOLIC_SHORTENING = 0.1;
 /** D/R of the D-shaped annulus: anteroposterior diameter ≈ 0.82 of the intercommissural one. */
@@ -250,6 +259,7 @@ export function buildMitralValve(
   lift: number,
   tetherAL = 0,
   tetherPM = 0,
+  ejection = 0,
 ): MitralValve {
   const l = Math.hypot(toAortaX, toAortaY) || 1;
   // systolic annular contraction (area about a fifth smaller at end systole): the fibrous curtain keeps its place and
@@ -276,7 +286,7 @@ export function buildMitralValve(
     lift,
     thickness: p.thickeningCm,
     open,
-    samBlend: Math.min(0.8, p.samSeverity * 0.9 * contraction),
+    samBlend: Math.min(SAM_MAX_BLEND, (p.samSeverity / SAM_CONTACT_SEVERITY) * ejection),
     inflowSlope: 0,
     inflowDepth: 2,
     // normal coaptation 3.5 mm apical of the line between the hinges; prolapse carries the posterior body (and a little
