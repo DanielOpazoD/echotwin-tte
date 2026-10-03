@@ -69,12 +69,11 @@ const renderOnce = (view: 'a4c' | 'a2c', ed: boolean): ApicalRender[] => {
  * declaration that holds no longer fails the test, so the list cannot outlive the defect.
  */
 const KNOWN_DEVIATIONS: ReadonlyMap<string, number> = new Map([
+  // decision 264: with the chest-wall reverberation fading within 0.8 cm the near field comes inside and the two-chamber cavities darken
+  ['2CH-ED:contrast', 0.15],
   // decision 263: the cavity reverberation no longer reinforced behind blood darkens the end-diastolic cavities
   ['4CH-ED:contrast', 0.23],
   ['2CH-ED:cavityDetrendedStd', -0.22],
-  // decision 261: without the window's extra chest-wall attenuation the end-systolic two-chamber speckle cell narrows
-  // to the clinical quartile's edge
-  ['2CH-ES:speckleCellHorizontalMm', -0.11],
   // decision 258, through the app's persistence and with the cavity haze: the myocardium's local texture falls with
   // the averaged receiver noise (the end-systolic atria, 82-84 against upper quartiles of 78-79 then, and the two-chamber
   // contrast came inside at decision 263, when the haze stopped growing behind the ventricle's blood)
@@ -167,17 +166,19 @@ const KNOWN_GEOMETRY_DEVIATIONS: ReadonlyMap<string, number> = new Map([
  * phases 1–3 of the fidelity plan. The near field came inside at decision 156.
  */
 const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
+  // decision 264: with the chest-wall reverberation fading within 0.8 cm the near field comes inside and the two-chamber cavities darken
+  ['4CH-ES:tangentialCorr4', -0.12],
+  ['2CH-ES:ridgeFraction', 0.17],
   // decision 263: the cavity reverberation no longer reinforced behind blood darkens the end-diastolic cavities
   ['2CH-ED:edgeRollOff', 0.25],
   // decision 262: with the LV's diaphragmatic face on the diaphragm, liver fills the two-chamber sector beyond the
   // inferior wall where lung reverberation was; at end-systole its texture and the outer sector move out
   ['2CH-ES:radialCorr4', -0.17],
-  ['2CH-ES:edgeRollOff', 0.22],
-  // decision 261: without the window's extra chest-wall attenuation the near field (0-4 cm) is brighter than clinical
-  // and the gradients sharper; the cavity bands and the bright end come inside
-  ['4CH-ED:bandGrey0', 0.21],
+  ['2CH-ES:edgeRollOff', 0.45],
+  // decision 261: without the window's extra chest-wall attenuation the near field (2-4 cm) is brighter than clinical
+  // and the gradients sharper; the cavity bands and the bright end come inside (the 0-2 cm band at decision 264)
   ['4CH-ED:bandGrey2', 0.19],
-  ['2CH-ED:gradientP95', 0.28],
+  ['2CH-ED:gradientP95', 0.45],
   ['2CH-ES:bandGrey2', 0.19],
   // Measured since decision 258 as the app shows it, through the console's persistence, with the haze of the cavities:
   // the black pixels of the single frame (up to 27.6 quartile widths out in the 4-6 cm band) mostly go, and what
@@ -195,7 +196,7 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['4CH-ED:gradientP50', 1.09],
   ['4CH-ES:gradientP50', 0.91],
   ['2CH-ED:gradientP50', 1.7],
-  ['2CH-ES:gradientP50', 1.14],
+  ['2CH-ES:gradientP50', 0.99],
   ['4CH-ED:ridgeFraction', 0.71],
   ['4CH-ES:ridgeFraction', 0.61],
   ['2CH-ED:ridgeFraction', 0.73],
@@ -213,12 +214,11 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['2CH-ED:radialCorr1', 2.03],
   ['2CH-ES:radialCorr1', 1.9],
   ['2CH-ED:tangentialCorr4', -1.49],
-  // grey levels: the near field brighter than clinical (the app's near-field clutter, decision 238, more so without the
-  // window's chest-wall attenuation of decision 261), the outer sector and the four-chamber end-systolic bright end dimmer
-  ['2CH-ES:bandGrey0', 0.13],
+  // grey levels: the 2-4 cm band brighter than clinical (the app's near-field clutter, decision 238, more so without the
+  // window's chest-wall attenuation of decision 261; the 0-2 cm band came inside at 264), the four-chamber end-systolic
+  // bright end dimmer
   ['4CH-ES:greyP95', -0.19],
   ['2CH-ED:bandGrey2', 0.5],
-  ['4CH-ES:bandGrey0', 0.41],
 ]);
 
 /**

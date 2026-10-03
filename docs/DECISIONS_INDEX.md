@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 263 (última: 263).
+Decisiones: 264 (última: 264).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -271,3 +271,4 @@ Decisiones: 263 (última: 263).
 | [261](DECISIONS.md#L1481) | 2026-09-25 | La ventana difícil es clutter, no atenuación | vigente |
 | [262](DECISIONS.md#L1483) | 2026-09-25 | La cara diafragmática del VI se apoya en el diafragma | vigente |
 | [263](DECISIONS.md#L1485) | 2026-09-25 | La reverberación no se refuerza tras la sangre ni el líquido, y el derrame dispersa 30 dB menos que la sangre | vigente |
+| [264](DECISIONS.md#L1487) | 2026-09-25 | La reverberación de la pared se apaga en el primer centímetro | vigente |
