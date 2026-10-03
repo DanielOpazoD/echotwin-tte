@@ -18,6 +18,11 @@ export interface ModePolicy {
    * that match lets a volley of random measurements score full marks (decision 235).
    */
   freeMeasurementsScored: boolean;
+  /**
+   * The 3D navigator shows the heart, its cut, the canonical windows and the axes. Not in exam: the torso stays, with
+   * its skin and ribs, so the learner still sees where the probe is, but the heart cut by the plane would name the view.
+   */
+  navigatorAnatomy: boolean;
 }
 
 /**
@@ -44,6 +49,7 @@ export function modePolicy(mode: ProductMode): ModePolicy {
     evaluateCurriculum: !exam,
     devToolsAllowed: !exam,
     freeMeasurementsScored: !exam,
+    navigatorAnatomy: !exam,
   };
 }
 

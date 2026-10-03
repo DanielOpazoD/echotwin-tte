@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-import { segmentLayerOn, useHudStore, useSegmentHover, useSimStore } from '@/app/store';
+import {
+  navigatorLayers,
+  segmentLayerOn,
+  useHudStore,
+  useSegmentHover,
+  useSimStore,
+} from '@/app/store';
+import { modePolicy } from '@/app/modePolicy';
 import {
   ribCenterY,
   ribDepth,
@@ -44,7 +51,8 @@ import { IconCrosshair, IconLayers, IconMinus, IconPlus } from './icons';
 export function TorsoView() {
   const ref = useRef<HTMLDivElement>(null);
   const caseId = useSimStore((s) => s.caseId);
-  const split = useSimStore((s) => s.ui.navSplit);
+  const split = useSimStore((s) => navigatorLayers(s).split);
+  const anatomy = useSimStore((s) => modePolicy(s.mode).navigatorAnatomy);
   const patient = useSimStore((s) => s.patient);
   const zoomRef = useRef<{ zoomBy: (f: number) => void; center: () => void } | null>(null);
   // a browser without WebGL keeps the image and the cut map; only the 3D view gives way to a notice (decision 154).
@@ -444,7 +452,7 @@ export function TorsoView() {
       const hit = raycaster.intersectObjects(targets, true).find((h) => {
         // with the cut on, the half of the heart the plane removed is not a surface one can point at
         const heartHit = [...meshByGroup.values()].includes(h.object as THREE.Mesh);
-        if (!heartHit || !st.ui.navCut) return true;
+        if (!heartHit || !navigatorLayers(st).cut) return true;
         return cutPlane.distanceToPoint(h.point) >= 0;
       });
       if (!hit) return;
@@ -616,7 +624,7 @@ export function TorsoView() {
       );
       const hit = raycaster
         .intersectObjects(opaque, false)
-        .find((h) => !st.ui.navCut || cutPlane.distanceToPoint(h.point) >= 0);
+        .find((h) => !navigatorLayers(st).cut || cutPlane.distanceToPoint(h.point) >= 0);
       const codes = hit ? lvSegmentsByGeom.get(lvMesh.geometry) : undefined;
       if (!hit || hit.object !== lvMesh || !hit.face || !codes) return hideTip();
       // the nearest vertex of the face that carries a segment (papillary vertices carry none)
@@ -668,6 +676,9 @@ export function TorsoView() {
         h = el.clientHeight || 300;
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
+      // a tall, narrow panel (the exam's rail, torso alone, decision 256) widens the vertical field so the chest keeps
+      // the width it has in a panel half as tall instead of filling the view with two ribs
+      camera.fov = narrowPanelFovDeg(camera.aspect);
       camera.updateProjectionMatrix();
       dirty = true;
     };
@@ -719,20 +730,26 @@ export function TorsoView() {
         beam.normal.y * beam.origin.y +
         beam.normal.z * beam.origin.z
       );
-      const clip = st.ui.navCut ? [cutPlane] : [];
+      // the saved layers, or in exam mode the skin and the ribs alone (decision 256)
+      const layers = navigatorLayers(st);
+      const anatomy = modePolicy(st.mode).navigatorAnatomy;
+      const clip = layers.cut ? [cutPlane] : [];
       for (const m of meshMaterials) m.clippingPlanes = clip;
       const vis: Record<string, boolean> = {
-        'lv-myocardium': st.ui.navHeart,
-        'rv-myocardium': st.ui.navHeart,
-        'lv-cavity': st.ui.navChambers,
-        'rv-cavity': st.ui.navChambers,
-        atria: st.ui.navChambers,
-        valves: st.ui.navValves,
-        'great-vessels': st.ui.navVessels,
+        'lv-myocardium': layers.heart,
+        'rv-myocardium': layers.heart,
+        'lv-cavity': layers.chambers,
+        'rv-cavity': layers.chambers,
+        atria: layers.chambers,
+        valves: layers.valves,
+        'great-vessels': layers.vessels,
       };
-      for (const [id, mesh] of meshByGroup) mesh.visible = vis[id] ?? true;
+      // a group without a layer of its own shows with the anatomy, never in the exam
+      for (const [id, mesh] of meshByGroup) mesh.visible = vis[id] ?? anatomy;
+      // the schematic heart stands in until the surfaces arrive, and only where the heart may be seen
+      if (ghost) ghost.visible = anatomy && phasesReady === 0;
       for (const [id, c] of capByGroup) {
-        const v = (vis[id] ?? true) && st.ui.navCut;
+        const v = (vis[id] ?? anatomy) && layers.cut;
         c.stencil.visible = v;
         c.cap.visible = v;
         {
@@ -776,14 +793,14 @@ export function TorsoView() {
           segmentKeyShown = segKey;
         }
       }
-      axisGroup.visible = st.ui.navAxes;
+      axisGroup.visible = layers.axes;
       if (st.reviewMarkers !== reviewShown || st.reviewSelectedId !== reviewSelectedShown) {
         rebuildReviewMarkers(st.reviewMarkers, st.reviewSelectedId);
         reviewShown = st.reviewMarkers;
         reviewSelectedShown = st.reviewSelectedId;
       }
       reviewGroup.visible = st.ui.reviewMode;
-      if (st.ui.navAxes) {
+      if (layers.axes) {
         const o = new THREE.Vector3(beam.origin.x, beam.origin.y, beam.origin.z);
         const set = (
           line: THREE.Line,
@@ -797,14 +814,27 @@ export function TorsoView() {
         set(elevAxis, beam.normal, 4);
         set(latAxis, beam.lateral, 4);
       }
-      if (skeleton) skeleton.visible = st.ui.showSkeleton;
-      if (windowMarks) windowMarks.visible = st.ui.navWindows;
-      // the skin is a layer of its own: hiding the bones used to make it opaque, which hid the heart
+      if (skeleton) skeleton.visible = layers.skeleton;
+      if (windowMarks) windowMarks.visible = layers.windows;
+      // the skin is a layer of its own: hiding the bones used to make it opaque, which hid the heart; in the exam the
+      // ribs are the landmark, so the skin stays as translucent as over the heart (decision 256)
       if (skin) {
-        skin.visible = st.ui.navSkin;
+        skin.visible = layers.skin;
         (skin.material as THREE.MeshStandardMaterial).opacity =
-          st.ui.navHeart || st.ui.navChambers || st.ui.navVessels ? 0.32 : 0.85;
+          !anatomy || layers.heart || layers.chambers || layers.vessels ? 0.32 : 0.85;
       }
+      // what the frame draws, read from the objects themselves, for the E2E check of the exam (decision 256)
+      const drawn = [
+        skin?.visible && 'skin',
+        skeleton?.visible && 'skeleton',
+        [...meshByGroup.values()].some((m) => m.visible) && 'heart',
+        ghost?.visible && 'ghost',
+        windowMarks?.visible && 'windows',
+        axisGroup.visible && 'axes',
+      ]
+        .filter(Boolean)
+        .join(' ');
+      if (el.dataset['drawn'] !== drawn) el.dataset['drawn'] = drawn;
       renderer.render(scene, camera);
       lastCostMs = performance.now() - now;
     };
@@ -879,11 +909,18 @@ export function TorsoView() {
           >
             <IconCrosshair size={12} />
           </button>
-          <LayerMenu />
+          {/* in exam mode the layers are fixed to the skin and the ribs (decision 256) */}
+          {anatomy && <LayerMenu />}
         </div>
       </div>
     </div>
   );
+}
+
+/** Vertical field of view of the navigator: 35°, widened below an aspect of 0.5 to keep the horizontal field. */
+export function narrowPanelFovDeg(aspect: number): number {
+  const half = (35 / 2) * (Math.PI / 180);
+  return (2 * Math.atan(Math.tan(half) * Math.max(1, 0.5 / aspect)) * 180) / Math.PI;
 }
 
 /**

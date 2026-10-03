@@ -122,9 +122,10 @@ export function App() {
     }
   }, [spectral.audioOn, spectral.volume, modality]);
 
-  // Clean interface: the whole left rail hides (exam mode forces it on).
-  const minimal = ui.minimal || mode === 'exam';
-  const railVisible = ui.showTorso && !minimal;
+  // Clean interface: the whole left rail hides. The exam keeps it, with a torso of skin and ribs and no guide
+  // (decision 256): where the probe sits on the chest is the learner's own reference, not a hint.
+  const railVisible = ui.showTorso && !ui.minimal;
+  const hints = modePolicy(mode).hintsEnabled;
   return (
     <div
       className={`app ${railVisible ? '' : 'no-torso'} ${railVisible && ui.railMini ? 'rail-mini' : ''}${ui.roomMode ? ' room' : ''}`}
@@ -190,7 +191,7 @@ export function App() {
                 </ErrorBoundary>
               )}
               {/* LV segments of the plane (decision 152): a learning aid, hidden like the guide until asked for */}
-              {railVisible && modePolicy(mode).hintsEnabled && (
+              {railVisible && hints && (
                 <button
                   className="rail-head"
                   onClick={() => useSimStore.getState().setUi({ segmentsOpen: !ui.segmentsOpen })}
@@ -211,7 +212,7 @@ export function App() {
               )}
               {/* the view guide stays hidden until asked for: the learner reads the image first (decision 141); it
                   sits at the rail's bottom edge, in a smaller header (decision 242) */}
-              {railVisible && (
+              {railVisible && hints && (
                 <button
                   className="rail-head guide-head"
                   onClick={() => useSimStore.getState().setUi({ guidanceOpen: !ui.guidanceOpen })}
@@ -226,7 +227,7 @@ export function App() {
                   <RailScore />
                 </button>
               )}
-              {railVisible && ui.guidanceOpen && (
+              {railVisible && hints && ui.guidanceOpen && (
                 <div id="view-guidance">
                   <GuidancePanel />
                 </div>
@@ -235,9 +236,9 @@ export function App() {
             {ui.railMini && <RailMini />}
           </div>
           <div className="center">
-            {/* the clean interface hides the rail (always in exam mode): the exam notice moves here so it is
-                never silently lost — the E2E flow caught it hidden after commit 93d30b0 */}
-            {minimal && mode === 'exam' && <ExamNotice />}
+            {/* the exam notice sits over the image, where it is never silently lost — the E2E flow caught it hidden
+                in the rail after commit 93d30b0; the rail keeps no guide in the exam (decision 256) */}
+            {mode === 'exam' && <ExamNotice />}
             {error && (
               <div className="error" role="alert">
                 {firstLine(error)}

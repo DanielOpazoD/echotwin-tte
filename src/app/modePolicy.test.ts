@@ -9,6 +9,7 @@ const ALL_ON: ModePolicy = {
   evaluateCurriculum: true,
   devToolsAllowed: true,
   freeMeasurementsScored: true,
+  navigatorAnatomy: true,
 };
 
 const EXPECTED: Record<ProductMode, ModePolicy> = {
@@ -24,6 +25,8 @@ const EXPECTED: Record<ProductMode, ModePolicy> = {
     devToolsAllowed: false,
     // a free caliper matched to the closest true value would let a random volley score full marks (decision 235)
     freeMeasurementsScored: false,
+    // the torso stays with its skin and ribs; the heart cut by the plane would name the view (decision 256)
+    navigatorAnatomy: false,
   },
 };
 

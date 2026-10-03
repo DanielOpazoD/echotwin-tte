@@ -89,10 +89,10 @@ export function ModeBar() {
         onClick={() => s.setUi({ showTorso: !s.ui.showTorso })}
         className={`icon-btn${s.ui.showTorso ? ' active' : ''}`}
         aria-label="Torso 3D"
-        data-tip={s.ui.minimal || s.mode === 'exam' ? undefined : 'Mostrar u ocultar el torso 3D'}
-        data-tip-key={s.ui.minimal || s.mode === 'exam' ? undefined : 'H'}
+        data-tip={s.ui.minimal ? undefined : 'Mostrar u ocultar el torso 3D'}
+        data-tip-key={s.ui.minimal ? undefined : 'H'}
         aria-pressed={s.ui.showTorso}
-        disabled={s.ui.minimal || s.mode === 'exam'}
+        disabled={s.ui.minimal}
       >
         <IconTorso />
       </button>
@@ -203,9 +203,8 @@ function OverflowMenu() {
           />
           <CheckItem
             label="Interfaz limpia"
-            checked={s.ui.minimal || s.mode === 'exam'}
+            checked={s.ui.minimal}
             onToggle={() => s.setUi({ minimal: !s.ui.minimal })}
-            disabled={s.mode === 'exam'}
             hint="Solo imagen y consola — oculta el rail izquierdo"
           />
           <CheckItem
