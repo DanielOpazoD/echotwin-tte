@@ -18,7 +18,7 @@ import { allocPolarFrame, CALIBRATED_TIER, DEFAULT_ACQUISITION, polarSpecFor } f
  * the strongest at the transducer face against the skin (R ≈ 0.2–0.3), so it loses some R² ≈ 0.06 per wall thickness
  * (~2 cm): an e-fold of about 0.7 cm. With the inherited 1.8 cm the reverberation filled the right ventricle of the
  * parasternal views, 2–5 cm deep, and its blood read 24–45 grey above the left ventricle's in the long axis and the
- * papillary short axis (33 of 48 frames more than 15 above; 10 with the 0.8 cm decay, declared below). The same blood at similar depths should differ by little
+ * papillary short axis (33 of 48 frames more than 15 above; 10 with the 0.8 cm decay, 9 since the brighter papillary muscles of decision 265, declared below). The same blood at similar depths should differ by little
  * more than the haze between them: at most a quarter of the cavity–myocardium contrast (~60), 15 grey.
  *
  * Declared (baseline in grey above the left ventricle): the small cavities beside thick or bright walls, where the haze
@@ -36,7 +36,6 @@ const KNOWN_RV_EXCESS: ReadonlyMap<string, number> = new Map([
   ['hocm-sam plax @0', 25],
   ['hocm-sam plax @0.35', 17],
   ['hocm-sam psax-pm @0', 19],
-  ['hocm-sam psax-pm @0.35', 15.3],
   ['artifact-challenge plax @0.35', 17],
 ]);
 

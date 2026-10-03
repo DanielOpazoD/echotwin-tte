@@ -47,6 +47,15 @@ export function myoHelixGain(dphi: number, dz: number, u: number): number {
   const c = Math.cos(alpha) * dphi + Math.sin(alpha) * dz;
   return MYO_ANISO_FLOOR + (1 - MYO_ANISO_FLOOR) * (1 - c * c);
 }
+/**
+ * Angular gain of a papillary muscle (decision 265): its fibres run along the muscle, from the ventricular wall to the
+ * chordae, roughly along the long axis (heart-frame z), so `dz` (the beam's component along it) sets the response —
+ * across the fibres in the short axes, along them from the apex. Until then the muscles took the surface-normal
+ * response of tissue without a known fibre direction.
+ */
+export function papillaryFibreGain(dz: number): number {
+  return MYO_ANISO_FLOOR + (1 - MYO_ANISO_FLOOR) * (1 - dz * dz);
+}
 /** Backscatter heterogeneity: spatial frequency (cycles/cm) and peak-to-peak depth (dB) per tissue. */
 export const HETERO_FREQ = 1.6;
 export const HETERO_DB_MYO = 6;

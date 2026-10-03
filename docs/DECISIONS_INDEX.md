@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 264 (última: 264).
+Decisiones: 265 (última: 265).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -272,3 +272,4 @@ Decisiones: 264 (última: 264).
 | [262](DECISIONS.md#L1483) | 2026-09-25 | La cara diafragmática del VI se apoya en el diafragma | vigente |
 | [263](DECISIONS.md#L1485) | 2026-09-25 | La reverberación no se refuerza tras la sangre ni el líquido, y el derrame dispersa 30 dB menos que la sangre | vigente |
 | [264](DECISIONS.md#L1487) | 2026-09-25 | La reverberación de la pared se apaga en el primer centímetro | vigente |
+| [265](DECISIONS.md#L1489) | 2026-09-25 | Los músculos papilares dispersan a través de sus fibras | vigente |
