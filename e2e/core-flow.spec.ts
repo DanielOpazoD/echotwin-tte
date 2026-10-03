@@ -160,8 +160,14 @@ test.describe('EchoTwin TTE core flow', () => {
   });
 
   test('exam mode hides hints, physics and dev panel', async ({ page }) => {
+    // the torso draws the heart in practice and only the skin and the ribs in the exam (decision 256)
+    const torso = page.locator('.torso-3d');
+    await expect(torso).toHaveAttribute('data-drawn', /heart|ghost/, { timeout: 30_000 });
     await page.getByRole('combobox', { name: 'Modo del producto' }).selectOption('exam');
     await expect(page.getByText('Modo examen: sin ayudas', { exact: false })).toBeVisible();
+    await expect(torso).toBeVisible();
+    await expect(torso).toHaveAttribute('data-drawn', 'skin skeleton');
+    await expect(page.getByRole('button', { name: 'Capas del navegador 3D' })).toHaveCount(0);
     // the image does not name the view the learner has to recognise (decision 154)
     await expect(page.locator('.img-hud')).not.toContainText('Vista');
     await expect(page.getByRole('button', { name: /Segmentos VI/ })).toHaveCount(0);

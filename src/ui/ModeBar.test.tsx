@@ -104,14 +104,14 @@ describe('ModeBar clean interface', () => {
     expect(screen.getByRole('button', { name: 'Torso 3D' })).toHaveProperty('disabled', true);
   });
 
-  it('forces clean interface on in exam mode (toggle locked on)', () => {
+  it("the exam keeps the rail: the clean interface and the torso stay the learner's choice (decision 256)", () => {
     useSimStore.setState({ mode: 'exam' });
     render(<ModeBar />);
     openMenu();
     const item = screen.getByRole('menuitemcheckbox', { name: 'Interfaz limpia' });
-    expect(item).toHaveProperty('disabled', true);
-    expect(item.getAttribute('aria-checked')).toBe('true');
-    expect(screen.getByRole('button', { name: 'Torso 3D' })).toHaveProperty('disabled', true);
+    expect(item).toHaveProperty('disabled', false);
+    expect(item.getAttribute('aria-checked')).toBe('false');
+    expect(screen.getByRole('button', { name: 'Torso 3D' })).toHaveProperty('disabled', false);
   });
 });
 

@@ -252,6 +252,47 @@ export function segmentLayerOn(s: Pick<SimStore, 'mode' | 'ui'>): boolean {
   return s.ui.navSegments && modePolicy(s.mode).hintsEnabled;
 }
 
+/** The layers the 3D navigator draws: the saved ones, or in exam mode only the skin and the ribs (decision 256). */
+export interface NavigatorLayers {
+  skin: boolean;
+  skeleton: boolean;
+  heart: boolean;
+  chambers: boolean;
+  valves: boolean;
+  vessels: boolean;
+  cut: boolean;
+  split: boolean;
+  windows: boolean;
+  axes: boolean;
+}
+export function navigatorLayers(s: Pick<SimStore, 'mode' | 'ui'>): NavigatorLayers {
+  if (!modePolicy(s.mode).navigatorAnatomy)
+    return {
+      skin: true,
+      skeleton: true,
+      heart: false,
+      chambers: false,
+      valves: false,
+      vessels: false,
+      cut: false,
+      split: false,
+      windows: false,
+      axes: false,
+    };
+  return {
+    skin: s.ui.navSkin,
+    skeleton: s.ui.showSkeleton,
+    heart: s.ui.navHeart,
+    chambers: s.ui.navChambers,
+    valves: s.ui.navValves,
+    vessels: s.ui.navVessels,
+    cut: s.ui.navCut,
+    split: s.ui.navSplit,
+    windows: s.ui.navWindows,
+    axes: s.ui.navAxes,
+  };
+}
+
 /** The segment layer of the ultrasound image (decision 153), off in exam mode like the others. */
 export function imageSegmentsOn(s: Pick<SimStore, 'mode' | 'ui'>): boolean {
   return s.ui.imageSegments && modePolicy(s.mode).hintsEnabled;
