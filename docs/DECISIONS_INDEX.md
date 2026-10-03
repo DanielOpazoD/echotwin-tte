@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 268 (última: 268).
+Decisiones: 269 (última: 269).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -276,3 +276,4 @@ Decisiones: 268 (última: 268).
 | [266](DECISIONS.md#L1491) | 2026-09-25 | Las valvas calcificadas reflejan más que las sanas | vigente |
 | [267](DECISIONS.md#L1493) | 2026-09-25 | El miocardio de la miocardiopatía hipertrófica dispersa más que el normal | vigente |
 | [268](DECISIONS.md#L1495) | 2026-09-25 | El movimiento sistólico anterior llega al septo | vigente |
+| [269](DECISIONS.md#L1497) | 2026-09-25 | El ventrículo derecho del taponamiento se colapsa en la protodiástole | vigente |
