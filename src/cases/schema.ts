@@ -36,6 +36,12 @@ export const LvAnatomySchema = z.object({
   lvpwdCm: z.number().min(0.4).max(3),
   sphericity: unit01.default(0.55), // 0 bullet-shaped, 1 spherical
   apexWallThicknessCm: z.number().min(0.3).max(2).default(0.7),
+  /**
+   * Calibrated integrated backscatter of the LV myocardium above a normal one (dB, decision 267): myocyte disarray and
+   * interstitial fibrosis raise it in hypertrophic cardiomyopathy (septum −23.9 against −30 dB, posterior wall −24.6
+   * against −32), while hypertensive hypertrophy keeps a normal reflectivity.
+   */
+  myocardialBackscatterDb: z.number().min(0).max(12).default(0),
 });
 
 export const AnatomySchema = z.object({

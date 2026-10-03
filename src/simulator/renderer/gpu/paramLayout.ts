@@ -72,6 +72,7 @@ const SCALARS = [
   'LV_IVSD',
   'LV_LVPWD',
   'APEX_T',
+  'MYO_IB',
   'LVOT_D',
   'ZANN',
   'LV_RMAX',
@@ -387,6 +388,8 @@ export function packScene(
   set('LV_IVSD', lv.ivsd);
   set('LV_LVPWD', lv.lvpwd);
   set('APEX_T', heart.anatomy.lv.apexWallThicknessCm);
+  // the myocardium's backscatter over normal, as an amplitude (decision 267)
+  set('MYO_IB', Math.pow(10, heart.anatomy.lv.myocardialBackscatterDb / 20));
   set('LVOT_D', heart.anatomy.aorta.lvotDiameterCm);
   set('ZANN', hp.zAnn);
   set('LV_RMAX', hp.rMax);

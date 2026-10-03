@@ -24,6 +24,8 @@ export const hocmSamCase: CaseDefinitionInput = {
       lvpwdCm: 1.1,
       sphericity: 0.45,
       apexWallThicknessCm: 0.9,
+      // disarray and fibrosis: calibrated backscatter some 6 dB over normal myocardium (decision 267)
+      myocardialBackscatterDb: 6,
     },
     la: { apDiameterCm: 4.3, volumeMl: 74 },
     aorta: { lvotDiameterCm: 2.0, annulusCm: 2.3, sinusCm: 3.2, ascendingCm: 3.0 },
