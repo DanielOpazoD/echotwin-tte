@@ -93,7 +93,8 @@ export function App() {
               harmonics: st.settings.harmonics,
             },
           };
-          const done = evaluateTasks(snapshot).filter((id) => !st.progress.completedTasks[id]);
+          // a task completes only after the ones it builds on (decision 260)
+          const done = evaluateTasks(snapshot, st.progress.completedTasks);
           if (done.length) st.completeTasks(done);
         }
       }

@@ -136,7 +136,8 @@ La referencia son 505 secuencias apicales de calidad Good de CAMUS (Leclerc et a
 - Los valores de referencia están marcados `recalled`; los cortes de e′ son los de 2016 (ver `docs/REFERENCES.md`). No hay graduación diastólica ni del corazón derecho; la graduación de EA de `report.ts` lee `AORTIC_STENOSIS_RULES` de `reference-values` (valores marcados `recalled`).
 
 ## Capa instruccional
-- Las tareas del currículo se verifican con criterios automáticos gruesos (scores, modalidad, estructura del gate, técnica ≥ 0,75, impresión ≥ 70): no evalúan el proceso (tiempo, número de intentos) ni detectan atajos como usar la vista predeterminada; los módulos no tienen prerrequisitos obligatorios.
+- Las tareas del currículo se verifican con criterios automáticos gruesos (scores, modalidad, estructura del gate, técnica ≥ 0,75, impresión ≥ 70): no evalúan el proceso (tiempo, número de intentos) ni detectan atajos como usar la vista predeterminada; los prerrequisitos (decisión 260) ordenan las tareas una a una, no los módulos, y una tarea bloqueada se puede practicar aunque no se complete.
+- La IM se gradúa, no se cuantifica: el simulador no tiene vena contracta, PISA, orificio regurgitante ni volumen regurgitante, así que la tarea «Graduar la IM del prolapso» pide el volumen de la AI biplano y la impresión (que integra el grado de la IM), no una medida de la regurgitación.
 - La impresión es un catálogo cerrado de 29 hallazgos: no admite texto libre ni matices (grados intermedios, mecanismos); los umbrales de derivación son los mismos de las guías usadas en la app y no cubren todas las situaciones (p. ej. disfunción diastólica con FA se marca por E/e′ y AI).
 - La analítica es local (localStorage, máx. 2000 eventos) y se pierde al borrar el sitio; la exportación es manual. No hay perfiles de alumno ni sincronización.
 
