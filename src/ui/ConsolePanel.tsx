@@ -8,6 +8,7 @@ import { VIEW_TARGETS } from '@/simulator/windows/viewDefinitions';
 import { MEASUREMENT_SPECS } from '@/simulator/measurements/protocol';
 import { listCases } from '@/cases';
 import { PresetViews } from './PresetViews';
+import { CaseCard } from './CaseCard';
 import { MeasurementPanel } from './MeasurementPanel';
 import { ArtifactLab } from './ArtifactLab';
 import { formatMHz } from './format';
@@ -261,6 +262,7 @@ function AcquireTab() {
             )}
           </select>
         </div>
+        <CaseCard />
         <div className="row">
           <label>Posición</label>
           <select

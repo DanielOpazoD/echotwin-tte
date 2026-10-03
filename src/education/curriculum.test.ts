@@ -12,6 +12,7 @@ import {
 } from './progress';
 import { DOPPLER_CAUSES, explainAnalysis } from './causes';
 import { CASE_INPUTS } from '@/cases';
+import { VIEW_TARGETS } from '@/simulator/windows/viewDefinitions';
 import type { ViewAnalysis } from '@/simulator/view-recognition/viewQuality';
 import { DEFAULT_ACQUISITION } from '@/simulator/renderer/types';
 import type { Measurement } from '@/simulator/measurements/types';
@@ -91,6 +92,24 @@ describe('curriculum', () => {
       if (t.caseId) expect(ids.has(t.caseId), t.caseId).toBe(true);
     }
     expect(CURRICULUM.length).toBe(5);
+  });
+  it('names the view each task is worked in, and a view task cannot pass without its view (decision 248)', () => {
+    const views = new Set(VIEW_TARGETS.map((v) => v.id));
+    const all = Object.fromEntries(VIEW_TARGETS.map((v) => [v.id, 100]));
+    for (const t of allTasks()) {
+      if (t.viewId) expect(views.has(t.viewId), `${t.id}: ${t.viewId}`).toBe(true);
+      const caseId = t.caseId ?? 'normal-excellent-window';
+      // a task the views alone complete is a view task: its own view must be one it cannot do without
+      if (!t.check(snap({ caseId, handViewProgress: all }))) continue;
+      expect(t.viewId, t.id).toBeDefined();
+      expect(t.check(snap({ caseId, handViewProgress: { ...all, [t.viewId!]: 0 } })), t.id).toBe(
+        false,
+      );
+    }
+    const measured = allTasks().filter(
+      (t) => !t.check(snap({ handViewProgress: all })) && t.viewId,
+    );
+    expect(measured.length, 'measurement and Doppler tasks have a view too').toBeGreaterThan(10);
   });
   it('checks pass only when the learner state meets the criterion', () => {
     expect(evaluateTasks(snap())).toEqual([]);

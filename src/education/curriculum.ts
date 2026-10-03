@@ -28,6 +28,8 @@ export interface Task {
   title: string;
   why: string;
   caseId?: string;
+  /** The view the task is worked in: «Abrir tarea» sets it as the target view of the guided mode. */
+  viewId?: string;
   check: (s: LearnerSnapshot) => boolean;
 }
 
@@ -86,6 +88,7 @@ export const CURRICULUM: Module[] = [
             title: 'PLAX con score ≥ 70 (caso normal)',
             why: 'El eje largo es la referencia de todas las medidas lineales del VI y de la raíz aórtica; un plano oblicuo las sobreestima.',
             caseId: 'normal-excellent-window',
+            viewId: 'plax',
             check: viewAtLeast('plax', 70),
           },
           {
@@ -93,6 +96,7 @@ export const CURRICULUM: Module[] = [
             title: 'PSAX nivel mitral ≥ 60',
             why: 'Al rotar 90° sin desplazar la sonda se comprueba que el plano gira alrededor del mismo eje del haz.',
             caseId: 'normal-excellent-window',
+            viewId: 'psax-mv',
             check: viewAtLeast('psax-mv', 60),
           },
           {
@@ -100,6 +104,7 @@ export const CURRICULUM: Module[] = [
             title: 'PSAX nivel papilar ≥ 60',
             why: 'Es el nivel donde se evalúan los 6 segmentos medios y la simetría del VI (circular = plano perpendicular).',
             caseId: 'normal-excellent-window',
+            viewId: 'psax-pm',
             check: viewAtLeast('psax-pm', 60),
           },
           {
@@ -107,6 +112,7 @@ export const CURRICULUM: Module[] = [
             title: 'PSAX nivel aórtico ≥ 55',
             why: 'Angular hacia la base muestra la válvula aórtica «de frente»: su eje está 30° inclinado respecto del VI.',
             caseId: 'normal-excellent-window',
+            viewId: 'psax-av',
             check: viewAtLeast('psax-av', 55),
           },
         ],
@@ -121,6 +127,7 @@ export const CURRICULUM: Module[] = [
             title: 'A4C con score ≥ 70',
             why: 'El acortamiento apical es el error más frecuente: Simpson subestima volúmenes y la FE parece mejor.',
             caseId: 'normal-excellent-window',
+            viewId: 'a4c',
             check: viewAtLeast('a4c', 70),
           },
           {
@@ -128,6 +135,7 @@ export const CURRICULUM: Module[] = [
             title: 'A2C ≥ 55 rotando ~60° antihorario',
             why: 'Con 60° el VD desaparece y quedan las paredes anterior e inferior: la rotación correcta es geométrica, no estética.',
             caseId: 'normal-excellent-window',
+            viewId: 'a2c',
             check: viewAtLeast('a2c', 55),
           },
           {
@@ -135,6 +143,7 @@ export const CURRICULUM: Module[] = [
             title: 'A5C ≥ 60 angulando anterior',
             why: 'Abrir el TSVI desde el ápex es la única forma de alinear el Doppler con el flujo aórtico.',
             caseId: 'normal-excellent-window',
+            viewId: 'a5c',
             check: viewAtLeast('a5c', 60),
           },
           {
@@ -142,6 +151,7 @@ export const CURRICULUM: Module[] = [
             title: 'A3C ≥ 60 rotando ~60° más desde el A2C',
             why: 'El eje largo apical muestra el TSVI, la raíz y las paredes anteroseptal e inferolateral: completa los segmentos que el A4C y el A2C no ven.',
             caseId: 'normal-excellent-window',
+            viewId: 'a3c',
             check: viewAtLeast('a3c', 60),
           },
           {
@@ -149,6 +159,7 @@ export const CURRICULUM: Module[] = [
             title: 'Los tres apicales (A4C, A2C y A3C) ≥ 60',
             why: 'Juntos cubren los 17 segmentos del VI; una pared que no se ve en ninguno queda sin evaluar.',
             caseId: 'normal-excellent-window',
+            viewId: 'a4c',
             check: (s) => ['a4c', 'a2c', 'a3c'].every((v) => viewAtLeast(v, 60)(s)),
           },
           {
@@ -156,6 +167,7 @@ export const CURRICULUM: Module[] = [
             title: 'Apical enfocada en VD ≥ 55',
             why: 'Desplazar la sonda hacia lateral centra el VD: su diámetro basal y su pared libre sólo se miden bien aquí.',
             caseId: 'normal-excellent-window',
+            viewId: 'rv-focused',
             check: viewAtLeast('rv-focused', 55),
           },
         ],
@@ -170,6 +182,7 @@ export const CURRICULUM: Module[] = [
             title: 'Subcostal cuatro cámaras ≥ 60',
             why: 'Es la ventana de rescate cuando el tórax no deja ver, y la que pone el septo interauricular perpendicular al haz.',
             caseId: 'normal-excellent-window',
+            viewId: 'subcostal-4c',
             check: viewAtLeast('subcostal-4c', 60),
           },
           {
@@ -177,6 +190,7 @@ export const CURRICULUM: Module[] = [
             title: 'Vena cava inferior en su eje largo ≥ 60',
             why: 'Su calibre y su colapso inspiratorio estiman la presión de la aurícula derecha.',
             caseId: 'normal-excellent-window',
+            viewId: 'subcostal-ivc',
             check: viewAtLeast('subcostal-ivc', 60),
           },
         ],
@@ -197,6 +211,7 @@ export const CURRICULUM: Module[] = [
             title: 'PLAX ≥ 55 en ventana difícil',
             why: 'La estrategia es posicional (espacio intercostal, espiración, presión, armónicos), no subir la ganancia.',
             caseId: 'normal-difficult-window',
+            viewId: 'plax',
             check: (s) => s.caseId === 'normal-difficult-window' && viewAtLeast('plax', 55)(s),
           },
           {
@@ -204,6 +219,7 @@ export const CURRICULUM: Module[] = [
             title: 'A4C ≥ 55 en ventana difícil',
             why: 'El pulmón interpuesto se esquiva deslizando medial y pidiendo espiración; la ganancia no atraviesa el aire.',
             caseId: 'normal-difficult-window',
+            viewId: 'a4c',
             check: (s) => s.caseId === 'normal-difficult-window' && viewAtLeast('a4c', 55)(s),
           },
         ],
@@ -218,6 +234,7 @@ export const CURRICULUM: Module[] = [
             title: 'PLAX ≥ 50 en el caso de artefactos',
             why: 'Cada artefacto tiene una causa física y un remedio; identificarlos evita medir sobre ecos falsos.',
             caseId: 'artifact-challenge',
+            viewId: 'plax',
             check: (s) => s.caseId === 'artifact-challenge' && viewAtLeast('plax', 50)(s),
           },
         ],
@@ -237,12 +254,14 @@ export const CURRICULUM: Module[] = [
             id: 'colour-low-scale',
             title: 'Color activo con escala ≤ 0,35 m/s (aliasing visible)',
             why: 'Con PRF baja el flujo normal supera Nyquist y se pliega: el mosaico no es turbulencia.',
+            viewId: 'a4c',
             check: (s) => s.modality === 'color' && s.colorScaleMps <= 0.35,
           },
           {
             id: 'colour-normal-scale',
             title: 'Color con escala ≥ 0,55 m/s y ganancia ≤ 3 dB',
             why: 'La escala fisiológica y la ganancia justa muestran el flujo sin plegado ni rebose sobre el tejido.',
+            viewId: 'a4c',
             check: (s) => s.modality === 'color' && s.colorScaleMps >= 0.55 && s.colorGainDb <= 3,
           },
         ],
@@ -256,6 +275,7 @@ export const CURRICULUM: Module[] = [
             id: 'pw-lvot-aligned',
             title: 'PW con gate en el TSVI y ángulo ≤ 20°',
             why: 'El Doppler mide v·cos θ: la alineación se consigue con la ventana y la angulación, no con un botón.',
+            viewId: 'a5c',
             check: (s) =>
               s.modality === 'pw' &&
               s.gateStructure === 18 &&
@@ -266,6 +286,7 @@ export const CURRICULUM: Module[] = [
             id: 'lvot-vti-ok',
             title: 'VTI del TSVI con técnica ≥ 0,75',
             why: 'El VTI es la base del volumen sistólico y de la ecuación de continuidad; su técnica se evalúa por vista, gate y ángulo.',
+            viewId: 'a5c',
             check: measuredOk('lvot-vti'),
           },
         ],
@@ -285,12 +306,14 @@ export const CURRICULUM: Module[] = [
             id: 'lvot-diameter-ok',
             title: 'Diámetro del TSVI con técnica ≥ 0,75',
             why: 'Su error se eleva al cuadrado en el área: 1 mm de error son ~10 % del volumen sistólico.',
+            viewId: 'plax',
             check: measuredOk('lvot-diameter'),
           },
           {
             id: 'lv-edd-ok',
             title: 'DTDVI en telediástole con técnica ≥ 0,75',
             why: 'Medir en el cuadro equivocado (sístole) o sobre un plano oblicuo cambia el diámetro varios milímetros.',
+            viewId: 'plax',
             check: measuredOk('lv-edd'),
           },
         ],
@@ -304,42 +327,49 @@ export const CURRICULUM: Module[] = [
             id: 'simpson-edv',
             title: 'VTD por Simpson trazado en A4C',
             why: 'El trazado del endocardio y la longitud del eje largo determinan el volumen; el acortamiento lo subestima.',
+            viewId: 'a4c',
             check: measuredAny('lv-edv-simpson'),
           },
           {
             id: 'simpson-esv',
             title: 'VTS por Simpson en telesístole',
             why: 'La FE deriva de dos trazados: el cuadro telesistólico es el de cavidad mínima antes de abrirse la mitral.',
+            viewId: 'a4c',
             check: measuredAny('lv-esv-simpson'),
           },
           {
             id: 'simpson-biplane',
             title: 'VTD biplano: Simpson en A4C y en A2C con técnica ≥ 0,75',
             why: 'Un solo plano supone un VI circular en su eje corto; el segundo plano, a 60°, corrige esa forma y es el método recomendado.',
+            viewId: 'a4c',
             check: measuredBiplane('lv-edv-simpson'),
           },
           {
             id: 'la-volume-biplane',
             title: 'Volumen de la AI en A4C y A2C con técnica ≥ 0,75',
             why: 'El volumen indexado de la AI resume la presión de llenado crónica; una AI dilatada puede salirse del sector a 16 cm y hay que ganar profundidad.',
+            viewId: 'a4c',
             check: measuredBiplane('la-volume'),
           },
           {
             id: 'mitral-e-ok',
             title: 'Onda E con el gate en las puntas mitrales',
             why: 'Un gate en el anillo o en la aurícula cambia la forma y la velocidad de la onda E.',
+            viewId: 'a4c',
             check: measuredOk('mitral-e'),
           },
           {
             id: 'e-prime-septal-ok',
             title: 'e′ septal por Doppler tisular con técnica ≥ 0,75',
             why: 'La relajación del VI se lee en el anillo, no en la sangre: E/e′ estima la presión de llenado.',
+            viewId: 'a4c',
             check: measuredOk('e-prime-septal'),
           },
           {
             id: 'tapse-ok',
             title: 'TAPSE en modo M con técnica ≥ 0,75',
             why: 'El desplazamiento del anillo tricuspídeo hacia el ápex es la medida más reproducible de la función del VD.',
+            viewId: 'a4c',
             check: measuredOk('tapse'),
           },
         ],
