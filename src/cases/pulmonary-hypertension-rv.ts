@@ -90,11 +90,10 @@ export const pulmonaryHypertensionRvCase: CaseDefinitionInput = {
   ],
   impressionTruth: [
     'Ventrículo derecho severamente dilatado con hipertrofia de la pared libre y disfunción sistólica (TAPSE ≈ 1,3 cm, S′ ≈ 7 cm/s).',
-    'Septo interventricular aplanado en sístole (sobrecarga de presión); ventrículo izquierdo pequeño con llenado reducido.',
+    'Septo interventricular aplanado en sístole (sobrecarga de presión); diámetro basal del VI en el límite inferior de la normalidad.',
     'Insuficiencia tricuspídea moderada con PSVD estimada ≈ 72 mmHg; aurícula derecha dilatada y VCI dilatada con colapso reducido.',
   ],
   expectedDeviations: [
-    'lv-idd',
     'rv-edvi',
     // a right ventricle 4.9 cm wide at the base is dilated at mid-cavity and in absolute volume too (decision 138:
     // the inflow below the 4.4 cm annulus keeps its width over the leaflets)

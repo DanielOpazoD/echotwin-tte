@@ -21,8 +21,8 @@ const BUDGETS = [
   [/^TorsoView-.*\.js$/, 60 * KB],
   // Shared vascular network and PW/TDI IQ/FFT (decisions 283–284): 330.2 kB.
   // The total budget stays unchanged; the earlier mesh-worker deduplication saved ~115 kB.
-  // Decision 291: AP/volume normalization and shared ray angles add 1.7 kB (333.4 kB).
-  [/^sim\.worker-.*\.js$/, 334 * KB],
+  // Decisions 291–292: atrial normalization and septal-volume quadrature; 334.3 kB.
+  [/^sim\.worker-.*\.js$/, 335 * KB],
   // the WebGL2 port and its shaders: shared by the simulation worker and the lazy backend comparison. 119.7 kB at
   // decision 151; the LV segment code in GLSL and its read-back (decision 152) took it to 121.0 kB; the mirrors of the
   // right atrium beside the root and the membranous septum, the open venae cavae, the septal tricuspid hinge and the

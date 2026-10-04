@@ -18,7 +18,10 @@ import { v3 } from '@/core/vec3';
  * tamponade keeps its 1.88 cm because its effusion fills the wall whatever the heart does. Since decision 220 the right
  * ventricular free wall moves inward by the case's systolic function, so the systolic intrusion changed where that is far
  * from the old uniform value (hypertrophic cardiomyopathy 0.98 → 0.88 cm, pulmonary hypertension 0.49 → 0.59). Declared
- * with baselines (cm); a change beyond the tolerance fails in either direction.
+ * with baselines (cm); a change beyond the tolerance fails in either direction. Decision 292 restores the LV cavity
+ * volume lost to septal flattening. Its larger radius also expands the adjacent RV envelope: PH intrusion grows by
+ * 0.05/0.10 cm to 0.94/0.69 cm. This is an explicitly accepted placement debt, not a physical clearance or a widened
+ * tolerance; solving it requires a thoracic/pericardial placement model that also preserves apical access.
  */
 const KNOWN_INTRUSION_CM: Record<string, [number, number]> = {
   'normal-excellent-window': [0.83, 0.58],
@@ -29,7 +32,7 @@ const KNOWN_INTRUSION_CM: Record<string, [number, number]> = {
   'aortic-stenosis-severe': [1.28, 0.83],
   'hocm-sam': [1.23, 0.78],
   'mvp-primary-mr': [0.98, 0.78],
-  'pulmonary-hypertension-rv': [0.89, 0.59],
+  'pulmonary-hypertension-rv': [0.94, 0.69],
   'pericardial-effusion-tamponade': [1.88, 1.88],
   'af-diastolic': [0.55, 0.2],
   'artifact-challenge': [0.74, 0.54],

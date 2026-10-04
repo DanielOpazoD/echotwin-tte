@@ -23,22 +23,9 @@ const LA_TOL = 0.05;
 const LV_TOL = 0.05;
 const LV_TOL_ML = 4;
 
-/**
- * Deviations of a drawn heart from its declaration, each with its signed baseline (fraction) and the reason; a
- * declaration that holds no longer fails, and one that moves more than 0.02 from its baseline too.
- */
-const KNOWN_TRUTH_DEVIATIONS: ReadonlyMap<string, number> = new Map([
-  // (the LVOT of the HFrEF case, whose lumen the dilated base opened into the cavity, 2.5 cm against 2.1, measures 2.08
-  // since the neck of the ventricle narrows into the mitral annulus, decision 226)
-  // LA maximum is normalized to annular excursion; the HFrEF exception closed in decision 291.
-  // the pressure-overloaded RV flattens the septum into the LV (decision 32): the drawn cavity holds 7 mL less than the
-  // declared end-diastolic volume, which the case's hemodynamics keep
-  ['pulmonary-hypertension-rv:edv', -0.084],
-]);
-
 describe('the drawn heart matches the truth its measurements are scored against', () => {
-  it('LVOT diameter, LA maximal volume and LV volumes of every case', () => {
-    const out = { outside: [] as string[], stale: [] as string[], moved: [] as string[] };
+  it('LVOT, LA dimensions and volume, and LV volumes of every case', () => {
+    const outside: string[] = [];
     for (const input of CASE_INPUTS) {
       const c = loadCaseById(input.id);
       const m = measureModel(c, undefined, 60000);
@@ -55,19 +42,13 @@ describe('the drawn heart matches the truth its measurements are scored against'
         const key = `${c.id}:${what}`;
         const dev = drawn / truth - 1;
         const inside = Math.abs(dev) <= tol || Math.abs(drawn - truth) <= tolAbs;
-        const baseline = KNOWN_TRUTH_DEVIATIONS.get(key);
         const text = `${key} drawn ${drawn.toFixed(2)} against ${truth.toFixed(2)} (${(dev * 100).toFixed(1)} %)`;
-        if (!inside && baseline === undefined) out.outside.push(text);
-        if (inside && baseline !== undefined) out.stale.push(`${text} is within tolerance`);
-        if (!inside && baseline !== undefined && Math.abs(dev - baseline) > 0.02)
-          out.moved.push(`${text}: baseline ${(baseline * 100).toFixed(1)} %`);
+        if (!inside) outside.push(text);
       }
     }
-    expect(out, 'undeclared, stale and moved truth deviations').toEqual({
-      outside: [],
-      stale: [],
-      moved: [],
-    });
+    expect(outside, 'all declared left-heart dimensions and volumes meet their tolerances').toEqual(
+      [],
+    );
   });
 
   it('the right ventricle ejects what the left one sends forward (decision 220)', () => {
