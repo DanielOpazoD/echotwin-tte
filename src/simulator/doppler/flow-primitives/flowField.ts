@@ -408,9 +408,7 @@ export function buildFlowParams(
     turbulence[fp.site] = fp.turbulence;
     enabled[fp.site] = fp.enabled;
   }
-  const tr = c.hemodynamics.trPresent
-    ? Math.sqrt(Math.max(0, (c.hemodynamics.paspMmHg - c.hemodynamics.rapMmHg) / 4))
-    : null;
+  const tr = c.hemodynamics.trPresent ? tables.regurgitation.trVmaxMps : null;
   return {
     heart,
     thorax,
@@ -452,9 +450,6 @@ export function buildFlowParams(
     ),
   };
 }
-
-const SYSTOLE_SHAPE = (u: number): number =>
-  u <= 0 || u >= 1 ? 0 : Math.pow(Math.sin(Math.PI * u), 0.8);
 
 /** Sample the flow field at heart-frame point (x,y,z) for the given phase. */
 export function sampleFlow(
@@ -670,11 +665,8 @@ export function sampleFlow(
   }
   // ---- TR jet (systole): from the tricuspid coaptation into the RA, narrow, high velocity ----
   if (p.enabled['tr-jet'] !== false && p.trVmaxMps) {
-    const tm = tables.timings;
-    const t = phase * tables.rrS;
-    const u = (t - tm.ejectionStartS + 0.02) / (tm.ejectionEndS - tm.ejectionStartS + 0.04);
-    const s = SYSTOLE_SHAPE(u);
-    if (s > 0.02) {
+    const vmax = sampleTable(tables.trVelocityMps, phase);
+    if (vmax > 0.02 * p.trVmaxMps) {
       const ox = p.tvCenter.x,
         oy = p.tvCenter.y,
         oz = p.tvCenter.z + hp.tvZ + 0.3; // coaptation just apical of the annulus
@@ -685,7 +677,6 @@ export function sampleFlow(
       if (dzj > -1.4 && dzj < 4.5) {
         const r0 = p.trEroCm2 ? Math.sqrt(p.trEroCm2 / Math.PI) * 1.1 : 0.25;
         const Rj = r0 + Math.max(0, dzj) * 0.28; // jet spreading
-        const vmax = p.trVmaxMps * s;
         // ½ velocity where the old profile had it; the jet fades out over its last centimetre
         const rHalf = 0.84 * Rj;
         if (dzj >= 0 && rho < jetReach(rHalf, dzj, FAST_JET_SHEAR)) {

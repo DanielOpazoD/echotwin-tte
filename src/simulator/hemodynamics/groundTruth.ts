@@ -71,7 +71,13 @@ export interface StructuredEchoTruth {
       vmaxMps: number;
       phtMs: number;
     } | null;
-    tr: { eroaCm2: number } | null;
+    tr: {
+      eroaCm2: number;
+      /** Optional for compatibility with archived reports predating the right-heart ledger. */
+      regurgitantVolumeMl?: number;
+      vtiCm?: number;
+      vmaxMps?: number;
+    } | null;
   };
   wallMotion: {
     /** 16-segment ids the case scores 2 or worse (its declared scores, never the simulation amplitude). */
@@ -258,7 +264,12 @@ export function computeGroundTruth(c: CaseDefinition, tables?: BeatTables): Stru
             }
           : null,
       tr: c.hemodynamics.regurgitation.tr
-        ? { eroaCm2: c.hemodynamics.regurgitation.tr.eroaCm2 }
+        ? {
+            eroaCm2: c.hemodynamics.regurgitation.tr.eroaCm2,
+            regurgitantVolumeMl: rg.trVolumeMl,
+            vtiCm: rg.trVtiCm,
+            vmaxMps: rg.trVmaxMps,
+          }
         : null,
     },
     pulmonaryVein: { ...pvPeaks, sdRatio: pvPeaks.dMps > 0 ? pvPeaks.sMps / pvPeaks.dMps : 0 },

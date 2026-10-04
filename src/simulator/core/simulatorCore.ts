@@ -284,8 +284,11 @@ export class SimulatorCore {
       outflow: caseOutflow(this.caseDef),
       chain: {
         ejectMl,
-        rvEjectMl: breathing ? (first ? svNominal : clampSv(prev.tricuspidFillMl)) : undefined,
+        rvEjectMl: first
+          ? this.nominalTables.pulmonaryStrokeVolumeMl
+          : clampSv(prev.tricuspidFillMl - prev.regurgitation.trVolumeMl),
         mvAreaCm2: this.nominalTables.mvEffectiveAreaCm2,
+        tvAreaCm2: this.nominalTables.tvEffectiveAreaCm2,
         previousRrS: c.previousRrS,
         startLongitudinal: first ? 0 : prev.endLongitudinal,
         startRvLongitudinal: first ? 0 : prev.endRvLongitudinal,

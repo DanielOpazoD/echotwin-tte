@@ -1,4 +1,5 @@
 import type { PhysiologyConfig, RhythmConfig, HemodynamicConfig } from '@/cases/schema';
+import { tricuspidRegurgitation } from './rightHeartFlow';
 import { lvotNarrowing, solveLvotObstruction } from './outflow';
 import {
   computeCycleTimings,
@@ -28,10 +29,18 @@ export interface BeatTables {
   /** Acceleration time (s) of the right ventricular ejection. */
   pulmonaryAccelerationS: number;
   mitralFlowMlps: Float32Array; // Q_mv(φ) ≥ 0 during filling
-  /** Q_tv(φ) ≥ 0: tricuspid inflow, the mitral inflow with its own early wave (decision 108). */
+  /** Q_tv(φ) ≥ 0: tricuspid inflow, with its own early wave and effective flow area. */
   tricuspidFlowMlps: Float32Array;
-  /** Tricuspid filling over the beat (mL): what the right ventricle ejects in the next chained beat. */
+  /** Tricuspid filling over the beat (mL): subtract quantified TR before chaining pulmonary forward ejection. */
   tricuspidFillMl: number;
+  /** Own effective inflow area: accounts for forward flow and quantified TR, not mitral regurgitation. */
+  tvEffectiveAreaCm2: number;
+  pulmonaryStrokeVolumeMl: number;
+  /** Integrated inflow minus pulmonary and TR outflow, relative to the beat start; not an absolute geometric RV volume. */
+  rvVolumeChangeMl: Float32Array;
+  rvEndVolumeChangeMl: number;
+  trVelocityMps: Float32Array;
+  trFlowMlps: Float32Array;
   mvEffectiveAreaCm2: number; // solved so that ∫Q_mv = SV with the requested E and A peak velocities
   /** Regurgitant flows (mL/s) through the mitral (systole) and aortic (diastole) valves; zero when absent. */
   mrFlowMlps: Float32Array;
@@ -44,6 +53,9 @@ export interface BeatTables {
     arVmaxMps: number;
     arVtiCm: number;
     arPhtMs: number;
+    trVolumeMl: number;
+    trVtiCm: number;
+    trVmaxMps: number;
   };
   /**
    * Volume (mL) the closing correction removed so that V(RR) = V(0): inflow minus outflow over the beat. With every flow
@@ -91,9 +103,10 @@ export interface BeatOptions {
 
 export interface ChainedBeat {
   ejectMl: number;
-  /** Right ventricular ejection (mL): the tricuspid filling of the beat before. The left one when omitted. */
+  /** Pulmonary forward ejection (mL): prior tricuspid filling minus quantified TR. */
   rvEjectMl?: number;
   mvAreaCm2: number;
+  tvAreaCm2: number;
   previousRrS: number;
   startLongitudinal: number;
   startRvLongitudinal: number;
@@ -307,9 +320,11 @@ export function buildBeatTables(
   // respiration scales the early waves of each inflow and leaves atrial contraction as the case measured it (decision 108)
   const mitralEFactor = af?.mitralEFactor ?? 1;
   const tricuspidEFactor = af?.tricuspidEFactor ?? 1;
+  const tr = tricuspidRegurgitation(hemo, timings, rrS, n);
   const mvVelocity = new Float32Array(n); // cm/s
-  const tvVelocity = new Float32Array(n); // cm/s at the mitral flow area: the tricuspid inflow carries the same flow
+  const tvVelocity = new Float32Array(n); // cm/s, with its own inflow area
   let velIntegralCm = 0; // cm (VTI of mitral inflow)
+  let tvIntegralCm = 0;
   // the tricuspid valve opens TRICUSPID_LEAD_S before the mitral one (decision 162): its early wave runs that much earlier
   const tvLead = timings.mitralOpenS - timings.tricuspidOpenS;
   for (let i = 0; i < n; i++) {
@@ -319,6 +334,7 @@ export function buildBeatTables(
     mvVelocity[i] = v;
     tvVelocity[i] = eAt(t + tvLead) * tricuspidEFactor + atrial;
     velIntegralCm += v * dt;
+    tvIntegralCm += tvVelocity[i]! * dt;
   }
   // a beat of atrial fibrillation fills through the case's orifice for as long as its diastole lasts (decision 107)
   const mvArea = af
@@ -341,7 +357,11 @@ export function buildBeatTables(
     u <= 0 || u >= 1 ? 0 : Math.pow(u, 2.25 * peakU) * Math.pow(1 - u, 2.25 * (1 - peakU));
   let pvInt = 0;
   for (let i = 0; i < 400; i++) pvInt += pvShape((i + 0.5) / 400) * (etRv / 400);
-  const kPv = Math.max(5, af?.rvEjectMl ?? sv - rvolAr) / pvInt;
+  const forwardMl = Math.max(5, af?.rvEjectMl ?? sv - rvolAr);
+  const kPv = forwardMl / pvInt;
+  // Nominal periodic balance: TV inflow = pulmonary forward volume + TR volume.
+  // Chained beats reuse their own nominal orifice so respiratory/AF filling is not normalized away.
+  const tvArea = af?.tvAreaCm2 ?? (forwardMl + tr.volumeMl) / Math.max(tvIntegralCm, 1e-6);
 
   const aorticFlow = new Float32Array(n);
   const pulmonaryFlow = new Float32Array(n);
@@ -356,8 +376,19 @@ export function buildBeatTables(
     const tp = (((t - timings.pulmonaryOpenS) % rrS) + rrS) % rrS;
     if (tp < etRv) pulmonaryFlow[i] = kPv * pvShape(tp / etRv);
     mitralFlow[i] = (mvVelocity[i] ?? 0) * mvArea * scaleMv;
-    tricuspidFlow[i] = (tvVelocity[i] ?? 0) * mvArea * scaleMv;
+    tricuspidFlow[i] = (tvVelocity[i] ?? 0) * tvArea;
     tricuspidFillMl += tricuspidFlow[i]! * dt;
+  }
+  // Normalize pulmonary discretization to the requested forward volume; no hidden RV closing correction.
+  const pvSampledMl = pulmonaryFlow.reduce((sum, q) => sum + q * dt, 0);
+  const rvVolumeChangeMl = new Float32Array(n);
+  let pulmonaryStrokeVolumeMl = 0,
+    rvEndVolumeChangeMl = 0;
+  for (let i = 0; i < n; i++) {
+    pulmonaryFlow[i] = (pulmonaryFlow[i]! * forwardMl) / Math.max(pvSampledMl, 1e-6);
+    pulmonaryStrokeVolumeMl += pulmonaryFlow[i]! * dt;
+    rvEndVolumeChangeMl += (tricuspidFlow[i]! - pulmonaryFlow[i]! - tr.flowMlps[i]!) * dt;
+    rvVolumeChangeMl[i] = rvEndVolumeChangeMl;
   }
   // Integrate volume; then remove the residual drift so V(0)=V(RR)=EDV exactly (ensures periodicity).
   const vol = new Float32Array(n);
@@ -612,6 +643,12 @@ export function buildBeatTables(
     mitralFlowMlps: mitralFlow,
     tricuspidFlowMlps: tricuspidFlow,
     tricuspidFillMl,
+    tvEffectiveAreaCm2: tvArea,
+    pulmonaryStrokeVolumeMl,
+    rvVolumeChangeMl,
+    rvEndVolumeChangeMl,
+    trVelocityMps: tr.velocityMps,
+    trFlowMlps: tr.flowMlps,
     mvEffectiveAreaCm2: mvArea * scaleMv,
     mrFlowMlps: mrFlow,
     arFlowMlps: arFlow,
@@ -623,6 +660,9 @@ export function buildBeatTables(
       arVmaxMps: arVmax,
       arVtiCm: arVti,
       arPhtMs: arPht,
+      trVolumeMl: tr.volumeMl,
+      trVtiCm: tr.vtiCm,
+      trVmaxMps: tr.vmaxMps,
     },
     longitudinal,
     longitudinalVelocity: longVel,
