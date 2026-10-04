@@ -346,7 +346,10 @@ export class SimulatorCore {
           scene: {
             heart: c.heart,
             thorax: c.thorax,
-            heartPose: computeHeartPose(c.heart, cycleStateAt(c.tables, beat.phase)),
+            heartPose: computeHeartPose(
+              c.heart,
+              cycleStateAt(c.tables, beat.phase, c.flow.flowPeaks),
+            ),
             physics: this.physics(),
           },
         };
@@ -536,7 +539,7 @@ export class SimulatorCore {
   }
 
   private scene(phase: number): Scene {
-    const state = cycleStateAt(this.tables, phase);
+    const state = cycleStateAt(this.tables, phase, this.flow.flowPeaks);
     return {
       heart: this.heart,
       heartPose: computeHeartPose(this.heart, state),
@@ -1086,6 +1089,9 @@ export class SimulatorCore {
     return this.strips.spectralStrip;
   }
   heartPoseNow(): HeartPose {
-    return computeHeartPose(this.heart, cycleStateAt(this.tables, this.clock.current.phase));
+    return computeHeartPose(
+      this.heart,
+      cycleStateAt(this.tables, this.clock.current.phase, this.flow.flowPeaks),
+    );
   }
 }

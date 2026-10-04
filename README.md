@@ -56,6 +56,9 @@ funcionando en CPU, más despacio.
 
 ## Documentación
 
+- [`docs/AUDIT_AFTER_PR100.md`](docs/AUDIT_AFTER_PR100.md) y [`docs/AUDIT_AFTER_PR110.md`](docs/AUDIT_AFTER_PR110.md) — evaluaciones con escala 1–7, evidencia y límites tras las dos tandas de diez PR.
+- [`docs/ITERATIONS.md`](docs/ITERATIONS.md) — mejoras, comprobaciones y alcance de cada iteración.
+
 - [`docs/MISION.md`](docs/MISION.md) — misión, objetivos medibles, cómo se prioriza y límites que no se cruzan.
 - [`docs/DECISIONS.md`](docs/DECISIONS.md) — cada decisión de diseño con las mediciones que la
   motivaron, incluidos los callejones sin salida y los errores corregidos.
@@ -73,8 +76,8 @@ funcionando en CPU, más despacio.
 ## Estado
 
 En desarrollo activo. La fidelidad se mide, no se declara: hay defectos anatómicos abiertos y
-cuantificados (por ejemplo, el eje corto de grandes vasos no muestra la válvula pulmonar porque el
-plano alcanzable desde la ventana intercostal se desvía 48° del pedido). Están todos en
+cuantificados (por ejemplo, seis casos conservan superposición entre aurícula izquierda y aorta,
+y la geometría absoluta del VD todavía no deriva de sus caudales). Se documentan en
 `docs/LIMITATIONS.md`.
 
 ## Licencia
