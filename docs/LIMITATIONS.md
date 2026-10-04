@@ -261,3 +261,9 @@ Los límites e′ consideran la edad y el algoritmo de FA conserva incertidumbre
 ### Propagación espectral contemporánea (decisión 289)
 
 PW, CW y TDI consultan la misma escena a la fase adquirida, sin reutilizar la sombra de un cuadro B anterior. La integración sigue el haz central a intervalos de 1 mm y aplica un corte relativo de transmisión 0,02. No resuelve todavía la oclusión parcial de apertura ni potencia absoluta; CW conserva su estimador por histograma.
+
+### Potencia Doppler relativa (decisión 290)
+
+El contacto y la atenuación cambian gradualmente los pesos de las fuentes PW/CW/TDI y de los clics valvulares. El ruido de receptor permanece sin contacto. La presión del control es un acoplamiento idealizado, no una fuerza calibrada; la compensación por tejido blando y la compresión de brillo impiden interpretar la intensidad como potencia absoluta. Se mantiene la aproximación de haz central y queda pendiente la oclusión parcial de apertura. El corte binario 0,02 ya no limita los pesos de potencia espectral; la consulta booleana lo conserva para compatibilidad con otras comprobaciones.
+
+La comprobación visual de contacto cero también confirma un límite anterior de B/M: el trazador conserva un suelo de transmisión de 0,08 en las líneas que declara desacopladas y vuelve a convertir `beam.contact`, ya normalizado, con `contactQuality`. Por ello puede persistir textura anatómica en modo B aun cuando Doppler ya muestra solo ruido. La unificación del acoplamiento en CPU/GPU y el tratamiento del ring-down deben resolverse en el trazador completo; esta decisión corrige la recepción espectral y no declara resuelto ese defecto de B/M.

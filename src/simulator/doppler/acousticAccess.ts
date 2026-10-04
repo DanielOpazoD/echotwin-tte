@@ -17,7 +17,7 @@ const PATH_STEP_CM = 0.1;
  * All transverse samples share this pencil ray: partial aperture occlusion is not resolved.
  * The returned query is lazy and advances only to the deepest source requested in this column.
  */
-export function acousticAccess(
+export function relativeEchoAmplitude(
   scene: Scene,
   origin: Vec3,
   direction: Vec3,
@@ -26,16 +26,17 @@ export function acousticAccess(
 ) {
   const classify = sceneClassifier(scene);
   const sample = makeSample();
-  const transmission: number[] = [contact];
+  const transmission: number[] = [1];
+  const coupling = Math.min(1, Math.max(0, contact));
   // Doppler is transmitted at the fundamental; the B-mode THI toggle does not change its propagation.
   const k = ATTEN_NP_PER_DB * scene.physics.frequencyMHz * stepCm;
-  return (depth: number): boolean => {
-    if (contact <= 0 || depth < 0) return false;
+  return (depth: number): number => {
+    if (coupling <= 0 || depth < 0) return 0;
     const n = Math.ceil(depth / stepCm);
     while (transmission.length <= n) {
       const i = transmission.length;
       const previous = transmission[i - 1]!;
-      if (previous === 0) return false;
+      if (previous === 0) return 0;
       const r = (i - 0.5) * stepCm;
       let t = previous;
       if (
@@ -58,6 +59,20 @@ export function acousticAccess(
       }
       transmission.push(t);
     }
-    return transmission[n]! >= DOPPLER_SHADOW_TRANSMISSION;
+    // Reference soft-tissue compensation is capped at unity before coupling. A less attenuating
+    // blood path cannot restore energy lost at the probe–skin interface.
+    return coupling * Math.min(1, transmission[n]!);
   };
+}
+
+/** Boolean compatibility query; received power uses relativeEchoAmplitude squared. */
+export function acousticAccess(
+  scene: Scene,
+  origin: Vec3,
+  direction: Vec3,
+  contact: number,
+  stepCm = PATH_STEP_CM,
+) {
+  const amplitude = relativeEchoAmplitude(scene, origin, direction, contact, stepCm);
+  return (depth: number): boolean => amplitude(depth) >= DOPPLER_SHADOW_TRANSMISSION;
 }

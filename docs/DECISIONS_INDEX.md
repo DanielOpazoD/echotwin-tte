@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 289 (última: 289).
+Decisiones: 290 (última: 290).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -297,3 +297,4 @@ Decisiones: 289 (última: 289).
 | [287](DECISIONS.md#L1724) | 2026-10-04 | La adquisición espectral conserva el contexto del latido de cada muestra. | vigente |
 | [288](DECISIONS.md#L1736) | 2026-10-04 | Edad, concordancia e incertidumbre comparten una interpretación clínica. | vigente |
 | [289](DECISIONS.md#L1749) | 2026-10-04 | CW consulta la propagación del instante adquirido, sin depender del último cuadro B. | vigente |
+| [290](DECISIONS.md#L1756) | 2026-10-04 | La potencia espectral depende de la amplitud recibida, además de la presencia de un trayecto. | vigente |
