@@ -348,6 +348,18 @@ for (const { id } of CASE_INPUTS) {
   const c = loadCaseById(id),
     { heart, thorax, tables } = buildCaseModels(c, REST_PATIENT),
     flow = buildFlowParams(c, heart, tables, thorax);
+  const dt = tables.rrS / tables.n;
+  let rightBalanceMl = 0;
+  for (let i = 0; i < tables.n; i++)
+    rightBalanceMl +=
+      (tables.tricuspidFlowMlps[i]! - tables.pulmonaryFlowMlps[i]! - tables.trFlowMlps[i]!) * dt;
+  observe(
+    `${id}/right-heart/nominal-balance`,
+    Math.abs(rightBalanceMl),
+    'mL/beat',
+    { max: 0.001 },
+    'Conservation of blood volume; quantified TR uses EROA × VTI (ASE/SCMR 2017); decision 293',
+  );
   const pathsAt = (phase: number) => {
     const hp = computeHeartPose(heart, cycleStateAt(tables, phase)),
       g = hp.aorta.geometry,

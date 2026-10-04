@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 292 (última: 292).
+Decisiones: 293 (última: 293).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -300,3 +300,4 @@ Decisiones: 292 (última: 292).
 | [290](DECISIONS.md#L1756) | 2026-10-04 | La potencia espectral depende de la amplitud recibida, además de la presencia de un trayecto. | vigente |
 | [291](DECISIONS.md#L1763) | 2026-10-04 | Dimensiones y volumen auricular coherentes, límite AI–VI y haces CPU/GPU compartidos. | vigente |
 | [292](DECISIONS.md#L1785) | 2026-10-04 | Aplanamiento septal con conservación del volumen ventricular de referencia. | vigente |
+| [293](DECISIONS.md#L1812) | 2026-10-04 | Balance de flujo derecho y regurgitación tricuspídea sobre una misma tabla temporal. | vigente |

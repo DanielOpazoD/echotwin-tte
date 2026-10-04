@@ -62,7 +62,7 @@ describe('the drawn heart matches the truth its measurements are scored against'
       // Since decision 245 the mitral regurgitation runs through all of systole and the forward flow falls; the right
       // ventricle's geometry does not know it (its end-systole is pulmonary closure, with the free wall of decision 243).
       // enlarged right ventricle (192 mL declared by its dimensions) with 22 mL of forward flow after the regurgitant
-      // mitral volume; its tricuspid regurgitation has no volume in the beat tables (2.24 before decisions 243 and 245)
+      // mitral volume; its trace tricuspid regurgitation has no declared EROA and remains unquantified (2.24 before decisions 243 and 245)
       // (3.79 before its tricuspid annulus shortened by its own systolic function, decision 253)
       ['hfref-severe-mr', 3.63],
       // the systolic anterior motion's mitral regurgitation takes 30 mL of the 70 the ventricle ejects (1.68 before)
@@ -71,9 +71,7 @@ describe('the drawn heart matches the truth its measurements are scored against'
       ['mvp-primary-mr', 2.04],
       // its mild regurgitation, through all of systole since decision 245, leaves 42 mL forward
       ['af-diastolic', 1.32],
-      // the tricuspid regurgitation of the case (effective orifice 0.3 cm²) carries the difference (1.29 while its annulus
-      // shortened as a normal one does, decision 253)
-      ['pulmonary-hypertension-rv', 1.19],
+      // PH: quantified TR now participates in the target (decision 293); no exception is needed.
       // it ejects what its left ventricle ejects in total (68 of 69 mL): the forward flow subtracts a regurgitant volume
       // the right ventricle's geometry does not know; the septal crest (decision 223) added the last mL
       ['artifact-challenge', 1.36],
@@ -95,10 +93,11 @@ describe('the drawn heart matches the truth its measurements are scored against'
       const m = measureModel(c, undefined, 90000);
       const row = (id: string) => m.rows.find((r) => r.id === id)!.value;
       const rvSv = (row('rv-edv') * row('rv-ef')) / 100;
-      const ratio = rvSv / forward;
+      const totalEjected = forward + t.regurgitation.trVolumeMl;
+      const ratio = rvSv / totalEjected;
       const baseline = KNOWN_RATIOS.get(c.id);
       const tol = c.id === 'normal-excellent-window' ? 0.05 : 0.2;
-      const text = `${c.id}: right ${rvSv.toFixed(0)} mL against ${forward.toFixed(0)} forward (${ratio.toFixed(2)})`;
+      const text = `${c.id}: right ${rvSv.toFixed(0)} mL against ${totalEjected.toFixed(0)} total (${forward.toFixed(0)} forward + ${t.regurgitation.trVolumeMl.toFixed(0)} TR; ${ratio.toFixed(2)})`;
       if (baseline === undefined ? Math.abs(ratio - 1) > tol : Math.abs(ratio - baseline) > 0.05)
         problems.push(baseline === undefined ? text : `${text}, baseline ${baseline}`);
     }

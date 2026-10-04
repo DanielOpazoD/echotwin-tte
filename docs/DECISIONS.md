@@ -1808,3 +1808,25 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
 
 
     Navegador: 77 recorridos aprobados, incluidas 43 comparaciones CPU/GPU y transiciones espectrales; cuatro omisiones por GPU física. No se alteran umbrales de paridad ni referencias de imagen para esta corrección septal.
+
+293. **Balance de flujo derecho y regurgitación tricuspídea sobre una misma tabla temporal.** [Estado: vigente]
+
+    La entrada tricuspídea copiaba el área efectiva mitral, aunque la insuficiencia mitral resta flujo pulmonar. En los doce casos nominales, la reproducción integrada encontró un exceso de entrada de 77,90 mL por latido en prolapso mitral, 38,19 mL en HFrEF y 29,57 mL en obstrucción dinámica. En hipertensión pulmonar faltaban 24,90 mL de entrada para reponer la regurgitación tricuspídea dibujada. El flujo pulmonar ya descontaba correctamente MR/AR; no era el origen del defecto.
+
+    La regurgitación tricuspídea ahora tiene una tabla de velocidad compartida por el campo Doppler y una de caudal EROA×velocidad, integrada para obtener volumen y VTI. El área efectiva de entrada tricuspídea se resuelve independientemente para que el latido nominal reponga eyección pulmonar más TR cuantificada. Se conserva esa área al encadenar latidos, sin normalizar fuera la respuesta respiratoria ni la duración diastólica de FA. La eyección pulmonar siguiente usa la entrada derecha previa menos TR cuantificada. Una tabla de cambio de volumen relativo integra entrada menos ambas salidas, sin corrección oculta de cierre. El residuo nominal de los doce casos queda por debajo de 0,001 mL con las pruebas originales de onda y temporización conservadas.
+
+    Fundamento: ASE/SCMR 2017, pp. 312–313, RVol=EROA×VTI. La EROA constante es una aproximación de los casos; la guía advierte que una EROA instantánea no equivale necesariamente a su media temporal. Se conserva la envolvente sistólica empírica de TR; no se presenta como presión del VD resuelta. La TR detectada sin EROA declarada conserva su espectro pero aporta cero al balance reducido: su volumen no está cuantificado. La geometría absoluta y el acortamiento radial del VD todavía no se derivan de esta tabla; tampoco se resuelven un circuito cerrado con reservorios pulmonares/sistémicos ni presión–volumen. Los límites de precarga del encadenado permanecen explícitos.
+
+    La comparación de volumen expulsado del VD usa ahora salida pulmonar más TR cuantificada, como exigía ya su comentario y no su denominador. En hipertensión pulmonar son 50,00 + 24,90 mL; se retira la excepción anterior solamente si la integración geométrica acumulada cumple el 20 % original. Ello no equivale a cierre geométrico exacto: la forma absoluta del VD continúa independiente del balance y se informa el residuo medido.
+
+
+    Coste de entrega: el balance y las tablas TR añaden 0,9 kB al worker (334,3 → 335,2 kB); presupuesto explícito 336 kB y total 1956,3/2060 kB. No cambia el presupuesto total.
+
+
+    Verificación acumulada: 1015 pruebas en 186 archivos (694,3 s), lint, formato, tipos, build y presupuestos aprobados. Banco de fidelidad: 180 criterios cumplidos y una limitación supraesternal supina. Las seis regresiones nuevas pasan en la base acumulada; restaurar el encadenamiento anterior falla en FA y respiración libre.
+
+
+    Alcance de la onda tricuspídea: sigue reutilizando la forma E/A izquierda con el adelanto de apertura y la modulación respiratoria propios del modelo. La corrección independiza el área y el balance, no resuelve una onda diastólica derecha desde presiones.
+
+
+    Navegador: 77 recorridos aprobados, incluidas 43 comparaciones CPU/GPU; cuatro omisiones por GPU física. Se conservan controles, calipers, cine y transiciones PW/CW al entrar y salir de pulmón.

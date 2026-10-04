@@ -446,6 +446,7 @@ describe('beats of atrial fibrillation fill and eject by their own intervals (de
         chain: {
           ejectMl: eject,
           mvAreaCm2: nominal.mvEffectiveAreaCm2,
+          tvAreaCm2: nominal.tvEffectiveAreaCm2,
           previousRrS: prevRr,
           startLongitudinal: i ? prev.endLongitudinal : 0,
           startRvLongitudinal: i ? prev.endRvLongitudinal : 0,
@@ -514,6 +515,7 @@ describe('the annular velocity of chained beats has no spike where one beat hand
         chain: {
           ejectMl: eject,
           mvAreaCm2: nominal.mvEffectiveAreaCm2,
+          tvAreaCm2: nominal.tvEffectiveAreaCm2,
           previousRrS: prevRr,
           startLongitudinal: i ? prev.endLongitudinal : 0,
           startRvLongitudinal: i ? prev.endRvLongitudinal : 0,
@@ -568,6 +570,7 @@ describe('chained beats carry the respiratory factors of their inflows (decision
         ejectMl: 70,
         rvEjectMl: 82,
         mvAreaCm2: nominal.mvEffectiveAreaCm2,
+        tvAreaCm2: nominal.tvEffectiveAreaCm2,
         previousRrS: nominal.rrS,
         startLongitudinal: 0,
         startRvLongitudinal: 0,
@@ -801,6 +804,7 @@ describe('mitral regurgitation through all of systole (decision 245)', () => {
       chain: {
         ejectMl: 12.4,
         mvAreaCm2: 3,
+        tvAreaCm2: 3,
         previousRrS: 0.75,
         startLongitudinal: 0.5,
         startRvLongitudinal: 0.5,
