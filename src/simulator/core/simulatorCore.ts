@@ -1,3 +1,5 @@
+import { CineBuffer, type CineFrame } from './cineBuffer';
+import { constrainAcquisition } from './acquisitionInput';
 import type { CaseDefinition } from '@/cases/schema';
 import { caseOutflow } from '@/simulator/cardiac-cycle/outflow';
 import {
@@ -102,23 +104,8 @@ import { StripEngine, type StripCtx } from './stripEngine';
  * ECG ring and view analysis. The UI only sends inputs and draws outputs + overlays.
  */
 const ECG_HZ = 200;
-const CINE_FRAMES = 96;
 /** ECG kept and sent before the oldest cine frame, so its beat reads at the left edge of a frozen strip (s). */
 const CINE_ECG_MARGIN_S = 0.3;
-
-interface CineFrame {
-  display: Uint8ClampedArray;
-  structure: Uint8Array;
-  segment: Uint8Array;
-  spec: PolarFrameSpec;
-  phase: number;
-  timeS: number;
-  beatIndex: number;
-  colorVel: Float32Array | null;
-  colorVar: Float32Array | null;
-  beam: BeamFrame;
-  analysis: ViewAnalysis | null;
-}
 
 export class SimulatorCore {
   readonly caseDef: CaseDefinition;
@@ -169,7 +156,7 @@ export class SimulatorCore {
   private colorVersion = 0;
   /** The display of the last rendered frame was formed on the GPU and is still there (decision 54). */
   private displayOnGpu = false;
-  private cine: CineFrame[] = [];
+  private cine = new CineBuffer();
   private frameId = 0;
   private timeS = 0;
   private frameAccumulator = 0;
@@ -208,7 +195,7 @@ export class SimulatorCore {
 
   constructor(caseDef: CaseDefinition, input: SimInput) {
     this.caseDef = caseDef;
-    this.input = input;
+    this.input = constrainAcquisition(input);
     const models = buildCaseModels(caseDef, input.patient);
     this.thorax = models.thorax;
     this.heart = models.heart;
@@ -357,7 +344,7 @@ export class SimulatorCore {
       this.strips.reset();
       this.colorPrev = null;
     }
-    this.input = input;
+    this.input = constrainAcquisition(input);
   }
 
   recycle(buffer: ArrayBuffer): void {
@@ -489,7 +476,7 @@ export class SimulatorCore {
     // six seconds, and at least back to the oldest cine frame, so a frozen strip can show the whole cine (decision 197)
     const cutoff = Math.min(
       this.timeS - 6,
-      (this.cine[0]?.timeS ?? this.timeS) - CINE_ECG_MARGIN_S,
+      (this.cine.oldest?.timeS ?? this.timeS) - CINE_ECG_MARGIN_S,
     );
     while (this.ecg.length && (this.ecg[0]?.t ?? 0) < cutoff) this.ecg.shift();
   }
@@ -590,21 +577,21 @@ export class SimulatorCore {
       this.timing.analysisMs = performance.now() - ta;
     }
     const tCine = performance.now();
-    const cf: CineFrame = {
-      structure: new Uint8Array(this.frame.structure),
-      segment: new Uint8Array(this.frame.segment),
-      display: new Uint8ClampedArray(this.display!),
+    this.cine.capture({
+      frameId: this.frameId + 1,
+      rrS: this.clock.current.rrS,
+      structure: this.frame.structure,
+      segment: this.frame.segment,
+      display: this.display!,
       spec,
       phase,
       timeS: this.timeS,
       beatIndex: this.clock.current.beatIndex,
-      colorVel: colorVel ? new Float32Array(colorVel) : null,
-      colorVar: colorVar ? new Float32Array(colorVar) : null,
+      colorVel,
+      colorVar,
       beam,
       analysis: this.lastAnalysis,
-    };
-    this.cine.push(cf);
-    if (this.cine.length > CINE_FRAMES) this.cine.shift();
+    });
     this.timing.cineMs = performance.now() - tCine;
     this.frameId++;
   }
@@ -780,9 +767,8 @@ export class SimulatorCore {
 
   private frozenOutput(): SimOutput | null {
     const inp = this.input;
-    if (!this.cine.length) return null;
-    const idx = Math.max(0, Math.min(this.cine.length - 1, this.cine.length - 1 + inp.cineOffset));
-    const cf = this.cine[idx]!;
+    const cf = this.cine.select(inp.cineOffset);
+    if (!cf) return null;
     return this.composite(cf.beam, cf.spec, true, cf);
   }
 
@@ -879,7 +865,7 @@ export class SimulatorCore {
     // live, the last 1200 samples (6 s); frozen, back to the oldest cine frame, which a slow cadence puts further
     let from = Math.max(0, this.ecg.length - 1200);
     if (frozen) {
-      const t0 = (this.cine[0]?.timeS ?? this.timeS) - CINE_ECG_MARGIN_S;
+      const t0 = (this.cine.oldest?.timeS ?? this.timeS) - CINE_ECG_MARGIN_S;
       while (from > 0 && (this.ecg[from - 1]?.t ?? -Infinity) >= t0) from--;
     }
     const ecgTail = new Float64Array(2 * (this.ecg.length - from));
@@ -893,7 +879,7 @@ export class SimulatorCore {
     this.lastStrip = strip;
     this.lastPhase = cf ? cf.phase : c.phase;
     return {
-      frameId: this.frameId,
+      frameId: cf ? cf.frameId : this.frameId,
       width: W,
       height: H,
       rgba: buffer,
@@ -909,11 +895,11 @@ export class SimulatorCore {
       structure: new Uint8Array(structure),
       segment: new Uint8Array(segment),
       gate,
-      timeS: this.timeS,
+      timeS: cf ? cf.timeS : this.timeS,
       phase: cf ? cf.phase : c.phase,
-      beatIndex: c.beatIndex,
-      heartRateBpm: 60 / c.rrS,
-      rrS: c.rrS,
+      beatIndex: cf ? cf.beatIndex : c.beatIndex,
+      heartRateBpm: 60 / (cf ? cf.rrS : c.rrS),
+      rrS: cf ? cf.rrS : c.rrS,
       simulatedFps: this.acquisitionFps(),
       cadenceHz: 1 / this.frameIntervalS,
       ecg: ecgTail,
@@ -926,8 +912,8 @@ export class SimulatorCore {
       cineOffset: cf ? inp.cineOffset : 0,
       cineFramePhase: cf ? cf.phase : c.phase,
       cineWindow: {
-        startS: this.cine[0]?.timeS ?? this.timeS,
-        endS: this.cine[this.cine.length - 1]?.timeS ?? this.timeS,
+        startS: this.cine.oldest?.timeS ?? this.timeS,
+        endS: this.cine.newest?.timeS ?? this.timeS,
         frameS: cf ? cf.timeS : this.timeS,
       },
       stats: {

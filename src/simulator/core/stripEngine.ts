@@ -95,6 +95,8 @@ export class StripEngine {
   private stripAccum = 0;
   private lastColumn: Float32Array | null = null;
   private stripKind: 'spectral' | 'm-mode' | null = null;
+  private acquisitionKey = '';
+  private acquiredSweep = 50;
   private lineAmp = new Float32Array(0);
   private lineSt = new Uint8Array(0);
   private lineTr = new Float32Array(0);
@@ -117,7 +119,7 @@ export class StripEngine {
   private flowSample: FlowSample = { vx: 0, vy: 0, vz: 0, dispersion: 0, present: 0 };
   private tissueSample = makeSample();
 
-  /** Reset on a modality change: the next step starts a fresh strip of the new kind. */
+  /** Reset on a modality or acquisition-calibration change; old columns must not acquire new units. */
   reset(): void {
     this.stripHead = 0;
     this.stripAccum = 0;
@@ -182,6 +184,25 @@ export class StripEngine {
     ctx: StripCtx,
   ): void {
     const inp = ctx.input;
+    const key = JSON.stringify([
+      inp.modality,
+      inp.spectral.sweepSpeedMmPerS,
+      inp.settings.depthCm,
+      inp.settings.frequencyMHz,
+      inp.cursorThetaRad,
+      inp.gateDepthCm,
+      inp.spectral.scaleMps,
+      inp.spectral.baselineShiftMps,
+      inp.spectral.invert,
+      inp.spectral.gateLengthCm,
+      inp.color.scaleMps,
+      inp.color.baselineShiftMps,
+    ]);
+    if (key !== this.acquisitionKey) {
+      this.reset();
+      this.acquisitionKey = key;
+      this.acquiredSweep = inp.spectral.sweepSpeedMmPerS;
+    }
     const kind: 'spectral' | 'm-mode' = MODALITIES[inp.modality].strip ?? 'spectral';
     const stripWidth = Math.max(64, inp.display.width);
     const secondsShown = STRIP_MM_WIDTH / inp.spectral.sweepSpeedMmPerS;
@@ -682,7 +703,7 @@ export class StripEngine {
       if (!strip || this.stripKind !== 'spectral') return null;
       const { vMin, vMax } = spectralRange(ctx.input.spectral);
       const cols = this.stripCols;
-      const secondsShown = STRIP_MM_WIDTH / ctx.input.spectral.sweepSpeedMmPerS;
+      const secondsShown = STRIP_MM_WIDTH / this.acquiredSweep;
       const spc = cols ? secondsShown / cols : 0;
       const x0 = Math.max(0, Math.min(cols - 1, Math.round(Math.min(req.x0, req.x1))));
       const x1 = Math.max(0, Math.min(cols - 1, Math.round(Math.max(req.x0, req.x1))));
@@ -798,7 +819,7 @@ export class StripEngine {
     const y0 = sectorH + 2;
     const h = H - y0 - 4;
     const cols = this.stripCols;
-    const secondsShown = STRIP_MM_WIDTH / inp.spectral.sweepSpeedMmPerS;
+    const secondsShown = STRIP_MM_WIDTH / this.acquiredSweep;
     const spc = cols ? secondsShown / cols : 0;
     const kind = this.stripKind;
     const head = this.stripHead % Math.max(1, cols);

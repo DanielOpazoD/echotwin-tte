@@ -33,7 +33,9 @@ describe('the acquisition frame rate', () => {
     const colour = at({}, {});
     expect(colour).toBeLessThan(base);
     expect(at({}, { boxThetaMinRad: -0.5, boxThetaMaxRad: 0.5 })).toBeLessThan(colour);
-    expect(at({}, { boxRMaxCm: 16 })).toBeLessThan(colour);
+    // At fixed PRF, a deeper box has the same packet duration until round-trip time limits it.
+    expect(at({}, { boxRMaxCm: 16 })).toBeCloseTo(colour);
+    expect(at({ depthCm: 24 }, { boxRMaxCm: 24 })).toBeLessThan(colour);
   });
 });
 

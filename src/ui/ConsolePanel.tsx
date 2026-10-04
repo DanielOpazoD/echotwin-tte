@@ -1,3 +1,4 @@
+import { acquisitionLimits } from '@/simulator/core/acquisitionInput';
 import { viewLabel } from '@/simulator/windows/viewLabels';
 import {
   hasGate,
@@ -481,6 +482,7 @@ function DopplerTab() {
   );
   const tip = useTip();
   const mod = s.modality;
+  const limits = acquisitionLimits(s);
 
   if (mod === '2d') {
     return (
@@ -520,13 +522,19 @@ function DopplerTab() {
             label="Escala (Nyquist)"
             value={s.color.scaleMps}
             min={0.15}
-            max={1.2}
+            max={Math.min(1.2, limits.color.maxScaleMps)}
             step={0.01}
             unit=" m/s"
             format={(v) => `${v.toFixed(2)} m/s`}
             onChange={(v) => s.setColor({ scaleMps: v })}
-            title={tip('Escala baja = aliasing en flujos normales.')}
+            title={tip(
+              'La profundidad y la frecuencia limitan la PRF y Nyquist. Una escala baja aumenta el aliasing.',
+            )}
           />
+          <p className="small" aria-live="polite">
+            PRF {(limits.color.prfHz / 1000).toFixed(2)} kHz · límite{' '}
+            {(limits.color.maxPrfHz / 1000).toFixed(2)} kHz
+          </p>
           <Slider
             label="Persistencia"
             value={s.color.persistence}
@@ -579,17 +587,37 @@ function DopplerTab() {
           <Slider
             label="Escala"
             value={s.spectral.scaleMps}
-            min={SPECTRAL_SCALE_RANGE[mod as SpectralModality].min}
-            max={SPECTRAL_SCALE_RANGE[mod as SpectralModality].max}
+            min={
+              mod === 'cw'
+                ? SPECTRAL_SCALE_RANGE.cw.min
+                : Math.min(
+                    SPECTRAL_SCALE_RANGE[mod as SpectralModality].min,
+                    limits.spectral.maxScaleMps,
+                  )
+            }
+            max={
+              mod === 'cw'
+                ? SPECTRAL_SCALE_RANGE.cw.max
+                : Math.min(
+                    SPECTRAL_SCALE_RANGE[mod as SpectralModality].max,
+                    limits.spectral.maxScaleMps,
+                  )
+            }
             step={0.05}
             format={(v) => `±${v.toFixed(2)} m/s`}
             onChange={(v) => s.setSpectral({ scaleMps: v })}
             title={tip(
-              mod === 'pw'
-                ? 'Si la velocidad supera Nyquist, el espectro se pliega (aliasing).'
+              mod !== 'cw'
+                ? 'La profundidad del gate y la frecuencia limitan Nyquist. Si la velocidad lo supera, el espectro se pliega; desplazar la línea base no aumenta la PRF.'
                 : 'CW no aliasa: integra todo el trayecto del haz.',
             )}
           />
+          {mod !== 'cw' && (
+            <p className="small" aria-live="polite">
+              PRF {(limits.spectral.prfHz / 1000).toFixed(2)} kHz · límite{' '}
+              {(limits.spectral.maxPrfHz / 1000).toFixed(2)} kHz
+            </p>
+          )}
           <Slider
             label="Ganancia espectral"
             value={s.spectral.gainDb}

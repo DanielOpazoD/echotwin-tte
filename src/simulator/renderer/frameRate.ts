@@ -1,4 +1,5 @@
-import { SPEED_OF_SOUND_MPS } from '@/core/units';
+import { lineTimeS, pulsedAcquisition } from './pulseTiming';
+export { lineTimeS } from './pulseTiming';
 import type { AcquisitionSettings, LineDensity, PolarFrameSpec } from './types';
 
 /**
@@ -9,14 +10,6 @@ import type { AcquisitionSettings, LineDensity, PolarFrameSpec } from './types';
  * setting). Until decision 178 both were one number, computed from the tier's lines: 48.8, 36.9 and 27.3 Hz at 16 cm
  * and 80° in the low, medium and high tiers, and 7.9 Hz with the default colour box in the medium tier.
  */
-
-/** Dead time per transmit event (s): switching, and the reverberations of one line dying out before the next. */
-const LINE_OVERHEAD_S = 0.00002;
-
-/** Two-way time of one transmit event to a depth (cm), with its dead time. */
-export function lineTimeS(depthCm: number): number {
-  return (2 * (depthCm / 100)) / SPEED_OF_SOUND_MPS + LINE_OVERHEAD_S;
-}
 
 /**
  * Receive lines per degree of sector of each line density: an assumption of the model, not a published value. The
@@ -58,6 +51,7 @@ export interface ColorBoxExtent {
   boxThetaMinRad: number;
   boxThetaMaxRad: number;
   boxRMaxCm: number;
+  scaleMps?: number;
 }
 
 /** B-mode transmit events of one frame: the receive lines of the sector over the parallel lines of each event. */
@@ -74,7 +68,7 @@ export function colorTransmitLines(box: ColorBoxExtent): number {
 /**
  * The acquisition frame rate (Hz): the B-mode transmit events to the image depth, plus the colour packets to the bottom
  * of the box when colour is on. Conventional 2D echocardiography runs at about 40–80 frames/s (Fujikura et al., J Clin Med
- * 2021;10:2095); the default console gives 68.6 Hz at 16 cm and 80°, and 14.2 Hz with the default colour box. Beside a
+ * 2021;10:2095); the default console gives 68.6 Hz at 16 cm and 80°, and 11.4 Hz with the default colour box at ±0.62 m/s (decision 274). Beside a
  * spectral Doppler strip (`spectral`) the 2D keeps `DUPLEX_BMODE_SHARE` of that rate: 17.1 Hz with the default console.
  */
 export function acquisitionFrameRate(
@@ -86,7 +80,14 @@ export function acquisitionFrameRate(
   const colour = color
     ? colorTransmitLines(color) *
       COLOR_PACKET *
-      lineTimeS(Math.min(color.boxRMaxCm, settings.depthCm))
+      (color.scaleMps === undefined
+        ? lineTimeS(Math.min(color.boxRMaxCm, settings.depthCm))
+        : 1 /
+          pulsedAcquisition(
+            Math.min(color.boxRMaxCm, settings.depthCm),
+            settings.frequencyMHz,
+            color.scaleMps,
+          ).prfHz)
     : 0;
   return (spectral ? DUPLEX_BMODE_SHARE : 1) / (bmode + colour);
 }

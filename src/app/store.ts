@@ -1,3 +1,4 @@
+import { constrainAcquisition } from '@/simulator/core/acquisitionInput';
 import { create } from 'zustand';
 import type { ProbeControl } from '@/simulator/probe/pose';
 import type { PatientState } from '@/simulator/anatomy/thoraxModel';
@@ -531,7 +532,8 @@ export const useSimStore = create<SimStore>((set, get) => ({
       return { probe: clampProbe(n), presetAnim: null };
     }),
   setPatient: (p) => set((s) => ({ patient: { ...s.patient, ...p } })),
-  setSettings: (st) => set((s) => ({ settings: clampSettings({ ...s.settings, ...st }) })),
+  setSettings: (st) =>
+    set((s) => constrainAcquisition({ ...s, settings: clampSettings({ ...s.settings, ...st }) })),
   setTgc: (band, db) =>
     set((s) => {
       const tgc = [...s.settings.tgcDb];
@@ -555,7 +557,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
         const memory = (out.spectralByMode ?? s.spectralByMode)[to];
         out.spectral = { ...s.spectral, ...(memory ?? SPECTRAL_MODE_DEFAULTS[to]) };
       }
-      return out;
+      return constrainAcquisition({ ...s, ...out });
     }),
   toggleFreeze: () => set((s) => ({ frozen: !s.frozen, cineOffset: 0, cinePlaying: false })),
   setCineOffset: (o) =>
@@ -569,10 +571,13 @@ export const useSimStore = create<SimStore>((set, get) => ({
       return { cineOffset: s.cineOffset >= 0 ? -(length - 1) : s.cineOffset + 1 };
     }),
   setCinePlaying: (p) => set({ cinePlaying: p }),
-  setColor: (c) => set((s) => ({ color: { ...s.color, ...c } })),
-  setSpectral: (sp) => set((s) => ({ spectral: { ...s.spectral, ...sp } })),
+  setColor: (c) => set((s) => constrainAcquisition({ ...s, color: { ...s.color, ...c } })),
+  setSpectral: (sp) =>
+    set((s) => constrainAcquisition({ ...s, spectral: { ...s.spectral, ...sp } })),
   setCursor: (theta, depth) =>
-    set((s) => ({ cursorThetaRad: theta, gateDepthCm: depth ?? s.gateDepthCm })),
+    set((s) =>
+      constrainAcquisition({ ...s, cursorThetaRad: theta, gateDepthCm: depth ?? s.gateDepthCm }),
+    ),
   setQuality: (q) => set({ quality: q }),
   setBackend: (b) => set({ rendererBackend: b }),
   setMode: (m) =>
@@ -694,7 +699,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
     const s = get();
     if (!modePolicy(s.mode).devToolsAllowed) return;
     if (r.caseId !== s.caseId) s.loadCase(r.caseId);
-    const i = r.input;
+    const i = constrainAcquisition(r.input);
     set({
       probe: { ...i.probe },
       patient: { ...i.patient },
