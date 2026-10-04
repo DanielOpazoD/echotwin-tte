@@ -16,7 +16,7 @@ Una prueba interna no constituye validación clínica.
 | 7 | Ventana supraesternal TTE | Sonda físicamente alcanzable, navegación y barrido continuo sobre la misma anatomía | [PR #97](https://github.com/DanielOpazoD/echotwin-tte/pull/97), fusionada |
 | 8 | Conservación espacial de flujo | Integrales de sección frente a tablas de flujo y variaciones de volumen; aproximaciones explícitas | [PR #98](https://github.com/DanielOpazoD/echotwin-tte/pull/98), fusionada |
 | 9 | Cadena IQ/FFT PW/TDI | Fantomas de Vmax/VTI, aliasing, filtros y rendimiento; comparación con cadena previa | [PR #99](https://github.com/DanielOpazoD/echotwin-tte/pull/99), fusionada |
-| 10 | Banco reproducible y separación de evaluación externa | Vistas ideales e imperfectas, transiciones y controles; separación de calibración/evaluación por paciente | [PR #100](https://github.com/DanielOpazoD/echotwin-tte/pull/100), cierre técnico verificado; integración pendiente de CI |
+| 10 | Banco reproducible y separación de evaluación externa | Vistas ideales e imperfectas, transiciones y controles; separación de calibración/evaluación por paciente | [PR #100](https://github.com/DanielOpazoD/echotwin-tte/pull/100), fusionada |
 
 ## Criterios comunes
 
@@ -72,8 +72,20 @@ PR #98, merge `f301034`: flujo sobre la red aórtica móvil y consulta espectral
 
 PR #99, merge `fd00ae9`: PW/TDI desde señal IQ, Hann y FFT, con filtro en frecuencia muestreada. 971 pruebas y 75 recorridos locales de navegador, cuatro omitidos por GPU de hardware; CI completa y cobertura aprobadas. La corrección de la distribución subrejilla elimina el sesgo Rayleigh sin debilitar tolerancias. Los paquetes siguen cuasiestacionarios, sin RF, partículas persistentes ni huecos duplex explícitos. El paso final reúne evidencia reproducible y separa evaluación externa de calibración.
 
-## Iteración 10: cierre técnico preparado
+## Iteración 10 cerrada
 
-El banco ejecuta 169 observaciones y conserva 48 adquisiciones reproducibles: 168 criterios cumplidos y la limitación supraesternal supina identificada. Su trabajo CI participa en el check requerido. 979 pruebas en 172 archivos, lint, formato, tipos y build aprobados; los 19 assets de aplicación son idénticos al build de la iteración 9 con 75 recorridos de navegador aprobados. La CI vuelve a ejecutarlos antes de integrar esta entrega. No hay evaluación clínica externa realizada; CAMUS histórico no se presenta como conjunto reservado.
+El banco ejecuta 169 observaciones y conserva 48 adquisiciones reproducibles: 168 criterios cumplidos y la limitación supraesternal supina identificada. Su trabajo CI participa en el check requerido. 979 pruebas en 172 archivos, lint, formato, tipos y build aprobados; los 19 assets de aplicación son idénticos al build de la iteración 9 con 75 recorridos de navegador aprobados. PR #100, merge `aa5f03c`: la CI volvió a ejecutar los 75 recorridos, con cuatro omisiones por GPU de hardware, y aprobó todos sus trabajos. No hay evaluación clínica externa realizada; CAMUS histórico no se presenta como conjunto reservado.
 
 Tras integrar esta tanda, una auditoría multiparamétrica con escala 1–7 del commit resultante fijará y justificará los diez bloques siguientes. Las prioridades se decidirán por defectos reproducidos y relevancia clínica, incluyendo anatomía, temporalidad, propagación, mecánica y rendimiento.
+
+## Segunda tanda autorizada: auditoría y ejecución
+
+Evaluación del corte PR100: **4,5/7 ponderado**, con evidencia, pesos y límites en
+[AUDIT_AFTER_PR100.md](AUDIT_AFTER_PR100.md). La siguiente tanda se ejecuta de forma
+iterativa: tiempo de tira; contexto histórico del latido; criterios clínicos;
+propagación CW; potencia recibida/apertura; unión AI–VI; volumen con aplanamiento
+septal; balance del VD; SSN supina; rendimiento del trazador y nueva evaluación.
+
+1. Rejilla temporal de tira: [PR #101](https://github.com/DanielOpazoD/echotwin-tte/pull/101), decisión 286. Cinco reproducciones
+   originales pasan de factores temporales hasta 5,027 a 1; se calcula cada
+   columna a su instante exacto, descartando una decimación que recortaba la eyección. 982 pruebas completas, lint, formato, tipos y build aprobados; 75 recorridos de navegador aprobados (cuatro omisiones por GPU de hardware), incluidas 43 comparaciones CPU/GPU. CI pendiente.

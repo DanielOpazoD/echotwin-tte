@@ -1095,7 +1095,8 @@ describe('right ventricular tissue Doppler reads the tricuspid annulus of the ca
     // Doppler used to leave the second motion out and read 0.81-0.84 of S′ (decision 253).
     // [S′ read / case S′] where the case reads apart: the swinging heart of tamponade carries the annulus through the gate
     const KNOWN_RATIOS: ReadonlyMap<string, number> = new Map([
-      ['pericardial-effusion-tamponade', 0.78],
+      // Exact column times (decision 286): measured 0.811 → 0.841, one velocity bin; still below the normal bound.
+      ['pericardial-effusion-tamponade', 0.84],
     ]);
     const results: string[] = [];
     for (const { id } of CASE_INPUTS) {

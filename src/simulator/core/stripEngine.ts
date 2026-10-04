@@ -1,3 +1,4 @@
+import { StripTimeGrid } from './stripTimeGrid';
 import { accumulatePulsedSpectrum } from '@/simulator/doppler/spectral/pulsedIq';
 import { sceneClassifier } from '@/simulator/anatomy/sceneClassifier';
 import { DUPLEX_BMODE_SHARE } from '@/simulator/renderer/pulseTiming';
@@ -101,7 +102,8 @@ export class StripEngine {
   private stripHead = 0;
   private acquisitionId = 0;
   private headTimeS: number | undefined;
-  private stripAccum = 0;
+  private timeline = new StripTimeGrid();
+  private stripSampleTime = new Float64Array(0);
   private lastColumn: Float32Array | null = null;
   private stripKind: 'spectral' | 'm-mode' | null = null;
   private acquisitionKey = '';
@@ -140,7 +142,7 @@ export class StripEngine {
     this.acquisitionId++;
     this.headTimeS = undefined;
     this.stripHead = 0;
-    this.stripAccum = 0;
+    this.timeline.reset();
     this.stripKind = null;
     this.lastColumn = null;
     this.acquired = null;
@@ -195,6 +197,7 @@ export class StripEngine {
     cols: number;
     head: number;
     phase: Float32Array;
+    sampleTimeS: Float64Array;
   } {
     return {
       data: this.stripSpectral,
@@ -202,6 +205,7 @@ export class StripEngine {
       cols: this.stripCols,
       head: this.stripHead,
       phase: this.stripPhase,
+      sampleTimeS: this.stripSampleTime,
     };
   }
 
@@ -264,31 +268,31 @@ export class StripEngine {
       this.stripDisplay = kind === 'spectral' ? new Float32Array(SPECTRAL_BINS * stripWidth) : null;
       this.stripMmode = kind === 'm-mode' ? new Uint8ClampedArray(lineSamples * stripWidth) : null;
       this.stripCmm = cmm ? new Float32Array(spec.samples * stripWidth).fill(NaN) : null;
+      this.timeline.reset();
+      this.stripSampleTime = new Float64Array(stripWidth);
       this.stripPhase = new Float32Array(stripWidth);
       this.stripSpan = new Uint16Array(stripWidth);
       this.stripRgba = null;
       this.stripRgbaKey = '';
       this.mmodeSamples = lineSamples;
     }
-    this.stripAccum += dt * cps;
-    let n = Math.floor(this.stripAccum);
-    // spectral columns are sampled one by one and bounded per step; M-mode columns all come from traced lines (decision 84)
-    if (kind === 'spectral' && n > 10) n = 10;
-    this.stripAccum -= n;
+    const times = this.timeline.advance(ctx.timeS, dt, cps);
     const rr = ctx.rrS;
     const phaseNow = ctx.phaseNow;
     if (kind === 'm-mode') {
-      this.advanceMmode(n, cps, rr, phaseNow, traceBudgetMs, beam, spec, ctx);
+      this.advanceMmode(times, cps, rr, phaseNow, traceBudgetMs, beam, spec, ctx);
       return;
     }
-    for (let k = n - 1; k >= 0; k--) {
-      const tBack = (k + 0.5) / cps;
-      const phase = (((phaseNow - tBack / rr) % 1) + 1) % 1;
+    for (const timeS of times) {
+      const phase = (((phaseNow - (ctx.timeS - timeS) / rr) % 1) + 1) % 1;
       const col = this.stripHead % this.stripCols;
-      // each column at its own instant: the grain of the estimate lasts its duration, not the step (decision 115)
-      this.sampleSpectralColumn(beam, spec, phase, col, ctx.timeS - tBack, ctx);
+      const signal = this.sampleSpectralColumn(beam, spec, phase, col, timeS, ctx);
+      this.stripSpectral!.set(signal.column, col * SPECTRAL_BINS);
+      this.stripDisplay!.set(signal.display, col * SPECTRAL_BINS);
+      this.lastColumn = signal.column;
       this.stripPhase[col] = phase;
-      this.headTimeS = ctx.timeS - tBack;
+      this.stripSampleTime[col] = timeS;
+      this.headTimeS = timeS;
       this.stripHead++;
     }
   }
@@ -299,7 +303,7 @@ export class StripEngine {
    * from the traced lines on each side of its instant.
    */
   private advanceMmode(
-    n: number,
+    times: readonly number[],
     cps: number,
     rr: number,
     phaseNow: number,
@@ -308,6 +312,7 @@ export class StripEngine {
     spec: PolarFrameSpec,
     ctx: StripCtx,
   ): void {
+    const n = times.length;
     if (n <= 0) return;
     const inp = ctx.input;
     const theta = Math.max(-spec.sectorRad / 2, Math.min(spec.sectorRad / 2, inp.cursorThetaRad));
@@ -341,7 +346,7 @@ export class StripEngine {
     if (this.mmode.key !== key || this.mmode.bins !== bins) this.mmode.reset(key, bins);
     const phases = new Float64Array(n);
     for (let i = 0; i < n; i++) {
-      const tBack = (n - 1 - i + 0.5) / cps;
+      const tBack = ctx.timeS - times[i]!;
       phases[i] = (((phaseNow - tBack / rr) % 1) + 1) % 1;
     }
     const maxTraces =
@@ -358,7 +363,7 @@ export class StripEngine {
         columnSource(this.mmode, phases[i]!, bins >> 1);
       if (src)
         this.writeMmodeColumn(this.stripHead % this.stripCols, src, phases[i]!, pulses, spec, ctx);
-      this.headTimeS = ctx.timeS - (n - 1 - i + 0.5) / cps;
+      this.headTimeS = times[i]!;
       this.stripHead++;
     }
   }
@@ -514,7 +519,7 @@ export class StripEngine {
     col: number,
     timeS: number,
     ctx: StripCtx,
-  ): void {
+  ): { column: Float32Array; display: Float32Array } {
     const inp = ctx.input;
     const hf = ctx.heart.frame;
     const theta = Math.max(-spec.sectorRad / 2, Math.min(spec.sectorRad / 2, inp.cursorThetaRad));
@@ -672,9 +677,7 @@ export class StripEngine {
         display,
         timeS,
       );
-    this.stripSpectral!.set(column, col * SPECTRAL_BINS);
-    this.stripDisplay!.set(display, col * SPECTRAL_BINS);
-    this.lastColumn = column;
+    return { column, display };
   }
 
   /** Structures at the Doppler/M-mode cursor and the beam–flow angle at the PW/TDI gate (technique checks). */
@@ -983,6 +986,7 @@ export class StripEngine {
         sweepSpeedMmPerS: acquired.spectral.sweepSpeedMmPerS,
         wallFilterMps: acquired.spectral.wallFilterMps,
         frequencyMHz: acquired.frequencyMHz,
+        estimatorIntervalS: secondsShown / cols,
         topValue: vMax,
         bottomValue: vMin,
         kind: 'spectral',

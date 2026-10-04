@@ -1042,13 +1042,7 @@ export class SimulatorCore {
     return this.lastStrip;
   }
   /** The spectral strip (SPECTRAL_BINS values per column), the cycle phase each column was sampled at, and the head. */
-  get spectralStrip(): {
-    data: Float32Array | null;
-    display: Float32Array | null;
-    cols: number;
-    head: number;
-    phase: Float32Array;
-  } {
+  get spectralStrip(): StripEngine['spectralStrip'] {
     return this.strips.spectralStrip;
   }
   heartPoseNow(): HeartPose {
