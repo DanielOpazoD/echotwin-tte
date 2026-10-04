@@ -41,6 +41,8 @@ export interface ThoraxModel {
    * age by `buildCaseModels`; 0, a still aorta, until then.
    */
   descAortaAreaStrain: number;
+  /** Cranial join to the arch in torso cm; assigned by the shared case builder. */
+  descAortaTopY: number;
   /**
    * Torso-z shift (cm, negative backwards) of the posterior column — vertebral body, descending aorta and posterior
    * mediastinum — from where decisions 150 and 213 placed it for the normal case's chest wall (decision 273).
@@ -149,6 +151,7 @@ export function createThoraxModel(
     ivcCollapse,
     diaphragmMap: NO_DIAPHRAGM_MAP,
     descAortaAreaStrain: 0,
+    descAortaTopY: 6,
     columnShiftCm,
   };
 }
@@ -379,7 +382,10 @@ export function descendingAortaAreaStrain(ageYears: number): number {
  * Scale of the descending aorta's lumen radius at a fraction of the pulse pressure (decision 272): the area grows by the
  * strain at the systolic peak from its diastolic size, `DESC_AORTA_R`.
  */
-export function descAortaScale(t: ThoraxModel, aorticPressure: number): number {
+export function descAortaScale(
+  t: Pick<ThoraxModel, 'descAortaAreaStrain'>,
+  aorticPressure: number,
+): number {
   return Math.sqrt(1 + t.descAortaAreaStrain * aorticPressure);
 }
 export const ANTERIOR_CORRIDOR_CM = 2.5;
@@ -539,7 +545,7 @@ export function classifyThorax(
     }
   }
   // Descending aorta (behind the left atrium, left of the spine)
-  {
+  if (y <= t.descAortaTopY) {
     // the lumen expands with the pulse (decision 272); the posterior mediastinal fat around it stays put
     const r = DESC_AORTA_R * daScale;
     const dx = x - DESC_AORTA_X,

@@ -167,6 +167,11 @@ export const enum Structure {
   EpicardialFat,
   /** The gastric fundus under the left hemidiaphragm, its air bubble at the top (decision 271). */
   Stomach,
+  AscendingAorta,
+  AorticArch,
+  BrachiocephalicArtery,
+  LeftCommonCarotid,
+  LeftSubclavian,
 }
 
 export function makeSample(): TissueSample {

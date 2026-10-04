@@ -76,6 +76,8 @@ function heartInColumn(id: string): Record<string, number> {
               z: cz + r * f * Math.sin(a),
             });
             if (classifyHeart(heart, hp, h.x, h.y, h.z, s)) {
+              // The arch now joins this lumen; it is not an intruding cardiac chamber.
+              if (name === 'aorta' && s.structure === Structure.AorticArch) continue;
               const atrium = LA_STRUCTURES.has(s.structure) && name === 'aorta';
               const key = atrium
                 ? 'atrium in the aorta'

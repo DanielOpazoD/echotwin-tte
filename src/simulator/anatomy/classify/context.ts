@@ -1,7 +1,7 @@
 import type { Structure, Tissue, TissueSample } from '../tissue';
 import type { AnchorsCached } from '../anchors';
 import type { HeartModel } from '../heartModel';
-import type { HeartPose } from '../heartPose';
+import type { ChamberPose } from '../heartPose';
 
 /**
  * State one classification of a heart-frame point threads through its blocks (engineering audit, C2: the
@@ -12,7 +12,7 @@ import type { HeartPose } from '../heartPose';
  */
 export interface ClassifyCtx {
   m: HeartModel;
-  hp: HeartPose;
+  hp: ChamberPose;
   A: AnchorsCached;
   /** Point in heart frame, after the tamponade swing. */
   x: number;
@@ -73,7 +73,7 @@ export interface ClassifyCtx {
 /** The one context instance (single-threaded classifier). */
 export const ctx: ClassifyCtx = {
   m: null as unknown as HeartModel,
-  hp: null as unknown as HeartPose,
+  hp: null as unknown as ChamberPose,
   A: null as unknown as AnchorsCached,
   x: 0,
   y: 0,

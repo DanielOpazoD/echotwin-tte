@@ -1,5 +1,5 @@
 import { fastAtan2 } from '@/core/noise';
-import { rootRadiusAt } from '../aorticValve';
+import { rootRadiusAt, ROOT_STJ_T } from '../aorticValve';
 import { ROOT_EXCURSION } from '../heartFrame';
 import type { ClassifyCtx } from './context';
 
@@ -11,8 +11,8 @@ export function rootBend(t: number): number {
   return t > 3 ? 0.16 * (t - 3) * (t - 3) : 0;
 }
 
-/** Length (cm) of the root tube along its axis from the annulus: the ascending aorta ends there. */
-export const ROOT_TUBE_END_T = 6.5;
+/** Root domain ends at the sinotubular junction; the shared vascular path continues from there. */
+export const ROOT_TUBE_END_T = ROOT_STJ_T;
 
 /** Aortic root coordinates (tube along avAxis; also carves the LV base). Writes the root fields of the context. */
 export function rootCoordinates(c: ClassifyCtx): void {
@@ -34,8 +34,7 @@ export function rootCoordinates(c: ClassifyCtx): void {
       dz = z - czz;
     const t = dx * ax.x + dy * ax.y + dz * ax.z; // along axis, 0 at annulus, negative toward LV
     if (t > -1.6 && t < ROOT_TUBE_END_T) {
-      // the ascending aorta curves toward the patient's right/anterior beyond the sinotubular junction
-      // (it leaves the long-axis plane after ~3 cm instead of running straight for 7 cm)
+      // Above the sinotubular junction, the acquired vascular tree owns the ascending lumen.
       const bend = rootBend(t);
       rootQx = dx - ax.x * t - A.avBend.x * bend;
       rootQy = dy - ax.y * t - A.avBend.y * bend;

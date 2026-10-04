@@ -240,3 +240,53 @@ for (const [caseId, viewId, phase, tier, overrides] of CHAIN) {
     expect(r.presentColorPixels).toBeGreaterThan(1000);
   });
 }
+
+// Diagnostic acquisitions from actual skin controls. They exercise each vessel through an
+// acoustically accessible path; these are not yet a clinical suprasternal preset.
+const AORTIC_ACQUISITIONS = [
+  {
+    name: 'ascending',
+    expected: ['S_ASC_AO', 'S_AO_ARCH'],
+    control: { u: 0, v: 10, rotationDeg: 87.5, tiltDeg: -7.75, rockDeg: -9.5, pressure: 0.6 },
+  },
+  {
+    name: 'brachiocephalic',
+    expected: ['S_BCA', 'S_AO_ARCH'],
+    control: { u: 0, v: 11, rotationDeg: 26, tiltDeg: -7.75, rockDeg: 40.5, pressure: 0.6 },
+  },
+  {
+    name: 'left carotid',
+    expected: ['S_LCCA', 'S_AO_ARCH'],
+    control: { u: 0, v: 11, rotationDeg: 53.75, tiltDeg: -4, rockDeg: 47.5, pressure: 0.6 },
+  },
+  {
+    name: 'left subclavian',
+    expected: ['S_LSA', 'S_AO_ARCH'],
+    control: { u: -1.75, v: 11, rotationDeg: 94.75, tiltDeg: 2.75, rockDeg: 35.25, pressure: 0.6 },
+  },
+];
+for (const acquisition of AORTIC_ACQUISITIONS)
+  for (const phase of [0, 0.35])
+    test(`thoracic ${acquisition.name} @${phase}: shared CPU/GPU geometry`, async ({ page }) => {
+      const r = await page.evaluate(
+        ({ phase, control }) => {
+          const compare = (
+            window as unknown as {
+              __echotwin: { compareBackends: (...args: unknown[]) => Promise<Comparison> };
+            }
+          ).__echotwin.compareBackends;
+          return compare('plax', phase, 'normal-excellent-window', 'medium', 0, control);
+        },
+        { phase, control: acquisition.control },
+      );
+      expect(r.error).toBeUndefined();
+      expect(r.structureAgreement).toBeGreaterThan(0.99);
+      expect(r.tissueAgreement).toBeGreaterThan(0.99);
+      expect(r.ampRelDiff).toBeLessThan(MAX_AMP_REL_DIFF);
+      for (const key of acquisition.expected) {
+        const v = r.perStructure?.[key];
+        expect(v, `${key} was actually sampled`).toBeDefined();
+        expect(v!.samples, key).toBeGreaterThanOrEqual(MIN_SAMPLES);
+        expect(v!.mismatched / v!.samples, key).toBeLessThan(MAX_STRUCTURE_DISAGREEMENT);
+      }
+    });

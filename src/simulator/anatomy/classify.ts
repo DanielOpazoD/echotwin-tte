@@ -1,7 +1,8 @@
+import { classifyAorticExtension } from './aorticExtension';
 import type { TissueSample } from './tissue';
 import { anchorsCached } from './anchors';
 import type { HeartModel } from './heartModel';
-import type { HeartPose } from './heartPose';
+import type { HeartPose, ChamberPose } from './heartPose';
 import { ctx } from './classify/context';
 import { rootCoordinates } from './classify/root';
 import { classifyValves } from './classify/valves';
@@ -30,6 +31,24 @@ export const FAR_FROM_HEART_CM = 99;
 export function classifyHeart(
   m: HeartModel,
   hp: HeartPose,
+  x0: number,
+  y: number,
+  z: number,
+  out: TissueSample,
+): boolean {
+  out.segment = 0;
+  out.sdf = FAR_FROM_HEART_CM;
+  if (classifyAorticExtension(hp.aorta, x0, y, z, out)) return true;
+  const vascularDistance = out.sdf;
+  const hit = classifyChambers(m, hp, x0, y, z, out);
+  if (!hit) out.sdf = Math.min(out.sdf, vascularDistance);
+  return hit;
+}
+
+/** Intrinsic chambers used while pulmonary anchors are still being fitted. */
+export function classifyChambers(
+  m: HeartModel,
+  hp: ChamberPose,
   x0: number,
   y: number,
   z: number,
@@ -76,5 +95,6 @@ export function classifyHeart(
   if (classifyAorticRoot(c)) return true;
   if (classifyAtria(c)) return true;
   if (classifyRightVentricle(c)) return true;
-  return classifyPericardium(c);
+  if (classifyPericardium(c)) return true;
+  return false;
 }

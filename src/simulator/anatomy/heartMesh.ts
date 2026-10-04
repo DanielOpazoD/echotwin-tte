@@ -1,5 +1,14 @@
 import type { HeartModel, HeartPose } from './heartModel';
 import { classifyHeart } from './heartModel';
+import { heartToTorso, torsoToHeart } from './heartFrame';
+import {
+  classifyThorax,
+  descAortaScale,
+  diaphragmY,
+  DESC_AORTA_X,
+  DESC_AORTA_Z,
+  type ThoraxModel,
+} from './thoraxModel';
 import { makeSample, Structure, Tissue } from './tissue';
 
 /**
@@ -33,6 +42,8 @@ export interface HeartMeshOptions {
   /** Extraction bounds in the heart frame (cm). */
   bounds?: { min: [number, number, number]; max: [number, number, number] };
   smoothing?: number;
+  /** Shared thorax supplies the descending segment, ending at its diaphragmatic boundary. */
+  thorax?: ThoraxModel;
 }
 
 type GroupSpec = {
@@ -119,6 +130,14 @@ export const MESH_GROUPS: GroupSpec[] = [
   },
 ];
 
+export const AORTA_GROUP: GroupSpec = {
+  id: 'thoracic-aorta',
+  label: 'Arco y aorta torácica',
+  color: 0xcf6a6a,
+  opacity: 0.7,
+  has: (s) => s === Structure.DescendingAorta || s >= Structure.AscendingAorta,
+};
+
 const DEFAULT_BOUNDS = {
   min: [-8, -7, -7] as [number, number, number],
   max: [7, 8, 12] as [number, number, number],
@@ -128,6 +147,44 @@ export function buildHeartMeshes(
   heart: HeartModel,
   pose: HeartPose,
   opts: HeartMeshOptions = {},
+): MeshGroup[] {
+  const groups = extractMeshes(heart, pose, opts, MESH_GROUPS);
+  // Explicit caller bounds remain authoritative (tests and offline crops).
+  const min = { ...pose.aorta.tube.min },
+    max = { ...pose.aorta.tube.max };
+  if (opts.thorax) {
+    const z = DESC_AORTA_Z + opts.thorax.columnShiftCm;
+    const bottom = diaphragmY(opts.thorax, DESC_AORTA_X, z);
+    for (const x of [DESC_AORTA_X - 1.5, DESC_AORTA_X + 1.5])
+      for (const zz of [z - 1.5, z + 1.5])
+        for (const y of [bottom, opts.thorax.descAortaTopY]) {
+          const p = torsoToHeart(heart.frame, { x, y, z: zz });
+          min.x = Math.min(min.x, p.x);
+          min.y = Math.min(min.y, p.y);
+          min.z = Math.min(min.z, p.z);
+          max.x = Math.max(max.x, p.x);
+          max.y = Math.max(max.y, p.y);
+          max.z = Math.max(max.z, p.z);
+        }
+  }
+  const vascular = extractMeshes(
+    heart,
+    pose,
+    {
+      ...opts,
+      stepCm: Math.max(opts.stepCm ?? 0.35, 0.45),
+      bounds: opts.bounds ?? { min: [min.x, min.y, min.z], max: [max.x, max.y, max.z] },
+    },
+    [AORTA_GROUP],
+  );
+  return [...groups, ...vascular];
+}
+
+function extractMeshes(
+  heart: HeartModel,
+  pose: HeartPose,
+  opts: HeartMeshOptions,
+  specs: GroupSpec[],
 ): MeshGroup[] {
   const step = opts.stepCm ?? 0.35;
   const b = opts.bounds ?? DEFAULT_BOUNDS;
@@ -145,13 +202,29 @@ export function buildHeartMeshes(
         const x = b.min[0] + i * step,
           y = b.min[1] + j * step,
           z = b.min[2] + k * step;
-        if (!classifyHeart(heart, pose, x, y, z, s)) continue;
+        if (!classifyHeart(heart, pose, x, y, z, s)) {
+          if (!opts.thorax) continue;
+          const p = heartToTorso(heart.frame, { x, y, z });
+          if (
+            !classifyThorax(
+              opts.thorax,
+              p.x,
+              p.y,
+              p.z,
+              s,
+              s.sdf,
+              descAortaScale(opts.thorax, pose.state.aorticPressure),
+            ) ||
+            s.structure !== Structure.DescendingAorta
+          )
+            continue;
+        }
         const o = (k * ny + j) * nx + i;
         ids[o] = s.structure;
         tissues[o] = s.tissue;
         segs[o] = s.segment;
       }
-  return MESH_GROUPS.map((g) =>
+  return specs.map((g) =>
     surfaceNet(
       g,
       ids,

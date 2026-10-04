@@ -12,7 +12,7 @@ import {
   type HeartPose,
 } from './heartModel';
 import { cross, dot, normalize, sub, type Vec3 } from '@/core/vec3';
-import { LVOT_TAPER_CM } from './aorticValve';
+import { LVOT_TAPER_CM, ROOT_STJ_T } from './aorticValve';
 import type { PatientState } from './thoraxModel';
 import { cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { buildCaseModels, REST_PATIENT } from './caseModels';
@@ -324,7 +324,7 @@ export function measureModel(
       // ventricle reaches the base (the HFrEF case at 0.5 cm): it is the same tract, bounded by the same walls
       t < 0
         ? [Structure.AorticRoot, Structure.Lvot, Structure.AorticValve, Structure.LvCavity]
-        : [Structure.AorticRoot, Structure.Lvot, Structure.AorticValve],
+        : [Structure.AorticRoot, Structure.AscendingAorta, Structure.Lvot, Structure.AorticValve],
       [A.avCenter.x + ax.x * t, A.avCenter.y + ax.y * t, cz + ax.z * t],
       [e1.x, e1.y, e1.z],
     );
@@ -337,8 +337,18 @@ export function measureModel(
   let sinusD = 0,
     stjD = Infinity;
   for (let t = 0.5; t <= 1.6; t += 0.1) sinusD = Math.max(sinusD, rootAt(t, edPose));
-  for (let t = 1.5; t <= 2.6; t += 0.1) stjD = Math.min(stjD, rootAt(t, edPose));
-  const ascD = rootAt(3.8, edPose);
+  for (let t = 1.5; t <= ROOT_STJ_T; t += 0.1) stjD = Math.min(stjD, rootAt(t, edPose));
+  // Measure normal to the actual ascending centreline, not an extension of the root axis.
+  const path = edPose.aorta.geometry.arch;
+  const centre = path[16]!.p;
+  const tangent = normalize(sub(path[17]!.p, path[15]!.p));
+  const radial = normalize(cross(tangent, A.avE1));
+  const ascD = runAlong(
+    edPose,
+    [Structure.AscendingAorta, Structure.AorticArch],
+    [centre.x, centre.y, centre.z],
+    [radial.x, radial.y, radial.z],
+  );
   const rvotD = 2 * A.rvotRa;
   const paDir = A.paDir;
   const paPerp: [number, number, number] = [-paDir.y, paDir.x, 0];

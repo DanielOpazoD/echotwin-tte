@@ -1,4 +1,4 @@
-import { loadCaseById } from '@/cases';
+import type { CaseDefinition } from '@/cases/schema';
 import { computeHeartPose } from '@/simulator/anatomy/heartModel';
 import { cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { buildCaseModels } from '@/simulator/anatomy/caseModels';
@@ -23,7 +23,7 @@ import { canonicalControl, VIEW_TARGETS, type WindowId } from '@/simulator/windo
  * set. A 3D heart standing still next to a beating image is the first thing that gives the model away.
  */
 export interface MeshRequest {
-  caseId: string;
+  caseDef: CaseDefinition;
   patient: PatientState;
   stepCm: number;
   /** Cycle phases to extract, in [0,1). The first one is rendered as soon as it arrives. */
@@ -101,9 +101,10 @@ export interface MeshReply {
 }
 
 self.onmessage = (ev: MessageEvent<MeshRequest>) => {
-  const { caseId, patient, stepCm, phases } = ev.data;
+  const { caseDef, patient, stepCm, phases } = ev.data;
+  const caseId = caseDef.id;
   try {
-    buildAllPhases(caseId, patient, stepCm, phases);
+    buildAllPhases(caseDef, patient, stepCm, phases);
   } catch (e) {
     const reply: MeshError = {
       caseId,
@@ -114,12 +115,13 @@ self.onmessage = (ev: MessageEvent<MeshRequest>) => {
 };
 
 function buildAllPhases(
-  caseId: string,
+  caseDef: CaseDefinition,
   patient: PatientState,
   stepCm: number,
   phases: number[],
 ): void {
-  const { heart, thorax, tables } = buildCaseModels(loadCaseById(caseId), patient);
+  const caseId = caseDef.id;
+  const { heart, thorax, tables } = buildCaseModels(caseDef, patient);
   const model: NavigatorModel = {
     kind: 'model',
     caseId,
@@ -144,7 +146,7 @@ function buildAllPhases(
     const phase = phases[i]!;
     const t0 = performance.now();
     const pose = computeHeartPose(heart, cycleStateAt(tables, phase));
-    const groups = buildHeartMeshes(heart, pose, { stepCm });
+    const groups = buildHeartMeshes(heart, pose, { stepCm, thorax });
     const reply: MeshReply = {
       caseId,
       index: i,

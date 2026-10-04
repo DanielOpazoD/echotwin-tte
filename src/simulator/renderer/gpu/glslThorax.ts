@@ -125,7 +125,7 @@ bool classifyThorax(vec3 p, out Sample s, float heartDist) {
     float d = sqrt(dx * dx + dz * dz) - SPINE_R;
     if (d < 0.0) { s.tissue = T_SPINE; s.structure = S_SPINE; s.sdf = d; return true; }
   }
-  {
+  if (y <= TH_DA_TOP) {
     float ra = DESC_AORTA_R * TH_DA_SCALE;
     float dx = x - DESC_AORTA_X, dz = z - DESC_AORTA_Z - TH_COL_SHIFT;
     float d = sqrt(dx * dx + dz * dz) - ra;

@@ -12,8 +12,9 @@ import {
   torsoToHeart,
 } from './heartFrame';
 import { DESC_AORTA_X, DESC_AORTA_Z, SPINE_Z } from './thoraxModel';
-import { computeHeartPose } from './heartPose';
-import { classifyHeart } from './classify';
+import { placeVascularNeighbours } from './vascularPlacement';
+import { computeChamberPose } from './heartPose';
+import { classifyChambers } from './classify';
 import type { HeartModel } from './heartModel';
 import type { Vec3 } from '@/core/vec3';
 import { add, cross, dot, normalize, scale, sub, v3 } from '@/core/vec3';
@@ -122,7 +123,7 @@ export function anchors(m: HeartModel): Anchors {
     raRy = 1.93 * raK,
     raRz = 1.86 * raK;
   const rvR = a.rv.basalDiameterCm / 2;
-  // both atria overlap the interatrial plane by 0.35 cm and are clipped flat against it (classifyHeart)
+  // both atria overlap the interatrial plane by 0.35 cm and are clipped flat against it (classifyChambers)
   const iasX = -2.35;
   const laCenter = v3(iasX - 0.35 + laRx, -1.3, -laRz * 0.85);
   const raCenter = v3(iasX + 0.35 - raRx, -0.5 - raRx * 0.1, -raRz * 0.72 + 0.05);
@@ -274,7 +275,7 @@ export interface Landmark {
 }
 
 export function heartLandmarks(m: HeartModel): Landmark[] {
-  const A = anchors(m);
+  const A = anchorsCached(m);
   const L = m.lv.lengthCm;
   const a = m.lv.rMax * lvProfileG(m.lv.shape, 0.45) + 0.45, // mid-wall radius at the mid level
     b = a * m.lv.shape.ratio;
@@ -303,7 +304,7 @@ export function heartLandmarks(m: HeartModel): Landmark[] {
     {
       id: 'aortic-root',
       label: 'Raíz aórtica',
-      p: add(A.avCenter, scale(A.avAxis, 2.2)),
+      p: add(A.avCenter, scale(A.avAxis, 1.8)),
       radius: 1.1,
     },
     { id: 'la', label: 'Aurícula izquierda', p: A.laCenter, radius: 1.5 },
@@ -462,6 +463,16 @@ export function anchorsCached(m: HeartModel): AnchorsCached {
     a = { ...base, avE1: e1, avE2: e2, avBend, pvE1, pvE2, colU, colAorta, colSpine };
     (m as HeartModel & { _anchors?: AnchorsCached })._anchors = a;
     placePulmonaryRoot(m, a);
+    // Bound root descent and both directions of the tamponade swing independently.
+    placeVascularNeighbours(
+      m,
+      a,
+      [false, true].flatMap((systole) =>
+        [0, 0.25, 0.75].map((phase) =>
+          computeChamberPose(m, { ...extremeState(m, systole), phase }),
+        ),
+      ),
+    );
   }
   return a;
 }
@@ -503,8 +514,8 @@ function extremeState(m: HeartModel, systole: boolean): CycleState {
  */
 function placePulmonaryRoot(m: HeartModel, A: AnchorsCached): void {
   const poses = [
-    computeHeartPose(m, extremeState(m, false)),
-    computeHeartPose(m, extremeState(m, true)),
+    computeChamberPose(m, extremeState(m, false)),
+    computeChamberPose(m, extremeState(m, true)),
   ];
   const rel = sub(A.rvotB, A.avCenter);
   const u = normalize(sub(rel, scale(A.avAxis, dot(rel, A.avAxis))));
@@ -562,7 +573,7 @@ function placePulmonaryRoot(m: HeartModel, A: AnchorsCached): void {
           const x = cx + d.x * t + e1.x * c + e2.x * sn,
             y = cy + d.y * t + e1.y * c + e2.y * sn,
             z = cz + d.z * t + e1.z * c + e2.z * sn;
-          if (!classifyHeart(m, hp, x + hp.swingX, y, z, smp) || !inLumen(smp.structure)) bad++;
+          if (!classifyChambers(m, hp, x + hp.swingX, y, z, smp) || !inLumen(smp.structure)) bad++;
         }
       }
     }

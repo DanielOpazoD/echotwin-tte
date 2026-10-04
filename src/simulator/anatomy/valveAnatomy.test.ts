@@ -46,6 +46,7 @@ function setup(id: string) {
     thorax.heartOffset,
     c.seed,
     thorax.ivcCollapse,
+    thorax.columnShiftCm,
   );
   const tables = buildBeatTables(
     60 / c.rhythm.heartRateBpm,
@@ -64,7 +65,7 @@ describe('valve apparatus continuity', () => {
       const A = heartAnchors(heart);
       const pose = computeHeartPose(heart, cycleStateAt(tables, 0));
       const s = makeSample();
-      const lumen = [Structure.AorticRoot, Structure.AorticValve];
+      const lumen = [Structure.AorticRoot, Structure.AorticValve, Structure.AscendingAorta];
       const diameter = (t: number): number => {
         const cz = A.avCenter.z + pose.zAnn * ROOT_EXCURSION;
         const c0 = [
@@ -72,7 +73,27 @@ describe('valve apparatus continuity', () => {
           A.avCenter.y + A.avAxis.y * t,
           cz + A.avAxis.z * t,
         ];
-        const e = A.avE2;
+        let e = A.avE2;
+        // Beyond the STJ, walk the acquired curved vessel and cut its local normal plane.
+        if (t >= 2) {
+          let distance = t - 2;
+          const path = pose.aorta.geometry.arch;
+          for (let i = 1; i < path.length; i++) {
+            const a = path[i - 1]!.p,
+              b = path[i]!.p;
+            const delta = sub(b, a),
+              length = Math.hypot(delta.x, delta.y, delta.z);
+            if (distance <= length) {
+              const u = distance / length;
+              c0[0] = a.x + u * delta.x;
+              c0[1] = a.y + u * delta.y;
+              c0[2] = a.z + u * delta.z;
+              e = normalize(cross(delta, A.avE1));
+              break;
+            }
+            distance -= length;
+          }
+        }
         const inside = (u: number): boolean =>
           classifyHeart(heart, pose, c0[0]! + e.x * u, c0[1]! + e.y * u, c0[2]! + e.z * u, s) &&
           lumen.includes(s.structure) &&
@@ -361,6 +382,7 @@ describe('mitral apparatus (decision 76)', () => {
         thorax.heartOffset,
         c.seed,
         thorax.ivcCollapse,
+        thorax.columnShiftCm,
       );
       const tables = buildBeatTables(
         60 / c.rhythm.heartRateBpm,

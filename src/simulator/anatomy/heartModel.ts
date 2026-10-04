@@ -15,8 +15,9 @@ import {
 import { buildHeartFrame, type HeartFrame } from './heartFrame';
 import { septalCrestFactor, wallThicknessAt } from './lvWall';
 import { classifyHeart } from './classify';
+import { ROOT_STJ_T } from './aorticValve';
 import { anchorsCached } from './anchors';
-import type { HeartPose } from './heartPose';
+import type { ChamberPose, HeartPose } from './heartPose';
 
 /**
  * Parametric, kinematic heart model — the conceptual source of truth for anatomy (spec 6).
@@ -60,6 +61,8 @@ export interface HeartModel {
   ivcCollapse: number;
   /** Torso-z shift of the posterior column (vertebral body, descending aorta) behind this heart (decision 273). */
   columnShiftCm: number;
+  /** Shared age-dependent descending-aortic area strain, assigned by the case model builder. */
+  descAortaAreaStrain: number;
 }
 
 export function createHeartModel(
@@ -89,6 +92,7 @@ export function createHeartModel(
     regionalMeanFrac: regionalMeanFraction(segmentAmplitudes(anatomy)),
     ivcCollapse: Math.min(0.95, Math.max(0, ivcCollapse)),
     columnShiftCm,
+    descAortaAreaStrain: 0,
   };
 }
 
@@ -168,7 +172,7 @@ export function heartGhostPrimitives(m: HeartModel): GhostPrimitive[] {
   const A = anchorsCached(m);
   const lv = m.lv;
   const t = (lv.ivsd + lv.lvpwd) / 2;
-  const rootEnd = add(A.avCenter, scale(A.avAxis, 4.5));
+  const rootEnd = add(A.avCenter, scale(A.avAxis, ROOT_STJ_T));
   return [
     {
       kind: 'ellipsoid',
@@ -198,12 +202,17 @@ export function heartGhostPrimitives(m: HeartModel): GhostPrimitive[] {
 }
 
 /** LV cavity radius (cm, from the long axis) at azimuth `az` and height `z` for a pose (measurement tools). */
-export function lvCavityRadiusAt(m: HeartModel, hp: HeartPose, az: number, z: number): number {
+export function lvCavityRadiusAt(m: HeartModel, hp: ChamberPose, az: number, z: number): number {
   return lvCavityRadius(m.lv.shape, hp.prof, az, z);
 }
 
 /** LV epicardial radius at azimuth `az` and height `z`: cavity radius plus the local wall thickness (radial). */
-export function lvEpicardialRadiusAt(m: HeartModel, hp: HeartPose, az: number, z: number): number {
+export function lvEpicardialRadiusAt(
+  m: HeartModel,
+  hp: ChamberPose,
+  az: number,
+  z: number,
+): number {
   const levelFrac = Math.min(1, Math.max(0, (z - hp.zAnn) / Math.max(hp.lengthNow, 1)));
   const amp = m.segAmp[ahaSegment(az, levelFrac)] ?? 1;
   return (

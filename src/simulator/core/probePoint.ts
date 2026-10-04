@@ -81,7 +81,12 @@ export function probeTorsoPointAt(
       q.sdf,
       descAortaScale(thorax, pose.state.aorticPressure),
     );
-  const nearRoot = inHeart && classifyCtx.rootT > -50;
+  const nearRoot =
+    inHeart &&
+    (q.structure === Structure.AorticRoot ||
+      q.structure === Structure.Lvot ||
+      q.structure === Structure.AorticValve) &&
+    classifyCtx.rootT > -50;
   return {
     rCm: Math.hypot(along, lat),
     thetaRad: Math.atan2(lat, along),

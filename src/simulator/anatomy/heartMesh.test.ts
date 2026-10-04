@@ -34,7 +34,7 @@ describe('heart surface meshes', () => {
   const groups = buildHeartMeshes(heart, pose, { stepCm: 0.8, bounds });
 
   it('builds a surface for every navigator layer, inside the requested bounds', () => {
-    expect(groups).toHaveLength(MESH_GROUPS.length);
+    expect(groups).toHaveLength(MESH_GROUPS.length + 1);
     for (const g of groups) {
       expect(g.positions.length, `${g.id} has vertices`).toBeGreaterThan(0);
       expect(g.indices.length % 3, `${g.id} is triangulated`).toBe(0);

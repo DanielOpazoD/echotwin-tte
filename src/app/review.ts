@@ -172,6 +172,7 @@ export const MESH_GROUP_LABELS: Record<string, string> = {
   atria: 'aurículas',
   valves: 'válvulas',
   'great-vessels': 'grandes vasos',
+  'thoracic-aorta': 'arco y aorta torácica',
   skin: 'piel',
   skeleton: 'hueso',
   ghost: 'corazón esquemático',

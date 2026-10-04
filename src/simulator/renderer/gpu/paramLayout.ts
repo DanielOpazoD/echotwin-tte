@@ -1,3 +1,4 @@
+import { AORTIC_EXTENSION_SEGMENTS } from '@/simulator/anatomy/aorticExtension';
 import type { HeartModel, HeartPose } from '@/simulator/anatomy/heartModel';
 import { heartAnchors } from '@/simulator/anatomy/heartModel';
 import { LV_PROF_BINS } from '@/simulator/anatomy/lvShape';
@@ -269,6 +270,7 @@ const SCALARS = [
   'TH_ABD',
   'TH_DIAPH',
   'TH_DA_SCALE',
+  'TH_DA_TOP',
   'TH_COL_SHIFT',
   // origin of the diaphragm's grid under the right heart (decision 229)
   'DM_X0',
@@ -278,6 +280,10 @@ type ScalarName = (typeof SCALARS)[number];
 
 /** Array blocks (contiguous floats) after the scalars. */
 const ARRAYS: [string, number][] = [
+  ['AO_TUBES', AORTIC_EXTENSION_SEGMENTS * 8],
+  ['AO_IDS', AORTIC_EXTENSION_SEGMENTS],
+  ['AO_BOUNDS', 6],
+  ['AO_JOIN', 6],
   ['SEG_AMP', 18],
   ['LV_PROF_R', LV_PROF_BINS],
   ['LV_PROF_S', LV_PROF_BINS],
@@ -634,6 +640,15 @@ export function packScene(
   // the descending aorta's pulse (decision 272)
   set('TH_DA_SCALE', descAortaScale(thorax, hp.state.aorticPressure));
   set('TH_COL_SHIFT', thorax.columnShiftCm);
+  set('TH_DA_TOP', thorax.descAortaTopY);
+  const aorta = hp.aorta,
+    { min, max } = aorta.tube;
+  d.set(aorta.tube.segments, PARAM_OFFSET['AO_TUBES']);
+  d.set(aorta.structures, PARAM_OFFSET['AO_IDS']);
+  d.set([min.x, min.y, min.z, max.x, max.y, max.z], PARAM_OFFSET['AO_BOUNDS']);
+  const join = aorta.geometry.arch[0]!.p,
+    axis = aorta.joinAxis;
+  d.set([join.x, join.y, join.z, axis.x, axis.y, axis.z], PARAM_OFFSET['AO_JOIN']);
   set('DM_X0', thorax.diaphragmMap.x0);
   set('DM_Z0', thorax.diaphragmMap.z0);
   d.set(thorax.diaphragmMap.h, PARAM_OFFSET['DM_H']);

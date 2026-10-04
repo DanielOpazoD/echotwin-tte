@@ -19,7 +19,9 @@ const BUDGETS = [
   [/^three-.*\.js$/, 600 * KB], // three.js, loaded with the navigator
   [/^react-.*\.js$/, 230 * KB], // React and its DOM renderer: 216 kB at decision 245
   [/^TorsoView-.*\.js$/, 60 * KB],
-  [/^sim\.worker-.*\.js$/, 320 * KB],
+  // Shared thoracic vascular geometry (decision 281): ~323 kB; the mesh worker drops
+  // ~115 kB by receiving the validated case rather than duplicating its catalogue.
+  [/^sim\.worker-.*\.js$/, 328 * KB],
   // the WebGL2 port and its shaders: shared by the simulation worker and the lazy backend comparison. 119.7 kB at
   // decision 151; the LV segment code in GLSL and its read-back (decision 152) took it to 121.0 kB; the mirrors of the
   // right atrium beside the root and the membranous septum, the open venae cavae, the septal tricuspid hinge and the

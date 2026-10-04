@@ -62,7 +62,10 @@ describe('descending aorta (decision 213)', () => {
         for (let k = 0; k < 24; k++) {
           const a = (k / 24) * 2 * Math.PI;
           for (const r of [0, 0.5, DESC_AORTA_R - 0.05]) {
-            if (inHeart(DESC_AORTA_X + r * Math.cos(a), y, DESC_AORTA_Z + r * Math.sin(a), hp)) {
+            if (
+              inHeart(DESC_AORTA_X + r * Math.cos(a), y, DESC_AORTA_Z + r * Math.sin(a), hp) &&
+              s.structure !== Structure.AorticArch
+            ) {
               inside++;
               if (s.structure === Structure.PulmonaryVein) inside += 100;
             }

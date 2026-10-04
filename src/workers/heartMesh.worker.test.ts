@@ -1,4 +1,5 @@
 // @tier fast
+import { loadCaseById } from '@/cases';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MeshReply, NavigatorModel } from './heartMesh.worker';
 
@@ -27,7 +28,7 @@ describe('heartMesh.worker', () => {
   it('posts the navigator model first, then one mesh reply per phase', () => {
     fakeSelf.onmessage!({
       data: {
-        caseId: 'normal-excellent-window',
+        caseDef: loadCaseById('normal-excellent-window'),
         patient: { position: 'left-lateral', respiration: 'expiration', headElevationDeg: 0 },
         stepCm: 0.6,
         phases: [0, 0.5],
