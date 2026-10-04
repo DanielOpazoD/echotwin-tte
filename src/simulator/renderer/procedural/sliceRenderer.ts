@@ -1,7 +1,7 @@
 import type { BeamFrame } from '@/simulator/probe/pose';
 import type { PolarFrame, PolarFrameSpec, RendererBackend, Scene } from '../types';
 import { classifyHeart } from '@/simulator/anatomy/heartModel';
-import { classifyThorax, isAnteriorLung } from '@/simulator/anatomy/thoraxModel';
+import { classifyThorax, descAortaScale, isAnteriorLung } from '@/simulator/anatomy/thoraxModel';
 import {
   makeSample,
   TISSUE_PROPS,
@@ -654,6 +654,8 @@ export class ProceduralSliceRenderer implements RendererBackend {
     let lungEntryT = 0;
     let dead = false;
     /** Classify a torso point into `q`: 0 outside the body, 1 thorax, 2 heart (anterior lung wins over the heart). */
+    // the descending aorta's pulse this frame (decision 272)
+    const daScale = descAortaScale(thorax, heartPose.state.aorticPressure);
     const classifyAt = (px: number, py: number, pz: number, q: TissueSample): number => {
       if (isAnteriorLung(thorax, px, py, pz)) {
         q.tissue = Tissue.Lung;
@@ -677,7 +679,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
         (px - hf.origin.x) * hf.ez.x + (py - hf.origin.y) * hf.ez.y + (pz - hf.origin.z) * hf.ez.z;
       if (classifyHeart(heart, heartPose, hx, hy, hz, q)) return 2;
       // on a miss q.sdf holds the distance beyond the pericardial sac: the lungs wrap the heart (decision 144)
-      return classifyThorax(thorax, px, py, pz, q, q.sdf) ? 1 : 0;
+      return classifyThorax(thorax, px, py, pz, q, q.sdf, daScale) ? 1 : 0;
     };
     /** Incoherent backscatter σ and coherent specular echo of a classified sample, before attenuation. */
     const acoustic = (q: TissueSample, inH: boolean, a: { sigma: number; spec: number }): void => {

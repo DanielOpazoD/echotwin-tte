@@ -1,6 +1,11 @@
 import type { CaseDefinition } from '@/cases/schema';
 import { createHeartModel, heartLandmarks, type HeartModel } from './heartModel';
-import { createThoraxModel, type PatientState, type ThoraxModel } from './thoraxModel';
+import {
+  createThoraxModel,
+  descendingAortaAreaStrain,
+  type PatientState,
+  type ThoraxModel,
+} from './thoraxModel';
 import {
   buildBeatTables,
   cycleStateAt,
@@ -47,6 +52,7 @@ export function buildCaseModels(caseDef: CaseDefinition, patient: PatientState):
     thorax.heartOffset,
     caseDef.seed,
     thorax.ivcCollapse,
+    thorax.columnShiftCm,
   );
   heartLandmarks(heart);
   const tables = buildBeatTables(
@@ -58,5 +64,7 @@ export function buildCaseModels(caseDef: CaseDefinition, patient: PatientState):
   );
   // the diaphragm meets the right heart it carries (decision 229)
   thorax.diaphragmMap = fitDiaphragmMap(heart, cycleStateAt(tables, 0));
+  // the descending aorta pulses as much as the patient's age lets it (decision 272)
+  thorax.descAortaAreaStrain = descendingAortaAreaStrain(caseDef.demographics.ageYears);
   return { caseDef, thorax, heart, tables };
 }

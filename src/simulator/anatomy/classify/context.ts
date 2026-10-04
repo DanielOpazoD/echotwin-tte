@@ -49,6 +49,10 @@ export interface ClassifyCtx {
   wallT: number;
   /** Wall thickness the septal crest gave up at this point's azimuth and height (decision 223). */
   crestLoss: number;
+  /** Distance (cm) from the point to the descending aorta or the vertebral body, which the heart yields to (decision 273). */
+  colDist: number;
+  /** Distance (cm) to the left atrium's epicardium, its wall's outer face or the appendage's (decision 273). */
+  laEpi: number;
   /** Inside the profile but basal to the annulus and outside the root lumen. */
   inAnnularRegion: boolean;
 
@@ -92,6 +96,8 @@ export const ctx: ClassifyCtx = {
   dEllR: 0,
   wallT: 0,
   crestLoss: 0,
+  colDist: 0,
+  laEpi: 0,
   inAnnularRegion: false,
   lvNormal: new Float64Array(3),
   rvSdf: new Float64Array(3),

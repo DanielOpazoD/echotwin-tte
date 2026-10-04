@@ -165,6 +165,8 @@ export const enum Structure {
   HepaticVein,
   Diaphragm,
   EpicardialFat,
+  /** The gastric fundus under the left hemidiaphragm, its air bubble at the top (decision 271). */
+  Stomach,
 }
 
 export function makeSample(): TissueSample {
