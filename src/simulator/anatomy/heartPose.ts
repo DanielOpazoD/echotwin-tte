@@ -1,3 +1,4 @@
+import { radiusPreservingSeptalVolume } from './septalVolume';
 import { buildAorticExtension, type AorticExtension } from './aorticExtension';
 import type { CycleState } from '@/simulator/cardiac-cycle/cycleModel';
 import { Structure } from './tissue';
@@ -221,10 +222,21 @@ export function computeChamberPose(m: HeartModel, state: CycleState): ChamberPos
   // segments contract more (compensatory hyperkinesia) so that the surface-averaged radius — and the
   // cavity volume — still follow the tables: R²·(1 − F) + F·R_ED² = R0²
   const F = Math.min(0.6, m.regionalMeanFrac);
-  const rMax =
+  const unflattenedRadius =
     rMax0 < lv.rMax && F > 0
       ? Math.max(0.5, Math.sqrt(Math.max(0.25, (rMax0 * rMax0 - F * lv.rMax * lv.rMax) / (1 - F))))
       : rMax0;
+  const septalShiftCm = m.anatomy.rv.septalFlattening * 0.9;
+  const annulusRadius =
+    (m.anatomy.mitral.annulusDiameterCm / 2) * (1 - MV_SYSTOLIC_SHORTENING * state.contraction);
+  const rMax = radiusPreservingSeptalVolume(
+    sh,
+    unflattenedRadius,
+    lengthNow,
+    annulusRadius,
+    MITRAL_CENTRE_X,
+    septalShiftCm,
+  );
   // the neck narrows laterally into the annulus as it is now (decision 226)
   const prof = buildLvProfile(
     sh,
@@ -277,7 +289,6 @@ export function computeChamberPose(m: HeartModel, state: CycleState): ChamberPos
   const cusps = m.anatomy.aorticValve.bicuspid ? 2 : 3;
   const tvZ = m.physiology.tapseCm * state.rvLongitudinal;
   const pvZ = PV_ROOT_EXCURSION * zAnn;
-  const septalShiftCm = m.anatomy.rv.septalFlattening * 0.9;
   const rvCollapse = tamp * rvCollapseWindow(state);
   // papillary tips (the apices of the cones built below): about halfway to the axis at 40% of the ventricle's length
   const papTip = (paz: number): [number, number, number] => {

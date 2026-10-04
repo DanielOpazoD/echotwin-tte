@@ -1781,3 +1781,30 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     La primera suite completa final obtuvo 1008/1009 pruebas aprobadas; la única discrepancia eran dos excepciones posteriores obsoletas: inferior y artefactos ya no invadían la aorta descendente en el muestreo. Se retiran esas dos entradas, conservando la prohibición anatómica. Persisten seis casos de superposición AI–aorta; el refinamiento descuenta las estructuras priorizadas por el clasificador, no demuestra exclusión completa de todos los órganos vecinos. La suite se repite tras actualizar ese registro.
 
     Verificación final: 1009 pruebas en 183 archivos (671,8 s), lint, formato, tipos, compilación y presupuestos aprobados. Los 77 recorridos de navegador pasan, incluidas 43 comparaciones CPU/GPU; cuatro comprobaciones requieren GPU física y se omiten en este entorno. El banco de fidelidad conserva 168 criterios cumplidos y una limitación SSN supina, sin fallos. CI de publicación pendiente.
+
+292. **Aplanamiento septal con conservación del volumen ventricular de referencia.** [Estado: vigente]
+
+    El caso de hipertensión pulmonar declaraba 85 mL telediastólicos pero el clasificador independiente medía 76,21 mL; a fin de sístole, 31,38 frente a 35 mL. El desplazamiento angular del septo se aplicaba después de calcular el radio para el volumen, por lo que la deformación eliminaba cavidad. Se integra la sección desplazada con la misma ley angular y el mismo cuello elíptico del clasificador (32 niveles, 48 direcciones), y se resuelve el radio que conserva el volumen del perfil sin aplanamiento. No se agrega un multiplicador específico del paciente. Cuando el desplazamiento es cero se devuelve exactamente el radio anterior.
+
+    La reproducción de 160 000 muestras independientes obtiene 84,14/85 mL telediastólicos y 35,76/35 mL telesistólicos; una tercera fase conserva el volumen dentro de 5 %. La regresión falla sobre la geometría previa. Las comprobaciones de doce casos, imágenes, paridad y rendimiento se registran al completar la iteración; no se sustituye su resultado por la integral utilizada para resolver el radio.
+
+    Límites: conserva el volumen de un perfil geométrico reducido, sin resolver presión septal, interacción pericárdica ni tensión miocárdica. No demuestra conservación exacta de masa de pared ni de gradientes de velocidad a través de la deformación. La combinación de alteración regional y aplanamiento en casos personalizados exige validación adicional. El desplazamiento puede afectar al espacio vecino del VD y debe comprobarse antes de aceptar el cambio.
+
+    Se inspeccionan nueve pares de imágenes PH en PLAX/A4C/PSAX papilar a fases 0/0,35/telesístole, conservando la deformación. El diámetro telediastólico del VI pasa de 3,60 a 3,84 cm, dentro del intervalo de referencia 3,8–5,2: se elimina esa desviación esperada obsoleta del caso, sin alterar el intervalo. Con 90 000 puntos el VD vecino pasa de 161,07 a 163,43 mL y de 36,92 a 37,56 % de FE; permanece dilatado y con disfunción. La tolerancia geométrica del VD todavía no incluye TR cuantificada hasta la decisión siguiente.
+
+    La sección transversal anatómica independiente confirma que no se conserva volumen a costa de borrar la forma en D: el cociente anteroposterior/septolateral pasa de 1,127 a 1,120 en diástole y de 1,237 a 1,210 en sístole; la referencia normal del modelo permanece 0,939. La definición de excentricidad y el umbral anormal >1,1 proceden de ASE corazón derecho 2025 (DOI 10.1016/j.echo.2025.01.006, pp. 145–146 y signos de HP). La regresión exige ese cociente además de volumen dentro de 5 %. Es una sección anatómica a nivel papilar, no una medición ecográfica validada de excentricidad sobre la pantalla.
+
+    El texto del caso deja de llamar patológicamente pequeño al VI: describe su diámetro basal en el límite inferior de la normalidad, coherente con 3,84 cm y con la retirada de la desviación esperada. No se infiere llenado reducido solamente de ese tamaño.
+
+    La repetición sobre la versión que incorpora la AI de la decisión 291 conserva los valores: 84,136/85 mL, 35,755/35 mL y 36,503/36,203 mL durante llenado. Se revisan de nuevo nueve pares de imágenes contra esa base. Desaparecida la última excepción de geometría izquierda, la prueba y su registro documental se simplifican: todos los casos deben cumplir directamente sus tolerancias originales de TSVI, AI AP/volumen y VI.
+
+    Medición CPU tranquila, caso PH, calidad baja, pantalla de 1024 px, dos segundos de calentamiento y dos medidos: B pasa de 2,526 a 2,530 s de trabajo; PW de 4,522 a 4,526 s. Son dos corridas comparables, no garantía de rendimiento universal ni tiempo real. La nueva cuadratura añade 0,9 kB al worker (334,3/335 kB); total 1953,6/2060 kB.
+
+
+    Coste geométrico aceptado: el radio recuperado desplaza la envolvente vecina del VD y aumenta la intrusión torácica PH de 0,89/0,59 a 0,94/0,69 cm en diástole/sístole. Se actualiza el punto de vigilancia medido, manteniendo ±0,1 cm y todas las comprobaciones volumétricas. No se presenta como una mejora de colocación: persiste una colisión y empeora 0,5/1 mm. No se desplaza artificialmente el corazón ni se recorta su cavidad para ocultarla. Resolver simultáneamente tórax, pericardio y acceso apical queda pendiente.
+
+
+    Verificación completa: 1009 pruebas en 184 archivos (677,7 s), lint, formato, tipos y build aprobados. La comparación CPU tranquila de dos segundos simulados PH da B 2,526→2,530 s y PW 4,522→4,526 s: coste prácticamente igual en una pareja de ejecuciones, sin equivalencia estadística ni tiempo real demostrados. Worker 334,3/335 kB y total 1953,6/2060 kB.
+
+
+    Navegador: 77 recorridos aprobados, incluidas 43 comparaciones CPU/GPU y transiciones espectrales; cuatro omisiones por GPU física. No se alteran umbrales de paridad ni referencias de imagen para esta corrección septal.
