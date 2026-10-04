@@ -74,6 +74,14 @@ export interface StripCtx {
   /** Latest polar frame (CW lines stop at shadows on it). */
   frame: PolarFrame | null;
   procedural: ProceduralSliceRenderer;
+  moment(timeS: number): {
+    phase: number;
+    beatIndex: number;
+    tablesVersion: number;
+    tables: BeatTables;
+    flow: FlowFieldParams;
+    scene: Scene;
+  };
   scene(phase: number): Scene;
   physics(): ScenePhysics;
 }
@@ -104,6 +112,8 @@ export class StripEngine {
   private headTimeS: number | undefined;
   private timeline = new StripTimeGrid();
   private stripSampleTime = new Float64Array(0);
+  private stripBeatIndex = new Uint32Array(0);
+  private stripTablesVersion = new Uint32Array(0);
   private lastColumn: Float32Array | null = null;
   private stripKind: 'spectral' | 'm-mode' | null = null;
   private acquisitionKey = '';
@@ -198,6 +208,8 @@ export class StripEngine {
     head: number;
     phase: Float32Array;
     sampleTimeS: Float64Array;
+    beatIndex: Uint32Array;
+    tablesVersion: Uint32Array;
   } {
     return {
       data: this.stripSpectral,
@@ -206,6 +218,8 @@ export class StripEngine {
       head: this.stripHead,
       phase: this.stripPhase,
       sampleTimeS: this.stripSampleTime,
+      beatIndex: this.stripBeatIndex,
+      tablesVersion: this.stripTablesVersion,
     };
   }
 
@@ -270,6 +284,8 @@ export class StripEngine {
       this.stripCmm = cmm ? new Float32Array(spec.samples * stripWidth).fill(NaN) : null;
       this.timeline.reset();
       this.stripSampleTime = new Float64Array(stripWidth);
+      this.stripBeatIndex = new Uint32Array(stripWidth);
+      this.stripTablesVersion = new Uint32Array(stripWidth);
       this.stripPhase = new Float32Array(stripWidth);
       this.stripSpan = new Uint16Array(stripWidth);
       this.stripRgba = null;
@@ -284,14 +300,23 @@ export class StripEngine {
       return;
     }
     for (const timeS of times) {
-      const phase = (((phaseNow - (ctx.timeS - timeS) / rr) % 1) + 1) % 1;
+      const moment = ctx.moment(timeS);
+      const phase = moment.phase;
       const col = this.stripHead % this.stripCols;
-      const signal = this.sampleSpectralColumn(beam, spec, phase, col, timeS, ctx);
+      const signal = this.sampleSpectralColumn(beam, spec, phase, col, timeS, {
+        ...ctx,
+        heart: moment.scene.heart,
+        tables: moment.tables,
+        flow: moment.flow,
+        scene: () => moment.scene,
+      });
       this.stripSpectral!.set(signal.column, col * SPECTRAL_BINS);
       this.stripDisplay!.set(signal.display, col * SPECTRAL_BINS);
       this.lastColumn = signal.column;
       this.stripPhase[col] = phase;
       this.stripSampleTime[col] = timeS;
+      this.stripBeatIndex[col] = moment.beatIndex;
+      this.stripTablesVersion[col] = moment.tablesVersion;
       this.headTimeS = timeS;
       this.stripHead++;
     }

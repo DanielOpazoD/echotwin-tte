@@ -1,3 +1,4 @@
+import { BeatHistory } from './beatHistory';
 import { CineBuffer, type CineFrame } from './cineBuffer';
 import { constrainAcquisition } from './acquisitionInput';
 import type { CaseDefinition } from '@/cases/schema';
@@ -120,6 +121,13 @@ export class SimulatorCore {
   private tablesVersion = 0;
   private clock: CardiacClock;
   private flow: FlowFieldParams;
+  private beatHistory = new BeatHistory<{
+    tables: BeatTables;
+    flow: FlowFieldParams;
+    tablesVersion: number;
+    heart: HeartModel;
+    thorax: ThoraxModel;
+  }>();
   private procedural = new ProceduralSliceRenderer();
   private atlas: AtlasRenderer;
   private backend: RendererBackend;
@@ -220,6 +228,7 @@ export class SimulatorCore {
     this.atlas = new AtlasRenderer(this.gpu ?? this.procedural, caseDef.seed);
     this.backend = this.pickBackend(input.rendererBackend);
     this.flow = this.buildFlow();
+    this.rememberBeat();
   }
 
   private pickBackend(kind: SimInput['rendererBackend']): RendererBackend {
@@ -297,6 +306,16 @@ export class SimulatorCore {
     return buildFlowParams(this.caseDef, this.heart, this.tables, this.thorax);
   }
 
+  private rememberBeat(): void {
+    this.beatHistory.remember(this.clock.current, {
+      tables: this.tables,
+      flow: this.flow,
+      tablesVersion: this.tablesVersion,
+      heart: this.heart,
+      thorax: this.thorax,
+    });
+  }
+
   /** Services the strip engine reads per call; its mutable state stays on the engine. */
   private stripCtx(): StripCtx {
     const c = this.clock.current;
@@ -313,6 +332,23 @@ export class SimulatorCore {
       rrS: c.rrS,
       frame: this.frame,
       procedural: this.procedural,
+      moment: (timeS) => {
+        const beat = this.beatHistory.at(timeS),
+          c = beat.context;
+        return {
+          phase: beat.phase,
+          beatIndex: beat.beatIndex,
+          tablesVersion: c.tablesVersion,
+          tables: c.tables,
+          flow: c.flow,
+          scene: {
+            heart: c.heart,
+            thorax: c.thorax,
+            heartPose: computeHeartPose(c.heart, cycleStateAt(c.tables, beat.phase)),
+            physics: this.physics(),
+          },
+        };
+      },
       scene: (ph) => this.scene(ph),
       physics: () => this.physics(),
     };
@@ -408,10 +444,12 @@ export class SimulatorCore {
     );
     const pre = this.clock.current;
     const previousTablesVersion = this.tablesVersion;
+    this.rememberBeat();
     this.clock.advance(dt);
-    this.syncBeatTables();
-    if (this.tablesVersion !== previousTablesVersion) this.atlas.invalidate();
     this.timeS += dt;
+    this.syncBeatTables();
+    this.rememberBeat();
+    if (this.tablesVersion !== previousTablesVersion) this.atlas.invalidate();
     this.accumulateEcg(pre.timeInBeatS, pre.rrS, dt);
     // the trace budget of the M-mode lines follows the frame interval, not the step: a late step must not buy a longer one
     if (isStrip)
