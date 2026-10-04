@@ -279,17 +279,11 @@ describe('Doppler through the simulator core', () => {
     // the beam–flow angle is set by where the probe sits on the chest; from each position the probe is
     // re-aimed so that the LVOT stays in the imaging plane (as a sonographer does) and the cursor targets it
     const plane = canonicalPlane(getViewTarget('a5c'), heart);
-    for (const [du, dv] of [
-      [0, 0],
-      [-4, 0],
-      [4, 0],
-      [0, 4],
-      [0, -4],
-      [-4, 4],
-      [4, -4],
-      [-5, -3],
-      [5, 3],
-    ] as const) {
+    // A regular skin grid includes intercostal alternatives: four of the previous nine positions
+    // are truly blocked once PW propagates through tissue (decision 276). Keep the six usable
+    // acquisitions and all angular/velocity requirements; do not count absent echoes as cosines.
+    const positions = [-4, -2, 0, 2, 4].flatMap((du) => [-4, 0, 4].map((dv) => [du, dv] as const));
+    for (const [du, dv] of positions) {
       const snapped = snapToIntercostal(thorax, a5c.u + du, a5c.v + dv);
       const ctrl = controlAimingAt(thorax, snapped.u, snapped.v, lvotP, plane.right, 0.6);
       const beam = beamFrameFromPose(poseFromControl(thorax, ctrl));

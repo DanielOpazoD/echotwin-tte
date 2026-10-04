@@ -4,6 +4,8 @@ Este documento existe para que nadie use el simulador más allá de lo que hace.
 
 - Revisión de interfaz de la decisión 274: en Chromium, la consola PW congelada a 390 × 844 px desborda horizontalmente (anchura de documento 809 px sin tutorial) y la imagen queda fuera del área visible. La composición estrecha y el acceso móvil a la consola requieren un cambio de layout; la verificación visual de esta entrega es de escritorio (1440 × 900 px).
 
+- Desde la decisión 276, PW/TDI comprueban propagación por el haz central a la fase de cada columna. No modelan oclusión parcial del ancho de haz ni amplitud espectral proporcional a potencia recibida. Cuadratura axial de 1 mm y umbral relativo 0,02: aproximaciones explícitas, sin validación clínica. CW aún consulta la sombra del último cuadro B.
+
 ## Reauditoría operativa — 2026-09-15
 
 Las entradas históricas siguientes contienen cifras de distintas revisiones y no deben interpretarse como una auditoría única vigente. `AUDITORIA_FIDELIDAD.md` añade la referencia de `ba995bd`, los planos renderizados, el inventario de controles y el alcance nuevo (sin docencia ni PRF/dúplex).

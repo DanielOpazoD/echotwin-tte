@@ -1,7 +1,6 @@
 import type { BeamFrame } from '@/simulator/probe/pose';
 import type { PolarFrame, PolarFrameSpec, RendererBackend, Scene } from '../types';
-import { classifyHeart } from '@/simulator/anatomy/heartModel';
-import { classifyThorax, descAortaScale, isAnteriorLung } from '@/simulator/anatomy/thoraxModel';
+import { sceneClassifier } from '../acoustic/sceneClassifier';
 import {
   makeSample,
   TISSUE_PROPS,
@@ -414,7 +413,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
   }
 
   private prepare(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec): LineContext {
-    const { heart, thorax, physics } = scene;
+    const { heart, physics } = scene;
     const f = physics.frequencyMHz;
     const harm = physics.harmonics;
     const hf = heart.frame;
@@ -435,7 +434,6 @@ export class ProceduralSliceRenderer implements RendererBackend {
       latH: torsoToHeartDir(hf, beam.lateral),
       nrmH: torsoToHeartDir(hf, beam.normal),
       bloodShift: bloodShiftCells(physics.bloodFrame ?? 0),
-      thorax,
       latA: noiseLattice(physics.seed),
       latB: noiseLattice(physics.seed ^ 0x2545f491),
       latC: noiseLattice(physics.seed ^ 0x51),
@@ -606,7 +604,6 @@ export class ProceduralSliceRenderer implements RendererBackend {
       fwdH,
       latH,
       nrmH,
-      thorax,
       latA,
       latB,
       latC,
@@ -616,8 +613,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
     const lk = line ? line.kernels : null;
     const inc = lk ? lk.incoherent : 1;
     const incAxial = lk ? lk.incoherentAxial : 1;
-    const { heart, heartPose } = ctx.scene;
-    const hf = heart.frame;
+    const { heart } = ctx.scene;
     // the LV myocardium's backscatter over normal, as an amplitude (decision 267)
     const myoIb = Math.pow(10, heart.anatomy.lv.myocardialBackscatterDb / 20);
     const s = this.sample;
@@ -654,33 +650,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
     let lungEntryT = 0;
     let dead = false;
     /** Classify a torso point into `q`: 0 outside the body, 1 thorax, 2 heart (anterior lung wins over the heart). */
-    // the descending aorta's pulse this frame (decision 272)
-    const daScale = descAortaScale(thorax, heartPose.state.aorticPressure);
-    const classifyAt = (px: number, py: number, pz: number, q: TissueSample): number => {
-      if (isAnteriorLung(thorax, px, py, pz)) {
-        q.tissue = Tissue.Lung;
-        q.structure = Structure.Lung;
-        q.sdf = -1;
-        q.nx = 0;
-        q.ny = 0;
-        q.nz = 1;
-        q.mx = px;
-        q.my = py;
-        q.mz = pz;
-        q.extraReflect = 0;
-        q.segment = 0;
-        return 1;
-      }
-      const hx =
-        (px - hf.origin.x) * hf.ex.x + (py - hf.origin.y) * hf.ex.y + (pz - hf.origin.z) * hf.ex.z;
-      const hy =
-        (px - hf.origin.x) * hf.ey.x + (py - hf.origin.y) * hf.ey.y + (pz - hf.origin.z) * hf.ey.z;
-      const hz =
-        (px - hf.origin.x) * hf.ez.x + (py - hf.origin.y) * hf.ez.y + (pz - hf.origin.z) * hf.ez.z;
-      if (classifyHeart(heart, heartPose, hx, hy, hz, q)) return 2;
-      // on a miss q.sdf holds the distance beyond the pericardial sac: the lungs wrap the heart (decision 144)
-      return classifyThorax(thorax, px, py, pz, q, q.sdf, daScale) ? 1 : 0;
-    };
+    const classifyAt = sceneClassifier(ctx.scene);
     /** Incoherent backscatter σ and coherent specular echo of a classified sample, before attenuation. */
     const acoustic = (q: TissueSample, inH: boolean, a: { sigma: number; spec: number }): void => {
       const props = TISSUE_PROPS[q.tissue]!;
@@ -1155,7 +1125,6 @@ interface LineContext {
   nrmH: { x: number; y: number; z: number };
   /** Lattice shift of the flowing blood's scatterers in this frame (decision 163). */
   bloodShift: number;
-  thorax: Scene['thorax'];
   latA: Uint8Array;
   latB: Uint8Array;
   latC: Uint8Array;
