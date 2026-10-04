@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 295 (última: 295).
+Decisiones: 296 (última: 296).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -303,3 +303,4 @@ Decisiones: 295 (última: 295).
 | [293](DECISIONS.md#L1812) | 2026-10-04 | Balance de flujo derecho y regurgitación tricuspídea sobre una misma tabla temporal. | vigente |
 | [294](DECISIONS.md#L1834) | 2026-10-04 | Continuidad del mediastino superior en la adquisición supraesternal supina. | vigente |
 | [295](DECISIONS.md#L1854) | 2026-10-04 | Extremos de flujo por latido y coste verificable de interacción. | vigente |
+| [296](DECISIONS.md#L1878) | 2026-10-04 | Textura sanguínea sin una segunda envolvente aleatoria de clutter. | vigente |

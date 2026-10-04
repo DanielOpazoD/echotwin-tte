@@ -18,7 +18,7 @@ import { allocPolarFrame, CALIBRATED_TIER, DEFAULT_ACQUISITION, polarSpecFor } f
  * the strongest at the transducer face against the skin (R ≈ 0.2–0.3), so it loses some R² ≈ 0.06 per wall thickness
  * (~2 cm): an e-fold of about 0.7 cm. With the inherited 1.8 cm the reverberation filled the right ventricle of the
  * parasternal views, 2–5 cm deep, and its blood read 24–45 grey above the left ventricle's in the long axis and the
- * papillary short axis (33 of 48 frames more than 15 above; 10 with the 0.8 cm decay, 9 since the brighter papillary muscles of decision 265, 8 since the hypertrophic myocardium of 267, declared below). The same blood at similar depths should differ by little
+ * papillary short axis (33 of 48 frames more than 15 above; 10 with the 0.8 cm decay, 9 since the brighter papillary muscles of decision 265, 8 since the hypertrophic myocardium of 267; decision 296 records 7 additional whole-cavity imbalances after removing the coarse envelope, declared below). The same blood at similar depths should differ by little
  * more than the haze between them: at most a quarter of the cavity–myocardium contrast (~60), 15 grey.
  *
  * Declared (baseline in grey above the left ventricle): the small cavities beside thick or bright walls, where the haze
@@ -28,14 +28,23 @@ import { allocPolarFrame, CALIBRATED_TIER, DEFAULT_ACQUISITION, polarSpecFor } f
 const BOUND = 15;
 const TOLERANCE = 3;
 const KNOWN_RV_EXCESS: ReadonlyMap<string, number> = new Map([
-  ['hfref-severe-mr plax @0', 16],
+  // Decision 296: without the coarse random envelope, these whole-cavity means expose more of
+  // the near-field/partial-volume imbalance. Original 15-grey bound and ±3 drift remain unchanged.
+  ['hfref-severe-mr psax-pm @0.35', 17.2],
+  ['inferior-rwma plax @0', 15.6],
+  ['aortic-stenosis-severe plax @0', 17.6],
+  ['aortic-stenosis-severe plax @0.35', 16.3],
+  ['hocm-sam plax @0.35', 17.8],
+  ['hocm-sam psax-pm @0.35', 18.1],
+  ['artifact-challenge plax @0', 18.5],
+  ['hfref-severe-mr plax @0', 19.2],
   ['hfref-severe-mr plax @0.35', 16],
-  ['hfref-severe-mr psax-pm @0', 17],
+  ['hfref-severe-mr psax-pm @0', 20.6],
   ['inferior-rwma psax-pm @0', 16],
   ['aortic-stenosis-severe psax-pm @0', 15.8],
   ['hocm-sam plax @0', 25],
-  ['hocm-sam psax-pm @0', 19],
-  ['artifact-challenge plax @0.35', 17],
+  ['hocm-sam psax-pm @0', 22.5],
+  ['artifact-challenge plax @0.35', 20.4],
 ]);
 
 const mean = (

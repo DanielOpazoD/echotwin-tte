@@ -73,7 +73,6 @@ export const TARGETS: GenTarget[] = [
       'pleuralIncidenceCos',
       'pleuralCoherence',
       'calciumAttenDb',
-      'clutterHaze',
       'beamHalfWidthCm',
       'focusingGain',
       'membraneWeight',

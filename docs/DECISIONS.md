@@ -1873,3 +1873,22 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
 
 
     Navegador final: 82 recorridos aprobados (11,4 min), incluidas 47 comparaciones CPU/GPU; cuatro omisiones por GPU física. PW y CW pierden señal detrás del pulmón y la recuperan al volver, SSN conserva las posiciones adquiridas supina/lateral y el control manual.
+
+
+296. **Textura sanguínea sin una segunda envolvente aleatoria de clutter.** [Estado: vigente]
+
+    El usuario describe granulado heterogéneo anormal en todas las ventanas. Se reproduce con la cadena real de controles → sonda → núcleo → consola: una envolvente `3·h²`, donde h era ruido de valor a tres celdas/cm, modulaba el clutter a toda profundidad, añadiendo manchas estacionarias de unos 3 mm independientes de dispersores y respuesta del haz. La ablación separa sangre, ruido y este componente: sólo quitar la modulación reduce la desviación de gris de sangre erosionada en la imagen polar posconsola 19,0→14,4 en PLAX, 18,8→13,3 en PSAX mitral y 19,2→12,9 en PSAX papilar. Las medias pasan 67,5→70,3, 68,2→70,2 y 61,3→62,6. No se atribuye el cambio a oscurecer globalmente la imagen.
+
+    Se conserva el nivel relativo difuso 0,05 y se elimina la envolvente gruesa; los fasores incoherentes y la PSF generan su textura. El nivel del caso, frecuencia, armónicos, transmisión, dispersión de sangre y ruido de receptor permanecen. CPU y GPU usan la misma constante; modo M reutiliza la misma función de clutter del trazador. Se eliminan la función, tres constantes espaciales y su GLSL generado, en lugar de introducir un filtro sobre píxeles de sangre. La envolvente anterior tenía potencia media aproximadamente unitaria, pero su modulación local no tenía justificación anatómica.
+
+    Fundamento: ASE artefactos 2026 (DOI 10.1016/j.echo.2026.01.007), apartado de clutter de campo cercano, describe ecos de reverberación que no siguen el movimiento ventricular. Ello justifica una componente estacionaria, no manchas universales por retículo en toda cavidad ni contraste espontáneo normal. La constante de amplitud continúa siendo una aproximación calibrada, no una medida física absoluta.
+
+    Regresión por la cadena real: sangre VI erosionada en PLAX/PSAX mitral/PSAX papilar, calidades baja/media/alta. Se exige variación relativa de gris <0,25, conservando media 30–85 y desviación >5 para impedir cavidades negras o planas. Es un criterio interno de imagen, no un umbral diagnóstico. Las tres pruebas pasan con la corrección y fallan en la base PR110; se preserva la regresión de decorrelación temporal y las pruebas físicas de PSF/contraste. Revisión visual de trece pares de ventanas normales.
+
+    La comparación histórica de CAMUS no se fuerza a pasar mediante otra textura o cambios de consola. La menor textura residual sanguínea y el balance VD–VI tienen costes medidos, registrados en LIMITATIONS; se mantienen cuartiles y tolerancias originales. Se actualiza el inventario de deuda, incluidos catorce valores que mejoran y diez declaraciones que dejan de ser necesarias. Es calibración histórica, no evaluación clínica externa.
+
+
+    Barrido acumulado: 78 adquisiciones del caso normal (13 ventanas × fases adquiridas 0/0,35 × tres calidades), sin regiones vacías en la medición de sangre. Se revisan trece pares de sectores y ocho pares de referencias visuales; las referencias se regeneran por el cambio de señal intencional, conservando su tolerancia original.
+
+
+    Verificación final: 1021 pruebas en 188 archivos (652,6 s), lint, formato, tipos, build y presupuestos aprobados. Revisión del build en PLAX/A4C/PSAX papilar y Color/M sin errores JavaScript. Los 82 recorridos de navegador pasan (11,3 min), incluidas 47 comparaciones CPU/GPU; cuatro omisiones por GPU física. Worker 335,3/336 kB y total 1956,9/2060 kB. El estado de CI y fusión se conserva en PR111.

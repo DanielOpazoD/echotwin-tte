@@ -119,3 +119,19 @@ septal; balance del VD; SSN supina; rendimiento del trazador y nueva evaluación
 10. Rendimiento y cierre de evaluación: [PR #110](https://github.com/DanielOpazoD/echotwin-tte/pull/110), decisión 295. Extremos de flujo por contexto de latido, benchmark reproducible y [evaluación final de doce parámetros](AUDIT_AFTER_PR110.md): 4,81/7 frente a 4,50/7, mismos pesos. Veinte condiciones B/Doppler conservan la señal exacta; tres parejas PW dan −8,42 % de tiempo mediano. La variabilidad del modo M con carga se detecta también en la base y queda documentada.
 
    Verificación local: 1018 pruebas en 187 archivos (659,0 s), lint, formato, tipos, build y presupuestos aprobados. 82 recorridos de navegador (11,4 min), incluidas 47 comparaciones CPU/GPU y cuatro omisiones por GPU física. Banco: 181 criterios cumplidos. Matriz final: 312 adquisiciones y 32 imágenes revisadas; navegador móvil/escritorio sin errores JS. El estado de CI y fusión del commit publicado se registra en el PR enlazado.
+
+
+## Corrección posterior solicitada: textura sanguínea
+
+[PR #111](https://github.com/DanielOpazoD/echotwin-tte/pull/111), decisión 296: eliminar
+las manchas de unos 3 mm que una envolvente adicional de clutter imponía en todas
+las ventanas. Se comprueban las tres calidades, la cadena real de adquisición,
+decorrelación, contraste, referencias visuales y paridad CPU/GPU. Los costes frente
+a agregados clínicos históricos y el balance VD–VI permanecen explícitos.
+
+Verificación: 1021 pruebas en 188 archivos, lint, formato, tipos, build y presupuestos;
+82 recorridos de navegador (47 comparaciones CPU/GPU, cuatro omisiones por GPU física).
+78 adquisiciones de trece ventanas y revisión visual antes/después, más revisión del
+build en PLAX/A4C/PSAX papilar y Color/M sin errores JS. La regresión de textura falla
+en las tres calidades sobre la base anterior y pasa con la corrección. CI y fusión:
+consultar el PR enlazado.
