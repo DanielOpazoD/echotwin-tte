@@ -36,11 +36,11 @@ export const GUIDELINE_REFERENCES: GuidelineReference[] = [
       'Recommendations for the Evaluation of Left Ventricular Diastolic Function by Echocardiography and for Heart Failure With Preserved Ejection Fraction Diagnosis: An Update From the ASE',
     year: 2025,
     url: 'https://www.asecho.org/guideline/left-ventricular-diastolic-function-by-echo/',
-    accessedAt: '2026-09-10',
+    accessedAt: '2026-10-04',
     usedBy: ['diastolic-function'],
-    verification: 'title-verified',
+    verification: 'verified-online',
     notes:
-      'Diastolic algorithm module is scaffolded; cutoffs must be re-verified before enabling grading.',
+      'Primary text reviewed: DOI 10.1016/j.echo.2025.03.011, Table 6 and Figures 2/8. Age-adjusted relaxation and nominal AF pressure assessment; general sinus-rhythm LAP grading remains unavailable.',
   },
   {
     id: 'ase-right-heart-2025',
@@ -49,9 +49,11 @@ export const GUIDELINE_REFERENCES: GuidelineReference[] = [
       'Guidelines for the Echocardiographic Assessment of the Right Heart in Adults and Special Considerations in Pulmonary Hypertension',
     year: 2025,
     url: 'https://www.asecho.org/guideline/right-heart-in-adults-pulmonary-hypertension/',
-    accessedAt: '2026-09-10',
-    usedBy: ['right-heart', 'rap-estimation'],
-    verification: 'title-verified',
+    accessedAt: '2026-10-04',
+    usedBy: ['right-heart', 'rap-estimation', 'impression'],
+    notes:
+      'DOI 10.1016/j.echo.2025.01.006: Table 2 and PH screening recommendations reviewed; suggestive echo findings are not an invasive diagnosis.',
+    verification: 'verified-online',
   },
   {
     id: 'ase-reporting-2025',

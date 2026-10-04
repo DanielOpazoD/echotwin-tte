@@ -67,7 +67,7 @@ En el código, cada referencia vive en `src/clinical/guidelines/references.ts` c
 | `facAbnormal`, `sPrimeAbnormal` | 35 %; 9,5 cm/s | [R3] > 35; > 9,5 | concuerda |
 | `rapFromIvc` | ≤2,1 cm y >50 % → 3; >2,1 y <50 % → 15; otro → 8 | [R3] igual, medido 0,5–3,0 cm de la AD; >2,5 cm con <50 % puede considerarse 20 | concuerda; la nota «re-verify» puede retirarse |
 | `DIASTOLIC_RULES.averageEeAbnormal` | 14 | [R2] media ≥ 14 (>14 alta especificidad; <8 normal; 8–14 gris); septal ≥ 15, lateral ≥ 13 | concuerda; faltan los cortes por lado |
-| `septalEPrimeAbnormal`, `lateralEPrimeAbnormal` | 7 / 10 cm/s (valores 2016) | [R2] septal ≤ 6, lateral ≤ 7, media ≤ 6,5 (independientes de la edad), más límites por edad | **desactualizados**: sustituir antes de graduar |
+| `septalEPrimeAbnormal`, `lateralEPrimeAbnormal` | 6 / 7 cm/s, más límites por edad | [R2] tabla 6: límites estrictos por edad; figuras 2/3: alternativa global inclusiva | Decisión 288: informe y evaluación usan límites por edad; sin edad usan 6/7/6,5 |
 | `trVelocityAbnormal` | 2,8 m/s | [R2]/[R3] ≥ 2,8 (o PASP ≥ 35) | concuerda |
 | `REPORT_PRECISION` | 1 decimal cm, 2 m/s, 0 mmHg/mL/%… | [R4] velocidades, áreas y lineales no más allá de 0,1; hemodinámica y volúmenes enteros | velocidades con 2 decimales exceden la recomendación (0,1) |
 | TSVI: sitio de medición | hint en `viewTargets` y objetivos de caso | [R1] PLAX zoom, borde interno a borde interno, 3–10 mm bajo el plano valvular, mesosístole, donde se sitúa el PW | coherente; no se valida en las mediciones |
@@ -99,3 +99,7 @@ Resumen de los cortes leídos en los documentos primarios (VERIFIED salvo indica
 - Arterial pulse wave propagation across stenoses and aneurysms: assessment of one-dimensional simulations against three-dimensional simulations and in vitro measurements (2021). DOI [10.1098/rsif.2020.0881](https://doi.org/10.1098/rsif.2020.0881), [PMC8086929](https://pmc.ncbi.nlm.nih.gov/articles/PMC8086929/). Ecuación 2.1 consultada para continuidad en sección móvil. EchoTwin no implementa la ecuación de momento ni reproduce la validación de ese trabajo.
 
 - Malone AJ et al. (2023). Development and Evaluation of a Multifrequency Ultrafast Doppler Spectral Analysis (MFUDSA) Algorithm for Wall Shear Stress Measurement: A Simulation and In Vitro Study. DOI [10.3390/diagnostics13111872](https://doi.org/10.3390/diagnostics13111872), [PMC10252724](https://pmc.ncbi.nlm.nih.gov/articles/PMC10252724/). Texto completo consultado para señal IQ, ventana y Fourier. El simulador usa FFT monofrecuencia 1D con Hann; no implementa MFUDSA 2D/Bartlett ni adopta su validación.
+
+### Revisión primaria del 4 de octubre de 2026 — decisión 288
+
+Se revisaron ASE 2025 de diástole (DOI 10.1016/j.echo.2025.03.011, tabla 6 y figuras 2/8) y corazón derecho (DOI 10.1016/j.echo.2025.01.006, tabla 2 y cribado de HP). La disfunción diastólica requiere concordancia de marcadores; no equivale automáticamente a presión elevada. El algoritmo FA mantiene una salida indeterminada y no inventa strain auricular ausente. Los valores son nominales del paciente sintético, no promedios de mediciones del alumno ni validación clínica. No se habilita la graduación general de presión en ritmo sinusal: falta representar sus exclusiones clínicas. El parámetro geométrico de calcificación no se interpreta como grado clínico de MAC.

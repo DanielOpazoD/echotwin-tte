@@ -10,6 +10,7 @@ export const USED_BY_LABEL: Readonly<Record<string, string>> = {
   'chamber-dimensions': 'dimensiones de las cavidades',
   'continuity-equation': 'ecuación de continuidad',
   'diastolic-function': 'función diastólica',
+  impression: 'impresión clínica',
   'measurement-sites': 'sitios de medición',
   'myocardial-segmentation': 'segmentación miocárdica',
   'prosthetic valves (future)': 'prótesis valvulares (pendiente)',

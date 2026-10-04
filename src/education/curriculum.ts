@@ -413,7 +413,7 @@ export const CURRICULUM: Module[] = [
           {
             id: 'e-prime-septal-ok',
             title: 'e′ septal por Doppler tisular con técnica ≥ 0,75',
-            why: 'La relajación del VI se lee en el anillo, no en la sangre: E/e′ estima la presión de llenado.',
+            why: 'La velocidad e′ anular informa sobre relajación; E/e′ contribuye a estimar presión de llenado junto con otros parámetros y el contexto clínico.',
             viewId: 'a4c',
             requires: ['mitral-e-ok'],
             check: measuredOk('e-prime-septal'),

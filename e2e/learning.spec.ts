@@ -151,3 +151,19 @@ test('«Abrir tarea» opens the task in its case with its view as the target, an
     'Desde A4C rota ~60° en sentido antihorario',
   );
 });
+
+test('AF feedback separates dysfunction from indeterminate filling pressure', async ({ page }) => {
+  await page.getByLabel('Caso', { exact: true }).selectOption('af-diastolic');
+  await page.getByRole('button', { name: 'Informe', exact: true }).click();
+  const dysfunction = page.locator('[data-finding="diastolic-dysfunction"]');
+  const uncertain = page.locator('[data-finding="filling-pressure-indeterminate"]');
+  const elevated = page.locator('[data-finding="filling-pressure-elevated"]');
+  await expect(dysfunction).toContainText('Disfunción diastólica');
+  await expect(dysfunction).not.toContainText('presiones');
+  await dysfunction.locator('input').check();
+  await uncertain.locator('input').check();
+  await page.getByRole('button', { name: 'Corregir', exact: true }).click();
+  await expect(dysfunction).toHaveClass(/\bok\b/);
+  await expect(uncertain).toHaveClass(/\bok\b/);
+  await expect(elevated).not.toHaveClass(/\bmissed\b/);
+});

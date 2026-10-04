@@ -346,7 +346,9 @@ describe('pathologyImpressions', () => {
 
   it('describes the right heart of pulmonary hypertension', () => {
     const ls = lines('pulmonary-hypertension-rv');
-    expect(has(ls, /^Presión sistólica del VD estimada \d+ mmHg \(probabilidad/)).toBe(true);
+    expect(has(ls, /^Presión sistólica del VD estimada \d+ mmHg\.$/)).toBe(true);
+    expect(has(ls, /Hallazgos ecográficos sugestivos de hipertensión pulmonar/)).toBe(true);
+    expect(has(ls, /probabilidad alta/)).toBe(false);
     expect(has(ls, /^Ventrículo derecho dilatado/)).toBe(true);
   });
 
@@ -393,9 +395,7 @@ describe('pathologyImpressions', () => {
       pericardium: { ...normal.pericardium, effusionCm: 0.6, tamponade: 0 },
     });
     expect(ls).toContain('Obstrucción fija del TSVI con gradiente pico 35 mmHg.');
-    expect(ls).toContain(
-      'Presión sistólica del VD estimada 40 mmHg (probabilidad intermedia de hipertensión pulmonar).',
-    );
+    expect(ls).toContain('Presión sistólica del VD estimada 40 mmHg.');
     expect(ls).toContain('Derrame pericárdico leve (0.6 cm).');
   });
 });

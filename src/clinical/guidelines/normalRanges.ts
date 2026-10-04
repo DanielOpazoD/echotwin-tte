@@ -1,3 +1,4 @@
+import { DIASTOLIC_RULES } from '@/clinical/reference-values';
 /**
  * Normal ranges of the protocol's measurements by sex (decision 175), for the report and the impression. Values from the
  * chamber quantification recommendations (`ase-eacvi-chamber-2015`: 2D linear LV dimensions, wall thickness, biplane
@@ -52,14 +53,47 @@ export const NORMAL_RANGES: Readonly<Record<string, Record<Sex, NormalRange>>> =
   'rv-basal': same({ high: 4.1, referenceId: CHAMBER }),
   tapse: same({ low: 1.7, referenceId: 'ase-right-heart-2025' }),
   'ivc-diameter': same({ high: 2.1, referenceId: 'ase-right-heart-2025' }),
-  'e-prime-septal': same({ low: 7, referenceId: 'ase-diastolic-2025' }),
-  'e-prime-lateral': same({ low: 10, referenceId: 'ase-diastolic-2025' }),
+  'e-prime-septal': same({
+    low: DIASTOLIC_RULES.septalEPrimeAbnormal.value,
+    referenceId: 'ase-diastolic-2025',
+  }),
+  'e-prime-lateral': same({
+    low: DIASTOLIC_RULES.lateralEPrimeAbnormal.value,
+    referenceId: 'ase-diastolic-2025',
+  }),
   'tr-vmax': same({ high: 2.8, referenceId: 'ase-diastolic-2025' }),
 };
 
+/** ASE 2025 Table 6 uses strict '<' limits by age. Without age use its all-age Key Point 2 limits.
+ * This differs deliberately from the inclusive all-age cutoffs drawn in Figure 2.
+ */
+export function annularRelaxationLimits(ageYears?: number) {
+  if (ageYears !== undefined && ageYears >= 20 && ageYears < 40)
+    return { septal: 7, lateral: 10, average: 9 };
+  if (ageYears !== undefined && ageYears >= 40 && ageYears <= 65)
+    return { septal: 6, lateral: 8, average: 7 };
+  return {
+    septal: DIASTOLIC_RULES.septalEPrimeAbnormal.value,
+    lateral: DIASTOLIC_RULES.lateralEPrimeAbnormal.value,
+    average: 6.5,
+  };
+}
+
+function rangeFor(id: string, sex: Sex, ageYears?: number): NormalRange | undefined {
+  const base = NORMAL_RANGES[id]?.[sex];
+  if (id === 'e-prime-septal') return { ...base!, low: annularRelaxationLimits(ageYears).septal };
+  if (id === 'e-prime-lateral') return { ...base!, low: annularRelaxationLimits(ageYears).lateral };
+  return base;
+}
+
 /** Where a value sits against the normal range of a measurement for a sex; null when the measurement has none. */
-export function rangeFlag(id: string, sex: Sex, value: number): 'low' | 'normal' | 'high' | null {
-  const r = NORMAL_RANGES[id]?.[sex];
+export function rangeFlag(
+  id: string,
+  sex: Sex,
+  value: number,
+  ageYears?: number,
+): 'low' | 'normal' | 'high' | null {
+  const r = rangeFor(id, sex, ageYears);
   if (!r) return null;
   if (r.low !== undefined && value < r.low) return 'low';
   if (r.high !== undefined && value > r.high) return 'high';
@@ -67,8 +101,8 @@ export function rangeFlag(id: string, sex: Sex, value: number): 'low' | 'normal'
 }
 
 /** The range as the report prints it: «3,8–5,2», «≤ 4,1», «≥ 1,7»; null without a range. */
-export function rangeText(id: string, sex: Sex): string | null {
-  const r = NORMAL_RANGES[id]?.[sex];
+export function rangeText(id: string, sex: Sex, ageYears?: number): string | null {
+  const r = rangeFor(id, sex, ageYears);
   if (!r) return null;
   const f = (v: number) => v.toLocaleString('es-ES', { maximumFractionDigits: 2 });
   if (r.low !== undefined && r.high !== undefined) return `${f(r.low)}–${f(r.high)}`;
