@@ -143,8 +143,26 @@ jobs:
             playwright-report/
             test-results/
   # La protección de `main` exige un check llamado «check»: resume los trabajos reales.
+  fidelity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Banco de fidelidad sintética y límites conocidos
+        run: npm run fidelity:audit -- --out /tmp/echotwin-fidelity.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fidelity-report
+          path: /tmp/echotwin-fidelity.json
+          if-no-files-found: error
   check:
-    needs: [lint, coverage, build, e2e]
+    needs: [lint, coverage, build, e2e, fidelity]
     if: always()
     runs-on: ubuntu-latest
     steps:

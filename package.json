@@ -26,7 +26,8 @@
     "docs:index": "tsx tools/docs/decisions-index.ts",
     "docs:gen": "tsx tools/docs/decisions-index.ts && tsx tools/docs/layer-graph.ts && tsx tools/docs/known-sets.ts && tsx tools/docs/measurements-table.ts",
     "glsl:gen": "tsx tools/glsl/ts2glsl.ts",
-    "golden:update": "UPDATE_GOLDENS=1 VITEST_TIER=slow vitest run src/tests/goldens.test.ts"
+    "golden:update": "UPDATE_GOLDENS=1 VITEST_TIER=slow vitest run src/tests/goldens.test.ts",
+    "fidelity:audit": "tsx tools/offline/validation/fidelity-audit.ts"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",
