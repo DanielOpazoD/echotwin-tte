@@ -1,3 +1,4 @@
+import { buildAorticExtension, type AorticExtension } from './aorticExtension';
 import type { CycleState } from '@/simulator/cardiac-cycle/cycleModel';
 import { Structure } from './tissue';
 import { sdRoundCone, smin } from './sdf';
@@ -94,7 +95,12 @@ const TV_CLOSED_REACH = [0.36, 0.71, 1];
 const TV_CLOSED_DEPTH = [0.3, 0.62, 1];
 
 /** Per-frame deformation parameters derived from the cycle state (computed once per frame). */
-export interface HeartPose {
+export interface HeartPose extends ChamberPose {
+  aorta: AorticExtension;
+}
+
+/** Mechanics and valves before the neighbouring vessels are placed. */
+export interface ChamberPose {
   state: CycleState;
   zAnn: number; // annulus displacement toward apex (cm)
   /** Maximal cavity radius now (lateral) and the polar table of the cavity surface (lvShape.ts). */
@@ -195,6 +201,11 @@ function papillaryDistance(paps: Float64Array, x: number, y: number, z: number):
   return d;
 }
 export function computeHeartPose(m: HeartModel, state: CycleState): HeartPose {
+  const pose = computeChamberPose(m, state);
+  return { ...pose, aorta: buildAorticExtension(m, pose) };
+}
+
+export function computeChamberPose(m: HeartModel, state: CycleState): ChamberPose {
   const { lv } = m;
   const sh = lv.shape;
   const tamp = m.anatomy.pericardium.tamponade;

@@ -11,8 +11,8 @@ Una prueba interna no constituye validación clínica.
 | 2 | Historia común de adquisición | Identidad, tiempo, haz, gate y calibración coherentes al congelar y recorrer cine | [PR #92](https://github.com/DanielOpazoD/echotwin-tte/pull/92), fusionada |
 | 3 | Frecuencia y presupuesto temporal Doppler | Eliminar 2,5 MHz nominales en señal/audio; límites PRF/profundidad y duplex verificables | [PR #93](https://github.com/DanielOpazoD/echotwin-tte/pull/93), fusionada |
 | 4 | Navegación y consola adaptables | Uso a 390 px, paneles plegables, cámara independiente y medidas invariantes | [PR #94](https://github.com/DanielOpazoD/echotwin-tte/pull/94), fusionada |
-| 5 | Geometría y mecánica basal coherentes | Continuidad mitroaórtica, TSVD, tronco pulmonar y aurículas durante el ciclo; referencias publicadas | En validación |
-| 6 | Aorta torácica continua compartida | Raíz, ascendente, arco, descendente y orígenes supraaórticos en CPU/GPU/malla sin intersecciones indebidas | Pendiente |
+| 5 | Geometría y mecánica basal coherentes | Continuidad mitroaórtica, TSVD, tronco pulmonar y aurículas durante el ciclo; referencias publicadas | [PR #95](https://github.com/DanielOpazoD/echotwin-tte/pull/95), fusionada |
+| 6 | Aorta torácica continua compartida | Raíz, ascendente, arco, descendente y orígenes supraaórticos en CPU/GPU/malla sin intersecciones indebidas | En validación |
 | 7 | Ventana supraesternal TTE | Sonda físicamente alcanzable, navegación y barrido continuo sobre la misma anatomía | Pendiente |
 | 8 | Conservación espacial de flujo | Integrales de sección frente a tablas de flujo y variaciones de volumen; aproximaciones explícitas | Pendiente |
 | 9 | Cadena IQ/FFT PW/TDI | Fantomas de Vmax/VTI, aliasing, filtros y rendimiento; comparación con cadena previa | Pendiente |
@@ -50,3 +50,8 @@ PR #93, merge `e173a8b`: frecuencia adquirida en espectro y audio, presupuesto m
 ## Iteración 4 cerrada
 
 PR #94, merge `71e04c4`: sector de 378 px a anchura de 390 px (antes 82), paneles plegables y cámara táctil independiente. Congelar conserva el worker de mallas cuando no cambia el paciente. 894 pruebas y 64 recorridos de navegador, cuatro omitidos por GPU de hardware; CI y cobertura aprobadas. La prueba histórica selecciona un cuadro adquirido con color y conserva todos sus controles de procedencia; pasa tres repeticiones locales y la CI completa. Persisten la interacción de un solo puntero y diez fases nominales de malla.
+
+
+## Iteración 5 cerrada
+
+PR #95, merge `03531bf`: TDI longitudinal sigue la coordenada material entre el anillo actual y el ápex. En 48 muestras normales, la razón respecto de la derivada geométrica pasa de 0,843–0,995 a 1 dentro de 4×10⁻⁸. La mutación anterior falla en los doce casos. Pasan 906 pruebas, 64 recorridos de navegador y CI completa; cuatro recorridos requieren GPU por hardware. Persisten el ajuste empírico lateral/septal y la ausencia de velocidad tisular radial/torsional completa. Siguiente prioridad: continuidad y separación de los grandes vasos.

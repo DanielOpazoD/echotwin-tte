@@ -1,3 +1,4 @@
+import { loadCaseById } from '@/cases';
 import { useEffect, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import * as THREE from 'three';
@@ -287,7 +288,7 @@ export function TorsoView() {
     // facets (decisions 67 and 68).
     const MESH_PHASES = Array.from({ length: 10 }, (_, i) => i / 10);
     meshWorker.postMessage({
-      caseId,
+      caseDef: loadCaseById(caseId),
       patient,
       stepCm: 0.26,
       phases: MESH_PHASES,
@@ -802,6 +803,7 @@ export function TorsoView() {
         atria: layers.chambers,
         valves: layers.valves,
         'great-vessels': layers.vessels,
+        'thoracic-aorta': layers.vessels,
       };
       // a group without a layer of its own shows with the anatomy, never in the exam
       for (const [id, mesh] of meshByGroup) mesh.visible = vis[id] ?? anatomy;
@@ -1079,7 +1081,7 @@ function LayerMenu() {
             'navSegments',
             'Colorea el miocardio del VI por segmento (también el corte); pasar el ratón: nombre',
           )}
-          {layer('Vasos', 'navVessels', 'Raíz aórtica, pulmonar y cavas')}
+          {layer('Vasos', 'navVessels', 'Aorta torácica y ramas proximales, pulmonar y cavas')}
           <MenuCap>Vistas</MenuCap>
           {layer(
             'Corte de frente',

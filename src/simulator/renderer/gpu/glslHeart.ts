@@ -2,6 +2,12 @@
  * GLSL port of `classifyHeart` (heartModel.ts). Mirrors the CPU classifier block by block; the
  * equivalence test (e2e/gpu-equivalence.spec.ts) compares both on the canonical views.
  */
+import {
+  AORTIC_EXTENSION_WALL_CM,
+  AORTIC_EXTENSION_SEGMENTS,
+} from '@/simulator/anatomy/aorticExtension';
+import { VASCULAR_JOIN_EPS_CM } from '@/simulator/anatomy/vascularTube';
+import { ROOT_TUBE_END_T } from '@/simulator/anatomy/classify/root';
 import { LV_PROF_BINS } from '@/simulator/anatomy/lvShape';
 import {
   PV_INF_Z,
@@ -632,13 +638,52 @@ vec3 rvCrescent(vec3 p, float az) {
   return vec3(d, rIn, rOut);
 }
 
+// Same packed tube geometry as the CPU and navigator.
+const float AO_JOIN_EPS = ${VASCULAR_JOIN_EPS_CM.toFixed(8)};
+const int AO_SEGMENTS = ${AORTIC_EXTENSION_SEGMENTS};
+const float AO_WALL = ${AORTIC_EXTENSION_WALL_CM.toFixed(8)};
+const float AO_ROOT_END = ${ROOT_TUBE_END_T.toFixed(8)};
+bool classifyAorticExtension(vec3 p, inout Sample s) {
+  vec3 start = vec3(P(AO_JOIN_BASE), P(AO_JOIN_BASE+1), P(AO_JOIN_BASE+2));
+  vec3 axis = vec3(P(AO_JOIN_BASE+3), P(AO_JOIN_BASE+4), P(AO_JOIN_BASE+5));
+  if (dot(p-start, axis) < -AO_JOIN_EPS) return false;
+  vec3 mn = vec3(P(AO_BOUNDS_BASE), P(AO_BOUNDS_BASE+1), P(AO_BOUNDS_BASE+2));
+  vec3 mx = vec3(P(AO_BOUNDS_BASE+3), P(AO_BOUNDS_BASE+4), P(AO_BOUNDS_BASE+5));
+  if (any(lessThan(p,mn)) || any(greaterThan(p,mx))) return false;
+  float best = FAR_FROM_HEART_CM;
+  vec3 normal = vec3(0.0, 0.0, 1.0);
+  int segment = 0;
+  for (int i=0; i<AO_SEGMENTS; i++) {
+    int j=AO_TUBES_BASE+i*8;
+    vec3 a=vec3(P(j),P(j+1),P(j+2)), b=vec3(P(j+4),P(j+5),P(j+6));
+    float ra=P(j+3), rb=P(j+7);
+    vec3 delta=b-a;
+    float len2=dot(delta,delta);
+    float raw=len2>0.0 ? dot(p-a,delta)/len2 : 0.0;
+    float u=clamp(raw,0.0,1.0);
+    vec3 r=p-a-u*delta;
+    float radial=length(r), dist=radial-mix(ra,rb,u);
+    if (dist>=best) continue;
+    best=dist; segment=i;
+    float taper=raw>0.0 && raw<1.0 ? (rb-ra)/len2 : 0.0;
+    normal=(radial>0.0 ? r/radial : vec3(0.0))-taper*delta;
+  }
+  if (best>=AO_WALL) { s.sdf=min(s.sdf,best-AO_WALL); return false; }
+  float n=length(normal);
+  setSample(s, best<0.0 ? T_BLOOD : T_VESSEL, best<0.0 ? best : -min(best,AO_WALL-best), n>0.0 ? normal/n : vec3(0.0), p, 0.0, int(P(AO_IDS_BASE+segment)));
+  return true;
+}
+
 // Shared RV distance for the pericardium block (recomputed; cheap)
 bool classifyHeart(vec3 p0, out Sample s) {
   s.segment = 0;
+  s.sdf = FAR_FROM_HEART_CM;
+  if (classifyAorticExtension(p0, s)) return true;
+  float vascularDistance = s.sdf;
   vec3 p = vec3(p0.x - SWING_X, p0.y, p0.z);
   float x = p.x, y = p.y, z = p.z;
   vec3 bd = p - vec3(BOUND_CX, BOUND_CY, BOUND_CZ);
-  if (dot(bd, bd) > BOUND_R * BOUND_R) { s.sdf = FAR_FROM_HEART_CM; return false; }
+  if (dot(bd, bd) > BOUND_R * BOUND_R) { s.sdf = vascularDistance; return false; }
   // the descending aorta and the vertebral body, which the heart yields to (decision 273)
   float colDist = posteriorColumnDistance(p0.x, p0.y, p0.z, COL_UX, COL_UY, COL_UZ, COL_AX, COL_AY, COL_AZ, COL_SX, COL_SY, COL_SZ);
   float zAnn = ZANN;
@@ -652,7 +697,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float czz = avC.z + zAnn * ROOT_EXCURSION;
     vec3 d = vec3(x - avC.x, y - avC.y, z - czz);
     float t = dot(d, ax);
-    if (t > -1.6 && t < 6.5) {
+    if (t > -1.6 && t < AO_ROOT_END) {
       float bend = rootBend(t);
       rootQ = d - ax * t - vec3(AV_BX, AV_BY, AV_BZ) * bend;
       rootRr = length(rootQ);
@@ -1090,7 +1135,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     // outside the sac: distance beyond the parietal pericardium or the wall of the ascending aorta (decision 144)
     float dSac = dEpi - 0.12 - (eff > 0.0 ? eff + 0.12 : 0.0);
     float dRoot = rootT > -90.0 ? rootRr - rootR - 0.2 : dSac;
-    s.sdf = min(dSac, dRoot);
+    s.sdf = min(min(dSac, dRoot), vascularDistance);
   }
   return false;
 }

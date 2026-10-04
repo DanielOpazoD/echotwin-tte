@@ -5,7 +5,7 @@ import { septalCrestFactor, septalShiftAt, wallThicknessAt } from './lvWall';
 import { tvShortening, TWO_PI, skirtOffsetAt, tvInflowSdf, type SkirtDesc } from './valveSkirt';
 import type { AnchorsCached } from './anchors';
 import type { HeartModel } from './heartModel';
-import type { HeartPose } from './heartPose';
+import type { ChamberPose } from './heartPose';
 
 /** Scratch buffers shared by the RV helpers (single-threaded classifier). */
 /** Scratch of `rvCrescent` for the radii of `rvRadii` (single-threaded, never leaves this module). */
@@ -231,7 +231,7 @@ export function rvRadii(
  */
 export function rvCrescent(
   m: HeartModel,
-  hp: HeartPose,
+  hp: ChamberPose,
   A: AnchorsCached,
   x: number,
   y: number,

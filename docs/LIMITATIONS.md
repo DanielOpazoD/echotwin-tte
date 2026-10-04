@@ -2,13 +2,15 @@
 
 Este documento existe para que nadie use el simulador más allá de lo que hace. Cada punto está verificado en el código al 2026-09-10.
 
-- Revisión de interfaz de la decisión 274: en Chromium, la consola PW congelada a 390 × 844 px desborda horizontalmente (anchura de documento 809 px sin tutorial) y la imagen queda fuera del área visible. La composición estrecha y el acceso móvil a la consola requieren un cambio de layout; la verificación visual de esta entrega es de escritorio (1440 × 900 px).
+- La decisión 279 corrige el desbordamiento móvil observado en la 274: a 390 × 844 px el sector mide 378 px y el documento 390 px. Navegación y consola son paneles plegables. Persisten cámara de un solo puntero y ausencia de gesto de pinza.
 
 - Desde la decisión 276, PW/TDI comprueban propagación por el haz central a la fase de cada columna. No modelan oclusión parcial del ancho de haz ni amplitud espectral proporcional a potencia recibida. Cuadratura axial de 1 mm y umbral relativo 0,02: aproximaciones explícitas, sin validación clínica. CW aún consulta la sombra del último cuadro B.
 
 - Desde la decisión 277, el cine conserva escena, pose, gate, calibración color y controles propios. Sólo se retiene una adquisición de tira: al sustituirla, los cuadros anteriores no recuperan esa tira y no permiten medir otra como si fuera suya. El navegador congelado conserva paciente/sonda adquiridos, pero sus diez mallas nominales no reproducen la mecánica particular de cada latido irregular.
 
 - Desde la decisión 278, el presupuesto duplex es un balance medio 25/75 %, no un calendario de pulsos ni una reconstrucción espectral con huecos. La tasa media alarga el grano temporal sin sustituir la PRF intra-paquete que determina Nyquist. Grano y audio siguen siendo síntesis desde una distribución de velocidades; usar la frecuencia adquirida no sustituye una cadena IQ/FFT ni resuelve el límite de diez columnas espectrales por paso.
+
+- Aorta torácica (decisión 281): geometría idealizada, con ramas proximales de 4 cm y estrechamiento del 15 % supuestos. La anchura del arco se deriva de los anclajes, sin calibración clínica independiente. La posición del extremo pulmonar derecho se ajusta hasta 4,27 cm entre las 216 combinaciones probadas; necesita revisión clínica, especialmente fuera del decúbito lateral. La separación y ausencia de plegado se comprueban en muestras finitas, no mediante una prueba topológica continua. El eje basal aórtico conserva su limitación previa. No hay aorta abdominal, flujo validado en las nuevas arterias ni advección material de sus dispersores. El navegador usa paso vascular de 4,5 mm y diez fases nominales.
 
 ## Reauditoría operativa — 2026-09-15
 

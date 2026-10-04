@@ -24,7 +24,7 @@ import {
   overlayColorField,
   type ColorSettings,
 } from '@/simulator/doppler/color/colorDoppler';
-import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
+import { beamFrameFromPose, poseFromControl, type ProbeControl } from '@/simulator/probe/pose';
 import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
 
 export interface BackendComparison {
@@ -85,12 +85,13 @@ function canonicalSetup(
   tier: Tier,
   settings: AcquisitionSettings,
   probeOffsetV = 0,
+  controlOverride?: ProbeControl,
 ) {
   const c = loadCaseById(caseId);
   const { thorax, heart, tables } = buildCaseModels(c, REST_PATIENT);
   const canonical = canonicalControl(getViewTarget(viewId), heart, thorax);
   // an offset along the ribs' spacing puts a rib under the probe, which the presets avoid
-  const ctrl = { ...canonical, v: canonical.v + probeOffsetV };
+  const ctrl = controlOverride ?? { ...canonical, v: canonical.v + probeOffsetV };
   const beam = beamFrameFromPose(poseFromControl(thorax, ctrl), 1);
   const spec = polarSpecFor(settings, tier);
   const sceneAt = (ph: number): Scene => ({
@@ -115,6 +116,7 @@ export function compareBackends(
   caseId = 'normal-excellent-window',
   tier: Tier = 'medium',
   probeOffsetV = 0,
+  controlOverride?: ProbeControl,
 ): BackendComparison {
   const { heart, beam, spec, scene } = canonicalSetup(
     viewId,
@@ -123,6 +125,7 @@ export function compareBackends(
     tier,
     DEFAULT_ACQUISITION,
     probeOffsetV,
+    controlOverride,
   );
   const empty: BackendComparison = {
     lines: spec.lines,
