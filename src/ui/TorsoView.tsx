@@ -57,14 +57,15 @@ function navigatorState() {
 
 export function TorsoView() {
   const ref = useRef<HTMLDivElement>(null);
+  const [dragAction, setDragAction] = useState<'probe' | 'camera'>('probe');
+  const dragActionRef = useRef(dragAction);
   const caseId = useSimStore((s) => s.caseId);
   const split = useSimStore((s) => navigatorLayers(s).split);
   const anatomy = useSimStore((s) => modePolicy(s.mode).navigatorAnatomy);
   const livePatient = useSimStore((s) => s.patient);
-  const acquiredPatient = useHudStore(
-    useShallow((s) => (s.hud?.frozen ? (s.hud.acquisition?.patient ?? null) : null)),
+  const patient = useHudStore(
+    useShallow((s) => (s.hud?.frozen ? (s.hud.acquisition?.patient ?? livePatient) : livePatient)),
   );
-  const patient = acquiredPatient ?? livePatient;
   const frozen = useHudStore((s) => s.hud?.frozen ?? false);
   const zoomRef = useRef<{
     zoomBy: (f: number) => void;
@@ -540,11 +541,19 @@ export function TorsoView() {
         });
       void torsoToHeart; // heart-frame coordinates come back from the worker with the classification
     };
-    const onDown = (e: MouseEvent) => {
+    let activePointer: number | null = null;
+    const onDown = (e: PointerEvent) => {
+      if (!e.isPrimary || activePointer !== null) return;
+      activePointer = e.pointerId;
+      renderer.domElement.setPointerCapture(e.pointerId);
       e.preventDefault();
       down = { x: e.clientX, y: e.clientY, t: performance.now(), button: e.button };
       const r = toNdc(e);
-      if (e.button === 2) {
+      if (
+        e.button === 2 ||
+        dragActionRef.current === 'camera' ||
+        useHudStore.getState().hud?.frozen
+      ) {
         drag = { mode: 'orbit', x: e.clientX, y: e.clientY, cx: 0, cy: 0 };
         return;
       }
@@ -565,8 +574,8 @@ export function TorsoView() {
           useSimStore.getState().setProbe({ u: p.u, v: p.v });
       }
     };
-    const onMove = (e: MouseEvent) => {
-      if (!drag.mode) return;
+    const onMove = (e: PointerEvent) => {
+      if (!drag.mode || e.pointerId !== activePointer) return;
       const dx = e.clientX - drag.x,
         dy = e.clientY - drag.y;
       if (drag.mode === 'slide') {
@@ -596,7 +605,9 @@ export function TorsoView() {
         drag = { ...drag, x: e.clientX, y: e.clientY };
       }
     };
-    const onUp = (e: MouseEvent) => {
+    const onUp = (e: PointerEvent) => {
+      if (e.pointerId !== activePointer) return;
+      activePointer = null;
       if (
         down.button === 0 &&
         useSimStore.getState().ui.reviewMode &&
@@ -611,7 +622,12 @@ export function TorsoView() {
     };
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      if (e.ctrlKey || e.metaKey) {
+      if (
+        e.ctrlKey ||
+        e.metaKey ||
+        dragActionRef.current === 'camera' ||
+        useHudStore.getState().hud?.frozen
+      ) {
         zoomRef.current?.zoomBy(e.deltaY > 0 ? 1.1 : 0.9);
         return;
       }
@@ -621,15 +637,17 @@ export function TorsoView() {
         .nudgeProbe({ rotationDeg: Math.sign(e.deltaY) * (e.shiftKey ? 10 : 3) });
     };
     const dom = renderer.domElement;
-    // a drag keeps the pointer (decision 242): the mouse events of a drag that crosses the dial or the camera buttons
-    // go on to the canvas, so those controls neither light up, nor show their tip, nor take the gesture on the way
-    const onPointerDown = (e: PointerEvent) => {
-      if (e.pointerType === 'mouse') dom.setPointerCapture(e.pointerId);
+    // Pointer events support mouse, pen and touch; capture keeps a drag over adjacent controls.
+    const onCancel = (e: PointerEvent) => {
+      if (e.pointerId !== activePointer) return;
+      activePointer = null;
+      down = { x: 0, y: 0, t: 0, button: -1 };
+      drag = { mode: null, x: 0, y: 0, cx: 0, cy: 0 };
     };
-    dom.addEventListener('pointerdown', onPointerDown);
-    dom.addEventListener('mousedown', onDown);
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
+    dom.addEventListener('pointerdown', onDown);
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onCancel);
     dom.addEventListener('wheel', onWheel, { passive: false });
     const noCtx = (e: Event) => e.preventDefault();
     dom.addEventListener('contextmenu', noCtx);
@@ -890,10 +908,10 @@ export function TorsoView() {
       el.removeChild(tipEl);
       meshWorker.terminate();
       ro.disconnect();
-      dom.removeEventListener('pointerdown', onPointerDown);
-      dom.removeEventListener('mousedown', onDown);
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
+      dom.removeEventListener('pointerdown', onDown);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onCancel);
       dom.removeEventListener('wheel', onWheel);
       dom.removeEventListener('contextmenu', noCtx);
       renderer.dispose();
@@ -908,7 +926,9 @@ export function TorsoView() {
             (decision 197) */}
         <div className="torso-help">
           {frozen ? (
-            'Sonda de la adquisición congelada · Botón derecho: orbitar · Ctrl/⌘+rueda: zoom'
+            'Sonda de la adquisición congelada · Arrastrar: orbitar cámara · Rueda: zoom'
+          ) : dragAction === 'camera' ? (
+            'Arrastrar: orbitar cámara · Rueda: zoom · La sonda conserva su posición'
           ) : (
             <>
               Arrastrar: deslizar · Rueda: rotar · Shift: rock · Alt: tilt ·{' '}
@@ -928,6 +948,22 @@ export function TorsoView() {
       </div>
       {split && <div className="torso-caption top">Sonda y tórax</div>}
       {split && <CutMapView />}
+      <label className="torso-gesture">
+        Arrastrar
+        <select
+          aria-label="Acción al arrastrar en el navegador"
+          value={frozen ? 'camera' : dragAction}
+          disabled={frozen}
+          onChange={(e) => {
+            const action = e.target.value as 'probe' | 'camera';
+            dragActionRef.current = action;
+            setDragAction(action);
+          }}
+        >
+          <option value="probe">Sonda</option>
+          <option value="camera">Cámara</option>
+        </select>
+      </label>
       <div className="torso-tools">
         <RotationDial />
         <div className="torso-buttons">

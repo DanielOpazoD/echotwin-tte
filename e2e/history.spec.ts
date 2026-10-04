@@ -43,13 +43,31 @@ test('frozen image and measurements keep their acquisition when pending controls
         frozen: h?.['frozen'],
         frameId: h?.['frameId'],
         timeS: h?.['timeS'],
+        cineLength: Number(h?.['cineLength'] ?? 0),
+        cineOffset: Number(h?.['cineOffset'] ?? 0),
         acquisition: h?.['acquisition'] as FrameAcquisition | undefined,
       };
     });
   await expect.poll(async () => (await read()).colored, { timeout: 20000 }).toBeGreaterThan(20);
   await page.keyboard.press('Space');
   await expect.poll(async () => (await read()).frozen).toBe(true);
-  const before = await read();
+  // Freeze is asynchronous: a later diastolic frame may arrive after the live colour
+  // observation. Select an actually acquired colour frame from cine before testing its provenance.
+  let before = await read();
+  for (let offset = -1; before.colored <= 20 && -offset < before.cineLength; offset--) {
+    await page.evaluate((o) => {
+      const s = (window as unknown as EchoWindow).__echotwin.useSimStore.getState();
+      (s['setCineOffset'] as (value: number) => void)(o);
+    }, offset);
+    await expect.poll(async () => (await read()).cineOffset).toBe(offset);
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    );
+    before = await read();
+  }
   expect(before.colored).toBeGreaterThan(20);
   await page.evaluate(() => {
     const s = (window as unknown as EchoWindow).__echotwin.useSimStore.getState();

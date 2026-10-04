@@ -48,6 +48,7 @@ const SECTION_LABEL: Record<ReportSectionId, string> = {
 
 export function App() {
   const [size, setSize] = useState({ width: 640, height: 520 });
+  const [mobilePanel, setMobilePanel] = useState<'navigation' | 'console' | null>('console');
   const audioRef = useRef<DopplerAudio | null>(null);
   const setHud = useHudStore((s) => s.setHud);
   const lastHudRef = useRef(0);
@@ -131,6 +132,7 @@ export function App() {
   const hints = modePolicy(mode).hintsEnabled;
   return (
     <div
+      data-mobile-panel={mobilePanel ?? 'none'}
       className={`app ${railVisible ? '' : 'no-torso'} ${railVisible && ui.railMini ? 'rail-mini' : ''}${ui.roomMode ? ' room' : ''}`}
     >
       <Splash />
@@ -160,7 +162,31 @@ export function App() {
         </ReportSections>
       ) : (
         <>
-          <div className="left" style={{ display: railVisible ? 'flex' : 'none' }}>
+          <div className="mobile-panels" role="group" aria-label="Paneles de adquisición">
+            <button
+              aria-expanded={mobilePanel === 'navigation' && railVisible}
+              aria-controls="navigation-panel"
+              disabled={ui.minimal}
+              onClick={() => {
+                if (!railVisible) useSimStore.getState().setUi({ showTorso: true });
+                setMobilePanel(mobilePanel === 'navigation' && railVisible ? null : 'navigation');
+              }}
+            >
+              Navegación
+            </button>
+            <button
+              aria-expanded={mobilePanel === 'console'}
+              aria-controls="console-panel"
+              onClick={() => setMobilePanel(mobilePanel === 'console' ? null : 'console')}
+            >
+              Consola
+            </button>
+          </div>
+          <div
+            id="navigation-panel"
+            className="left"
+            style={{ display: railVisible ? 'flex' : 'none' }}
+          >
             <button
               className="rail-collapse"
               onClick={() => useSimStore.getState().setUi({ railMini: !ui.railMini })}
@@ -254,7 +280,7 @@ export function App() {
             <DevPanel />
             {ui.screen === 'simulator' && <Tutorial />}
           </div>
-          <div className="right">
+          <div id="console-panel" className="right">
             <ConsolePanel />
           </div>
         </>
