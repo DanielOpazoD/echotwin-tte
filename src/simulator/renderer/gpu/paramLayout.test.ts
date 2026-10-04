@@ -105,3 +105,17 @@ function defines_scalar_count(): number {
     .split('\n')
     .filter((l) => /^#define \w+ P\(\d+\)$/.test(l) && !l.includes('_BASE')).length;
 }
+
+it('packs ray directions at Float32 precision, including lines beyond the former 256 limit', () => {
+  const wide = { ...spec, lines: 300, sectorRad: Math.PI / 2 };
+  const out = allocPacked();
+  packScene(scene, beam, wide, out);
+  for (let line = 0; line < wide.lines; line++) {
+    const theta = -wide.sectorRad / 2 + (wide.sectorRad * (line + 0.5)) / wide.lines;
+    const offset = PARAM_OFFSET['LINE_TRIG']! + 2 * line;
+    expect(out.data[offset]).toBe(Math.fround(Math.cos(theta)));
+    expect(out.data[offset + 1]).toBe(Math.fround(Math.sin(theta)));
+    expect(out.data[PARAM_OFFSET['LINE_DROP']! + line]).toBeGreaterThan(0);
+  }
+  expect(() => packScene(scene, beam, { ...wide, lines: 513 }, out)).toThrow(RangeError);
+});

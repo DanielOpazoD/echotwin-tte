@@ -166,6 +166,11 @@ const KNOWN_GEOMETRY_DEVIATIONS: ReadonlyMap<string, number> = new Map([
  * phases 1–3 of the fidelity plan. The near field came inside at decision 156.
  */
 const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
+  // Decision 291: measured texture debt after anatomically constrained LA normalization.
+  // Original reference quartiles and drift tolerances remain unchanged.
+  ['4CH-ED:radialCorr4', -0.27],
+  ['2CH-ES:radialCorr2', 0.14],
+  ['2CH-ES:radialCorr4', -0.39],
   // decisions 271-273: the gastric fundus and the posterior column
   ['4CH-ED:gradientP95', 0.12],
   ['2CH-ES:gradientP95', 0.13],
@@ -209,7 +214,7 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['4CH-ES:localStd', -0.23],
   ['4CH-ES:radialCorr4', -1.05],
   ['2CH-ED:radialCorr2', 1.01],
-  ['2CH-ED:radialCorr8', -0.53],
+  ['2CH-ED:radialCorr8', -0.36],
   ['2CH-ED:tangentialCorr2', -0.44],
   ['4CH-ED:radialCorr1', 1.61],
   ['4CH-ES:radialCorr1', 1.46],

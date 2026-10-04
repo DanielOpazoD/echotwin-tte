@@ -39,13 +39,11 @@ const PHASES = [0, 0.2, 0.35, 0.6, 0.85];
  */
 const KNOWN_LA_IN_AORTA = new Set([
   'hfref-severe-mr',
-  'inferior-rwma',
   'aortic-stenosis-moderate',
   'aortic-stenosis-severe',
   'hocm-sam',
   'mvp-primary-mr',
   'af-diastolic',
-  'artifact-challenge',
 ]);
 const LA_STRUCTURES = new Set<number>([Structure.LaCavity, Structure.LaWall]);
 

@@ -1,5 +1,7 @@
+import { atrialScaleForVolume, sizedLeftAtrium, IAS_X, FOSSA_Y, FOSSA_Z } from './laGeometry';
 import { buildAorticArch, type AorticArchGeometry } from './aorticArch';
 import type { CycleState } from '@/simulator/cardiac-cycle/cycleModel';
+import { fitOccupiedAtrium } from './laNormalization';
 import { Structure } from './tissue';
 import type { TissueSample } from './tissue';
 import { lvCavityRadius, lvProfileG } from './lvShape';
@@ -99,34 +101,21 @@ export interface Anchors {
 export const RV_GROOVE_ANTERIOR_RAD = 1.6;
 export const RV_GROOVE_INFERIOR_RAD = 3.7;
 
-/**
- * Case LA volume (mL) whose clipped, stretched ellipsoid measures what the case declares (decision 161). The drawn
- * maximal volume of the undeclared cases spreads over ±5 %, the tolerance of the truth check, because each case clips
- * its ellipsoid differently; the value centres the extremes. 55 until decision 226, whose narrowed neck called atrium the
- * inflow column atrial to the hinges and put the difficult window past +5 %: 55.08 leaves +5.0 % and −4.9 %.
- */
-export const LA_VOLUME_REF = 55.08;
-
+/** Anatomical anchors; LA size is normalized against the actual clipped body and nominal annular excursion. */
 export function anchors(m: HeartModel): Anchors {
   const a = m.anatomy;
   const L = m.lv.lengthCm;
   // Atria: ellipsoids scaled from the case volume (maximal volume, end-systole) with the proportions of a
   // normal LA (AP < transverse < long) and RA; the long axis follows the annulus (reservoir stretch).
-  // LA_VOLUME_REF: the case volume whose ellipsoid measures as the case declares once clipped by the septum and
-  // stretched by the annulus (decision 161; 48 until then, when the LA's maximum measured 13–19 % above its
-  // declaration in ten of the twelve cases).
-  const laK = Math.cbrt(a.la.volumeMl / LA_VOLUME_REF);
-  const laRx = 2.5 * laK,
-    laRy = 2.08 * laK,
-    laRz = 2.65 * laK;
+  const laK = atrialScaleForVolume(a.la.volumeMl, m.physiology.mapseCm, a.la.apDiameterCm);
+  const { center: laCenter, radii: laR } = sizedLeftAtrium(laK, a.la.apDiameterCm);
   const raK = Math.cbrt(a.ra.volumeMl / 44);
   const raRx = 2.15 * raK,
     raRy = 1.93 * raK,
     raRz = 1.86 * raK;
   const rvR = a.rv.basalDiameterCm / 2;
   // both atria overlap the interatrial plane by 0.35 cm and are clipped flat against it (classifyChambers)
-  const iasX = -2.35;
-  const laCenter = v3(iasX - 0.35 + laRx, -1.3, -laRz * 0.85);
+  const iasX = IAS_X;
   const raCenter = v3(iasX + 0.35 - raRx, -0.5 - raRx * 0.1, -raRz * 0.72 + 0.05);
   // LV hypertrophy must not crush the right heart: the RV/RVOT anchors move with the septal thickness
   const dWall = (a.lv.ivsdCm - 0.9) * 1.5;
@@ -182,7 +171,7 @@ export function anchors(m: HeartModel): Anchors {
     ascR: a.aorta.ascendingCm / 2,
     // both atria hang from the interatrial plane (x ≈ −2.3) so that enlarging one never swallows the septum
     laCenter,
-    laR: v3(laRx, laRy, laRz * 0.88),
+    laR,
     raCenter,
     raR: v3(raRx, raRy, raRz),
     // RV modelled as a large ellipsoid carved by the LV epicardium → crescent wrapping the septum;
@@ -240,8 +229,8 @@ export function anchors(m: HeartModel): Anchors {
     rvPapZetaTip: 0.46,
     laReservoir: 0.84 + 0.1 * Math.min(1, Math.max(0, (a.la.volumeMl - 60) / 60)),
     iasX,
-    fossaY: -1.6,
-    fossaZ: -2.3,
+    fossaY: FOSSA_Y,
+    fossaZ: FOSSA_Z,
     svcA,
     svcB: add(svcA, scale(tSup, 4.2)),
     svcR: 0.9,
@@ -483,6 +472,7 @@ export function anchorsCached(m: HeartModel): AnchorsCached {
     );
     a = { ...base, avE1: e1, avE2: e2, avBend, pvE1, pvE2, colU, colAorta, colSpine };
     (m as HeartModel & { _anchors?: AnchorsCached })._anchors = a;
+    fitOccupiedAtrium(m, a, extremeState(m, true));
     placePulmonaryRoot(m, a);
     // Bound root descent and both directions of the tamponade swing independently.
     placeVascularNeighbours(

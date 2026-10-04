@@ -231,13 +231,13 @@ float mediastinumDistance(float x, float y, float z) {
 float atrialScale(float booster, float reservoir, float contraction) {
   return booster * (reservoir + (1.0 - reservoir) * contraction);
 }
-// src/simulator/anatomy/classify/atria.ts: iasThickness
-float iasThickness(float fo) {
-  return fo < 1.0 ? 0.12 : fo < 1.3 ? 0.7 : 0.55;
-}
 // src/simulator/anatomy/classify/atria.ts: raCollapseScale
 float raCollapseScale(float raCollapse) {
   return 1.0 - 0.35 * raCollapse;
+}
+// src/simulator/anatomy/laGeometry.ts: iasThickness
+float iasThickness(float fo) {
+  return fo < 1.0 ? 0.12 : fo < 1.3 ? 0.7 : 0.55;
 }
 // src/simulator/anatomy/classify/pericardium.ts: effusionAt
 float effusionAt(float eff, float dLa, float dRest) {

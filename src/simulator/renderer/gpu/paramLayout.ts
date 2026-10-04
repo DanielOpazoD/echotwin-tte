@@ -278,6 +278,8 @@ const SCALARS = [
 ] as const;
 type ScalarName = (typeof SCALARS)[number];
 
+export const MAX_GPU_LINES = 512;
+
 /** Array blocks (contiguous floats) after the scalars. */
 const ARRAYS: [string, number][] = [
   ['AO_TUBES', AORTIC_EXTENSION_SEGMENTS * 8],
@@ -301,7 +303,8 @@ const ARRAYS: [string, number][] = [
   ['TVS_PROF', 3 * 8],
   ['TVS_BUMP', TV_BUMP_N],
   ['DM_H', DIAPHRAGM_MAP_N * DIAPHRAGM_MAP_N],
-  ['LINE_DROP', 256],
+  ['LINE_DROP', MAX_GPU_LINES],
+  ['LINE_TRIG', MAX_GPU_LINES * 2],
 ];
 
 export const PARAM_OFFSET: Record<string, number> = {};
@@ -653,9 +656,17 @@ export function packScene(
   set('DM_Z0', thorax.diaphragmMap.z0);
   d.set(thorax.diaphragmMap.h, PARAM_OFFSET['DM_H']);
   const contact = contactQuality(beam.contact);
-  const ld = PARAM_OFFSET['LINE_DROP']!;
-  for (let li = 0; li < 256; li++)
-    d[ld + li] = li < spec.lines ? (hash3(li, 7, 0, physics.seed) > contact ? 0.08 : 1) : 1;
+  if (spec.lines > MAX_GPU_LINES) throw new RangeError('Polar grid exceeds GPU line capacity');
+  const ld = PARAM_OFFSET['LINE_DROP']!,
+    lt = PARAM_OFFSET['LINE_TRIG']!;
+  for (let li = 0; li < spec.lines; li++) {
+    d[ld + li] = hash3(li, 7, 0, physics.seed) > contact ? 0.08 : 1;
+    // Native shader trigonometry may displace grazing rays enough to enter lung.
+    // Pack the CPU's ray angles once, rather than recomputing them per sample.
+    const theta = -spec.sectorRad / 2 + (spec.sectorRad * (li + 0.5)) / spec.lines;
+    d[lt + 2 * li] = Math.cos(theta);
+    d[lt + 2 * li + 1] = Math.sin(theta);
+  }
 }
 
 /** Type helper so the pose's valve type can be referenced in packScene. */

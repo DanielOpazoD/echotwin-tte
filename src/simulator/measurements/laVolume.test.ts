@@ -9,16 +9,14 @@ import { computeGroundTruth } from '@/simulator/hemodynamics/groundTruth';
 import { getMeasurementSpec } from './protocol';
 import { simpsonBiplaneVolume } from '@/clinical/formulas';
 import { cutBySectorDepth } from './simpson';
+import { polarMaskDiscs } from './maskDiscs.testkit';
 
 /**
- * The LA volume the protocol asks for can be measured on the images of the app (decision 180): at the end of systole,
- * in the canonical four- and two-chamber views, the atrium of the structure map cut into 20 discs along its long axis
- * and combined as the biplane method of discs gives 0.88–1.02 of the declared volume in the twelve cases at 20 cm (the
- * 0.88 is the HFrEF atrium, drawn 11 % under its declaration, `KNOWN_TRUTH_DEVIATIONS`), within the tolerance the scorer
- * uses. A single plane does not: the four-chamber one gives 1.00–1.19 of it and the two-chamber one 0.64–0.87, since
- * the atrium is wider across the four-chamber plane. At the default depth of 16 cm a dilated atrium reaches the bottom
- * of the sector (the HFrEF one measures 17 % less than at 20 cm), and the technique engine flags a traced chamber the
- * sector cuts.
+ * End-systolic A4C/A2C masks are measured independently of the model with 20 discs.
+ * The cell-boundary oracle is validated on analytic ellipsoids (decision 291).
+ * All twelve cases retain the protocol's original 18% tolerance at 20 cm.
+ * A dilated atrium reaches the default 16 cm sector boundary: the technique
+ * engine must identify that truncation rather than accepting its smaller volume.
  */
 function atrium(caseId: string, view: string, depthCm: number) {
   const c = loadCaseById(caseId);
@@ -35,59 +33,17 @@ function atrium(caseId: string, view: string, depthCm: number) {
     out = core.step(1 / 240) ?? out;
   expect(Math.abs(out.phase - target), `${caseId} ${view} phase`).toBeLessThanOrEqual(tol);
   core.dispose();
-  const p = out.polar;
-  const pts: [number, number][] = [];
-  for (let li = 0; li < p.lines; li++)
-    for (let si = 0; si < p.samples; si++)
-      if (out.structure[li * p.samples + si] === Structure.LaCavity) {
-        const th = -p.sectorRad / 2 + (p.sectorRad * (li + 0.5)) / p.lines;
-        const r = (p.depthCm * (si + 0.5)) / p.samples;
-        pts.push([r * Math.sin(th), r * Math.cos(th)]);
-      }
-  return { pts, cut: cutBySectorDepth(out, [Structure.LaCavity]) };
-}
-
-/** Disc diameters along the long axis of a chamber mask, from its shallow end (the annulus) to its deep end. */
-function discs(pts: [number, number][], n = 20): { diametersCm: number[]; longAxisCm: number } {
-  const mx = pts.reduce((a, q) => a + q[0], 0) / pts.length;
-  const my = pts.reduce((a, q) => a + q[1], 0) / pts.length;
-  let sxx = 0,
-    syy = 0,
-    sxy = 0;
-  for (const [x, y] of pts) {
-    sxx += (x - mx) ** 2;
-    syy += (y - my) ** 2;
-    sxy += (x - mx) * (y - my);
-  }
-  const a = 0.5 * Math.atan2(2 * sxy, sxx - syy);
-  const ux = Math.sin(a) < 0 ? -Math.cos(a) : Math.cos(a),
-    uy = Math.abs(Math.sin(a));
-  const t = pts.map(([x, y]) => (x - mx) * ux + (y - my) * uy);
-  const s = pts.map(([x, y]) => -(x - mx) * uy + (y - my) * ux);
-  let t0 = Infinity,
-    t1 = -Infinity;
-  for (const v of t) {
-    t0 = Math.min(t0, v);
-    t1 = Math.max(t1, v);
-  }
-  const lo = new Array<number>(n).fill(Infinity),
-    hi = new Array<number>(n).fill(-Infinity);
-  t.forEach((v, k) => {
-    const i = Math.min(n - 1, Math.floor(((v - t0) / (t1 - t0)) * n));
-    lo[i] = Math.min(lo[i]!, s[k]!);
-    hi[i] = Math.max(hi[i]!, s[k]!);
-  });
   return {
-    diametersCm: lo.map((l, i) => (Number.isFinite(l) ? hi[i]! - l : 0)),
-    longAxisCm: t1 - t0,
+    profile: polarMaskDiscs(out.structure, out.polar, Structure.LaCavity),
+    cut: cutBySectorDepth(out, [Structure.LaCavity]),
   };
 }
 
 function biplane(caseId: string, depthCm: number) {
   const a4c = atrium(caseId, 'a4c', depthCm),
     a2c = atrium(caseId, 'a2c', depthCm);
-  const p4 = discs(a4c.pts),
-    p2 = discs(a2c.pts);
+  const p4 = a4c.profile,
+    p2 = a2c.profile;
   return {
     volumeMl: simpsonBiplaneVolume(
       p4.diametersCm,

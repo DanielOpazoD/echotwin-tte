@@ -68,8 +68,7 @@ void main() {
   int si = int(gl_FragCoord.x);
   int li = int(gl_FragCoord.y);
   float dr = DEPTH / SAMPLES;
-  float theta = -SECTOR / 2.0 + SECTOR * (float(li) + 0.5) / LINES;
-  float ct = cos(theta), sn = sin(theta);
+  float ct = P(LINE_TRIG_BASE + 2 * li), sn = P(LINE_TRIG_BASE + 2 * li + 1);
   vec3 bF = vec3(B_FX, B_FY, B_FZ), bL = vec3(B_LX, B_LY, B_LZ), bN = vec3(B_NX, B_NY, B_NZ);
   vec3 dirT = bF * ct + bL * sn;           // torso-frame line direction
   vec3 ex = vec3(HF_EXX, HF_EXY, HF_EXZ), ey = vec3(HF_EYX, HF_EYY, HF_EYZ), ez = vec3(HF_EZX, HF_EZY, HF_EZZ);
