@@ -82,6 +82,7 @@ const MATRIX: [string, string[], number[], ('low' | 'medium' | 'high')?, number?
   ['af-diastolic', ['rv-focused'], [0.6]],
   ['normal-difficult-window', ['psax-apex'], [0.35]],
   ['artifact-challenge', ['a4c'], [0]],
+  ['normal-excellent-window', ['suprasternal-arch'], [0, 0.35]],
 ];
 for (const [caseId, views, phases, tier, offsetV] of MATRIX) {
   for (const viewId of views) {

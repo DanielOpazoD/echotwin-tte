@@ -30,6 +30,7 @@ const SECONDARY: Preset[] = [
   { id: 'rv-focused', label: 'VD', sub: 'apical', title: 'Apical enfocada en VD' },
   { id: 'subcostal-4c', label: 'SC', sub: '4 cámaras', title: 'Subcostal cuatro cámaras' },
   { id: 'subcostal-ivc', label: 'SC', sub: 'VCI', title: 'Subcostal vena cava inferior' },
+  { id: 'suprasternal-arch', label: 'SSN', sub: 'arco', title: 'Supraesternal arco aórtico' },
 ];
 
 /** Module-level component: a stable element type so re-renders never remount the buttons. */

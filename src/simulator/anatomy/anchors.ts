@@ -1,3 +1,4 @@
+import { buildAorticArch, type AorticArchGeometry } from './aorticArch';
 import type { CycleState } from '@/simulator/cardiac-cycle/cycleModel';
 import { Structure } from './tissue';
 import type { TissueSample } from './tissue';
@@ -274,8 +275,16 @@ export interface Landmark {
   radius: number; // tolerance radius for "in plane" tests (cm)
 }
 
+const restArchCache = new WeakMap<HeartModel, AorticArchGeometry>();
+
 export function heartLandmarks(m: HeartModel): Landmark[] {
   const A = anchorsCached(m);
+  let geometry = restArchCache.get(m);
+  if (!geometry) {
+    geometry = buildAorticArch(m, computeChamberPose(m, extremeState(m, false)), 1, A);
+    restArchCache.set(m, geometry);
+  }
+  const arch = geometry.arch;
   const L = m.lv.lengthCm;
   const a = m.lv.rMax * lvProfileG(m.lv.shape, 0.45) + 0.45, // mid-wall radius at the mid level
     b = a * m.lv.shape.ratio;
@@ -295,6 +304,18 @@ export function heartLandmarks(m: HeartModel): Landmark[] {
     return v3(r * Math.cos(az), r * Math.sin(az), zb + (zt - zb) * f);
   };
   return [
+    {
+      id: 'aortic-arch-crest',
+      label: 'Cayado aórtico',
+      p: arch[32]!.p,
+      radius: arch[32]!.radiusCm,
+    },
+    {
+      id: 'arch-descending-junction',
+      label: 'Aorta descendente proximal',
+      p: arch[48]!.p,
+      radius: arch[48]!.radiusCm,
+    },
     { id: 'lv-apex', label: 'Ápex VI', p: v3(0, 0, L - 0.3), radius: 0.8 },
     { id: 'lv-apical-cavity', label: 'Cavidad apical VI', p: v3(0, 0, L * 0.8), radius: 0.9 },
     { id: 'lv-mid', label: 'Cavidad VI (mitad)', p: v3(0, 0, L * 0.5), radius: 1.2 },
@@ -478,7 +499,7 @@ export function anchorsCached(m: HeartModel): AnchorsCached {
 }
 
 /** A frame of the beat without tables: end-diastole or end-systole of the case (for placing anchors against the walls). */
-function extremeState(m: HeartModel, systole: boolean): CycleState {
+export function extremeState(m: HeartModel, systole: boolean): CycleState {
   const { edvMl, esvMl } = m.physiology;
   const k = systole ? 1 : 0;
   return {

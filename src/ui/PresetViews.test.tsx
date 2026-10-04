@@ -2,6 +2,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { PresetViews } from './PresetViews';
+import { VIEW_TARGETS } from '@/simulator/windows/viewDefinitions';
 import { useSimStore } from '@/app/store';
 import type { ProductMode } from '@/app/modePolicy';
 
@@ -25,7 +26,8 @@ describe.each<[ProductMode, boolean]>([
     useSimStore.setState({ mode });
     render(<PresetViews />);
     const buttons = presetButtons();
-    expect(buttons.length).toBe(12);
+    expect(buttons.length).toBe(VIEW_TARGETS.length);
+    expect(screen.getByRole('button', { name: /^SSN$/ })).toBeTruthy();
     for (const b of buttons) expect(b).toHaveProperty('disabled', disabled);
     if (disabled) {
       expect(screen.getByText('No disponibles en modo examen')).toBeTruthy();

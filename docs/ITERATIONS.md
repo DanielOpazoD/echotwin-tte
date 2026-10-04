@@ -12,8 +12,8 @@ Una prueba interna no constituye validación clínica.
 | 3 | Frecuencia y presupuesto temporal Doppler | Eliminar 2,5 MHz nominales en señal/audio; límites PRF/profundidad y duplex verificables | [PR #93](https://github.com/DanielOpazoD/echotwin-tte/pull/93), fusionada |
 | 4 | Navegación y consola adaptables | Uso a 390 px, paneles plegables, cámara independiente y medidas invariantes | [PR #94](https://github.com/DanielOpazoD/echotwin-tte/pull/94), fusionada |
 | 5 | Geometría y mecánica basal coherentes | Continuidad mitroaórtica, TSVD, tronco pulmonar y aurículas durante el ciclo; referencias publicadas | [PR #95](https://github.com/DanielOpazoD/echotwin-tte/pull/95), fusionada |
-| 6 | Aorta torácica continua compartida | Raíz, ascendente, arco, descendente y orígenes supraaórticos en CPU/GPU/malla sin intersecciones indebidas | En validación |
-| 7 | Ventana supraesternal TTE | Sonda físicamente alcanzable, navegación y barrido continuo sobre la misma anatomía | Pendiente |
+| 6 | Aorta torácica continua compartida | Raíz, ascendente, arco, descendente y orígenes supraaórticos en CPU/GPU/malla sin intersecciones indebidas | [PR #96](https://github.com/DanielOpazoD/echotwin-tte/pull/96), fusionada |
+| 7 | Ventana supraesternal TTE | Sonda físicamente alcanzable, navegación y barrido continuo sobre la misma anatomía | En validación |
 | 8 | Conservación espacial de flujo | Integrales de sección frente a tablas de flujo y variaciones de volumen; aproximaciones explícitas | Pendiente |
 | 9 | Cadena IQ/FFT PW/TDI | Fantomas de Vmax/VTI, aliasing, filtros y rendimiento; comparación con cadena previa | Pendiente |
 | 10 | Banco independiente y reporte | Vistas ideales e imperfectas, transiciones y controles; separación de calibración/evaluación por paciente | Pendiente |
@@ -55,3 +55,7 @@ PR #94, merge `71e04c4`: sector de 378 px a anchura de 390 px (antes 82), panele
 ## Iteración 5 cerrada
 
 PR #95, merge `03531bf`: TDI longitudinal sigue la coordenada material entre el anillo actual y el ápex. En 48 muestras normales, la razón respecto de la derivada geométrica pasa de 0,843–0,995 a 1 dentro de 4×10⁻⁸. La mutación anterior falla en los doce casos. Pasan 906 pruebas, 64 recorridos de navegador y CI completa; cuatro recorridos requieren GPU por hardware. Persisten el ajuste empírico lateral/septal y la ausencia de velocidad tisular radial/torsional completa. Siguiente prioridad: continuidad y separación de los grandes vasos.
+
+## Iteración 6 cerrada
+
+PR #96, merge `fe29c0c`: aorta torácica y tres ramas proximales comparten geometría en CPU/GPU/malla. Se elimina el cruce demostrado con cava/pulmonar y se comprueba continuidad y curvatura en todo el ciclo. 946 pruebas y 72 recorridos de navegador, cuatro omitidos por GPU de hardware; CI completa aprobada. Geometría idealizada y desplazamiento del extremo pulmonar de hasta 4,27 cm requieren revisión externa. La siguiente prioridad es adquirir el arco desde la escotadura supraesternal con controles reales.

@@ -459,6 +459,33 @@ export function buildViewTargets(): ViewTarget[] {
       tolerance: { planeAngleDeg: 20, inPlaneRotationDeg: 30, offsetCm: 2.0 },
     },
     {
+      id: 'suprasternal-arch',
+      name: 'Supraesternal arco aórtico',
+      window: 'suprasternal',
+      // The operational plane is derived from the actual arch and notch in viewTargets.
+      planeRight: R(v3(0, 1, 0)),
+      planeDown: R(v3(0, 0, -1)),
+      target: v3(0, 0, 0),
+      skin: { u: 0, v: 11 },
+      requiredLandmarks: [
+        { landmarkId: 'aortic-arch-crest', weight: 1.5, required: true },
+        { landmarkId: 'arch-descending-junction', weight: 1.5, required: true },
+      ],
+      penaltyLandmarks: [],
+      recommendedDepthRangeCm: [14, 20],
+      recommendedFocusCm: 10,
+      hints: [
+        'Sitúa la sonda en la escotadura supraesternal y dirige el haz hacia el arco. Rota y angula suavemente para recorrer el cayado y la descendente.',
+        'Busca continuidad de la luz y los orígenes supraaórticos durante el barrido. La ascendente proximal puede quedar fuera de este plano.',
+      ],
+      commonErrors: [
+        'Apoyo sobre el manubrio: sombra ósea',
+        'Desplazamiento lateral: interposición pulmonar',
+        'Corte oblicuo: interrupción aparente del vaso',
+      ],
+      tolerance: { planeAngleDeg: 15, inPlaneRotationDeg: 20, offsetCm: 1.5 },
+    },
+    {
       id: 'rv-focused',
       name: 'Apical enfocada en VD',
       window: 'apical',

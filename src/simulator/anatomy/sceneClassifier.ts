@@ -1,10 +1,15 @@
 import { classifyHeart } from '@/simulator/anatomy/heartModel';
 import { classifyThorax, descAortaScale, isAnteriorLung } from '@/simulator/anatomy/thoraxModel';
 import { Structure, Tissue, type TissueSample } from '@/simulator/anatomy/tissue';
-import type { Scene } from '../types';
+import type { HeartModel, HeartPose } from './heartModel';
+import type { ThoraxModel } from './thoraxModel';
 
 /** Same precedence for imaging and Doppler propagation: anterior lung, heart, surrounding thorax. */
-export function sceneClassifier(scene: Scene) {
+export function sceneClassifier(scene: {
+  heart: HeartModel;
+  heartPose: HeartPose;
+  thorax: ThoraxModel;
+}) {
   const { heart, heartPose, thorax } = scene;
   const hf = heart.frame;
   const daScale = descAortaScale(thorax, heartPose.state.aorticPressure);

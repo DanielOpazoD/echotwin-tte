@@ -1,7 +1,7 @@
 import type { Vec3 } from '@/core/vec3';
 import { makeSample, TISSUE_PROPS, Tissue } from '@/simulator/anatomy/tissue';
 import type { Scene } from '@/simulator/renderer/types';
-import { sceneClassifier } from '@/simulator/renderer/acoustic/sceneClassifier';
+import { sceneClassifier } from '@/simulator/anatomy/sceneClassifier';
 import {
   ATTEN_NP_PER_DB,
   calciumAttenDb,

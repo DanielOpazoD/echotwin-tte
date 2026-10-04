@@ -107,7 +107,7 @@ const WEIGHTS: Record<keyof ViewComponentScores, number> = {
 };
 
 export function windowFromSkin(u: number, v: number): WindowId | 'none' {
-  if (v > 8) return 'suprasternal';
+  if (v > 8) return Math.abs(u) <= 2 && v >= 9.5 ? 'suprasternal' : 'none';
   if (v < -7.5) return 'subcostal';
   if (u >= 0 && u < 5.2 && v > -2.5) return 'parasternal';
   if (u >= 4.2 && v <= 0.5) return 'apical';
@@ -218,7 +218,10 @@ export function analyzeView(input: AnalyzeInput): ViewAnalysis {
   for (let i = 0; i < n; i += 3) {
     const t = frame.tissue[i];
     const st = frame.structure[i] ?? 0;
-    if (st !== 0 && st < 25) {
+    if (
+      (st !== 0 && st < 25) ||
+      (st >= Structure.AscendingAorta && st <= Structure.LeftSubclavian)
+    ) {
       cardiac++;
       const r = ((i % samples) + 0.5) * dr;
       if (
@@ -334,6 +337,14 @@ export function analyzeView(input: AnalyzeInput): ViewAnalysis {
       // long-axis views: the plane should hold the LV long axis. The subcostal four-chamber view fell in the short-axis
       // branch, which read a plane holding the axis as 90° oblique and scored its geometry 0 (decision 167)
       geometryScore = clamp01(1 - axisPlaneAngle / 35);
+    } else if (view.window === 'suprasternal') {
+      // This is a vascular long-axis acquisition, not an LV short-axis view.
+      const vascularAxis = plane.right;
+      const vascularAngle = radToDeg(
+        Math.asin(Math.min(1, Math.abs(dot(vascularAxis, beam.normal)))),
+      );
+      geometryScore = clamp01(1 - vascularAngle / 35);
+      foreshorteningDeg = vascularAngle;
     } else if (view.id === 'subcostal-ivc') {
       // the long axis of the cava is what this view holds (decision 131)
       const A = anchorsCached(heart);

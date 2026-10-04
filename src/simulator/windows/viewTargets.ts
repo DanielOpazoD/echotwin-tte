@@ -1,3 +1,7 @@
+import { extremeState } from '@/simulator/anatomy/anchors';
+import { computeHeartPose } from '@/simulator/anatomy/heartModel';
+import { sceneClassifier } from '@/simulator/anatomy/sceneClassifier';
+import { makeSample, Tissue } from '@/simulator/anatomy/tissue';
 import type { Vec3 } from '@/core/vec3';
 import { add, cross, dot, normalize, scale, sub, v3 } from '@/core/vec3';
 import type { HeartModel } from '@/simulator/anatomy/heartModel';
@@ -500,12 +504,87 @@ export function subcostalFourChamber(
   return out;
 }
 
+/** The acquired plane passes through the real notch and two current anatomical landmarks.
+ * It does not move anatomy or bypass the manubrium/lung classifiers. BSE adult minimum
+ * dataset (Robinson et al. 2020, DOI 10.1530/ERP-20-0026): SSN arch and descending aorta.
+ */
+const suprasternalCache = new WeakMap<
+  HeartModel,
+  WeakMap<ThoraxModel, ReturnType<typeof solveSuprasternalPlane>>
+>();
+export function suprasternalPlane(heart: HeartModel, thorax: ThoraxModel) {
+  let cache = suprasternalCache.get(heart);
+  if (!cache) {
+    cache = new WeakMap();
+    suprasternalCache.set(heart, cache);
+  }
+  let result = cache.get(thorax);
+  if (!result) {
+    result = solveSuprasternalPlane(heart, thorax);
+    cache.set(thorax, result);
+  }
+  return result;
+}
+function solveSuprasternalPlane(heart: HeartModel, thorax: ThoraxModel) {
+  const landmarks = heartLandmarks(heart);
+  const point = (id: string) => heartToTorso(heart.frame, landmarks.find((l) => l.id === id)!.p);
+  const crest = point('aortic-arch-crest'),
+    descending = point('arch-descending-junction');
+  const target = scale(add(crest, descending), 0.5);
+  const heartPose = computeHeartPose(heart, extremeState(heart, false));
+  const classify = sceneClassifier({ heart, heartPose, thorax }),
+    sample = makeSample();
+  // A bounded search inside the notch, analogous to choosing the accessible intercostal space.
+  // These are acquisition bounds (cm), not patient-specific notch measurements.
+  const targets = [crest, descending, { ...descending, y: descending.y - 1.5 }];
+  let bestCost = Infinity,
+    skin = { u: 0, v: 10.5 };
+  for (const u of [0, -0.5, 0.5, -1, 1, -1.5, 1.5])
+    for (const v of [10.5, 10, 11]) {
+      const origin = poseFromControl(thorax, {
+        u,
+        v,
+        rotationDeg: 0,
+        tiltDeg: 0,
+        rockDeg: 0,
+        pressure: 0.6,
+      }).position;
+      let blocked = 0;
+      for (const endpoint of targets) {
+        const delta = sub(endpoint, origin),
+          distance = Math.hypot(delta.x, delta.y, delta.z),
+          direction = scale(delta, 1 / distance);
+        for (let r = 0.05; r < distance; r += 0.1) {
+          const p = add(origin, scale(direction, r));
+          classify(p.x, p.y, p.z, sample);
+          if (
+            sample.tissue === Tissue.Lung ||
+            sample.tissue === Tissue.Bone ||
+            sample.tissue === Tissue.Spine
+          ) {
+            blocked++;
+            break;
+          }
+        }
+      }
+      const cost = blocked + 0.01 * (Math.abs(u) + Math.abs(v - 10.5));
+      if (cost < bestCost) {
+        bestCost = cost;
+        skin = { u, v };
+      }
+    }
+  const control = controlAimingAt(thorax, skin.u, skin.v, target, sub(descending, crest), 0.6);
+  const beam = beamFrameFromPose(poseFromControl(thorax, control));
+  return { control, target, right: beam.lateral, down: beam.forward, normal: beam.normal };
+}
+
 /** Canonical probe control for a view target, computed from the case anatomy (for scoring/ghost only). */
 export function canonicalControl(
   view: ViewTarget,
   heart: HeartModel,
   thorax: ThoraxModel,
 ): ProbeControl {
+  if (view.window === 'suprasternal') return suprasternalPlane(heart, thorax).control;
   if (view.id === 'subcostal-4c') {
     const sub4 = subcostalFourChamber(heart, thorax);
     return controlAimingAt(thorax, sub4.u, sub4.v, sub4.plane.target, sub4.plane.right, 0.6);
@@ -588,6 +667,23 @@ export function canonicalPlane(
   heart: HeartModel,
   thorax?: ThoraxModel,
 ): { target: Vec3; right: Vec3; down: Vec3; normal: Vec3 } {
+  if (view.window === 'suprasternal') {
+    if (thorax) return suprasternalPlane(heart, thorax);
+    const landmarks = heartLandmarks(heart);
+    const crest = heartToTorso(heart.frame, landmarks.find((l) => l.id === 'aortic-arch-crest')!.p);
+    const descending = heartToTorso(
+      heart.frame,
+      landmarks.find((l) => l.id === 'arch-descending-junction')!.p,
+    );
+    const right = normalize(sub(descending, crest));
+    const normal = normalize(cross(right, v3(0, 0, -1)));
+    return {
+      target: scale(add(crest, descending), 0.5),
+      right,
+      down: cross(normal, right),
+      normal,
+    };
+  }
   // the subcostal four-chamber plane is solved through its window, which needs the thorax (decision 167); without it
   // the declared plane stands in
   if (view.id === 'subcostal-4c' && thorax) return subcostalFourChamber(heart, thorax).plane;

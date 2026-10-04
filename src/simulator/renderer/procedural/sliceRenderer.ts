@@ -1,6 +1,6 @@
 import type { BeamFrame } from '@/simulator/probe/pose';
 import type { PolarFrame, PolarFrameSpec, RendererBackend, Scene } from '../types';
-import { sceneClassifier } from '../acoustic/sceneClassifier';
+import { sceneClassifier } from '@/simulator/anatomy/sceneClassifier';
 import {
   makeSample,
   TISSUE_PROPS,
