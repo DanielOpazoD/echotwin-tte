@@ -85,6 +85,9 @@ test('PW loses its spectrum behind lung and recovers after moving back', async (
   await expect.poll(async () => (await read()).peak, { timeout: 20000 }).toBeGreaterThan(0.35);
   await aim(1);
   await expect.poll(async () => (await read()).spanS, { timeout: 20000 }).toBeGreaterThanOrEqual(2);
+  await expect
+    .poll(async () => (await read()).count, { timeout: 20000 })
+    .toBeGreaterThanOrEqual(12);
   const blocked = await read();
   expect(blocked.count).toBeGreaterThanOrEqual(12);
   expect(Number.isFinite(blocked.peak)).toBe(true);

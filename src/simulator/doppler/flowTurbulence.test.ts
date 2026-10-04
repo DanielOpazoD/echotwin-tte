@@ -13,12 +13,12 @@ import { buildFlowParams, sampleFlow, type FlowSample } from './flow-primitives/
  */
 function dispersionAt(caseId: string, site: string, turbulence: number | undefined): number {
   const c = loadCaseById(caseId);
-  const { heart, tables } = buildCaseModels(c, {
+  const { heart, tables, thorax } = buildCaseModels(c, {
     position: 'left-lateral',
     respiration: 'expiration',
     headElevationDeg: 0,
   });
-  const p = buildFlowParams(c, heart, tables);
+  const p = buildFlowParams(c, heart, tables, thorax);
   if (turbulence === undefined) delete p.turbulence[site];
   else p.turbulence[site] = turbulence;
   const tm = tables.timings;

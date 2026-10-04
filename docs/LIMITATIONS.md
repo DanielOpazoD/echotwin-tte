@@ -229,3 +229,9 @@ Cada prueba del modelo que tolera una desviación la declara en un conjunto `KNO
 ## Ventana supraesternal parcial (decisión 282)
 
 El acceso SSN usa sonda real en la escotadura y ve arco en los doce casos, tanto laterales como supinos. En el barrido medido de 24 combinaciones, la descendente está oculta en todos los supinos y en las dos ventanas laterales difíciles. El normal lateral muestra un segmento de descendente, no toda la ascendente y las tres ramas simultáneamente. No se modelan extensión cervical ni tráquea. La selección automática minimiza obstrucciones en una rejilla pequeña, no sustituye una exploración clínica. Pendientes: anatomía mediastínica contrastada externamente, cobertura supina y validación Doppler supraesternal.
+
+## Red aórtica reducida (decisión 283)
+
+El caudal conserva el volumen de secciones barridas móviles desde STJ hasta el diafragma y tres salidas proximales. No resuelve momento, presión, impedancias distales, vórtices ni ondas; r⁴ con igual longitud efectiva es un supuesto. El perfil parabólico es cuasiestacionario y no reproduce aplanamiento pulsátil ni transporte turbulento. La unión volumétrica real de bifurcaciones y el empalme al jet valvular siguen aproximados. La diferenciación unilateral en el borde del ciclo no demuestra continuidad entre latidos FA. No se ha validado clínicamente el Doppler del arco ni de la descendente.
+
+En catorce secciones interiores normales/estenosis severa a fase 0,2, el flujo integrado del campo vectorial difiere hasta el 3,39 % de la red 1D por curvas y uniones discretizadas. La conservación global comprobada no implica divergencia local exactamente nula.

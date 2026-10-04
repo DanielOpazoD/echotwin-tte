@@ -13,8 +13,8 @@ Una prueba interna no constituye validación clínica.
 | 4 | Navegación y consola adaptables | Uso a 390 px, paneles plegables, cámara independiente y medidas invariantes | [PR #94](https://github.com/DanielOpazoD/echotwin-tte/pull/94), fusionada |
 | 5 | Geometría y mecánica basal coherentes | Continuidad mitroaórtica, TSVD, tronco pulmonar y aurículas durante el ciclo; referencias publicadas | [PR #95](https://github.com/DanielOpazoD/echotwin-tte/pull/95), fusionada |
 | 6 | Aorta torácica continua compartida | Raíz, ascendente, arco, descendente y orígenes supraaórticos en CPU/GPU/malla sin intersecciones indebidas | [PR #96](https://github.com/DanielOpazoD/echotwin-tte/pull/96), fusionada |
-| 7 | Ventana supraesternal TTE | Sonda físicamente alcanzable, navegación y barrido continuo sobre la misma anatomía | En validación |
-| 8 | Conservación espacial de flujo | Integrales de sección frente a tablas de flujo y variaciones de volumen; aproximaciones explícitas | Pendiente |
+| 7 | Ventana supraesternal TTE | Sonda físicamente alcanzable, navegación y barrido continuo sobre la misma anatomía | [PR #97](https://github.com/DanielOpazoD/echotwin-tte/pull/97), fusionada |
+| 8 | Conservación espacial de flujo | Integrales de sección frente a tablas de flujo y variaciones de volumen; aproximaciones explícitas | En validación |
 | 9 | Cadena IQ/FFT PW/TDI | Fantomas de Vmax/VTI, aliasing, filtros y rendimiento; comparación con cadena previa | Pendiente |
 | 10 | Banco independiente y reporte | Vistas ideales e imperfectas, transiciones y controles; separación de calibración/evaluación por paciente | Pendiente |
 
@@ -59,3 +59,7 @@ PR #95, merge `03531bf`: TDI longitudinal sigue la coordenada material entre el 
 ## Iteración 6 cerrada
 
 PR #96, merge `fe29c0c`: aorta torácica y tres ramas proximales comparten geometría en CPU/GPU/malla. Se elimina el cruce demostrado con cava/pulmonar y se comprueba continuidad y curvatura en todo el ciclo. 946 pruebas y 72 recorridos de navegador, cuatro omitidos por GPU de hardware; CI completa aprobada. Geometría idealizada y desplazamiento del extremo pulmonar de hasta 4,27 cm requieren revisión externa. La siguiente prioridad es adquirir el arco desde la escotadura supraesternal con controles reales.
+
+## Iteración 7 cerrada
+
+PR #97, merge `f06dc5c`: botón SSN y barrido continuo desde la escotadura, con clasificador anatómico común. 949 pruebas y 75 recorridos de navegador, cuatro omitidos por GPU de hardware; CI completa y cobertura aprobadas. La adquisición sigue siendo parcial: arco visible en las 24 combinaciones medidas, descendente oculta en todos los supinos y dos ventanas laterales difíciles. No se abrió artificialmente el mediastino. Siguiente prioridad: flujo aórtico que siga el árbol vascular y conserve su balance de volumen.
