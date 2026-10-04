@@ -173,7 +173,7 @@ for (const { id } of CASE_INPUTS) {
     core.dispose();
   }
 }
-// The known supine defect is measured, not omitted. A repaired defect requires this declaration to be reviewed.
+// Supine acquisition remains measured after closing the normal-case mediastinal occlusion (decision 294).
 {
   const c = loadCaseById('normal-excellent-window'),
     input = baseInput({
@@ -194,11 +194,6 @@ for (const { id } of CASE_INPUTS) {
     'samples',
     { min: 60 },
     'BSE minimum dataset SSN descending-aorta coverage; decision 282 sampling criterion',
-    {
-      id: 'ssn-supine-occlusion',
-      reason:
-        'The present thorax blocks the descending aorta in supine SSN; no cervical extension or trachea model',
-    },
   );
   core.dispose();
 }

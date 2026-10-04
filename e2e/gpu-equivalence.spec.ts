@@ -57,7 +57,14 @@ const MAX_STRUCTURE_DISAGREEMENT = 0.06;
  */
 const MAX_AMP_REL_DIFF = 0.015;
 
-const MATRIX: [string, string[], number[], ('low' | 'medium' | 'high')?, number?][] = [
+const MATRIX: [
+  string,
+  string[],
+  number[],
+  ('low' | 'medium' | 'high')?,
+  number?,
+  ('left-lateral' | 'supine')?,
+][] = [
   ['normal-excellent-window', ['plax', 'a4c', 'psax-av'], [0, 0.35]],
   ['aortic-stenosis-severe', ['plax', 'a4c', 'psax-av'], [0, 0.35]],
   // septal flattening (D-shape) and tamponade collapse/swing exercise the newest GLSL paths; the dilated pulmonary
@@ -83,15 +90,17 @@ const MATRIX: [string, string[], number[], ('low' | 'medium' | 'high')?, number?
   ['normal-difficult-window', ['psax-apex'], [0.35]],
   ['artifact-challenge', ['a4c'], [0]],
   ['normal-excellent-window', ['suprasternal-arch'], [0, 0.35]],
+  ['normal-excellent-window', ['suprasternal-arch'], [0, 0.35], 'medium', 0, 'supine'],
+  ['normal-difficult-window', ['suprasternal-arch'], [0, 0.35], 'medium', 0, 'supine'],
 ];
-for (const [caseId, views, phases, tier, offsetV] of MATRIX) {
+for (const [caseId, views, phases, tier, offsetV, position] of MATRIX) {
   for (const viewId of views) {
     for (const phase of phases) {
-      test(`${caseId} ${viewId} @${phase}${tier ? ` (${tier})` : ''}${offsetV ? ` probe v${offsetV > 0 ? '+' : ''}${offsetV}` : ''}: GPU frame matches the CPU reference`, async ({
+      test(`${caseId} ${viewId} @${phase}${tier ? ` (${tier})` : ''}${offsetV ? ` probe v${offsetV > 0 ? '+' : ''}${offsetV}` : ''}${position ? ` ${position}` : ''}: GPU frame matches the CPU reference`, async ({
         page,
       }) => {
         const r = await page.evaluate(
-          ([v, p, c, t, o]) =>
+          ([v, p, c, t, o, position]) =>
             (
               window as unknown as {
                 __echotwin: {
@@ -101,11 +110,28 @@ for (const [caseId, views, phases, tier, offsetV] of MATRIX) {
                     c: string,
                     t?: string,
                     o?: number,
+                    control?: undefined,
+                    patient?: {
+                      position: 'left-lateral' | 'supine';
+                      respiration: 'expiration';
+                      headElevationDeg: number;
+                    },
                   ) => Comparison;
                 };
               }
-            ).__echotwin.compareBackends(v, p, c, t as string | undefined, o),
-          [viewId, phase, caseId, tier ?? 'medium', offsetV ?? 0] as const,
+            ).__echotwin.compareBackends(v, p, c, t as string | undefined, o, undefined, {
+              position,
+              respiration: 'expiration',
+              headElevationDeg: 0,
+            }),
+          [
+            viewId,
+            phase,
+            caseId,
+            tier ?? 'medium',
+            offsetV ?? 0,
+            position ?? 'left-lateral',
+          ] as const,
         );
         expect(r.error, 'WebGL2 must be available in the test browser').toBeUndefined();
         expect(r.lines).toBeGreaterThan(60);

@@ -424,7 +424,21 @@ export function mediastinumDistance(x: number, y: number, z: number): number {
   const ax = (x - DESC_AORTA_X) / rs,
     az = (z - DESC_AORTA_Z - Math.min(Math.max(z - DESC_AORTA_Z, 0), DESC_AORTA_SLEEVE_REACH)) / rs;
   const aorta = ax * ax + az * az - 1;
-  return Math.min(posterior, superior, aorta);
+  // Connect the superior visceral space to the existing periaortic cuff. The lung cannot
+  // split the connective-tissue envelope of the arch and proximal descending aorta.
+  // Idealized transverse capsule, using the existing cuff radius and superior taper;
+  // no dependence on probe, view label or case identity (decision 294).
+  let bridge = 1;
+  const radius = Math.min(rs, halfWidth);
+  if (radius > 0.05) {
+    const bx = DESC_AORTA_X + 0.5,
+      bz = DESC_AORTA_Z + DESC_AORTA_SLEEVE_REACH + 8;
+    const t = Math.min(1, Math.max(0, ((x + 0.5) * bx + (z + 8) * bz) / (bx * bx + bz * bz)));
+    const dx = (x + 0.5 - t * bx) / radius,
+      dz = (z + 8 - t * bz) / radius;
+    bridge = dx * dx + dz * dz - 1;
+  }
+  return Math.min(posterior, superior, aorta, bridge);
 }
 
 const ribProbe = makeSample();
@@ -573,11 +587,9 @@ export function classifyThorax(
   // diaphragm (decision 229)
   const lungL = x > leftLungBorderX(t, y);
   const lungR = x < rightLungBorderX(t);
-  const aroundHeart =
-    heartDistCm > PERICARDIAL_FAT_CM &&
-    depth > T + ANTERIOR_CORRIDOR_CM &&
-    mediastinumDistance(x, y, z - t.columnShiftCm) > 0;
-  if ((lungL || lungR || aroundHeart) && !isUnderHeart(t, x, y, z)) {
+  const outsideMediastinum = mediastinumDistance(x, y, z - t.columnShiftCm) > 0;
+  const aroundHeart = heartDistCm > PERICARDIAL_FAT_CM && depth > T + ANTERIOR_CORRIDOR_CM;
+  if ((lungL || lungR || aroundHeart) && outsideMediastinum && !isUnderHeart(t, x, y, z)) {
     out.tissue = Tissue.Lung;
     out.structure = Structure.Lung;
     out.sdf = -1;
