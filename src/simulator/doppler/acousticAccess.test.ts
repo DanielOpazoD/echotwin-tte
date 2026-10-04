@@ -10,7 +10,7 @@ import { createThoraxModel } from '@/simulator/anatomy/thoraxModel';
 import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
 import { beamFrameFromPose, controlAimingAt, poseFromControl } from '@/simulator/probe/pose';
-import { acousticAccess } from './acousticAccess';
+import { acousticAccess, relativeEchoAmplitude } from './acousticAccess';
 import { sub, normalize } from '@/core/vec3';
 import type { Scene } from '@/simulator/renderer/types';
 
@@ -80,5 +80,19 @@ describe('spectral path quadrature', () => {
       }
     expect(open).toBeGreaterThan(0);
     expect(blocked).toBeGreaterThan(0);
+  });
+});
+
+describe('received amplitude preserves coupling before reference compensation', () => {
+  it('halving coupling quarters signal power on the same physical path', () => {
+    const s = scene(0.2),
+      d = sub(p, refBeam.origin),
+      depth = Math.hypot(d.x, d.y, d.z);
+    const direction = normalize(d);
+    const a = relativeEchoAmplitude(s, refBeam.origin, direction, 1)(depth);
+    const half = relativeEchoAmplitude(s, refBeam.origin, direction, 0.5)(depth);
+    expect(a).toBeGreaterThan(0);
+    expect(half / a).toBeCloseTo(0.5, 12);
+    expect(half ** 2 / a ** 2).toBeCloseTo(0.25, 12);
   });
 });

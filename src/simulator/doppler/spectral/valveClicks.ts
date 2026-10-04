@@ -52,6 +52,7 @@ export function valveClickWeight(
   tables: BeatTables,
   timeInBeatS: number,
   points: ArrayLike<number>,
+  receivedPower?: ArrayLike<number>,
 ): number {
   const A = heartAnchors(heart);
   const events = valveEventTimes(tables);
@@ -89,24 +90,29 @@ export function valveClickWeight(
       clickTime(timeInBeatS, v.times[1], rr),
     );
     if (inTime < 1e-3) continue;
-    let d = Infinity;
+    let near = 0;
     for (let i = 0; i + 2 < points.length; i += 3)
-      d = Math.min(
-        d,
-        valveDistance(
-          points[i]!,
-          points[i + 1]!,
-          points[i + 2]!,
-          v.c[0],
-          v.c[1],
-          v.c[2],
-          v.a[0],
-          v.a[1],
-          v.a[2],
-          v.r,
-        ),
+      near = Math.max(
+        near,
+        Math.exp(
+          -(
+            (valveDistance(
+              points[i]!,
+              points[i + 1]!,
+              points[i + 2]!,
+              v.c[0],
+              v.c[1],
+              v.c[2],
+              v.a[0],
+              v.a[1],
+              v.a[2],
+              v.r,
+            ) /
+              CLICK_REACH_CM) **
+            2
+          ),
+        ) * (receivedPower?.[i / 3] ?? 1),
       );
-    const near = Math.exp(-((d / CLICK_REACH_CM) ** 2));
     if (near < 0.02) continue;
     weight += near * inTime;
   }

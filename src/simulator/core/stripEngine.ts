@@ -2,7 +2,7 @@ import { StripTimeGrid } from './stripTimeGrid';
 import { accumulatePulsedSpectrum } from '@/simulator/doppler/spectral/pulsedIq';
 import { sceneClassifier } from '@/simulator/anatomy/sceneClassifier';
 import { DUPLEX_BMODE_SHARE } from '@/simulator/renderer/pulseTiming';
-import { acousticAccess } from '@/simulator/doppler/acousticAccess';
+import { relativeEchoAmplitude } from '@/simulator/doppler/acousticAccess';
 import type { CaseDefinition } from '@/cases/schema';
 import { computeHeartPose, type HeartModel } from '@/simulator/anatomy/heartModel';
 import { cycleStateAt, type BeatTables } from '@/simulator/cardiac-cycle/cycleModel';
@@ -552,7 +552,12 @@ export class StripEngine {
     const scene = ctx.scene(phase);
     const hp = scene.heartPose;
     const classifyScene = sceneClassifier(scene);
-    const accessible = acousticAccess(scene, beam.origin, { x: dx, y: dy, z: dz }, beam.contact);
+    const received = relativeEchoAmplitude(
+      scene,
+      beam.origin,
+      { x: dx, y: dy, z: dz },
+      beam.contact,
+    );
     const samples: VelocitySample[] = [];
     const fs = this.flowSample;
     const ts = this.tissueSample;
@@ -572,32 +577,35 @@ export class StripEngine {
       const inScene = classifyScene(px, py, pz, ts) !== 0;
       if (inp.modality === 'tdi') {
         if (inScene && ts.tissue === Tissue.Myocardium) {
-          if (!accessible(r)) return;
+          const power = received(r) ** 2;
+          if (power === 0) return;
           const tv = sampleTissueVelocity(ctx.heart, ctx.tables, phase, hx, hy, hz, ts.structure);
           const axial = tv.vx * dhx + tv.vy * dhy + tv.vz * dhz;
           const vPerp = Math.sqrt(
             Math.max(0, tv.vx * tv.vx + tv.vy * tv.vy + tv.vz * tv.vz - axial * axial),
           );
-          samples.push({ v: -axial, weight: 1, dispersion: 0.05, vPerp, depthCm: r });
+          samples.push({ v: -axial, weight: power, dispersion: 0.05, vPerp, depthCm: r });
         }
         return;
       }
       if (!inScene || ts.tissue !== Tissue.Blood) return;
-      if (!accessible(r)) return;
+      const power = received(r) ** 2;
+      if (power === 0) return;
       sampleFlow(ctx.flow, ctx.tables, hp, phase, hx, hy, hz, fs);
       if (!fs.present) {
-        samples.push({ v: 0, weight: 0.3, dispersion: 0.05 });
+        samples.push({ v: 0, weight: 0.3 * power, dispersion: 0.05 });
         return;
       }
       const axial = fs.vx * dhx + fs.vy * dhy + fs.vz * dhz;
       const vPerp = Math.sqrt(
         Math.max(0, fs.vx * fs.vx + fs.vy * fs.vy + fs.vz * fs.vz - axial * axial),
       );
-      samples.push({ v: -axial, weight: 1, dispersion: fs.dispersion, vPerp, depthCm: r });
+      samples.push({ v: -axial, weight: power, dispersion: fs.dispersion, vPerp, depthCm: r });
     };
     const aliasing = MODALITIES[inp.modality].aliasing;
     // heart-frame points where the sample volume can meet a valve's leaflets: along the CW line, or the PW gate
     const clickPoints: number[] = [];
+    const clickPowers: number[] = [];
     const clickPoint = (r: number): void => {
       const px = beam.origin.x + dx * r,
         py = beam.origin.y + dy * r,
@@ -610,14 +618,15 @@ export class StripEngine {
       // Most instants have no valve click: trace only a source that could contribute to the column.
       if (
         valveClickWeight(ctx.heart, hp, ctx.tables, phase * ctx.tables.rrS, point) === 0 ||
-        !accessible(r)
+        received(r) === 0
       )
         return;
       clickPoints.push(...point);
+      clickPowers.push(received(r) ** 2);
     };
     if (inp.modality === 'cw') {
       for (let r = 1.0; r < spec.depthCm; r += 0.25) {
-        if (!accessible(r)) break;
+        if (received(r) === 0) break;
         classify(r, 0, 0);
         clickPoint(r);
       }
@@ -634,7 +643,14 @@ export class StripEngine {
     const column = new Float32Array(SPECTRAL_BINS);
     const display = new Float32Array(SPECTRAL_BINS);
     const click = clickPoints.length
-      ? valveClickWeight(ctx.heart, hp, ctx.tables, phase * ctx.tables.rrS, clickPoints)
+      ? valveClickWeight(
+          ctx.heart,
+          hp,
+          ctx.tables,
+          phase * ctx.tables.rrS,
+          clickPoints,
+          clickPowers,
+        )
       : 0;
     if (aliasing) {
       accumulatePulsedSpectrum(
