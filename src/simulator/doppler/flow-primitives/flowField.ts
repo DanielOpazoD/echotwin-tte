@@ -12,6 +12,7 @@ import {
   type HeartModel,
   type HeartPose,
 } from '@/simulator/anatomy/heartModel';
+import { measureFlowPeaks, type FlowPeaks } from '@/simulator/cardiac-cycle/flowPeaks';
 import type { BeatTables } from '@/simulator/cardiac-cycle/cycleModel';
 import { cycleStateAt, sampleTable } from '@/simulator/cardiac-cycle/cycleModel';
 import { tvShortening } from '@/simulator/anatomy/valveSkirt';
@@ -42,6 +43,8 @@ export interface FlowSample {
 }
 
 export interface FlowFieldParams {
+  /** Snapshot belonging to the same immutable beat as the other derived flow parameters. */
+  flowPeaks: FlowPeaks;
   heart: HeartModel;
   thorax: ThoraxModel;
   lvotAreaCm2: number;
@@ -410,6 +413,7 @@ export function buildFlowParams(
   }
   const tr = c.hemodynamics.trPresent ? tables.regurgitation.trVmaxMps : null;
   return {
+    flowPeaks: measureFlowPeaks(tables),
     heart,
     thorax,
     lvotAreaCm2: caseOutflow(c).lvotAreaCm2,
@@ -735,7 +739,7 @@ export function samplePulmonaryVeins(
   const uS = (t - tm.ejectionStartS + 0.03) / (tm.ejectionEndS - tm.ejectionStartS + 0.08);
   const sWave = uS > 0 && uS < 1 ? Math.pow(Math.sin(Math.PI * uS), 0.9) : 0;
   // D: mirrors the mitral E wave (conduit), Ar: atrial contraction reversal
-  const qmvMax = Math.max(1e-6, ...Array.from(tables.mitralFlowMlps));
+  const qmvMax = p.flowPeaks.mitral;
   const inE = t > tm.mitralOpenS && t < tm.mitralOpenS + tm.eAccelS + tm.eDecelS + 0.02;
   const dWave = inE ? sampleTable(tables.mitralFlowMlps, phase) / qmvMax : 0;
   const inA = tm.hasAWave && t > tm.aStartS && t < tm.aEndS + 0.03;

@@ -1,0 +1,420 @@
+{
+  "scope": "Actual probe controls \u2192 beam \u2192 scene \u2192 CPU image; internal synthetic audit, not clinical validation",
+  "source": {
+    "commit": "61da314e6ff4c4e62f91791fb173a0f6c57e53b2",
+    "dirty": true,
+    "srcSha256": "04c9144e1b1b3c5d19c6cc556acba30a6cb4f9e0d912b13c97f65a72912a7731"
+  },
+  "patientPolicy": "Supine for subcostal/SSN; left-lateral for apical/parasternal; expiration; 0-degree head elevation. Recommended midpoint depth and focus for each view.",
+  "matrixComparison": {
+    "acquisitions": 312,
+    "disappearedStructuresPreviouslyAtLeast100Samples": [],
+    "supineSsn": [
+      {
+        "case": "normal-excellent-window",
+        "phase": 0,
+        "arch": 1951,
+        "descending": 213
+      },
+      {
+        "case": "normal-excellent-window",
+        "phase": 0.35,
+        "arch": 2048,
+        "descending": 222
+      },
+      {
+        "case": "normal-difficult-window",
+        "phase": 0,
+        "arch": 1365,
+        "descending": 2
+      },
+      {
+        "case": "normal-difficult-window",
+        "phase": 0.35,
+        "arch": 1382,
+        "descending": 2
+      },
+      {
+        "case": "hfref-severe-mr",
+        "phase": 0,
+        "arch": 1835,
+        "descending": 143
+      },
+      {
+        "case": "hfref-severe-mr",
+        "phase": 0.35,
+        "arch": 1883,
+        "descending": 137
+      },
+      {
+        "case": "inferior-rwma",
+        "phase": 0,
+        "arch": 1947,
+        "descending": 214
+      },
+      {
+        "case": "inferior-rwma",
+        "phase": 0.35,
+        "arch": 1994,
+        "descending": 224
+      },
+      {
+        "case": "aortic-stenosis-moderate",
+        "phase": 0,
+        "arch": 1888,
+        "descending": 166
+      },
+      {
+        "case": "aortic-stenosis-moderate",
+        "phase": 0.35,
+        "arch": 1934,
+        "descending": 168
+      },
+      {
+        "case": "aortic-stenosis-severe",
+        "phase": 0,
+        "arch": 2051,
+        "descending": 214
+      },
+      {
+        "case": "aortic-stenosis-severe",
+        "phase": 0.35,
+        "arch": 2093,
+        "descending": 221
+      },
+      {
+        "case": "hocm-sam",
+        "phase": 0,
+        "arch": 1947,
+        "descending": 214
+      },
+      {
+        "case": "hocm-sam",
+        "phase": 0.35,
+        "arch": 1999,
+        "descending": 226
+      },
+      {
+        "case": "mvp-primary-mr",
+        "phase": 0,
+        "arch": 1943,
+        "descending": 214
+      },
+      {
+        "case": "mvp-primary-mr",
+        "phase": 0.35,
+        "arch": 1996,
+        "descending": 228
+      },
+      {
+        "case": "pulmonary-hypertension-rv",
+        "phase": 0,
+        "arch": 1890,
+        "descending": 185
+      },
+      {
+        "case": "pulmonary-hypertension-rv",
+        "phase": 0.35,
+        "arch": 1935,
+        "descending": 191
+      },
+      {
+        "case": "pericardial-effusion-tamponade",
+        "phase": 0,
+        "arch": 1952,
+        "descending": 291
+      },
+      {
+        "case": "pericardial-effusion-tamponade",
+        "phase": 0.35,
+        "arch": 1997,
+        "descending": 326
+      },
+      {
+        "case": "af-diastolic",
+        "phase": 0,
+        "arch": 1843,
+        "descending": 169
+      },
+      {
+        "case": "af-diastolic",
+        "phase": 0.35,
+        "arch": 1891,
+        "descending": 169
+      },
+      {
+        "case": "artifact-challenge",
+        "phase": 0,
+        "arch": 1722,
+        "descending": 18
+      },
+      {
+        "case": "artifact-challenge",
+        "phase": 0.35,
+        "arch": 1752,
+        "descending": 12
+      }
+    ],
+    "timingScope": "Single independent matrix run, not paired statistical performance comparison",
+    "beforeTraceMs": {
+      "median": 114.26982800000224,
+      "p95": 150.68114400000195,
+      "maximum": 256.75539000000026
+    },
+    "afterTraceMs": {
+      "median": 113.20268299999952,
+      "p95": 149.81599899999856,
+      "maximum": 231.8568460000006
+    }
+  },
+  "independentVolumeMeasurements": [
+    {
+      "id": "normal-excellent-window",
+      "age": 32,
+      "eSeptal": 11,
+      "eLateral": 14,
+      "drawnEDV": 118.81272374999999,
+      "truthEDV": 120.00006103515625,
+      "edvErrorPct": -0.9894472343713323,
+      "drawnLA": 51.8718875,
+      "truthLA": 52,
+      "laErrorPct": -0.24637019230768775,
+      "rvSV": 77.80368749999998,
+      "forwardSV": 75.0005327063756,
+      "quantifiedTR": null
+    },
+    {
+      "id": "normal-difficult-window",
+      "age": 61,
+      "eSeptal": 11,
+      "eLateral": 14,
+      "drawnEDV": 95.38235999999999,
+      "truthEDV": 96.00004577636719,
+      "edvErrorPct": -0.6434223769081315,
+      "drawnLA": 45.9040375,
+      "truthLA": 46,
+      "laErrorPct": -0.20861413043478105,
+      "rvSV": 54.82181249999999,
+      "forwardSV": 60.00042630800117,
+      "quantifiedTR": null
+    },
+    {
+      "id": "hfref-severe-mr",
+      "age": 66,
+      "eSeptal": 4,
+      "eLateral": 5,
+      "drawnEDV": 243.85262625,
+      "truthEDV": 250,
+      "edvErrorPct": -2.4589495000000072,
+      "drawnLA": 97.7650875,
+      "truthLA": 98,
+      "laErrorPct": -0.23970663265305836,
+      "rvSV": 83.20331250000001,
+      "forwardSV": 21.808688214818666,
+      "quantifiedTR": null
+    },
+    {
+      "id": "inferior-rwma",
+      "age": 58,
+      "eSeptal": 6,
+      "eLateral": 8,
+      "drawnEDV": 142.82892,
+      "truthEDV": 145.00003051757812,
+      "edvErrorPct": -1.4973172831952652,
+      "drawnLA": 55.7950625,
+      "truthLA": 56,
+      "laErrorPct": -0.3659598214285742,
+      "rvSV": 84.31893749999999,
+      "forwardSV": 66.99751648696004,
+      "quantifiedTR": null
+    },
+    {
+      "id": "aortic-stenosis-moderate",
+      "age": 70,
+      "eSeptal": 6,
+      "eLateral": 8,
+      "drawnEDV": 102.47309999999999,
+      "truthEDV": 104.00001525878906,
+      "edvErrorPct": -1.4681875334244587,
+      "drawnLA": 61.67621249999999,
+      "truthLA": 62,
+      "laErrorPct": -0.5222379032258195,
+      "rvSV": 62.062218750000014,
+      "forwardSV": 68.00015201442879,
+      "quantifiedTR": null
+    },
+    {
+      "id": "aortic-stenosis-severe",
+      "age": 74,
+      "eSeptal": 5.5,
+      "eLateral": 7,
+      "drawnEDV": 123.568891875,
+      "truthEDV": 125.00005340576172,
+      "edvErrorPct": -1.1449287354430404,
+      "drawnLA": 77.65429999999999,
+      "truthLA": 78,
+      "laErrorPct": -0.44320512820513747,
+      "rvSV": 83.0248125,
+      "forwardSV": 78.00048603623188,
+      "quantifiedTR": null
+    },
+    {
+      "id": "hocm-sam",
+      "age": 45,
+      "eSeptal": 5,
+      "eLateral": 7,
+      "drawnEDV": 99.23988375,
+      "truthEDV": 100.00001525878906,
+      "edvErrorPct": -0.7601313928022102,
+      "drawnLA": 73.52882500000001,
+      "truthLA": 74,
+      "laErrorPct": -0.6367229729729584,
+      "rvSV": 89.01571874999999,
+      "forwardSV": 40.430270713140175,
+      "quantifiedTR": null
+    },
+    {
+      "id": "mvp-primary-mr",
+      "age": 52,
+      "eSeptal": 9,
+      "eLateral": 12,
+      "drawnEDV": 164.44701,
+      "truthEDV": 165.00001525878906,
+      "edvErrorPct": -0.33515467130212917,
+      "drawnLA": 84.438575,
+      "truthLA": 86,
+      "laErrorPct": -1.8156104651162797,
+      "rvSV": 64.00340625,
+      "forwardSV": 29.106823803284346,
+      "quantifiedTR": null
+    },
+    {
+      "id": "pulmonary-hypertension-rv",
+      "age": 61,
+      "eSeptal": 6,
+      "eLateral": 9,
+      "drawnEDV": 84.53970000000001,
+      "truthEDV": 85.00001525878906,
+      "edvErrorPct": -0.5415472660652898,
+      "drawnLA": 45.8751375,
+      "truthLA": 46,
+      "laErrorPct": -0.2714402173913055,
+      "rvSV": 69.67078125,
+      "forwardSV": 50.00009839073753,
+      "quantifiedTR": 24.895685357644535
+    },
+    {
+      "id": "pericardial-effusion-tamponade",
+      "age": 48,
+      "eSeptal": 11,
+      "eLateral": 14,
+      "drawnEDV": 88.57319625,
+      "truthEDV": 88.00005340576172,
+      "edvErrorPct": 0.6512982913721155,
+      "drawnLA": 41.319775,
+      "truthLA": 42,
+      "laErrorPct": -1.6195833333333298,
+      "rvSV": 51.78731249999999,
+      "forwardSV": 50.00035776918392,
+      "quantifiedTR": null
+    },
+    {
+      "id": "af-diastolic",
+      "age": 74,
+      "eSeptal": 5.5,
+      "eLateral": 7.5,
+      "drawnEDV": 99.4599,
+      "truthEDV": 100.00001525878906,
+      "edvErrorPct": -0.5401151763740231,
+      "drawnLA": 91.071125,
+      "truthLA": 92,
+      "laErrorPct": -1.0096467391304431,
+      "rvSV": 57.03075,
+      "forwardSV": 41.75224496456594,
+      "quantifiedTR": null
+    },
+    {
+      "id": "artifact-challenge",
+      "age": 79,
+      "eSeptal": 5.5,
+      "eLateral": 7.5,
+      "drawnEDV": 113.42531249999999,
+      "truthEDV": 115.00000762939453,
+      "edvErrorPct": -1.3693000216741247,
+      "drawnLA": 56.766825,
+      "truthLA": 57,
+      "laErrorPct": -0.4090789473684242,
+      "rvSV": 72.71643749999998,
+      "forwardSV": 49.35207728293455,
+      "quantifiedTR": null
+    }
+  ],
+  "browser": {
+    "acquisitionWallS": 8.322,
+    "observedFps": 15.981735159817353,
+    "cadenceScope": "Received frames include cached phases; not full-trace FPS",
+    "layout": {
+      "width": 390,
+      "scroll": 390,
+      "canvasWidth": 378
+    },
+    "errors": []
+  },
+  "fidelityCounts": {
+    "pass": 181,
+    "fail": 0,
+    "known-limitation": 0,
+    "resolved-limitation": 0
+  },
+  "grades": {
+    "weights": [
+      8,
+      10,
+      12,
+      10,
+      8,
+      12,
+      12,
+      8,
+      6,
+      6,
+      4,
+      4
+    ],
+    "before": [
+      5.8,
+      4.3,
+      4.8,
+      4.2,
+      4.7,
+      4.1,
+      4.4,
+      3.9,
+      5.3,
+      4.3,
+      4.5,
+      3.6
+    ],
+    "after": [
+      5.9,
+      5.0,
+      5.0,
+      4.3,
+      5.0,
+      4.0,
+      5.0,
+      4.8,
+      5.3,
+      4.4,
+      5.2,
+      3.8
+    ],
+    "weightedAfter": 4.808
+  },
+  "fidelityProvenance": {
+    "commit": "61da314e6ff4c4e62f91791fb173a0f6c57e53b2",
+    "sourceDigest": "182f967f919050dfec78546abe1a126b55b6b96ee10e09c09571ee4cf6279d74",
+    "dirty": true,
+    "node": "v24.19.0"
+  }
+}

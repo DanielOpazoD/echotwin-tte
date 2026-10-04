@@ -1850,3 +1850,26 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
 
 
     Navegador completo: 82 recorridos aprobados (11,1 min), incluidas 47 comparaciones CPU/GPU; cuatro omisiones por GPU física. Se refuerzan después los dos recorridos SSN para exigir la posición del paciente de la adquisición registrada, además del selector, y ambos pasan con el mismo código de aplicación. No basta una etiqueta de interfaz para declarar adquisición supina.
+
+295. **Extremos de flujo por latido y coste verificable de interacción.** [Estado: vigente]
+
+    El perfil CPU previo de dos segundos PW a 1024 píxeles, tras dos segundos de calentamiento, necesitó 4,35 s de pared: render 54,39 %, tira 40,53 %, consulta de venas pulmonares 8,31 % e IQ 4,12 % (tiempos inclusivos, no sumables). La consulta pulmonar reconstruía un array y buscaba el máximo mitral en cada punto; `cycleStateAt` recorría cuatro tablas en cada consulta. Se extrae un cálculo explícito de cuatro máximos y se conserva como instantánea del mismo latido que los parámetros de flujo. El contexto histórico lleva sus propios máximos; una nueva tabla reconstruye sus parámetros. No hay caché oculta sobre arrays mutables: los consumidores que omiten la instantánea siguen midiendo el contenido actual.
+
+    La regresión compara exactamente todos los estados de doce casos y 512 fases, y comprueba que los consumidores de tablas modificadas ven sus nuevos valores. El benchmark reproducible de interacción ejecuta 24 condiciones: normal/HP, seis modalidades, sonda fija o movimiento continuo de ±3°, calidad baja y 1024 píxeles, dos segundos de calentamiento y dos de adquisición. Guarda tiempos de pared y hashes de píxeles, estructuras, espectros y calibración de tira. Debe ejecutarse sin otras cargas y contrastarse contra la base; una ejecución por condición no es un ensayo estadístico ni medición de GPU física.
+
+    La primera CI del PR106 agotó 5 s leyendo la escala del cuadro B anterior; tres repeticiones locales y una remota completa pasaron sobre el mismo código. La prueba de consola ahora espera la identidad PW realmente adquirida con el plazo de arranque de worker de 30 s que ya usa `waitForFrames`, y exige inmediatamente después la misma escala física <0,6 m/s. Se separan así disponibilidad de adquisición y corrección de escala; no se afirma que 30 s sea una latencia interactiva aceptable. El rendimiento se mide por separado, sin reducir columnas ni tolerancias físicas.
+
+    La auditoría de cierre distinguirá mejoras comprobadas, costes aceptados y límites abiertos. Se corrigen descripciones obsoletas de sombras, IQ, umbrales e′ y contexto histórico; no se eliminan de la documentación las colisiones, el desacoplamiento geométrico derecho ni el defecto de contacto cero B/M que siguen presentes.
+
+
+    Medición final tranquila: veinte condiciones B/Color/PW/CW/TDI conservan hashes idénticos y consumen 73,568→64,673 s para 40 s simulados (−12,09 %). Por modalidad: B +0,42 %, Color −34,73 %, PW −9,48 %, CW −19,34 %, TDI −0,82 %. Tres parejas alternadas PW normal quieto dan medianas 4,241→3,883 s (−8,42 %) con señal idéntica. No se demuestra tiempo real universal ni se generaliza estadísticamente una sola matriz. Datos y firmas del código en `docs/benchmarks/pr110-performance.json`.
+
+    Hallazgo de auditoría: las cuatro condiciones M difieren en producción; también difieren las cuatro repeticiones sobre la base sin modificar. El presupuesto de trazas M depende del tiempo de pared medido. Con trabajo fijo impuesto sólo para diagnóstico (2290 intervenciones verificadas por versión), los cuatro pares son idénticos. No se atribuye al cambio una equivalencia de producción que no se midió: la calidad M dependiente de carga y el contexto limitado al latido actual siguen pendientes.
+
+    Auditoría final: 312 adquisiciones, sin desaparición de estructuras antes presentes con al menos 100 muestras; AI con error máximo 1,82 %, VI diastólico máximo 2,46 %. Revisión visual de 32 imágenes y navegación de seis modos sin errores JavaScript; móvil de 390 px con sector de 378 px. Los 181 criterios de fidelidad pasan. La evaluación ponderada de doce parámetros es 4,81/7 frente a 4,50/7, con pesos idénticos; no constituye validación clínica externa.
+
+
+    Comprobación completa: 1018 pruebas en 187 archivos (659,0 s), lint, formato, tipos y build aprobados. Worker 335,9/336 kB; total 1958,1/2060 kB. No se amplían presupuestos, tolerancias físicas ni referencias de imagen.
+
+
+    Navegador final: 82 recorridos aprobados (11,4 min), incluidas 47 comparaciones CPU/GPU; cuatro omisiones por GPU física. PW y CW pierden señal detrás del pulmón y la recuperan al volver, SSN conserva las posiciones adquiridas supina/lateral y el control manual.

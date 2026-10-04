@@ -1,5 +1,6 @@
 import type { PhysiologyConfig, RhythmConfig, HemodynamicConfig } from '@/cases/schema';
 import { tricuspidRegurgitation } from './rightHeartFlow';
+import { measureFlowPeaks, type FlowPeaks } from './flowPeaks';
 import { lvotNarrowing, solveLvotObstruction } from './outflow';
 import {
   computeCycleTimings,
@@ -842,21 +843,16 @@ export function valveEventTimes(tables: BeatTables): {
   };
 }
 
-export function cycleStateAt(tables: BeatTables, phase: number): CycleState {
+export function cycleStateAt(
+  tables: BeatTables,
+  phase: number,
+  peaks: FlowPeaks = measureFlowPeaks(tables),
+): CycleState {
   const p = ((phase % 1) + 1) % 1;
   const vol = sampleTable(tables.lvVolumeMl, p);
   const qmv = sampleTable(tables.mitralFlowMlps, p);
   const qao = sampleTable(tables.aorticFlowMlps, p);
-  let qmvMax = 1e-6,
-    qtvMax = 1e-6,
-    qaoMax = 1e-6,
-    qpvMax = 1e-6;
-  for (let i = 0; i < tables.n; i++) {
-    qmvMax = Math.max(qmvMax, tables.mitralFlowMlps[i] ?? 0);
-    qtvMax = Math.max(qtvMax, tables.tricuspidFlowMlps[i] ?? 0);
-    qaoMax = Math.max(qaoMax, tables.aorticFlowMlps[i] ?? 0);
-    qpvMax = Math.max(qpvMax, tables.pulmonaryFlowMlps[i] ?? 0);
-  }
+  const { mitral: qmvMax, tricuspid: qtvMax, aortic: qaoMax, pulmonary: qpvMax } = peaks;
   const t = p * tables.rrS;
   const tm = tables.timings;
   let atrial = 0;

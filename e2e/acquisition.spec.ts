@@ -16,14 +16,22 @@ test('PW console and worker share the depth limit; CW keeps a wide scale', async
   expect(Number(await scale.inputValue())).toBeLessThan(0.6);
   expect(Number(await scale.getAttribute('max'))).toBeLessThan(0.6);
   await expect(page.getByText(/PRF .* kHz/)).toBeVisible();
-  await expect
-    .poll(() =>
-      page.evaluate(() => {
-        const hud = (window as unknown as EchoWindow).__echotwin.useHudStore.getState().hud;
-        return (hud?.['spectralRange'] as { vMax: number } | undefined)?.vMax ?? 99;
-      }),
-    )
-    .toBeLessThan(0.6);
+  // Console state changes synchronously; the old B frame is not a PW acquisition.
+  // Use the same worker-start deadline as waitForFrames, then check the physical limit
+  // on that acquired mode. This does not assert interactive latency (profile it separately).
+  await page.waitForFunction(
+    () => {
+      const h = (window as unknown as EchoWindow).__echotwin.useHudStore.getState().hud;
+      return (h?.['acquisition'] as { modality: string } | undefined)?.modality === 'pw';
+    },
+    undefined,
+    { timeout: 30_000 },
+  );
+  const acquiredRange = await page.evaluate(() => {
+    const hud = (window as unknown as EchoWindow).__echotwin.useHudStore.getState().hud;
+    return (hud?.['spectralRange'] as { vMax: number } | undefined)?.vMax ?? 99;
+  });
+  expect(acquiredRange).toBeLessThan(0.6);
   await page.getByRole('button', { name: 'CW', exact: true }).click();
   await expect(scale).toHaveValue('6');
   await expect(page.getByText(/PRF .* kHz/)).toHaveCount(0);

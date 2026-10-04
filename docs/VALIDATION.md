@@ -1,5 +1,7 @@
 # Validación
 
+Los registros siguientes conservan sus fechas y cortes históricos. Para el estado actual de esta tanda, véanse [AUDIT_AFTER_PR110.md](AUDIT_AFTER_PR110.md) y [ITERATIONS.md](ITERATIONS.md); las pruebas de software no sustituyen validación clínica independiente.
+
 ## Banco reproducible actual (2026-10-04)
 
 El comando `npm run fidelity:audit -- --out /tmp/echotwin-fidelity.json` y el trabajo obligatorio `fidelity` de CI reúnen las verificaciones internas actuales. Registran procedencia del código, controles y haz adquiridos, medidas, unidades, criterios y deuda conocida. Véase [alcance y reproducción](FIDELITY_AUDIT.md), [diez iteraciones](ITERATIONS.md) y decisiones 276–285.
@@ -260,7 +262,9 @@ Corrida del 2026-09-22 sobre la rama `feat/segmentacion`: unidad rápida 63 arch
 ## Validación externa
 El protocolo preregistrado (tres estudios: puntuación experta por vista y versión, comparación ciega con imágenes reales anonimizadas, piloto con residentes) está en `docs/VALIDATION_PROTOCOL.md`. Materiales listos: `npm run review:export` (288 imágenes + hoja CSV + guion) y la exportación anónima del progreso. **Ninguno de los tres estudios se ha ejecutado**; los resultados irán a `docs/validation/results/`.
 
-## Pendiente de validar
+## Pendientes registrados antes de esta tanda
+
+Esta lista histórica no es el inventario actual: las auditorías PR100/PR110 distinguen las comprobaciones incorporadas y los límites todavía abiertos.
 - Comparación contra imágenes reales o contra un simulador físico (PyMUST/OpenBCSim/i4h): `tools/offline/{pymust-validation,optional-cuda-reference,optical-flow}` están vacías (`atlas-generation/build-atlas.ts` sólo produce hojas de contacto para inspección visual).
 - Precisión numérica de las herramientas frente a la verdad de terreno a través de la UI: los E2E comprueban el flujo y la procedencia, no el valor; no hay prueba unitaria del mapeo píxel↔cm ni de velocidad/VTI/tiempo manuales.
 - Color Doppler en imagen (aliasing, blooming, sombra): sólo humo; la persistencia del color sí tiene prueba (decisión 56). El modo M tiene pruebas de tiempo, definición, textura y niveles (decisión 84), pero no de sus mediciones (TAPSE, diámetros) frente a la verdad de terreno.
