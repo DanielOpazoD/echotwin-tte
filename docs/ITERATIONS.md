@@ -14,8 +14,8 @@ Una prueba interna no constituye validación clínica.
 | 5 | Geometría y mecánica basal coherentes | Continuidad mitroaórtica, TSVD, tronco pulmonar y aurículas durante el ciclo; referencias publicadas | [PR #95](https://github.com/DanielOpazoD/echotwin-tte/pull/95), fusionada |
 | 6 | Aorta torácica continua compartida | Raíz, ascendente, arco, descendente y orígenes supraaórticos en CPU/GPU/malla sin intersecciones indebidas | [PR #96](https://github.com/DanielOpazoD/echotwin-tte/pull/96), fusionada |
 | 7 | Ventana supraesternal TTE | Sonda físicamente alcanzable, navegación y barrido continuo sobre la misma anatomía | [PR #97](https://github.com/DanielOpazoD/echotwin-tte/pull/97), fusionada |
-| 8 | Conservación espacial de flujo | Integrales de sección frente a tablas de flujo y variaciones de volumen; aproximaciones explícitas | En validación |
-| 9 | Cadena IQ/FFT PW/TDI | Fantomas de Vmax/VTI, aliasing, filtros y rendimiento; comparación con cadena previa | Pendiente |
+| 8 | Conservación espacial de flujo | Integrales de sección frente a tablas de flujo y variaciones de volumen; aproximaciones explícitas | [PR #98](https://github.com/DanielOpazoD/echotwin-tte/pull/98), fusionada |
+| 9 | Cadena IQ/FFT PW/TDI | Fantomas de Vmax/VTI, aliasing, filtros y rendimiento; comparación con cadena previa | En validación |
 | 10 | Banco independiente y reporte | Vistas ideales e imperfectas, transiciones y controles; separación de calibración/evaluación por paciente | Pendiente |
 
 ## Criterios comunes
@@ -63,3 +63,7 @@ PR #96, merge `fe29c0c`: aorta torácica y tres ramas proximales comparten geome
 ## Iteración 7 cerrada
 
 PR #97, merge `f06dc5c`: botón SSN y barrido continuo desde la escotadura, con clasificador anatómico común. 949 pruebas y 75 recorridos de navegador, cuatro omitidos por GPU de hardware; CI completa y cobertura aprobadas. La adquisición sigue siendo parcial: arco visible en las 24 combinaciones medidas, descendente oculta en todos los supinos y dos ventanas laterales difíciles. No se abrió artificialmente el mediastino. Siguiente prioridad: flujo aórtico que siga el árbol vascular y conserve su balance de volumen.
+
+## Iteración 8 cerrada
+
+PR #98, merge `f301034`: flujo sobre la red aórtica móvil y consulta espectral de la escena completa. 963 pruebas y 75 recorridos distintos de navegador, cuatro omitidos por GPU de hardware; CI completa y cobertura aprobadas. Balance espacial en doce casos y cuatro fases, con residuo máximo 0,692 mL/s en el banco independiente posterior. La discretización de curvas/uniones mantiene hasta 3,39 % de diferencia local campo–red: continuidad reducida, sin presión ni CFD. La siguiente prioridad es estimar PW/TDI desde señal IQ muestreada y Fourier.

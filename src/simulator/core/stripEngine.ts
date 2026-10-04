@@ -1,3 +1,4 @@
+import { accumulatePulsedSpectrum } from '@/simulator/doppler/spectral/pulsedIq';
 import { sceneClassifier } from '@/simulator/anatomy/sceneClassifier';
 import { DUPLEX_BMODE_SHARE } from '@/simulator/renderer/pulseTiming';
 import { acousticAccess } from '@/simulator/doppler/acousticAccess';
@@ -28,6 +29,7 @@ import { aliasVelocity } from '@/clinical/formulas';
 import { MODALITIES } from '@/simulator/renderer/modality';
 import {
   buildSpectralColumn,
+  presentSpectralColumn,
   CLICK_SIGMA_S,
   envelopeThreshold,
   isClickColumn,
@@ -635,19 +637,41 @@ export class StripEngine {
     const click = clickPoints.length
       ? valveClickWeight(ctx.heart, hp, ctx.tables, phase * ctx.tables.rrS, clickPoints)
       : 0;
-    buildSpectralColumn(
-      samples,
-      inp.spectral,
-      this.stripHead,
-      ctx.caseDef.seed,
-      aliasing,
-      column,
-      inp.settings.frequencyMHz,
-      1 - DUPLEX_BMODE_SHARE,
-      click,
-      display,
-      timeS,
-    );
+    if (aliasing) {
+      accumulatePulsedSpectrum(
+        samples,
+        inp.spectral,
+        inp.settings.frequencyMHz,
+        ctx.caseDef.seed,
+        timeS,
+        column,
+      );
+      presentSpectralColumn(
+        column,
+        inp.spectral,
+        this.stripHead,
+        ctx.caseDef.seed,
+        inp.settings.frequencyMHz,
+        1 - DUPLEX_BMODE_SHARE,
+        click,
+        display,
+        timeS,
+        false,
+      );
+    } else
+      buildSpectralColumn(
+        samples,
+        inp.spectral,
+        this.stripHead,
+        ctx.caseDef.seed,
+        aliasing,
+        column,
+        inp.settings.frequencyMHz,
+        1 - DUPLEX_BMODE_SHARE,
+        click,
+        display,
+        timeS,
+      );
     this.stripSpectral!.set(column, col * SPECTRAL_BINS);
     this.stripDisplay!.set(display, col * SPECTRAL_BINS);
     this.lastColumn = column;

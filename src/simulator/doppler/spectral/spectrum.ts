@@ -345,6 +345,7 @@ export function displaySpectrum(
   out: Float32Array,
   frequencyMHz: number,
   activeFraction: number,
+  addFlowSpeckle = true,
 ): void {
   const { vMin, vMax } = spectralRange(s);
   let max = 0;
@@ -352,7 +353,7 @@ export function displaySpectrum(
   const norm = max > 0 ? 1 / (max * 0.8 + 0.2) : 0;
   const tCells = timeS / estimateDurationS(s, frequencyMHz, activeFraction);
   const noise = Math.pow(10, NOISE_DB / 10);
-  estimateSpeckleColumn(tCells, seed, 17, speckleFlow);
+  if (addFlowSpeckle) estimateSpeckleColumn(tCells, seed, 17, speckleFlow);
   estimateSpeckleColumn(tCells, seed, 29, speckleNoise);
   for (let b = 0; b < SPECTRAL_BINS; b++) {
     const v = vMax - ((b + 0.5) / SPECTRAL_BINS) * (vMax - vMin);
@@ -361,7 +362,8 @@ export function displaySpectrum(
         ? click * CLICK_LEVEL * Math.exp(-0.5 * (v / (CLICK_SPREAD * s.scaleMps)) ** 2)
         : 0;
     const flow = (expected[b] ?? 0) * norm;
-    const power = flow * speckleFlow[b]! + noise * speckleNoise[b]! + clickLevel;
+    const power =
+      flow * (addFlowSpeckle ? speckleFlow[b]! : 1) + noise * speckleNoise[b]! + clickLevel;
     const db = 10 * Math.log10(Math.max(1e-12, power)) + s.gainDb;
     out[b] = Math.min(1, Math.max(0, 1 + (db - WHITE_DB) / DISPLAY_RANGE_DB));
   }
@@ -387,7 +389,44 @@ export function buildSpectralColumn(
   timeS = columnIndex * 0.004,
 ): void {
   accumulateSpectrum(samples, s, aliasing, out);
-  if (display) displaySpectrum(out, s, seed, click, timeS, display, frequencyMHz, activeFraction);
+  presentSpectralColumn(
+    out,
+    s,
+    columnIndex,
+    seed,
+    frequencyMHz,
+    activeFraction,
+    click,
+    display,
+    timeS,
+  );
+}
+
+/** Common calibrated gain, receiver noise, clicks and compression after either spectral estimator. */
+export function presentSpectralColumn(
+  out: Float32Array,
+  s: SpectralSettings,
+  columnIndex: number,
+  seed: number,
+  frequencyMHz: number,
+  activeFraction: number,
+  click = 0,
+  display?: Float32Array,
+  timeS = columnIndex * 0.004,
+  addFlowSpeckle = true,
+): void {
+  if (display)
+    displaySpectrum(
+      out,
+      s,
+      seed,
+      click,
+      timeS,
+      display,
+      frequencyMHz,
+      activeFraction,
+      addFlowSpeckle,
+    );
   const gainLin = Math.pow(10, s.gainDb / 20);
   const { vMin, vMax } = spectralRange(s);
   // normalise softly, apply gain + noise floor + compression
