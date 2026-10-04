@@ -73,6 +73,8 @@ export interface EcgPoint {
 }
 
 export interface StripInfo {
+  /** Interval between spectral estimates. Not transmit PRF or IQ packet duration. */
+  estimatorIntervalS?: number;
   /** Bounded strip history identity and acquisition time of its newest column centre. */
   acquisitionId?: number;
   headTimeS?: number;
