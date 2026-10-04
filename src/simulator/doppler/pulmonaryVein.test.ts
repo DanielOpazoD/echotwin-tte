@@ -32,7 +32,7 @@ function setup(id: string) {
     c.hemodynamics,
   );
   computeHeartPose(heart, cycleStateAt(tables, 0));
-  return { c, heart, thorax, tables, flow: buildFlowParams(c, heart, tables) };
+  return { c, heart, thorax, tables, flow: buildFlowParams(c, heart, tables, thorax) };
 }
 
 describe('pulmonary venous flow and colour M-mode', () => {

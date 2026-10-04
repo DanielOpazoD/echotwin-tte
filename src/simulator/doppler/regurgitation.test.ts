@@ -35,7 +35,7 @@ function setup(c: CaseDefinition) {
     c.hemodynamics,
   );
   computeHeartPose(heart, cycleStateAt(tables, 0));
-  return { heart, tables, flow: buildFlowParams(c, heart, tables) };
+  return { heart, tables, flow: buildFlowParams(c, heart, tables, thorax) };
 }
 
 describe('regurgitant jets and obstruction', () => {

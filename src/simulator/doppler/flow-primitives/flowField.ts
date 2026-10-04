@@ -1,3 +1,5 @@
+import { sampleAorticNetwork } from './aorticNetwork';
+import type { ThoraxModel } from '@/simulator/anatomy/thoraxModel';
 import {
   caseLvotObstruction,
   caseOutflow,
@@ -40,6 +42,8 @@ export interface FlowSample {
 }
 
 export interface FlowFieldParams {
+  heart: HeartModel;
+  thorax: ThoraxModel;
   lvotAreaCm2: number;
   /** Annulus radius (cm): the outflow tract widens to it over its last LVOT_TAPER_CM (decision 161). */
   avR: number;
@@ -395,6 +399,7 @@ export function buildFlowParams(
   c: CaseDefinition,
   heart: HeartModel,
   tables: BeatTables,
+  thorax: ThoraxModel,
 ): FlowFieldParams {
   const A = heartAnchors(heart);
   const turbulence: Record<string, number> = {};
@@ -407,6 +412,8 @@ export function buildFlowParams(
     ? Math.sqrt(Math.max(0, (c.hemodynamics.paspMmHg - c.hemodynamics.rapMmHg) / 4))
     : null;
   return {
+    heart,
+    thorax,
     lvotAreaCm2: caseOutflow(c).lvotAreaCm2,
     avR: A.avR,
     avAreaCm2: c.hemodynamics.avEffectiveAreaCm2,
@@ -465,6 +472,12 @@ export function sampleFlow(
   out.vz = 0;
   out.dispersion = 0;
   out.present = 0;
+  if (sampleAorticNetwork(p.heart, p.thorax, tables, hp, phase, x, y, z, out)) {
+    if (p.enabled['lvot'] === false && p.enabled['aortic-valve'] === false) {
+      out.vx = out.vy = out.vz = out.dispersion = out.present = 0;
+    }
+    return;
+  }
   const qao = sampleTable(tables.aorticFlowMlps, phase);
   const zAnn = hp.zAnn;
 

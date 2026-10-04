@@ -35,7 +35,7 @@ function longestStraightBorder(caseId: string, viewId: string, phase: number): n
     respiration: 'expiration',
     headElevationDeg: 0,
   });
-  const flow = buildFlowParams(c, heart, tables);
+  const flow = buildFlowParams(c, heart, tables, thorax);
   // fast jets keep a thin shear layer: their colour border is sharp by construction
   for (const k of ['mr-jet', 'ar-jet', 'tr-jet']) flow.enabled[k] = false;
   const hp = computeHeartPose(heart, cycleStateAt(tables, phase));
@@ -157,14 +157,14 @@ describe('the inflow through the atrioventricular valves carries their flow (dec
     const off: string[] = [];
     for (const input of CASE_INPUTS) {
       const c = loadCaseById(input.id);
-      const { heart, tables } = buildCaseModels(c, {
+      const { heart, tables, thorax } = buildCaseModels(c, {
         position: 'left-lateral',
         respiration: 'expiration',
         headElevationDeg: 0,
       });
       const tm = tables.timings;
       for (const valve of ['mitral', 'tricuspid'] as const) {
-        const p = buildFlowParams(c, heart, tables);
+        const p = buildFlowParams(c, heart, tables, thorax);
         const keep = valve === 'mitral' ? 'mitral-inflow' : 'tricuspid-inflow';
         for (const k of [
           'mitral-inflow',

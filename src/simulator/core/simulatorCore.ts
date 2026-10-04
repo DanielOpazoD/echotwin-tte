@@ -287,13 +287,14 @@ export class SimulatorCore {
     });
     this.tablesBeat = c.beatIndex;
     this.tablesVersion++;
-    if (rebuildFlow) this.flow = buildFlowParams(this.caseDef, this.heart, this.tables);
+    if (rebuildFlow)
+      this.flow = buildFlowParams(this.caseDef, this.heart, this.tables, this.thorax);
   }
 
   private buildFlow(): FlowFieldParams {
     heartLandmarks(this.heart);
     computeHeartPose(this.heart, cycleStateAt(this.tables, 0)); // initialises anchors
-    return buildFlowParams(this.caseDef, this.heart, this.tables);
+    return buildFlowParams(this.caseDef, this.heart, this.tables, this.thorax);
   }
 
   /** Services the strip engine reads per call; its mutable state stays on the engine. */

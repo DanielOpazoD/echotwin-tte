@@ -49,7 +49,7 @@ const heart = createHeartModel(c.anatomy, c.physiology, thorax.heartOffset);
 heartLandmarks(heart);
 const tables = buildBeatTables(60 / c.rhythm.heartRateBpm, c.physiology, c.rhythm, c.hemodynamics);
 computeHeartPose(heart, cycleStateAt(tables, 0));
-const flow = buildFlowParams(c, heart, tables);
+const flow = buildFlowParams(c, heart, tables, thorax);
 
 function peakVelocityOfColumn(
   col: Float32Array,
@@ -666,7 +666,7 @@ describe('the spectral envelope reads the velocity in the sample volume (decisio
     const probe = new SimulatorCore(as, baseInput());
     const m = probe.models;
     const t = m.tables.timings;
-    const f = buildFlowParams(as, m.heart, m.tables);
+    const f = buildFlowParams(as, m.heart, m.tables, m.thorax);
     const peak = (t.ejectionStartS + 0.35 * (t.ejectionEndS - t.ejectionStartS)) / m.tables.rrS;
     const hpPeak = computeHeartPose(m.heart, cycleStateAt(m.tables, peak));
     // vena contracta, 0.5 cm along the valve axis
@@ -743,7 +743,7 @@ describe('the spectral envelope reads the velocity in the sample volume (decisio
     const as = loadCaseById('aortic-stenosis-severe');
     const m = new SimulatorCore(as, baseInput()).models;
     const t = m.tables.timings;
-    const f = buildFlowParams(as, m.heart, m.tables);
+    const f = buildFlowParams(as, m.heart, m.tables, m.thorax);
     const peak = (t.ejectionStartS + 0.35 * (t.ejectionEndS - t.ejectionStartS)) / m.tables.rrS;
     const hpPeak = computeHeartPose(m.heart, cycleStateAt(m.tables, peak));
     const vc = v3(
@@ -838,7 +838,7 @@ describe('the early filling wave travels toward the apex at the colour M-mode Vp
     for (const input of CASE_INPUTS) {
       const k = loadCaseById(input.id);
       const models = new SimulatorCore(k, baseInput()).models;
-      const p = buildFlowParams(k, models.heart, models.tables);
+      const p = buildFlowParams(k, models.heart, models.tables, models.thorax);
       const tb = models.tables;
       const tm = tb.timings;
       const poses = new Map<number, ReturnType<typeof computeHeartPose>>();
@@ -1287,7 +1287,7 @@ describe('the spectral display is an estimate with its granular texture (decisio
     const m = new SimulatorCore(k, baseInput()).models;
     const t = m.tables.timings;
     const rr = m.tables.rrS;
-    const f = buildFlowParams(k, m.heart, m.tables);
+    const f = buildFlowParams(k, m.heart, m.tables, m.thorax);
     const peak = (t.ejectionStartS + 0.35 * (t.ejectionEndS - t.ejectionStartS)) / rr;
     const hpPeak = computeHeartPose(m.heart, cycleStateAt(m.tables, peak));
     const target =

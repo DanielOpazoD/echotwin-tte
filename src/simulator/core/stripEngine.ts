@@ -1,7 +1,8 @@
+import { sceneClassifier } from '@/simulator/anatomy/sceneClassifier';
 import { DUPLEX_BMODE_SHARE } from '@/simulator/renderer/pulseTiming';
 import { acousticAccess } from '@/simulator/doppler/acousticAccess';
 import type { CaseDefinition } from '@/cases/schema';
-import { classifyHeart, computeHeartPose, type HeartModel } from '@/simulator/anatomy/heartModel';
+import { computeHeartPose, type HeartModel } from '@/simulator/anatomy/heartModel';
 import { cycleStateAt, type BeatTables } from '@/simulator/cardiac-cycle/cycleModel';
 import type { ProceduralSliceRenderer } from '@/simulator/renderer/procedural/sliceRenderer';
 import type { PolarFrame, PolarFrameSpec, Scene, ScenePhysics } from '@/simulator/renderer/types';
@@ -525,6 +526,7 @@ export class StripEngine {
     const dhz = dx * hf.ez.x + dy * hf.ez.y + dz * hf.ez.z;
     const scene = ctx.scene(phase);
     const hp = scene.heartPose;
+    const classifyScene = sceneClassifier(scene);
     const accessible =
       inp.modality === 'cw'
         ? null
@@ -545,9 +547,9 @@ export class StripEngine {
         (px - hf.origin.x) * hf.ey.x + (py - hf.origin.y) * hf.ey.y + (pz - hf.origin.z) * hf.ey.z;
       const hz =
         (px - hf.origin.x) * hf.ez.x + (py - hf.origin.y) * hf.ez.y + (pz - hf.origin.z) * hf.ez.z;
-      const inHeart = classifyHeart(ctx.heart, hp, hx, hy, hz, ts);
+      const inScene = classifyScene(px, py, pz, ts) !== 0;
       if (inp.modality === 'tdi') {
-        if (inHeart && ts.tissue === Tissue.Myocardium) {
+        if (inScene && ts.tissue === Tissue.Myocardium) {
           if (accessible && !accessible(r)) return;
           const tv = sampleTissueVelocity(ctx.heart, ctx.tables, phase, hx, hy, hz, ts.structure);
           const axial = tv.vx * dhx + tv.vy * dhy + tv.vz * dhz;
@@ -558,7 +560,7 @@ export class StripEngine {
         }
         return;
       }
-      if (!inHeart || ts.tissue !== Tissue.Blood) return;
+      if (!inScene || ts.tissue !== Tissue.Blood) return;
       if (accessible && !accessible(r)) return;
       sampleFlow(ctx.flow, ctx.tables, hp, phase, hx, hy, hz, fs);
       if (!fs.present) {
@@ -688,12 +690,11 @@ export class StripEngine {
       (px - hf.origin.x) * hf.ey.x + (py - hf.origin.y) * hf.ey.y + (pz - hf.origin.z) * hf.ey.z;
     const hz =
       (px - hf.origin.x) * hf.ez.x + (py - hf.origin.y) * hf.ez.y + (pz - hf.origin.z) * hf.ez.z;
-    const hp = computeHeartPose(ctx.heart, cycleStateAt(ctx.tables, phase));
     const ts = this.tissueSample;
-    const inHeart = classifyHeart(ctx.heart, hp, hx, hy, hz, ts);
+    const inScene = sceneClassifier(ctx.scene(phase))(px, py, pz, ts) !== 0;
     let flowPresent = false;
     let flowAngleDeg: number | null = null;
-    if (inHeart && ts.tissue === Tissue.Blood) {
+    if (inScene && ts.tissue === Tissue.Blood) {
       // flow direction at the gate over the cycle: use the instant of maximal speed so the angle does not depend on the frame.
       // It depends only on where the gate sits in the heart, so it is kept until the gate or the models change: sixteen
       // heart poses per composite were most of the cost of every strip frame.
@@ -735,7 +736,7 @@ export class StripEngine {
         const cos = Math.abs((bx * dhx + by * dhy + bz * dhz) / best);
         flowAngleDeg = (Math.acos(Math.min(1, cos)) * 180) / Math.PI;
       }
-    } else if (inHeart && ts.tissue === Tissue.Myocardium && inp.modality === 'tdi') {
+    } else if (inScene && ts.tissue === Tissue.Myocardium && inp.modality === 'tdi') {
       flowPresent = true;
       // tissue moves along the LV long axis: angle between the beam and the heart z axis
       const dhz = dx * hf.ez.x + dy * hf.ez.y + dz * hf.ez.z;
@@ -744,8 +745,8 @@ export class StripEngine {
     return {
       thetaRad: theta,
       depthCm: r,
-      structure: inHeart ? ts.structure : 0,
-      tissue: inHeart ? ts.tissue : 0,
+      structure: inScene ? ts.structure : 0,
+      tissue: inScene ? ts.tissue : 0,
       flowPresent,
       flowAngleDeg,
       lineStructures,
