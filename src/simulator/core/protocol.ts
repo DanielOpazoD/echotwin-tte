@@ -85,6 +85,8 @@ export interface StripInfo {
   /** Acquisition readouts of a populated strip, independent of pending console controls. */
   sweepSpeedMmPerS?: number;
   wallFilterMps?: number;
+  /** Transmitted fundamental of the spectral acquisition (not the harmonic receive frequency). */
+  frequencyMHz?: number;
   /**
    * The strip is written as a sweep (decision 231): `headColumn` is the column the next sample goes into, where the
    * sweep marker stands, of `columns`; the newest written column is the one before it. 0 without a strip.

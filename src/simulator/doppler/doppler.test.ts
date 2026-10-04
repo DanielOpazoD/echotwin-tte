@@ -145,7 +145,7 @@ describe('Doppler physics (spec 36/48.3)', () => {
       return { v: bestV, value: best };
     };
     const col = new Float32Array(SPECTRAL_BINS);
-    buildSpectralColumn([{ v: 1.0, weight: 1, dispersion: 0.05 }], s, 1, 1, true, col);
+    buildSpectralColumn([{ v: 1.0, weight: 1, dispersion: 0.05 }], s, 1, 1, true, col, 2.5, 1);
     // energy should sit at the aliased velocity 1.0 − 1.2 = −0.2 m/s (below baseline)
     expect(peakVelocity(col, s).v).toBeCloseTo(-0.2, 1);
     // CW (decision 87): a 1.0 m/s jet on a ±0.6 m/s scale draws nothing in range, not a band at +0.6
@@ -198,12 +198,12 @@ describe('Doppler physics (spec 36/48.3)', () => {
   it('wall filter removes low velocities and turbulence broadens the spectrum', () => {
     const s = { ...DEFAULT_SPECTRAL, scaleMps: 1, wallFilterMps: 0.15 };
     const col = new Float32Array(SPECTRAL_BINS);
-    buildSpectralColumn([{ v: 0.1, weight: 1, dispersion: 0.05 }], s, 2, 1, true, col);
+    buildSpectralColumn([{ v: 0.1, weight: 1, dispersion: 0.05 }], s, 2, 1, true, col, 2.5, 1);
     expect(Math.max(...Array.from(col))).toBeLessThan(0.3); // only noise
     const narrow = new Float32Array(SPECTRAL_BINS);
     const wide = new Float32Array(SPECTRAL_BINS);
-    buildSpectralColumn([{ v: 0.8, weight: 1, dispersion: 0.03 }], s, 3, 1, true, narrow);
-    buildSpectralColumn([{ v: 0.8, weight: 1, dispersion: 0.5 }], s, 3, 1, true, wide);
+    buildSpectralColumn([{ v: 0.8, weight: 1, dispersion: 0.03 }], s, 3, 1, true, narrow, 2.5, 1);
+    buildSpectralColumn([{ v: 0.8, weight: 1, dispersion: 0.5 }], s, 3, 1, true, wide, 2.5, 1);
     const width = (a: Float32Array) => Array.from(a).filter((x) => x > 0.5).length;
     expect(width(wide)).toBeGreaterThan(width(narrow) * 1.5);
   });
@@ -360,7 +360,7 @@ describe('the spectral envelope reads the velocity in the sample volume (decisio
     const edges = [1.0, 2.0].map((scaleMps) => {
       const s = { ...DEFAULT_SPECTRAL, scaleMps };
       const col = new Float32Array(SPECTRAL_BINS);
-      buildSpectralColumn(samples, s, 5, 1, true, col);
+      buildSpectralColumn(samples, s, 5, 1, true, col, 2.5, 1);
       return outerEdge(col, s, 1);
     });
     // before: a symmetric Gaussian of 0.035·scale + 0.02 m/s plus 0.9·dispersion·|v| put the edge at 0.96 and 1.03 m/s
@@ -379,7 +379,7 @@ describe('the spectral envelope reads the velocity in the sample volume (decisio
     for (let i = 0; i < 8; i++)
       samples.push({ v: -3.0, weight: 1, dispersion: 0.6, vPerp: 1.0, depthCm: 12 }); // decaying jet
     const col = new Float32Array(SPECTRAL_BINS);
-    buildSpectralColumn(samples, s, 7, 1, false, col);
+    buildSpectralColumn(samples, s, 7, 1, false, col, 2.5, 1);
     const { vMin, vMax } = spectralRange(s);
     const edge = outerEdge(col, s, -1);
     // before: the edge reached the bottom of the scale (−6 m/s)
@@ -1165,7 +1165,7 @@ describe('the spectral display is an estimate with its granular texture (decisio
     Array.from({ length: 400 }, (_, k) => {
       const envelope = new Float32Array(SPECTRAL_BINS);
       const display = new Float32Array(SPECTRAL_BINS);
-      buildSpectralColumn(samples, s, k, 11, true, envelope, 0, display, k * 0.004);
+      buildSpectralColumn(samples, s, k, 11, true, envelope, 2.5, 1, 0, display, k * 0.004);
       return display;
     });
 

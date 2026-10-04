@@ -1,4 +1,4 @@
-import { lineTimeS, pulsedAcquisition } from './pulseTiming';
+import { DUPLEX_BMODE_SHARE, lineTimeS, pulsedAcquisition } from './pulseTiming';
 export { lineTimeS } from './pulseTiming';
 import type { AcquisitionSettings, LineDensity, PolarFrameSpec } from './types';
 
@@ -44,7 +44,7 @@ export const COLOR_PACKET = 8;
  * choice and no published value was found, so a quarter is an assumption of the model; many cardiac scanners freeze the 2D
  * instead while the spectrum runs (update mode). Before decision 212 the 2D kept its full rate beside a gapless spectrum.
  */
-export const DUPLEX_BMODE_SHARE = 0.25;
+export { DUPLEX_BMODE_SHARE } from './pulseTiming';
 
 /** The colour box as the frame rate reads it: its width and its deepest edge. */
 export interface ColorBoxExtent {

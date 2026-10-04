@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { baseInput } from './baseInput';
 import { acquisitionLimits, constrainAcquisition } from './acquisitionInput';
-import { pulsedAcquisition } from '@/simulator/renderer/pulseTiming';
-import { acquisitionFrameRate } from '@/simulator/renderer/frameRate';
+import { lineTimeS, pulsedAcquisition } from '@/simulator/renderer/pulseTiming';
+import { acquisitionFrameRate, bmodeTransmitLines } from '@/simulator/renderer/frameRate';
 
 describe('range-unambiguous Doppler acquisition', () => {
   it('obeys the round-trip budget and the Doppler equation in physical units', () => {
@@ -41,6 +41,25 @@ describe('range-unambiguous Doppler acquisition', () => {
     input.settings.harmonics = !input.settings.harmonics;
     input.settings.depthCm = 22;
     expect(acquisitionLimits(input).spectral).toEqual(before);
+  });
+
+  it('shares one transmit budget between PW sampling and the live B-mode image', () => {
+    const input = baseInput({ modality: 'pw', gateDepthCm: 18 });
+    input.settings.depthCm = 20;
+    input.spectral.scaleMps = 6;
+    const a = acquisitionLimits(input).spectral;
+    const bmodeDuty =
+      acquisitionFrameRate(input.settings, undefined, true) *
+      bmodeTransmitLines(input.settings) *
+      lineTimeS(input.settings.depthCm);
+    const spectralDuty =
+      a.meanPrfHz * lineTimeS(input.gateDepthCm + input.spectral.gateLengthCm / 2);
+    expect(spectralDuty + bmodeDuty).toBeLessThanOrEqual(1 + 1e-12);
+    expect(spectralDuty).toBeGreaterThan(0.7);
+    expect(a.prfHz).toBe(
+      pulsedAcquisition(input.gateDepthCm + input.spectral.gateLengthCm / 2, 2.5, 6).prfHz,
+    );
+    expect(a.meanPrfHz).toBeCloseTo(a.prfHz * 0.75, 8);
   });
 
   it('spends more time collecting low-PRF color packets', () => {

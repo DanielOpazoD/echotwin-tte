@@ -1,4 +1,5 @@
 import { aliasVelocity } from '@/clinical/formulas';
+import { SPEED_OF_SOUND_MPS } from '@/core/units';
 import { hash3 } from '@/core/random';
 import { APERTURE_MM } from '@/simulator/probe/transducer';
 
@@ -226,12 +227,17 @@ export function envelopeThreshold(columnMax: number, s: SpectralSettings): numbe
  * decision 96 calibrated it: read on the grain, it followed bright grains past the flow and dark ones inside it.
  *
  * Duration of one estimate (s): as many pulses as the display has bins (the resolution of `spectralSpread`), at the pulse
- * repetition frequency the scale needs at a nominal 2.5 MHz, T = BINS·c/(4·f0·scale): 16 ms at ±1.2 m/s, within 6-30 ms.
+ * repetition frequency implied by the acquired fundamental and scale: T = BINS·c/(4·f0·scale·activeFraction), including the mean time reserved for B-mode gaps.
+ * This is a finite-ensemble grain approximation, not an IQ/FFT estimator. CW uses the equivalent
+ * baseband sampling rate required by its displayed velocity span, not a transmit PRF.
  */
-function estimateDurationS(s: SpectralSettings): number {
-  return Math.min(
-    0.03,
-    Math.max(0.006, (SPECTRAL_BINS * 1540) / (4 * 2.5e6 * Math.max(0.05, s.scaleMps))),
+export function estimateDurationS(
+  s: SpectralSettings,
+  frequencyMHz: number,
+  activeFraction: number,
+): number {
+  return (
+    (SPECTRAL_BINS * SPEED_OF_SOUND_MPS) / (4 * frequencyMHz * 1e6 * s.scaleMps * activeFraction)
   );
 }
 /** Frequency extent (display bins) of one speckle cell: the resolution of the estimate, whose line has σ = RESOLUTION_BINS. */
@@ -337,12 +343,14 @@ export function displaySpectrum(
   click: number,
   timeS: number,
   out: Float32Array,
+  frequencyMHz: number,
+  activeFraction: number,
 ): void {
   const { vMin, vMax } = spectralRange(s);
   let max = 0;
   for (let b = 0; b < SPECTRAL_BINS; b++) max = Math.max(max, expected[b] ?? 0);
   const norm = max > 0 ? 1 / (max * 0.8 + 0.2) : 0;
-  const tCells = timeS / estimateDurationS(s);
+  const tCells = timeS / estimateDurationS(s, frequencyMHz, activeFraction);
   const noise = Math.pow(10, NOISE_DB / 10);
   estimateSpeckleColumn(tCells, seed, 17, speckleFlow);
   estimateSpeckleColumn(tCells, seed, 29, speckleNoise);
@@ -372,12 +380,14 @@ export function buildSpectralColumn(
   seed: number,
   aliasing: boolean,
   out: Float32Array,
+  frequencyMHz: number,
+  activeFraction: number,
   click = 0,
   display?: Float32Array,
   timeS = columnIndex * 0.004,
 ): void {
   accumulateSpectrum(samples, s, aliasing, out);
-  if (display) displaySpectrum(out, s, seed, click, timeS, display);
+  if (display) displaySpectrum(out, s, seed, click, timeS, display, frequencyMHz, activeFraction);
   const gainLin = Math.pow(10, s.gainDb / 20);
   const { vMin, vMax } = spectralRange(s);
   // normalise softly, apply gain + noise floor + compression

@@ -1,4 +1,4 @@
-import { pulsedAcquisition } from '@/simulator/renderer/pulseTiming';
+import { DUPLEX_BMODE_SHARE, pulsedAcquisition } from '@/simulator/renderer/pulseTiming';
 import type { SimInput } from './protocol';
 
 type AcquisitionInput = Pick<
@@ -21,6 +21,7 @@ export function acquisitionLimits(input: AcquisitionInput) {
       gateDepthCm + spectral.gateLengthCm / 2,
       settings.frequencyMHz,
       spectral.scaleMps,
+      1 - DUPLEX_BMODE_SHARE,
     ),
   };
 }

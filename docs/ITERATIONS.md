@@ -8,8 +8,8 @@ Una prueba interna no constituye validación clínica.
 | Orden | Objetivo | Evidencia exigida | Estado |
 | --- | --- | --- | --- |
 | 1 | Acceso acústico PW/TDI desde la sonda hasta cada muestra | Ventanas accesibles y obstruidas, transiciones, fase, frecuencia y coste | [PR #91](https://github.com/DanielOpazoD/echotwin-tte/pull/91), fusionada |
-| 2 | Historia común de adquisición | Identidad, tiempo, haz, gate y calibración coherentes al congelar y recorrer cine | Validada localmente; pendiente CI |
-| 3 | Frecuencia y presupuesto temporal Doppler | Eliminar 2,5 MHz nominales en señal/audio; límites PRF/profundidad y duplex verificables | Pendiente |
+| 2 | Historia común de adquisición | Identidad, tiempo, haz, gate y calibración coherentes al congelar y recorrer cine | [PR #92](https://github.com/DanielOpazoD/echotwin-tte/pull/92), fusionada |
+| 3 | Frecuencia y presupuesto temporal Doppler | Eliminar 2,5 MHz nominales en señal/audio; límites PRF/profundidad y duplex verificables | En validación |
 | 4 | Navegación y consola adaptables | Uso a 390 px, paneles plegables, cámara independiente y medidas invariantes | Pendiente |
 | 5 | Geometría y mecánica basal coherentes | Continuidad mitroaórtica, TSVD, tronco pulmonar y aurículas durante el ciclo; referencias publicadas | Pendiente |
 | 6 | Aorta torácica continua compartida | Raíz, ascendente, arco, descendente y orígenes supraaórticos en CPU/GPU/malla sin intersecciones indebidas | Pendiente |
@@ -37,3 +37,8 @@ cada PR se actualizarán aquí su enlace, evidencia y limitaciones.
 ## Iteración 1 cerrada
 
 PR #91, merge `cee1371`: PW/TDI respetan la sombra del haz central. Siete de siete posiciones totalmente bloqueadas del barrido pierden la señal espuria; la referencia abierta conserva 1 m/s. Pasan 886 pruebas y 61 E2E (cuatro requieren GPU por hardware), incluida paridad CPU/GPU. CI completa aprobada. Pendientes: oclusión parcial de apertura, potencia recibida calibrada y propagación CW a su fase. La siguiente prioridad es la procedencia común del cine y las mediciones.
+
+
+## Iteración 2 cerrada
+
+PR #92, merge `a1816c2`: cine, consulta anatómica, gate y mediciones conservan su adquisición; la tira tiene identidad y tiempo propios. Pasan 890 pruebas y 62 E2E, con cuatro omisiones por GPU de hardware. CI completa aprobada. Una ejecución remota anterior falló sin detalle accesible desde este entorno; se añadieron anotaciones de Playwright a GitHub y la siguiente ejecución completa pasó. La causa de ese primer fallo remoto no quedó identificada. Persisten una sola adquisición de tira retenida y diez fases nominales de malla. Siguiente prioridad: frecuencia fundamental y tiempo de muestreo duplex, distinguiendo PRF intra-paquete y tasa media.

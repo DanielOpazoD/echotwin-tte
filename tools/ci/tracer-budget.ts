@@ -134,6 +134,10 @@ const growth = ratio / baseline.ratio;
 process.stdout.write(
   `${line}\nbaseline ${baseline.ratio.toFixed(3)} (decision ${baseline.decision}): ${((growth - 1) * 100).toFixed(1)} %\n`,
 );
+if (process.env['CI'])
+  process.stdout.write(
+    `::${growth > BUDGET ? 'error' : 'notice'} title=CPU tracer budget::${line}; baseline ${baseline.ratio.toFixed(3)}, growth ${((growth - 1) * 100).toFixed(1)}%, limit ${((BUDGET - 1) * 100).toFixed(0)}%\n`,
+  );
 if (!process.env['CI']) {
   process.stdout.write(
     'not on CI: the ratio is reported, not compared (the baseline is a CI runner’s)\n',
