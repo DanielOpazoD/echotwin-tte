@@ -34,6 +34,7 @@ import { SimulatorCore } from '@/simulator/core/simulatorCore';
 import { computeGroundTruth } from '@/simulator/hemodynamics/groundTruth';
 import { summarizeEnvelope } from '@/simulator/measurements/vti';
 import { baseInput } from '@/simulator/core/baseInput';
+import { pulsedAcquisition } from '@/simulator/renderer/pulseTiming';
 import { canonicalControl, canonicalPlane, getViewTarget } from '@/simulator/windows/viewTargets';
 import { beamFrameFromPose, controlAimingAt, poseFromControl } from '@/simulator/probe/pose';
 import { dot, sub, v3, type Vec3 } from '@/core/vec3';
@@ -231,6 +232,8 @@ describe('Doppler through the simulator core', () => {
         quality: 'low',
         cursorThetaRad: g.theta,
         gateDepthCm: gateOverride ?? g.r,
+        // Isolate the cosine law without aliasing: lower transmit frequency is a real console control.
+        settings: { ...baseInput().settings, frequencyMHz: 1.5 },
         spectral: { ...DEFAULT_SPECTRAL, scaleMps: 2.0, wallFilterMps: 0.1 },
       }),
     );
@@ -431,7 +434,11 @@ describe('the spectral envelope reads the velocity in the sample volume (decisio
     // mitral inflow, 1 cm apical of the valve landmark
     const tips = v3(0.2, -0.9, 1.7);
     const pw = aim(a4c, heartToTorso(heart.frame, tips));
-    const spectral = { ...DEFAULT_SPECTRAL, scaleMps: 1.2 };
+    // Read bins in their acquired units, not the requested scale before the depth constraint.
+    const spectral = {
+      ...DEFAULT_SPECTRAL,
+      scaleMps: pulsedAcquisition(pw.r + DEFAULT_SPECTRAL.gateLengthCm / 2, 2.5, 1.2).scaleMps,
+    };
     const core = new SimulatorCore(
       c,
       baseInput({
@@ -619,7 +626,14 @@ describe('the spectral envelope reads the velocity in the sample volume (decisio
     );
     const f = m.heart.frame;
     const cosine = Math.abs(dot(dir, f.ez));
-    const spectral = { ...DEFAULT_SPECTRAL, scaleMps: 1.2 };
+    const spectral = {
+      ...DEFAULT_SPECTRAL,
+      scaleMps: pulsedAcquisition(
+        Math.hypot(depth, lateral) + DEFAULT_SPECTRAL.gateLengthCm / 2,
+        2.5,
+        1.2,
+      ).scaleMps,
+    };
     const core = new SimulatorCore(
       tc,
       baseInput({

@@ -89,6 +89,7 @@ export interface GateInfo {
 }
 
 export interface SimOutput {
+  /** Acquisition identity; reviewing cine returns the selected frame, not a new delivery ID. */
   frameId: number;
   width: number;
   height: number;
@@ -107,6 +108,7 @@ export interface SimOutput {
    */
   segment: Uint8Array;
   gate: GateInfo | null;
+  /** Acquisition time/phase/beat of the selected cine frame when frozen. */
   timeS: number;
   phase: number;
   beatIndex: number;

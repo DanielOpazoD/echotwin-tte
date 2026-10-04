@@ -54,7 +54,12 @@ export function TorsoView() {
   const split = useSimStore((s) => navigatorLayers(s).split);
   const anatomy = useSimStore((s) => modePolicy(s.mode).navigatorAnatomy);
   const patient = useSimStore((s) => s.patient);
-  const zoomRef = useRef<{ zoomBy: (f: number) => void; center: () => void } | null>(null);
+  const zoomRef = useRef<{
+    zoomBy: (f: number) => void;
+    center: () => void;
+    overview: () => void;
+    plane: () => void;
+  } | null>(null);
   // a browser without WebGL keeps the image and the cut map; only the 3D view gives way to a notice (decision 154).
   // Probed once on mounting; if the renderer still failed, the ErrorBoundary around the navigator would contain it
   const [webglError] = useState(probeWebgl);
@@ -392,7 +397,29 @@ export function TorsoView() {
         orbit.r = Math.max(22, Math.min(90, orbit.r * f));
         updateCamera();
       },
+      overview: () => {
+        Object.assign(orbit, { az: 0.12, el: 0.08, r: 54, tx: 2, ty: -1.5, tz: -6 });
+        camera.up.set(0, 1, 0);
+        updateCamera();
+      },
+      plane: () => {
+        if (!thorax) return;
+        const state = useSimStore.getState();
+        const beam = beamFrameFromPose(poseFromControl(thorax, state.probe));
+        const d = state.settings.depthCm / 2;
+        Object.assign(orbit, {
+          tx: beam.origin.x + d * beam.forward.x,
+          ty: beam.origin.y + d * beam.forward.y,
+          tz: beam.origin.z + d * beam.forward.z,
+          az: Math.atan2(beam.normal.x, beam.normal.z),
+          el: Math.asin(Math.max(-1, Math.min(1, beam.normal.y))),
+          r: Math.max(30, state.settings.depthCm * 2.5),
+        });
+        camera.up.set(-beam.forward.x, -beam.forward.y, -beam.forward.z);
+        updateCamera();
+      },
       center: () => {
+        camera.up.set(0, 1, 0);
         if (!thorax) return;
         const p = poseFromControl(thorax, useSimStore.getState().probe).position;
         orbit.tx = p.x;
@@ -909,6 +936,24 @@ export function TorsoView() {
           >
             <IconCrosshair size={12} />
           </button>
+          <button
+            className="icon-btn"
+            onClick={() => zoomRef.current?.overview()}
+            data-tip="Restablecer vista global del tórax"
+            aria-label="Restablecer vista global del tórax"
+          >
+            ↺
+          </button>
+          {anatomy && (
+            <button
+              className="icon-btn"
+              onClick={() => zoomRef.current?.plane()}
+              data-tip="Mirar perpendicular al plano ecográfico"
+              aria-label="Mirar perpendicular al plano ecográfico"
+            >
+              ⊥
+            </button>
+          )}
           {/* in exam mode the layers are fixed to the skin and the ribs (decision 256) */}
           {anatomy && <LayerMenu />}
         </div>

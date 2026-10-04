@@ -401,13 +401,13 @@ describe('spectral settings follow the mode', () => {
     st().setModality('pw');
     expect(st().spectral.scaleMps).toBe(1.0);
     expect(st().spectral.gainDb).toBe(0);
-    st().setSpectral({ scaleMps: 1.5 });
+    st().setSpectral({ scaleMps: 0.9 });
     st().setModality('2d');
     st().setModality('tdi');
     expect(st().spectral.scaleMps).toBe(0.3);
     expect(st().spectral.gainDb).toBe(6);
     st().setModality('pw');
-    expect(st().spectral.scaleMps).toBe(1.5);
+    expect(st().spectral.scaleMps).toBe(0.9);
     // settings that are not per mode stay with the machine
     st().setSpectral({ sweepSpeedMmPerS: 100 });
     st().setModality('cw');

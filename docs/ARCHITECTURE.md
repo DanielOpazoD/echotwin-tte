@@ -173,3 +173,7 @@ Líneas = `round(base · mult · sector/75)` con base 64/112/160 según densidad
 ## Tiempos observados (Node, `tools/offline/render/bench.ts`, tier medium, 119×224, PLAX/A4C/PSAX-PM)
 
 Render procedimental 22–47 ms según la carga de la máquina, consola 2–3 ms, scan conversion 7–10 ms por cuadro (más en la primera ejecución por el JIT). En el navegador con WebGL2 (2026-09-11, M4 con carga alta): render 11–17 ms con lectura de vuelta, consola 2–10 ms, composición 9–26 ms. En la app el worker reporta `renderFrameMs`, `consoleMs`, `analysisMs`, `compositeMs` y `stepMs` en `SimOutput.stats` (panel Dev).
+
+## Historial y límites de adquisición (decisión 274)
+
+`SimulatorCore` delega la propiedad y retención de cuadros en `CineBuffer`, un anillo acotado a 96 capturas con copias de buffers, haz y especificación. Cada captura conserva identificador, tiempo, fase, latido y RR; revisar cine devuelve esa identidad histórica. `acquisitionInput.ts` aplica en el store y en la entrada del núcleo los límites puros de `renderer/pulseTiming.ts`, compartidos con el presupuesto de paquetes color. `StripEngine` conserva el barrido adquirido al congelar y reinicia el historial al adquirir con otra calibración. Sigue pendiente extraer el reloj de adquisición y unificar la historia ECG/tiras/cine.

@@ -19,7 +19,7 @@ Los nueve sitios del esquema están implementados (`sampleRegurgitantJets`, `sam
 Cada primitiva llega a cero en su propia frontera (decisión 166): el color sólo aparece donde hay una primitiva, y un flujo que se cortaba en un cilindro, un cono o un plano dibujaba esa superficie como un borde recto (el llenado mitral del A4C normal era un rectángulo). Los flujos de las válvulas y las venas no dibujan bordes rectos de más de 5 mm en cinco vistas de los doce casos (`flowContinuity.test.ts`); los chorros regurgitantes conservan una capa de cizalla fina y su color se corta en un milímetro al costado del cono. Más allá de las puntas el chorro de llenado arrastra la sangre que lo rodea y lleva más caudal que la tabla (1,0–1,5 veces a 2,5 cm del anillo): el retorno del vórtice de llenado no se modela.
 
 ## Proyección y aliasing
-Para una muestra en la dirección `d` de la línea (convertida del torso al marco cardíaco), `v_axial = −(v · d)` (positivo = hacia el transductor). La subestimación por ángulo es exactamente `cos θ` entre haz y flujo; no hay corrección de ángulo. El plegado usa `aliasVelocity(v, escala, baseline)` (`clinical/formulas`): envuelve `v` en `[−escala + baseline, escala + baseline]`. La escala se fija directamente en m/s (Nyquist); `nyquistVelocity` y `maxPrfForDepth` existen como fórmulas pero la PRF **no** se deriva de la profundidad ni limita la escala en la UI. La duración de cada estimado espectral usa la PRF que pide la escala a 2,5 MHz nominales.
+Para una muestra en la dirección `d` de la línea (convertida del torso al marco cardíaco), `v_axial = −(v · d)` (positivo = hacia el transductor). La subestimación por ángulo es exactamente `cos θ` entre haz y flujo; no hay corrección de ángulo. El plegado usa `aliasVelocity(v, escala, baseline)` (`clinical/formulas`): envuelve `v` en `[−escala + baseline, escala + baseline]`. Desde la decisión 274, `pulseTiming.ts` acopla escala y PRF: `PRF = 4·f0·Nyquist/c`, limitada por `1/(2·profundidad/c + 20 µs)`. PW/TDI usan el borde profundo del gate; color usa el fondo visible de la caja. La consola y el núcleo aplican el mismo límite, sin corrección angular, HPRF ni cambio de frecuencia Doppler por el interruptor de armónicos B-mode. CW conserva su escala de presentación sin este límite. La duración de cada estimado espectral usa la PRF que pide la escala a 2,5 MHz nominales.
 
 ## Color (`color/colorDoppler.ts`)
 - Caja polar (`θ_min/θ_max`, `r_min/r_max`) editable con el ratón; sus líneas reducen el frame rate simulado (`líneas_color · paquete 8`). El campo se calcula **cada dos cuadros 2D** y se reutiliza en el intermedio.
@@ -62,7 +62,7 @@ Hay dos números.
   - la profundidad fija el tiempo de ida y vuelta de cada disparo, más 20 µs de tiempo muerto;
   - el sector y la densidad de líneas dan las líneas de recepción: 1,0, 1,6 o 2,4 por grado, un supuesto del modelo;
   - cada disparo en 2D forma dos líneas de recepción en paralelo (MLA 2);
-  - con color, cada grado de la caja lleva una línea de color con un paquete de 8 pulsos hasta el fondo de la caja.
+  - con color, cada grado de la caja lleva una línea con un paquete de 8 pulsos a la PRF que pide la escala, limitada por el fondo de la caja; bajar la escala prolonga el paquete.
 
   El 2D convencional corre a unos 40–80 cuadros/s (Fujikura et al., J Clin Med 2021), y el color focalizado a 10–30 a 12 cm con 20–60 líneas y un paquete de 8 (Puig et al., IEEE TUFFC 2024).
 - **La cadencia** es cada cuánto forma el simulador un cuadro (`cadenceHz`). Nunca supera la adquisición y la acota además el trabajo del nivel, con las líneas de su cuadro polar y un tope de 90 Hz. Marca el paso del worker (acotado a 12–50 ms por paso), el presupuesto de cuadro, la traza del modo M y el intervalo sobre el que decae la persistencia. Antes de la decisión 178 era también el número del HUD, y cambiaba con el nivel de cálculo.
@@ -74,9 +74,9 @@ Con los ajustes por defecto (16 cm, 80°) y la caja de color por defecto (±0,32
 <!-- verificada: frame-rate-acquisition -->
 | Densidad de líneas | Disparos 2D | 2D (Hz) | 2D + caja de color (Hz) | 2D junto al Doppler espectral (Hz) |
 |---|---|---|---|---|
-| `low` | 40 | 109,7 | 15,4 | 27,4 |
-| `medium` | 64 | 68,6 | 14,2 | 17,1 |
-| `high` | 96 | 45,7 | 12,9 | 11,4 |
+| `low` | 40 | 109,7 | 12,1 | 27,4 |
+| `medium` | 64 | 68,6 | 11,4 | 17,1 |
+| `high` | 96 | 45,7 | 10,5 | 11,4 |
 
 <!-- verificada: frame-rate -->
 | Calidad | Cuadro polar | Cadencia 2D (Hz) | Cadencia con color (Hz) | Líneas de color del nivel |
