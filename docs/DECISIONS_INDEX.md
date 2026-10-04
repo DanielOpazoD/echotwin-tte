@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 279 (última: 279).
+Decisiones: 280 (última: 280).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -287,3 +287,4 @@ Decisiones: 279 (última: 279).
 | [277](DECISIONS.md#L1580) | 2026-10-04 | La interpretación pertenece a la adquisición mostrada, no a los controles pendientes. | vigente |
 | [278](DECISIONS.md#L1596) | 2026-10-04 | Frecuencia fundamental adquirida y tiempo duplex explícito. | vigente |
 | [279](DECISIONS.md#L1610) | 2026-10-04 | El navegador móvil separa paneles, cámara y sonda sin recalibrar la adquisición. | vigente |
+| [280](DECISIONS.md#L1620) | 2026-10-04 | La atenuación longitudinal del Doppler tisular sigue la coordenada material del anillo móvil. | vigente |

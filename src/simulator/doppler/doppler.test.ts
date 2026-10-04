@@ -568,17 +568,27 @@ describe('the spectral envelope reads the velocity in the sample volume (decisio
             spectral,
           }),
         );
-        let e = 0;
+        let e = 0,
+          peakPhase = 0;
         for (const { phase, col } of strip(core, 2.2))
           if (
             phase * m.tables.rrS > t.mitralOpenS &&
             (!t.hasAWave || phase * m.tables.rrS < t.aStartS)
-          )
-            e = Math.min(e, outerEdge(col, spectral, -1));
+          ) {
+            const edge = outerEdge(col, spectral, -1);
+            if (edge < e) {
+              e = edge;
+              peakPhase = phase;
+            }
+          }
+        // The gate is fixed in space, while the annulus moves past it. Its material
+        // level belongs to the geometry at the measured peak, not end diastole.
+        const peakPose = computeHeartPose(m.heart, cycleStateAt(m.tables, peakPhase));
+        const materialLevel = Math.min(1, Math.max(0, (p.z - peakPose.zAnn) / peakPose.lengthNow));
         return {
           e: -e,
           cos: Math.abs(dot(dir, m.heart.frame.ez)),
-          level: 1 - p.z / m.heart.lv.lengthCm,
+          level: 1 - materialLevel,
         };
       };
       const sep = read(-1),
