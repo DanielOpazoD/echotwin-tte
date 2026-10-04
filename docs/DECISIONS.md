@@ -1830,3 +1830,23 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
 
 
     Navegador: 77 recorridos aprobados, incluidas 43 comparaciones CPU/GPU; cuatro omisiones por GPU física. Se conservan controles, calipers, cine y transiciones PW/CW al entrar y salir de pulmón.
+
+294. **Continuidad del mediastino superior en la adquisición supraesternal supina.** [Estado: vigente]
+
+    La auditoría reproducía cero píxeles de aorta descendente en los doce casos supinos. En el caso normal, el rayo desde la sonda real hasta el landmark descendente atravesaba 3,4 cm clasificados como pulmón. Dos discontinuidades lo explicaban: los límites de las escotaduras pulmonares se aplicaban también dentro del mediastino profundo, y la envolvente superior no alcanzaba el manguito ya existente de aorta descendente. Se exige estar fuera del mediastino para asignar pulmón profundo y se conecta la envolvente superior con ese manguito mediante una cápsula con sus dimensiones existentes. No se consulta la vista seleccionada ni el identificador del caso. El pulmón anterior conserva su oclusión.
+
+    La revisión anatómica de compartimentos mediastínicos (2026, DOI 10.21037/med-2025-1-56, PMC13071627) respalda una envolvente conectiva continua entre grandes vasos, excluida del pulmón; no valida las dimensiones de esta aproximación geométrica. Los 24 rayos hacia dos landmarks en doce casos dejan de cruzar pulmón, pero el examen de la adquisición completa mantiene limitaciones: diez casos muestran al menos 60 píxeles descendentes, el caso de artefactos nueve y la ventana difícil ninguno. En el normal se pasa de cero a 185, con 2011 píxeles de arco. Se conserva el criterio de adquisición imperfecta; no se declara resuelta toda ventana supraesternal.
+
+    La validación final debe incluir el control real supino, transiciones fuera del eje, sombras, paridad CPU/GPU y el banco independiente sin la excepción supina normal. Continúan pendientes tráquea, extensión cervical y revisión experta de la geometría de cuello; la conexión mediastínica no justifica abrir artificialmente cada caso difícil.
+
+
+    Revisión visual acumulada: seis pares de adquisiciones reales (normal, ventana difícil y artefactos; supino y lateral izquierdo). Normal: arco/descendente 2011/185 en supino y 2618/228 en lateral; difícil 1074/0 y 1490/0; artefactos 1541/9 y 2137/27. Las imágenes mantienen sombras y pérdida de ventana donde corresponde. El banco acumulado pasa 181 criterios sin excepciones, frente a 180 y una limitación antes del cambio. Worker 335,8/336 kB, total 1957,7/2060 kB.
+
+
+    Las pruebas dirigidas de referencias de imagen y estadísticas clínicas pasan sin modificar imágenes patrón, cuartiles ni tolerancias (6 pruebas, 162,9 s sobre el modelo acumulado). La comparación clínica sigue siendo contra agregados históricos de calibración, no un nuevo conjunto reservado.
+
+
+    Suite completa: 1016 pruebas en 186 archivos (674,5 s), lint, formato, tipos, build y presupuestos aprobados. No se actualizan imágenes patrón ni se amplían tolerancias; queda la comprobación final de navegador y paridad supina.
+
+
+    Navegador completo: 82 recorridos aprobados (11,1 min), incluidas 47 comparaciones CPU/GPU; cuatro omisiones por GPU física. Se refuerzan después los dos recorridos SSN para exigir la posición del paciente de la adquisición registrada, además del selector, y ambos pasan con el mismo código de aplicación. No basta una etiqueta de interfaz para declarar adquisición supina.

@@ -110,4 +110,8 @@ septal; balance del VD; SSN supina; rendimiento del trazador y nueva evaluación
 
 8. Balance derecho: [PR #108](https://github.com/DanielOpazoD/echotwin-tte/pull/108), decisión 293. Entrada tricuspídea, flujo pulmonar, TR y volumen relativo comparten tablas temporales; los latidos adquiridos conservan su contexto. La geometría absoluta del VD sigue siendo una aproximación independiente.
 
-   Verificación local: 1015 pruebas en 186 archivos (694,3 s), lint, formato, tipos, build y presupuestos aprobados. Banco acumulado: 180 criterios cumplidos y una limitación SSN supina. 77 recorridos de navegador aprobados, incluidas 43 comparaciones CPU/GPU y cuatro omisiones por GPU física. CI pendiente.
+   Verificación local: 1015 pruebas en 186 archivos (694,3 s), lint, formato, tipos, build y presupuestos aprobados. Banco acumulado: 180 criterios cumplidos y una limitación SSN supina. 77 recorridos de navegador aprobados, incluidas 43 comparaciones CPU/GPU y cuatro omisiones por GPU física. CI completa aprobada; fusionada en `5b42616`.
+
+9. Acceso supraesternal supino: [PR #109](https://github.com/DanielOpazoD/echotwin-tte/pull/109), decisión 294. Continuidad de mediastino y exclusión de pulmón profundo coherentes en CPU/GPU; se conserva el pulmón anterior y la dificultad real de algunas ventanas.
+
+   Verificación local: 1016 pruebas en 186 archivos (674,5 s), lint, formato, tipos, build y presupuestos aprobados. El banco cumple los 181 criterios, sin la excepción supina normal. Se revisaron seis pares de imágenes; referencias y tolerancias sin cambios. 82 recorridos de navegador aprobados (11,1 min), incluidas 47 comparaciones CPU/GPU, con cuatro omisiones por GPU física. Los dos recorridos SSN se repiten con una aserción adicional de la posición registrada en la adquisición: ambos pasan. CI pendiente.

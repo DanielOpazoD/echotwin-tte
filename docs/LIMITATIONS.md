@@ -227,7 +227,7 @@ Cada prueba del modelo que tolera una desviación la declara en un conjunto `KNO
 
 ## Ventana supraesternal parcial (decisión 282)
 
-El acceso SSN usa sonda real en la escotadura y ve arco en los doce casos, tanto laterales como supinos. En el barrido medido de 24 combinaciones, la descendente está oculta en todos los supinos y en las dos ventanas laterales difíciles. El normal lateral muestra un segmento de descendente, no toda la ascendente y las tres ramas simultáneamente. No se modelan extensión cervical ni tráquea. La selección automática minimiza obstrucciones en una rejilla pequeña, no sustituye una exploración clínica. Pendientes: anatomía mediastínica contrastada externamente, cobertura supina y validación Doppler supraesternal.
+El acceso SSN usa sonda real en la escotadura y ve arco en los doce casos, tanto laterales como supinos. El barrido inicial de 24 combinaciones ocultaba la descendente en todos los supinos y en las dos ventanas laterales difíciles. La decisión 294 corrige la continuidad mediastínica: en el barrido supino dirigido diez casos alcanzan al menos 60 muestras de descendente; artefactos queda parcial y la ventana difícil ausente. El normal lateral muestra un segmento de descendente, no toda la ascendente y las tres ramas simultáneamente. No se modelan extensión cervical ni tráquea. La selección automática minimiza obstrucciones en una rejilla pequeña, no sustituye una exploración clínica. Pendientes: anatomía mediastínica contrastada externamente, ventanas supinas difíciles y validación Doppler supraesternal.
 
 ## Red aórtica reducida (decisión 283)
 
@@ -286,3 +286,7 @@ La intrusión PH medida aumenta de 0,89/0,59 a **0,94/0,69 cm** (diástole/síst
 ### Balance derecho reducido (decisión 293)
 
 El área efectiva tricuspídea se resuelve para el balance nominal y se conserva al encadenar latidos. La onda de velocidad tricuspídea todavía reutiliza la forma E/A izquierda, con su adelanto de apertura y modulación respiratoria; se independiza el área, no se resuelve una diástole derecha individual desde presión auricular/ventricular. No es un área anatómica ni permite graduar estenosis. TR usa EROA constante y una envolvente empírica derivada de PASP−RAP; el volumen relativo integra entrada menos salidas sin corrección de cierre. No existe aún un circuito de presión–volumen con reservorios sistémico/pulmonar ni geometría absoluta del VD gobernada por ese balance. La eyección encadenada mantiene el límite de precarga 20–120 % del volumen latido nominal izquierdo.
+
+### Mediastino superior y ventana supraesternal (decisión 294)
+
+La conexión entre mediastino superior y manguito descendente es una envolvente idealizada, sin dimensiones clínicas individuales. Corrige la interposición de pulmón profundo en el normal supino, pero no modela tráquea ni extensión cervical. La primera adquisición dirigida alcanza descendente suficiente en diez de doce casos; artefactos queda parcial y ventana difícil ausente. No se exige que toda ventana difícil sea buena ni se excluye pulmón por nombre de vista. Se requiere revisión experta de la topografía de cuello.

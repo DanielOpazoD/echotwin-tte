@@ -21,9 +21,10 @@ import { GLSL_THORAX } from './glslThorax';
 // Decision 291: CPU-only atrial normalization adds a root bracket (0.2),
 // septal blend (0.3), fossa radii (0.6/0.7), and scale conversion (2.5).
 // The posterior flattening ratio is shared with GLSL, removing its duplicated literal.
+// Decision 294: the mediastinal capsule radius guard is generated from TypeScript into GLSL.
 const KNOWN_SHARED_CLASSIFIER_LITERALS: Record<string, [anatomy: number, glsl: number]> = {
   '1e-12': [4, 4], '1e-9': [8, 5], '0.000001': [9, 10], '0.001': [8, 5], '0.012': [1, 1], '0.02': [12, 3],
-  '0.03': [3, 3], '0.035': [2, 1], '0.04': [4, 2], '0.045': [1, 1], '0.05': [23, 6], '0.06': [6, 1], '0.08': [3, 2],
+  '0.03': [3, 3], '0.035': [2, 1], '0.04': [4, 2], '0.045': [1, 1], '0.05': [24, 6], '0.06': [6, 1], '0.08': [3, 2],
   '0.09': [2, 1], '0.1': [43, 12], '0.11': [1, 1], '0.12': [25, 18], '0.15': [21, 4], '0.18': [10, 2], '0.2': [43, 10],
   '0.22': [8, 6], '0.28': [4, 2], '0.29': [1, 1], '0.3': [51, 18], '0.33': [3, 1], '0.35': [27, 5], '0.4': [34, 11],
   '0.45': [32, 6], '0.55': [22, 10], '0.6': [47, 13], '0.65': [10, 2], '0.68': [2, 1], '0.7': [32, 4],

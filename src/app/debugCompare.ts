@@ -1,6 +1,7 @@
 import { loadCaseById } from '@/cases';
 import { computeHeartPose } from '@/simulator/anatomy/heartModel';
 import { cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
+import type { PatientState } from '@/simulator/anatomy/thoraxModel';
 import { buildCaseModels, REST_PATIENT } from '@/simulator/anatomy/caseModels';
 import { scenePhysicsFor } from '@/simulator/renderer/scenePhysics';
 import { ProceduralSliceRenderer } from '@/simulator/renderer/procedural/sliceRenderer';
@@ -86,9 +87,10 @@ function canonicalSetup(
   settings: AcquisitionSettings,
   probeOffsetV = 0,
   controlOverride?: ProbeControl,
+  patient: PatientState = REST_PATIENT,
 ) {
   const c = loadCaseById(caseId);
-  const { thorax, heart, tables } = buildCaseModels(c, REST_PATIENT);
+  const { thorax, heart, tables } = buildCaseModels(c, patient);
   const canonical = canonicalControl(getViewTarget(viewId), heart, thorax);
   // an offset along the ribs' spacing puts a rib under the probe, which the presets avoid
   const ctrl = controlOverride ?? { ...canonical, v: canonical.v + probeOffsetV };
@@ -117,6 +119,7 @@ export function compareBackends(
   tier: Tier = 'medium',
   probeOffsetV = 0,
   controlOverride?: ProbeControl,
+  patient: PatientState = REST_PATIENT,
 ): BackendComparison {
   const { heart, beam, spec, scene } = canonicalSetup(
     viewId,
@@ -126,6 +129,7 @@ export function compareBackends(
     DEFAULT_ACQUISITION,
     probeOffsetV,
     controlOverride,
+    patient,
   );
   const empty: BackendComparison = {
     lines: spec.lines,

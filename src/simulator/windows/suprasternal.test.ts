@@ -23,36 +23,37 @@ describe('suprasternal acquisition', () => {
     expect(windowFromSkin(8, 10)).toBe('none');
     expect(windowFromSkin(0, 8.5)).toBe('none');
   });
-  it('the real core samples arch and descending aorta; a lateral move loses that acquisition', () => {
-    const c = loadCaseById('normal-excellent-window'),
-      { heart, thorax } = buildCaseModels(c, REST_PATIENT);
-    const probe = canonicalControl(getViewTarget('suprasternal-arch'), heart, thorax);
-    const input = baseInput({ probe, quality: 'medium' });
-    const core = new SimulatorCore(c, input);
-    const first = core.step(0)!;
-    const counts = () => {
-      const ids = core.lastFrame!.structure;
-      return {
-        arch: ids.filter((s) => s === Structure.AorticArch).length,
-        descending: ids.filter((s) => s === Structure.DescendingAorta).length,
+  for (const position of ['left-lateral', 'supine'] as const)
+    it(`the real core samples arch and descending aorta in ${position}; a lateral move loses that acquisition`, () => {
+      const c = loadCaseById('normal-excellent-window'),
+        { heart, thorax } = buildCaseModels(c, { ...REST_PATIENT, position });
+      const probe = canonicalControl(getViewTarget('suprasternal-arch'), heart, thorax);
+      const input = baseInput({ probe, quality: 'medium', patient: { ...REST_PATIENT, position } });
+      const core = new SimulatorCore(c, input);
+      const first = core.step(0)!;
+      const counts = () => {
+        const ids = core.lastFrame!.structure;
+        return {
+          arch: ids.filter((s) => s === Structure.AorticArch).length,
+          descending: ids.filter((s) => s === Structure.DescendingAorta).length,
+        };
       };
-    };
-    const ideal = counts();
-    expect(ideal.arch).toBeGreaterThan(500);
-    expect(ideal.descending).toBeGreaterThan(60);
-    expect(first.view!.window).toBe('suprasternal');
-    expect(first.view!.heartCoverage).toBeGreaterThan(0.1);
-    expect(first.view!.shadowFraction).toBeLessThan(0.1);
-    expect(first.view!.components.geometry).toBeGreaterThan(0.95);
-    core.recycle(first.rgba);
-    const sizes = [];
-    for (const offset of [0.2, 0.4, 0.8, 1, 2, 4, 6]) {
-      core.setInput({ ...input, probe: { ...probe, u: probe.u + offset } });
-      const out = core.step(0.1)!;
-      sizes.push(counts().arch);
-      core.recycle(out.rgba);
-    }
-    expect(new Set(sizes).size).toBeGreaterThan(2);
-    expect(sizes.at(-1)).toBeLessThan(ideal.arch * 0.1);
-  });
+      const ideal = counts();
+      expect(ideal.arch).toBeGreaterThan(500);
+      expect(ideal.descending).toBeGreaterThan(60);
+      expect(first.view!.window).toBe('suprasternal');
+      if (position === 'left-lateral') expect(first.view!.heartCoverage).toBeGreaterThan(0.1);
+      expect(first.view!.shadowFraction).toBeLessThan(0.1);
+      expect(first.view!.components.geometry).toBeGreaterThan(0.95);
+      core.recycle(first.rgba);
+      const sizes = [];
+      for (const offset of [0.2, 0.4, 0.8, 1, 2, 4, 6]) {
+        core.setInput({ ...input, probe: { ...probe, u: probe.u + offset } });
+        const out = core.step(0.1)!;
+        sizes.push(counts().arch);
+        core.recycle(out.rgba);
+      }
+      expect(new Set(sizes).size).toBeGreaterThan(2);
+      expect(sizes.at(-1)).toBeLessThan(ideal.arch * 0.1);
+    });
 });
