@@ -9,8 +9,8 @@ Una prueba interna no constituye validación clínica.
 | --- | --- | --- | --- |
 | 1 | Acceso acústico PW/TDI desde la sonda hasta cada muestra | Ventanas accesibles y obstruidas, transiciones, fase, frecuencia y coste | [PR #91](https://github.com/DanielOpazoD/echotwin-tte/pull/91), fusionada |
 | 2 | Historia común de adquisición | Identidad, tiempo, haz, gate y calibración coherentes al congelar y recorrer cine | [PR #92](https://github.com/DanielOpazoD/echotwin-tte/pull/92), fusionada |
-| 3 | Frecuencia y presupuesto temporal Doppler | Eliminar 2,5 MHz nominales en señal/audio; límites PRF/profundidad y duplex verificables | En validación |
-| 4 | Navegación y consola adaptables | Uso a 390 px, paneles plegables, cámara independiente y medidas invariantes | Pendiente |
+| 3 | Frecuencia y presupuesto temporal Doppler | Eliminar 2,5 MHz nominales en señal/audio; límites PRF/profundidad y duplex verificables | [PR #93](https://github.com/DanielOpazoD/echotwin-tte/pull/93), fusionada |
+| 4 | Navegación y consola adaptables | Uso a 390 px, paneles plegables, cámara independiente y medidas invariantes | En validación |
 | 5 | Geometría y mecánica basal coherentes | Continuidad mitroaórtica, TSVD, tronco pulmonar y aurículas durante el ciclo; referencias publicadas | Pendiente |
 | 6 | Aorta torácica continua compartida | Raíz, ascendente, arco, descendente y orígenes supraaórticos en CPU/GPU/malla sin intersecciones indebidas | Pendiente |
 | 7 | Ventana supraesternal TTE | Sonda físicamente alcanzable, navegación y barrido continuo sobre la misma anatomía | Pendiente |
@@ -42,3 +42,7 @@ PR #91, merge `cee1371`: PW/TDI respetan la sombra del haz central. Siete de sie
 ## Iteración 2 cerrada
 
 PR #92, merge `a1816c2`: cine, consulta anatómica, gate y mediciones conservan su adquisición; la tira tiene identidad y tiempo propios. Pasan 890 pruebas y 62 E2E, con cuatro omisiones por GPU de hardware. CI completa aprobada. Una ejecución remota anterior falló sin detalle accesible desde este entorno; se añadieron anotaciones de Playwright a GitHub y la siguiente ejecución completa pasó. La causa de ese primer fallo remoto no quedó identificada. Persisten una sola adquisición de tira retenida y diez fases nominales de malla. Siguiente prioridad: frecuencia fundamental y tiempo de muestreo duplex, distinguiendo PRF intra-paquete y tasa media.
+
+## Iteración 3 cerrada
+
+PR #93, merge `e173a8b`: frecuencia adquirida en espectro y audio, presupuesto medio duplex separado de PRF instantánea. 894 pruebas y 63 E2E, cuatro omitidos por GPU de hardware; CI y cobertura aprobadas. El primer control de coste CPU falló sin registro descargable; con anotaciones diagnósticas y el mismo presupuesto, la ejecución siguiente pasa (+17,5 %, límite +25 %). No está confirmada la causa del primer fallo. Persisten el reparto 25/75 % supuesto y la ausencia de adquisición IQ con huecos reales.

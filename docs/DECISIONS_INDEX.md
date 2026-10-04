@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 278 (última: 278).
+Decisiones: 279 (última: 279).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -286,3 +286,4 @@ Decisiones: 278 (última: 278).
 | [276](DECISIONS.md#L1564) | 2026-10-04 | PW y TDI necesitan acceso acústico al gate; la presencia de tejido no basta. | vigente |
 | [277](DECISIONS.md#L1580) | 2026-10-04 | La interpretación pertenece a la adquisición mostrada, no a los controles pendientes. | vigente |
 | [278](DECISIONS.md#L1596) | 2026-10-04 | Frecuencia fundamental adquirida y tiempo duplex explícito. | vigente |
+| [279](DECISIONS.md#L1610) | 2026-10-04 | El navegador móvil separa paneles, cámara y sonda sin recalibrar la adquisición. | vigente |

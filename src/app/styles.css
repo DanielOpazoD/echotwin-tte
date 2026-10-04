@@ -1682,30 +1682,7 @@ select:hover {
     grid-template-columns: 240px 1fr 252px;
   }
 }
-/* a narrow window keeps the image: the rail folds to its strip and the bars drop their extras */
-@media (max-width: 1040px) {
-  .app,
-  .app.rail-mini {
-    grid-template-columns: 56px 1fr 236px;
-  }
-  .rail-main {
-    display: none !important;
-  }
-  .brand-sub,
-  .modebar-status,
-  .seg-bar .kbd {
-    display: none;
-  }
-  .nav-seg button {
-    padding: 4px 8px;
-    font-size: var(--fs-md);
-  }
-  .topbar select {
-    padding-right: 20px;
-    max-width: 120px;
-    text-overflow: ellipsis;
-  }
-}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -3189,4 +3166,176 @@ canvas.overlay.armed {
   margin: 4px 0 0;
   padding-left: 16px;
   line-height: 1.45;
+}
+
+/* On a narrow display, the image keeps its physical canvas and panels move below it.
+   CSS changes presentation only: no acquisition control or probe pose is reset. */
+.mobile-panels {
+  display: none;
+}
+
+.torso-gesture {
+  position: absolute;
+  top: 28px;
+  left: 8px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+.torso-gesture select {
+  max-width: 105px;
+}
+.torso-3d canvas {
+  touch-action: none;
+}
+
+@media (max-width: 1040px) {
+  .brand-sub,
+  .modebar-status,
+  .seg-bar .kbd {
+    display: none;
+  }
+  .nav-seg button {
+    padding: 4px 8px;
+    font-size: var(--fs-md);
+  }
+
+  .app,
+  .app.rail-mini,
+  .app.no-torso {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  .topbar {
+    order: 0;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    padding: 8px;
+    gap: 8px;
+  }
+  .topbar .nav-seg {
+    order: 2;
+    flex: 1 0 100%;
+    justify-content: center;
+    margin: 0;
+  }
+  .topbar select {
+    flex: 1 1 80px;
+    min-width: 0;
+    max-width: 130px;
+  }
+  .modebar {
+    order: 1;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 6px;
+  }
+  .modebar .seg-bar {
+    flex: 1 0 100%;
+    justify-content: space-between;
+    min-width: 0;
+    padding: 2px;
+  }
+  .modebar .seg-bar button {
+    justify-content: center;
+    flex: 1 1 0;
+    padding: 6px 3px;
+    min-height: 36px;
+  }
+  .modebar .sep {
+    display: none;
+  }
+  .modebar .cine {
+    order: 3;
+    flex: 1 0 100%;
+  }
+  .center {
+    order: 2;
+    flex: 0 0 clamp(300px, 46dvh, 480px);
+    min-height: 300px;
+    padding: 6px;
+  }
+  .mobile-panels {
+    order: 3;
+    display: flex;
+    flex: 0 0 auto;
+    gap: 8px;
+    padding: 6px;
+    background: var(--panel);
+  }
+  .mobile-panels button {
+    flex: 1;
+    min-height: 40px;
+  }
+  .mobile-panels button[aria-expanded='true'] {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+  }
+  .app .left,
+  .app .right {
+    order: 4;
+    flex: 0 0 420px;
+    min-height: 320px;
+    border: 0;
+  }
+  .app:not([data-mobile-panel='navigation']) .left,
+  .app:not([data-mobile-panel='console']) .right {
+    display: none !important;
+  }
+  .app .rail-main {
+    display: flex !important;
+  }
+  .rail-collapse,
+  .rail-strip {
+    display: none;
+  }
+  .app .screen,
+  .app .screen-group {
+    order: 2;
+    min-height: 400px;
+  }
+
+  .modebar .menu {
+    top: calc(100% + 8px);
+    bottom: auto;
+    max-height: 70dvh;
+    overflow-y: auto;
+  }
+  .hud-tl {
+    max-width: calc(100% - 145px);
+  }
+  .hud-tl .hud-title {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .torso-buttons {
+    grid-template-columns: repeat(2, 36px);
+    opacity: 1;
+  }
+  .torso-buttons button.icon-btn {
+    width: 36px;
+    height: 36px;
+  }
+  .screen,
+  .screen-group-head {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .app .left {
+    flex-basis: 640px;
+  }
+  .app .left .torso-wrap.split .torso-3d {
+    min-height: 240px;
+  }
+  .quick-bar {
+    display: none;
+  }
 }
