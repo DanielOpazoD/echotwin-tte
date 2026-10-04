@@ -50,12 +50,32 @@ export interface SimInput {
   } | null;
 }
 
+/** Acquisition controls and model versions that produced one image, independent of pending console changes. */
+export interface FrameAcquisition {
+  modality: ImagingModality;
+  probe: ProbeControl;
+  patient: PatientState;
+  settings: AcquisitionSettings;
+  color: ColorSettings;
+  spectral: SpectralSettings;
+  cursorThetaRad: number;
+  gateDepthCm: number;
+  modelVersion: number;
+  tablesVersion: number;
+  phaseMarks: PhaseMarks;
+  stripAcquisitionId: number | null;
+  colorTimeS: number | null;
+}
+
 export interface EcgPoint {
   t: number;
   v: number;
 }
 
 export interface StripInfo {
+  /** Bounded strip history identity and acquisition time of its newest column centre. */
+  acquisitionId?: number;
+  headTimeS?: number;
   x: number;
   y: number;
   width: number;
@@ -92,6 +112,8 @@ export interface GateInfo {
 }
 
 export interface SimOutput {
+  /** Present on current acquisitions; optional for saved reports from earlier versions. */
+  acquisition?: FrameAcquisition;
   /** Acquisition identity; reviewing cine returns the selected frame, not a new delivery ID. */
   frameId: number;
   width: number;

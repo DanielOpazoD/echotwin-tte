@@ -35,7 +35,7 @@ Qué importa cada capa lo dice la tabla siguiente, generada desde los imports re
 | `simulator/core` | `cases`, `clinical`, `core`, `simulator/anatomy`, `simulator/cardiac-cycle`, `simulator/doppler`, `simulator/hemodynamics`, `simulator/probe`, `simulator/renderer`, `simulator/view-recognition`, `simulator/windows` |
 | `simulator/doppler` | `cases`, `clinical`, `core`, `simulator/anatomy`, `simulator/cardiac-cycle`, `simulator/probe`, `simulator/renderer` |
 | `simulator/hemodynamics` | `cases`, `clinical`, `simulator/anatomy`, `simulator/cardiac-cycle`, `simulator/doppler` |
-| `simulator/measurements` | `clinical`, `simulator/anatomy`, `simulator/hemodynamics`, `simulator/renderer` |
+| `simulator/measurements` | `clinical`, `simulator/anatomy`, `simulator/core`, `simulator/hemodynamics`, `simulator/renderer` |
 | `simulator/probe` | `core`, `simulator/anatomy` |
 | `simulator/renderer` | `cases`, `clinical`, `core`, `simulator/anatomy`, `simulator/cardiac-cycle`, `simulator/probe`, `simulator/windows` |
 | `simulator/view-recognition` | `clinical`, `core`, `simulator/anatomy`, `simulator/probe`, `simulator/renderer`, `simulator/windows` |

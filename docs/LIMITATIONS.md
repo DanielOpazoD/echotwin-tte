@@ -6,6 +6,8 @@ Este documento existe para que nadie use el simulador más allá de lo que hace.
 
 - Desde la decisión 276, PW/TDI comprueban propagación por el haz central a la fase de cada columna. No modelan oclusión parcial del ancho de haz ni amplitud espectral proporcional a potencia recibida. Cuadratura axial de 1 mm y umbral relativo 0,02: aproximaciones explícitas, sin validación clínica. CW aún consulta la sombra del último cuadro B.
 
+- Desde la decisión 277, el cine conserva escena, pose, gate, calibración color y controles propios. Sólo se retiene una adquisición de tira: al sustituirla, los cuadros anteriores no recuperan esa tira y no permiten medir otra como si fuera suya. El navegador congelado conserva paciente/sonda adquiridos, pero sus diez mallas nominales no reproducen la mecánica particular de cada latido irregular.
+
 ## Reauditoría operativa — 2026-09-15
 
 Las entradas históricas siguientes contienen cifras de distintas revisiones y no deben interpretarse como una auditoría única vigente. `AUDITORIA_FIDELIDAD.md` añade la referencia de `ba995bd`, los planos renderizados, el inventario de controles y el alcance nuevo (sin docencia ni PRF/dúplex).

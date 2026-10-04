@@ -58,7 +58,10 @@ export function CutMapView() {
     const segAnchors = new SegmentAnchors();
     const structAnchors = new SegmentAnchors();
     const restKey = (): string => {
-      const pr = useSimStore.getState().probe;
+      const pr =
+        latest?.frozen && latest.acquisition
+          ? latest.acquisition.probe
+          : useSimStore.getState().probe;
       return [pr.u, pr.v, pr.rotationDeg, pr.tiltDeg, pr.rockDeg, pr.pressure]
         .map((v) => v.toFixed(3))
         .join(',');

@@ -139,8 +139,10 @@ export class SimulatorCore {
     this.artifacts = consoleArtifacts(this.artifactLevels);
   }
   private input: SimInput;
+  private acquisitionModality: SimInput['modality'];
+  private colorAcquisitionKey = '';
   /** Phase of the last frame handed out (live or cine): what a review marker refers to. */
-  private lastPhase = 0;
+  private displayedFrame: CineFrame | undefined;
   private frame: PolarFrame | null = null;
   private display: Uint8ClampedArray | null = null;
   /** The two colour field buffers: each update writes the one that does not hold `colorPrev` (decision 56). */
@@ -196,6 +198,7 @@ export class SimulatorCore {
   constructor(caseDef: CaseDefinition, input: SimInput) {
     this.caseDef = caseDef;
     this.input = constrainAcquisition(input);
+    this.acquisitionModality = input.modality;
     const models = buildCaseModels(caseDef, input.patient);
     this.thorax = models.thorax;
     this.heart = models.heart;
@@ -340,9 +343,10 @@ export class SimulatorCore {
     }
     if (JSON.stringify(input.artifactOverrides) !== JSON.stringify(this.input.artifactOverrides))
       this.applyArtifactOverrides(input.artifactOverrides);
-    if (input.modality !== this.input.modality) {
+    if (!input.frozen && input.modality !== this.acquisitionModality) {
       this.strips.reset();
       this.colorPrev = null;
+      this.acquisitionModality = input.modality;
     }
     this.input = constrainAcquisition(input);
   }
@@ -432,7 +436,8 @@ export class SimulatorCore {
     }
     if (!produced && !isStrip) return null;
     const t1 = performance.now();
-    const out = this.composite(beam, spec, false);
+    const acquired = this.cine.newest;
+    const out = this.composite(acquired?.beam ?? beam, acquired?.spec ?? spec, false, acquired);
     this.timing.compositeMs = performance.now() - t1;
     return out;
   }
@@ -552,6 +557,21 @@ export class SimulatorCore {
     let colorVel: Float32Array | null = null;
     let colorVar: Float32Array | null = null;
     if (inp.modality === 'color') {
+      const colorKey = JSON.stringify([
+        inp.probe,
+        inp.color,
+        scene.physics.frequencyMHz,
+        scene.physics.harmonics,
+        this.modelVersion,
+        spec.lines,
+        spec.samples,
+        spec.depthCm,
+        spec.sectorRad,
+      ]);
+      if (colorKey !== this.colorAcquisitionKey) {
+        this.colorPrev = null;
+        this.colorAcquisitionKey = colorKey;
+      }
       this.colorFrameCounter++;
       // colour packets cost frames: update the colour field every other B-mode frame
       if (this.colorFrameCounter % 2 === 0 || !this.colorPrev)
@@ -578,6 +598,30 @@ export class SimulatorCore {
     }
     const tCine = performance.now();
     this.cine.capture({
+      acquisition: {
+        modality: inp.modality,
+        probe: inp.probe,
+        patient: inp.patient,
+        settings: inp.settings,
+        color: inp.color,
+        spectral: inp.spectral,
+        cursorThetaRad: inp.cursorThetaRad,
+        gateDepthCm: inp.gateDepthCm,
+        modelVersion: this.modelVersion,
+        tablesVersion: this.tablesVersion,
+        phaseMarks: this.phaseMarks(),
+        stripAcquisitionId: isStripModality(inp.modality) ? this.strips.historyId : null,
+        colorTimeS:
+          inp.modality === 'color' && Number.isFinite(this.lastColorTimeS)
+            ? this.lastColorTimeS
+            : null,
+      },
+      scene,
+      gate: isStripModality(inp.modality)
+        ? this.strips.gateInfo(beam, spec, phase, this.frame.structure, this.stripCtx())
+        : null,
+      spectrumColumn: this.strips.spectrumColumn,
+      spectralRange: this.strips.velocityRange ?? spectralRange(inp.spectral),
       frameId: this.frameId + 1,
       rrS: this.clock.current.rrS,
       structure: this.frame.structure,
@@ -729,31 +773,21 @@ export class SimulatorCore {
   /** Answer an on-demand request (auto-trace, canonical control, or the model at a point of the image). */
   request(req: SimRequest): SimResponse | null {
     if (req.kind === 'probePoint') {
-      const inp = this.input;
-      const beam = beamFrameFromPose(
-        poseFromControl(this.thorax, inp.probe),
-        contactQuality(inp.probe.pressure),
-      );
-      const scene = this.scene(this.lastPhase);
+      const frame = this.displayedFrame;
+      if (!frame) return null;
+      const { scene, beam, phase } = frame;
       return {
         kind: 'probePoint',
         point: req.torso
-          ? probeTorsoPointAt(
-              this.heart,
-              this.thorax,
-              scene.heartPose,
-              beam,
-              req.torso,
-              this.lastPhase,
-            )
+          ? probeTorsoPointAt(scene.heart, scene.thorax, scene.heartPose, beam, req.torso, phase)
           : probePointAt(
-              this.heart,
-              this.thorax,
+              scene.heart,
+              scene.thorax,
               scene.heartPose,
               beam,
               req.rCm ?? 0,
               req.thetaRad ?? 0,
-              this.lastPhase,
+              phase,
             ),
       };
     }
@@ -762,6 +796,12 @@ export class SimulatorCore {
         kind: 'canonicalControl',
         control: canonicalControl(getViewTarget(req.viewId), this.heart, this.thorax),
       };
+    if (
+      this.input.frozen &&
+      this.displayedFrame &&
+      this.displayedFrame.acquisition.stripAcquisitionId !== this.strips.historyId
+    )
+      return null;
     return this.strips.request(req);
   }
 
@@ -792,7 +832,9 @@ export class SimulatorCore {
     const inp = this.input;
     const W = Math.max(64, inp.display.width);
     const H = Math.max(64, inp.display.height);
-    const isStrip = isStripModality(inp.modality);
+    const modality = cf?.acquisition.modality ?? inp.modality;
+    const colorSettings = cf?.acquisition.color ?? inp.color;
+    const isStrip = isStripModality(modality);
     const sectorH = isStrip ? Math.round(H * 0.42) : H;
     const display = cf ? cf.display : this.display;
     const fspec = cf ? cf.spec : spec;
@@ -820,10 +862,15 @@ export class SimulatorCore {
     // as an ImageBitmap (decision 54); strips, cine review and the CPU console keep the CPU composite
     let bitmap: ImageBitmap | null = null;
     const tp = performance.now();
-    if (!cf && !isStrip && this.displayOnGpu && this.gpu) {
+    if (!frozen && !isStrip && this.displayOnGpu && this.gpu) {
       const color =
         colorVel && colorVar
-          ? { vel: colorVel, variance: colorVar, version: this.colorVersion, settings: inp.color }
+          ? {
+              vel: colorVel,
+              variance: colorVar,
+              version: this.colorVersion,
+              settings: colorSettings,
+            }
           : null;
       bitmap = this.gpu.present({ lut: this.lut, width: W, height: sectorH, color });
     }
@@ -835,7 +882,7 @@ export class SimulatorCore {
       const sectorRgba = new Uint8ClampedArray(buffer, 0, W * sectorH * 4);
       scanConvertLut(display, this.lut, sectorRgba);
       if (colorVel && colorVar)
-        overlayColorField(sectorRgba, this.lut, colorVel, colorVar, inp.color);
+        overlayColorField(sectorRgba, this.lut, colorVel, colorVar, colorSettings);
     }
     if (isStrip) {
       // clear strip area
@@ -854,14 +901,17 @@ export class SimulatorCore {
       bottomValue: 0,
       kind: null,
     };
-    if (isStrip) strip = this.strips.drawStrip(rgba, W, H, sectorH);
+    if (isStrip && (!cf || cf.acquisition.stripAcquisitionId === this.strips.historyId))
+      strip = this.strips.drawStrip(rgba, W, H, sectorH);
     const view = cf ? cf.analysis : this.lastAnalysis;
     const c = this.clock.current;
     const structure = cf ? cf.structure : this.frame ? this.frame.structure : new Uint8Array(0);
     const segment = cf ? cf.segment : this.frame ? this.frame.segment : new Uint8Array(0);
-    const gate = isStrip
-      ? this.strips.gateInfo(beam, fspec, cf ? cf.phase : c.phase, structure, this.stripCtx())
-      : null;
+    const gate = cf
+      ? cf.gate
+      : isStrip
+        ? this.strips.gateInfo(beam, fspec, c.phase, structure, this.stripCtx())
+        : null;
     // live, the last 1200 samples (6 s); frozen, back to the oldest cine frame, which a slow cadence puts further
     let from = Math.max(0, this.ecg.length - 1200);
     if (frozen) {
@@ -877,8 +927,9 @@ export class SimulatorCore {
     const sector = { ...mapping, x: 0, y: 0 };
     this.lastSector = sector;
     this.lastStrip = strip;
-    this.lastPhase = cf ? cf.phase : c.phase;
+    this.displayedFrame = cf ?? this.cine.newest;
     return {
+      acquisition: cf?.acquisition,
       frameId: cf ? cf.frameId : this.frameId,
       width: W,
       height: H,
@@ -905,8 +956,11 @@ export class SimulatorCore {
       ecg: ecgTail,
       ecgHead: this.timeS,
       view,
-      spectrumColumn: this.strips.spectrumColumn,
-      spectralRange: this.strips.velocityRange ?? spectralRange(inp.spectral),
+      spectrumColumn: frozen && cf ? cf.spectrumColumn : this.strips.spectrumColumn,
+      spectralRange:
+        frozen && cf
+          ? cf.spectralRange
+          : (this.strips.velocityRange ?? spectralRange(inp.spectral)),
       frozen,
       cineLength: this.cine.length,
       cineOffset: cf ? inp.cineOffset : 0,

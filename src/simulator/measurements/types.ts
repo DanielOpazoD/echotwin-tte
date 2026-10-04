@@ -1,3 +1,4 @@
+import type { FrameAcquisition, StripInfo } from '../core/protocol';
 import type { SectorMapping } from '../renderer/scanConvert';
 
 /** How a measurement was taken, graded by education/technique.ts: one finding per check, levels multiply. */
@@ -36,6 +37,11 @@ export interface Measurement {
   timeS: number;
   geometry: { x: number; y: number }[]; // display pixels at capture
   captureSector?: SectorMapping;
+  /** Historical provenance; absent only on measurements saved by earlier versions. */
+  captureStrip?: StripInfo;
+  acquisition?: FrameAcquisition;
+  beatIndex?: number;
+  rrS?: number;
   derived?: Record<string, number>;
   imageQualityScore: number | null;
   userAssisted: boolean;
