@@ -16,6 +16,7 @@ import {
   type FlowSample,
 } from '@/simulator/doppler/flow-primitives/flowField';
 import {
+  type ColorSettings,
   colorMap,
   DOPPLER_SHADOW_TRANSMISSION,
   relativeTransmission,
@@ -30,6 +31,7 @@ import {
   SPECTRAL_BINS,
   spectralRange,
   type VelocitySample,
+  type SpectralSettings,
 } from '@/simulator/doppler/spectral/spectrum';
 import { valveClickWeight } from '@/simulator/doppler/spectral/valveClicks';
 import { makeSample, Tissue } from '@/simulator/anatomy/tissue';
@@ -96,7 +98,10 @@ export class StripEngine {
   private lastColumn: Float32Array | null = null;
   private stripKind: 'spectral' | 'm-mode' | null = null;
   private acquisitionKey = '';
-  private acquiredSweep = 50;
+  /** Calibration belongs to the stored signal, never to pending console input. */
+  private acquired: { spectral: SpectralSettings; color: ColorSettings; depthCm: number } | null =
+    null;
+  private displayCols = 0;
   private lineAmp = new Float32Array(0);
   private lineSt = new Uint8Array(0);
   private lineTr = new Float32Array(0);
@@ -125,6 +130,13 @@ export class StripEngine {
     this.stripAccum = 0;
     this.stripKind = null;
     this.lastColumn = null;
+    this.acquired = null;
+  }
+
+  get velocityRange(): { vMin: number; vMax: number } | null {
+    return this.acquired && this.stripKind === 'spectral'
+      ? spectralRange(this.acquired.spectral)
+      : null;
   }
 
   get spectrumColumn(): Float32Array | null {
@@ -194,14 +206,22 @@ export class StripEngine {
       inp.spectral.scaleMps,
       inp.spectral.baselineShiftMps,
       inp.spectral.invert,
+      inp.spectral.wallFilterMps,
+      inp.spectral.gainDb,
       inp.spectral.gateLengthCm,
       inp.color.scaleMps,
       inp.color.baselineShiftMps,
+      inp.color.invert,
+      inp.color.wallFilterMps,
     ]);
-    if (key !== this.acquisitionKey) {
+    if (key !== this.acquisitionKey || !this.acquired) {
       this.reset();
       this.acquisitionKey = key;
-      this.acquiredSweep = inp.spectral.sweepSpeedMmPerS;
+      this.acquired = {
+        spectral: { ...inp.spectral },
+        color: { ...inp.color },
+        depthCm: spec.depthCm,
+      };
     }
     const kind: 'spectral' | 'm-mode' = MODALITIES[inp.modality].strip ?? 'spectral';
     const stripWidth = Math.max(64, inp.display.width);
@@ -462,7 +482,7 @@ export class StripEngine {
     }
     this.stripPhase[col] = phase;
     this.stripSpan[col] = Math.min(65535, src.span);
-    if (this.stripRgba) this.paintStripColumn(col, ctx);
+    if (this.stripRgba) this.paintStripColumn(col);
   }
 
   private sampleSpectralColumn(
@@ -697,23 +717,31 @@ export class StripEngine {
   }
 
   /** Answer an on-demand request (auto-trace of the spectral envelope between two strip columns). */
-  request(req: SimRequest, ctx: StripCtx): SimResponse | null {
+  request(req: SimRequest): SimResponse | null {
     if (req.kind === 'autoTrace') {
       const strip = this.stripSpectral;
-      if (!strip || this.stripKind !== 'spectral') return null;
-      const { vMin, vMax } = spectralRange(ctx.input.spectral);
+      if (!strip || this.stripKind !== 'spectral' || !this.acquired) return null;
+      const spectral = this.acquired.spectral;
+      const { vMin, vMax } = spectralRange(spectral);
       const cols = this.stripCols;
-      const secondsShown = STRIP_MM_WIDTH / this.acquiredSweep;
+      const pixelsPerColumn = (this.displayCols || cols) / cols;
+      const secondsShown = STRIP_MM_WIDTH / spectral.sweepSpeedMmPerS;
       const spc = cols ? secondsShown / cols : 0;
-      const x0 = Math.max(0, Math.min(cols - 1, Math.round(Math.min(req.x0, req.x1))));
-      const x1 = Math.max(0, Math.min(cols - 1, Math.round(Math.max(req.x0, req.x1))));
+      const x0 = Math.max(
+        0,
+        Math.min(cols - 1, Math.floor(Math.min(req.x0, req.x1) / pixelsPerColumn)),
+      );
+      const x1 = Math.max(
+        0,
+        Math.min(cols - 1, Math.floor(Math.max(req.x0, req.x1) / pixelsPerColumn)),
+      );
       const baselineBin = (vMax / (vMax - vMin)) * SPECTRAL_BINS;
       /** Outer edge (m/s) of the envelope of column x on one side of the baseline; 0 without signal there. */
       const edgeOn = (x: number, above: boolean): number => {
         let max = 0;
         for (let b = 0; b < SPECTRAL_BINS; b++)
           max = Math.max(max, strip[x * SPECTRAL_BINS + b] ?? 0);
-        const thr = envelopeThreshold(max, ctx.input.spectral);
+        const thr = envelopeThreshold(max, spectral);
         // walk outward from the brightest bin of that side through the contiguous signal (gaps ≤ 2 bins), so that isolated
         // noise far from it does not pull the envelope to the top of the scale. It used to start at the baseline and stop at
         // the gap the wall filter leaves under a narrow laminar spectrum (decision 96).
@@ -745,16 +773,14 @@ export class StripEngine {
         }
         const v = vMax - (edgeBin / SPECTRAL_BINS) * (vMax - vMin);
         // an edge inside the band the wall filter removes, one bin beyond it, is not a flow (decision 232)
-        return Math.abs(v) <= ctx.input.spectral.wallFilterMps + (vMax - vMin) / SPECTRAL_BINS
-          ? 0
-          : v;
+        return Math.abs(v) <= spectral.wallFilterMps + (vMax - vMin) / SPECTRAL_BINS ? 0 : v;
       };
       // valve clicks have no envelope: across a click the trace joins the columns on either side (decision 103), as a
       // sonographer ignores the line; the VTI would otherwise add a spike to the top of the scale at each one
       const core = Array.from({ length: x1 - x0 + 1 }, (_, i) =>
         isClickColumn(
           strip.subarray((x0 + i) * SPECTRAL_BINS, (x0 + i + 1) * SPECTRAL_BINS),
-          ctx.input.spectral,
+          spectral,
         ),
       );
       // the click's tails, too faint to fill the scale, still lift the envelope: bridge 2.5 click widths on each side
@@ -802,37 +828,47 @@ export class StripEngine {
         for (let k = a + 1; k < b; k++) velocitiesMps[k] = va + ((vb - va) * (k - a)) / (b - a);
         i = b - 1;
       }
-      return { kind: 'autoTrace', velocitiesMps, secondsPerColumn: spc, x0 };
+      // Measure on the original samples; resizing must not duplicate spikes, smooth peaks or change VTI.
+      return {
+        kind: 'autoTrace',
+        velocitiesMps,
+        secondsPerColumn: spc,
+        x0: x0 * pixelsPerColumn,
+        pixelsPerColumn,
+      };
     }
     return null;
   }
 
-  drawStrip(
-    rgba: Uint8ClampedArray,
-    W: number,
-    H: number,
-    sectorH: number,
-    spec: PolarFrameSpec,
-    ctx: StripCtx,
-  ): StripInfo {
-    const inp = ctx.input;
+  drawStrip(rgba: Uint8ClampedArray, W: number, H: number, sectorH: number): StripInfo {
+    const acquired = this.acquired;
+    this.displayCols = W;
     const y0 = sectorH + 2;
     const h = H - y0 - 4;
     const cols = this.stripCols;
-    const secondsShown = STRIP_MM_WIDTH / this.acquiredSweep;
-    const spc = cols ? secondsShown / cols : 0;
+    const secondsShown = STRIP_MM_WIDTH / (this.acquired?.spectral.sweepSpeedMmPerS ?? 50);
+    const spc = cols ? secondsShown / W : 0;
     const kind = this.stripKind;
-    const head = this.stripHead % Math.max(1, cols);
-    if (kind === 'm-mode' && this.stripMmode && cols === W && h > 0) {
+    const head = Math.floor(((this.stripHead % Math.max(1, cols)) / Math.max(1, cols)) * W);
+    if (kind === 'm-mode' && this.stripMmode && acquired && h > 0) {
       // the strip image is kept between frames and repainted column by column as columns are written (decision 84)
-      const layout = `${W}x${h}|${this.mmodeSamples}|${spec.samples}|${this.stripCmm ? 1 : 0}|${inp.color.invert ? 1 : 0}|${inp.color.scaleMps}`;
+      const layout = `${cols}x${h}|${this.mmodeSamples}`;
       if (this.stripRgbaKey !== layout || !this.stripRgba) {
-        this.stripRgba = new Uint8ClampedArray(W * h * 4);
+        this.stripRgba = new Uint8ClampedArray(cols * h * 4);
         this.rowMap = buildRowMap(h, this.mmodeSamples);
         this.stripRgbaKey = layout;
-        for (let c = 0; c < cols; c++) this.paintStripColumn(c, ctx);
+        for (let c = 0; c < cols; c++) this.paintStripColumn(c);
       }
-      rgba.set(this.stripRgba, y0 * W * 4);
+      if (cols === W) rgba.set(this.stripRgba, y0 * W * 4);
+      else {
+        // Resize presentation only: retain the acquired time span and depth samples.
+        for (let y = 0; y < h; y++)
+          for (let x = 0; x < W; x++) {
+            const src = (y * cols + Math.floor((x * cols) / W)) * 4;
+            const dst = ((y0 + y) * W + x) * 4;
+            for (let c = 0; c < 4; c++) rgba[dst + c] = this.stripRgba[src + c]!;
+          }
+      }
       this.drawSweepMarker(rgba, W, y0, h, head);
       return {
         x: 0,
@@ -841,18 +877,19 @@ export class StripEngine {
         height: h,
         secondsPerColumn: spc,
         headColumn: head,
-        columns: cols,
+        columns: W,
+        sweepSpeedMmPerS: acquired.spectral.sweepSpeedMmPerS,
         topValue: 0,
-        bottomValue: spec.depthCm,
+        bottomValue: acquired.depthCm,
         kind: 'm-mode',
       };
     }
-    if (kind === 'spectral' && this.stripDisplay) {
-      const { vMin, vMax } = spectralRange(inp.spectral);
+    if (kind === 'spectral' && this.stripDisplay && acquired) {
+      const { vMin, vMax } = spectralRange(acquired.spectral);
       for (let y = 0; y < h; y++) {
         const b = Math.min(SPECTRAL_BINS - 1, Math.floor((y / h) * SPECTRAL_BINS));
         for (let x = 0; x < W; x++) {
-          const col = x < cols ? x : cols - 1;
+          const col = Math.min(cols - 1, Math.floor((x * cols) / W));
           const v = this.stripDisplay[col * SPECTRAL_BINS + b] ?? 0;
           const g = Math.round(Math.min(1, v) * 255);
           const o = ((y0 + y) * W + x) * 4;
@@ -877,7 +914,9 @@ export class StripEngine {
         height: h,
         secondsPerColumn: spc,
         headColumn: head,
-        columns: cols,
+        columns: W,
+        sweepSpeedMmPerS: acquired.spectral.sweepSpeedMmPerS,
+        wallFilterMps: acquired.spectral.wallFilterMps,
         topValue: vMax,
         bottomValue: vMin,
         kind: 'spectral',
@@ -898,7 +937,7 @@ export class StripEngine {
   }
 
   /** Paint one column of the displayed M-mode strip: grey rows from the line samples they cover, then the colour M-mode velocities. */
-  private paintStripColumn(col: number, ctx: StripCtx): void {
+  private paintStripColumn(col: number): void {
     const img = this.stripRgba,
       map = this.rowMap,
       strip = this.stripMmode;
@@ -920,14 +959,14 @@ export class StripEngine {
       img[o + 3] = 255;
     }
     const cmm = this.stripCmm;
-    if (cmm) {
-      const inp = ctx.input;
+    if (cmm && this.acquired) {
+      const color = this.acquired.color;
       const F = cmm.length / cols;
       const rgb: [number, number, number] = [0, 0, 0];
       for (let y = 0; y < rows; y++) {
         const v = cmm[Math.min(F - 1, Math.floor((y / rows) * F)) * cols + col]!;
         if (Number.isNaN(v)) continue;
-        colorMap(inp.color.invert ? -v : v, inp.color.scaleMps, 0, false, rgb);
+        colorMap(color.invert ? -v : v, color.scaleMps, 0, false, rgb);
         const o = (y * cols + col) * 4;
         img[o] = rgb[0];
         img[o + 1] = rgb[1];

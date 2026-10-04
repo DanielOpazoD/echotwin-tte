@@ -666,7 +666,7 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
             if (!res || res.kind !== 'autoTrace' || res.velocitiesMps.length < 2) return;
             const s = summarizeEnvelope(res.velocitiesMps, res.secondsPerColumn);
             const geometry = res.velocitiesMps.map((v, i) => ({
-              x: strip.x + res.x0 + i,
+              x: strip.x + res.x0 + i * res.pixelsPerColumn,
               y:
                 strip.y +
                 ((v - strip.topValue) / (strip.bottomValue - strip.topValue)) * strip.height,
@@ -927,7 +927,7 @@ function drawOverlay(
       }
       ctx.textAlign = 'left';
       ctx.fillText(
-        `${modality.toUpperCase()}  ${spectral.sweepSpeedMmPerS} mm/s  escala ±${spectral.scaleMps.toFixed(2)} m/s  WF ${Math.round(spectral.wallFilterMps * 100)} cm/s`,
+        `${modality.toUpperCase()}  ${strip.sweepSpeedMmPerS ?? '—'} mm/s  escala ±${((strip.topValue - strip.bottomValue) / 2).toFixed(2)} m/s  WF ${strip.wallFilterMps === undefined ? '—' : Math.round(strip.wallFilterMps * 100)} cm/s`,
         6,
         strip.y + 8,
       );
@@ -949,7 +949,7 @@ function drawOverlay(
         ctx.fillText(`${d}`, W - 4, Math.min(H - 8, Math.max(strip.y + 6, y)));
       }
       ctx.textAlign = 'left';
-      ctx.fillText(`M-MODE  ${spectral.sweepSpeedMmPerS} mm/s`, 6, strip.y + 8);
+      ctx.fillText(`M-MODE  ${strip.sweepSpeedMmPerS ?? '—'} mm/s`, 6, strip.y + 8);
     }
   }
   if (ui.showPhysics) {
