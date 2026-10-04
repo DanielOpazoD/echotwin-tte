@@ -195,9 +195,8 @@ float chestWallClutter(int li, float r) {
   float cm = 0.0;
   // near-field clutter: reverberation in the chest wall under the footprint, incoherent, fixed to the probe position
   if (r < CLUTTER_MAX_CM) cm = exp(-r / CLUTTER_DECAY_CM) * (CLUTTER_BASE + CLUTTER_AMP * lat(vec3(B_OX * CLUTTER_MOD_FREQ + float(li) * CLUTTER_MOD_LINE_FREQ, B_OY * CLUTTER_MOD_FREQ + B_OZ * CLUTTER_MOD_FREQ, r * CLUTTER_MOD_DEPTH_FREQ), 2));
-  // decision 258: the haze of the cavities at every depth, its grains in the image plane
-  float hth = -SECTOR / 2.0 + SECTOR * (float(li) + 0.5) / LINES;
-  cm += clutterHaze(lat(vec3(r * sin(hth), r * cos(hth), 0.0) * vec3(CLUTTER_HAZE_FREQ, CLUTTER_HAZE_FREQ, 0.0) + vec3(B_OX, B_OY, B_OZ) * CLUTTER_HAZE_PROBE + CLUTTER_HAZE_OFFSET, 1));
+  // decision 296: texture comes from the incoherent phasors and receive PSF, not coarse image-plane spots
+  cm += CLUTTER_HAZE;
   return cm * CLUTTER;
 }
 

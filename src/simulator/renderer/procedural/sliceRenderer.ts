@@ -46,10 +46,7 @@ import {
   CLUTTER_LINE_FREQ,
   CLUTTER_MAX_CM,
   CLUTTER_MOD_DEPTH_FREQ,
-  CLUTTER_HAZE_FREQ,
-  CLUTTER_HAZE_OFFSET,
-  CLUTTER_HAZE_PROBE,
-  clutterHaze,
+  CLUTTER_HAZE,
   CLUTTER_MOD_FREQ,
   CLUTTER_MOD_LINE_FREQ,
   CLUTTER_RE_A_X,
@@ -1000,22 +997,9 @@ function chestWallClutter(ctx: LineContext, li: number, r: number): number {
             r * CLUTTER_MOD_DEPTH_FREQ,
             ctx.latC,
           ));
-  // the haze of the cavities at every depth, its grains in the image plane (decision 258)
-  const th = sectorTheta(ctx.spec, li);
-  cm += clutterHaze(
-    latticeNoise3(
-      r * Math.sin(th) * CLUTTER_HAZE_FREQ + ox * CLUTTER_HAZE_PROBE + CLUTTER_HAZE_OFFSET[0],
-      r * Math.cos(th) * CLUTTER_HAZE_FREQ + oy * CLUTTER_HAZE_PROBE + CLUTTER_HAZE_OFFSET[1],
-      oz * CLUTTER_HAZE_PROBE + CLUTTER_HAZE_OFFSET[2],
-      ctx.latB,
-    ),
-  );
+  // Diffuse clutter has no extra image-plane envelope: its phasors and the receive PSF form the texture.
+  cm += CLUTTER_HAZE;
   return cm * ctx.clutter;
-}
-
-/** Angle (rad) of frame line `li` from the sector's centre. */
-function sectorTheta(spec: PolarFrameSpec, li: number): number {
-  return -spec.sectorRad / 2 + (spec.sectorRad * (li + 0.5)) / spec.lines;
 }
 
 /**
