@@ -7,6 +7,15 @@ import { heartLandmarks, heartToTorso } from '../src/simulator/anatomy/heartMode
 import { canonicalControl, getViewTarget } from '../src/simulator/windows/viewTargets';
 import { beamFrameFromPose, controlAimingAt, poseFromControl } from '../src/simulator/probe/pose';
 import { dot, sub } from '../src/core/vec3';
+import type { SimOutput } from '../src/simulator/core/protocol';
+
+type ObservedWindow = EchoWindow & {
+  acousticAccess: { peak: number; count: number; startS: number | null; endS: number };
+  stopAcousticAccess?: () => void;
+  __echotwin: EchoWindow['__echotwin'] & {
+    frameBus: { subscribe: (fn: (out: SimOutput) => void) => () => void };
+  };
+};
 
 /** Derive controls from today's anatomy; the worker must acquire, lose and recover the same LVOT. */
 test('PW loses its spectrum behind lung and recovers after moving back', async ({ page }) => {
@@ -30,7 +39,37 @@ test('PW loses its spectrum behind lung and recovers after moving back', async (
   await waitForFrames(page);
   const aim = async (index: number) => {
     await page.evaluate((cfg) => {
-      const s = (window as unknown as EchoWindow).__echotwin.useSimStore.getState();
+      const w = window as unknown as ObservedWindow;
+      w.stopAcousticAccess?.();
+      w.acousticAccess = { peak: 0, count: 0, startS: null, endS: 0 };
+      // Observe every delivered column instead of polling the throttled HUD at intervals that
+      // can repeatedly fall outside systole. Ignore frames still acquired at the previous pose.
+      w.stopAcousticAccess = w.__echotwin.frameBus.subscribe((out) => {
+        const a = out.acquisition;
+        if (
+          !a ||
+          a.modality !== 'pw' ||
+          a.settings.frequencyMHz !== 1.5 ||
+          out.strip.kind !== 'spectral'
+        )
+          return;
+        if (
+          Math.abs(a.gateDepthCm - cfg.depth) > 1e-6 ||
+          Math.abs(a.cursorThetaRad - cfg.theta) > 1e-6 ||
+          Object.entries(cfg.probe).some(
+            ([key, value]) => Math.abs(a.probe[key as keyof typeof a.probe] - value) > 1e-6,
+          )
+        )
+          return;
+        const t = out.strip.headTimeS;
+        if (t === undefined || !out.spectrumColumn) return;
+        const observed = w.acousticAccess;
+        observed.startS ??= t;
+        observed.endS = t;
+        observed.count++;
+        observed.peak = Math.max(observed.peak, ...out.spectrumColumn);
+      });
+      const s = w.__echotwin.useSimStore.getState();
       (s['setSettings'] as (v: unknown) => void)({ depthCm: 20, frequencyMHz: 1.5 });
       (s['setModality'] as (v: string) => void)('pw');
       (s['setProbe'] as (v: unknown) => void)(cfg.probe);
@@ -39,23 +78,18 @@ test('PW loses its spectrum behind lung and recovers after moving back', async (
   };
   const read = () =>
     page.evaluate(() => {
-      const h = (window as unknown as EchoWindow).__echotwin.useHudStore.getState().hud;
-      return {
-        frame: Number(h?.['frameId'] ?? 0),
-        peak: Math.max(...Array.from((h?.['spectrumColumn'] as Float32Array) ?? [])),
-      };
+      const s = (window as unknown as ObservedWindow).acousticAccess;
+      return { peak: s.peak, count: s.count, spanS: s.startS === null ? 0 : s.endS - s.startS };
     });
   await aim(0);
   await expect.poll(async () => (await read()).peak, { timeout: 20000 }).toBeGreaterThan(0.35);
   await aim(1);
-  const start = (await read()).frame;
-  await waitForFrames(page, start + 3);
-  for (let i = 0; i < 12; i++) {
-    const sample = await read();
-    expect(Number.isFinite(sample.peak)).toBe(true);
-    expect(sample.peak).toBeLessThan(0.15);
-    await waitForFrames(page, sample.frame + 1);
-  }
+  await expect.poll(async () => (await read()).spanS, { timeout: 20000 }).toBeGreaterThanOrEqual(2);
+  const blocked = await read();
+  expect(blocked.count).toBeGreaterThanOrEqual(12);
+  expect(Number.isFinite(blocked.peak)).toBe(true);
+  expect(blocked.peak).toBeLessThan(0.15);
   await aim(0);
   await expect.poll(async () => (await read()).peak, { timeout: 20000 }).toBeGreaterThan(0.35);
+  await page.evaluate(() => (window as unknown as ObservedWindow).stopAcousticAccess?.());
 });

@@ -113,7 +113,7 @@ describe('Doppler audio (spec 14)', () => {
     const a = new DopplerAudio();
     expect(() => {
       a.start();
-      a.update(new Float32Array(SPECTRAL_BINS), -1, 1);
+      a.update(new Float32Array(SPECTRAL_BINS), -1, 1, 2.5e6);
       a.stop();
     }).not.toThrow();
   });

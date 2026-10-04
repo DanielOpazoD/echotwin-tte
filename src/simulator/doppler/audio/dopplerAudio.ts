@@ -46,14 +46,14 @@ export class DopplerAudio {
   }
 
   /** Update from a spectral column (index 0 = vMax). */
-  update(column: Float32Array | null, vMin: number, vMax: number, f0Hz = 2.5e6): void {
+  update(column: Float32Array | null, vMin: number, vMax: number, f0Hz: number): void {
     if (!this.ctx || !this.enabled) return;
     const span = vMax - vMin;
     const now = this.ctx.currentTime;
     for (const o of this.oscs) {
       let g = 0;
       let f = 200;
-      if (column) {
+      if (column && Number.isFinite(f0Hz) && f0Hz > 0) {
         // each oscillator owns a velocity band on its side of the baseline
         const idx = this.oscs.indexOf(o);
         const band = Math.floor(idx / 2);

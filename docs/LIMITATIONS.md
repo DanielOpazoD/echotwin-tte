@@ -8,6 +8,8 @@ Este documento existe para que nadie use el simulador más allá de lo que hace.
 
 - Desde la decisión 277, el cine conserva escena, pose, gate, calibración color y controles propios. Sólo se retiene una adquisición de tira: al sustituirla, los cuadros anteriores no recuperan esa tira y no permiten medir otra como si fuera suya. El navegador congelado conserva paciente/sonda adquiridos, pero sus diez mallas nominales no reproducen la mecánica particular de cada latido irregular.
 
+- Desde la decisión 278, el presupuesto duplex es un balance medio 25/75 %, no un calendario de pulsos ni una reconstrucción espectral con huecos. La tasa media alarga el grano temporal sin sustituir la PRF intra-paquete que determina Nyquist. Grano y audio siguen siendo síntesis desde una distribución de velocidades; usar la frecuencia adquirida no sustituye una cadena IQ/FFT ni resuelve el límite de diez columnas espectrales por paso.
+
 ## Reauditoría operativa — 2026-09-15
 
 Las entradas históricas siguientes contienen cifras de distintas revisiones y no deben interpretarse como una auditoría única vigente. `AUDITORIA_FIDELIDAD.md` añade la referencia de `ba995bd`, los planos renderizados, el inventario de controles y el alcance nuevo (sin docencia ni PRF/dúplex).

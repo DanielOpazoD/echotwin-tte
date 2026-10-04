@@ -1,3 +1,4 @@
+import { DUPLEX_BMODE_SHARE } from '@/simulator/renderer/pulseTiming';
 import { acousticAccess } from '@/simulator/doppler/acousticAccess';
 import type { CaseDefinition } from '@/cases/schema';
 import { classifyHeart, computeHeartPose, type HeartModel } from '@/simulator/anatomy/heartModel';
@@ -102,8 +103,12 @@ export class StripEngine {
   private stripKind: 'spectral' | 'm-mode' | null = null;
   private acquisitionKey = '';
   /** Calibration belongs to the stored signal, never to pending console input. */
-  private acquired: { spectral: SpectralSettings; color: ColorSettings; depthCm: number } | null =
-    null;
+  private acquired: {
+    spectral: SpectralSettings;
+    color: ColorSettings;
+    depthCm: number;
+    frequencyMHz: number;
+  } | null = null;
   private displayCols = 0;
   private lineAmp = new Float32Array(0);
   private lineSt = new Uint8Array(0);
@@ -230,6 +235,7 @@ export class StripEngine {
         spectral: { ...inp.spectral },
         color: { ...inp.color },
         depthCm: spec.depthCm,
+        frequencyMHz: inp.settings.frequencyMHz,
       };
     }
     const kind: 'spectral' | 'm-mode' = MODALITIES[inp.modality].strip ?? 'spectral';
@@ -634,6 +640,8 @@ export class StripEngine {
       ctx.caseDef.seed,
       aliasing,
       column,
+      inp.settings.frequencyMHz,
+      1 - DUPLEX_BMODE_SHARE,
       click,
       display,
       timeS,
@@ -949,6 +957,7 @@ export class StripEngine {
         columns: W,
         sweepSpeedMmPerS: acquired.spectral.sweepSpeedMmPerS,
         wallFilterMps: acquired.spectral.wallFilterMps,
+        frequencyMHz: acquired.frequencyMHz,
         topValue: vMax,
         bottomValue: vMin,
         kind: 'spectral',

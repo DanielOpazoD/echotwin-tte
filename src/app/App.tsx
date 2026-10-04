@@ -100,7 +100,12 @@ export function App() {
       }
       const audio = audioRef.current;
       if (audio && isSpectralModality(modality))
-        audio.update(out.spectrumColumn, out.spectralRange.vMin, out.spectralRange.vMax);
+        audio.update(
+          out.frozen || out.strip.kind !== 'spectral' ? null : out.spectrumColumn,
+          out.spectralRange.vMin,
+          out.spectralRange.vMax,
+          (out.strip.frequencyMHz ?? 0) * 1e6,
+        );
     },
     [setHud, modality],
   );
