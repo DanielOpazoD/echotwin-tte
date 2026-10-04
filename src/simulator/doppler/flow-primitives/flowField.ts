@@ -933,10 +933,9 @@ export function sampleTissueVelocity(
     // the right ventricle moves with its own annular table and TAPSE (decision 106), from the tricuspid annulus to its apex
     const A = heartAnchors(heart);
     const apexZ = A.rvApexFrac * heart.lv.lengthCm;
-    const rvLevel = Math.min(
-      1,
-      Math.max(0, (z - A.tvCenter.z) / Math.max(1, apexZ - A.tvCenter.z)),
-    );
+    const annulusZ =
+      A.tvCenter.z + heart.physiology.tapseCm * sampleTable(tables.rvLongitudinal, phase);
+    const rvLevel = Math.min(1, Math.max(0, (z - annulusZ) / Math.max(1, apexZ - annulusZ)));
     // The annulus also shortens about its septal edge (`tvShortening`), so its lateral hinge, and the
     // free wall that hangs from it (decision 243), moves toward the septum as it descends: twice the shortening of the
     // radius at the hinge, nothing at the septal edge. The B-mode drew that motion and tissue Doppler left it out, so
@@ -960,7 +959,13 @@ export function sampleTissueVelocity(
   }
   const longVel = sampleTable(tables.longitudinalVelocity, phase); // fraction of MAPSE per s
   const mapse = heart.physiology.mapseCm;
-  const level = Math.min(1, Math.max(0, z / heart.lv.lengthCm));
+  // Velocity belongs to the moving material point: z = annulusZ + level * lengthNow.
+  // Using z / ED length attenuated annular motion a second time as the base descended.
+  const annulusZ = mapse * sampleTable(tables.longitudinal, phase);
+  const level = Math.min(
+    1,
+    Math.max(0, (z - annulusZ) / Math.max(1, heart.lv.lengthCm - annulusZ)),
+  );
   const rho = Math.hypot(x, y);
   const lateralness = rho > 1e-6 ? 0.5 * (1 + x / rho) : 0.5; // 1 at the lateral wall (+x), 0 at the septum (−x)
   const wall =

@@ -221,3 +221,5 @@ Cada prueba del modelo que tolera una desviación la declara en un conjunto `KNO
 <!-- /generado -->
 
 - **Navegación táctil (decisión 279):** arrastre de un puntero para sonda o cámara; no hay gestos simultáneos de varios dedos. Balanceo e inclinación siguen disponibles en la consola. Las mallas usan diez fases nominales y no reproducen toda la deformación latido a latido.
+
+- **Coordenada material y TDI (decisión 280):** corregida la atenuación longitudinal por el nivel del anillo móvil en VI/VD. Sigue pendiente que la deformación regional genere la razón e′ lateral/septal, el componente radial VI y toda la velocidad vectorial del tejido, incluido movimiento rígido y transiciones entre latidos irregulares. La coincidencia de la componente longitudinal con la geometría no valida esos componentes ausentes.
