@@ -88,4 +88,8 @@ septal; balance del VD; SSN supina; rendimiento del trazador y nueva evaluación
 
 1. Rejilla temporal de tira: [PR #101](https://github.com/DanielOpazoD/echotwin-tte/pull/101), decisión 286. Cinco reproducciones
    originales pasan de factores temporales hasta 5,027 a 1; se calcula cada
-   columna a su instante exacto, descartando una decimación que recortaba la eyección. 982 pruebas completas, lint, formato, tipos y build aprobados; 75 recorridos de navegador aprobados (cuatro omisiones por GPU de hardware), incluidas 43 comparaciones CPU/GPU. CI pendiente.
+   columna a su instante exacto, descartando una decimación que recortaba la eyección. 982 pruebas completas, lint, formato, tipos y build aprobados; 75 recorridos de navegador aprobados (cuatro omisiones por GPU de hardware), incluidas 43 comparaciones CPU/GPU. CI aprobada; fusionada en `841e2f8`.
+
+2. Contexto histórico del latido: [PR #102](https://github.com/DanielOpazoD/echotwin-tte/pull/102), decisión 287. 986 pruebas completas en 176 archivos (635,5 s), lint, formato, tipos y build aprobados. En dos segundos de FA, 61/1024 columnas tenían fase equivocada, hasta 8,564 ms; la misma reproducción corregida no tiene errores mayores de 10 µs. Se verifican también las tablas originales a ambos lados de QRS.
+
+   Navegador final: 75 recorridos aprobados, incluidas 43 comparaciones CPU/GPU; cuatro omisiones por GPU de hardware. CI pendiente.

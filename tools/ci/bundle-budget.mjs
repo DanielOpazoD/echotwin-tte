@@ -31,6 +31,8 @@ const BUDGETS = [
   [/^webgl2Renderer-.*\.js$/, 132 * KB],
   [/^heartMesh\.worker-.*\.js$/, 220 * KB],
   [/^(ReportScreen|CurriculumScreen|ProgressScreen|ReferencesScreen)-.*\.js$/, 80 * KB],
+  // Decision 287: bounded beat history and timestamp context add 1.2 kB to the lazy core (80.5 kB).
+  [/^simulatorCore-.*\.js$/, 82 * KB],
   [/\.js$/, 80 * KB], // any other chunk Rollup splits out
 ];
 // 1992 kB at decision 270; decisions 271-273 (the gastric fundus, the aortic pulse, the heart against the posterior

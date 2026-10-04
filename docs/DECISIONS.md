@@ -1720,3 +1720,15 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     Verificación completa de la versión final: 982 pruebas en 174 archivos, 623,2 s; lint, formato, tipos y build aprobados. Bundle agregado 1939,9/2060 kB, worker 330,6/332 kB. Comprobación de navegador e integración en curso.
 
     Verificación final de navegador sobre el build comprobado: 75 recorridos aprobados, incluidas 43 comparaciones CPU/GPU; cuatro omisiones por requerir GPU de hardware.
+
+287. **La adquisición espectral conserva el contexto del latido de cada muestra.** [Estado: vigente]
+
+    Con la rejilla temporal corregida, un paso que cruza QRS seguía fechando muestras previas usando RR, tablas y campo de flujo nuevos. En dos segundos de FA, 61 de 1024 columnas tenían fase equivocada, hasta 8,564 ms. `BeatHistory` retiene tres contextos de latido (RR, inicio, tablas, versión, flujo y anatomía); la recepción PW/CW/TDI resuelve el instante físico antes de calcular pose o velocidades. Fase, beatIndex y tablesVersion se guardan con la muestra retenida. El reloj absoluto avanza antes de construir las tablas respiratorias: el origen de la respiración deja de retrasarse el dt del worker.
+
+    La misma reproducción deja cero errores mayores de 10 µs; la diferencia máxima almacenada es 0,000020 ms por Float32. El test de integración observa el límite real del estimador y comprueba identidad de tablas y fase a ambos lados de QRS para FA y ritmo sinusal con respiración libre. Restaurar la extrapolación del latido actual falla en ambos; conservar la fase correcta pero pasar tablas actuales también falla en ambos. Se conserva el motor IQ/FFT y los límites de recepción existentes.
+
+    Límites: tres contextos bastan para retroceder <=100 ms con RR mínimo de 280 ms; no es un archivo ilimitado para reconstruir cualquier estudio. Los controles se sostienen durante cada paso del simulador. Los paquetes IQ siguen cuasiestacionarios. El modo M conserva su aproximación de líneas por fase y caché del latido actual, aunque su eje temporal ya es regular; esta PR no afirma reconstrucción exacta del M-mode retrospectivo entre latidos irregulares.
+
+    El contexto histórico añade 1,2 kB al núcleo cargado bajo demanda (80,5 kB); su límite específico pasa de 80 a 82 kB. El worker queda en 331,9/332 kB y el total en 1942,5/2060 kB, sin elevar el presupuesto agregado.
+
+    Verificación local completa: 986 pruebas en 176 archivos (635,5 s), lint, formato, tipos y build aprobados. Las mutaciones aisladas de fase actual y tablas actuales fallan ambas en FA y respiración libre. 75 recorridos de navegador aprobados (43 comparaciones CPU/GPU), con cuatro omisiones por GPU de hardware. CI pendiente.

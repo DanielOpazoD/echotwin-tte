@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 286 (última: 286).
+Decisiones: 287 (última: 287).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -294,3 +294,4 @@ Decisiones: 286 (última: 286).
 | [284](DECISIONS.md#L1682) | 2026-10-04 | PW y TDI adquieren señal compleja y estiman su espectro por FFT. | vigente |
 | [285](DECISIONS.md#L1696) | 2026-10-04 | Un reporte de fidelidad distingue evidencia interna, deuda vigente y evaluación externa. | vigente |
 | [286](DECISIONS.md#L1708) | 2026-10-04 | El tiempo de la tira no depende de cuántos espectros caben en un paso. | vigente |
+| [287](DECISIONS.md#L1724) | 2026-10-04 | La adquisición espectral conserva el contexto del latido de cada muestra. | vigente |
