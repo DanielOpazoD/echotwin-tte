@@ -330,7 +330,6 @@ export class SimulatorCore {
       tablesVersion: this.tablesVersion,
       phaseNow: c.phase,
       rrS: c.rrS,
-      frame: this.frame,
       procedural: this.procedural,
       moment: (timeS) => {
         const beat = this.beatHistory.at(timeS),

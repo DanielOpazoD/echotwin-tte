@@ -20,12 +20,7 @@ import {
   type FlowFieldParams,
   type FlowSample,
 } from '@/simulator/doppler/flow-primitives/flowField';
-import {
-  type ColorSettings,
-  colorMap,
-  DOPPLER_SHADOW_TRANSMISSION,
-  relativeTransmission,
-} from '@/simulator/doppler/color/colorDoppler';
+import { type ColorSettings, colorMap } from '@/simulator/doppler/color/colorDoppler';
 import { aliasVelocity } from '@/clinical/formulas';
 import { MODALITIES } from '@/simulator/renderer/modality';
 import {
@@ -71,8 +66,6 @@ export interface StripCtx {
   /** Cycle phase and RR at the moment of the call. */
   phaseNow: number;
   rrS: number;
-  /** Latest polar frame (CW lines stop at shadows on it). */
-  frame: PolarFrame | null;
   procedural: ProceduralSliceRenderer;
   moment(timeS: number): {
     phase: number;
@@ -559,10 +552,7 @@ export class StripEngine {
     const scene = ctx.scene(phase);
     const hp = scene.heartPose;
     const classifyScene = sceneClassifier(scene);
-    const accessible =
-      inp.modality === 'cw'
-        ? null
-        : acousticAccess(scene, beam.origin, { x: dx, y: dy, z: dz }, beam.contact);
+    const accessible = acousticAccess(scene, beam.origin, { x: dx, y: dy, z: dz }, beam.contact);
     const samples: VelocitySample[] = [];
     const fs = this.flowSample;
     const ts = this.tissueSample;
@@ -582,7 +572,7 @@ export class StripEngine {
       const inScene = classifyScene(px, py, pz, ts) !== 0;
       if (inp.modality === 'tdi') {
         if (inScene && ts.tissue === Tissue.Myocardium) {
-          if (accessible && !accessible(r)) return;
+          if (!accessible(r)) return;
           const tv = sampleTissueVelocity(ctx.heart, ctx.tables, phase, hx, hy, hz, ts.structure);
           const axial = tv.vx * dhx + tv.vy * dhy + tv.vz * dhz;
           const vPerp = Math.sqrt(
@@ -593,7 +583,7 @@ export class StripEngine {
         return;
       }
       if (!inScene || ts.tissue !== Tissue.Blood) return;
-      if (accessible && !accessible(r)) return;
+      if (!accessible(r)) return;
       sampleFlow(ctx.flow, ctx.tables, hp, phase, hx, hy, hz, fs);
       if (!fs.present) {
         samples.push({ v: 0, weight: 0.3, dispersion: 0.05 });
@@ -619,36 +609,15 @@ export class StripEngine {
       ];
       // Most instants have no valve click: trace only a source that could contribute to the column.
       if (
-        accessible &&
-        (valveClickWeight(ctx.heart, hp, ctx.tables, phase * ctx.tables.rrS, point) === 0 ||
-          !accessible(r))
+        valveClickWeight(ctx.heart, hp, ctx.tables, phase * ctx.tables.rrS, point) === 0 ||
+        !accessible(r)
       )
         return;
       clickPoints.push(...point);
     };
     if (inp.modality === 'cw') {
-      const frame = ctx.frame;
-      const li = frame
-        ? Math.min(
-            spec.lines - 1,
-            Math.max(0, Math.round(((theta + spec.sectorRad / 2) / spec.sectorRad) * spec.lines)),
-          )
-        : 0;
-      const acquisition = {
-        frequencyMHz: inp.settings.frequencyMHz,
-        harmonics: inp.settings.harmonics,
-      };
       for (let r = 1.0; r < spec.depthCm; r += 0.25) {
-        if (frame) {
-          // a shadow stops the line, depth does not (decision 96): an absolute 2% cut stopped lines from the apical window
-          // at 9–12 cm, before the jet of a stenotic aortic valve
-          const si = Math.min(spec.samples - 1, Math.floor((r / spec.depthCm) * spec.samples));
-          if (
-            relativeTransmission(frame.transmission[li * spec.samples + si] ?? 1, r, acquisition) <
-            DOPPLER_SHADOW_TRANSMISSION
-          )
-            break;
-        }
+        if (!accessible(r)) break;
         classify(r, 0, 0);
         clickPoint(r);
       }
