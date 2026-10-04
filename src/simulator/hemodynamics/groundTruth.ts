@@ -28,6 +28,9 @@ import {
 export interface StructuredEchoTruth {
   /** The sex the reference ranges are read for (decision 175). */
   sex: 'male' | 'female';
+  /** Optional for older saved reports; current synthetic cases always provide it. */
+  ageYears?: number;
+  bmiKgM2?: number;
   bsaM2: number;
   heartRateBpm: number;
   rhythm: string;
@@ -206,6 +209,8 @@ export function computeGroundTruth(c: CaseDefinition, tables?: BeatTables): Stru
   const ePrimeAvg = (c.physiology.ePrimeSeptalCmps + c.physiology.ePrimeLateralCmps) / 2;
   return {
     sex: c.demographics.sexForReference,
+    ageYears: c.demographics.ageYears,
+    bmiKgM2: c.demographics.weightKg / (c.demographics.heightCm / 100) ** 2,
     bsaM2: bsa,
     heartRateBpm: c.rhythm.heartRateBpm,
     rhythm: c.rhythm.type,

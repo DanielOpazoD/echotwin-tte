@@ -1,3 +1,4 @@
+import { modelDiastolicAssessment, modelPulmonaryAssessment } from './modelInterpretation';
 import { rangeFlag, rangeText } from '@/clinical/guidelines/normalRanges';
 import type { Measurement } from '@/simulator/measurements/types';
 import type { StructuredEchoTruth } from '@/simulator/hemodynamics/groundTruth';
@@ -87,8 +88,9 @@ export function buildEducationalReport(
       truth: truthVal,
       deviation: dev,
       // the patient's sex is a demographic, not the truth: the range is shown in the exam too (decision 175)
-      range: sex && m.measurementId ? rangeText(m.measurementId, sex) : null,
-      rangeFlag: sex && m.measurementId ? rangeFlag(m.measurementId, sex, m.value) : null,
+      range: sex && m.measurementId ? rangeText(m.measurementId, sex, truth?.ageYears) : null,
+      rangeFlag:
+        sex && m.measurementId ? rangeFlag(m.measurementId, sex, m.value, truth?.ageYears) : null,
       technique: tq,
     };
   });
@@ -408,8 +410,10 @@ export function pathologyImpressions(t: StructuredEchoTruth): string[] {
       `Hipertrofia septal asimétrica (SIV ${t.lv.ivsdCm.toFixed(1)} cm, SIV/PP ${(t.lv.ivsdCm / t.lv.lvpwdCm).toFixed(1)}).`,
     );
   if (t.rightHeart.rvspMmHg !== null && t.rightHeart.rvspMmHg >= 36)
+    out.push(`Presión sistólica del VD estimada ${t.rightHeart.rvspMmHg.toFixed(0)} mmHg.`);
+  if (modelPulmonaryAssessment(t).suggestive)
     out.push(
-      `Presión sistólica del VD estimada ${t.rightHeart.rvspMmHg.toFixed(0)} mmHg (${t.rightHeart.rvspMmHg >= 50 ? 'probabilidad alta' : 'probabilidad intermedia'} de hipertensión pulmonar).`,
+      'Hallazgos ecográficos sugestivos de hipertensión pulmonar; la confirmación es hemodinámica invasiva.',
     );
   if (t.rv.basalDiameterCm > 4.1)
     out.push(
@@ -428,8 +432,19 @@ export function pathologyImpressions(t: StructuredEchoTruth): string[] {
   }
   if (t.rhythm === 'atrial-fibrillation')
     out.push(
-      'Fibrilación auricular: sin onda A; la evaluación diastólica se limita a E/e′, tiempo de desaceleración, volumen de la AI e IT, promediando varios latidos.',
+      'Fibrilación auricular: sin onda A; integrar E, E/e′ septal, IT/PASP y desaceleración, promediando ciclos representativos; el tamaño de la AI no basta para estimar presión.',
     );
+  const diastolic = modelDiastolicAssessment(t);
+  if (diastolic.dysfunctionPresent)
+    out.push('Criterios del modelo compatibles con disfunción diastólica.');
+  if (diastolic.fillingPressure !== 'not-assessed') {
+    const label = { elevated: 'elevada', normal: 'normal', indeterminate: 'indeterminada' }[
+      diastolic.fillingPressure
+    ];
+    out.push(
+      `Presión de llenado izquierda ${label} según el algoritmo de FA (ASE 2025), sobre valores nominales del modelo.`,
+    );
+  }
   if (t.la.volumeIndexMlM2 > 34)
     out.push(`Aurícula izquierda dilatada (${t.la.volumeIndexMlM2.toFixed(0)} mL/m²).`);
   return out;

@@ -1,3 +1,4 @@
+import { modelDiastolicAssessment, modelPulmonaryAssessment } from './modelInterpretation';
 import { rangeFlag } from '@/clinical/guidelines/normalRanges';
 import type { StructuredEchoTruth } from '@/simulator/hemodynamics/groundTruth';
 
@@ -62,7 +63,7 @@ export const FINDINGS: Finding[] = [
   { id: 'rv-dysfunction', label: 'Disfunción sistólica del VD (TAPSE < 1,7 cm)', domain: 'right' },
   {
     id: 'ph-probable',
-    label: 'Probabilidad alta de hipertensión pulmonar (PSVD ≥ 50)',
+    label: 'Hallazgos ecográficos sugestivos de hipertensión pulmonar',
     domain: 'right',
   },
   { id: 'tr-significant', label: 'Insuficiencia tricuspídea moderada o mayor', domain: 'right' },
@@ -72,8 +73,20 @@ export const FINDINGS: Finding[] = [
   { id: 'af', label: 'Fibrilación auricular', domain: 'rhythm-diastole' },
   {
     id: 'diastolic-dysfunction',
-    label: 'Disfunción diastólica / presiones de llenado elevadas',
+    label: 'Disfunción diastólica',
     domain: 'rhythm-diastole',
+  },
+  {
+    id: 'filling-pressure-elevated',
+    label: 'Presión de llenado izquierda elevada (algoritmo FA)',
+    domain: 'rhythm-diastole',
+    exclusive: 'filling-pressure',
+  },
+  {
+    id: 'filling-pressure-indeterminate',
+    label: 'Presión de llenado izquierda indeterminada (algoritmo FA)',
+    domain: 'rhythm-diastole',
+    exclusive: 'filling-pressure',
   },
 ];
 
@@ -110,25 +123,16 @@ export function expectedFindings(t: StructuredEchoTruth): string[] {
   if (t.regurgitation.ar) out.add('ar-present');
   if (t.rv.basalDiameterCm > 4.1) out.add('rv-dilated');
   if (t.rightHeart.tapseCm < 1.7) out.add('rv-dysfunction');
-  if ((t.rightHeart.rvspMmHg ?? 0) >= 50) out.add('ph-probable');
+  if (modelPulmonaryAssessment(t).suggestive) out.add('ph-probable');
   if ((t.regurgitation.tr?.eroaCm2 ?? 0) >= 0.2) out.add('tr-significant');
   if (t.la.volumeIndexMlM2 > 34) out.add('la-dilated');
   if (t.pericardium.effusionCm > 0) out.add('effusion');
   if (t.pericardium.tamponade > 0.3) out.add('tamponade');
   if (t.rhythm === 'atrial-fibrillation') out.add('af');
-  // an E/A above 2 alone is the filling of a young normal heart (decision 175): it marks dysfunction with another sign
-  // of raised filling pressure — reduced e′, a TR velocity above 2.8 m/s or a dilated left atrium
-  const eReduced =
-    rangeFlag('e-prime-septal', t.sex, t.mitral.ePrimeSeptalCmps) === 'low' ||
-    rangeFlag('e-prime-lateral', t.sex, t.mitral.ePrimeLateralCmps) === 'low';
-  const trHigh = (t.rightHeart.trVmaxMps ?? 0) > 2.8;
-  const otherSign = eReduced || trHigh || t.la.volumeIndexMlM2 > 34;
-  if (
-    t.mitral.eOverEPrimeAvg > 14 ||
-    (t.mitral.eOverA !== null && t.mitral.eOverA > 2 && otherSign) ||
-    (t.mitral.eOverA !== null && t.mitral.eOverA < 0.8 && t.la.volumeIndexMlM2 > 34)
-  )
-    out.add('diastolic-dysfunction');
+  const diastolic = modelDiastolicAssessment(t);
+  if (diastolic.dysfunctionPresent) out.add('diastolic-dysfunction');
+  if (diastolic.fillingPressure === 'elevated') out.add('filling-pressure-elevated');
+  if (diastolic.fillingPressure === 'indeterminate') out.add('filling-pressure-indeterminate');
   // a study with only the "normal/none" statements is a normal study
   const abnormal = [...out].filter((id) => !['ef-normal', 'as-none', 'mr-none'].includes(id));
   if (abnormal.length === 0) out.add('normal-study');

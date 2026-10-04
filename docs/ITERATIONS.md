@@ -92,4 +92,6 @@ septal; balance del VD; SSN supina; rendimiento del trazador y nueva evaluación
 
 2. Contexto histórico del latido: [PR #102](https://github.com/DanielOpazoD/echotwin-tte/pull/102), decisión 287. 986 pruebas completas en 176 archivos (635,5 s), lint, formato, tipos y build aprobados. En dos segundos de FA, 61/1024 columnas tenían fase equivocada, hasta 8,564 ms; la misma reproducción corregida no tiene errores mayores de 10 µs. Se verifican también las tablas originales a ambos lados de QRS.
 
-   Navegador final: 75 recorridos aprobados, incluidas 43 comparaciones CPU/GPU; cuatro omisiones por GPU de hardware. CI pendiente.
+   Navegador final: 75 recorridos aprobados, incluidas 43 comparaciones CPU/GPU; cuatro omisiones por GPU de hardware. CI completa aprobada; fusionada en `f68febf`.
+
+3. Criterios clínicos por edad y contexto: [PR #103](https://github.com/DanielOpazoD/echotwin-tte/pull/103), decisión 288. Límites e′ por edad, disfunción separada de presión, algoritmo de FA con incertidumbre e indicios reducidos de HP compartidos por informe y hallazgos. 996 pruebas en 179 archivos, lint, formato, tipos y build aprobados; 76 recorridos de navegador aprobados, incluidas 43 comparaciones CPU/GPU, con cuatro omisiones por GPU de hardware. La regresión de FA verifica la corrección educativa. CI pendiente.

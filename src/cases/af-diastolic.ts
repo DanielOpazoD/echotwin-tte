@@ -1,7 +1,7 @@
 import type { CaseDefinitionInput } from './schema';
 import { normalExcellentCase } from './normal-excellent';
 
-/** Case 11 — Atrial fibrillation: irregular RR, no A wave (E-only filling), dilated LA, mild LVH; diastolic grading limited to E/e′ and LA size. */
+/** Case 11 — Atrial fibrillation: irregular RR, no A wave (E-only filling), dilated LA, mild LVH; multiparametric filling-pressure assessment; no A wave. */
 export const afDiastolicCase: CaseDefinitionInput = {
   ...normalExcellentCase,
   id: 'af-diastolic',
@@ -68,8 +68,8 @@ export const afDiastolicCase: CaseDefinitionInput = {
   ],
   learningObjectives: [
     'Reconocer la variabilidad latido a latido del llenado y del volumen sistólico en FA: promediar ≥ 5 latidos (o usar latidos de RR similar).',
-    'Entender qué parámetros diastólicos no son aplicables sin onda A (E/A, duración de A) y cuáles sí (E/e′, tiempo de desaceleración, volumen de la AI, IT).',
-    'Estimar presiones de llenado con E/e′ septal ≥ 11 y la AI dilatada.',
+    'Entender qué parámetros no son aplicables sin onda A (E/A, duración de A); integrar E/e′, desaceleración e IT. La dilatación de la AI en FA no demuestra por sí sola presión elevada.',
+    'Integrar E, E/e′ septal, IT/PASP y desaceleración; reconocer una presión de llenado indeterminada si los criterios adicionales no son concluyentes.',
   ],
   requiredViews: [
     { viewId: 'a4c', minScore: 65 },
@@ -84,14 +84,14 @@ export const afDiastolicCase: CaseDefinitionInput = {
   difficulty: 3,
   references: [
     {
-      referenceId: 'ase-eacvi-diastolic-2016',
+      referenceId: 'ase-diastolic-2025',
       usage: 'evaluación diastólica en fibrilación auricular',
     },
   ],
   impressionTruth: [
     'Fibrilación auricular con respuesta ventricular controlada; llenado mitral con onda E única y variable.',
     'Hipertrofia concéntrica leve; función sistólica conservada.',
-    'Aurícula izquierda severamente dilatada y E/e′ promedio ≈ 15: presiones de llenado probablemente elevadas.',
+    'Aurícula izquierda severamente dilatada y disfunción diastólica; presión de llenado indeterminada por el algoritmo multiparamétrico de FA (ASE 2025).',
   ],
   expectedDeviations: [
     'ivsd',
