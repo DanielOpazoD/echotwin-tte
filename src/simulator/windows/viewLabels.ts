@@ -16,6 +16,7 @@ export const VIEW_LABELS: Readonly<Record<string, string>> = {
   'rv-focused': 'Apical del VD',
   'subcostal-4c': 'Subcostal 4C',
   'subcostal-ivc': 'Subcostal VCI',
+  'suprasternal-arch': 'Supraesternal arco',
 };
 
 /** The short name of a view; an unknown id is shown as it is rather than hidden. */

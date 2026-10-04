@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 281 (última: 281).
+Decisiones: 282 (última: 282).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -289,3 +289,4 @@ Decisiones: 281 (última: 281).
 | [279](DECISIONS.md#L1610) | 2026-10-04 | El navegador móvil separa paneles, cámara y sonda sin recalibrar la adquisición. | vigente |
 | [280](DECISIONS.md#L1620) | 2026-10-04 | La atenuación longitudinal del Doppler tisular sigue la coordenada material del anillo móvil. | vigente |
 | [281](DECISIONS.md#L1632) | 2026-10-04 | Un árbol aórtico compartido por imagen, adquisición y navegador. | vigente |
+| [282](DECISIONS.md#L1650) | 2026-10-04 | La supraesternal es una adquisición continua desde la escotadura, con alcance parcial explícito. | vigente |

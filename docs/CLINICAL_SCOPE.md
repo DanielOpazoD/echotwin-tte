@@ -80,3 +80,8 @@ La ventana supraesternal no existe: la aorta termina a 6,5 cm sin arco. Las vent
 ## Mediciones y puntuación
 
 Catálogo de 18 mediciones semánticas (`src/simulator/measurements/protocol.ts`) con herramienta, modalidad, vista, fase, colocación y alineación exigidas; la captura es evaluada por `education/technique.ts` y el examen las puntúa contra la verdad con `tolerancePct`. Los casos declaran como requeridas, según el caso: `lvot-diameter`, `lv-edd`, `ivsd`, `lvpwd`, `lv-edv-simpson`, `lv-esv-simpson`, `la-ap`, `tapse`, `lvot-vti`, `lvot-peak-velocity`, `mitral-e`, `av-vmax`, `av-vti`, `tr-vmax`, `e-prime-septal`, `e-prime-lateral`. El puntuador empareja por id semántico (ver `docs/MEASUREMENTS.md` y `docs/SCORING.md`).
+
+
+### Ventana supraesternal
+
+`suprasternal-arch`: acceso desde la escotadura (u ±1,5 cm, v 10–11 cm), plano derivado del cayado y la unión con la descendente. Preset como movimiento continuo de sonda, ajustes manuales y reconocimiento del arco. La selección conserva la anatomía y las sombras. Son límites de adquisición del modelo, no medidas clínicas de la escotadura. La adquisición del caso normal en decúbito lateral alcanza arco y descendente; en supino la interposición pulmonar del modelo limita la descendente, y la ascendente proximal no queda contenida en todo el plano. No reproduce todavía extensión cervical, tráquea o todas las variantes del arco ni valida Doppler de estas arterias.

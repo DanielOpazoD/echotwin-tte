@@ -225,3 +225,7 @@ Cada prueba del modelo que tolera una desviación la declara en un conjunto `KNO
 - **Navegación táctil (decisión 279):** arrastre de un puntero para sonda o cámara; no hay gestos simultáneos de varios dedos. Balanceo e inclinación siguen disponibles en la consola. Las mallas usan diez fases nominales y no reproducen toda la deformación latido a latido.
 
 - **Coordenada material y TDI (decisión 280):** corregida la atenuación longitudinal por el nivel del anillo móvil en VI/VD. Sigue pendiente que la deformación regional genere la razón e′ lateral/septal, el componente radial VI y toda la velocidad vectorial del tejido, incluido movimiento rígido y transiciones entre latidos irregulares. La coincidencia de la componente longitudinal con la geometría no valida esos componentes ausentes.
+
+## Ventana supraesternal parcial (decisión 282)
+
+El acceso SSN usa sonda real en la escotadura y ve arco en los doce casos, tanto laterales como supinos. En el barrido medido de 24 combinaciones, la descendente está oculta en todos los supinos y en las dos ventanas laterales difíciles. El normal lateral muestra un segmento de descendente, no toda la ascendente y las tres ramas simultáneamente. No se modelan extensión cervical ni tráquea. La selección automática minimiza obstrucciones en una rejilla pequeña, no sustituye una exploración clínica. Pendientes: anatomía mediastínica contrastada externamente, cobertura supina y validación Doppler supraesternal.
