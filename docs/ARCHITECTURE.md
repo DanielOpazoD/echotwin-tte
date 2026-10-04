@@ -177,3 +177,5 @@ Render procedimental 22–47 ms según la carga de la máquina, consola 2–3 ms
 ## Historial y límites de adquisición (decisión 274)
 
 `SimulatorCore` delega la propiedad y retención de cuadros en `CineBuffer`, un anillo acotado a 96 capturas con copias de buffers, haz y especificación. Cada captura conserva identificador, tiempo, fase, latido y RR; revisar cine devuelve esa identidad histórica. `acquisitionInput.ts` aplica en el store y en la entrada del núcleo los límites puros de `renderer/pulseTiming.ts`, compartidos con el presupuesto de paquetes color. `StripEngine` conserva el barrido adquirido al congelar y reinicia el historial al adquirir con otra calibración. Sigue pendiente extraer el reloj de adquisición y unificar la historia ECG/tiras/cine.
+
+La interpretación de tiras almacenadas (`StripEngine.request/drawStrip`) no recibe `StripCtx`: conserva su propia calibración de adquisición. El trazado devuelve muestras originales, segundos por muestra y píxeles por muestra para que la UI dibuje la geometría sin recalcular la medida al redimensionar (decisión 275).

@@ -3,6 +3,7 @@ import { viewLabel } from '@/simulator/windows/viewLabels';
 import {
   hasGate,
   isSpectralModality,
+  isStripModality,
   MODALITIES,
   modalityLabel,
 } from '@/simulator/renderer/modality';
@@ -468,6 +469,7 @@ function DopplerTab() {
   const s = useSimStore(
     useShallow((st) => ({
       color: st.color,
+      frozen: st.frozen,
       cursorThetaRad: st.cursorThetaRad,
       gateDepthCm: st.gateDepthCm,
       modality: st.modality,
@@ -502,6 +504,11 @@ function DopplerTab() {
 
   return (
     <>
+      {s.frozen && isStripModality(mod) && (
+        <p className="small" role="status">
+          Tira congelada: los ajustes de adquisición se aplicarán al reanudar.
+        </p>
+      )}
       {mod === 'color' && (
         <Section
           title="Color Doppler"

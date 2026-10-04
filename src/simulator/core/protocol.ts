@@ -62,6 +62,9 @@ export interface StripInfo {
   height: number;
   /** Seconds per pixel column. */
   secondsPerColumn: number;
+  /** Acquisition readouts of a populated strip, independent of pending console controls. */
+  sweepSpeedMmPerS?: number;
+  wallFilterMps?: number;
   /**
    * The strip is written as a sweep (decision 231): `headColumn` is the column the next sample goes into, where the
    * sweep marker stands, of `columns`; the newest written column is the one before it. 0 without a strip.
@@ -180,7 +183,9 @@ export type SimResponse =
       kind: 'autoTrace';
       velocitiesMps: number[];
       secondsPerColumn: number;
+      /** Display position and spacing of the original acquisition columns. */
       x0: number;
+      pixelsPerColumn: number;
     }
   | { kind: 'canonicalControl'; control: ProbeControl }
   | { kind: 'probePoint'; point: ProbePointInfo };

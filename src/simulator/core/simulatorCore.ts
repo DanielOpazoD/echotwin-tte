@@ -762,7 +762,7 @@ export class SimulatorCore {
         kind: 'canonicalControl',
         control: canonicalControl(getViewTarget(req.viewId), this.heart, this.thorax),
       };
-    return this.strips.request(req, this.stripCtx());
+    return this.strips.request(req);
   }
 
   private frozenOutput(): SimOutput | null {
@@ -854,7 +854,7 @@ export class SimulatorCore {
       bottomValue: 0,
       kind: null,
     };
-    if (isStrip) strip = this.strips.drawStrip(rgba, W, H, sectorH, fspec, this.stripCtx());
+    if (isStrip) strip = this.strips.drawStrip(rgba, W, H, sectorH);
     const view = cf ? cf.analysis : this.lastAnalysis;
     const c = this.clock.current;
     const structure = cf ? cf.structure : this.frame ? this.frame.structure : new Uint8Array(0);
@@ -906,7 +906,7 @@ export class SimulatorCore {
       ecgHead: this.timeS,
       view,
       spectrumColumn: this.strips.spectrumColumn,
-      spectralRange: spectralRange(inp.spectral),
+      spectralRange: this.strips.velocityRange ?? spectralRange(inp.spectral),
       frozen,
       cineLength: this.cine.length,
       cineOffset: cf ? inp.cineOffset : 0,

@@ -43,3 +43,61 @@ test('camera shortcuts preserve the acoustic probe position', async ({ page }) =
   expect(await probe()).toEqual(before);
   await expect(page.locator('.torso-3d canvas')).toBeVisible();
 });
+
+test('frozen Doppler retains its acquired axes across console changes and resize', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await waitForFrames(page);
+  await page.getByRole('button', { name: 'CW', exact: true }).click();
+  const hud = () =>
+    page.evaluate(() => {
+      const h = (window as unknown as EchoWindow).__echotwin.useHudStore.getState().hud;
+      return {
+        frozen: h?.['frozen'],
+        range: h?.['spectralRange'],
+        strip: h?.['strip'] as
+          | {
+              topValue: number;
+              bottomValue: number;
+              width: number;
+              secondsPerColumn: number;
+            }
+          | undefined,
+      };
+    });
+  await expect.poll(async () => (await hud()).strip?.topValue).toBe(6);
+  await page.evaluate(() => {
+    const s = (window as unknown as EchoWindow).__echotwin.useSimStore.getState();
+    (s['toggleFreeze'] as () => void)();
+  });
+  await expect.poll(async () => (await hud()).frozen).toBe(true);
+  await expect(page.getByText(/Tira congelada: los ajustes de adquisición/)).toBeVisible();
+  const before = await hud();
+  await page.evaluate(() => {
+    const s = (window as unknown as EchoWindow).__echotwin.useSimStore.getState();
+    (s['setSpectral'] as (v: unknown) => void)({
+      scaleMps: 3,
+      baselineShiftMps: 1,
+      gainDb: 20,
+      wallFilterMps: 0.6,
+      sweepSpeedMmPerS: 100,
+    });
+  });
+  await expect(page.getByRole('slider', { name: 'Escala', exact: true })).toHaveValue('3');
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect.poll(async () => (await hud()).strip?.width).not.toBe(before.strip!.width);
+  const resized = await hud();
+  expect(resized.range).toEqual(before.range);
+  expect(resized.strip!.topValue).toBe(before.strip!.topValue);
+  expect(resized.strip!.secondsPerColumn * resized.strip!.width).toBeCloseTo(
+    before.strip!.secondsPerColumn * before.strip!.width,
+    10,
+  );
+  await page.evaluate(() => {
+    const s = (window as unknown as EchoWindow).__echotwin.useSimStore.getState();
+    (s['toggleFreeze'] as () => void)();
+  });
+  await expect.poll(async () => (await hud()).strip?.topValue).toBe(4);
+});
