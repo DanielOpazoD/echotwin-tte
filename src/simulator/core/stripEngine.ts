@@ -1,3 +1,4 @@
+import { acousticAccess } from '@/simulator/doppler/acousticAccess';
 import type { CaseDefinition } from '@/cases/schema';
 import { classifyHeart, computeHeartPose, type HeartModel } from '@/simulator/anatomy/heartModel';
 import { cycleStateAt, type BeatTables } from '@/simulator/cardiac-cycle/cycleModel';
@@ -504,7 +505,12 @@ export class StripEngine {
     const dhx = dx * hf.ex.x + dy * hf.ex.y + dz * hf.ex.z;
     const dhy = dx * hf.ey.x + dy * hf.ey.y + dz * hf.ey.z;
     const dhz = dx * hf.ez.x + dy * hf.ez.y + dz * hf.ez.z;
-    const hp = computeHeartPose(ctx.heart, cycleStateAt(ctx.tables, phase));
+    const scene = ctx.scene(phase);
+    const hp = scene.heartPose;
+    const accessible =
+      inp.modality === 'cw'
+        ? null
+        : acousticAccess(scene, beam.origin, { x: dx, y: dy, z: dz }, beam.contact);
     const samples: VelocitySample[] = [];
     const fs = this.flowSample;
     const ts = this.tissueSample;
@@ -524,6 +530,7 @@ export class StripEngine {
       const inHeart = classifyHeart(ctx.heart, hp, hx, hy, hz, ts);
       if (inp.modality === 'tdi') {
         if (inHeart && ts.tissue === Tissue.Myocardium) {
+          if (accessible && !accessible(r)) return;
           const tv = sampleTissueVelocity(ctx.heart, ctx.tables, phase, hx, hy, hz, ts.structure);
           const axial = tv.vx * dhx + tv.vy * dhy + tv.vz * dhz;
           const vPerp = Math.sqrt(
@@ -534,6 +541,7 @@ export class StripEngine {
         return;
       }
       if (!inHeart || ts.tissue !== Tissue.Blood) return;
+      if (accessible && !accessible(r)) return;
       sampleFlow(ctx.flow, ctx.tables, hp, phase, hx, hy, hz, fs);
       if (!fs.present) {
         samples.push({ v: 0, weight: 0.3, dispersion: 0.05 });
@@ -552,11 +560,19 @@ export class StripEngine {
       const px = beam.origin.x + dx * r,
         py = beam.origin.y + dy * r,
         pz = beam.origin.z + dz * r;
-      clickPoints.push(
+      const point = [
         (px - hf.origin.x) * hf.ex.x + (py - hf.origin.y) * hf.ex.y + (pz - hf.origin.z) * hf.ex.z,
         (px - hf.origin.x) * hf.ey.x + (py - hf.origin.y) * hf.ey.y + (pz - hf.origin.z) * hf.ey.z,
         (px - hf.origin.x) * hf.ez.x + (py - hf.origin.y) * hf.ez.y + (pz - hf.origin.z) * hf.ez.z,
-      );
+      ];
+      // Most instants have no valve click: trace only a source that could contribute to the column.
+      if (
+        accessible &&
+        (valveClickWeight(ctx.heart, hp, ctx.tables, phase * ctx.tables.rrS, point) === 0 ||
+          !accessible(r))
+      )
+        return;
+      clickPoints.push(...point);
     };
     if (inp.modality === 'cw') {
       const frame = ctx.frame;
