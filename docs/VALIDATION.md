@@ -1,5 +1,11 @@
 # Validación
 
+## Banco reproducible actual (2026-10-04)
+
+El comando `npm run fidelity:audit -- --out /tmp/echotwin-fidelity.json` y el trabajo obligatorio `fidelity` de CI reúnen las verificaciones internas actuales. Registran procedencia del código, controles y haz adquiridos, medidas, unidades, criterios y deuda conocida. Véase [alcance y reproducción](FIDELITY_AUDIT.md), [diez iteraciones](ITERATIONS.md) y decisiones 276–285.
+
+La evaluación clínica independiente **no está realizada**. Los 500 sujetos CAMUS históricos ya se usaron durante calibración/desarrollo; separarlos ahora por imágenes o pacientes no crea una cohorte reservada. El reporte y su manifiesto distinguen elegibilidad declarada de evaluación realizada. Persisten las limitaciones anatómicas, de adquisición y físicas documentadas.
+
 > Las cifras de cada corrida completa (archivos y pruebas por nivel, E2E, presupuesto del bundle) se registran en
 > la sección «Verificación» de la descripción de su PR; `npx vitest list` y
 > `npx playwright test --list` dan los recuentos del árbol actual. El CI está en `.github/workflows/ci.yml` y corre

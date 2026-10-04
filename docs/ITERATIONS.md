@@ -11,12 +11,12 @@ Una prueba interna no constituye validación clínica.
 | 2 | Historia común de adquisición | Identidad, tiempo, haz, gate y calibración coherentes al congelar y recorrer cine | [PR #92](https://github.com/DanielOpazoD/echotwin-tte/pull/92), fusionada |
 | 3 | Frecuencia y presupuesto temporal Doppler | Eliminar 2,5 MHz nominales en señal/audio; límites PRF/profundidad y duplex verificables | [PR #93](https://github.com/DanielOpazoD/echotwin-tte/pull/93), fusionada |
 | 4 | Navegación y consola adaptables | Uso a 390 px, paneles plegables, cámara independiente y medidas invariantes | [PR #94](https://github.com/DanielOpazoD/echotwin-tte/pull/94), fusionada |
-| 5 | Geometría y mecánica basal coherentes | Continuidad mitroaórtica, TSVD, tronco pulmonar y aurículas durante el ciclo; referencias publicadas | [PR #95](https://github.com/DanielOpazoD/echotwin-tte/pull/95), fusionada |
+| 5 | TDI coherente con la mecánica longitudinal | Velocidad septal como derivada de la coordenada material móvil; doce casos y límites regionales explícitos | [PR #95](https://github.com/DanielOpazoD/echotwin-tte/pull/95), fusionada |
 | 6 | Aorta torácica continua compartida | Raíz, ascendente, arco, descendente y orígenes supraaórticos en CPU/GPU/malla sin intersecciones indebidas | [PR #96](https://github.com/DanielOpazoD/echotwin-tte/pull/96), fusionada |
 | 7 | Ventana supraesternal TTE | Sonda físicamente alcanzable, navegación y barrido continuo sobre la misma anatomía | [PR #97](https://github.com/DanielOpazoD/echotwin-tte/pull/97), fusionada |
 | 8 | Conservación espacial de flujo | Integrales de sección frente a tablas de flujo y variaciones de volumen; aproximaciones explícitas | [PR #98](https://github.com/DanielOpazoD/echotwin-tte/pull/98), fusionada |
-| 9 | Cadena IQ/FFT PW/TDI | Fantomas de Vmax/VTI, aliasing, filtros y rendimiento; comparación con cadena previa | En validación |
-| 10 | Banco independiente y reporte | Vistas ideales e imperfectas, transiciones y controles; separación de calibración/evaluación por paciente | Pendiente |
+| 9 | Cadena IQ/FFT PW/TDI | Fantomas de Vmax/VTI, aliasing, filtros y rendimiento; comparación con cadena previa | [PR #99](https://github.com/DanielOpazoD/echotwin-tte/pull/99), fusionada |
+| 10 | Banco reproducible y separación de evaluación externa | Vistas ideales e imperfectas, transiciones y controles; separación de calibración/evaluación por paciente | [PR #100](https://github.com/DanielOpazoD/echotwin-tte/pull/100), cierre técnico verificado; integración pendiente de CI |
 
 ## Criterios comunes
 
@@ -67,3 +67,13 @@ PR #97, merge `f06dc5c`: botón SSN y barrido continuo desde la escotadura, con 
 ## Iteración 8 cerrada
 
 PR #98, merge `f301034`: flujo sobre la red aórtica móvil y consulta espectral de la escena completa. 963 pruebas y 75 recorridos distintos de navegador, cuatro omitidos por GPU de hardware; CI completa y cobertura aprobadas. Balance espacial en doce casos y cuatro fases, con residuo máximo 0,692 mL/s en el banco independiente posterior. La discretización de curvas/uniones mantiene hasta 3,39 % de diferencia local campo–red: continuidad reducida, sin presión ni CFD. La siguiente prioridad es estimar PW/TDI desde señal IQ muestreada y Fourier.
+
+## Iteración 9 cerrada
+
+PR #99, merge `fd00ae9`: PW/TDI desde señal IQ, Hann y FFT, con filtro en frecuencia muestreada. 971 pruebas y 75 recorridos locales de navegador, cuatro omitidos por GPU de hardware; CI completa y cobertura aprobadas. La corrección de la distribución subrejilla elimina el sesgo Rayleigh sin debilitar tolerancias. Los paquetes siguen cuasiestacionarios, sin RF, partículas persistentes ni huecos duplex explícitos. El paso final reúne evidencia reproducible y separa evaluación externa de calibración.
+
+## Iteración 10: cierre técnico preparado
+
+El banco ejecuta 169 observaciones y conserva 48 adquisiciones reproducibles: 168 criterios cumplidos y la limitación supraesternal supina identificada. Su trabajo CI participa en el check requerido. 979 pruebas en 172 archivos, lint, formato, tipos y build aprobados; los 19 assets de aplicación son idénticos al build de la iteración 9 con 75 recorridos de navegador aprobados. La CI vuelve a ejecutarlos antes de integrar esta entrega. No hay evaluación clínica externa realizada; CAMUS histórico no se presenta como conjunto reservado.
+
+Tras integrar esta tanda, una auditoría multiparamétrica con escala 1–7 del commit resultante fijará y justificará los diez bloques siguientes. Las prioridades se decidirán por defectos reproducidos y relevancia clínica, incluyendo anatomía, temporalidad, propagación, mecánica y rendimiento.
