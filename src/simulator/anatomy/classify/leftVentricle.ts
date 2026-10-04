@@ -34,8 +34,6 @@ export function classifyLeftVentricle(c: ClassifyCtx): boolean {
   c.nx0 = nx0;
   c.ny0 = ny0;
   c.nz0 = nz0;
-  // clip at annulus plane (z ≥ zAnn) with a smooth max
-  const dCav = smax(dProf, zAnn - z, 0.6);
   // segment of the tissue here (decision 152): its identity, and the regional amplitude of its AHA segment
   const segCode = lvSegmentCode(az, levelFrac, A.rvAzA, A.rvAzP);
   const amp = m.segAmp[aha17FromCode(segCode)] ?? 1;
@@ -57,7 +55,9 @@ export function classifyLeftVentricle(c: ClassifyCtx): boolean {
         ) -
           0.5)
       : 0;
-  const dCavR = dCav - regional + trab;
+  // Radial regional motion cannot displace the basal clipping plane into the atrium.
+  // Apply deformation before intersecting the ventricular half-space (decision 291).
+  const dCavR = smax(dProf - regional + trab, zAnn - z, 0.6);
   const tFull = wallThicknessAt(m, hp.thickK, az, levelFrac, amp);
   // the septum narrows under the membranous septum (decision 223); the atrium and the ventricle take the space
   const tNow = tFull * septalCrestFactor(az, z - zAnn);

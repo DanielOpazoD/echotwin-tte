@@ -1,3 +1,4 @@
+import { LA_POSTERIOR_RATIO } from '@/simulator/anatomy/laGeometry';
 /**
  * GLSL port of `classifyHeart` (heartModel.ts). Mirrors the CPU classifier block by block; the
  * equivalence test (e2e/gpu-equivalence.spec.ts) compares both on the canonical views.
@@ -83,6 +84,7 @@ const f = (v: number): string => (Number.isInteger(v) ? `${v}.0` : `${v}`);
 
 export const GLSL_HEART = /* glsl */ `
 const int LV_PROF_BINS = ${LV_PROF_BINS};
+const float LA_POSTERIOR_RATIO = ${f(LA_POSTERIOR_RATIO)};
 const float ROOT_SINUS_T = ${f(ROOT_SINUS_T)};
 const float LVOT_TAPER_CM = ${f(LVOT_TAPER_CM)};
 const float ROOT_STJ_T = ${f(ROOT_STJ_T)};
@@ -805,14 +807,13 @@ bool classifyHeart(vec3 p0, out Sample s) {
   float xs = x - septalShift;
   vec3 n0;
   float dProf = lvCavitySdf(xs, y, z, n0);
-  float dCav = smax(dProf, zAnn - z, 0.6);
   int seg = ahaSegment(az, levelFrac);
   float amp = P(SEG_AMP_BASE + seg);
   // an akinetic segment keeps its end-diastolic radius; a hyperkinetic one (amp > 1) adds nothing, as on the CPU
   float regional = amp < 1.0 ? (1.0 - amp) * (LV_RMAX_ED - LV_RMAX) * lvProfileG(levelFrac) : 0.0;
   float rs = RADIAL_SCALE, ls = LONG_SCALE;
   float trab = levelFrac > 0.45 ? 0.2 * min(1.0, (levelFrac - 0.45) / 0.35) * (lat(vec3((x / rs) * 2.6 + 11.3, (y / rs) * 2.6 + 2.9, ((z - LV_LEN) / ls) * 1.1 + 6.1), 3) - 0.5) : 0.0;
-  float dCavR = dCav - regional + trab;
+  float dCavR = smax(dProf - regional + trab, zAnn - z, 0.6);
   float tFull = wallThicknessAt(az, levelFrac, amp);
   // decision 223
   float tNow = tFull * septalCrestFactor(az, z - zAnn);
@@ -896,7 +897,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float fo = length(vec2((y - FOSSA_Y) / 0.6, (z - FOSSA_Z) / 0.7));
     float tIas = iasThickness(fo);
     float dEllLa = sdEllipsoid(p, vec3(la.x, la.y, czL), vec3(lr.x * bo, lr.y * bo, rzL));
-    float dFreeLa = smax(smax(dEllLa, la.y - 0.72 * lr.y * bo - y, 0.6), zTop + 0.15 * rzL - z, 0.5);
+    float dFreeLa = smax(smax(dEllLa, la.y - LA_POSTERIOR_RATIO * lr.y * bo - y, 0.6), zTop + 0.15 * rzL - z, 0.5);
     laEpi = min(dFreeLa - LA_WALL_CM, sdCapsule(p, vec3(la.x + lr.x * 0.55, la.y + lr.y * 0.55, czL + 0.4), vec3(la.x + lr.x * 0.95, la.y + lr.y * 0.55 + 2.0, czL + 0.9), 0.55 * bo) - LAA_WALL_CM);
     float d = smax(dFreeLa, xIas + tIas / 2.0 - x, 0.3);
     if (d < 0.0) {

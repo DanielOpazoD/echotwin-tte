@@ -30,8 +30,7 @@ const LV_TOL_ML = 4;
 const KNOWN_TRUTH_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // (the LVOT of the HFrEF case, whose lumen the dilated base opened into the cavity, 2.5 cm against 2.1, measures 2.08
   // since the neck of the ventricle narrows into the mitral annulus, decision 226)
-  // the same dilated base clips the LA ellipsoid: 88 mL drawn against 98 declared
-  ['hfref-severe-mr:laMax', -0.106],
+  // LA maximum is normalized to annular excursion; the HFrEF exception closed in decision 291.
   // the pressure-overloaded RV flattens the septum into the LV (decision 32): the drawn cavity holds 7 mL less than the
   // declared end-diastolic volume, which the case's hemodynamics keep
   ['pulmonary-hypertension-rv:edv', -0.084],
@@ -48,6 +47,7 @@ describe('the drawn heart matches the truth its measurements are scored against'
       const checks: [string, number, number, number, number][] = [
         ['lvot', row('lvot'), t.lvot.diameterCm, LVOT_TOL, 0],
         ['laMax', row('lavi') * m.bsaM2, t.la.volumeMl, LA_TOL, 0],
+        ['laAP', row('la-ap'), t.la.apDiameterCm, 0.1, 0],
         ['edv', row('lv-edv'), t.lv.edvMl, LV_TOL, LV_TOL_ML],
         ['esv', row('lv-esv'), t.lv.esvMl, LV_TOL, LV_TOL_ML],
       ];

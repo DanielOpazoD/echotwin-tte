@@ -50,7 +50,11 @@ export const TARGETS: GenTarget[] = [
   { file: 'src/simulator/anatomy/thoraxModel.ts', functions: ['mediastinumDistance'] },
   {
     file: 'src/simulator/anatomy/classify/atria.ts',
-    functions: ['atrialScale', 'iasThickness', 'raCollapseScale'],
+    functions: ['atrialScale', 'raCollapseScale'],
+  },
+  {
+    file: 'src/simulator/anatomy/laGeometry.ts',
+    functions: ['iasThickness'],
   },
   {
     file: 'src/simulator/anatomy/classify/pericardium.ts',

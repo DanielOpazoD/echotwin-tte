@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 290 (última: 290).
+Decisiones: 291 (última: 291).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -298,3 +298,4 @@ Decisiones: 290 (última: 290).
 | [288](DECISIONS.md#L1736) | 2026-10-04 | Edad, concordancia e incertidumbre comparten una interpretación clínica. | vigente |
 | [289](DECISIONS.md#L1749) | 2026-10-04 | CW consulta la propagación del instante adquirido, sin depender del último cuadro B. | vigente |
 | [290](DECISIONS.md#L1756) | 2026-10-04 | La potencia espectral depende de la amplitud recibida, además de la presencia de un trayecto. | vigente |
+| [291](DECISIONS.md#L1763) | 2026-10-04 | Dimensiones y volumen auricular coherentes, límite AI–VI y haces CPU/GPU compartidos. | vigente |

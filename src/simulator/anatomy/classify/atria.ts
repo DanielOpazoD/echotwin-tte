@@ -1,3 +1,5 @@
+import { iasThickness, leftAtrialFreeSdf } from '../laGeometry';
+export { iasThickness } from '../laGeometry';
 import { Structure, Tissue } from '../tissue';
 import { sdCapsule, sdEllipsoid, smax, smin } from '../sdf';
 import { ROOT_EXCURSION } from '../heartFrame';
@@ -96,11 +98,6 @@ export function atrialScale(booster: number, reservoir: number, contraction: num
   return booster * (reservoir + (1 - reservoir) * contraction);
 }
 
-/** Interatrial septum thickness (cm) at normalised distance `fo` from the fossa ovalis centre: membrane, limbus, muscle. */
-export function iasThickness(fo: number): number {
-  return fo < 1 ? 0.12 : fo < 1.3 ? 0.7 : 0.55;
-}
-
 /** Right atrial radial scale under tamponade: late-diastolic collapse of `raCollapse` (0..1). */
 export function raCollapseScale(raCollapse: number): number {
   return 1 - 0.35 * raCollapse;
@@ -131,8 +128,7 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   const tIas = iasThickness(fo);
   // LA: ellipsoid flattened against the septum (medial clip), against the oesophagus / descending aorta
   // (posterior clip) and under the pulmonary bifurcation (roof clip)
-  const dEllLa = sdEllipsoid(x, y, z, la.x, la.y, czL, lr.x * bo, lr.y * bo, rzL);
-  const dFreeLa = smax(smax(dEllLa, la.y - 0.72 * lr.y * bo - y, 0.6), zTop + 0.15 * rzL - z, 0.5);
+  const dFreeLa = leftAtrialFreeSdf(x, y, z, la.x, la.y, czL, lr.x * bo, lr.y * bo, rzL, zTop);
   // the atrium's epicardium, for the pericardial sac: the outer face of its wall and of the appendage's (decision 273)
   c.laEpi = Math.min(
     dFreeLa - LA_WALL_CM,

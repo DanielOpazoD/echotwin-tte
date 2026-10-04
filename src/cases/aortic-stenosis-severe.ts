@@ -107,6 +107,7 @@ export const aorticStenosisSevereCase: CaseDefinitionInput = {
     // enlarged left atrium (chronic pressure overload, diastolic dysfunction): by volume and across it; its AP and long
     // axes fell inside their ranges once the atrium was drawn at its declared volume (decision 161)
     'la-transverse',
+    'la-ap',
     'lavi',
     // (its mass, over the range until decision 226, falls inside it with the base narrowed into the mitral annulus)
     'apex-thickness', // the hypertrophy reaches the apex
