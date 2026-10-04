@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 276 (última: 276).
+Decisiones: 277 (última: 277).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -284,3 +284,4 @@ Decisiones: 276 (última: 276).
 | [274](DECISIONS.md#L1538) | 2026-10-04 | Primero estructura e identidad de adquisición; después límites PRF–profundidad–Nyquist. | vigente |
 | [275](DECISIONS.md#L1550) | 2026-10-04 | La señal almacenada conserva su calibración; el tamaño de pantalla no cambia la medida. | vigente |
 | [276](DECISIONS.md#L1564) | 2026-10-04 | PW y TDI necesitan acceso acústico al gate; la presencia de tejido no basta. | vigente |
+| [277](DECISIONS.md#L1580) | 2026-10-04 | La interpretación pertenece a la adquisición mostrada, no a los controles pendientes. | vigente |

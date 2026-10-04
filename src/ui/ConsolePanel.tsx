@@ -504,9 +504,10 @@ function DopplerTab() {
 
   return (
     <>
-      {s.frozen && isStripModality(mod) && (
+      {s.frozen && (
         <p className="small" role="status">
-          Tira congelada: los ajustes de adquisición se aplicarán al reanudar.
+          {isStripModality(mod) ? 'Tira congelada' : 'Imagen congelada'}: los ajustes de adquisición
+          se aplicarán al reanudar.
         </p>
       )}
       {mod === 'color' && (

@@ -78,7 +78,7 @@ test.describe('EchoTwin TTE core flow', () => {
 
   test('freeze, cine and a linear caliper measurement', async ({ page }) => {
     await page.keyboard.press('Space');
-    await expect(page.getByText('CONGELADA')).toBeVisible();
+    await expect(page.getByText('CONGELADA', { exact: true })).toBeVisible();
     await expect(page.getByRole('slider', { name: 'Cine' })).toBeVisible();
     await page.getByRole('tab', { name: 'Medir' }).click();
     await page.getByRole('button', { name: 'Caliper' }).click();

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import {
@@ -48,12 +49,23 @@ import { IconCrosshair, IconLayers, IconMinus, IconPlus } from './icons';
  * Mouse: drag skin = slide · drag the blue marker or wheel = rotate · Shift+drag = rock ·
  * Alt+drag = tilt · right-drag = orbit · Ctrl/⌘+wheel = zoom. Never teleports to a view.
  */
+function navigatorState() {
+  const state = useSimStore.getState();
+  const hud = useHudStore.getState().hud;
+  return hud?.frozen && hud.acquisition ? { ...state, ...hud.acquisition } : state;
+}
+
 export function TorsoView() {
   const ref = useRef<HTMLDivElement>(null);
   const caseId = useSimStore((s) => s.caseId);
   const split = useSimStore((s) => navigatorLayers(s).split);
   const anatomy = useSimStore((s) => modePolicy(s.mode).navigatorAnatomy);
-  const patient = useSimStore((s) => s.patient);
+  const livePatient = useSimStore((s) => s.patient);
+  const acquiredPatient = useHudStore(
+    useShallow((s) => (s.hud?.frozen ? (s.hud.acquisition?.patient ?? null) : null)),
+  );
+  const patient = acquiredPatient ?? livePatient;
+  const frozen = useHudStore((s) => s.hud?.frozen ?? false);
   const zoomRef = useRef<{
     zoomBy: (f: number) => void;
     center: () => void;
@@ -404,7 +416,7 @@ export function TorsoView() {
       },
       plane: () => {
         if (!thorax) return;
-        const state = useSimStore.getState();
+        const state = navigatorState();
         const beam = beamFrameFromPose(poseFromControl(thorax, state.probe));
         const d = state.settings.depthCm / 2;
         Object.assign(orbit, {
@@ -536,6 +548,7 @@ export function TorsoView() {
         drag = { mode: 'orbit', x: e.clientX, y: e.clientY, cx: 0, cy: 0 };
         return;
       }
+      if (useHudStore.getState().hud?.frozen) return;
       raycaster.setFromCamera(mouse, camera);
       if (raycaster.intersectObject(marker, true).length > 0) {
         const c = probeScreenCenter(r);
@@ -602,6 +615,7 @@ export function TorsoView() {
         zoomRef.current?.zoomBy(e.deltaY > 0 ? 1.1 : 0.9);
         return;
       }
+      if (useHudStore.getState().hud?.frozen) return;
       useSimStore
         .getState()
         .nudgeProbe({ rotationDeg: Math.sign(e.deltaY) * (e.shiftKey ? 10 : 3) });
@@ -725,7 +739,7 @@ export function TorsoView() {
     });
     const tick = () => {
       raf = requestAnimationFrame(tick);
-      const st = useSimStore.getState();
+      const st = navigatorState();
       if (!thorax) {
         renderer.render(scene, camera);
         return;
@@ -893,8 +907,14 @@ export function TorsoView() {
         {/* inside the torso so it sits at the torso's own bottom edge, whatever height the cut map leaves it
             (decision 197) */}
         <div className="torso-help">
-          Arrastrar: deslizar · Rueda: rotar · Shift: rock · Alt: tilt ·{' '}
-          <kbd className="kbd">?</kbd> todos los gestos
+          {frozen ? (
+            'Sonda de la adquisición congelada · Botón derecho: orbitar · Ctrl/⌘+rueda: zoom'
+          ) : (
+            <>
+              Arrastrar: deslizar · Rueda: rotar · Shift: rock · Alt: tilt ·{' '}
+              <kbd className="kbd">?</kbd> todos los gestos
+            </>
+          )}
         </div>
         {webglError && (
           <div className="panel-error" role="alert">

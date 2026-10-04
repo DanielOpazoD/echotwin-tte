@@ -429,7 +429,7 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
       ...f,
       frameId: hud.frameId,
       phase: hud.phase,
-      modality: st.modality,
+      modality: hud.acquisition?.modality ?? st.modality,
       point: null,
       note: '',
       category: parent ? parent.category : 'anatomia',
@@ -458,12 +458,14 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
     const strip = hud.strip;
     const pend = pendingRef.current;
     const sectorTool = st.activeTool === 'caliper' || st.activeTool === 'simpson';
+    if (!sectorTool && !strip.kind) return;
     if (sectorTool) {
       pend.points = reprojectGeometry(pend.points, pend.captureSector, m);
       pend.captureSector = { ...m };
     } else pend.captureSector = undefined;
     const spec = specFor(st.activeMeasurementId);
-    const modality = st.modality === 'color' ? '2d' : st.modality;
+    const acquiredMode = hud.acquisition?.modality ?? st.modality;
+    const modality = acquiredMode === 'color' ? '2d' : acquiredMode;
     const redraw = () => {
       redrawOverlayRef.current();
       useHudStore.getState().setHud({ ...hud });
@@ -493,9 +495,19 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
       st.addMeasurement({
         ...ms,
         captureSector: sectorTool ? { ...m } : undefined,
+        captureStrip: sectorTool ? undefined : { ...strip },
+        acquisition: hud.acquisition,
+        beatIndex: hud.beatIndex,
+        rrS: hud.rrS,
         label: spec ? spec.label : ms.label,
         measurementId: spec ? spec.id : null,
-        technique: evaluateCapture(spec, hud, modality, st.phaseMarks, extras),
+        technique: evaluateCapture(
+          spec,
+          hud,
+          modality,
+          hud.acquisition?.phaseMarks ?? st.phaseMarks,
+          extras,
+        ),
         id: `m${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`,
         createdAt: new Date().toISOString(),
         frameId: hud.frameId,
@@ -774,6 +786,7 @@ function drawOverlay(
   st: SimStore,
   pending: { x: number; y: number }[],
 ): void {
+  const { ui, activeTool, measurements, reviewMarkers } = st;
   const {
     modality,
     color,
@@ -781,11 +794,7 @@ function drawOverlay(
     cursorThetaRad: cursorTheta,
     gateDepthCm: gateDepth,
     spectral,
-    ui,
-    activeTool,
-    measurements,
-    reviewMarkers,
-  } = st;
+  } = hud.frozen && hud.acquisition ? hud.acquisition : st;
   const dpr = window.devicePixelRatio || 1;
   const W = hud.width,
     H = hud.height;
@@ -950,6 +959,9 @@ function drawOverlay(
       }
       ctx.textAlign = 'left';
       ctx.fillText(`M-MODE  ${strip.sweepSpeedMmPerS ?? '—'} mm/s`, 6, strip.y + 8);
+    } else if (hud.frozen && hud.acquisition?.stripAcquisitionId != null) {
+      ctx.fillStyle = '#9aa4b5';
+      ctx.fillText('La tira de esta adquisición ya no está disponible.', 12, strip.y + 24);
     }
   }
   if (ui.showPhysics) {

@@ -1,13 +1,14 @@
 # Diez iteraciones de fidelidad
 
 Plan autorizado el 4 de octubre de 2026, sobre `9a1690c` (PR #90).
-Cada fila corresponde a una PR funcional, comprobada y fusionada antes de
-comenzar la siguiente. Una prueba interna no constituye validación clínica.
+Cada fila corresponde a una PR funcional, comprobada y fusionada en orden.
+La preparación de la siguiente puede hacerse en un worktree aislado durante la CI.
+Una prueba interna no constituye validación clínica.
 
 | Orden | Objetivo | Evidencia exigida | Estado |
 | --- | --- | --- | --- |
-| 1 | Acceso acústico PW/TDI desde la sonda hasta cada muestra | Ventanas accesibles y obstruidas, transiciones, fase, frecuencia y coste | Validada localmente; pendiente de CI y merge |
-| 2 | Historia común de adquisición | Identidad, tiempo, haz, gate y calibración coherentes al congelar y recorrer cine | Pendiente |
+| 1 | Acceso acústico PW/TDI desde la sonda hasta cada muestra | Ventanas accesibles y obstruidas, transiciones, fase, frecuencia y coste | [PR #91](https://github.com/DanielOpazoD/echotwin-tte/pull/91), fusionada |
+| 2 | Historia común de adquisición | Identidad, tiempo, haz, gate y calibración coherentes al congelar y recorrer cine | Validada localmente; pendiente CI |
 | 3 | Frecuencia y presupuesto temporal Doppler | Eliminar 2,5 MHz nominales en señal/audio; límites PRF/profundidad y duplex verificables | Pendiente |
 | 4 | Navegación y consola adaptables | Uso a 390 px, paneles plegables, cámara independiente y medidas invariantes | Pendiente |
 | 5 | Geometría y mecánica basal coherentes | Continuidad mitroaórtica, TSVD, tronco pulmonar y aurículas durante el ciclo; referencias publicadas | Pendiente |
@@ -32,3 +33,7 @@ comenzar la siguiente. Una prueba interna no constituye validación clínica.
 Las iteraciones 5 → 6 → 7 dependen de una geometría estable. La 9 depende de la
 propagación, el tiempo de adquisición y el campo de flujo (1, 3 y 8). Al cerrar
 cada PR se actualizarán aquí su enlace, evidencia y limitaciones.
+
+## Iteración 1 cerrada
+
+PR #91, merge `cee1371`: PW/TDI respetan la sombra del haz central. Siete de siete posiciones totalmente bloqueadas del barrido pierden la señal espuria; la referencia abierta conserva 1 m/s. Pasan 886 pruebas y 61 E2E (cuatro requieren GPU por hardware), incluida paridad CPU/GPU. CI completa aprobada. Pendientes: oclusión parcial de apertura, potencia recibida calibrada y propagación CW a su fase. La siguiente prioridad es la procedencia común del cine y las mediciones.

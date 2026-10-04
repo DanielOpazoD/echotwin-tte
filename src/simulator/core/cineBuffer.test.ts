@@ -1,8 +1,44 @@
+// @tier slow
 import { expect, it } from 'vitest';
 import { CineBuffer, type CineFrame } from './cineBuffer';
+import { baseInput } from './baseInput';
+import { buildCaseModels, REST_PATIENT } from '@/simulator/anatomy/caseModels';
+import { loadCaseById } from '@/cases';
+import { computeHeartPose } from '@/simulator/anatomy/heartModel';
+import { cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
+
+const input = baseInput();
+const models = buildCaseModels(loadCaseById('normal-excellent-window'), REST_PATIENT);
+const scene = {
+  heart: models.heart,
+  thorax: models.thorax,
+  heartPose: computeHeartPose(models.heart, cycleStateAt(models.tables, 0)),
+  physics: { frequencyMHz: 2.5, harmonics: true, clutterLevel: 0, windowAttenuation: 0, seed: 1 },
+};
 
 function frame(frameId: number): CineFrame {
   return {
+    scene,
+    acquisition: {
+      ...input,
+      modelVersion: 0,
+      stripAcquisitionId: null,
+      colorTimeS: null,
+      tablesVersion: 0,
+      phaseMarks: {
+        ejectionStart: 0.1,
+        ejectionEnd: 0.35,
+        endSystole: 0.4,
+        mitralOpen: 0.45,
+        eEnd: 0.65,
+        aStart: 0.8,
+        aEnd: 0.95,
+        hasAWave: true,
+      },
+    },
+    gate: null,
+    spectrumColumn: null,
+    spectralRange: { vMin: -1, vMax: 1 },
     frameId,
     timeS: frameId / 30,
     phase: 0,
@@ -46,6 +82,9 @@ it('owns capture buffers and geometry after the renderer reuses its working stat
   source.segment.fill(0);
   source.colorVel!.fill(0);
   source.colorVar!.fill(0);
+  const acquiredScale = source.acquisition.color.scaleMps;
+  source.acquisition.color.scaleMps = 9;
+  source.acquisition.probe.u = 17;
   source.spec.depthCm = 24;
   source.beam.origin.x = 8;
   const saved = cine.newest!;
@@ -56,4 +95,6 @@ it('owns capture buffers and geometry after the renderer reuses its working stat
   expect(saved.colorVar![0]).toBeCloseTo(0.1);
   expect(saved.spec.depthCm).toBe(16);
   expect(saved.beam.origin.x).toBe(0);
+  expect(saved.acquisition.color.scaleMps).toBe(acquiredScale);
+  expect(saved.acquisition.probe.u).not.toBe(17);
 });

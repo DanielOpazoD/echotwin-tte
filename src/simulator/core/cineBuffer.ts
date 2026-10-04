@@ -1,8 +1,16 @@
 import type { BeamFrame } from '@/simulator/probe/pose';
+import type { FrameAcquisition, GateInfo } from './protocol';
+import type { Scene } from '@/simulator/renderer/types';
 import type { PolarFrameSpec } from '@/simulator/renderer/types';
 import type { ViewAnalysis } from '@/simulator/view-recognition/viewQuality';
 
 export interface CineFrame {
+  acquisition: FrameAcquisition;
+  /** Models are replaced, not mutated, by the core; retain the acquired pose and model references. */
+  scene: Scene;
+  gate: GateInfo | null;
+  spectrumColumn: Float32Array | null;
+  spectralRange: { vMin: number; vMax: number };
   display: Uint8ClampedArray;
   structure: Uint8Array;
   segment: Uint8Array;
@@ -53,6 +61,18 @@ export class CineBuffer {
   capture(frame: CineFrame): void {
     this.frames[this.head] = {
       ...frame,
+      acquisition: {
+        ...frame.acquisition,
+        probe: { ...frame.acquisition.probe },
+        patient: { ...frame.acquisition.patient },
+        settings: { ...frame.acquisition.settings, tgcDb: [...frame.acquisition.settings.tgcDb] },
+        color: { ...frame.acquisition.color },
+        spectral: { ...frame.acquisition.spectral },
+        phaseMarks: { ...frame.acquisition.phaseMarks },
+      },
+      gate: frame.gate ? { ...frame.gate, lineStructures: [...frame.gate.lineStructures] } : null,
+      spectrumColumn: frame.spectrumColumn?.slice() ?? null,
+      spectralRange: { ...frame.spectralRange },
       display: frame.display.slice(),
       structure: frame.structure.slice(),
       segment: frame.segment.slice(),

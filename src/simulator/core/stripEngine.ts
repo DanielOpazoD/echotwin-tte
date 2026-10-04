@@ -95,6 +95,8 @@ export class StripEngine {
   private stripMmode: Uint8ClampedArray | null = null;
   private stripCols = 0;
   private stripHead = 0;
+  private acquisitionId = 0;
+  private headTimeS: number | undefined;
   private stripAccum = 0;
   private lastColumn: Float32Array | null = null;
   private stripKind: 'spectral' | 'm-mode' | null = null;
@@ -127,11 +129,17 @@ export class StripEngine {
 
   /** Reset on a modality or acquisition-calibration change; old columns must not acquire new units. */
   reset(): void {
+    this.acquisitionId++;
+    this.headTimeS = undefined;
     this.stripHead = 0;
     this.stripAccum = 0;
     this.stripKind = null;
     this.lastColumn = null;
     this.acquired = null;
+  }
+
+  get historyId(): number {
+    return this.acquisitionId;
   }
 
   get velocityRange(): { vMin: number; vMax: number } | null {
@@ -237,6 +245,8 @@ export class StripEngine {
         (this.stripCmm !== null) !== cmm ||
         (this.stripCmm !== null && this.stripCmm.length !== spec.samples * stripWidth));
     if (this.stripKind !== kind || this.stripCols !== stripWidth || needMmodeRealloc) {
+      this.acquisitionId++;
+      this.headTimeS = undefined;
       this.stripKind = kind;
       this.stripCols = stripWidth;
       this.stripHead = 0;
@@ -269,6 +279,7 @@ export class StripEngine {
       // each column at its own instant: the grain of the estimate lasts its duration, not the step (decision 115)
       this.sampleSpectralColumn(beam, spec, phase, col, ctx.timeS - tBack, ctx);
       this.stripPhase[col] = phase;
+      this.headTimeS = ctx.timeS - tBack;
       this.stripHead++;
     }
   }
@@ -338,6 +349,7 @@ export class StripEngine {
         columnSource(this.mmode, phases[i]!, bins >> 1);
       if (src)
         this.writeMmodeColumn(this.stripHead % this.stripCols, src, phases[i]!, pulses, spec, ctx);
+      this.headTimeS = ctx.timeS - (n - 1 - i + 0.5) / cps;
       this.stripHead++;
     }
   }
@@ -677,7 +689,7 @@ export class StripEngine {
       // flow direction at the gate over the cycle: use the instant of maximal speed so the angle does not depend on the frame.
       // It depends only on where the gate sits in the heart, so it is kept until the gate or the models change: sixteen
       // heart poses per composite were most of the cost of every strip frame.
-      const gateKey = `${hx.toFixed(5)},${hy.toFixed(5)},${hz.toFixed(5)}|${ctx.modelVersion}`;
+      const gateKey = `${hx.toFixed(5)},${hy.toFixed(5)},${hz.toFixed(5)}|${ctx.modelVersion}|${ctx.tablesVersion}`;
       if (this.gateFlow.key !== gateKey) {
         let best = 0;
         let bx = 0,
@@ -892,6 +904,8 @@ export class StripEngine {
         width: W,
         height: h,
         secondsPerColumn: spc,
+        acquisitionId: this.acquisitionId,
+        headTimeS: this.headTimeS,
         headColumn: head,
         columns: W,
         sweepSpeedMmPerS: acquired.spectral.sweepSpeedMmPerS,
@@ -929,6 +943,8 @@ export class StripEngine {
         width: W,
         height: h,
         secondsPerColumn: spc,
+        acquisitionId: this.acquisitionId,
+        headTimeS: this.headTimeS,
         headColumn: head,
         columns: W,
         sweepSpeedMmPerS: acquired.spectral.sweepSpeedMmPerS,

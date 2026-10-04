@@ -128,7 +128,7 @@ export function ecgLayoutOf(hud: SimOutput, modality: SimStore['modality']): Ecg
       y: hud.height - eh - 6,
       height: eh,
       spanS: st.secondsPerColumn * st.columns,
-      headS: hud.ecgHead,
+      headS: st.headTimeS ?? hud.ecgHead,
       sweep: { headColumn: st.headColumn, columns: st.columns },
     };
   }
