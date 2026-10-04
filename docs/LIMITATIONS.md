@@ -257,3 +257,7 @@ PW/CW/TDI conservan RR, fase y tablas del latido original al cruzar QRS. Se reti
 ## Interpretación clínica — decisión 288
 
 Los límites e′ consideran la edad y el algoritmo de FA conserva incertidumbre. Se usan valores nominales del modelo, no promedios de adquisiciones del alumno. Falta representar todas las exclusiones clínicas para habilitar la graduación general de LAP en ritmo sinusal; no se deduce grado clínico de MAC del parámetro geométrico. El cribado reducido de HP usa IT y dos signos disponibles; no es diagnóstico invasivo ni probabilidad clínica validada. Strain auricular y revisión clínica externa siguen pendientes.
+
+### Propagación espectral contemporánea (decisión 289)
+
+PW, CW y TDI consultan la misma escena a la fase adquirida, sin reutilizar la sombra de un cuadro B anterior. La integración sigue el haz central a intervalos de 1 mm y aplica un corte relativo de transmisión 0,02. No resuelve todavía la oclusión parcial de apertura ni potencia absoluta; CW conserva su estimador por histograma.

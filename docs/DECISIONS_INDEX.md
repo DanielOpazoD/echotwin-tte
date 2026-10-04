@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 288 (última: 288).
+Decisiones: 289 (última: 289).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -296,3 +296,4 @@ Decisiones: 288 (última: 288).
 | [286](DECISIONS.md#L1708) | 2026-10-04 | El tiempo de la tira no depende de cuántos espectros caben en un paso. | vigente |
 | [287](DECISIONS.md#L1724) | 2026-10-04 | La adquisición espectral conserva el contexto del latido de cada muestra. | vigente |
 | [288](DECISIONS.md#L1736) | 2026-10-04 | Edad, concordancia e incertidumbre comparten una interpretación clínica. | vigente |
+| [289](DECISIONS.md#L1749) | 2026-10-04 | CW consulta la propagación del instante adquirido, sin depender del último cuadro B. | vigente |
