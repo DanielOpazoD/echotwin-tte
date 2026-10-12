@@ -77,6 +77,26 @@ describe('heart surface meshes', () => {
     expect(agree / n).toBeGreaterThan(0.8);
   });
 
+  it('draws the RV free wall as one closed shell at the navigator grid, not a perforated one', () => {
+    // At 0.26 cm the 0.3-0.5 cm wall falls under a cell in places: extracted as it is, it broke into 21 pieces with holes
+    // between them over the front of the heart. Grown two cells into its cavity it is one shell (plus the moderator band
+    // and the papillary muscles inside it).
+    const rv = buildHeartMeshes(heart, pose, { stepCm: 0.26 }).find(
+      (g) => g.id === 'rv-myocardium',
+    )!;
+    const idx = rv.indices;
+    const parent = Int32Array.from({ length: rv.positions.length / 3 }, (_, i) => i);
+    const find = (x: number): number => (parent[x] === x ? x : (parent[x] = find(parent[x]!)));
+    for (let t = 0; t < idx.length; t += 3) {
+      const r = find(idx[t]!);
+      parent[find(idx[t + 1]!)] = r;
+      parent[find(idx[t + 2]!)] = r;
+    }
+    const pieces = new Set<number>();
+    for (let t = 0; t < idx.length; t++) pieces.add(find(idx[t]!));
+    expect(pieces.size).toBeLessThanOrEqual(4);
+  });
+
   it('is deterministic for the same heart and phase', () => {
     const again = buildHeartMeshes(heart, pose, { stepCm: 0.8, bounds });
     for (let i = 0; i < groups.length; i++) {
