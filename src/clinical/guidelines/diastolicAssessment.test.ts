@@ -26,7 +26,30 @@ describe('ASE 2025 separates dysfunction from filling pressure', () => {
     expect(assessDiastolic({ ...normal, eMps: 1.5, laviMlM2: 45 }).dysfunctionPresent).toBe(true);
     const relaxation = assessDiastolic({ ...normal, septalEPrimeCmps: 5, eOverA: 0.8 });
     expect(relaxation.dysfunctionPresent).toBe(true);
-    expect(relaxation.fillingPressure).toBe('not-assessed');
+    // dysfunction alone is not an elevated pressure: here the sinus algorithm reads it normal
+    expect(relaxation.fillingPressure).toBe('normal');
+  });
+  it('reads the sinus-rhythm LAP from E/A, then from the majority of E/e′, TR and LA volume', () => {
+    const reducedE = { ...normal, septalEPrimeCmps: 5, lateralEPrimeCmps: 7 };
+    // impaired relaxation: E/A ≤ 0.8 with E ≤ 50 cm/s
+    expect(assessDiastolic({ ...reducedE, eMps: 0.45, eOverA: 0.7 }).fillingPressure).toBe(
+      'normal',
+    );
+    // restrictive filling with reduced relaxation
+    expect(assessDiastolic({ ...reducedE, eMps: 0.95, eOverA: 2.4 }).fillingPressure).toBe(
+      'elevated',
+    );
+    // intermediate E/A: two of three criteria (E/e′ 0.95/6 = 15.8, LAVI 40) against TR 2.5
+    expect(
+      assessDiastolic({ ...reducedE, eMps: 0.95, eOverA: 1.2, laviMlM2: 40 }).fillingPressure,
+    ).toBe('elevated');
+    // LA size unusable and the two left disagree: indeterminate
+    expect(
+      assessDiastolic({ ...reducedE, eMps: 0.95, eOverA: 1.2, laSizeReliable: false })
+        .fillingPressure,
+    ).toBe('indeterminate');
+    // all three negative
+    expect(assessDiastolic({ ...normal, eMps: 0.6, eOverA: 1.2 }).fillingPressure).toBe('normal');
   });
   it('excludes LA size when unreliable and uses the age-specific relaxation limit', () => {
     const x = {

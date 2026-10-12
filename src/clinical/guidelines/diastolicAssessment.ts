@@ -20,7 +20,7 @@ export interface DiastolicInputs {
 export type FillingPressureAssessment = 'elevated' | 'normal' | 'indeterminate' | 'not-assessed';
 
 /**
- * ASE 2025 DOI 10.1016/j.echo.2025.03.011: Figure 2 (dysfunction), Figure 8 (AF LAP).
+ * ASE 2025 DOI 10.1016/j.echo.2025.03.011: Figure 2 (dysfunction), the sinus-rhythm LAP algorithm, Figure 8 (AF LAP).
  * Table 6 strict age-specific e′ limits are used. DD and elevated LAP are separate conclusions.
  * AF requires representative averages across beats clinically; synthetic inputs are nominal case values.
  */
@@ -78,8 +78,46 @@ export function assessDiastolic(input: DiastolicInputs) {
             : 'indeterminate';
     }
   }
-  // General sinus-rhythm LAP requires clinical exclusions not represented in the current case schema.
-  // Do not infer elevated LAP from the presence of dysfunction alone.
+  if (input.rhythm !== 'atrial-fibrillation') {
+    // Sinus rhythm, the core the 2025 algorithm keeps from 2016: E/A ≤ 0.8 with E ≤ 50 cm/s is a normal LAP; E/A ≥ 2
+    // with reduced relaxation an elevated one (a young heart with normal e′ fills that way too); in between, or E/A ≤ 0.8
+    // with a faster E, the majority of E/e′ > 14, TR > 2.8 m/s (or PASP > 35) and LA volume index > 34 (or reservoir
+    // strain ≤ 18 %) decides, and a tie of two available criteria is indeterminate. Clinical exclusions the case schema
+    // does not carry (mitral stenosis, prosthesis, severe annular calcification, constriction) are not applied.
+    const e = input.eMps * 100;
+    const ea = valid(input.eOverA) ? input.eOverA : null;
+    if (ea !== null && ea <= 0.8 && e <= 50) fillingPressure = 'normal';
+    else if (ea !== null && ea >= 2 && reduced) {
+      fillingPressure = 'elevated';
+      pressureEvidence.push('mitral-e-over-a');
+    } else {
+      const criteria: (boolean | null)[] = [
+        ee > 14,
+        valid(input.trMps) || valid(input.paspMmHg)
+          ? (valid(input.trMps) && input.trMps > 2.8) ||
+            (valid(input.paspMmHg) && input.paspMmHg > 35)
+          : null,
+        input.laSizeReliable && valid(input.laviMlM2)
+          ? input.laviMlM2 > 34
+          : valid(input.laReservoirStrainPct)
+            ? input.laReservoirStrainPct <= 18
+            : null,
+      ];
+      const names = ['average-e-over-e-prime', 'tr-or-pasp', 'la-volume-or-strain'];
+      criteria.forEach((c, i) => {
+        if (c === true) pressureEvidence.push(names[i]!);
+      });
+      const available = criteria.filter((c) => c !== null).length;
+      const positive = criteria.filter((c) => c === true).length;
+      const negative = available - positive;
+      fillingPressure =
+        available < 2 || positive === negative
+          ? 'indeterminate'
+          : positive > negative
+            ? 'elevated'
+            : 'normal';
+    }
+  }
   return {
     dysfunctionPresent,
     reducedRelaxation: reduced,
