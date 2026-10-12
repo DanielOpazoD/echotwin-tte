@@ -1,4 +1,4 @@
-import { extremeState } from '@/simulator/anatomy/anchors';
+import { extremeState, restAorticArch } from '@/simulator/anatomy/anchors';
 import { computeHeartPose } from '@/simulator/anatomy/heartModel';
 import { sceneClassifier } from '@/simulator/anatomy/sceneClassifier';
 import { makeSample, Tissue } from '@/simulator/anatomy/tissue';
@@ -504,9 +504,11 @@ export function subcostalFourChamber(
   return out;
 }
 
-/** The acquired plane passes through the real notch and two current anatomical landmarks.
- * It does not move anatomy or bypass the manubrium/lung classifiers. BSE adult minimum
- * dataset (Robinson et al. 2020, DOI 10.1530/ERP-20-0026): SSN arch and descending aorta.
+/** The acquired plane passes through the real notch and is fitted to the arch: its centre line, the proximal descending
+ * aorta and the origins of the supra-aortic trunks (decision 302). Aimed at the crest and the descending junction alone,
+ * it kept the descending aorta and the trunks at the edge of the slice. It does not move anatomy or bypass the
+ * manubrium/lung classifiers. BSE adult minimum dataset (Robinson et al. 2020, DOI 10.1530/ERP-20-0026): SSN arch and
+ * descending aorta.
  */
 const suprasternalCache = new WeakMap<
   HeartModel,
@@ -528,54 +530,117 @@ export function suprasternalPlane(heart: HeartModel, thorax: ThoraxModel) {
 function solveSuprasternalPlane(heart: HeartModel, thorax: ThoraxModel) {
   const landmarks = heartLandmarks(heart);
   const point = (id: string) => heartToTorso(heart.frame, landmarks.find((l) => l.id === id)!.p);
-  const crest = point('aortic-arch-crest'),
-    descending = point('arch-descending-junction');
-  const target = scale(add(crest, descending), 0.5);
+  const descending = point('arch-descending-junction');
+  // the arch's centre line from the distal ascending aorta to the proximal descending one (path points 8-48: the
+  // ascending tube ends at 16, the crest is 32, the descending junction 48), plus 1.5 cm of descending aorta below it
+  const geometry = restAorticArch(heart);
+  const path = geometry.arch;
+  const along = [8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48].map((i) =>
+    heartToTorso(heart.frame, path[i]!.p),
+  );
+  along.push({ ...descending, y: descending.y - 1.5 });
+  const ascending = along[1]!;
+  // what the fit keeps in the plane, with its weight: the arch's centre line, the proximal descending aorta (it runs
+  // away from the notch and leaves the slice first) and the origins of the three supra-aortic trunks
+  // weights: the arch 1, the proximal descending aorta 3 and the trunks' origins and first centimetre 3; the distal
+  // ascending aorta, which no plane through the notch reaches together with the trunks while the root axis points back
+  // (docs/LIMITATIONS.md), 0
+  const fitted: { p: Vec3; w: number }[] = [
+    ...along.map((p, i) => ({ p, w: i < 3 ? 0 : i >= along.length - 3 ? 3 : 1 })),
+    { p: { ...descending, y: descending.y - 3 }, w: 3 },
+    ...geometry.branches.flatMap((b) => [
+      { p: heartToTorso(heart.frame, b[0]!.p), w: 3 },
+      { p: heartToTorso(heart.frame, b[Math.min(b.length - 1, 4)]!.p), w: 3 },
+    ]),
+  ];
   const heartPose = computeHeartPose(heart, extremeState(heart, false));
   const classify = sceneClassifier({ heart, heartPose, thorax }),
     sample = makeSample();
-  // A bounded search inside the notch, analogous to choosing the accessible intercostal space.
+  const deg = Math.PI / 180;
+  // the plane through the beam's origin nearest the arch: the normal that minimises the weighted squared distances of
+  // the fitted points (a coarse then fine search over the sphere, as for the subcostal four-chamber plane)
+  const fitPlane = (origin: Vec3): Vec3 => {
+    const offsets = fitted.filter((f) => f.w > 0).map(({ p, w }) => ({ d: sub(p, origin), w }));
+    const cost = (theta: number, phi: number): number => {
+      const n = v3(
+        Math.sin(theta) * Math.cos(phi),
+        Math.sin(theta) * Math.sin(phi),
+        Math.cos(theta),
+      );
+      let sum = 0;
+      for (const { d, w } of offsets) sum += w * dot(d, n) ** 2;
+      return sum;
+    };
+    let fit = { c: Infinity, theta: 0, phi: 0 };
+    for (let t = 0; t <= 180; t += 4)
+      for (let f = 0; f < 360; f += 4) {
+        const c = cost(t * deg, f * deg);
+        if (c < fit.c) fit = { c, theta: t * deg, phi: f * deg };
+      }
+    const coarse = { ...fit };
+    for (let dt = -4; dt <= 4; dt += 0.5)
+      for (let df = -4; df <= 4; df += 0.5) {
+        const c = cost(coarse.theta + dt * deg, coarse.phi + df * deg);
+        if (c < fit.c) fit = { c, theta: coarse.theta + dt * deg, phi: coarse.phi + df * deg };
+      }
+    return v3(
+      Math.sin(fit.theta) * Math.cos(fit.phi),
+      Math.sin(fit.theta) * Math.sin(fit.phi),
+      Math.cos(fit.theta),
+    );
+  };
+  const originAt = (u: number, v: number): Vec3 =>
+    poseFromControl(thorax, { u, v, rotationDeg: 0, tiltDeg: 0, rockDeg: 0, pressure: 0.6 })
+      .position;
+  // A bounded search inside the notch, analogous to choosing the accessible intercostal space: each point's own plane,
+  // and the lung or bone on the way to the fitted points projected into it (what that plane's image would lose). The
+  // point used to be chosen on rays to fixed targets, before the plane, and the plane then crossed a clavicle or lung.
   // These are acquisition bounds (cm), not patient-specific notch measurements.
-  const targets = [crest, descending, { ...descending, y: descending.y - 1.5 }];
-  let bestCost = Infinity,
-    skin = { u: 0, v: 10.5 };
+  let best = { cost: Infinity, u: 0, v: 10.5, normal: v3(1, 0, 0), origin: originAt(0, 10.5) };
   for (const u of [0, -0.5, 0.5, -1, 1, -1.5, 1.5])
     for (const v of [10.5, 10, 11]) {
-      const origin = poseFromControl(thorax, {
-        u,
-        v,
-        rotationDeg: 0,
-        tiltDeg: 0,
-        rockDeg: 0,
-        pressure: 0.6,
-      }).position;
-      let blocked = 0;
-      for (const endpoint of targets) {
-        const delta = sub(endpoint, origin),
+      const origin = originAt(u, v);
+      const normal = fitPlane(origin);
+      let blocked = 0,
+        total = 0;
+      for (const { p, w } of fitted) {
+        if (w <= 0) continue;
+        const inPlane = sub(p, scale(normal, dot(sub(p, origin), normal)));
+        const delta = sub(inPlane, origin),
           distance = Math.hypot(delta.x, delta.y, delta.z),
           direction = scale(delta, 1 / distance);
+        total += w;
         for (let r = 0.05; r < distance; r += 0.1) {
-          const p = add(origin, scale(direction, r));
-          classify(p.x, p.y, p.z, sample);
+          const q = add(origin, scale(direction, r));
+          classify(q.x, q.y, q.z, sample);
           if (
             sample.tissue === Tissue.Lung ||
             sample.tissue === Tissue.Bone ||
             sample.tissue === Tissue.Spine
           ) {
-            blocked++;
+            blocked += w;
             break;
           }
         }
       }
-      const cost = blocked + 0.01 * (Math.abs(u) + Math.abs(v - 10.5));
-      if (cost < bestCost) {
-        bestCost = cost;
-        skin = { u, v };
-      }
+      const cost = blocked / total + 0.01 * (Math.abs(u) + Math.abs(v - 10.5));
+      if (cost < best.cost) best = { cost, u, v, normal, origin };
     }
-  const control = controlAimingAt(thorax, skin.u, skin.v, target, sub(descending, crest), 0.6);
+  const skin = { u: best.u, v: best.v },
+    origin = best.origin,
+    normal = best.normal;
+  // aimed at the arch's centre projected onto that plane, ascending aorta to the left of the screen and descending to
+  // the right, as the long axis of the arch is displayed
+  const centre = scale(
+    along.reduce((a, p) => add(a, p), v3(0, 0, 0)),
+    1 / along.length,
+  );
+  const aim = sub(centre, scale(normal, dot(sub(centre, origin), normal)));
+  const across = sub(descending, ascending);
+  const right = sub(across, scale(normal, dot(across, normal)));
+  const control = controlAimingAt(thorax, skin.u, skin.v, aim, right, 0.6);
   const beam = beamFrameFromPose(poseFromControl(thorax, control));
-  return { control, target, right: beam.lateral, down: beam.forward, normal: beam.normal };
+  return { control, target: aim, right: beam.lateral, down: beam.forward, normal: beam.normal };
 }
 
 /** Canonical probe control for a view target, computed from the case anatomy (for scoring/ghost only). */

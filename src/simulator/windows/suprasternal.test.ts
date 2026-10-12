@@ -36,11 +36,20 @@ describe('suprasternal acquisition', () => {
         return {
           arch: ids.filter((s) => s === Structure.AorticArch).length,
           descending: ids.filter((s) => s === Structure.DescendingAorta).length,
+          trunks: ids.filter(
+            (s) =>
+              s === Structure.BrachiocephalicArtery ||
+              s === Structure.LeftCommonCarotid ||
+              s === Structure.LeftSubclavian,
+          ).length,
         };
       };
       const ideal = counts();
       expect(ideal.arch).toBeGreaterThan(500);
-      expect(ideal.descending).toBeGreaterThan(60);
+      // decision 302: the plane fitted to the arch, the proximal descending aorta and the trunks keeps both in the slice
+      // (185-228 samples of descending aorta when it was aimed at the crest and the descending junction alone)
+      expect(ideal.descending).toBeGreaterThan(300);
+      expect(ideal.trunks).toBeGreaterThan(250);
       expect(first.view!.window).toBe('suprasternal');
       if (position === 'left-lateral') expect(first.view!.heartCoverage).toBeGreaterThan(0.1);
       expect(first.view!.shadowFraction).toBeLessThan(0.1);

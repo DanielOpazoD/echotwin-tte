@@ -288,6 +288,10 @@ La intrusión PH medida aumenta de 0,89/0,59 a **0,94/0,69 cm** (diástole/síst
 
 El área efectiva tricuspídea se resuelve para el balance nominal y se conserva al encadenar latidos. La onda de velocidad tricuspídea todavía reutiliza la forma E/A izquierda, con su adelanto de apertura y modulación respiratoria; se independiza el área, no se resuelve una diástole derecha individual desde presión auricular/ventricular. No es un área anatómica ni permite graduar estenosis. TR usa EROA constante y una envolvente empírica derivada de PASP−RAP; el volumen relativo integra entrada menos salidas sin corrección de cierre. No existe aún un circuito de presión–volumen con reservorios sistémico/pulmonar ni geometría absoluta del VD gobernada por ese balance. La eyección encadenada mantiene el límite de precarga 20–120 % del volumen latido nominal izquierdo.
 
+### Profundidad y orientación del arco en la vista supraesternal (decisión 302)
+
+El plano SSN se ajusta al arco, a la descendente proximal y a los troncos, pero la anatomía deja el arco demasiado posterior: desde la escotadura la cresta está a ≈ 10 cm y la descendente a ≈ 14,5 cm (en un adulto, 4–6 cm, en el tercio superior del sector). La ascendente distal queda 9,1 cm detrás de la piel anterior porque sigue el eje de la raíz inclinado hacia atrás (decisión 254); por eso la imagen muestra el arco «de lado» alrededor de la arteria pulmonaria derecha y no el bastón clásico con la ascendente a la izquierda, y la ascendente casi no entra en el plano. Corregirlo exige reorientar raíz, tracto de salida y arco.
+
 ### Mediastino superior y ventana supraesternal (decisión 294)
 
 La conexión entre mediastino superior y manguito descendente es una envolvente idealizada, sin dimensiones clínicas individuales. Corrige la interposición de pulmón profundo en el normal supino, pero no modela tráquea ni extensión cervical. La primera adquisición dirigida alcanza descendente suficiente en diez de doce casos; artefactos queda parcial y ventana difícil ausente. No se exige que toda ventana difícil sea buena ni se excluye pulmón por nombre de vista. Se requiere revisión experta de la topografía de cuello.
