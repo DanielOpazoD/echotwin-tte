@@ -266,14 +266,24 @@ export interface Landmark {
 
 const restArchCache = new WeakMap<HeartModel, AorticArchGeometry>();
 
-export function heartLandmarks(m: HeartModel): Landmark[] {
-  const A = anchorsCached(m);
+/** The aortic arch at rest (end diastole), heart frame: the path the landmarks and the suprasternal plane are read from. */
+export function restAorticArch(m: HeartModel): AorticArchGeometry {
   let geometry = restArchCache.get(m);
   if (!geometry) {
-    geometry = buildAorticArch(m, computeChamberPose(m, extremeState(m, false)), 1, A);
+    geometry = buildAorticArch(
+      m,
+      computeChamberPose(m, extremeState(m, false)),
+      1,
+      anchorsCached(m),
+    );
     restArchCache.set(m, geometry);
   }
-  const arch = geometry.arch;
+  return geometry;
+}
+
+export function heartLandmarks(m: HeartModel): Landmark[] {
+  const A = anchorsCached(m);
+  const arch = restAorticArch(m).arch;
   const L = m.lv.lengthCm;
   const a = m.lv.rMax * lvProfileG(m.lv.shape, 0.45) + 0.45, // mid-wall radius at the mid level
     b = a * m.lv.shape.ratio;
