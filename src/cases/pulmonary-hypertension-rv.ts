@@ -55,7 +55,9 @@ export const pulmonaryHypertensionRvCase: CaseDefinitionInput = {
   hemodynamics: {
     systolicBpMmHg: 115,
     diastolicBpMmHg: 72,
-    rapMmHg: 10,
+    // 15, as its dilated IVC with 20 % collapse reads by the ASE rule: with 10 the report's IVC-based RVSP (77 mmHg) and
+    // the truth (72) disagreed. PASP stays 72; the TR jet is √((72 − 15) / 4) = 3.77 m/s
+    rapMmHg: 15,
     paspMmHg: 72,
     avEffectiveAreaCm2: 2.8,
     trPresent: true,

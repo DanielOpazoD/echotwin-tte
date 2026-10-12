@@ -436,12 +436,17 @@ export function pathologyImpressions(t: StructuredEchoTruth): string[] {
   const diastolic = modelDiastolicAssessment(t);
   if (diastolic.dysfunctionPresent)
     out.push('Criterios del modelo compatibles con disfunción diastólica.');
-  if (diastolic.fillingPressure !== 'not-assessed') {
-    const label = { elevated: 'elevada', normal: 'normal', indeterminate: 'indeterminada' }[
-      diastolic.fillingPressure
-    ];
+  // a normal study stays silent: the pressure is named when it is abnormal or uncertain, or normal with dysfunction
+  const fp = diastolic.fillingPressure;
+  if (
+    fp === 'elevated' ||
+    fp === 'indeterminate' ||
+    (fp === 'normal' && diastolic.dysfunctionPresent)
+  ) {
+    const label = { elevated: 'elevada', normal: 'normal', indeterminate: 'indeterminada' }[fp];
+    const algorithm = t.rhythm === 'atrial-fibrillation' ? 'de FA' : 'de ritmo sinusal';
     out.push(
-      `Presión de llenado izquierda ${label} según el algoritmo de FA (ASE 2025), sobre valores nominales del modelo.`,
+      `Presión de llenado izquierda ${label} según el algoritmo ${algorithm} (ASE 2025), sobre valores nominales del modelo.`,
     );
   }
   if (t.la.volumeIndexMlM2 > 34)

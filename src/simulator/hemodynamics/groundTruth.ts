@@ -82,7 +82,7 @@ export interface StructuredEchoTruth {
   wallMotion: {
     /** 16-segment ids the case scores 2 or worse (its declared scores, never the simulation amplitude). */
     abnormalSegments: number[];
-    /** Declared score of segments 1–16 (index 0 = segment 1); a segment the case leaves alone is 1. */
+    /** Declared score of segments 1–16 (index 0 = segment 1); a segment the case leaves alone is 1, or 2 under global hypokinesis. */
     scores: WallMotionScore[];
     /** Wall-motion score index of the synthetic ground truth, where every segment is scored. */
     wmsi: number;
@@ -185,12 +185,15 @@ export function computeGroundTruth(c: CaseDefinition, tables?: BeatTables): Stru
   const rg = t.regurgitation;
   const mrCfg = c.hemodynamics.regurgitation.mr;
   const arCfg = c.hemodynamics.regurgitation.ar;
-  // the case's declared scores (decision 152): the amplitude is the mechanics, the score the reading it intends
+  // the case's declared scores (decision 152): the amplitude is the mechanics, the score the reading it intends. A ventricle
+  // with no regional abnormality and an EF under 40 % contracts uniformly weakly: every segment reads hypokinetic (global
+  // hypokinesis, WMSI 2.0), not normal as the HFrEF case did at EF 24 %, and none is a regional abnormality
+  const globalHypokinesis = c.anatomy.wallMotion.length === 0 && ef < 40;
   const scores = Array.from({ length: 16 }, (_, i): WallMotionScore => {
     const w = c.anatomy.wallMotion.find((x) => x.segment === i + 1);
-    return w?.score ?? 1;
+    return w?.score ?? (globalHypokinesis ? 2 : 1);
   });
-  const abnormal = scores.flatMap((s, i) => (s >= 2 ? [i + 1] : []));
+  const abnormal = globalHypokinesis ? [] : scores.flatMap((s, i) => (s >= 2 ? [i + 1] : []));
   // every segment is scored in the synthetic ground truth: the index of the tested consolidation, never a sum of our own
   const assessments = scores.map((s, i): SegmentAssessment => ({
     model: 'LV_16',
@@ -279,9 +282,11 @@ export function computeGroundTruth(c: CaseDefinition, tables?: BeatTables): Stru
       abnormalSegments: abnormal,
       scores,
       wmsi,
-      description: abnormal.length
-        ? `Alteración segmentaria en ${abnormal.length} segmento(s) del modelo de 16: ${abnormal.join(', ')}; índice de motilidad ${wmsi.toFixed(2).replace('.', ',')}`
-        : 'Motilidad segmentaria normal',
+      description: globalHypokinesis
+        ? `Hipocinesia global; índice de motilidad ${wmsi.toFixed(2).replace('.', ',')}`
+        : abnormal.length
+          ? `Alteración segmentaria en ${abnormal.length} segmento(s) del modelo de 16: ${abnormal.join(', ')}; índice de motilidad ${wmsi.toFixed(2).replace('.', ',')}`
+          : 'Motilidad segmentaria normal',
     },
     rv: {
       basalDiameterCm: c.anatomy.rv.basalDiameterCm,
