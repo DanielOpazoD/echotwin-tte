@@ -3,7 +3,7 @@
 // 703 kB, three 528 kB, workers 255/177 kB) after the navigator, the secondary screens and the backend
 // comparison moved to lazy chunks (engineering audit, B4); raise a budget only on purpose, in the same
 // change that explains the growth.
-import { readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 const DIST = join(process.cwd(), 'dist', 'assets');
@@ -29,7 +29,10 @@ const BUDGETS = [
   // pleura whose incidence comes from the neighbouring lines (decisions 218-222) to 128.1 kB, 127.3 kB once the comments
   // those shaders carried in the bundle were cut to their decision numbers; 132.0 kB at decision 227, and 114.8 kB since
   // the build strips the shaders' comments and indentation (decision 228), which leaves the budget 15 % above it
-  [/^webgl2Renderer-.*\.js$/, 132 * KB],
+  // Since the test hook left production builds, the backend comparison no longer shares the port, and Rollup folds the
+  // lazy core (simulatorCore, 80.5 kB) into this chunk: 204.1 kB, budgeted as the sum of the two former budgets (the
+  // E2E build still splits them, and is not budgeted)
+  [/^webgl2Renderer-.*\.js$/, (132 + 82) * KB],
   [/^heartMesh\.worker-.*\.js$/, 220 * KB],
   [/^(ReportScreen|CurriculumScreen|ProgressScreen|ReferencesScreen)-.*\.js$/, 80 * KB],
   // Decision 287: bounded beat history and timestamp context add 1.2 kB to the lazy core (80.5 kB).
@@ -64,6 +67,15 @@ console.log(
   `      total JS ${(total / KB).toFixed(1)} kB / ${(TOTAL_JS_BUDGET / KB).toFixed(0)} kB`,
 );
 if (total > TOTAL_JS_BUDGET) failed = true;
+// The test hook hands out the stores and the case's ground truth (src/main.tsx): only the dev server and the E2E build
+// (`npm run build:e2e`) may carry it. A production build that contains it lets a learner read the blind exam's answers.
+const hooked = files.filter((f) => readFileSync(join(DIST, f), 'utf8').includes('__echotwin'));
+if (hooked.length) {
+  console.error(
+    `bundle-budget: the test hook window.__echotwin is in ${hooked.join(', ')}; build with \`npm run build\`, not build:e2e`,
+  );
+  failed = true;
+}
 if (failed) {
   console.error('bundle-budget: over budget (tools/ci/bundle-budget.mjs)');
   process.exit(1);

@@ -109,6 +109,10 @@ jobs:
       # coste del trazador CPU frente a su línea base (decisión 247): falla si crece más de un 25 %
       - name: Coste del trazador CPU
         run: npx tsx tools/ci/tracer-budget.ts
+      # Los E2E manejan la app por window.__echotwin, que sólo instala la build de pruebas (src/main.tsx); la build de
+      # producción de arriba se comprueba sin él en el presupuesto de bundle.
+      - name: Build con el gancho de pruebas para los E2E
+        run: npm run build:e2e
       - uses: actions/upload-artifact@v4
         with:
           name: dist

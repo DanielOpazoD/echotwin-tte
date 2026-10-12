@@ -30,7 +30,7 @@ Si el archivo no existe, la prueba lo crea en lugar de fallar. Revisa el diff de
 npm test            # vitest run
 npm run check       # lint + typecheck + test + build
 ```
-`npm run test:e2e` arranca `vite preview` en 4173 sobre el último `dist/` (construye antes con `npx vite build`, regla 15 del método de fidelidad) y ejecuta las 46 pruebas de `e2e/` (`core-flow` 10, `gpu-equivalence` 26, `gpu-live` 4 sólo con GPU por hardware, `measurements` 4, `learning` 2; ~28 min); necesita `npx playwright install chromium`. `test-results/.last-run.json` guarda el resultado de la última ejecución local (hoy: `passed`).
+`npm run test:e2e` arranca `vite preview` en 4173 sobre el último `dist/` (construye antes con `npm run build:e2e`, que instala el gancho de pruebas; regla 15 del método de fidelidad) y ejecuta las 46 pruebas de `e2e/` (`core-flow` 10, `gpu-equivalence` 26, `gpu-live` 4 sólo con GPU por hardware, `measurements` 4, `learning` 2; ~28 min); necesita `npx playwright install chromium`. `test-results/.last-run.json` guarda el resultado de la última ejecución local (hoy: `passed`).
 
 ## Herramientas previstas y ausentes
 `npm run atlas:build` (`tools/offline/atlas-generation/build-atlas.ts [dirSalida] [casoId]`) renderiza el cine de 16 fases de cada vista canónica con el trazador procedimental (tier low) y escribe una hoja de contacto 4×4 por vista (`<casoId>-<vista>-cine.png`) para inspeccionar las anclas del atlas; **no** exporta un paquete de anclas cargable en la app. La validación contra PyMUST/OpenBCSim o una referencia CUDA no tiene herramientas en el repositorio (`tools/offline/` sólo contiene `atlas-generation`, `render` y `validation`). Ver `docs/THIRD_PARTY_REVIEW.md` para lo que se pensaba validar con PyMUST/OpenBCSim.

@@ -1,4 +1,5 @@
 import { constrainAcquisition } from '@/simulator/core/acquisitionInput';
+import { parsePrefs, pickPrefs } from './prefs';
 import { create } from 'zustand';
 import type { ProbeControl } from '@/simulator/probe/pose';
 import type { PatientState } from '@/simulator/anatomy/thoraxModel';
@@ -363,73 +364,16 @@ function loadPrefs(): Partial<UiPrefs> {
   try {
     const raw = localStorage.getItem(PREF_KEY);
     if (!raw) return {};
-    const prefs = JSON.parse(raw) as Partial<UiPrefs>;
-    // the view guide always starts hidden (decision 188): a save from before kept it open across sessions
-    delete prefs.guidanceOpen;
-    return prefs;
+    // validated key by key (prefs.ts): a stale or edited entry cannot put arbitrary keys or types into `ui`. The view
+    // guide is not persisted, so it always starts hidden (decision 188)
+    return parsePrefs(JSON.parse(raw));
   } catch {
     return {};
   }
 }
 function savePrefs(ui: UiPrefs): void {
   try {
-    const {
-      showTorso,
-      showSkeleton,
-      showHints,
-      showEcg,
-      tutorialDone,
-      showHud,
-      navSkin,
-      navHeart,
-      navChambers,
-      navValves,
-      navVessels,
-      navAxes,
-      navCut,
-      navWindows,
-      navSplit,
-      navLabels,
-      navSegments,
-      imageSegments,
-      segmentsOpen,
-      segmentModel,
-      reviewFreezeOnMark,
-      railMini,
-      minimal,
-      roomMode,
-      consoleTab,
-    } = ui;
-    localStorage.setItem(
-      PREF_KEY,
-      JSON.stringify({
-        showTorso,
-        showSkeleton,
-        showHints,
-        showEcg,
-        tutorialDone,
-        showHud,
-        navSkin,
-        navHeart,
-        navChambers,
-        navValves,
-        navVessels,
-        navAxes,
-        navCut,
-        navWindows,
-        navSplit,
-        navLabels,
-        navSegments,
-        imageSegments,
-        segmentsOpen,
-        segmentModel,
-        reviewFreezeOnMark,
-        railMini,
-        minimal,
-        roomMode,
-        consoleTab,
-      }),
-    );
+    localStorage.setItem(PREF_KEY, JSON.stringify(pickPrefs(ui)));
   } catch {
     /* storage unavailable */
   }

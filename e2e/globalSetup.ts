@@ -1,4 +1,22 @@
 import { loadavg, cpus } from 'node:os';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+
+/**
+ * The suite drives the app through window.__echotwin, which only the E2E build installs (src/main.tsx). Against a
+ * production build every test would time out waiting for a hook that is not there, so say so once, up front.
+ */
+function assertTestHooks(): void {
+  const dir = join(process.cwd(), 'dist', 'assets');
+  let files: string[];
+  try {
+    files = readdirSync(dir).filter((f) => f.endsWith('.js'));
+  } catch {
+    throw new Error('e2e: dist/ not found; run `npm run build:e2e` first');
+  }
+  if (!files.some((f) => readFileSync(join(dir, f), 'utf8').includes('__echotwin')))
+    throw new Error('e2e: dist/ was built without the test hook; run `npm run build:e2e`');
+}
 
 /**
  * The E2E suite runs the simulator on a software WebGL renderer with tight budgets (frames within 30 s, GPU
@@ -9,6 +27,7 @@ import { loadavg, cpus } from 'node:os';
  * CPU count, i.e. clearly beyond "busy"), reporting what it is waiting for; then it runs whatever the load is.
  */
 export default async function globalSetup(): Promise<void> {
+  assertTestHooks();
   const maxLoad = Number(process.env['E2E_MAX_LOAD'] ?? 6 * cpus().length);
   const waitMin = Number(process.env['E2E_LOAD_WAIT_MIN'] ?? 20);
   const deadline = Date.now() + waitMin * 60_000;
