@@ -52,6 +52,13 @@ type GroupSpec = {
   color: number;
   opacity: number;
   has: (s: Structure, t: Tissue) => boolean;
+  /**
+   * For a wall thinner than the grid: the structures the mesh may grow into, `cells` deep, from the side facing them.
+   * The extracted surface on that side moves inward by as much; the outer (epicardial) surface stays where it is.
+   */
+  thicken?: { into: (s: Structure) => boolean; cells: number };
+  /** Laplacian passes for this group, over the default. */
+  smoothing?: number;
 };
 
 const isLvWall = (s: Structure): boolean =>
@@ -71,12 +78,18 @@ export const MESH_GROUPS: GroupSpec[] = [
     has: (s) => isLvWall(s) || s === Structure.PapillaryMuscle,
   },
   {
+    // The RV free wall is 0.3-0.5 cm thick, one or two cells of the navigator's 0.26 cm grid: extracted as it is, it
+    // came out as a purple shell perforated where the wall falls under a cell, over the front of the heart only. It
+    // is meshed two cells deeper into its own cavity, so its epicardium is closed and smooth, smoothed more, and drawn
+    // in the muscle tone of the LV so the heart reads as one surface. The ultrasound image does not use this mesh.
     id: 'rv-myocardium',
     label: 'Miocardio VD',
-    color: 0x9a5f8a,
+    color: 0xb84f4c,
     opacity: 1,
     has: (s) =>
       s === Structure.RvWall || s === Structure.ModeratorBand || s === Structure.RvPapillary,
+    thicken: { into: (s) => s === Structure.RvCavity || s === Structure.Rvot, cells: 2 },
+    smoothing: 4,
   },
   {
     id: 'lv-cavity',
@@ -234,7 +247,7 @@ function extractMeshes(
       nz,
       b.min,
       step,
-      opts.smoothing ?? 2,
+      g.smoothing ?? opts.smoothing ?? 2,
       g.id === 'lv-myocardium' ? segs : null,
     ),
   );
@@ -255,6 +268,29 @@ function surfaceNet(
   const inside = new Uint8Array(nx * ny * nz);
   for (let o = 0; o < ids.length; o++)
     inside[o] = g.has(ids[o] as Structure, tissues[o] as Tissue) ? 1 : 0;
+  if (g.thicken) {
+    // grow the wall into the structures it lines, one cell per pass, from the cells already inside
+    const grow = new Uint8Array(inside.length);
+    for (let pass = 0; pass < g.thicken.cells; pass++) {
+      grow.fill(0);
+      for (let k = 1; k < nz - 1; k++)
+        for (let j = 1; j < ny - 1; j++)
+          for (let i = 1; i < nx - 1; i++) {
+            const o = (k * ny + j) * nx + i;
+            if (inside[o] || !g.thicken.into(ids[o] as Structure)) continue;
+            if (
+              inside[o - 1] ||
+              inside[o + 1] ||
+              inside[o - nx] ||
+              inside[o + nx] ||
+              inside[o - nx * ny] ||
+              inside[o + nx * ny]
+            )
+              grow[o] = 1;
+          }
+      for (let o = 0; o < inside.length; o++) if (grow[o]) inside[o] = 1;
+    }
+  }
   const at = (i: number, j: number, k: number): number => inside[(k * ny + j) * nx + i] ?? 0;
   const cellVertex = new Int32Array((nx - 1) * (ny - 1) * (nz - 1)).fill(-1);
   const pos: number[] = [];
