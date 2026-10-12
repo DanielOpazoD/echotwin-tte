@@ -166,9 +166,9 @@ describe('buildEducationalReport', () => {
 
   it('grades the aortic stenosis of the model in the impression', () => {
     const severe = buildEducationalReport([], truthOf('aortic-stenosis-severe'), false);
-    expect(severe.impression.some((l) => /estenosis aórtica severa/.test(l))).toBe(true);
+    expect(severe.impression.some((l) => /estenosis aórtica severa/i.test(l))).toBe(true);
     const moderate = buildEducationalReport([], truthOf('aortic-stenosis-moderate'), false);
-    expect(moderate.impression.some((l) => /estenosis aórtica moderada/.test(l))).toBe(true);
+    expect(moderate.impression.some((l) => /estenosis aórtica moderada/i.test(l))).toBe(true);
     const sclerosis = buildEducationalReport(
       [],
       { ...normal, aorticValve: { ...normal.aorticValve, vmaxMps: 2.4 } },
@@ -362,7 +362,7 @@ describe('pathologyImpressions', () => {
     expect(has(lines('af-diastolic'), /^Fibrilación auricular: sin onda A/)).toBe(true);
   });
 
-  it('grades regurgitations by orifice area and flags eccentric jets', () => {
+  it('grades regurgitations by the criteria that agree (ASE/EACVI 2017) and flags eccentric jets', () => {
     const base = truthOf('mvp-primary-mr');
     const mr = base.regurgitation.mr;
     if (!mr) throw new Error('mvp case must model MR');
@@ -373,9 +373,24 @@ describe('pathologyImpressions', () => {
     expect(has(severe, /^Insuficiencia mitral severa .*, chorro excéntrico\.$/)).toBe(true);
     const mild = pathologyImpressions({
       ...base,
-      regurgitation: { ...base.regurgitation, mr: { ...mr, eroaCm2: 0.1, jetDirectionDeg: 0 } },
+      regurgitation: {
+        ...base.regurgitation,
+        mr: {
+          ...mr,
+          eroaCm2: 0.1,
+          regurgitantVolumeMl: 15,
+          regurgitantFractionPct: 15,
+          jetDirectionDeg: 0,
+        },
+      },
     });
     expect(has(mild, /^Insuficiencia mitral leve /)).toBe(true);
+    // a small orifice whose volume and fraction are severe is not mild (it was, graded on the orifice alone)
+    const smallOrifice = pathologyImpressions({
+      ...base,
+      regurgitation: { ...base.regurgitation, mr: { ...mr, eroaCm2: 0.15, jetDirectionDeg: 0 } },
+    });
+    expect(has(smallOrifice, /^Insuficiencia mitral leve /)).toBe(false);
     expect(has(mild, /excéntrico/)).toBe(false);
     const ar = pathologyImpressions({
       ...normal,

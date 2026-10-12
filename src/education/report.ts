@@ -1,5 +1,11 @@
 import { modelDiastolicAssessment, modelPulmonaryAssessment } from './modelInterpretation';
 import { rangeFlag, rangeText } from '@/clinical/guidelines/normalRanges';
+import {
+  efCategory,
+  gradeAorticStenosis,
+  gradeMitralRegurgitation,
+} from '@/clinical/guidelines/valveGrading';
+import { aorticStenosisInput } from './impression';
 import type { Measurement } from '@/simulator/measurements/types';
 import type { StructuredEchoTruth } from '@/simulator/hemodynamics/groundTruth';
 import {
@@ -115,25 +121,15 @@ export function buildEducationalReport(
     );
   else if (truth) {
     impression.push(
-      `FEVI del modelo ${formatClinical(truth.lv.efPct, 'percent')}; ${truth.lv.efPct >= 52 ? 'función sistólica conservada' : 'función sistólica reducida'}.`,
+      `FEVI del modelo ${formatClinical(truth.lv.efPct, 'percent')}; ${efCategory(truth.lv.efPct, truth.sex) === 'normal' ? 'función sistólica conservada' : 'función sistólica reducida'}.`,
     );
-    const R = AORTIC_STENOSIS_RULES;
-    const av = truth.aorticValve;
-    if (
-      av.vmaxMps >= R.severeVmax.value ||
-      av.meanGradientMmHg >= R.severeMeanGradient.value ||
-      av.continuityAvaCm2 <= R.severeAva.value
-    )
-      impression.push(
-        `Criterios hemodinámicos de estenosis aórtica severa (Vmax ≥ ${R.severeVmax.value} m/s, gradiente medio ≥ ${R.severeMeanGradient.value} mmHg o AVA ≤ ${R.severeAva.value} cm²; ${R.severeVmax.referenceId}).`,
-      );
-    else if (av.vmaxMps >= R.moderateVmax.value.lo)
-      impression.push(
-        `Criterios hemodinámicos de estenosis aórtica moderada (${R.moderateVmax.referenceId}).`,
-      );
-    else if (av.vmaxMps >= 2.0)
-      impression.push('Esclerosis aórtica / estenosis leve (Vmax 2–3 m/s).');
-    else impression.push('Sin estenosis aórtica significativa.');
+    // integrative grading (ASE/EACVI 2017, valveGrading.ts): one criterion alone no longer decides a severe stenosis
+    const as = gradeAorticStenosis(aorticStenosisInput(truth));
+    impression.push(
+      as.grade === 'none' || as.grade === 'mild'
+        ? as.rationale
+        : `${as.rationale.replace(/\.$/, '')} (${AORTIC_STENOSIS_RULES.severeVmax.referenceId}).`,
+    );
     impression.push(...pathologyImpressions(truth));
   }
   return { studyQuality, rows, derived, impression };
@@ -389,7 +385,10 @@ export function pathologyImpressions(t: StructuredEchoTruth): string[] {
   if (t.wallMotion.abnormalSegments.length) out.push(`${t.wallMotion.description}.`);
   const mr = t.regurgitation.mr;
   if (mr) {
-    const grade = mr.eroaCm2 >= 0.4 ? 'severa' : mr.eroaCm2 >= 0.2 ? 'moderada' : 'leve';
+    // ERO, regurgitant volume and fraction: the grade at least two agree on (ASE/EACVI 2017)
+    const grade = { none: 'trivial', mild: 'leve', moderate: 'moderada', severe: 'severa' }[
+      gradeMitralRegurgitation(mr)
+    ];
     out.push(
       `Insuficiencia mitral ${grade} (ORE ${mr.eroaCm2.toFixed(2)} cm², volumen regurgitante ${mr.regurgitantVolumeMl.toFixed(0)} mL, fracción ${mr.regurgitantFractionPct.toFixed(0)} %)${Math.abs(mr.jetDirectionDeg) > 15 ? ', chorro excéntrico' : ''}.`,
     );
