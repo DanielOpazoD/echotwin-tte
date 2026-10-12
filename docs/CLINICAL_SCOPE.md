@@ -42,7 +42,7 @@ La pose canónica de cada vista se **deriva de la anatomía del caso** (plano en
 | `subcostal-4c` | subcostal | cuatro cámaras a través del hígado |
 | `subcostal-ivc` | subcostal | VCI, vena hepática, AD |
 
-La ventana supraesternal no existe: la aorta termina a 6,5 cm sin arco. Las ventanas se detectan por posición de la sonda (`windowFromSkin`).
+La ventana supraesternal tiene una vista, `suprasternal-arch` (ver abajo), con límites de acceso en supino documentados en `docs/LIMITATIONS.md`. Las ventanas se detectan por posición de la sonda (`windowFromSkin`).
 
 ## Anatomía y fisiología representadas
 
@@ -59,7 +59,7 @@ La ventana supraesternal no existe: la aorta termina a 6,5 cm sin arco. Las vent
 
 | Ausente | Estado en el código |
 |---|---|
-| Ventana supraesternal (arco aórtico, troncos supraaórticos) | No existe: la aorta termina a 6,5 cm |
+| Ventana supraesternal (arco aórtico, troncos supraaórticos) | Parcial: arco y descendente en los doce casos en decúbito lateral; sin extensión cervical, tráquea ni validación Doppler (decisiones 282 y 294) |
 | Estenosis mitral, prótesis valvulares, congénitas, endocarditis/masas | No modeladas |
 | Strain, 3D/4D, modo M anatómico, contraste ecocardiográfico | No existen |
 | Extrasístoles | `pvcProbability` se valida en el esquema y se ignora |

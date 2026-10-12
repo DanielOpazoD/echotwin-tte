@@ -236,3 +236,34 @@ describe('the repository names its current home (decision 249)', () => {
     );
   });
 });
+
+/**
+ * ASSET_LICENSES.md said «tres casos», that Playwright had no tests, that the fonts were neither bundled nor downloaded
+ * and that the project had no licence, long after the code had twelve cases, fourteen E2E files, self-hosted OFL fonts
+ * and an MIT LICENSE. The facts it states about the code are checked here.
+ */
+describe('ASSET_LICENSES.md stays in sync with the code', () => {
+  const LICENSES = read('ASSET_LICENSES.md');
+  const pkg = JSON.parse(read('package.json')) as {
+    license?: string;
+    dependencies: Record<string, string>;
+  };
+  it('states the number of cases and of E2E files', () => {
+    expect(LICENSES).toContain(`los ${CASE_INPUTS.length} casos`);
+    const specs = readdirSync(join(ROOT, 'e2e')).filter((f) => f.endsWith('.spec.ts')).length;
+    expect(LICENSES).toContain(`${specs} archivos en \`e2e/\``);
+  });
+  it('lists every runtime dependency with the exact version package.json pins', () => {
+    for (const [name, version] of Object.entries(pkg.dependencies)) {
+      expect(version, `${name} is pinned`).toMatch(/^\d+\.\d+\.\d+$/);
+      const row = LICENSES.split('\n').find((l) => l.startsWith('|') && l.includes(name));
+      expect(row, `${name} has a row`).toBeDefined();
+      expect(row, `${name} row states ${version}`).toContain(version);
+    }
+  });
+  it('names the licence the project declares', () => {
+    expect(pkg.license).toBe('MIT');
+    expect(read('LICENSE')).toMatch(/^MIT License/);
+    expect(LICENSES).toContain('MIT');
+  });
+});

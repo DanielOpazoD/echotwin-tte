@@ -4,7 +4,7 @@
 El motor **mide**, nunca «encaja» la vista: compara la pose actual con la **pose canónica alcanzable** de cada `ViewTarget` de la ventana y comprueba la presencia de referencias anatómicas contra el mismo modelo que renderiza. La pose canónica (`canonicalBeam`, cacheada por corazón/vista/tórax) es la que `canonicalControl` resuelve para esta anatomía desde un punto de piel ajustado al centro del espacio intercostal (`snapToIntercostal`), no el plano anatómico ideal: así el 100 es alcanzable por un operador real en este tórax. Corre en el worker cada 5 cuadros renderizados; el resultado viaja en `SimOutput.view`.
 
 ### Ventana
-`windowFromSkin(u, v)`: `v > 8` → supraesternal; `v < −7,5` → subcostal; `0 ≤ u < 5,2` y `v > −2,5` → paraesternal; `u ≥ 4,2` y `v ≤ 0,5` → apical; si no, `none`. Sólo paraesternal y apical tienen vistas; en las demás el score es 0 con un hint.
+`windowFromSkin(u, v)`: `v > 8` → supraesternal; `v < −7,5` → subcostal; `0 ≤ u < 5,2` y `v > −2,5` → paraesternal; `u ≥ 4,2` y `v ≤ 0,5` → apical; si no, `none`. Las cuatro ventanas tienen vistas (paraesternal, apical, subcostal y supraesternal); fuera de ellas el score es 0 con un hint.
 
 ### Componentes y pesos
 | Componente | Peso | Cálculo (0–1) |
