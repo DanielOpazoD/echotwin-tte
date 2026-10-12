@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildExamSummary, scoreAcquisition, scoreMeasurements } from './scoring';
-import { loadCaseById } from '@/cases';
+import { CASE_INPUTS, loadCaseById } from '@/cases';
 import { modePolicy } from '@/app/modePolicy';
 import { computeGroundTruth } from '@/simulator/hemodynamics/groundTruth';
 import type { Measurement } from '@/simulator/measurements/types';
@@ -84,6 +84,32 @@ describe('scoring (spec 28)', () => {
     );
     expect(chosen.rows.find((r) => r.measurementId === 'lvot-diameter')!.points).toBe(100);
     expect(chosen.rows.find((r) => r.measurementId === 'av-vmax')!.measured).toBeNull();
+  });
+  it('every required measurement of every case is scored: none drops out of the total unseen', () => {
+    for (const input of CASE_INPUTS) {
+      const kase = loadCaseById(input.id);
+      const kTruth = computeGroundTruth(kase);
+      const rows = scoreMeasurements(kase, kTruth, []).rows;
+      expect(
+        rows.map((r) => r.measurementId),
+        input.id,
+      ).toEqual(kase.requiredMeasurements.map((r) => r.measurementId));
+      // with nothing measured each one counts as zero, so an empty exam scores zero, not 100
+      expect(rows.every((r) => r.points === 0)).toBe(true);
+    }
+  });
+  it('a required measurement outside the old hand list (TAPSE, Simpson, e′) is matched and graded', () => {
+    const ph = loadCaseById('pulmonary-hypertension-rv');
+    const phTruth = computeGroundTruth(ph);
+    const tapse = phTruth.rightHeart.tapseCm;
+    const exact = scoreMeasurements(ph, phTruth, [
+      m({ kind: 'linear', value: tapse, measurementId: 'tapse', modality: 'm-mode' }),
+    ]);
+    expect(exact.rows.find((r) => r.measurementId === 'tapse')!.points).toBe(100);
+    const off = scoreMeasurements(ph, phTruth, [
+      m({ kind: 'linear', value: tapse * 1.6, measurementId: 'tapse', modality: 'm-mode' }),
+    ]);
+    expect(off.rows.find((r) => r.measurementId === 'tapse')!.points).toBeLessThan(100);
   });
   it('exam summary is reproducible and lists omissions and recommendations', () => {
     const a = buildExamSummary(c, truth, { plax: 88 }, []);
