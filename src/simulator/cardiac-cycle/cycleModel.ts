@@ -45,6 +45,8 @@ export interface BeatTables {
   mvEffectiveAreaCm2: number; // solved so that ∫Q_mv = SV with the requested E and A peak velocities
   /** Regurgitant flows (mL/s) through the mitral (systole) and aortic (diastole) valves; zero when absent. */
   mrFlowMlps: Float32Array;
+  /** Vena contracta velocity (m/s) of the MR jet where it flows, zero elsewhere: the flow over the orifice open at that time. */
+  mrVelocityMps: Float32Array;
   arFlowMlps: Float32Array;
   regurgitation: {
     mrVolumeMl: number;
@@ -164,6 +166,7 @@ export function buildBeatTables(
   // set by the arterial pressure alone, so it lasted 314–339 ms instead of the 400–475 ms from closure to opening, and in
   // the obstructive cardiomyopathy it read 5.24 m/s where the ventricle pushes against a 64 mmHg outflow gradient too.
   const mrFlow = new Float32Array(n);
+  const mrVelocity = new Float32Array(n);
   const arFlow = new Float32Array(n);
   const mr = hemo.regurgitation.mr;
   const ar = hemo.regurgitation.ar;
@@ -193,17 +196,42 @@ export function buildBeatTables(
     const tail = Math.exp(-ivr / LV_RELAXATION_TAU_S);
     return lap + ((pEs - lap) * (Math.exp(-s / LV_RELAXATION_TAU_S) - tail)) / (1 - tail);
   };
+  // Fraction of the case's orifice open at time t (decision 297). A central or prolapse jet leaks from mitral closure to
+  // opening through the whole orifice. A jet made by systolic anterior motion leaks only while the leaflet is drawn into
+  // the outflow tract, with the late-peaking narrowing of the dynamic obstruction: through all of systole it carried 30 mL
+  // (RF 42 %) for an orifice of 0.15 cm² the case calls mild, and left a forward stroke volume index of 20 mL/m².
+  // A functional jet (tethered leaflets) is widest early and late in systole and narrowest at the pressure peak, when the
+  // ventricle's own force closes it best (Schwammenthal 1994; Hung 1999): about half the orifice at mid-systole.
+  const samJet = mr?.timing === 'sam';
+  const functionalJet = mr?.timing === 'functional';
+  const mrSpanS = Math.max(1e-3, timings.mitralOpenS - SYSTOLIC_CLOSURE_S);
+  const orificeOpen = (t: number): number => {
+    if (functionalJet) {
+      const x = Math.min(1, Math.max(0, (t - SYSTOLIC_CLOSURE_S) / mrSpanS));
+      return 1 - 0.5 * Math.sin(Math.PI * x);
+    }
+    if (!samJet) return 1;
+    if (t <= timings.ejectionStartS || t >= timings.ejectionEndS) return 0;
+    return opts.outflow?.dynamicObstruction
+      ? lvotNarrowing(1, true, (t - timings.ejectionStartS) / et)
+      : 1;
+  };
   let mrVmax = 0,
-    mrVti = 0;
+    mrVti = 0,
+    mrEffVti = 0; // ∫ open fraction · v dt (cm): regurgitant volume = ERO × this
   const fillMr = (gradient: (t: number) => number): void => {
     mrVmax = 0;
     mrVti = 0;
+    mrEffVti = 0;
     if (!mr || mr.eroaCm2 <= 0) return;
     for (let i = 0; i < n; i++) {
       const t = (i + 0.5) * dt;
-      const v = Math.sqrt(Math.max(0, lvPressure(t, gradient) - lap) / 4);
-      mrFlow[i] = v * 100 * mr.eroaCm2;
+      const f = orificeOpen(t);
+      const v = f > 0 ? Math.sqrt(Math.max(0, lvPressure(t, gradient) - lap) / 4) : 0;
+      mrFlow[i] = v * 100 * mr.eroaCm2 * f;
+      mrVelocity[i] = v;
       mrVti += v * 100 * dt;
+      mrEffVti += f * v * 100 * dt;
       mrVmax = Math.max(mrVmax, v);
     }
   };
@@ -224,7 +252,7 @@ export function buildBeatTables(
   let shapeInt = 0;
   for (let i = 0; i < 400; i++) shapeInt += ejectionShape((i + 0.5) / 400) * (et / 400);
   if (mr && mr.eroaCm2 > 0) {
-    const kFirst = Math.max(5, svTotal - mr.eroaCm2 * mrVti) / shapeInt;
+    const kFirst = Math.max(5, svTotal - mr.eroaCm2 * mrEffVti) / shapeInt;
     const aorticFirst = new Float32Array(n);
     for (let i = 0; i < n; i++) {
       const t = (i + 0.5) * dt;
@@ -257,14 +285,18 @@ export function buildBeatTables(
   }
   // a beat cannot regurgitate more than it ejects: a short beat of atrial fibrillation that filled little lost to the
   // regurgitation computed from pressure alone more than it held, and its volume no longer closed
-  if (mrVmax > 0 && mr!.eroaCm2 * mrVti > svTotal - MIN_FORWARD_ML) {
-    const k = Math.max(0, svTotal - MIN_FORWARD_ML) / (mr!.eroaCm2 * mrVti);
-    for (let i = 0; i < n; i++) mrFlow[i] = (mrFlow[i] ?? 0) * k;
+  if (mrVmax > 0 && mr!.eroaCm2 * mrEffVti > svTotal - MIN_FORWARD_ML) {
+    const k = Math.max(0, svTotal - MIN_FORWARD_ML) / (mr!.eroaCm2 * mrEffVti);
+    for (let i = 0; i < n; i++) {
+      mrFlow[i] = (mrFlow[i] ?? 0) * k;
+      mrVelocity[i] = (mrVelocity[i] ?? 0) * k;
+    }
     mrVti *= k;
+    mrEffVti *= k;
     // a beat that holds little drives the jet with a lower pressure: its speed falls with its volume
     mrVmax *= k;
   }
-  const rvolMr = mrVmax > 0 ? mr!.eroaCm2 * mrVti : 0;
+  const rvolMr = mrVmax > 0 ? mr!.eroaCm2 * mrEffVti : 0;
   const rvolAr = arVmax > 0 ? ar!.eroaCm2 * arVti : 0;
   // forward (aortic) ejection = total − MR; mitral inflow = total − AR (the AR volume enters through the aorta)
   const sv = Math.max(MIN_FORWARD_ML, svTotal - rvolMr);
@@ -652,6 +684,7 @@ export function buildBeatTables(
     trFlowMlps: tr.flowMlps,
     mvEffectiveAreaCm2: mvArea * scaleMv,
     mrFlowMlps: mrFlow,
+    mrVelocityMps: mrVelocity,
     arFlowMlps: arFlow,
     regurgitation: {
       mrVolumeMl: rvolMr,

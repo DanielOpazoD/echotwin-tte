@@ -42,6 +42,7 @@ export const KNOWN_SETS: readonly {
   { file: 'src/simulator/core/mmodeStrip.test.ts', name: 'KNOWN_TEXTURE_LIMITATIONS' },
   { file: 'src/simulator/renderer/nearFieldClutter.test.ts', name: 'KNOWN_RV_EXCESS' },
   { file: 'src/simulator/renderer/papillaryEcho.test.ts', name: 'KNOWN_DIM_PAPILLARY' },
+  { file: 'src/simulator/doppler/flowContinuity.test.ts', name: 'KNOWN_INFLOW_FLUX' },
   {
     file: 'src/simulator/renderer/clinicalImage.test.ts',
     name: 'KNOWN_DEVIATIONS',

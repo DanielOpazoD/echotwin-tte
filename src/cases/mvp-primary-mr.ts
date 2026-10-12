@@ -43,8 +43,8 @@ export const mvpPrimaryMrCase: CaseDefinitionInput = {
   },
   physiology: {
     ...normalExcellentCase.physiology,
-    edvMl: 165,
-    esvMl: 58,
+    edvMl: 180,
+    esvMl: 60,
     mapseCm: 1.5,
     ePeakMps: 1.2,
     aPeakMps: 0.55,
@@ -93,7 +93,7 @@ export const mvpPrimaryMrCase: CaseDefinitionInput = {
     },
   ],
   impressionTruth: [
-    'Prolapso de la valva posterior mitral con insuficiencia mitral primaria excéntrica (dirigida anteromedialmente) severa: ORE ≈ 0,45 cm², volumen regurgitante ≈ 78 mL y fracción regurgitante ≈ 73 % (umbrales de severidad 0,40 cm², 60 mL y 50 %).',
+    'Prolapso de la valva posterior mitral con insuficiencia mitral primaria excéntrica (dirigida anteromedialmente) severa: ORE ≈ 0,45 cm², volumen regurgitante ≈ 78 mL y fracción regurgitante ≈ 65 % (umbrales de severidad 0,40 cm², 60 mL y 50 %).',
     'Ventrículo izquierdo dilatado e hiperdinámico (FEVI ≈ 65 %) por sobrecarga de volumen; aurícula izquierda severamente dilatada.',
     'Presión sistólica pulmonar levemente elevada.',
   ],

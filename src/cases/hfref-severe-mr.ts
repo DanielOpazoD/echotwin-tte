@@ -42,8 +42,8 @@ export const hfrefSevereMrCase: CaseDefinitionInput = {
     ivc: { diameterCm: 2.2, collapsePct: 55 },
   },
   physiology: {
-    edvMl: 250,
-    esvMl: 190,
+    edvMl: 270,
+    esvMl: 205,
     mapseCm: 0.6,
     tapseCm: 1.6,
     ePeakMps: 0.95,
@@ -63,7 +63,7 @@ export const hfrefSevereMrCase: CaseDefinitionInput = {
     avEffectiveAreaCm2: 2.8,
     trPresent: true,
     lvotPeakGradientMmHg: 0,
-    regurgitation: { mr: { eroaCm2: 0.25, jetDirectionDeg: 0 } },
+    regurgitation: { mr: { eroaCm2: 0.25, jetDirectionDeg: 0, timing: 'functional' } },
   },
   acousticWindow: {
     chestWallAttenuation: 0.3,

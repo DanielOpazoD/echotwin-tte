@@ -59,22 +59,17 @@ describe('the drawn heart matches the truth its measurements are scored against'
     // Within 20 % in every case and 5 % in the reference one, except where the case's own right ventricle is larger than
     // its forward flow can explain, declared with the ratio as baseline (±0.05).
     const KNOWN_RATIOS: ReadonlyMap<string, number> = new Map([
-      // Since decision 245 the mitral regurgitation runs through all of systole and the forward flow falls; the right
-      // ventricle's geometry does not know it (its end-systole is pulmonary closure, with the free wall of decision 243).
-      // enlarged right ventricle (192 mL declared by its dimensions) with 22 mL of forward flow after the regurgitant
-      // mitral volume; its trace tricuspid regurgitation has no declared EROA and remains unquantified (2.24 before decisions 243 and 245)
-      // (3.79 before its tricuspid annulus shortened by its own systolic function, decision 253)
-      ['hfref-severe-mr', 3.63],
-      // the systolic anterior motion's mitral regurgitation takes 30 mL of the 70 the ventricle ejects (1.68 before)
-      ['hocm-sam', 2.14],
-      // the primary regurgitation leaves 29 mL forward of the ventricle's stroke
-      ['mvp-primary-mr', 2.04],
-      // its mild regurgitation, through all of systole since decision 245, leaves 42 mL forward
-      ['af-diastolic', 1.32],
+      // Decision 297 put the regurgitant volume into the end-diastolic volume of the regurgitant cases: the forward flow
+      // is plausible again and the ratios fell (HFrEF 3.63 → 2.05, HCM 2.14 → 1.52, prolapse 2.04 → 1.48; AF 1.32 and
+      // the artifact case 1.36 now within 20 % and off the list). What remains is the right ventricle's geometry, which
+      // its dimensions declare larger than the forward flow needs; its end-systole is pulmonary closure (decision 243).
+      // enlarged right ventricle declared by its dimensions; trace tricuspid regurgitation without a declared EROA
+      ['hfref-severe-mr', 2.05],
+      // the systolic anterior motion's regurgitation (11 mL, decision 297) leaves 59 mL forward of a hyperdynamic 70
+      ['hocm-sam', 1.52],
+      // the primary regurgitation leaves 42 mL forward of the ventricle's stroke
+      ['mvp-primary-mr', 1.48],
       // PH: quantified TR now participates in the target (decision 293); no exception is needed.
-      // it ejects what its left ventricle ejects in total (68 of 69 mL): the forward flow subtracts a regurgitant volume
-      // the right ventricle's geometry does not know; the septal crest (decision 223) added the last mL
-      ['artifact-challenge', 1.36],
     ]);
     const problems: string[] = [];
     for (const input of CASE_INPUTS) {
