@@ -23,6 +23,14 @@ export interface ModePolicy {
    * its skin and ribs, so the learner still sees where the probe is, but the heart cut by the plane would name the view.
    */
   navigatorAnatomy: boolean;
+  /**
+   * The impression is part of the total even when left blank, which then scores 0. Outside the exam a blank impression
+   * leaves the total to acquisition and measurements, since practice grades it only when the learner asks; in the exam
+   * a blank one used to lift the total, so an unsure learner did better by not answering.
+   */
+  impressionRequired: boolean;
+  /** The exam draws its case at random when it starts: one the learner chose would make hiding its name pointless. */
+  assignsCase: boolean;
 }
 
 /**
@@ -50,6 +58,8 @@ export function modePolicy(mode: ProductMode): ModePolicy {
     devToolsAllowed: !exam,
     freeMeasurementsScored: !exam,
     navigatorAnatomy: !exam,
+    impressionRequired: exam,
+    assignsCase: exam,
   };
 }
 

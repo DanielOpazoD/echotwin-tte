@@ -8,6 +8,7 @@ import { buildEducationalReport } from '@/education/report';
 import { scoreAcquisition } from '@/education/scoring/scoring';
 import { loadCaseById } from '@/cases';
 import { EXAM_CASE_NAME, showsCaseIdentity } from '@/app/modePolicy';
+import { useState } from 'react';
 import {
   expectedFindings,
   FINDINGS,
@@ -17,6 +18,33 @@ import {
 } from '@/education/impression';
 
 /** Educational structured report (spec 26) + exam summary (spec 28.4). Learning mode shows ground truth; exam mode hides it until finished. */
+/**
+ * Finishing the exam cannot be undone (the image freezes and the score is recorded): one click on the wrong button used
+ * to end it. The first press asks, naming what is still missing; the second finishes.
+ */
+function FinishExam({ onFinish }: { onFinish: () => void }) {
+  const [asking, setAsking] = useState(false);
+  const blankImpression = useSimStore((s) => s.impressionSelection.length === 0);
+  if (!asking)
+    return (
+      <p>
+        <button onClick={() => setAsking(true)}>Finalizar examen y ver puntuación</button>
+      </p>
+    );
+  return (
+    <div className="finish-exam-confirm" role="alertdialog" aria-labelledby="finish-exam-q">
+      <p id="finish-exam-q">
+        ¿Finalizar el examen? No podrás adquirir, medir ni cambiar la impresión.
+        {blankImpression && ' No has marcado ninguna impresión: cuenta 0 (20 % del total).'}
+      </p>
+      <button onClick={onFinish}>Sí, finalizar</button>{' '}
+      <button onClick={() => setAsking(false)} autoFocus>
+        Seguir con el examen
+      </button>
+    </div>
+  );
+}
+
 export function ReportScreen() {
   const s = useSimStore(
     useShallow((st) => ({
@@ -65,11 +93,7 @@ export function ReportScreen() {
         Simulador educacional con pacientes sintéticos. No utilizar para diagnóstico ni toma de
         decisiones clínicas reales.
       </p>
-      {s.mode === 'exam' && !s.examFinished && (
-        <p>
-          <button onClick={() => s.finishExam()}>Finalizar examen y ver puntuación</button>
-        </p>
-      )}
+      {s.mode === 'exam' && !s.examFinished && <FinishExam onFinish={() => s.finishExam()} />}
       <h3>Vistas requeridas</h3>
       {/* the views a case requires name its diagnosis (aortic valve short axis and A5C for a stenosis, the RV-focused view
           for pulmonary hypertension): during the exam the learner is asked for a complete study (decision 234) */}
