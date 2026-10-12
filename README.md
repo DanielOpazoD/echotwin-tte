@@ -56,7 +56,7 @@ funcionando en CPU, más despacio.
 
 ## Documentación
 
-- [`docs/AUDIT_AFTER_PR100.md`](docs/AUDIT_AFTER_PR100.md) y [`docs/AUDIT_AFTER_PR110.md`](docs/AUDIT_AFTER_PR110.md) — evaluaciones con escala 1–7, evidencia y límites tras las dos tandas de diez PR.
+- [`docs/AUDIT_AFTER_PR100.md`](docs/AUDIT_AFTER_PR100.md) y [`docs/AUDIT_AFTER_PR110.md`](docs/AUDIT_AFTER_PR110.md) — autoevaluaciones con escala 1–7, evidencia y límites tras las dos tandas de diez PR. Las escribió el mismo proceso que hizo los cambios (igual que `docs/EVALUACION_PANEL.md`, cuyo «panel» fueron revisores de IA): son registro interno, no revisión independiente ni validación.
 - [`docs/ITERATIONS.md`](docs/ITERATIONS.md) — mejoras, comprobaciones y alcance de cada iteración.
 
 - [`docs/MISION.md`](docs/MISION.md) — misión, objetivos medibles, cómo se prioriza y límites que no se cruzan.

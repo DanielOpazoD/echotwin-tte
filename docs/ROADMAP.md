@@ -42,7 +42,7 @@ Estado real según el código el 2026-09-10. Los hitos M0–M6 siguen la especif
 | Score por componentes con gating y hints deterministas | hecho | `viewQuality.test.ts` |
 | Modo guiado con vista objetivo y vistas predeterminadas (movimiento continuo de la sonda) | hecho | `PresetViews.tsx`, `interpolate.test.ts`, prueba E2E |
 | Vistas subcostal (4C y VCI) | hecho | `viewTargets.ts`, `audit-views.ts` (decisión 44) |
-| Vista supraesternal | pendiente | ventana detectada sin `ViewTarget`; no hay arco aórtico |
+| Vista supraesternal | parcial | `suprasternal-arch` (decisiones 282 y 294); límites en `docs/LIMITATIONS.md` |
 | Tutorial de 8 pasos (saltable, reiniciable) | hecho | `src/ui/Tutorial.tsx`, prueba E2E |
 
 ## M4 — Doppler

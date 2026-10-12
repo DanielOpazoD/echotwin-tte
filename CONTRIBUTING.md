@@ -62,6 +62,20 @@ debajo y el informe lleva el estado exacto para reproducir el cuadro con `npm ru
   nada del resto. `src/tests/layers.test.ts` prohíbe los ciclos entre capas, y la tabla de
   `ARCHITECTURE.md`, generada desde los imports, muestra qué importa cada una.
 
+## Documentación
+
+La documentación creció más rápido que el código que describe: `docs/DECISIONS.md` pasa de 1 900 líneas, y varias
+afirmaciones envejecieron sin que nada fallara. Desde el 2026-10-12:
+
+- Una decisión nueva cabe en unas 250 palabras: el problema medido, el cambio, las pruebas y lo que no resuelve. El
+  detalle de la medición va al PR, no al registro.
+- Los comentarios del código dicen qué se cumple ahora y por qué; la historia («subió de 40 a 70 %, decisión 264…») va
+  a la decisión, y el comentario sólo la nombra.
+- No se añaden documentos de autoevaluación como evidencia. Una evaluación del proceso que hizo los cambios es registro
+  interno; la evidencia es una prueba que falla sin el cambio o un estudio de `docs/VALIDATION_PROTOCOL.md`.
+- Todo dato del código que un documento afirma (cuentas, versiones, nombres de archivo) se comprueba en
+  `src/tests/docsConsistency.test.ts` o se genera con `npm run docs:gen`; si no, se quita.
+
 ## Verificar
 
 En serie, porque las pruebas lentas saturan la CPU y con la máquina cargada fallan por tiempo
