@@ -101,6 +101,9 @@ export const COLOR_PACKET = 8;
  */
 const NOISE_POWER = 0.02;
 const TRANSIT_JITTER_RAD = 0.4;
+/** Below this |R1|/R0 a weak echo is rejected as noise, unless it is NOISE_POWER_GATE times over the display threshold. */
+const NOISE_COHERENCE = 0.5;
+const NOISE_POWER_GATE = 2.5;
 /** 1 − |R1|/R0 of a strong laminar flow: the transit jitter and the receiver noise alone. */
 const LAMINAR_DECORRELATION = 1 - Math.exp(-(TRANSIT_JITTER_RAD ** 2)) / (1 + NOISE_POWER);
 
@@ -109,6 +112,20 @@ function hashGaussian(li: number, si: number, stream: number, seed: number): num
   const u1 = hash3(li, si, stream, seed);
   const u2 = hash3(li, si, stream + 1, seed);
   return Math.sqrt(-2 * Math.log(Math.max(1e-12, u1))) * Math.cos(2 * Math.PI * u2);
+}
+
+/**
+ * Scratch buffers reused across colour updates (decision 304): an update allocated ~18 typed arrays the size of the colour
+ * box. Each name keeps one buffer, grown when a box needs more; the views returned are only valid until the next update.
+ */
+const scratchPool = new Map<string, Float32Array>();
+function scratch(name: string, n: number): Float32Array {
+  let b = scratchPool.get(name);
+  if (!b || b.length < n) {
+    b = new Float32Array(Math.max(n, Math.ceil((b?.length ?? 0) * 1.5)));
+    scratchPool.set(name, b);
+  }
+  return b.subarray(0, n);
 }
 
 /** A pair of independent unit Gaussians from the same two hashes (both outputs of Box–Muller), into `out`. */
@@ -161,13 +178,18 @@ function kasaiEstimate(
   nS: number,
   s: ColorSettings,
   estimate: ColorEstimate,
-): { velocity: Float32Array; power: Float32Array; variance: Float32Array } {
+): {
+  velocity: Float32Array;
+  power: Float32Array;
+  variance: Float32Array;
+  coherence: Float32Array;
+} {
   const n = nL * nS;
   const stream = estimate.realization * 64;
   // the blood's speckle amplitude: a complex Gaussian of unit power, correlated over about two samples and two lines
-  const zr = new Float32Array(n);
-  const zi = new Float32Array(n);
-  const tmp = new Float32Array(n);
+  const zr = scratch('zr', n);
+  const zi = scratch('zi', n);
+  const tmp = scratch('tmp', n);
   for (let l = 0; l < nL; l++)
     for (let k = 0; k < nS; k++) {
       zr[l * nS + k] = hashGaussian(liMin + l, siMin + k, stream, estimate.seed);
@@ -179,7 +201,7 @@ function kasaiEstimate(
   const N = COLOR_PACKET;
   const jit: Float32Array[] = [];
   for (let p = 0; p < N; p++) {
-    const j = new Float32Array(n);
+    const j = scratch(`jit${p}`, n);
     for (let l = 0; l < nL; l++)
       for (let k = 0; k < nS; k++)
         j[l * nS + k] = hashGaussian(liMin + l, siMin + k, stream + 4 + 2 * p, estimate.seed);
@@ -189,16 +211,21 @@ function kasaiEstimate(
   }
   // [1 2 1]/4 in two directions keeps (6/16)² of the variance; each part then carries half the unit power
   const unit = 1 / (0.375 * Math.SQRT2);
-  // the wall filter's order: none, the mean, or the mean and the linear trend, by its cutoff against Nyquist
-  const cut = s.wallFilterMps / s.scaleMps;
-  const order = s.wallFilterMps <= 0 ? -1 : cut < 0.15 ? 0 : 1;
+  // the wall filter follows its cutoff continuously (decision 304): the share of the packet's mean it removes grows to the
+  // whole of it at 10 % of Nyquist, then the share of its linear trend up to 35 % (removing part of the trend below that
+  // biased a laminar 0.30 m/s to 0.31). With an order chosen by thresholds the
+  // slider had three states: 0.01-0.09 m/s drew the same image, and so did 0.10-0.30
+  const cut = Math.max(0, s.wallFilterMps / s.scaleMps);
+  const meanShare = Math.min(1, cut / 0.1);
+  const trendShare = Math.min(1, Math.max(0, (cut - 0.1) / 0.25));
   const pair = { a: 0, b: 0 };
   const xr = new Float64Array(N);
   const xi = new Float64Array(N);
-  const r0 = new Float32Array(n);
-  const r1r = new Float32Array(n);
-  const r1i = new Float32Array(n);
-  const valid = new Uint8Array(n);
+  const r0 = scratch('r0', n);
+  const r1r = scratch('r1r', n);
+  const r1i = scratch('r1i', n);
+  const valid = scratch('valid', n);
+  valid.fill(0);
   // the centred linear basis, orthonormal over the packet
   const lin = new Float64Array(N);
   let linNorm = 0;
@@ -230,27 +257,29 @@ function kasaiEstimate(
       xr[p] = ar * c - ai * sn + noise * pair.a;
       xi[p] = ar * sn + ai * c + noise * pair.b;
     }
-    // regression wall filter: the packet less its projection on the low-order polynomials
-    if (order >= 0) {
+    // regression wall filter: the packet less its projection on the low-order polynomials, in the shares above
+    if (meanShare > 0) {
       let mr = 0,
         mi = 0;
       for (let p = 0; p < N; p++) {
         mr += xr[p]!;
         mi += xi[p]!;
       }
-      mr /= N;
-      mi /= N;
+      mr = (mr / N) * meanShare;
+      mi = (mi / N) * meanShare;
       for (let p = 0; p < N; p++) {
         xr[p]! -= mr;
         xi[p]! -= mi;
       }
-      if (order >= 1) {
+      if (trendShare > 0) {
         let pr = 0,
           pi = 0;
         for (let p = 0; p < N; p++) {
           pr += xr[p]! * lin[p]!;
           pi += xi[p]! * lin[p]!;
         }
+        pr *= trendShare;
+        pi *= trendShare;
         for (let p = 0; p < N; p++) {
           xr[p]! -= pr * lin[p]!;
           xi[p]! -= pi * lin[p]!;
@@ -271,8 +300,9 @@ function kasaiEstimate(
     r1i[g] = a1i / (N - 1);
   }
   // averaged over the resolution cell ([1 2 1] in range and across lines), over the samples that carry colour only
-  const avg = (src: Float32Array): Float32Array => {
-    const outA = new Float32Array(n);
+  const avg = (src: Float32Array, name: string): Float32Array => {
+    const outA = scratch(name, n);
+    outA.fill(0);
     for (let l = 0; l < nL; l++)
       for (let k = 0; k < nS; k++) {
         const g = l * nS + k;
@@ -294,12 +324,13 @@ function kasaiEstimate(
       }
     return outA;
   };
-  const R0 = avg(r0),
-    R1r = avg(r1r),
-    R1i = avg(r1i);
-  const velocity = new Float32Array(n).fill(NaN);
-  const power = new Float32Array(n);
-  const variance = new Float32Array(n);
+  const R0 = avg(r0, 'R0'),
+    R1r = avg(r1r, 'R1r'),
+    R1i = avg(r1i, 'R1i');
+  const velocity = scratch('velocity', n).fill(NaN);
+  const power = scratch('power', n).fill(0);
+  const variance = scratch('variance', n).fill(0);
+  const coherence = scratch('coherence', n).fill(0);
   for (let g = 0; g < n; g++) {
     if (!valid[g]) continue;
     const p0 = R0[g]!;
@@ -309,13 +340,14 @@ function kasaiEstimate(
     power[g] = Math.max(0, p0 - NOISE_POWER);
     // the variance over what a laminar flow already shows through transit and noise: laminar flow reads 0, as on a
     // scanner whose variance map starts at the system's own decorrelation
-    const raw = 1 - Math.hypot(R1r[g]!, R1i[g]!) / p0;
+    coherence[g] = Math.hypot(R1r[g]!, R1i[g]!) / p0;
+    const raw = 1 - coherence[g]!;
     variance[g] = Math.min(
       1,
       Math.max(0, (raw - LAMINAR_DECORRELATION) / (1 - LAMINAR_DECORRELATION)),
     );
   }
-  return { velocity, power, variance };
+  return { velocity, power, variance, coherence };
 }
 
 export function allocColorField(n: number): ColorField {
@@ -383,9 +415,9 @@ export function computeColorField(
   const nS = Math.max(0, siMax - siMin + 1);
   // pass 1: what reaches the receiver at each sample of the box — moving blood (or, with blooming, a sample beside it)
   // over the shadow threshold: its axial velocity, the dispersion of its spectrum and its transmission
-  const cellV = new Float32Array(nL * nS).fill(NaN);
-  const cellDisp = new Float32Array(nL * nS);
-  const cellRel = new Float32Array(nL * nS);
+  const cellV = scratch('cellV', nL * nS).fill(NaN);
+  const cellDisp = scratch('cellDisp', nL * nS).fill(0);
+  const cellRel = scratch('cellRel', nL * nS).fill(0);
   for (let li = liMin; li <= liMax; li++) {
     for (let si = siMin; si <= siMax; si++) {
       const idx = li * samples + si;
@@ -432,6 +464,11 @@ export function computeColorField(
         power = Math.min(1, gainLin * kasai.power[g]!);
         vEstimate = kasai.velocity[g]!;
         variance = kasai.variance[g]!;
+        // noise rejection, as a scanner's: a weak echo whose packet has lost its coherence is noise and leaks of the
+        // wall filter, not flow (they drew green and red confetti over slow intracavitary blood). A strong incoherent
+        // echo is turbulence and keeps its mosaic
+        if (kasai.coherence[g]! < NOISE_COHERENCE && power < NOISE_POWER_GATE * COLOR_THRESHOLD)
+          continue;
       } else {
         // the expected field: the wall filter's response on the true velocity, its spectral spread as variance
         if (Math.abs(vTrue) < s.wallFilterMps) continue;

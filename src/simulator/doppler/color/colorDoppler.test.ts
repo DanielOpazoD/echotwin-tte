@@ -239,6 +239,18 @@ describe('the colour estimate is a wall-filtered autocorrelation of a packet (de
     expect(field(0.02, 0.04, { wallFilterMps: 0 }).fraction).toBeGreaterThan(0.8);
   });
 
+  it('the wall filter follows its slider continuously (decision 304)', () => {
+    // with the filter order chosen by thresholds, 0.01-0.09 m/s drew the same image and so did 0.10-0.30
+    const shown = [0.01, 0.03, 0.05, 0.07, 0.09].map(
+      (wallFilterMps) => field(0.05, 0.04, { wallFilterMps }).fraction,
+    );
+    for (let i = 1; i < shown.length; i++) expect(shown[i]!).toBeLessThan(shown[i - 1]!);
+    const fast = [0.1, 0.2, 0.3].map(
+      (wallFilterMps) => field(0.2, 0.04, { wallFilterMps }).fraction,
+    );
+    expect(fast[2]!).toBeLessThan(fast[0]!);
+  });
+
   it('laminar flow reads no variance and a turbulent jet a high one', () => {
     const laminar = field(0.3, 0.04);
     const turbulent = field(0.3, 1.2);
