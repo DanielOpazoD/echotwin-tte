@@ -68,15 +68,22 @@ describe('calcium shadow (decision 251)', () => {
     return [...losses].sort((a, b) => a - b)[Math.floor(losses.length / 2)]!;
   }
 
-  it('the severely stenotic valve takes at least 15 dB off the beam that crosses it; a normal one almost nothing', () => {
+  it('the severely stenotic valve takes 15 dB off the beam that crosses it on average, and never less than 10; a normal one almost nothing', () => {
+    // Since decision 299 the beam's transmission is the mean of its pencils' amplitudes, not their geometric mean: the
+    // closed valve of the end-diastolic long axis, crossed partly edge-on, now leaves the beam beside it −11.6 dB where
+    // the averaged decibels gave more than 15; the other three frames read −15.4 to −18.9 dB.
     const out: string[] = [];
+    const severeDb: number[] = [];
     for (const view of ['plax', 'psax-av'])
       for (const phase of [0, 0.25]) {
         const severe = acrossValve('aortic-stenosis-severe', view, phase);
         const normal = acrossValve('normal-excellent-window', view, phase);
-        if (!(severe < -15)) out.push(`severe stenosis ${view} @${phase}: ${severe.toFixed(1)} dB`);
+        severeDb.push(severe);
+        if (!(severe < -10)) out.push(`severe stenosis ${view} @${phase}: ${severe.toFixed(1)} dB`);
         if (!(normal > -2)) out.push(`normal ${view} @${phase}: ${normal.toFixed(1)} dB`);
       }
+    const mean = severeDb.reduce((a, b) => a + b, 0) / severeDb.length;
+    if (!(mean < -15)) out.push(`severe stenosis mean ${mean.toFixed(1)} dB`);
     expect(out).toEqual([]);
   });
 });

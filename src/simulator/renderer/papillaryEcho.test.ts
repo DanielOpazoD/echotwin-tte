@@ -24,7 +24,11 @@ import { allocPolarFrame, CALIBRATED_TIER, DEFAULT_ACQUISITION, polarSpecFor } f
  * Declared (baseline: the dimmer muscle minus the wall, grey levels); a declared frame that comes within the bound, or
  * moves more than 3 grey from its baseline, fails the test.
  */
-const KNOWN_DIM_PAPILLARY: ReadonlyMap<string, number> = new Map([['af-diastolic @0', -2]]);
+// the AF case's papillary muscles sit beside a wall that, since decision 299, keeps more of its echo (−2 before)
+const KNOWN_DIM_PAPILLARY: ReadonlyMap<string, number> = new Map([
+  ['af-diastolic @0', -5.3],
+  ['af-diastolic @0.35', -1.3],
+]);
 const TOLERANCE = 3;
 const POOR_WINDOWS = new Set(['normal-difficult-window', 'artifact-challenge']);
 

@@ -204,9 +204,11 @@ void main() {
   int si = int(gl_FragCoord.x);
   int li = int(gl_FragCoord.y);
   float dr = DEPTH / SAMPLES;
-  float transmission = P(LINE_DROP_BASE + li);
+  float drop = P(LINE_DROP_BASE + li);
+  // the beam's transmission of the last body-tissue sample (pass P, decision 299) times the line's own contact
+  float transmission = drop;
   // the soft-tissue transmission the chest-wall reverberation carries (decision 263)
-  float softTransmission = transmission;
+  float softTransmission = drop;
   float lungEntryR = -1.0, lungEntryT = 0.0;
   int lungEntryK = -1;
   bool dead = false;
@@ -222,14 +224,15 @@ void main() {
       dead = true;
       break;
     }
-    transmission *= exp(-a.y);
-    if (transmission < TRANSMISSION_FLOOR) transmission = TRANSMISSION_FLOOR;
+    transmission = max(TRANSMISSION_FLOOR, drop * a.y);
     softTransmission *= exp(-ATTEN_NP_PER_DB * SOFT_TISSUE_ATTEN_DB * F_ATTEN * dr);
     if (softTransmission < TRANSMISSION_FLOOR) softTransmission = TRANSMISSION_FLOOR;
   }
   vec4 a = texelFetch(uPassA, ivec2(si, li), 0);
   vec4 b = texelFetch(uPassB, ivec2(si, li), 0);
   float r = (float(si) + 0.5) * dr;
+  // a body-tissue sample pays the beam's transmission at its own depth
+  if (!dead && a.w > 0.5 && a.z < 0.5) transmission = max(TRANSMISSION_FLOOR, drop * a.y);
   if (dead) {
     float n = REVERB_MOD_BASE + REVERB_MOD_AMP * lat(vec3(float(li) * REVERB_MOD_LINE_FREQ, r * REVERB_MOD_DEPTH_FREQ, REVERB_MOD_Z), 2);
     float amp = pleuralReverberation(r, lungEntryR, lungEntryT, n, pleuralCoherenceAt(li, lungEntryK, dr), F_ATTEN);
@@ -314,33 +317,38 @@ void main() {
 `;
 
 /**
- * Beam attenuation (decision 144): the increment a line pays at a depth is the mean of the increments of the lines
- * within the beam's half-width at that depth (`beamHalfWidthCm`, the aperture tapering to the focus), over the
- * body-tissue samples among them; outside-body, lung and behind-the-pleura samples (pass L, which the CPU march never
- * classifies) neither pay nor count. Pass B then marches these increments. Mirror of `beamMarch` in the CPU renderer
- * (its prefix sums are a window loop here).
+ * Beam transmission (decisions 144 and 299), mirror of `beamMarch` in the CPU renderer. Pass L marches each line's own
+ * pencil: the transmission reaching each sample through the body-tissue samples before it, without the contact drop-out,
+ * and whether the line has already entered lung. Pass P averages the pencils of the lines within the beam's half-width at
+ * that depth (`beamHalfWidthCm`, the aperture tapering to the focus), over the body-tissue samples among them;
+ * outside-body, lung and behind-the-pleura samples (which the CPU march never classifies) neither pay nor count. Pass B
+ * scales each echo by that mean times its own line's contact. The CPU's prefix sums are a window loop here.
  */
 export const GLSL_PASS_L_MAIN = /* glsl */ `
 uniform sampler2D uPassA;
-layout(location = 0) out vec4 outDead;   // 1 where the line has already entered lung before this sample
+layout(location = 0) out vec4 outDead;   // 1 where the line has already entered lung before this sample; its pencil
 
 void main() {
   int si = int(gl_FragCoord.x);
   int li = int(gl_FragCoord.y);
   float dead = 0.0;
+  float pencil = 1.0;
   for (int k = 0; k < 1024; k++) {
     if (k >= si) break;
     vec4 a = texelFetch(uPassA, ivec2(k, li), 0);
-    if (a.w > 0.5 && a.z > 0.5) { dead = 1.0; break; }
+    if (a.w < 0.5) continue; // outside the body: no attenuation
+    if (a.z > 0.5) { dead = 1.0; break; }
+    pencil *= exp(-a.y);
+    if (pencil < TRANSMISSION_FLOOR) pencil = TRANSMISSION_FLOOR;
   }
-  outDead = vec4(dead, 0.0, 0.0, 1.0);
+  outDead = vec4(dead, pencil, 0.0, 1.0);
 }
 `;
 
 export const GLSL_PASS_P_MAIN = /* glsl */ `
 uniform sampler2D uPassA;
 uniform sampler2D uDead;   // pass L: samples behind a pleural entry on their own line, which the CPU march never classifies
-layout(location = 0) out vec4 outA;   // σ, beam-averaged attenuation increment, lung flag, in-body flag
+layout(location = 0) out vec4 outA;   // σ, beam-averaged transmission (body tissue only), lung flag, in-body flag
 
 void main() {
   int si = int(gl_FragCoord.x);
@@ -361,11 +369,12 @@ void main() {
     int q = li + j;
     if (q < 0 || q > last) continue;
     vec4 b = texelFetch(uPassA, ivec2(si, q), 0);
-    if (b.w < 0.5 || b.z > 0.5 || texelFetch(uDead, ivec2(si, q), 0).x > 0.5) continue;
-    sum += b.y;
+    vec4 d = texelFetch(uDead, ivec2(si, q), 0);
+    if (b.w < 0.5 || b.z > 0.5 || d.x > 0.5) continue;
+    sum += d.y;
     n += 1.0;
   }
-  outA = vec4(a.x, n > 0.0 ? sum / n : a.y, a.z, a.w);
+  outA = vec4(a.x, n > 0.0 ? sum / n : texelFetch(uDead, ivec2(si, li), 0).y, a.z, a.w);
 }
 `;
 
