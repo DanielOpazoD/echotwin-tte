@@ -706,18 +706,15 @@ describe('mitral regurgitation through all of systole (decision 245)', () => {
     return { c, tables };
   };
   /** First and last instants (s) with regurgitant flow, and its peak speed (m/s) and when it peaks (fraction of ejection). */
-  const regurgitation = (
-    c: { hemodynamics: { regurgitation: { mr?: { eroaCm2: number } } } },
-    tb: ReturnType<typeof buildBeatTables>,
-  ) => {
-    const ero = c.hemodynamics.regurgitation.mr!.eroaCm2;
+  const regurgitation = (_c: unknown, tb: ReturnType<typeof buildBeatTables>) => {
     const dt = tb.rrS / tb.n;
     let first = NaN,
       last = NaN,
       peak = 0,
       when = 0;
     for (let i = 0; i < tb.n; i++) {
-      const v = (tb.mrFlowMlps[i] ?? 0) / ero / 100;
+      // the jet's speed where it flows (decision 297: a jet of systolic anterior motion opens only part of the beat)
+      const v = (tb.mrFlowMlps[i] ?? 0) > 0.5 ? (tb.mrVelocityMps[i] ?? 0) : 0;
       if (v < 0.5) continue;
       const t = (i + 0.5) * dt;
       if (Number.isNaN(first)) first = t;
@@ -731,15 +728,9 @@ describe('mitral regurgitation through all of systole (decision 245)', () => {
     return { first, last, peak, when };
   };
 
-  it('lasts from mitral closure to mitral opening in every regurgitant case', async () => {
+  it('lasts from mitral closure to mitral opening in every holosystolic regurgitant case', async () => {
     const problems: string[] = [];
-    for (const id of [
-      'hfref-severe-mr',
-      'mvp-primary-mr',
-      'hocm-sam',
-      'af-diastolic',
-      'artifact-challenge',
-    ]) {
+    for (const id of ['hfref-severe-mr', 'mvp-primary-mr', 'af-diastolic', 'artifact-challenge']) {
       const { c, tables } = await tablesOf(id);
       const r = regurgitation(c, tables);
       const opening = tables.timings.mitralOpenS;
@@ -767,7 +758,54 @@ describe('mitral regurgitation through all of systole (decision 245)', () => {
     // an unobstructed ventricle peaks with the arterial pressure, at its own systolic level
     const mvp = await tablesOf('mvp-primary-mr');
     const m = regurgitation(mvp.c, mvp.tables);
-    expect(m.peak).toBeCloseTo(Math.sqrt((mvp.c.hemodynamics.systolicBpMmHg - 15) / 4), 1);
+    // plus the few mmHg a normal aortic valve takes from a normal forward flow (≈ 4 mmHg at 55 mL, decision 297)
+    const arterial = Math.sqrt((mvp.c.hemodynamics.systolicBpMmHg - 15) / 4);
+    expect(m.peak).toBeGreaterThanOrEqual(arterial - 0.02);
+    expect(m.peak).toBeLessThan(arterial + 0.15);
+  });
+
+  it('a jet of systolic anterior motion leaks only while the outflow is obstructed, and stays mild (decision 297)', async () => {
+    const { c, tables } = await tablesOf('hocm-sam');
+    const r = regurgitation(c, tables);
+    const { ejectionStartS: start, ejectionEndS: end } = tables.timings;
+    const et = end - start;
+    // no leak in isovolumic contraction or relaxation, nor in the first quarter of ejection before the leaflet reaches the septum
+    expect(r.first, 'SAM jet start, s').toBeGreaterThan(start + 0.25 * et);
+    expect(r.last, 'SAM jet end, s').toBeLessThan(end);
+    const sv = tables.strokeVolumeMl;
+    const rvol = tables.regurgitation.mrVolumeMl;
+    // ASE 2017 mild: regurgitant volume < 30 mL and fraction < 30 % — the case's impression calls it mild
+    expect(rvol).toBeLessThan(30);
+    expect((rvol / sv) * 100).toBeLessThan(30);
+    // the same orifice open through all of systole carried 30 mL (RF 42 %)
+    const holo = buildBeatTables(60 / c.rhythm.heartRateBpm, c.physiology, c.rhythm, {
+      ...c.hemodynamics,
+      regurgitation: {
+        ...c.hemodynamics.regurgitation,
+        mr: { ...c.hemodynamics.regurgitation.mr!, timing: 'holosystolic' },
+      },
+    });
+    expect(holo.regurgitation.mrVolumeMl).toBeGreaterThan(2 * rvol);
+  });
+
+  it('every case keeps a forward stroke volume index the clinic can live with, and mild jets stay mild (decision 297)', async () => {
+    const { listCases } = await import('@/cases');
+    const { bsaMosteller } = await import('@/clinical/formulas');
+    const problems: string[] = [];
+    for (const { id } of listCases()) {
+      const { c, tables } = await tablesOf(id);
+      const bsa = bsaMosteller(c.demographics.heightCm, c.demographics.weightKg);
+      const forward = tables.strokeVolumeMl - tables.regurgitation.mrVolumeMl;
+      // 20 mL/m² is already a severe low-flow state, where the HFrEF case sits; below 18 the case describes shock
+      if (forward / bsa < 18)
+        problems.push(`${id}: forward SVi ${(forward / bsa).toFixed(0)} mL/m²`);
+      const mr = c.hemodynamics.regurgitation.mr;
+      if (mr && mr.eroaCm2 < 0.2) {
+        const rf = (tables.regurgitation.mrVolumeMl / tables.strokeVolumeMl) * 100;
+        if (rf >= 30) problems.push(`${id}: ERO ${mr.eroaCm2} cm² but RF ${rf.toFixed(0)} %`);
+      }
+    }
+    expect(problems).toEqual([]);
   });
 
   it('without regurgitation end-systole is aortic closure, and a capped beat reports the speed it draws (review of decision 245)', async () => {

@@ -55,7 +55,7 @@ export const hocmSamCase: CaseDefinitionInput = {
     avEffectiveAreaCm2: 2.8,
     trPresent: true,
     lvotPeakGradientMmHg: 64,
-    regurgitation: { mr: { eroaCm2: 0.15, jetDirectionDeg: 35 } },
+    regurgitation: { mr: { eroaCm2: 0.15, jetDirectionDeg: 35, timing: 'sam' } },
   },
   flowPrimitives: [
     ...normalExcellentCase.flowPrimitives.map((f) =>

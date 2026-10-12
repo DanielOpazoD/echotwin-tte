@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 296 (última: 296).
+Decisiones: 297 (última: 297).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -304,3 +304,4 @@ Decisiones: 296 (última: 296).
 | [294](DECISIONS.md#L1834) | 2026-10-04 | Continuidad del mediastino superior en la adquisición supraesternal supina. | vigente |
 | [295](DECISIONS.md#L1854) | 2026-10-04 | Extremos de flujo por latido y coste verificable de interacción. | vigente |
 | [296](DECISIONS.md#L1878) | 2026-10-04 | Textura sanguínea sin una segunda envolvente aleatoria de clutter. | vigente |
+| [297](DECISIONS.md#L1898) | 2026-10-12 | El volumen telediastólico contiene el regurgitante, y el orificio de la IM varía en el tiempo según su mecanismo. | vigente |

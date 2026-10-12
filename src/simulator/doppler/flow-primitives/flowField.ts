@@ -810,8 +810,10 @@ export function sampleRegurgitantJets(
   if (p.enabled['mr-jet'] !== false && p.mrEroCm2 > 0) {
     const q = sampleTable(tables.mrFlowMlps, phase);
     if (q > 1) {
-      const vj = q / p.mrEroCm2 / 100; // vena contracta velocity (m/s)
-      const r0 = Math.sqrt(p.mrEroCm2 / Math.PI) * 1.1;
+      // vena contracta velocity (m/s) from the pressure drop; the orifice is the part of the case's ERO open now, which is
+      // all of it except in a jet of systolic anterior motion (decision 297)
+      const vj = Math.max(1e-3, sampleTable(tables.mrVelocityMps, phase));
+      const r0 = Math.sqrt(Math.min(p.mrEroCm2, q / vj / 100) / Math.PI) * 1.1;
       // coaptation just apical of the annulus; jet direction in the x–z plane, tilted by the case's eccentricity
       const ox = p.mvCenter.x,
         oy = p.mvCenter.y,

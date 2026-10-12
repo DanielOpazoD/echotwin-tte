@@ -38,7 +38,8 @@ const KNOWN_RV_EXCESS: ReadonlyMap<string, number> = new Map([
   ['hocm-sam psax-pm @0.35', 18.1],
   ['artifact-challenge plax @0', 18.5],
   ['hfref-severe-mr plax @0', 19.2],
-  ['hfref-severe-mr plax @0.35', 16],
+  // 16 until decision 297 widened the dilated ventricle (EDV 250 → 275 mL) and with it the parasternal right ventricle
+  ['hfref-severe-mr plax @0.35', 20.1],
   ['hfref-severe-mr psax-pm @0', 20.6],
   ['inferior-rwma psax-pm @0', 16],
   ['aortic-stenosis-severe psax-pm @0', 15.8],
