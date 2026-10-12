@@ -119,6 +119,7 @@ export function aorticStenosisInput(t: StructuredEchoTruth) {
     avaCm2: av.continuityAvaCm2,
     strokeVolumeIndexMlM2: t.lvot.strokeVolumeMl / t.bsaM2,
     efPct: t.lv.efPct,
+    velocityRatio: av.velocityRatio,
   };
 }
 

@@ -18,6 +18,8 @@ export interface AorticStenosisInput {
   /** Forward stroke volume index (mL/m²), the flow the gradients depend on. */
   strokeVolumeIndexMlM2: number;
   efPct: number;
+  /** LVOT VTI / aortic VTI (dimensionless index); optional. */
+  velocityRatio?: number;
 }
 
 export type AorticStenosisPattern =
@@ -25,6 +27,7 @@ export type AorticStenosisPattern =
   | 'classic-low-flow-low-gradient'
   | 'paradoxical-low-flow-low-gradient'
   | 'normal-flow-low-gradient'
+  | 'low-flow-moderate'
   | null;
 
 export interface AorticStenosisGrade {
@@ -63,6 +66,21 @@ export function gradeAorticStenosis(a: AorticStenosisInput): AorticStenosisGrade
       rationale: `AVA ≤ ${R.severeAva.value} cm² con gradiente bajo y flujo normal: discordancia que suele ser moderada; revisar el diámetro del TSVI y la alineación del CW.`,
     };
   }
+  // a moderate area (≤ 1.5 cm²) and index (≤ 0.5) whose gradients low flow keeps under the moderate band: the area and
+  // the index are what the flow does not change, so it is moderate (ASE/EACVI 2017 integrates them when gradients and
+  // area disagree)
+  if (
+    a.avaCm2 <= R.moderateAva.value.hi &&
+    a.velocityRatio !== undefined &&
+    a.velocityRatio <= 0.5 &&
+    a.strokeVolumeIndexMlM2 < LOW_FLOW_SVI_ML_M2 &&
+    a.vmaxMps < R.moderateVmax.value.lo
+  )
+    return {
+      grade: 'moderate',
+      pattern: 'low-flow-moderate',
+      rationale: `Estenosis aórtica moderada con gradientes bajos por bajo flujo (AVA ≤ ${R.moderateAva.value.hi} cm², índice adimensional ≤ 0,5, VSi < ${LOW_FLOW_SVI_ML_M2} mL/m²).`,
+    };
   if (a.vmaxMps >= R.moderateVmax.value.lo || a.meanGradientMmHg >= R.moderateMeanGradient.value.lo)
     return {
       grade: 'moderate',

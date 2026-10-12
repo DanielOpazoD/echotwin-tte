@@ -35,7 +35,8 @@ describe('structured impression', () => {
     expect(f('af-diastolic')).toEqual(
       expect.arrayContaining(['af', 'la-dilated', 'diastolic-dysfunction']),
     );
-    expect(f('artifact-challenge')).toContain('as-mild');
+    // a moderate area and index whose gradients the low flow keeps low: moderate, not mild
+    expect(f('artifact-challenge')).toContain('as-moderate');
   });
   it('every expected finding id exists in the catalogue and exclusive groups never co-occur', () => {
     for (const id of [

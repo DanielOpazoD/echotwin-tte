@@ -21,7 +21,7 @@ Todos los casos patológicos derivan del normal cambiando sólo parámetros anat
 | `pulmonary-hypertension-rv` | VD dilatado con disfunción, aplanamiento septal en «D», IT para RVSP | VD basal 4,9 cm, `septalFlattening` 0,8, PASP 72 mmHg, TAPSE 1,3 cm, S′ 7 cm/s, ORE IT 0,3 cm² |
 | `pericardial-effusion-tamponade` | Derrame con colapsos de AD y VD, oscilación, variación respiratoria de E mitral/tricuspídea | Derrame 2,2 cm, `tamponade` 0,8, taquicardia 108 lpm, PAS 92 mmHg, PAD 16 mmHg |
 | `af-diastolic` | FA: RR irregular sin onda A, llenado y eyección latido a latido, límites de la evaluación diastólica | FA 92 lpm (variabilidad 22 %), E 0,95 m/s sin A, e′ 5,5/7,5, IM leve (ORE 0,10) |
-| `artifact-challenge` | Laboratorio de artefactos: calcificación con sombra, reverberación, lóbulos laterales, espejo, blooming de color | `caseDef.artifacts` con intensidades propias; EA leve de fondo (AVA 1,15 cm², Vmax 2,5 m/s) |
+| `artifact-challenge` | Laboratorio de artefactos: calcificación con sombra, reverberación, lóbulos laterales, espejo, blooming de color | `caseDef.artifacts` con intensidades propias; EA moderada de bajo flujo de fondo (AVA 1,15 cm², índice 0,37, Vmax 2,5 m/s con VSi 29 mL/m²) |
 
 ## Vistas modeladas (`src/simulator/windows/viewTargets.ts`, 12 vistas)
 

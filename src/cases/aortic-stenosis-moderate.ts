@@ -95,7 +95,7 @@ export const aorticStenosisModerateCase: CaseDefinitionInput = {
   impressionTruth: [
     'Estenosis aórtica moderada calcificada (Vmax ≈ 3,1 m/s, gradiente medio ≈ 23 mmHg, AVA ≈ 1,05 cm²).',
     'Hipertrofia concéntrica leve con función sistólica conservada.',
-    'Alteración de la relajación.',
+    'Alteración de la relajación; aurícula izquierda levemente dilatada.',
   ],
   expectedDeviations: ['ivsd', 'lvpwd', 'lavi'], // mildly enlarged LA with impaired relaxation
 };
