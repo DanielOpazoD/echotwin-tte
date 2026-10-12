@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from 'react';
 import { viewLabel } from '@/simulator/windows/viewLabels';
 import { useHudStore, useSimStore } from '@/app/store';
 import { EXAM_CASE_NAME, modePolicy, showsCaseIdentity } from '@/app/modePolicy';
@@ -31,6 +32,25 @@ export function ImageHud() {
   const harmonics = useSimStore((s) => s.settings.harmonics);
   const strip = useSimStore((s) => isStripModality(s.modality));
   const hud = useHudStore((h) => h.hud);
+  // the title wraps to two lines on a narrow image: the segment chip below it reads its height (--hud-tl-h) to keep clear
+  const titleBoxRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const box = titleBoxRef.current;
+    const host = box?.parentElement?.parentElement;
+    if (!box || !host) return;
+    // and the title leaves the width of the acquisition box on its right (--hud-tr-w), whatever its lines say
+    const right = box.parentElement?.querySelector<HTMLElement>('.hud-tr') ?? null;
+    const publish = () => {
+      host.style.setProperty('--hud-tl-h', `${box.offsetHeight}px`);
+      if (right) host.style.setProperty('--hud-tr-w', `${right.offsetWidth}px`);
+    };
+    publish();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(publish);
+    ro.observe(box);
+    if (right) ro.observe(right);
+    return () => ro.disconnect();
+  }, [show]);
   if (!show) return null;
   const gpuReason = typeof hud?.stats?.['gpu'] === 'string' ? hud.stats['gpu'] : null;
   const tier = typeof hud?.stats?.['tier'] === 'string' ? hud.stats['tier'] : null;
@@ -42,8 +62,10 @@ export function ImageHud() {
   const viewLine = modePolicy(mode).showViewFeedback ? <ViewLine mode={mode} /> : null;
   return (
     <div className="img-hud">
-      <div className="hud-box hud-tl">
-        <span className="hud-title">{title}</span>
+      <div className="hud-box hud-tl" ref={titleBoxRef}>
+        <span className="hud-title" title={title}>
+          {title}
+        </span>
       </div>
       <div className="hud-box hud-tr">
         <span>

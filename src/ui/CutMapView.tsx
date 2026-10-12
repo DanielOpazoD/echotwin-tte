@@ -28,6 +28,17 @@ if (typeof document !== 'undefined' && 'fonts' in document)
  * the tissue the plane crosses, from the frame's segment channel; a click selects a segment, the same selection as the
  * polar map of the segment panel. The probe is driven from the torso view.
  */
+/**
+ * The box a label takes on the cut map: its measured width and the line height of the current font, plus the 3 px dark
+ * halo every label is stroked with. Measured as 12-13 px tall with 2 px of margin, two labels whose halos and descenders
+ * touched still counted as apart, and «pared VD», «VD» and «septo» drew over each other.
+ */
+function labelBox(ctx: CanvasRenderingContext2D): (text: string) => { w: number; h: number } {
+  const px = Number(/(\d+(?:\.\d+)?)px/.exec(ctx.font)?.[1] ?? 12);
+  const halo = 3;
+  return (text) => ({ w: ctx.measureText(text).width + halo + 2, h: Math.ceil(px * 1.25) + halo });
+}
+
 export function CutMapView() {
   const ref = useRef<HTMLDivElement>(null);
   const hoverRef = useRef<HTMLDivElement>(null);
@@ -141,16 +152,13 @@ export function CutMapView() {
               segIds,
               cssW,
               Math.max(12, 0.0008 * cssW * cssH),
-              (t) => ({ w: ctx.measureText(t).width, h: 13 }),
+              labelBox(ctx),
               new Set(segAnchors.view().labels.map((l) => l.id)),
               (id) => String(id),
             ),
             null,
           );
-        const labelsShown = withoutOverlaps(segAnchors.view().labels, (t) => ({
-          w: ctx.measureText(t).width,
-          h: 13,
-        }));
+        const labelsShown = withoutOverlaps(segAnchors.view().labels, labelBox(ctx));
         ctx.lineJoin = 'round';
         ctx.lineWidth = 3;
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
@@ -174,15 +182,12 @@ export function CutMapView() {
               out.structure,
               cssW,
               Math.max(60, 0.004 * cssW * cssH),
-              (t) => ({ w: ctx.measureText(t).width, h: 12 }),
+              labelBox(ctx),
               new Set(structAnchors.view().labels.map((l) => l.id)),
             ),
             null,
           );
-        const labelsShown = withoutOverlaps(structAnchors.view().labels, (t) => ({
-          w: ctx.measureText(t).width,
-          h: 12,
-        }));
+        const labelsShown = withoutOverlaps(structAnchors.view().labels, labelBox(ctx));
         ctx.lineJoin = 'round';
         ctx.lineWidth = 3;
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.75)';

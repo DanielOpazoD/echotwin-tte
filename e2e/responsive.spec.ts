@@ -92,3 +92,36 @@ test('390 px keeps the image usable, exposes both panels and preserves physical 
   expect(await measurements()).toEqual(recorded);
   expect(await probe()).toEqual(before);
 });
+
+test('the case title reads whole on a phone, clear of the acquisition box, with the segment chip below it and no text under 12 px', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.addInitScript(() =>
+    localStorage.setItem('echotwin.prefs.v1', JSON.stringify({ tutorialDone: true })),
+  );
+  await page.goto('/');
+  await waitForFrames(page);
+  const layout = await page.evaluate(() => {
+    const t = document.querySelector('.hud-tl')!.getBoundingClientRect();
+    const r = document.querySelector('.hud-tr')!.getBoundingClientRect();
+    const chip = document.querySelector('.img-seg')!.getBoundingClientRect();
+    const title = document.querySelector<HTMLElement>('.hud-title')!;
+    const small = [...document.querySelectorAll<HTMLElement>('body *')]
+      .filter(
+        (e) =>
+          e.children.length === 0 &&
+          e.textContent?.trim() &&
+          e.getBoundingClientRect().width > 0 &&
+          parseFloat(getComputedStyle(e).fontSize) < 12,
+      )
+      .map((e) => `${e.textContent.trim().slice(0, 20)}: ${getComputedStyle(e).fontSize}`);
+    return {
+      overlap: t.right > r.left && t.top < r.bottom,
+      chipBelow: chip.top >= t.bottom,
+      clipped: title.scrollHeight > title.clientHeight + 1,
+      small,
+    };
+  });
+  expect(layout).toEqual({ overlap: false, chipBelow: true, clipped: false, small: [] });
+});
