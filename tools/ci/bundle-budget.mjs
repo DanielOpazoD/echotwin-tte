@@ -22,7 +22,10 @@ const BUDGETS = [
   // Shared vascular network and PW/TDI IQ/FFT (decisions 283–284): 330.2 kB.
   // The total budget stays unchanged; the earlier mesh-worker deduplication saved ~115 kB.
   // Decisions 291–293: atrial/septal normalization and right-heart flow ledger; 335.2 kB.
-  [/^sim\.worker-.*\.js$/, 336 * KB],
+  // Decisions 297–298: the time course of the mitral orifice and its velocity table, and the stenotic ejection shape;
+  // 336.0 kB. Raised to 340 kB, 1.2 % over: the worker, the mesh worker and the WebGL2 chunk each bundle the anatomy and
+  // the cycle, so deduplicating them is what would give the room back (engineering review of 2026-10-12).
+  [/^sim\.worker-.*\.js$/, 340 * KB],
   // the WebGL2 port and its shaders: shared by the simulation worker and the lazy backend comparison. 119.7 kB at
   // decision 151; the LV segment code in GLSL and its read-back (decision 152) took it to 121.0 kB; the mirrors of the
   // right atrium beside the root and the membranous septum, the open venae cavae, the septal tricuspid hinge and the
