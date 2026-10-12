@@ -52,7 +52,7 @@ Calculados con `computeGroundTruth`; son los números contra los que se compara 
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | `normal-excellent-window` | 1,13 | 21,7 | 1,30 | 25,0 | 7 | 3 | 3,00 | 0,87 | 0,80 | 0,55 | 2,35 | 25 |
 | `normal-difficult-window` | 1,10 | 21,2 | 1,25 | 24,0 | 6 | 3 | 2,50 | 0,88 | 0,80 | 0,55 | 2,35 | 25 |
-| `aortic-stenosis-severe` | 1,19 | 22,5 | 4,69 | 88,6 | 88 | 44 | 0,88 | 0,25 | 0,65 | 0,85 | 2,96 | 38 |
+| `aortic-stenosis-severe` | 1,01 | 22,5 | 4,49 | 100,0 | 80 | 50 | 0,78 | 0,23 | 0,65 | 0,85 | 2,96 | 38 |
 
 El caso de ventana difícil tiene un TSVI de 1,9 cm (2,84 cm²) y un AVA efectiva de 2,5 cm², la proporción del caso normal (decisión 161; heredaba 3,0 cm², mayor que su propio TSVI, y la válvula leía más lenta que el tracto). Con la escala PW máxima de la UI (2,5 m/s) el chorro de la EA aliasea siempre en PW; sólo CW (escala hasta 7 m/s) lo recorre entero, que es la lección del caso.
 

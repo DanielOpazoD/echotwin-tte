@@ -5,6 +5,7 @@ import { lvotNarrowing, solveLvotObstruction } from './outflow';
 import {
   computeCycleTimings,
   ejectionShape,
+  aorticStenosisSeverity,
   eWaveShape,
   aWaveShape,
   TRICUSPID_LAG_S,
@@ -249,15 +250,17 @@ export function buildBeatTables(
       arVti += v * 100 * dt;
     }
   }
+  // a stenotic aortic valve rounds the ejection and delays its peak (decision 298)
+  const stenosis = aorticStenosisSeverity(hemo.avEffectiveAreaCm2);
   let shapeInt = 0;
-  for (let i = 0; i < 400; i++) shapeInt += ejectionShape((i + 0.5) / 400) * (et / 400);
+  for (let i = 0; i < 400; i++) shapeInt += ejectionShape((i + 0.5) / 400, stenosis) * (et / 400);
   if (mr && mr.eroaCm2 > 0) {
     const kFirst = Math.max(5, svTotal - mr.eroaCm2 * mrEffVti) / shapeInt;
     const aorticFirst = new Float32Array(n);
     for (let i = 0; i < n; i++) {
       const t = (i + 0.5) * dt;
       if (t > timings.ejectionStartS && t < timings.ejectionEndS)
-        aorticFirst[i] = kFirst * ejectionShape((t - timings.ejectionStartS) / et);
+        aorticFirst[i] = kFirst * ejectionShape((t - timings.ejectionStartS) / et, stenosis);
     }
     const obstruction = opts.outflow
       ? solveLvotObstruction(
@@ -404,7 +407,7 @@ export function buildBeatTables(
   for (let i = 0; i < n; i++) {
     const t = (i + 0.5) * dt;
     if (t > timings.ejectionStartS && t < timings.ejectionEndS) {
-      aorticFlow[i] = kAo * ejectionShape((t - timings.ejectionStartS) / et);
+      aorticFlow[i] = kAo * ejectionShape((t - timings.ejectionStartS) / et, stenosis);
     }
     const tp = (((t - timings.pulmonaryOpenS) % rrS) + rrS) % rrS;
     if (tp < etRv) pulmonaryFlow[i] = kPv * pvShape(tp / etRv);

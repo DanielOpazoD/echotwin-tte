@@ -14,14 +14,14 @@ Todos los casos patológicos derivan del normal cambiando sólo parámetros anat
 | `normal-difficult-window` | Optimizar una ventana difícil: espacio intercostal, frecuencia baja, armónicos; sombra costal e interposición pulmonar | Mismo corazón de tamaño femenino; 61 a, IMC 34, pared torácica gruesa, atenuación y solapamiento pulmonar del caso |
 | `hfref-severe-mr` | VI dilatado con FE reducida e IM funcional por tracción | VTD/VTS 270/205 mL → FE 24 %, sinusal 88 lpm, ORE IM 0,25 cm² (jet central funcional, bifásico), VR 25 mL, FR 38 %, VS anterógrado 20 mL/m², e′ septal 4 cm/s, PASP 48 mmHg |
 | `inferior-rwma` | Alteración segmentaria inferior/inferolateral con compensación de los segmentos sanos | VTD/VTS 145/78 mL, `wallMotion` inferior+inferolateral, E/A invertido (0,7/0,75), e′ 6/8 cm/s |
-| `aortic-stenosis-moderate` | Estenosis aórtica moderada: Vmax 3–4 m/s, AVA 1,0–1,5 cm² | AVA efectiva 1,1 cm², cúspides calcificadas, HVI con patrón diastólico |
-| `aortic-stenosis-severe` | EA severa: Vmax/VTI con CW, AVA por continuidad, TSVI con zoom | AVA efectiva 0,88 cm² → Vmax 4,69 m/s, gradiente medio 44 mmHg, VTI 89 cm, índice 0,25 (los tres criterios de severa) |
+| `aortic-stenosis-moderate` | Estenosis aórtica moderada: Vmax 3–4 m/s, AVA 1,0–1,5 cm² | AVA efectiva 1,05 cm² → Vmax 3,1 m/s, gradiente medio 23 mmHg, cúspides calcificadas, HVI con patrón diastólico |
+| `aortic-stenosis-severe` | EA severa: Vmax/VTI con CW, AVA por continuidad, TSVI con zoom | AVA efectiva 0,78 cm² → Vmax 4,49 m/s, gradiente medio 50 mmHg (0,62 del pico), índice 0,23 (todos los criterios de severa) |
 | `hocm-sam` | MCH obstructiva: SAM septal, chorro en daga del TSVI, IM excéntrica | Septo hipertrófico, `samSeverity` 0,7, obstrucción dinámica resuelta al gradiente del caso, ORE IM 0,15 cm² a 35°, abierto sólo mientras dura el SAM (VR 11 mL, FR 16 %) |
 | `mvp-primary-mr` | Prolapso del velo posterior con IM primaria excéntrica, PISA | `prolapse` 0,7, ORE 0,45 cm² dirigido −35°, VI volumen-cargado hiperdinámico (180/60 mL), VR 78 mL, FR 65 %, VS anterógrado 25 mL/m², E 1,2 m/s |
 | `pulmonary-hypertension-rv` | VD dilatado con disfunción, aplanamiento septal en «D», IT para RVSP | VD basal 4,9 cm, `septalFlattening` 0,8, PASP 72 mmHg, TAPSE 1,3 cm, S′ 7 cm/s, ORE IT 0,3 cm² |
 | `pericardial-effusion-tamponade` | Derrame con colapsos de AD y VD, oscilación, variación respiratoria de E mitral/tricuspídea | Derrame 2,2 cm, `tamponade` 0,8, taquicardia 108 lpm, PAS 92 mmHg, PAD 16 mmHg |
 | `af-diastolic` | FA: RR irregular sin onda A, llenado y eyección latido a latido, límites de la evaluación diastólica | FA 92 lpm (variabilidad 22 %), E 0,95 m/s sin A, e′ 5,5/7,5, IM leve (ORE 0,10) |
-| `artifact-challenge` | Laboratorio de artefactos: calcificación con sombra, reverberación, lóbulos laterales, espejo, blooming de color | `caseDef.artifacts` con intensidades propias; EA leve de fondo (AVA 1,25 cm², Vmax 2,5 m/s) |
+| `artifact-challenge` | Laboratorio de artefactos: calcificación con sombra, reverberación, lóbulos laterales, espejo, blooming de color | `caseDef.artifacts` con intensidades propias; EA leve de fondo (AVA 1,15 cm², Vmax 2,5 m/s) |
 
 ## Vistas modeladas (`src/simulator/windows/viewTargets.ts`, 12 vistas)
 
