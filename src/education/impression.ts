@@ -1,5 +1,11 @@
 import { modelDiastolicAssessment, modelPulmonaryAssessment } from './modelInterpretation';
 import { rangeFlag } from '@/clinical/guidelines/normalRanges';
+import {
+  efCategory,
+  gradeAorticStenosis,
+  gradeMitralRegurgitation,
+  wallThickened,
+} from '@/clinical/guidelines/valveGrading';
 import type { StructuredEchoTruth } from '@/simulator/hemodynamics/groundTruth';
 
 /**
@@ -20,8 +26,18 @@ export interface Finding {
 
 export const FINDINGS: Finding[] = [
   { id: 'normal-study', label: 'Estudio dentro de límites normales', domain: 'global' },
-  { id: 'ef-normal', label: 'FEVI conservada (≥ 52 %)', domain: 'lv', exclusive: 'ef' },
-  { id: 'ef-mild', label: 'Disfunción sistólica leve (41–51 %)', domain: 'lv', exclusive: 'ef' },
+  {
+    id: 'ef-normal',
+    label: 'FEVI conservada (≥ 52 % hombres, ≥ 54 % mujeres)',
+    domain: 'lv',
+    exclusive: 'ef',
+  },
+  {
+    id: 'ef-mild',
+    label: 'Disfunción sistólica leve (41 % hasta el límite normal)',
+    domain: 'lv',
+    exclusive: 'ef',
+  },
   {
     id: 'ef-moderate',
     label: 'Disfunción sistólica moderada (30–40 %)',
@@ -94,11 +110,23 @@ export function getFinding(id: string): Finding | undefined {
   return FINDINGS.find((f) => f.id === id);
 }
 
+/** What the aortic stenosis grading reads from the truth: the forward stroke volume index is the flow. */
+export function aorticStenosisInput(t: StructuredEchoTruth) {
+  const av = t.aorticValve;
+  return {
+    vmaxMps: av.vmaxMps,
+    meanGradientMmHg: av.meanGradientMmHg,
+    avaCm2: av.continuityAvaCm2,
+    strokeVolumeIndexMlM2: t.lvot.strokeVolumeMl / t.bsaM2,
+    efPct: t.lv.efPct,
+  };
+}
+
 /** Expected findings for a case, derived from its structured truth with the thresholds of the guidelines used in the app. */
 export function expectedFindings(t: StructuredEchoTruth): string[] {
   const out = new Set<string>();
-  const ef = t.lv.efPct;
-  out.add(ef >= 52 ? 'ef-normal' : ef >= 41 ? 'ef-mild' : ef >= 30 ? 'ef-moderate' : 'ef-severe');
+  // the lower normal limit is 52 % in men and 54 % in women (ASE/EACVI 2015)
+  out.add(`ef-${efCategory(t.lv.efPct, t.sex)}`);
   // the upper limits of the reference ranges for the patient's sex (decision 175): EDV index 74 (men) or 61 (women)
   // mL/m², end-diastolic diameter 5.8 or 5.2 cm; the male limits applied to everyone
   const edviHigh = t.sex === 'female' ? 61 : 74;
@@ -106,20 +134,15 @@ export function expectedFindings(t: StructuredEchoTruth): string[] {
     out.add('lv-dilated');
   if (t.lv.ivsdCm >= 1.5 && t.lv.ivsdCm / Math.max(0.5, t.lv.lvpwdCm) >= 1.3)
     out.add('asymmetric-septal-hypertrophy');
-  else if (t.lv.ivsdCm > 1.1 || t.lv.lvpwdCm > 1.1) out.add('lvh');
+  // walls above the sex's upper limit (1.0 cm men, 0.9 cm women): a 1.1 cm limit for everyone missed the mild
+  // concentric hypertrophy the moderate stenosis and the AF case describe in their women
+  else if (wallThickened(t.lv.ivsdCm, t.lv.lvpwdCm, t.sex)) out.add('lvh');
   if (t.wallMotion.abnormalSegments.length) out.add('rwma');
   if (t.lvot.peakGradientMmHg >= 30) out.add('lvot-obstruction');
-  const av = t.aorticValve;
-  if (av.vmaxMps >= 4 || av.meanGradientMmHg >= 40 || av.continuityAvaCm2 <= 1.0)
-    out.add('as-severe');
-  else if (av.vmaxMps >= 3) out.add('as-moderate');
-  else if (av.vmaxMps >= 2) out.add('as-mild');
-  else out.add('as-none');
+  // integrative grading (valveGrading.ts): the flow decides a discordant stenosis, and two of three criteria the regurgitation
+  out.add(`as-${gradeAorticStenosis(aorticStenosisInput(t)).grade}`);
   const mr = t.regurgitation.mr;
-  if (!mr || mr.eroaCm2 < 0.1) out.add('mr-none');
-  else if (mr.eroaCm2 >= 0.4) out.add('mr-severe');
-  else if (mr.eroaCm2 >= 0.2) out.add('mr-moderate');
-  else out.add('mr-mild');
+  out.add(`mr-${mr ? gradeMitralRegurgitation(mr) : 'none'}`);
   if (t.regurgitation.ar) out.add('ar-present');
   if (t.rv.basalDiameterCm > 4.1) out.add('rv-dilated');
   if (t.rightHeart.tapseCm < 1.7) out.add('rv-dysfunction');

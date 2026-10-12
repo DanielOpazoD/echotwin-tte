@@ -108,7 +108,7 @@ export const artifactChallengeCase: CaseDefinitionInput = {
   ],
   impressionTruth: [
     'Esclerosis aórtica con estenosis leve (Vmax ≈ 2,5 m/s) y calcificación anular mitral severa con sombra acústica.',
-    'Insuficiencia mitral leve; función sistólica conservada; aurícula izquierda levemente dilatada.',
+    'Insuficiencia mitral leve; hipertrofia ventricular izquierda leve (septo 1,1 cm) con función sistólica conservada; aurícula izquierda levemente dilatada.',
     'Estudio técnicamente difícil por atenuación, interposición pulmonar y artefactos.',
   ],
   expectedDeviations: ['ivsd', 'lvpwd', 'ao-ascending'],
