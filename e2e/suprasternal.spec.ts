@@ -26,6 +26,14 @@ for (const position of ['left-lateral', 'supine'] as const)
         }
       });
     });
+    const startV = await page.evaluate(
+      () =>
+        (
+          (window as unknown as EchoWindow).__echotwin.useSimStore.getState()['probe'] as {
+            v: number;
+          }
+        ).v,
+    );
     await page.getByRole('button', { name: 'SSN', exact: true }).click();
     await expect
       .poll(
@@ -56,19 +64,21 @@ for (const position of ['left-lateral', 'supine'] as const)
       )
       .toBeLessThan(0.001);
     const acquired = await page.evaluate(
-      ([archId, descendingId]) => {
+      ([archId, descendingId, startV]) => {
         const out = (window as unknown as { ssnOutput: SimOutput }).ssnOutput;
         return {
           probe: out.acquisition?.probe,
           patientPosition: out.acquisition?.patient.position,
           arch: Array.from(out.structure).filter((s) => s === archId).length,
           descending: Array.from(out.structure).filter((s) => s === descendingId).length,
+          // any frame acquired strictly between the start pose and the final one: the old 3-9 cm band was ~1.5 s of a
+          // 3.5 s animation, and a loaded CI runner drawing with SwiftShader delivered no frame inside it in 4 of ~20 runs
           intermediate: (window as unknown as { ssnSamples: number[] }).ssnSamples.filter(
-            (v) => v > 3 && v < 9,
+            (v) => v > (startV ?? 0) + 0.2 && v < (out.acquisition?.probe.v ?? 0) - 0.2,
           ).length,
         };
       },
-      [Structure.AorticArch, Structure.DescendingAorta],
+      [Structure.AorticArch, Structure.DescendingAorta, startV],
     );
     expect(acquired.patientPosition).toBe(position);
     expect(acquired.probe?.v).toBeGreaterThanOrEqual(10);
