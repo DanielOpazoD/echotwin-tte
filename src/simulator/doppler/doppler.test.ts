@@ -1364,7 +1364,9 @@ describe('the spectral display is an estimate with its granular texture (decisio
     const beat = summarizeEnvelope(whole.v, whole.spc);
     const msg = `ejection: VTI ${eject.vtiCm.toFixed(1)} cm, mean ${eject.meanGradientMmHg.toFixed(1)} mmHg; whole beat: VTI ${beat.vtiCm.toFixed(1)}, mean ${beat.meanGradientMmHg.toFixed(1)}`;
     expect(eject.meanGradientMmHg, msg).toBeGreaterThan(30);
-    expect(Math.abs(beat.vtiCm / eject.vtiCm - 1), msg).toBeLessThan(0.03);
+    // 3 % until decision 298: the stenotic envelope rises and falls more steeply, so more of it lies at the edges where
+    // the whole-beat trace meets the baseline (3.0-3.1 % with an AVA of 0.76-0.78 cm²)
+    expect(Math.abs(beat.vtiCm / eject.vtiCm - 1), msg).toBeLessThan(0.035);
     expect(Math.abs(beat.meanGradientMmHg / eject.meanGradientMmHg - 1), msg).toBeLessThan(0.05);
   });
 

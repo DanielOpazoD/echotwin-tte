@@ -52,7 +52,9 @@ export const aorticStenosisSevereCase: CaseDefinitionInput = {
     diastolicBpMmHg: 80,
     rapMmHg: 3,
     paspMmHg: 38,
-    avEffectiveAreaCm2: 0.88, // computeGroundTruth: Vmax 4.69 m/s, mean 44 mmHg, AVA 0.88 cm² (all three severe criteria)
+    // computeGroundTruth: Vmax 4.49 m/s, mean 50 mmHg, AVA 0.78 cm², DVI 0.23 (all severe criteria); 0.88 until the
+    // stenotic ejection shape of decision 298, which read a mean gradient of 44 for a Vmax of 4.69
+    avEffectiveAreaCm2: 0.78,
     trPresent: true,
     regurgitation: {},
   },

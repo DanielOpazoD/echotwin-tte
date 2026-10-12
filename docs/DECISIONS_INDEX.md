@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 297 (última: 297).
+Decisiones: 298 (última: 298).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -305,3 +305,4 @@ Decisiones: 297 (última: 297).
 | [295](DECISIONS.md#L1854) | 2026-10-04 | Extremos de flujo por latido y coste verificable de interacción. | vigente |
 | [296](DECISIONS.md#L1878) | 2026-10-04 | Textura sanguínea sin una segunda envolvente aleatoria de clutter. | vigente |
 | [297](DECISIONS.md#L1898) | 2026-10-12 | El volumen telediastólico contiene el regurgitante, y el orificio de la IM varía en el tiempo según su mecanismo. | vigente |
+| [298](DECISIONS.md#L1908) | 2026-10-12 | La eyección por una válvula aórtica estenótica tiene su pico más tarde y es más redondeada. | vigente |

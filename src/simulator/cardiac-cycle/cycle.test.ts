@@ -857,3 +857,38 @@ describe('mitral regurgitation through all of systole (decision 245)', () => {
     expect(tb.regurgitation.mrVmaxMps).toBeCloseTo(drawn, 2);
   });
 });
+
+describe('the ejection through a stenotic aortic valve (decision 298)', () => {
+  const at = async (id: string) => {
+    const { loadCaseById } = await import('@/cases');
+    const { computeGroundTruth } = await import('@/simulator/hemodynamics/groundTruth');
+    const c = loadCaseById(id);
+    const tb = buildBeatTables(60 / c.rhythm.heartRateBpm, c.physiology, c.rhythm, c.hemodynamics);
+    // when the aortic flow peaks, as a fraction of ejection (acceleration time / ejection time)
+    const dt = tb.rrS / tb.n;
+    let peak = 0,
+      when = 0;
+    for (let i = 0; i < tb.n; i++)
+      if ((tb.aorticFlowMlps[i] ?? 0) > peak) {
+        peak = tb.aorticFlowMlps[i]!;
+        when = (i + 0.5) * dt;
+      }
+    const { ejectionStartS: s, ejectionEndS: e } = tb.timings;
+    const av = computeGroundTruth(c).aorticValve;
+    return { atEt: (when - s) / (e - s), ratio: av.meanGradientMmHg / av.peakGradientMmHg, av };
+  };
+  it('peaks later and rounder as the valve narrows: mean ≈ 0.6 of the peak gradient when severe', async () => {
+    const normal = await at('normal-excellent-window');
+    const severe = await at('aortic-stenosis-severe');
+    // a normal valve: early peak, mean gradient half the peak one
+    expect(normal.atEt).toBeLessThan(0.43);
+    expect(normal.ratio).toBeGreaterThan(0.45);
+    expect(normal.ratio).toBeLessThan(0.55);
+    // severe stenosis: AT/ET over 0.45 and mean ≈ 0.6 × peak, so Vmax ≥ 4 and mean gradient ≥ 40 agree
+    expect(severe.atEt).toBeGreaterThan(0.45);
+    expect(severe.ratio).toBeGreaterThan(0.58);
+    expect(severe.ratio).toBeLessThan(0.66);
+    expect(severe.av.vmaxMps).toBeGreaterThanOrEqual(4);
+    expect(severe.av.meanGradientMmHg).toBeGreaterThanOrEqual(40);
+  });
+});

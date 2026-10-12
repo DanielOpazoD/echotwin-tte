@@ -94,10 +94,22 @@ export function computeCycleTimings(
   };
 }
 
-/** Normalized ejection flow shape on u∈[0,1]: skewed with early peak (≈ 0.4 of ET). */
-export function ejectionShape(u: number): number {
+/**
+ * Normalized ejection flow shape on u∈[0,1]. Through a normal valve it peaks early (≈ 0.40 of ET) and its mean gradient is
+ * half the peak one. A stenotic valve's jet peaks later and is rounder (decision 298): `stenosis` 0…1 moves the peak to
+ * ≈ 0.48 of ET and the mean-to-peak gradient ratio from 0.50 to 0.62, the ≈ 0.6 of severe aortic stenosis — with one
+ * shape for every valve, a severe stenosis of Vmax 4.7 m/s read a mean gradient of 44 mmHg and any Vmax of 4.0–4.4
+ * would have read a falsely discordant mean gradient under 40.
+ */
+export function ejectionShape(u: number, stenosis = 0): number {
   if (u <= 0 || u >= 1) return 0;
-  return Math.pow(u, 0.9) * Math.pow(1 - u, 1.35);
+  const s = Math.min(1, Math.max(0, stenosis));
+  return Math.pow(u, 0.9 - 0.3 * s) * Math.pow(1 - u, 1.35 - 0.7 * s);
+}
+
+/** How stenotic an effective aortic valve area (cm²) is for the ejection shape: 0 from 1.5 cm², 1 at 0.9 cm² and below. */
+export function aorticStenosisSeverity(effectiveAreaCm2: number): number {
+  return Math.min(1, Math.max(0, (1.5 - effectiveAreaCm2) / 0.6));
 }
 
 /** Normalized E-wave shape: sine-squared acceleration, then near-linear deceleration. */

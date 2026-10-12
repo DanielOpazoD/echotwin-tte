@@ -60,8 +60,9 @@ export const artifactChallengeCase: CaseDefinitionInput = {
     rapMmHg: 3,
     paspMmHg: 34,
     // 1.4 until decision 245, 1.2 until decision 297, while the end-diastolic volume did not hold the regurgitant volume and
-    // the forward flow fell; with it held, 1.25 gives the mild stenosis the case describes (Vmax 2.49 m/s)
-    avEffectiveAreaCm2: 1.25,
+    // the forward flow fell; 1.25 until the stenotic ejection shape of decision 298. 1.15 gives the mild stenosis the case
+    // describes (Vmax 2.47 m/s)
+    avEffectiveAreaCm2: 1.15,
     trPresent: true,
     lvotPeakGradientMmHg: 0,
     regurgitation: { mr: { eroaCm2: 0.1, jetDirectionDeg: 0 } },

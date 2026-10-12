@@ -60,7 +60,8 @@ export const aorticStenosisModerateCase: CaseDefinitionInput = {
     diastolicBpMmHg: 80,
     rapMmHg: 3,
     paspMmHg: 30,
-    avEffectiveAreaCm2: 1.1,
+    // Vmax 3.11 m/s, mean 23 mmHg (1.1 until the stenotic ejection shape of decision 298)
+    avEffectiveAreaCm2: 1.05,
     trPresent: true,
     lvotPeakGradientMmHg: 0,
     regurgitation: {},
@@ -92,7 +93,7 @@ export const aorticStenosisModerateCase: CaseDefinitionInput = {
     },
   ],
   impressionTruth: [
-    'Estenosis aórtica moderada calcificada (Vmax ≈ 3,2 m/s, gradiente medio ≈ 22 mmHg, AVA ≈ 1,1 cm²).',
+    'Estenosis aórtica moderada calcificada (Vmax ≈ 3,1 m/s, gradiente medio ≈ 23 mmHg, AVA ≈ 1,05 cm²).',
     'Hipertrofia concéntrica leve con función sistólica conservada.',
     'Alteración de la relajación.',
   ],
