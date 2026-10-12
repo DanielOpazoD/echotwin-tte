@@ -44,8 +44,8 @@ export const artifactChallengeCase: CaseDefinitionInput = {
   },
   physiology: {
     ...normalExcellentCase.physiology,
-    edvMl: 115,
-    esvMl: 46,
+    edvMl: 120,
+    esvMl: 44,
     mapseCm: 1.2,
     ePeakMps: 0.75,
     aPeakMps: 0.85,
@@ -59,9 +59,9 @@ export const artifactChallengeCase: CaseDefinitionInput = {
     diastolicBpMmHg: 78,
     rapMmHg: 3,
     paspMmHg: 34,
-    // 1.4 until decision 245: with the mitral regurgitation running through all of systole the forward flow falls and
-    // the aortic jet read 1.96 m/s, below the mild stenosis the case describes (≈ 2.5)
-    avEffectiveAreaCm2: 1.2,
+    // 1.4 until decision 245, 1.2 until decision 297, while the end-diastolic volume did not hold the regurgitant volume and
+    // the forward flow fell; with it held, 1.25 gives the mild stenosis the case describes (Vmax 2.49 m/s)
+    avEffectiveAreaCm2: 1.25,
     trPresent: true,
     lvotPeakGradientMmHg: 0,
     regurgitation: { mr: { eroaCm2: 0.1, jetDirectionDeg: 0 } },

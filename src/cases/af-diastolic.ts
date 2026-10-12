@@ -60,7 +60,7 @@ export const afDiastolicCase: CaseDefinitionInput = {
     avEffectiveAreaCm2: 2.6,
     trPresent: true,
     lvotPeakGradientMmHg: 0,
-    regurgitation: { mr: { eroaCm2: 0.12, jetDirectionDeg: 0 } },
+    regurgitation: { mr: { eroaCm2: 0.1, jetDirectionDeg: 0 } },
   },
   flowPrimitives: [
     ...normalExcellentCase.flowPrimitives,

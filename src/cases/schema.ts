@@ -145,6 +145,11 @@ export const HemodynamicsSchema = z.object({
         .object({
           eroaCm2: z.number().min(0).max(1.2),
           jetDirectionDeg: z.number().min(-60).max(60),
+          /**
+           * Time course of the orifice (decision 297): 'holosystolic' (default) the whole ERO from closure to opening;
+           * 'functional' widest early and late, half of it at mid-systole; 'sam' open only while the leaflet obstructs the outflow.
+           */
+          timing: z.enum(['holosystolic', 'functional', 'sam']).optional(),
         })
         .optional(),
       ar: z

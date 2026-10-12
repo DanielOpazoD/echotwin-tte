@@ -229,7 +229,9 @@ export function computeGroundTruth(c: CaseDefinition, tables?: BeatTables): Stru
       esvMl: t.esvMl,
       efPct: ef,
       strokeVolumeMl: sv,
-      cardiacOutputLpm: cardiacOutput(sv, c.rhythm.heartRateBpm),
+      // what reaches the aorta, not what leaves the ventricle: with mitral regurgitation the total stroke volume overstated
+      // the output by the regurgitant volume and hid a forward flow that had collapsed (decision 297)
+      cardiacOutputLpm: cardiacOutput(sv - t.regurgitation.mrVolumeMl, c.rhythm.heartRateBpm),
       mapseCm: c.physiology.mapseCm,
     },
     lvot: {
