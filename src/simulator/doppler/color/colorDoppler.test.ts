@@ -168,6 +168,85 @@ describe('the colour field is an estimate (decision 116)', () => {
   });
 });
 
+describe('the colour estimate is a wall-filtered autocorrelation of a packet (decision 300)', () => {
+  const field = (v: number, disp: number, settings: Partial<typeof DEFAULT_COLOR> = {}, r = 0) => {
+    const f = allocPolarFrame(spec);
+    f.tissue.fill(Tissue.Blood);
+    for (let li = 0; li < spec.lines; li++)
+      for (let si = 0; si < spec.samples; si++)
+        f.transmission[li * spec.samples + si] = Math.exp(
+          -0.23 * 0.5 * ACQ.frequencyMHz * 1.2 * ((si + 0.5) / spec.samples) * spec.depthCm,
+        );
+    const out = allocColorField(spec.lines * spec.samples);
+    computeColorField(
+      f,
+      {
+        ...DEFAULT_COLOR,
+        persistence: 0,
+        boxRMinCm: 1,
+        boxRMaxCm: 6,
+        boxThetaMinRad: -0.6,
+        boxThetaMaxRad: 0.6,
+        ...settings,
+      },
+      null,
+      (_idx, _li, _si, o) => {
+        o.v = v;
+        o.disp = disp;
+        o.present = 1;
+      },
+      out,
+      ACQ,
+      { realization: r, seed: 9 },
+    );
+    const shown: number[] = [];
+    const variance: number[] = [];
+    let total = 0;
+    for (let li = 0; li < spec.lines; li++)
+      for (let si = 0; si < spec.samples; si++) {
+        const rCm = ((si + 0.5) / spec.samples) * spec.depthCm;
+        const th = -spec.sectorRad / 2 + (spec.sectorRad * (li + 0.5)) / spec.lines;
+        if (rCm < 1.2 || rCm > 5.8 || Math.abs(th) > 0.55) continue;
+        total++;
+        const i = li * spec.samples + si;
+        if (!Number.isNaN(out.vel[i]!)) {
+          shown.push(out.vel[i]!);
+          variance.push(out.variance[i]!);
+        }
+      }
+    const mean = (a: number[]) => a.reduce((x, y) => x + y, 0) / Math.max(1, a.length);
+    return { fraction: shown.length / total, mean: mean(shown), variance: mean(variance) };
+  };
+  const N = DEFAULT_COLOR.scaleMps;
+
+  it('rejects most of a jet at twice Nyquist, which aliases to rest, as a real wall filter does', () => {
+    // the filter used to act on the true velocity: 1.24 m/s is far above its 0.06 m/s cutoff and was always coloured.
+    // Sampled, it reads as rest and the filter takes most of it; what passes is the spectrum the jitter spreads
+    const jet = field(2 * N, 0.04);
+    expect(jet.fraction).toBeLessThan(0.25);
+    // the same jet slightly off twice Nyquist aliases to a slow flow that does pass
+    expect(field(2 * N + 0.3, 0.04).fraction).toBeGreaterThan(0.8);
+  });
+
+  it('wraps a flow above Nyquist to the other colour', () => {
+    const fast = field(1.3 * N, 0.04);
+    expect(fast.fraction).toBeGreaterThan(0.8);
+    expect(fast.mean).toBeLessThan(-0.4 * N);
+  });
+
+  it('the wall filter removes most slow flow, and without it slow flow shows', () => {
+    expect(field(0.02, 0.04).fraction).toBeLessThan(0.35);
+    expect(field(0.02, 0.04, { wallFilterMps: 0 }).fraction).toBeGreaterThan(0.8);
+  });
+
+  it('laminar flow reads no variance and a turbulent jet a high one', () => {
+    const laminar = field(0.3, 0.04);
+    const turbulent = field(0.3, 1.2);
+    expect(laminar.variance).toBeLessThan(0.1);
+    expect(turbulent.variance).toBeGreaterThan(laminar.variance + 0.2);
+  });
+});
+
 describe('colour Doppler persistence (decisions 56 and 87)', () => {
   it('persistence 0.5: the second field blends its raw velocity and variance with the first field', () => {
     const first = update(0.5, null, 0.2, 0.1); // variance 1.6 · 0.1 = 0.16
