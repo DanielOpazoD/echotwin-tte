@@ -72,7 +72,7 @@ npm run lint && npm run format:check && npm run typecheck
 npm test              # suite rápida, ~1 min
 npm run test:slow     # acústica, clínica CAMUS, goldens: varios minutos
 npm run check         # todo lo anterior con la suite completa + build (lo que exige el pipeline)
-npx vite build && npm run test:e2e   # Playwright prueba dist/, así que construye antes (7–12 min)
+npm run build:e2e && npm run test:e2e   # Playwright prueba dist/ con el gancho de pruebas (7–12 min)
 ```
 
 `npm run coverage` aplica los pisos por área de `vite.config.ts`. Un test nuevo que renderice cuadros

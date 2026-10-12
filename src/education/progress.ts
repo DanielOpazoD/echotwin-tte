@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 /**
  * Local learning analytics (spec 40, proposal 7): events and progress live only in the learner's
  * browser (localStorage) and can be exported as JSON by the learner for research use. No telemetry.
@@ -44,17 +46,53 @@ export interface ProgressStorage {
   setItem(key: string, value: string): void;
 }
 
+const num = z.number().finite();
+/** Every event kind with its fields' types: what storage hands back is checked event by event (`loadProgress`). */
+const EVENT_SCHEMA = z.discriminatedUnion('kind', [
+  z.object({ t: num, kind: z.literal('view'), caseId: z.string(), viewId: z.string(), score: num }),
+  z.object({
+    t: num,
+    kind: z.literal('measurement'),
+    caseId: z.string(),
+    measurementId: z.string(),
+    techniqueScore: num.nullable(),
+    value: num,
+  }),
+  z.object({ t: num, kind: z.literal('task'), taskId: z.string() }),
+  z.object({ t: num, kind: z.literal('case'), caseId: z.string() }),
+  z.object({
+    t: num,
+    kind: z.literal('exam'),
+    caseId: z.string(),
+    total: num,
+    acquisition: num,
+    measurements: num,
+    impression: num.nullable(),
+  }),
+  z.object({ t: num, kind: z.literal('impression'), caseId: z.string(), score: num }),
+]);
+
 export function loadProgress(storage: ProgressStorage | null): ProgressState {
   if (!storage) return emptyProgress();
   try {
     const raw = storage.getItem(PROGRESS_KEY);
     if (!raw) return emptyProgress();
-    const parsed = JSON.parse(raw) as Partial<ProgressState>;
-    if (parsed.version !== 1 || !Array.isArray(parsed.events)) return emptyProgress();
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null) return emptyProgress();
+    const { version, events, completedTasks } = parsed as Record<string, unknown>;
+    if (version !== 1 || !Array.isArray(events)) return emptyProgress();
+    // a malformed event (old build, hand edit) is dropped on its own instead of reaching the summaries with the
+    // wrong shape; the rest of the history survives
+    const valid: ProgressEvent[] = [];
+    for (const e of events) {
+      const r = EVENT_SCHEMA.safeParse(e);
+      if (r.success) valid.push(r.data);
+    }
+    const tasks = z.record(z.string(), num).safeParse(completedTasks ?? {});
     return {
       version: 1,
-      completedTasks: parsed.completedTasks ?? {},
-      events: parsed.events.slice(-MAX_EVENTS),
+      completedTasks: tasks.success ? tasks.data : {},
+      events: valid.slice(-MAX_EVENTS),
     };
   } catch {
     return emptyProgress();
