@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 299 (última: 299).
+Decisiones: 300 (última: 300).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -307,3 +307,4 @@ Decisiones: 299 (última: 299).
 | [297](DECISIONS.md#L1898) | 2026-10-12 | El volumen telediastólico contiene el regurgitante, y el orificio de la IM varía en el tiempo según su mecanismo. | vigente |
 | [298](DECISIONS.md#L1908) | 2026-10-12 | La eyección por una válvula aórtica estenótica tiene su pico más tarde y es más redondeada. | vigente |
 | [299](DECISIONS.md#L1915) | 2026-10-12 | El haz paga la media de las amplitudes de sus pinceles, no la media de sus decibelios. | vigente |
+| [300](DECISIONS.md#L1920) | 2026-10-12 | El color se estima con un paquete de ecos, un filtro de pared de regresión y la autocorrelación de Kasai. | vigente |
