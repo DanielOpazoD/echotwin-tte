@@ -77,6 +77,11 @@ export interface MeasurementScoringOptions {
   freeMeasurements?: boolean;
 }
 
+export interface ExamScoringOptions extends MeasurementScoringOptions {
+  /** A blank impression scores 0 and keeps its 20 % (`modePolicy(mode).impressionRequired`); default false. */
+  impressionRequired?: boolean;
+}
+
 /**
  * Matching user measurement: by semantic id when the protocol panel was used (the last one taken
  * wins, as on a real machine); otherwise, when free measurements are scored, the closest free
@@ -189,12 +194,15 @@ export function buildExamSummary(
   truth: StructuredEchoTruth,
   progress: ViewProgress,
   measurements: Measurement[],
-  impression: number | null = null,
-  options: MeasurementScoringOptions = {},
+  submittedImpression: number | null = null,
+  options: ExamScoringOptions = {},
 ): ExamSummary {
   const acquisition = scoreAcquisition(caseDef, progress);
   const ms = scoreMeasurements(caseDef, truth, measurements, options);
-  // acquisition 40 % · measurements 40 % · impression 20 % (50/50 when no impression was submitted)
+  // in the exam a blank impression is a wrong one: 0 of its 20 %, never a reweighting that rewards not answering
+  const impressionMissing = submittedImpression === null && options.impressionRequired === true;
+  const impression = impressionMissing ? 0 : submittedImpression;
+  // acquisition 40 % · measurements 40 % · impression 20 % (50/50 in practice when no impression was corrected)
   const total =
     impression === null
       ? Math.round(acquisition.total * 0.5 + ms.total * 0.5)
@@ -226,7 +234,12 @@ export function buildExamSummary(
     recommendations.push(
       'Completa las mediciones requeridas por el caso antes de cerrar el informe.',
     );
-  if (impression !== null) {
+  if (impressionMissing) {
+    mainErrors.push('Impresión diagnóstica no entregada: cuenta 0 (20 % del total).');
+    recommendations.push(
+      'Cierra siempre el estudio con una impresión: un juicio con dudas puntúa más que ninguno.',
+    );
+  } else if (impression !== null) {
     if (impression >= 80) strengths.push(`Impresión estructurada concordante (${impression}/100).`);
     else
       mainErrors.push(

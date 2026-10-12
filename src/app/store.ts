@@ -35,7 +35,8 @@ import {
   saveProgress,
   type ProgressState,
 } from '@/education/progress';
-import { getFinding } from '@/education/impression';
+import { expectedFindings, getFinding, scoreImpression } from '@/education/impression';
+import { listCases } from '@/cases';
 import { examSummaryOf, impressionCorrected } from './examSummary';
 import type { ExamSummary } from '@/education/scoring/scoring';
 import type { PhaseMarks } from '@/simulator/core/protocol';
@@ -221,7 +222,8 @@ export interface SimStore {
   setCursor: (theta: number, depth?: number) => void;
   setQuality: (q: QualityChoice) => void;
   setBackend: (b: RendererBackendChoice) => void;
-  setMode: (m: ProductMode) => void;
+  /** `examCaseId` fixes the case an exam starts on; without it the exam draws one at random (`modePolicy.assignsCase`). */
+  setMode: (m: ProductMode, examCaseId?: string) => void;
   setTargetView: (id: string | null) => void;
   /**
    * «Abrir tarea» of the curriculum: the task's case (loaded only when it is not the current one, so the session is kept)
@@ -524,13 +526,23 @@ export const useSimStore = create<SimStore>((set, get) => ({
     ),
   setQuality: (q) => set({ quality: q }),
   setBackend: (b) => set({ rendererBackend: b }),
-  setMode: (m) =>
+  setMode: (m, examCaseId) =>
     set((s) => {
       const policy = modePolicy(m);
+      // the exam draws its case: chosen by the learner, the case whose name the exam hides was known beforehand
+      let caseId = s.caseId;
+      let progress = s.progress;
+      if (policy.assignsCase) {
+        caseId = examCaseId ?? drawExamCase();
+        progress = addEvent(progress, { t: Date.now(), kind: 'exam-start', caseId });
+        saveProgress(typeof localStorage !== 'undefined' ? localStorage : null, progress);
+      }
       // an exam starts from scratch, as a case load does: the pose, the impression, the preset and the artifact lab left
       // behind by the practice would otherwise be scored as the learner's (A4C scored 97 the instant the exam began)
       return {
         mode: m,
+        caseId,
+        progress,
         examFinished: false,
         examResult: null,
         ...(m === 'exam' ? freshSession() : {}),
@@ -704,9 +716,21 @@ export const useSimStore = create<SimStore>((set, get) => ({
       return { impressionSelection: sel };
     }),
   checkImpression: () =>
-    set((s) =>
-      s.mode === 'exam' || !s.impressionSelection.length ? s : { impressionChecked: true },
-    ),
+    set((s) => {
+      if (s.mode === 'exam' || !s.impressionSelection.length || s.impressionChecked) return s;
+      // every corrected impression is recorded; the curriculum counts the first one on each case (firstImpressionScore)
+      let progress = s.progress;
+      if (s.truth) {
+        progress = addEvent(progress, {
+          t: Date.now(),
+          kind: 'impression',
+          caseId: s.caseId,
+          score: scoreImpression(s.impressionSelection, expectedFindings(s.truth)).score,
+        });
+        saveProgress(typeof localStorage !== 'undefined' ? localStorage : null, progress);
+      }
+      return { impressionChecked: true, progress };
+    }),
   redoImpression: () =>
     set((s) => (s.mode === 'exam' ? s : { impressionSelection: [], impressionChecked: false })),
   startPresetView: (viewId) => {
@@ -828,6 +852,12 @@ export const useSimStore = create<SimStore>((set, get) => ({
       return { caseId: id, ...freshSession(), progress };
     }),
 }));
+
+/** A case drawn at random for an exam. */
+function drawExamCase(): string {
+  const ids = listCases().map((c) => c.id);
+  return ids[Math.floor(Math.random() * ids.length)] ?? ids[0]!;
+}
 
 /** The preset pose request in flight: a later request, a cancellation or a fresh session supersedes it. */
 let presetToken = 0;

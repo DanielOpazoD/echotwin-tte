@@ -16,6 +16,8 @@ export type ProgressEvent =
     }
   | { t: number; kind: 'task'; taskId: string }
   | { t: number; kind: 'case'; caseId: string }
+  /** an exam began on the case it drew: with the 'exam' record it gives the time the exam took */
+  | { t: number; kind: 'exam-start'; caseId: string }
   | {
       t: number;
       kind: 'exam';
@@ -60,6 +62,7 @@ const EVENT_SCHEMA = z.discriminatedUnion('kind', [
   }),
   z.object({ t: num, kind: z.literal('task'), taskId: z.string() }),
   z.object({ t: num, kind: z.literal('case'), caseId: z.string() }),
+  z.object({ t: num, kind: z.literal('exam-start'), caseId: z.string() }),
   z.object({
     t: num,
     kind: z.literal('exam'),
@@ -111,6 +114,16 @@ export function saveProgress(storage: ProgressStorage | null, p: ProgressState):
 export function addEvent(p: ProgressState, e: ProgressEvent): ProgressState {
   const events = [...p.events, e].slice(-MAX_EVENTS);
   return { ...p, events };
+}
+
+/**
+ * The score of the first impression the learner had corrected on a case, or null if none. A later attempt follows the
+ * revealed answer key («Corregir» shows which findings are right, «Rehacer» clears the sheet), so it cannot show that the
+ * learner can read the case: only the first counts toward the curriculum.
+ */
+export function firstImpressionScore(p: ProgressState, caseId: string): number | null {
+  for (const e of p.events) if (e.kind === 'impression' && e.caseId === caseId) return e.score;
+  return null;
 }
 
 export function completeTask(p: ProgressState, taskId: string, t: number): ProgressState {

@@ -10,6 +10,8 @@ const ALL_ON: ModePolicy = {
   devToolsAllowed: true,
   freeMeasurementsScored: true,
   navigatorAnatomy: true,
+  impressionRequired: false,
+  assignsCase: false,
 };
 
 const EXPECTED: Record<ProductMode, ModePolicy> = {
@@ -27,6 +29,10 @@ const EXPECTED: Record<ProductMode, ModePolicy> = {
     freeMeasurementsScored: false,
     // the torso stays with its skin and ribs; the heart cut by the plane would name the view (decision 256)
     navigatorAnatomy: false,
+    // a blank impression scores 0 instead of reweighting the total in the learner's favour
+    impressionRequired: true,
+    // the learner does not pick the case whose name the exam hides
+    assignsCase: true,
   },
 };
 
