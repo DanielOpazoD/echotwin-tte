@@ -66,9 +66,7 @@ describe('beam march', () => {
     const clear = K / (2 * K + 1);
     expect(f.tr[60 * samples + last]).toBeGreaterThan(0.9 * clear);
     // the geometric mean of decision 144 gave exp(−10 (K + 1) / (2K + 1)), under 1 %
-    expect(f.tr[60 * samples + last]).toBeGreaterThan(
-      50 * Math.exp((-10 * (K + 1)) / (2 * K + 1)),
-    );
+    expect(f.tr[60 * samples + last]).toBeGreaterThan(50 * Math.exp((-10 * (K + 1)) / (2 * K + 1)));
     // a line whose whole window lies behind the rib keeps the pencil value
     expect(f.tr[(60 + 2 * K + 2) * samples + last]).toBeCloseTo(
       Math.max(TRANSMISSION_FLOOR, Math.exp(-10)),
