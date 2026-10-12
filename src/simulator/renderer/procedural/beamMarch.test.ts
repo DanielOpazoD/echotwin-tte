@@ -50,6 +50,32 @@ describe('beam march', () => {
     expect(f.re[60 * samples + last]).toBeCloseTo(tWallEdge, 6);
   });
 
+  it('a rib across part of the beam takes its share of the amplitude, not of the decibels (decision 299)', () => {
+    // a rib 1 cm under the face on lines 60 on: 10 Np through it, an amplitude of 4.5e-5 for a pencil that crosses it
+    const f = frame();
+    const dr = spec.depthCm / samples;
+    const top = Math.round(1 / dr),
+      bottom = Math.round(2 / dr);
+    for (let li = 60; li < lines; li++)
+      for (let si = top; si < bottom; si++) f.atten[li * samples + si] = 10 / (bottom - top);
+    march(f);
+    const last = samples - 1;
+    const r = (last + 0.5) * dr;
+    const K = beamAttenWindowLines(r, spec.focusCm, spec.sectorRad / lines);
+    // the edge line's window holds K clear pencils and K + 1 behind the rib: the mean amplitude, ≈ K / (2K + 1)
+    const clear = K / (2 * K + 1);
+    expect(f.tr[60 * samples + last]).toBeGreaterThan(0.9 * clear);
+    // the geometric mean of decision 144 gave exp(−10 (K + 1) / (2K + 1)), under 1 %
+    expect(f.tr[60 * samples + last]).toBeGreaterThan(
+      50 * Math.exp((-10 * (K + 1)) / (2 * K + 1)),
+    );
+    // a line whose whole window lies behind the rib keeps the pencil value
+    expect(f.tr[(60 + 2 * K + 2) * samples + last]).toBeCloseTo(
+      Math.max(TRANSMISSION_FLOOR, Math.exp(-10)),
+      6,
+    );
+  });
+
   it('leaves outside-body and lung samples out of the window and scales lung echoes at the entry', () => {
     const f = frame();
     const entry = 100;

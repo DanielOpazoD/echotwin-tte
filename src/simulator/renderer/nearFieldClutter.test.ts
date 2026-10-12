@@ -46,6 +46,8 @@ const KNOWN_RV_EXCESS: ReadonlyMap<string, number> = new Map([
   ['hocm-sam plax @0', 25],
   ['hocm-sam psax-pm @0', 22.5],
   ['artifact-challenge plax @0.35', 20.4],
+  // decision 299: the beam beside the ribs of this poor window keeps more of its amplitude, and the RV with it
+  ['artifact-challenge psax-pm @0', 17.4],
 ]);
 
 const mean = (

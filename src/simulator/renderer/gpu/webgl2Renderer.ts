@@ -612,13 +612,13 @@ export class Webgl2Renderer implements RendererBackend {
     gl.useProgram(this.progL);
     bindAt(2, this.texA0);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
-    // pass P: the attenuation increments averaged over the beam's width at each depth (decision 144)
+    // pass P: the pencils of pass L averaged over the beam's width at each depth (decisions 144 and 299)
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbP);
     gl.useProgram(this.progP);
     bindAt(2, this.texA0);
     bindAt(3, this.texL0);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
-    // pass B: transmission march → complex signal (σ and flags of pass A come through pass P)
+    // pass B: the beam transmission of pass P → complex signal (σ and flags of pass A come through pass P)
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbB);
     gl.useProgram(this.progB);
     bindAt(2, this.texP0);

@@ -1003,15 +1003,18 @@ function chestWallClutter(ctx: LineContext, li: number, r: number): number {
 }
 
 /**
- * The march of the beam (decision 144). Each line marched its own attenuation, so a line running inside the lateral
- * wall from the apex reached 7 cm 15 dB weaker than its neighbour in the blood, and an apical wall came out brightest
- * at its endocardial edge and darkest at its epicardial one whatever the fibres did. A pulse is not a pencil: the
+ * The march of the beam (decisions 144 and 299). Each line marched its own attenuation, so a line running inside the
+ * lateral wall from the apex reached 7 cm 15 dB weaker than its neighbour in the blood. A pulse is not a pencil: the
  * energy that reaches a sample left the whole aperture and crossed, at every depth on the way, the width of the beam
- * there — mostly blood beside a wall it grazes. So the attenuation a line pays at each depth is the mean increment over
- * the lines within the beam's half-width at that depth (`beamHalfWidthCm`, the aperture tapering to the focus, at most ±12° of sector: `beamAttenWindowLines`), over
- * the body-tissue samples among them; outside-body and lung samples neither pay nor count. Prefix sums across lines make
- * the window mean O(1). The echoes come unscaled from the line march and are scaled here by the beam's transmission,
- * the lung echoes of a line by the transmission at its pleural entry.
+ * there. Decision 144 averaged the attenuation increments of the lines within the beam's half-width at each depth
+ * (`beamHalfWidthCm`, the aperture tapering to the focus, at most ±12° of sector: `beamAttenWindowLines`) and marched the
+ * mean — a geometric mean of the sub-beams' transmissions, so a rib across 30 % of the beam took 30 % of its 120 dB,
+ * −36 dB, where the 70 % that passes beside it carries −3 dB. Since decision 299 each line marches its own pencil, and
+ * the transmission a line's echo pays at a depth is the mean of those pencil transmissions over the window, over the
+ * body-tissue samples among them: the arithmetic mean of the amplitude the sub-beams carry. Outside-body and lung
+ * samples neither pay nor count, and a line's contact drop-out stays its own. Prefix sums across lines make the window
+ * mean O(1). The echoes come unscaled from the line march and are scaled here by the beam's transmission, the lung
+ * echoes of a line by the transmission of its last tissue sample before the pleura.
  */
 export function beamMarch(
   re: Float32Array,
@@ -1029,8 +1032,20 @@ export function beamMarch(
   const n = lines * samples;
   const dr = spec.depthCm / samples;
   const dTheta = spec.sectorRad / lines;
-  // prefix sums per sample across lines: `prefix` ((lines + 1) × samples) holds the increment sums, `count` the
-  // number of tissue samples
+  // 1. each line's pencil: the transmission reaching each body-tissue sample, without the contact drop-out, kept in `tr`
+  for (let li = 0; li < lines; li++) {
+    let t = 1;
+    for (let si = 0; si < samples; si++) {
+      const i = li * samples + si;
+      const tis = ti[i]!;
+      if (tis === Tissue.None || tis === Tissue.Lung) continue;
+      tr[i] = t;
+      t *= Math.exp(-atten[i]!);
+      if (t < TRANSMISSION_FLOOR) t = TRANSMISSION_FLOOR;
+    }
+  }
+  // 2. the window mean of the pencils at each depth, over the body-tissue samples, replaces them in place: prefix sums
+  // per sample across lines (`prefix`, (lines + 1) × samples) and the count of tissue samples
   const count = new Int32Array(lines + 1);
   for (let si = 0; si < samples; si++) {
     const r = (si + 0.5) * dr;
@@ -1043,26 +1058,27 @@ export function beamMarch(
       const i = li * samples + si;
       const t = ti[i]!;
       if (t !== Tissue.None && t !== Tissue.Lung) {
-        acc += atten[i]!;
+        acc += tr[i]!;
         cnt++;
       }
       prefix[(li + 1) * samples + si] = acc;
       count[li + 1] = cnt;
     }
-    // the window mean replaces the increment in place (the prefix sums above are already taken)
     for (let li = 0; li < lines; li++) {
       const i = li * samples + si;
       const t = ti[i]!;
       if (t === Tissue.None || t === Tissue.Lung) continue;
       const a = Math.max(0, li - K),
         b = Math.min(lines, li + K + 1);
-      const n = count[b]! - count[a]!;
-      atten[i] = n > 0 ? (prefix[b * samples + si]! - prefix[a * samples + si]!) / n : atten[i]!;
+      const m = count[b]! - count[a]!;
+      if (m > 0) tr[i] = (prefix[b * samples + si]! - prefix[a * samples + si]!) / m;
     }
   }
+  // 3. the line's own contact, and the echoes scaled
   for (let li = 0; li < lines; li++) {
     const base = li * samples;
-    let transmission = hash3(li, 7, 0, seed) > contact ? 0.08 : 1;
+    const drop = hash3(li, 7, 0, seed) > contact ? 0.08 : 1;
+    let transmission = drop;
     let lungScale = -1;
     for (let si = 0; si < samples; si++) {
       const i = base + si;
@@ -1083,13 +1099,12 @@ export function beamMarch(
         }
         continue;
       }
+      transmission = Math.max(TRANSMISSION_FLOOR, drop * tr[i]!);
       tr[i] = transmission;
       for (let k = 0; k < looks; k++) {
         re[k * n + i]! *= transmission;
         im[k * n + i]! *= transmission;
       }
-      transmission *= Math.exp(-atten[i]!);
-      if (transmission < TRANSMISSION_FLOOR) transmission = TRANSMISSION_FLOOR;
     }
   }
 }
