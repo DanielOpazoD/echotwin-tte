@@ -16,6 +16,11 @@ export interface DiastolicInputs {
   pulmonaryVeinSd: number;
   bmiKgM2?: number;
   laReservoirStrainPct?: number;
+  /**
+   * Myocardial disease that implies diastolic dysfunction whatever the markers: reduced EF (< 50 %), a regional wall-motion
+   * abnormality, LV hypertrophy or HCM. ASE takes such a ventricle straight to the filling-pressure algorithm.
+   */
+  myocardialDisease?: boolean;
 }
 export type FillingPressureAssessment = 'elevated' | 'normal' | 'indeterminate' | 'not-assessed';
 
@@ -51,7 +56,8 @@ export function assessDiastolic(input: DiastolicInputs) {
     markers.push('la-volume');
   if (valid(input.laReservoirStrainPct) && input.laReservoirStrainPct <= 18)
     markers.push('la-reservoir-strain');
-  const dysfunctionPresent = markers.length >= (reduced ? 1 : 2);
+  const dysfunctionPresent =
+    input.myocardialDisease === true || markers.length >= (reduced ? 1 : 2);
   const pressureEvidence: string[] = [];
   let fillingPressure: FillingPressureAssessment = 'not-assessed';
   if (input.rhythm === 'atrial-fibrillation') {

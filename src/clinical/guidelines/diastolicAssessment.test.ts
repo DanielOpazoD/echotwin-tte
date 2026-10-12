@@ -95,3 +95,24 @@ describe('ASE 2025 separates dysfunction from filling pressure', () => {
       expect(() => assessDiastolic({ ...normal, septalEPrimeCmps: v })).toThrow(RangeError);
   });
 });
+
+describe('myocardial disease implies diastolic dysfunction (ASE)', () => {
+  it('reads dysfunction in a hypertrophied or infarcted ventricle without counting markers', () => {
+    const base = {
+      ageYears: 60,
+      rhythm: 'sinus',
+      eMps: 0.6,
+      eOverA: 1,
+      septalEPrimeCmps: 7,
+      lateralEPrimeCmps: 10,
+      laviMlM2: 30,
+      laSizeReliable: true,
+      trMps: 2.4,
+      paspMmHg: null,
+      decelerationTimeMs: 200,
+      pulmonaryVeinSd: 1.2,
+    };
+    expect(assessDiastolic(base).dysfunctionPresent).toBe(false);
+    expect(assessDiastolic({ ...base, myocardialDisease: true }).dysfunctionPresent).toBe(true);
+  });
+});

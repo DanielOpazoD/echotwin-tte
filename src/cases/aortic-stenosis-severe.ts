@@ -100,7 +100,7 @@ export const aorticStenosisSevereCase: CaseDefinitionInput = {
   impressionTruth: [
     'Estenosis aórtica severa (Vmax ≥ 4 m/s, gradiente medio ≥ 40 mmHg, AVA ≤ 1,0 cm²) con flujo conservado.',
     'Hipertrofia concéntrica leve del ventrículo izquierdo con función sistólica conservada.',
-    'Disfunción diastólica con presión de llenado elevada (grado II): E/A 0,76 con E 65 cm/s, IT 2,96 m/s y aurícula izquierda dilatada.',
+    'Disfunción diastólica con presión de llenado elevada (grado II): E/A 0,76 con E 65 cm/s, IT 2,96 m/s y aurícula izquierda dilatada; hipertensión pulmonar posible por la velocidad de la IT.',
   ],
   // intended departures from the adult reference ranges (checked by proportions.test.ts)
   expectedDeviations: [

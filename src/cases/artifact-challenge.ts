@@ -60,8 +60,8 @@ export const artifactChallengeCase: CaseDefinitionInput = {
     rapMmHg: 3,
     paspMmHg: 34,
     // 1.4 until decision 245, 1.2 until decision 297, while the end-diastolic volume did not hold the regurgitant volume and
-    // the forward flow fell; 1.25 until the stenotic ejection shape of decision 298. 1.15 gives the mild stenosis the case
-    // describes (Vmax 2.47 m/s)
+    // the forward flow fell; 1.25 until the stenotic ejection shape of decision 298. 1.15: Vmax 2.47 m/s, a moderate area
+    // and index whose gradients the low flow (SVi 29) keeps low
     avEffectiveAreaCm2: 1.15,
     trPresent: true,
     lvotPeakGradientMmHg: 0,
@@ -107,8 +107,8 @@ export const artifactChallengeCase: CaseDefinitionInput = {
     { referenceId: 'ase-tte-2019', usage: 'optimización de imagen y reconocimiento de artefactos' },
   ],
   impressionTruth: [
-    'Esclerosis aórtica con estenosis leve (Vmax ≈ 2,5 m/s) y calcificación anular mitral severa con sombra acústica.',
-    'Insuficiencia mitral leve; hipertrofia ventricular izquierda leve (septo 1,1 cm) con función sistólica conservada; aurícula izquierda levemente dilatada.',
+    'Estenosis aórtica moderada calcificada con gradientes bajos por bajo flujo (Vmax ≈ 2,5 m/s, AVA ≈ 1,15 cm², índice adimensional ≈ 0,37, VSi ≈ 29 mL/m²) y calcificación anular mitral severa con sombra acústica.',
+    'Insuficiencia mitral leve; hipertrofia ventricular izquierda leve (septo 1,1 cm) con función sistólica conservada y alteración de la relajación; aurícula izquierda de tamaño normal.',
     'Estudio técnicamente difícil por atenuación, interposición pulmonar y artefactos.',
   ],
   expectedDeviations: ['ivsd', 'lvpwd', 'ao-ascending'],

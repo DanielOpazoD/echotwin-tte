@@ -91,7 +91,7 @@ export const afDiastolicCase: CaseDefinitionInput = {
   impressionTruth: [
     'Fibrilación auricular con respuesta ventricular controlada; llenado mitral con onda E única y variable.',
     'Hipertrofia concéntrica leve; función sistólica conservada.',
-    'Aurícula izquierda severamente dilatada y disfunción diastólica; presión de llenado indeterminada por el algoritmo multiparamétrico de FA (ASE 2025).',
+    'Aurícula izquierda severamente dilatada, insuficiencia mitral leve y disfunción diastólica; presión de llenado indeterminada por el algoritmo multiparamétrico de FA (ASE 2025); hipertensión pulmonar posible por la IT.',
   ],
   expectedDeviations: [
     'ivsd',

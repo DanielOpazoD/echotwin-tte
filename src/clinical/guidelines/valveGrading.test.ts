@@ -108,3 +108,28 @@ describe('sex-specific limits (ASE/EACVI 2015)', () => {
     expect(wallThickened(0.9, 0.85, 'female')).toBe(false);
   });
 });
+
+describe('aortic stenosis with a moderate area and low flow', () => {
+  it('is moderate when the area and the index are moderate and the flow keeps the gradients low', () => {
+    const g = gradeAorticStenosis({
+      vmaxMps: 2.47,
+      meanGradientMmHg: 14,
+      avaCm2: 1.15,
+      strokeVolumeIndexMlM2: 29,
+      efPct: 63,
+      velocityRatio: 0.37,
+    });
+    expect(g).toMatchObject({ grade: 'moderate', pattern: 'low-flow-moderate' });
+    // the same valve at normal flow, gradients still low: sclerosis or mild by velocity
+    expect(
+      gradeAorticStenosis({
+        vmaxMps: 2.47,
+        meanGradientMmHg: 14,
+        avaCm2: 1.6,
+        strokeVolumeIndexMlM2: 40,
+        efPct: 63,
+        velocityRatio: 0.6,
+      }).grade,
+    ).toBe('mild');
+  });
+});

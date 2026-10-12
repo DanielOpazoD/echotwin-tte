@@ -95,7 +95,7 @@ export const mvpPrimaryMrCase: CaseDefinitionInput = {
   impressionTruth: [
     'Prolapso de la valva posterior mitral con insuficiencia mitral primaria excéntrica (dirigida anteromedialmente) severa: ORE ≈ 0,45 cm², volumen regurgitante ≈ 78 mL y fracción regurgitante ≈ 65 % (umbrales de severidad 0,40 cm², 60 mL y 50 %).',
     'Ventrículo izquierdo dilatado e hiperdinámico (FEVI ≈ 65 %) por sobrecarga de volumen; aurícula izquierda severamente dilatada.',
-    'Presión sistólica pulmonar levemente elevada.',
+    'Presión sistólica pulmonar levemente elevada; presión de llenado indeterminada (con IM severa el tamaño de la AI no la refleja).',
   ],
   expectedDeviations: [
     'lv-edv',
