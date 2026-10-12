@@ -1,5 +1,6 @@
 import { viewLabel } from '@/simulator/windows/viewLabels';
 import type { Measurement } from '@/simulator/measurements/types';
+import { getMeasurementSpec } from '@/simulator/measurements/protocol';
 import type { StructuredEchoTruth } from '@/simulator/hemodynamics/groundTruth';
 import type { CaseDefinition } from '@/cases/schema';
 
@@ -33,38 +34,21 @@ export function scoreAcquisition(
   return { total: Math.round(Math.min(100, total)), perView };
 }
 
-/** Map a required measurement id to the truth value and the measurement kind that can capture it. */
+/**
+ * Map a required measurement id to the truth value and the measurement kind that can capture it. The protocol registry
+ * is the single source: a hand-kept list here once dropped seven required measurements from every score (Simpson
+ * volumes, TAPSE, e′, LA AP, PW thickness, LVOT velocity) without a trace.
+ */
 export function truthFor(
   id: string,
   t: StructuredEchoTruth,
 ): { value: number; units: string; kind: Measurement['kind']; label: string } | null {
-  switch (id) {
-    case 'lvot-diameter':
-      return { value: t.lvot.diameterCm, units: 'cm', kind: 'linear', label: 'Diámetro TSVI' };
-    case 'lv-edd':
-      return { value: t.lv.eddCm, units: 'cm', kind: 'linear', label: 'DTDVI' };
-    case 'ivsd':
-      return { value: t.lv.ivsdCm, units: 'cm', kind: 'linear', label: 'SIV diastólico' };
-    case 'lvot-vti':
-      return { value: t.lvot.vtiCm, units: 'cm', kind: 'vti', label: 'VTI TSVI' };
-    case 'av-vti':
-      return { value: t.aorticValve.vtiCm, units: 'cm', kind: 'vti', label: 'VTI aórtico' };
-    case 'av-vmax':
-      return {
-        value: t.aorticValve.vmaxMps,
-        units: 'm/s',
-        kind: 'velocity',
-        label: 'Vmax aórtica',
-      };
-    case 'mitral-e':
-      return { value: t.mitral.ePeakMps, units: 'm/s', kind: 'velocity', label: 'Onda E mitral' };
-    case 'tr-vmax':
-      return t.rightHeart.trVmaxMps
-        ? { value: t.rightHeart.trVmaxMps, units: 'm/s', kind: 'velocity', label: 'Vmax IT' }
-        : null;
-    default:
-      return null;
-  }
+  const spec = getMeasurementSpec(id);
+  if (!spec) return null;
+  const value = spec.truth(t);
+  // a truth that does not exist in this case (no TR jet, for instance) cannot be scored
+  if (value === null || !Number.isFinite(value) || value <= 0) return null;
+  return { value, units: spec.units, kind: spec.kind, label: spec.label };
 }
 
 export interface MeasurementScoreRow {
