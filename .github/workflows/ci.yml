@@ -35,6 +35,9 @@ jobs:
       - run: npm ci
       - name: Vulnerabilidades conocidas en las dependencias de producción
         run: npm audit --omit=dev --audit-level=high
+      # las de desarrollo no llegan al paquete que se publica: se informan, sin fallar, y Dependabot propone su subida
+      - name: Informe de vulnerabilidades de todas las dependencias (informativo)
+        run: npm audit || true
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run format:check
