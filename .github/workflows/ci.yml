@@ -5,6 +5,11 @@
 # cuatro shards (decisión 239), el build con su presupuesto de bundle y los E2E sobre `dist/` (Chromium con SwiftShader;
 # `gpu-live.spec.ts` se salta sin GPU por hardware, `gpu-equivalence.spec.ts` sí corre).
 # La protección de `main` exige el check `check`, que resume los demás trabajos.
+#
+# Cadena de suministro (decisión 305): cada acción va fijada por el SHA de su commit, con la versión en un comentario
+# (una etiqueta se puede mover; un SHA no); Dependabot propone cada semana las subidas de las acciones y de npm
+# (`.github/dependabot.yml`); el checkout no deja el token en `.git/config`; y `lint` falla si las dependencias de
+# producción tienen una vulnerabilidad conocida alta o crítica (`npm audit --omit=dev`).
 name: CI
 on:
   push:
@@ -20,12 +25,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - name: Vulnerabilidades conocidas en las dependencias de producción
+        run: npm audit --omit=dev --audit-level=high
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run format:check
@@ -37,8 +46,10 @@ jobs:
       matrix:
         shard: [1, 2, 3, 4]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -47,7 +58,7 @@ jobs:
       # (VITEST_COVERAGE_SHARD desactiva los pisos por área en el shard: vite.config.ts).
       - name: Suite completa (shard ${{ matrix.shard }}/4)
         run: VITEST_TIER=all VITEST_COVERAGE_SHARD=1 npx vitest run --coverage --coverage.reporter=none --reporter=blob --reporter=default --shard=${{ matrix.shard }}/4
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: blob-${{ matrix.shard }}
@@ -60,13 +71,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           pattern: blob-*
           path: .vitest-reports
@@ -88,7 +101,7 @@ jobs:
               .join("\n");
             fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `## Cobertura\n\n| Métrica | % | Cubierto/Total |\n|---|---|---|\n${rows}\n`);
           '
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: coverage
@@ -98,8 +111,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -113,7 +128,7 @@ jobs:
       # producción de arriba se comprueba sin él en el presupuesto de bundle.
       - name: Build con el gancho de pruebas para los E2E
         run: npm run build:e2e
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: dist
           path: dist/
@@ -125,21 +140,23 @@ jobs:
     env:
       CI: 'true'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
       # playwright.config.ts sirve la app construida con `vite preview`: necesita dist/
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: dist
           path: dist
       - run: npx playwright install --with-deps chromium
       # Publish individual failures as check annotations, independently of downloadable artifacts.
       - run: npm run test:e2e -- --reporter=list,github
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: failure()
         with:
           name: playwright-report
@@ -151,15 +168,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
       - name: Banco de fidelidad sintética y límites conocidos
         run: npm run fidelity:audit -- --out /tmp/echotwin-fidelity.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: fidelity-report

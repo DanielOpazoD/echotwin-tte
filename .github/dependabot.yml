@@ -1,0 +1,31 @@
+# Subidas semanales de dependencias (decisión 305). Las acciones de CI van fijadas por SHA en `ci.yml`: Dependabot
+# actualiza el SHA y el comentario de versión juntos. Las versiones menores y de parche de npm llegan en un solo PR por
+# grupo para no inundar la cola; las mayores, cada una en su PR, porque pueden romper.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        patterns: ['*']
+    commit-message:
+      prefix: ci
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      npm-prod-minor:
+        dependency-type: production
+        update-types: [minor, patch]
+      npm-dev-minor:
+        dependency-type: development
+        update-types: [minor, patch]
+    commit-message:
+      prefix: deps
+      prefix-development: deps-dev
