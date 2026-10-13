@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { stripGlslTemplateComments } from './glslStrip';
+import { squeezeGlslSpaces, stripGlslTemplateComments } from './glslStrip';
 import { GLSL_HEART } from './glslHeart';
+import { GLSL_COMMON } from './glslCommon';
+import { GLSL_THORAX } from './glslThorax';
+import { GLSL_GENERATED } from './glslGenerated';
+import * as passes from './glslPasses';
+import * as image from './glslImage';
 
 const strip = stripGlslTemplateComments;
 
@@ -23,8 +28,8 @@ describe('shader comments are stripped at build time (decision 228)', () => {
         '// a TypeScript comment stays',
         'const A = 1; // so does this one',
         'export const S = `',
-        'float f(float x) {',
-        'return x * 2.0;',
+        'float f(float x){',
+        'return x*2.0;',
         '}',
         '`;',
       ].join('\n'),
@@ -41,7 +46,7 @@ describe('shader comments are stripped at build time (decision 228)', () => {
       "const s = 'a // not a comment'; const t = `x`;",
     );
     expect(strip("const S = `${[1, 2].map((v) => `  v${v} // c\n`).join('')} tail`;")).toBe(
-      "const S = `${[1, 2].map((v) => `  v${v}\n`).join('')} tail`;",
+      "const S = `${[1, 2].map((v) => ` v${v}\n`).join('')} tail`;",
     );
   });
 
@@ -56,6 +61,7 @@ describe('shader comments are stripped at build time (decision 228)', () => {
         .split('\n')
         .map((l) => (l.includes('//') ? l.slice(0, l.indexOf('//')) : l).trim())
         .filter((l) => l.length)
+        .map((l) => (l.startsWith('#') ? l : squeezeGlslSpaces(l)))
         .join('\n');
     const src = readFileSync(new URL('./glslHeart.ts', import.meta.url), 'utf8');
     const stripped = strip(src);
@@ -67,5 +73,56 @@ describe('shader comments are stripped at build time (decision 228)', () => {
       .filter((l) => !/^(const |#define )|\d\.\d{4,}/.test(l));
     const missing = lines.filter((l) => !stripped.includes(l)).slice(0, 5);
     expect(missing).toEqual([]);
+  });
+});
+
+/** GLSL tokens: identifiers and numbers, then the longest operator first, then any other character. */
+function tokens(glsl: string): string[] {
+  return glsl.match(/[A-Za-z_][A-Za-z0-9_]*|\d+\.?\d*(?:[eE][+-]?\d+)?[uUfF]?|\.\d+(?:[eE][+-]?\d+)?|<<=|>>=|\+\+|--|<<|>>|<=|>=|==|!=|&&|\|\||\^\^|[+\-*/%&|^]=|\S/g) ?? [];
+}
+
+describe('the spaces between tokens are squeezed out at build time (decision 303)', () => {
+  it('keeps a space only where joining would make another token', () => {
+    expect(squeezeGlslSpaces('float f(float x) {')).toBe('float f(float x){');
+    expect(squeezeGlslSpaces('return x * 2.0 + y [ 1 ] ;')).toBe('return x*2.0+y[1];');
+    expect(squeezeGlslSpaces('a - -b + +c')).toBe('a- -b+ +c');
+    expect(squeezeGlslSpaces('a / *p')).toBe('a/ *p');
+    expect(squeezeGlslSpaces('x = y == z ? 1.0 : .5;')).toBe('x=y==z?1.0:.5;');
+    expect(squeezeGlslSpaces('if (a < b && c > d) i ++;')).toBe('if(a<b&&c>d)i++;');
+  });
+
+  it('leaves the preprocessor lines and the spaces next to interpolations alone', () => {
+    expect(strip('const S = `\n  #define A (x)\n  #define B(x) (x * 2.)\n`;')).toBe(
+      'const S = `\n#define A (x)\n#define B(x) (x * 2.)\n`;',
+    );
+    expect(strip('const S = `\n  return ${v} * 2.0 ;\n  x = ${a} ${b};\n`;')).toBe(
+      'const S = `\nreturn ${v} *2.0;\nx= ${a} ${b};\n`;',
+    );
+  });
+
+  it('leaves every shader with the same tokens', () => {
+    const shaders = [
+      GLSL_COMMON,
+      GLSL_HEART,
+      GLSL_THORAX,
+      GLSL_GENERATED,
+      ...(Object.values(passes) as unknown[]).filter((v): v is string => typeof v === 'string'),
+      ...(Object.values(image) as unknown[]).filter((v): v is string => typeof v === 'string'),
+    ];
+    expect(shaders.length).toBeGreaterThan(10);
+    let before = 0,
+      after = 0;
+    for (const glsl of shaders) {
+      const code = glsl
+        .split('\n')
+        .map((l) => (l.includes('//') ? l.slice(0, l.indexOf('//')) : l).trim())
+        .filter((l) => l.length);
+      const squeezed = code.map((l) => (l.startsWith('#') ? l : squeezeGlslSpaces(l)));
+      expect(tokens(squeezed.join('\n'))).toEqual(tokens(code.join('\n')));
+      before += code.join('\n').length;
+      after += squeezed.join('\n').length;
+    }
+    // the squeeze is worth its rule: a tenth of the shader text or more
+    expect(after / before).toBeLessThan(0.9);
   });
 });

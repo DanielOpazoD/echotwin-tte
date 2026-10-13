@@ -6,7 +6,25 @@
  * `//` comments and the indentation of each line, and drops the lines left empty; the interpolations (`${…}`), the
  * TypeScript around the literals and the line structure the GLSL preprocessor needs are kept. The modules it runs on
  * hold no regular-expression literals, which this scanner does not recognise.
+ *
+ * It also drops the spaces between tokens that a space does not separate (decision 303): `x * 2.0;` becomes `x*2.0;`,
+ * `float f(float x) {` becomes `float f(float x){`. A space stays between two word characters (`float x`) and between two
+ * operator characters (`a - -b`, `a / *p`), where joining them would make another token; the preprocessor lines (`#…`),
+ * whose spaces can carry meaning (`#define A (x)` is not `#define A(x)`), and the spaces next to an interpolation are
+ * left as they are.
  */
+const WORD = /[A-Za-z0-9_.]/;
+const OP = /[+\-*/%<>=!&|^~?:]/;
+
+/** The spaces of one line of GLSL, other than the leading and trailing ones, reduced to those that separate tokens. */
+export function squeezeGlslSpaces(line: string): string {
+  return line.replace(/(\S)\s+(?=\S)/g, (_m, a: string, offset: number, str: string) => {
+    const b = str[offset + _m.length]!;
+    const keep = (WORD.test(a) && WORD.test(b)) || (OP.test(a) && OP.test(b));
+    return keep ? `${a} ` : a;
+  });
+}
+
 export function stripGlslTemplateComments(source: string): string {
   let out = '';
   let i = 0;
@@ -17,10 +35,19 @@ export function stripGlslTemplateComments(source: string): string {
   let seg = '';
   let lineStart = true,
     inComment = false,
-    lineHasText = false;
+    lineHasText = false,
+    preprocessor = false;
   const emitSeg = (endOfLine: boolean) => {
     let t = lineStart ? seg.replace(/^\s+/, '') : seg;
     if (endOfLine) t = t.replace(/\s+$/, '');
+    if (lineStart && t.startsWith('#')) preprocessor = true;
+    if (!preprocessor) {
+      // the spaces at the ends of a segment that ends or starts at an interpolation stay, one of them
+      const lead = /^\s/.test(t) ? ' ' : '';
+      const trail = /\S\s+$/.test(t) ? ' ' : '';
+      const core = t.trim();
+      t = core.length ? lead + squeezeGlslSpaces(core) + trail : lead;
+    }
     if (t.length) {
       out += t;
       lineHasText = true;
@@ -53,6 +80,7 @@ export function stripGlslTemplateComments(source: string): string {
         lineStart = true;
         inComment = false;
         lineHasText = false;
+        preprocessor = false;
         i++;
       } else {
         if (!inComment && c === '/' && source[i + 1] === '/') inComment = true;

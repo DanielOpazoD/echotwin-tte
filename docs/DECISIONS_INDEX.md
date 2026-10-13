@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 302 (última: 302).
+Decisiones: 303 (última: 303).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -310,3 +310,4 @@ Decisiones: 302 (última: 302).
 | [300](DECISIONS.md#L1920) | 2026-10-12 | El color se estima con un paquete de ecos, un filtro de pared de regresión y la autocorrelación de Kasai. | vigente |
 | [301](DECISIONS.md#L1926) | 2026-10-12 | La verdad lee la hipocinesia global y la PAD del caso de HP como lo haría su eco. | vigente |
 | [302](DECISIONS.md#L1932) | 2026-10-12 | La vista supraesternal se ajusta al arco, la descendente y los troncos; su límite anatómico queda medido. | vigente |
+| [303](DECISIONS.md#L1938) | 2026-10-12 | Los sombreadores pierden en el build los espacios que no separan tokens. | vigente |
