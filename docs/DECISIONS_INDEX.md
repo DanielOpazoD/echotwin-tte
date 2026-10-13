@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 308 (última: 308).
+Decisiones: 309 (última: 309).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -316,3 +316,4 @@ Decisiones: 308 (última: 308).
 | [306](DECISIONS.md#L1952) | 2026-10-12 | La base se mide por lo que fija la anatomía: bisagras, plano del eje corto y distancia esternal. | vigente |
 | [307](DECISIONS.md#L1956) | 2026-10-12 | La base del corazón y el mediastino se miden contra TC de tórax. | vigente |
 | [308](DECISIONS.md#L1960) | 2026-10-12 | La ascendente y el arco se colocan con la TC de tórax. | vigente |
+| [309](DECISIONS.md#L1964) | 2026-10-12 | La raíz está alta respecto del ápex; no se mueve el corazón sin saber por qué. | vigente |

@@ -242,6 +242,20 @@ interface Row {
   rootInSternum: number;
   /** the lowest point of the heart along the sternum (0 low, 1 top) */
   heartBottomInSternum: number;
+  /**
+   * The heart's apex (the heart voxel furthest along the usual base-to-apex direction: left, anterior and inferior) and the
+   * axis from the aortic root to it: its height below the notch and below the root (cm), its depth below the anterior skin,
+   * the axis length (cm) and its tilts (degrees): below the horizontal, and toward the left from straight ahead.
+   */
+  apexBelowNotch: number;
+  apexBelowRoot: number;
+  apexDepth: number;
+  rootApexLength: number;
+  rootApexDownTiltDeg: number;
+  rootApexLeftTiltDeg: number;
+  /** principal axis of the whole heart mask, pointed toward the apex: tilt below the horizontal and toward the left (°) */
+  heartAxisDownTiltDeg: number;
+  heartAxisLeftTiltDeg: number;
 }
 
 function measureSubject(dir: string): Row | string {
@@ -351,6 +365,20 @@ function measureSubject(dir: string): Row | string {
   const rootSecs = components(band(aorta, root[2], 1.5), 2).filter((c) => c.length > 20);
   const descAtRoot = rootSecs.length ? rootSecs.map(mean).sort((a, b) => a[1] - b[1])[0]! : null;
 
+  // the heart's apex: the voxel furthest along left (−X), anterior (+Y) and inferior (−Z), the usual long-axis direction
+  let apexOfHeart: V3 = heart[0]!,
+    apexScore = -Infinity;
+  for (const p of heart) {
+    const score = -0.61 * p[0] + 0.65 * p[1] - 0.45 * p[2];
+    if (score > apexScore) {
+      apexScore = score;
+      apexOfHeart = p;
+    }
+  }
+  const apexSkin = frontSkin(ct, toVoxel, apexOfHeart[0], apexOfHeart[2], frontY);
+  let heartAxis = principalAxis(heart);
+  if (-0.61 * heartAxis[0] + 0.65 * heartAxis[1] - 0.45 * heartAxis[2] < 0)
+    heartAxis = [-heartAxis[0], -heartAxis[1], -heartAxis[2]];
   const t = torsoDir(axis);
   const cm = (mm: number) => mm / 10;
   return {
@@ -376,6 +404,22 @@ function measureSubject(dir: string): Row | string {
     rootInSternum: (root[2] - minOf(sternum, 2)) / (manubriumTopZ - minOf(sternum, 2)),
     heartBottomInSternum:
       (minOf(heart, 2) - minOf(sternum, 2)) / (manubriumTopZ - minOf(sternum, 2)),
+    apexBelowNotch: cm(notch[2] - apexOfHeart[2]),
+    apexBelowRoot: cm(root[2] - apexOfHeart[2]),
+    apexDepth: apexSkin === null ? NaN : cm(apexSkin - apexOfHeart[1]),
+    rootApexLength: cm(dist(root, apexOfHeart)),
+    rootApexDownTiltDeg:
+      (Math.atan2(
+        root[2] - apexOfHeart[2],
+        Math.hypot(apexOfHeart[0] - root[0], apexOfHeart[1] - root[1]),
+      ) *
+        180) /
+      Math.PI,
+    rootApexLeftTiltDeg:
+      (Math.atan2(root[0] - apexOfHeart[0], apexOfHeart[1] - root[1]) * 180) / Math.PI,
+    heartAxisDownTiltDeg:
+      (Math.atan2(-heartAxis[2], Math.hypot(heartAxis[0], heartAxis[1])) * 180) / Math.PI,
+    heartAxisLeftTiltDeg: (Math.atan2(-heartAxis[0], heartAxis[1]) * 180) / Math.PI,
   };
 }
 
@@ -420,6 +464,14 @@ const METRICS = [
   'sternumLength',
   'rootInSternum',
   'heartBottomInSternum',
+  'apexBelowNotch',
+  'apexBelowRoot',
+  'apexDepth',
+  'rootApexLength',
+  'rootApexDownTiltDeg',
+  'rootApexLeftTiltDeg',
+  'heartAxisDownTiltDeg',
+  'heartAxisLeftTiltDeg',
 ] as const;
 const quantile = (xs: number[], q: number): number => {
   const s = [...xs].sort((a, b) => a - b);
