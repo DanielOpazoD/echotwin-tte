@@ -14,6 +14,12 @@ export interface NiftiVolume {
   /** Voxel size along x, y, z in the file's units (millimetres in CAMUS). */
   spacing: [number, number, number];
   voxels: Float32Array;
+  /**
+   * Voxel index (i, j, k) to world millimetres, row-major 3 × 4: world = A · [i, j, k, 1], from the sform when its
+   * code is set, else from the quaternion qform, else the voxel sizes alone (NIfTI method 1). NIfTI world space is RAS+:
+   * +x toward the subject's right, +y anterior, +z superior.
+   */
+  affine: number[];
 }
 
 const DATATYPE_BYTES: Record<number, number> = {
@@ -87,5 +93,50 @@ export function parseNifti(bytes: Uint8Array): NiftiVolume {
     }
     voxels[i] = v * slope + (Number.isFinite(inter) ? inter : 0);
   }
-  return { dims, spacing, voxels };
+  return { dims, spacing, voxels, affine: readAffine(view, le, spacing) };
+}
+
+function readAffine(view: DataView, le: boolean, spacing: [number, number, number]): number[] {
+  const qformCode = view.getInt16(252, le),
+    sformCode = view.getInt16(254, le);
+  if (sformCode > 0) {
+    const a: number[] = [];
+    for (let r = 0; r < 3; r++)
+      for (let c = 0; c < 4; c++) a.push(view.getFloat32(280 + 16 * r + 4 * c, le));
+    return a;
+  }
+  if (qformCode > 0) {
+    const b = view.getFloat32(256, le),
+      c = view.getFloat32(260, le),
+      d = view.getFloat32(264, le);
+    const a = Math.sqrt(Math.max(0, 1 - b * b - c * c - d * d));
+    const qfac = view.getFloat32(76, le) < 0 ? -1 : 1;
+    const R = [
+      [a * a + b * b - c * c - d * d, 2 * (b * c - a * d), 2 * (b * d + a * c)],
+      [2 * (b * c + a * d), a * a + c * c - b * b - d * d, 2 * (c * d - a * b)],
+      [2 * (b * d - a * c), 2 * (c * d + a * b), a * a + d * d - c * c - b * b],
+    ];
+    const off = [view.getFloat32(268, le), view.getFloat32(272, le), view.getFloat32(276, le)];
+    const scale = [spacing[0], spacing[1], spacing[2] * qfac];
+    const out: number[] = [];
+    for (let r = 0; r < 3; r++)
+      out.push(R[r]![0]! * scale[0]!, R[r]![1]! * scale[1]!, R[r]![2]! * scale[2]!, off[r]!);
+    return out;
+  }
+  return [spacing[0], 0, 0, 0, 0, spacing[1], 0, 0, 0, 0, spacing[2], 0];
+}
+
+/** World position (mm, RAS+) of voxel (i, j, k). */
+export function voxelToWorld(
+  vol: NiftiVolume,
+  i: number,
+  j: number,
+  k: number,
+): [number, number, number] {
+  const a = vol.affine;
+  return [
+    a[0]! * i + a[1]! * j + a[2]! * k + a[3]!,
+    a[4]! * i + a[5]! * j + a[6]! * k + a[7]!,
+    a[8]! * i + a[9]! * j + a[10]! * k + a[11]!,
+  ];
 }

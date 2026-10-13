@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseNifti } from './nifti';
+import { parseNifti, voxelToWorld } from './nifti';
 
 /** Builds a NIfTI-1 file in memory, so the reader is proven before any clinical file is on disk. */
 function buildNifti(opts: {
@@ -10,6 +10,10 @@ function buildNifti(opts: {
   le: boolean;
   slope?: number;
   inter?: number;
+  /** Writes the sform rows (and sform_code 1). */
+  srow?: number[];
+  /** Writes the quaternion b, c, d, the offsets and qform_code 1, with pixdim[0] = qfac. */
+  quatern?: { b: number; c: number; d: number; off: [number, number, number]; qfac: number };
 }): Uint8Array {
   const bytesPer = { 2: 1, 4: 2, 16: 4 }[opts.datatype as 2 | 4 | 16];
   const offset = 352;
@@ -25,6 +29,16 @@ function buildNifti(opts: {
   v.setFloat32(108, offset, le);
   v.setFloat32(112, opts.slope ?? 0, le);
   v.setFloat32(116, opts.inter ?? 0, le);
+  if (opts.srow) {
+    v.setInt16(254, 1, le);
+    opts.srow.forEach((x, i) => v.setFloat32(280 + 4 * i, x, le));
+  }
+  if (opts.quatern) {
+    const q = opts.quatern;
+    v.setInt16(252, 1, le);
+    v.setFloat32(76, q.qfac, le);
+    [q.b, q.c, q.d, ...q.off].forEach((x, i) => v.setFloat32(256 + 4 * i, x, le));
+  }
   new Uint8Array(buf, 344, 4).set([110, 43, 49, 0]); // "n+1\0"
   opts.values.forEach((x, i) => {
     const at = offset + i * bytesPer;
@@ -86,5 +100,38 @@ describe('NIfTI-1 reader', () => {
     expect(() => parseNifti(good.slice(0, 100))).toThrow(/348-byte header/);
     const truncated = good.slice(0, 353); // header says 4 voxels, only one byte present
     expect(() => parseNifti(truncated)).toThrow(/past the end/);
+  });
+
+  it('maps voxels to RAS millimetres from the sform, the quaternion qform, or the voxel sizes', () => {
+    const base = {
+      dims: [2, 2, 2] as [number, number, number],
+      spacing: [0.8, 0.8, 1.5] as [number, number, number],
+      datatype: 2,
+      values: [0, 0, 0, 0, 0, 0, 0, 0],
+      le: true,
+    };
+    // sform: a flip of x and an offset, as CT volumes stored in LPS order carry
+    const s = parseNifti(
+      buildNifti({ ...base, srow: [-0.8, 0, 0, 100, 0, 0.8, 0, -50, 0, 0, 1.5, 20] }),
+    );
+    expect(voxelToWorld(s, 1, 1, 1)).toEqual([
+      expect.closeTo(99.2, 4),
+      expect.closeTo(-49.2, 4),
+      expect.closeTo(21.5, 4),
+    ]);
+    // qform: 180° about z (b = c = 0, d = 1) turns +i into −x and +j into −y; qfac −1 flips k
+    const q = parseNifti(
+      buildNifti({ ...base, quatern: { b: 0, c: 0, d: 1, off: [10, 20, 30], qfac: -1 } }),
+    );
+    const w = voxelToWorld(q, 1, 1, 1);
+    expect(w[0]).toBeCloseTo(9.2, 4);
+    expect(w[1]).toBeCloseTo(19.2, 4);
+    expect(w[2]).toBeCloseTo(28.5, 4);
+    // neither: the voxel sizes alone
+    expect(voxelToWorld(parseNifti(buildNifti(base)), 1, 1, 1)).toEqual([
+      expect.closeTo(0.8, 4),
+      expect.closeTo(0.8, 4),
+      expect.closeTo(1.5, 4),
+    ]);
   });
 });
