@@ -237,6 +237,11 @@ interface Row {
   carinaBelowArchApex: number;
   rootToArchApexHeight: number;
   rootToNotchHeight: number;
+  /** the sternum from the top of the manubrium to its lowest point (cm), and the root's height along it (0 low, 1 top) */
+  sternumLength: number;
+  rootInSternum: number;
+  /** the lowest point of the heart along the sternum (0 low, 1 top) */
+  heartBottomInSternum: number;
 }
 
 function measureSubject(dir: string): Row | string {
@@ -367,6 +372,10 @@ function measureSubject(dir: string): Row | string {
     carinaBelowArchApex: cm(apex[2] - carinaZ),
     rootToArchApexHeight: cm(apex[2] - root[2]),
     rootToNotchHeight: cm(notch[2] - root[2]),
+    sternumLength: cm(manubriumTopZ - minOf(sternum, 2)),
+    rootInSternum: (root[2] - minOf(sternum, 2)) / (manubriumTopZ - minOf(sternum, 2)),
+    heartBottomInSternum:
+      (minOf(heart, 2) - minOf(sternum, 2)) / (manubriumTopZ - minOf(sternum, 2)),
   };
 }
 
@@ -408,6 +417,9 @@ const METRICS = [
   'carinaBelowArchApex',
   'rootToArchApexHeight',
   'rootToNotchHeight',
+  'sternumLength',
+  'rootInSternum',
+  'heartBottomInSternum',
 ] as const;
 const quantile = (xs: number[], q: number): number => {
   const s = [...xs].sort((a, b) => a - b);
