@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 310 (última: 310).
+Decisiones: 311 (última: 311).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -318,3 +318,4 @@ Decisiones: 310 (última: 310).
 | [308](DECISIONS.md#L1960) | 2026-10-12 | La ascendente y el arco se colocan con la TC de tórax. | vigente |
 | [309](DECISIONS.md#L1964) | 2026-10-12 | La raíz está alta respecto del ápex; no se mueve el corazón sin saber por qué. | superada por 310: el atlas de cuatro cavidades sitúa la raíz donde la tiene el modelo |
 | [310](DECISIONS.md#L1968) | 2026-10-12 | Con cavidades separadas, el eje del VI y la raíz del modelo están donde los pone la TC. | vigente |
+| [311](DECISIONS.md#L1973) | 2026-10-12 | En la postura de la TC, el corazón está tan hondo como en la TC; lo que entra en la pared es el decúbito lateral. | vigente |

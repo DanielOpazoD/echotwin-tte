@@ -2,7 +2,10 @@
 import { describe, expect, it } from 'vitest';
 import { CASE_INPUTS, loadCaseById } from '@/cases';
 import { classifyHeart, computeHeartPose, createHeartModel, torsoToHeart } from './heartModel';
-import { createThoraxModel, skinZ } from './thoraxModel';
+import { createThoraxModel, NOTCH_V_CM, skinZ } from './thoraxModel';
+import { buildCaseModels } from './caseModels';
+import { Tissue } from './tissue';
+import { CT_MEDIASTINUM } from '@/clinical/reference-values/ctMediastinum';
 import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { v3 } from '@/core/vec3';
 
@@ -106,6 +109,95 @@ describe('the heart behind the chest wall', () => {
         measured.map((m, i) => Math.abs(m - [ed, sys][i]!) <= TOLERANCE_CM),
         `intrusion (cm) at end-diastole and systole: ${measured.map((m) => m.toFixed(2)).join(', ')} against ${ed}, ${sys}`,
       ).toEqual([true, true]);
+    });
+  }
+});
+
+/**
+ * The heart's closest approach to the anterior skin against chest CT (decision 311). The CT (TotalSegmentator, n = 77) is
+ * supine and at deep inspiration: over each 1 cm column of the heart, the depth of its most anterior voxel below the skin,
+ * smallest over the columns, is 3.45 cm (P10–P90 2.04–4.98), 15.2 cm below the notch (11.4–18.5). The model is placed the
+ * same way — supine, in inspiration — and its first myocardium is sought below the skin over the anterior chest. The
+ * intrusion above is the left lateral decubitus, which brings the heart 1.3 cm forward of supine (thoraxModel; the
+ * direction is published, the size is not); in the CT's posture the heart lies where the CT has it.
+ *
+ * Two cases differ by what the case is, not by the model: the difficult window's 4.76 cm of chest wall (the obese habitus)
+ * pushes the heart deeper than nine in ten of the CT's subjects, and the dilated right ventricle of pulmonary hypertension
+ * meets the sternum higher up.
+ */
+const CASE_DEPTH_DEVIATIONS: Record<string, string> = {
+  'normal-difficult-window': 'obese habitus, 4.76 cm of chest wall',
+};
+/** Where the heart's closest approach lies higher than in nine in ten CT subjects, by what the case is. */
+const CASE_HEIGHT_DEVIATIONS: Record<string, string> = {
+  'pulmonary-hypertension-rv': 'the dilated right ventricle reaches the sternum higher up',
+};
+
+function heartMinDepth(caseId: string): { depth: number; belowNotch: number } {
+  const { thorax, heart, tables } = buildCaseModels(loadCaseById(caseId), {
+    position: 'supine',
+    respiration: 'inspiration',
+    headElevationDeg: 0,
+  });
+  const pose = computeHeartPose(heart, cycleStateAt(tables, 0));
+  const q = {
+    tissue: 0,
+    sdf: 0,
+    nx: 0,
+    ny: 0,
+    nz: 1,
+    mx: 0,
+    my: 0,
+    mz: 0,
+    extraReflect: 0,
+    structure: 0,
+    transmural: -1,
+    segment: 0,
+  };
+  let depth = Infinity,
+    atY = 0;
+  for (let x = -3; x <= 9; x += 0.5)
+    for (let y = -10; y <= 6; y += 0.5) {
+      const zs = skinZ(thorax, x, y);
+      for (let d = 0.1; d < Math.min(depth, 8); d += 0.05) {
+        const h = torsoToHeart(heart.frame, v3(x, y, zs - d));
+        if (classifyHeart(heart, pose, h.x, h.y, h.z, q) && q.tissue === Tissue.Myocardium) {
+          depth = d;
+          atY = y;
+          break;
+        }
+      }
+    }
+  return { depth, belowNotch: NOTCH_V_CM - atY };
+}
+
+describe("the heart lies as deep as on chest CT in the CT's posture (decision 311)", () => {
+  const depthCt = CT_MEDIASTINUM.heartMinDepth;
+  const heightCt = CT_MEDIASTINUM.heartMinDepthBelowNotch;
+  it('the declared deviations are cases', () => {
+    const ids = CASE_INPUTS.map((c) => c.id);
+    expect(
+      [...Object.keys(CASE_DEPTH_DEVIATIONS), ...Object.keys(CASE_HEIGHT_DEVIATIONS)].filter(
+        (id) => !ids.includes(id),
+      ),
+    ).toEqual([]);
+  });
+  for (const input of CASE_INPUTS) {
+    it(`${input.id}: supine in inspiration, the first myocardium below the skin lies as deep and as high as on CT, or as its case declares`, () => {
+      const m = heartMinDepth(input.id);
+      const deep = `${m.depth.toFixed(2)} cm deep`;
+      const at = `${m.belowNotch.toFixed(2)} cm below the notch`;
+      // a declared deviation must still be one: once it falls within the CT's range, its entry is stale
+      if (CASE_DEPTH_DEVIATIONS[input.id]) expect(m.depth, deep).toBeGreaterThan(depthCt.p90);
+      else {
+        expect(m.depth, deep).toBeGreaterThanOrEqual(depthCt.p10);
+        expect(m.depth, deep).toBeLessThanOrEqual(depthCt.p90);
+      }
+      if (CASE_HEIGHT_DEVIATIONS[input.id]) expect(m.belowNotch, at).toBeLessThan(heightCt.p10);
+      else {
+        expect(m.belowNotch, at).toBeGreaterThanOrEqual(heightCt.p10);
+        expect(m.belowNotch, at).toBeLessThanOrEqual(heightCt.p90);
+      }
     });
   }
 });
