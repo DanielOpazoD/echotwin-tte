@@ -78,7 +78,11 @@ describe('shader comments are stripped at build time (decision 228)', () => {
 
 /** GLSL tokens: identifiers and numbers, then the longest operator first, then any other character. */
 function tokens(glsl: string): string[] {
-  return glsl.match(/[A-Za-z_][A-Za-z0-9_]*|\d+\.?\d*(?:[eE][+-]?\d+)?[uUfF]?|\.\d+(?:[eE][+-]?\d+)?|<<=|>>=|\+\+|--|<<|>>|<=|>=|==|!=|&&|\|\||\^\^|[+\-*/%&|^]=|\S/g) ?? [];
+  return (
+    glsl.match(
+      /[A-Za-z_][A-Za-z0-9_]*|\d+\.?\d*(?:[eE][+-]?\d+)?[uUfF]?|\.\d+(?:[eE][+-]?\d+)?|<<=|>>=|\+\+|--|<<|>>|<=|>=|==|!=|&&|\|\||\^\^|[+\-*/%&|^]=|\S/g,
+    ) ?? []
+  );
 }
 
 describe('the spaces between tokens are squeezed out at build time (decision 303)', () => {
