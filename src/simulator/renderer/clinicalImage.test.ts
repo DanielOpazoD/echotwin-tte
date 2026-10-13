@@ -171,28 +171,33 @@ const KNOWN_SURROUNDINGS_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // the myocardium attenuating like blood the profile takes the clinical shape (septum peaked at mid-wall, lateral wall
   // rising to the epicardium). The fibre helix took 0.2 off the endocardial fifth (decision 144); a march of sub-beams
   // converging from the whole aperture moved the epicardial fifth only 5 grey (decision 312, not kept); the published anisotropy (0.52 dB/cm/MHz across the
-  // fibres, 1.88 along) averages over the helix to the 0.9 the model has.
-  ['4CH-ED:side1EndoOverMid', 0.84],
-  ['4CH-ED:side2EndoOverMid', 0.99],
-  ['4CH-ED:side2EpiOverMid', -0.38],
-  ['4CH-ES:side1EndoOverMid', 1.44],
+  // fibres, 1.88 along) averages over the helix to the 0.9 the model has. The fifths also hang on where the contour
+  // runs (decision 313): CAMUS counts trabeculae and papillary muscles as cavity and traces the lateral epicardium at the
+  // pericardium; the simulator's labels are the exact surfaces, and drawing its endocardial contour 1 mm into the cavity
+  // takes the endocardial fifth from 1.02 to 0.84-0.85 of the mid-wall, its epicardial one 1 mm out the lateral
+  // epicardial fifth from 0.83 to 1.02.
+  ['4CH-ED:side1EndoOverMid', 0.9],
+  ['4CH-ED:side2EndoOverMid', 1.02],
+  ['4CH-ED:side2EpiOverMid', -0.39],
+  ['4CH-ES:side1EndoOverMid', 1.42],
   ['4CH-ES:side2EndoOverMid', 1.18],
   ['4CH-ES:side2EpiOverMid', -0.34],
-  ['2CH-ED:side1EndoOverMid', 0.92],
-  ['2CH-ED:side2EndoOverMid', 0.55],
-  ['2CH-ES:side1EndoOverMid', 1.0],
-  ['2CH-ES:side1EpiOverMid', -0.25],
+  ['2CH-ED:side1EndoOverMid', 0.97],
+  ['2CH-ED:side2EndoOverMid', 0.59],
+  ['2CH-ES:side1EndoOverMid', 1.03],
+  ['2CH-ES:side1EpiOverMid', -0.26],
   ['2CH-ES:side2EndoOverMid', 0.88],
-  ['2CH-ES:side2EpiOverMid', -0.17],
-  // The near field, 15 mm under the sector apex, brighter than clinical (132 against 83-122; 125 before decision 312,
-  // at the edge), and at end-systole the lateral band, both pericardial peaks and the bright end of the far background
-  // dimmer; the two-chamber anterior pericardial peak a little brighter.
-  ['4CH-ED:nearFieldGrey', 0.25],
-  ['4CH-ES:nearFieldGrey', 0.25],
+  ['2CH-ES:side2EpiOverMid', -0.19],
+  // The near field, 15 mm under the sector apex, brighter than clinical (128 against 83-122; 125 before decision 312,
+  // at the edge), and at end-systole the lateral band (86 against 91-135; 80 before the lung's haze kept what it had at
+  // the heart's surface, decision 313), both pericardial peaks and the bright end of the far background dimmer; the
+  // two-chamber anterior pericardial peak a little brighter.
+  ['4CH-ED:nearFieldGrey', 0.15],
+  ['4CH-ES:nearFieldGrey', 0.14],
   ['4CH-ES:farBackgroundP99', -0.21],
-  ['4CH-ES:side2BandGrey', -0.25],
-  ['4CH-ES:side1EpicardialPeakGrey', -0.19],
-  ['4CH-ES:side2EpicardialPeakGrey', -0.21],
+  ['4CH-ES:side2BandGrey', -0.1],
+  ['4CH-ES:side1EpicardialPeakGrey', -0.33],
+  ['4CH-ES:side2EpicardialPeakGrey', -0.18],
   ['2CH-ED:side2EpicardialPeakGrey', 0.13],
 ]);
 
@@ -231,7 +236,6 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['2CH-ES:tangentialCorr8', -0.41],
   // decision 270: the lung's diffuse reverberation now carries its path loss, so the outer sector of the end-systolic four-chamber view darkens
   ['4CH-ES:edgeRollOff', -0.12],
-  ['4CH-ES:bandGrey8', -0.1],
   // decision 264: with the chest-wall reverberation fading within 0.8 cm the near field comes inside and the two-chamber cavities darken
   ['2CH-ES:ridgeFraction', 0.53],
   // decision 263: the cavity reverberation no longer reinforced behind blood darkens the end-diastolic cavities

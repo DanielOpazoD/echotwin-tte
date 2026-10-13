@@ -4,9 +4,11 @@ import { beamMarch } from './sliceRenderer';
 import { Tissue } from '@/simulator/anatomy/tissue';
 import { DEFAULT_ACQUISITION, polarSpecFor } from '../types';
 import {
+  ATTEN_NP_PER_DB,
   BEAM_ATTEN_MAX_LINES,
   beamAttenWindowLines,
   beamHalfWidthCm,
+  SOFT_TISSUE_ATTEN_DB,
   TRANSMISSION_FLOOR,
 } from '../acoustic/acoustics';
 
@@ -126,5 +128,50 @@ describe('beam march', () => {
     // the calibrated grid keeps its 24 lines (the images it forms do not change)
     const hi = polarSpecFor(DEFAULT_ACQUISITION, 'high');
     expect(beamAttenWindowLines(0.5, hi.focusCm, hi.sectorRad / hi.lines)).toBe(24);
+  });
+
+  it("the chest wall's reverberation pays the wall's loss, then past the heart's surface only the soft-tissue loss (decisions 312 and 313)", () => {
+    // every line alike (the beam is the pencil): 1.5 cm of wall losing more than soft tissue, heart to 6 cm losing much
+    // more, then lung; the echoes are zero and the reverberation of the wall is 1 at every sample before its loss
+    const f = frame();
+    f.re.fill(0);
+    const dr = spec.depthCm / samples;
+    const fAtten = 2;
+    const softStep = ATTEN_NP_PER_DB * SOFT_TISSUE_ATTEN_DB * fAtten * dr;
+    const wallEnd = Math.round(1.5 / dr),
+      lungAt = Math.round(6 / dr);
+    const clut = {
+      re: new Float32Array(n),
+      im: new Float32Array(n),
+      heart: new Uint8Array(n),
+      fAtten,
+    };
+    for (let li = 0; li < lines; li++)
+      for (let si = 0; si < samples; si++) {
+        const i = li * samples + si;
+        clut.re[i] = 1;
+        if (si < wallEnd) {
+          f.ti[i] = Tissue.Muscle;
+          f.atten[i] = 2 * softStep;
+        } else if (si < lungAt) {
+          f.ti[i] = Tissue.Myocardium;
+          f.atten[i] = 4 * softStep;
+          clut.heart[i] = 1;
+        } else f.ti[i] = Tissue.Lung;
+      }
+    beamMarch(f.re, f.im, f.tr, f.ti, f.atten, spec, 1, 1, f.prefix, 1, clut);
+    const li = 50;
+    const at = (si: number) => f.re[li * samples + si]!;
+    // in the wall: its own loss (worse than soft tissue)
+    expect(at(wallEnd - 1)).toBeCloseTo(Math.exp(-2 * softStep * (wallEnd - 1)), 6);
+    // at the heart's surface the wall's loss over the soft-tissue loss there, carried on with the soft-tissue loss
+    const wall = Math.exp(-2 * softStep * wallEnd) / Math.exp(-softStep * wallEnd);
+    const si = lungAt - 1;
+    expect(at(si)).toBeCloseTo(Math.exp(-softStep * si) * wall, 6);
+    // ... not the heart's own loss, which the reverberation never crossed
+    expect(at(si)).toBeGreaterThan(20 * f.tr[li * samples + si]!);
+    // over the lung, the same: what it had at the heart's surface with the soft-tissue loss of its depth
+    const deep = lungAt + 20;
+    expect(at(deep)).toBeCloseTo(Math.exp(-softStep * (deep + 0.5)) * wall, 6);
   });
 });
