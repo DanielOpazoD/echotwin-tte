@@ -239,8 +239,12 @@ void main() {
   if (dead) {
     float n = REVERB_MOD_BASE + REVERB_MOD_AMP * lat(vec3(float(li) * REVERB_MOD_LINE_FREQ, r * REVERB_MOD_DEPTH_FREQ, REVERB_MOD_Z), 2);
     float amp = pleuralReverberation(r, lungEntryR, lungEntryT, n, pleuralCoherenceAt(li, lungEntryK, dr), F_ATTEN);
-    // decision 270: the chest wall's reverberation over the lung, with the soft-tissue loss of its depth capped at the pleura
-    if (CLUTTER > 0.0) amp += chestWallClutter(li, r) * min(exp(-ATTEN_NP_PER_DB * SOFT_TISSUE_ATTEN_DB * F_ATTEN * r), lungEntryT);
+    // decision 270: the chest wall's reverberation over the lung, with the soft-tissue loss of its depth capped at the pleura,
+    // or past the heart's surface what it had there (decision 312)
+    if (CLUTTER > 0.0) {
+      float softR = exp(-ATTEN_NP_PER_DB * SOFT_TISSUE_ATTEN_DB * F_ATTEN * r);
+      amp += chestWallClutter(li, r) * (clutterWall < 0.0 ? min(softR, lungEntryT) : drop * softR * clutterWall);
+    }
     // reverberation energy is incoherent: a phasor tied to the line and the depth
     float px2 = float(li) * REVERB_PHASOR_LINE_FREQ, pr = r * SCATTER_FREQ;
     // one phasor per compounding look (decision 145)

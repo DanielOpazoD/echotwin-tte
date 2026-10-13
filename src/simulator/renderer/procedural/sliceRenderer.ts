@@ -493,6 +493,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
     im: Float32Array,
     clutterEntryT: number,
     clutterScale: number,
+    clut: { re: Float32Array; im: Float32Array } | null = null,
   ): void {
     const { latA, latB, latC } = ctx;
     const incAxial = ctx.line ? ctx.line.kernels.incoherentAxial : 1;
@@ -503,13 +504,12 @@ export class ProceduralSliceRenderer implements RendererBackend {
       REVERB_MOD_AMP *
         latticeNoise3(li * REVERB_MOD_LINE_FREQ, r * REVERB_MOD_DEPTH_FREQ, REVERB_MOD_Z, latC);
     // the chest wall's reverberation reaches this depth over the lung too, with the soft-tissue loss of its depth capped at
-    // the transmission at the pleura (decision 270); `clutterScale` turns that into the line's units
+    // the transmission at the pleura (decision 270); `clutterScale` turns that into the line's units. A frame's line keeps
+    // it apart, unscaled, for the beam march, which gives it the loss of decision 312 (`clutterLoss` over the lung)
     const softT = Math.exp(-ATTEN_NP_PER_DB * SOFT_TISSUE_ATTEN_DB * ctx.fAtten * r);
-    const a =
-      pleuralReverberation(r, entryR, entryT, nn, coherence, ctx.fAtten) +
-      (ctx.clutter > 0
-        ? chestWallClutter(ctx, li, r) * Math.min(softT, clutterEntryT) * clutterScale
-        : 0);
+    const cm = ctx.clutter > 0 ? chestWallClutter(ctx, li, r) : 0;
+    const pleural = pleuralReverberation(r, entryR, entryT, nn, coherence, ctx.fAtten);
+    const a = clut ? pleural : pleural + cm * Math.min(softT, clutterEntryT) * clutterScale;
     // reverberation energy is incoherent: a phasor tied to the line and the depth, one per look (decision 145)
     const px2 = li * REVERB_PHASOR_LINE_FREQ,
       pr = r * SCATTER_FREQ;
@@ -517,20 +517,24 @@ export class ProceduralSliceRenderer implements RendererBackend {
       const sx = LOOK_SHIFT[k]![0],
         sy = LOOK_SHIFT[k]![1],
         sz = LOOK_SHIFT[k]![2];
-      re[k * nFrame + idx] =
-        a *
+      const zr =
         (latticeNoise3(px2 + sx, pr + sy, REVERB_PHASOR_RE_A_Z + sz, latA) +
           latticeNoise3(px2 + RRB_X + sx, pr * R + RRB_Y + sy, RRB_Z + sz, latB) -
           1) *
         PHASOR_NORM *
         incAxial;
-      im[k * nFrame + idx] =
-        a *
+      const zi =
         (latticeNoise3(px2 + RIA_X + sx, pr + RIA_Y + sy, RIA_Z + sz, latC) +
           latticeNoise3(px2 + RIB_X + sx, pr * R + RIB_Y + sy, RIB_Z + sz, latA) -
           1) *
         PHASOR_NORM *
         incAxial;
+      re[k * nFrame + idx] = a * zr;
+      im[k * nFrame + idx] = a * zi;
+      if (clut) {
+        clut.re[k * nFrame + idx] = cm * zr;
+        clut.im[k * nFrame + idx] = cm * zi;
+      }
     }
   }
 
@@ -586,6 +590,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
           im,
           tE,
           1 / tE,
+          { re: this.clutRe, im: this.clutIm },
         );
     }
   }
@@ -1142,9 +1147,20 @@ export function beamMarch(
           lungScale = transmission;
           tr[i] = transmission;
         } else tr[i] = 0;
+        // the chest wall's reverberation over the lung: the soft-tissue loss of its depth capped at the pleura's
+        // transmission (decision 270), or past the heart's surface what it had there (decision 312)
+        let loss = 0;
+        if (clutter) {
+          const softR = Math.exp(
+            -ATTEN_NP_PER_DB * SOFT_TISSUE_ATTEN_DB * clutter.fAtten * (si + 0.5) * dr,
+          );
+          loss = wall < 0 ? Math.min(softR, lungScale) : drop * softR * wall;
+        }
         for (let k = 0; k < looks; k++) {
-          re[k * n + i]! *= lungScale;
-          im[k * n + i]! *= lungScale;
+          re[k * n + i] =
+            re[k * n + i]! * lungScale + (clutter ? clutter.re[k * n + i]! * loss : 0);
+          im[k * n + i] =
+            im[k * n + i]! * lungScale + (clutter ? clutter.im[k * n + i]! * loss : 0);
         }
         continue;
       }
