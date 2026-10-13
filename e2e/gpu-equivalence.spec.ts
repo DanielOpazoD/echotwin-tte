@@ -279,12 +279,14 @@ const AORTIC_ACQUISITIONS = [
   {
     name: 'brachiocephalic',
     expected: ['S_BCA', 'S_AO_ARCH'],
-    control: { u: 0, v: 11, rotationDeg: 26, tiltDeg: -7.75, rockDeg: 40.5, pressure: 0.6 },
+    // re-aimed when the arch was placed by chest CT (decision 308): the trunk 3.6 % and the arch 17 % of the sector
+    control: { u: -0.5, v: 10.5, rotationDeg: 33.5, tiltDeg: -17.75, rockDeg: 35.5, pressure: 0.6 },
   },
   {
     name: 'left carotid',
     expected: ['S_LCCA', 'S_AO_ARCH'],
-    control: { u: 0, v: 11, rotationDeg: 53.75, tiltDeg: -4, rockDeg: 47.5, pressure: 0.6 },
+    // re-aimed with the arch of decision 308: the carotid 2.5 % and the arch 20 % of the sector
+    control: { u: 0, v: 10, rotationDeg: 53.75, tiltDeg: -9, rockDeg: 27.5, pressure: 0.6 },
   },
   {
     name: 'left subclavian',
