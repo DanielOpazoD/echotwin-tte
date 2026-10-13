@@ -18,7 +18,7 @@ void main() {
 export const GLSL_PASS_A_MAIN = /* glsl */ `
 uniform vec4 uTissue[20]; // reflect, specular, attenuation, grain per tissue id
 uniform float uElevK;     // elevation plane: -1 / 0 / +1 (slice-thickness passes)
-layout(location = 0) out vec4 outA; // backscatter σ, attenNp, lungFlag, inBody
+layout(location = 0) out vec4 outA; // backscatter σ, attenNp, lungFlag, inBody (1 thorax, 2 heart: decision 312)
 layout(location = 1) out vec4 outB; // structure/255, tissue/255, extra, LV segment code/255 (decision 152)
 layout(location = 2) out vec4 outC; // specular echo, scatterer phasor re, im, grain coefficient (0–1)
 layout(location = 3) out vec4 outD; // scatterer phasor of the second compounding look re, im, 0, 0
@@ -141,7 +141,7 @@ void main() {
   float lungFlag = s.tissue == T_LUNG ? 1.0 : 0.0;
   // two-way amplitude loss integrated over the sample's length for every tissue, bone included (decision 89)
   float attenNp = ATTEN_NP_PER_DB * (props.z + calciumAttenDb(s.extra)) * F_ATTEN * dr;
-  outA = vec4(sigma, attenNp, lungFlag, 1.0);
+  outA = vec4(sigma, attenNp, lungFlag, inHeart ? 2.0 : 1.0);
   outB = vec4(float(s.structure) / 255.0, float(s.tissue) / 255.0, s.extra, float(s.segment) / 255.0);
   outC = vec4(specular, zr, zi, gcoef);
   outD = vec4(zr1, zi1, 0.0, 0.0);
@@ -209,6 +209,8 @@ void main() {
   float transmission = drop;
   // the soft-tissue transmission the chest-wall reverberation carries (decision 263)
   float softTransmission = drop;
+  // the chest wall's reverberation at the heart's surface over the soft-tissue loss there: −1 until the line reaches it
+  float clutterWall = -1.0;
   float lungEntryR = -1.0, lungEntryT = 0.0;
   int lungEntryK = -1;
   bool dead = false;
@@ -225,6 +227,7 @@ void main() {
       break;
     }
     transmission = max(TRANSMISSION_FLOOR, drop * a.y);
+    if (a.w > 1.0 && clutterWall < 0.0) clutterWall = min(1.0, transmission / softTransmission);
     softTransmission *= exp(-ATTEN_NP_PER_DB * SOFT_TISSUE_ATTEN_DB * F_ATTEN * dr);
     if (softTransmission < TRANSMISSION_FLOOR) softTransmission = TRANSMISSION_FLOOR;
   }
@@ -293,7 +296,10 @@ void main() {
   float cm = 0.0;
   if (CLUTTER > 0.0) {
     cm = chestWallClutter(li, r);
-    cm *= min(1.0, softTransmission / transmission);
+    // the wall's reverberation pays the wall's loss, at most the soft-tissue one, and past the heart's surface carries on
+    // with the soft-tissue loss from what it had there (decision 312)
+    if (a.w > 1.0 && clutterWall < 0.0) clutterWall = min(1.0, transmission / softTransmission);
+    cm *= (clutterWall < 0.0 ? min(transmission, softTransmission) : softTransmission * clutterWall) / transmission;
   }
   vec3 cc = vec3(B_OX * CLUTTER_FREQ + float(li) * CLUTTER_LINE_FREQ, B_OY * CLUTTER_FREQ + B_OZ * CLUTTER_FREQ, r * SCATTER_FREQ);
   float ringDown = r < RINGDOWN_CM ? RINGDOWN_GAIN * (1.0 - r / RINGDOWN_CM) : 0.0; // transducer ring-down
