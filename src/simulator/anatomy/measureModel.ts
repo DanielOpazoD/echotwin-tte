@@ -19,7 +19,12 @@ import { cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { buildCaseModels, REST_PATIENT } from './caseModels';
 import { makeSample, Structure, Tissue } from './tissue';
 import { createRng } from '@/core/random';
-import { CT_MEDIASTINUM, type CtDistribution } from '@/clinical/reference-values/ctMediastinum';
+import {
+  CT_CONDITIONAL,
+  CT_MEDIASTINUM,
+  type CtConditional,
+  type CtDistribution,
+} from '@/clinical/reference-values/ctMediastinum';
 import { measureMediastinum } from './mediastinum';
 import { bsaMosteller } from '@/clinical/formulas';
 
@@ -644,17 +649,28 @@ export function measureModel(
       ct.archApexBehindNotch,
     );
     row('root-depth', 'Aortic root depth', mm.rootDepth, ct.rootDepth);
-    row(
+    // The root's height is compared with what the CT predicts for the case's own diaphragm, age and sex (decision 314):
+    // across the 77 subjects it follows the liver dome (the CT is taken at deep inspiration, the model in expiration),
+    // grows with age and is greater in men, while the arch apex, the notch and the heart's apex keep their heights.
+    const conditional = (id: string, label: string, value: number, k: CtConditional) => {
+      const predicted =
+        k.intercept +
+        k.perDomeCm * mm.liverDomeBelowNotch +
+        k.perYear * c.demographics.ageYears +
+        (c.demographics.sexForReference === 'male' ? k.male : 0);
+      add(id, label, value, 'cm', predicted + k.residualP10, predicted + k.residualP90, CT);
+    };
+    conditional(
       'root-arch-apex-height',
-      'Aortic root to arch apex (height)',
+      "Aortic root to arch apex (height, for the case's diaphragm, age and sex)",
       mm.rootToArchApexHeight,
-      ct.rootToArchApexHeight,
+      CT_CONDITIONAL.rootToArchApexHeight,
     );
-    row(
+    conditional(
       'root-notch-height',
-      'Aortic root to notch (height)',
+      "Aortic root to notch (height, for the case's diaphragm, age and sex)",
       mm.rootToNotchHeight,
-      ct.rootToNotchHeight,
+      CT_CONDITIONAL.rootToNotchHeight,
     );
     row('descending-depth', 'Descending aorta depth', mm.descendingDepth, ct.descendingDepth);
     row('vertebra-depth', 'Vertebral body depth', mm.vertebraDepth, ct.vertebraDepth);

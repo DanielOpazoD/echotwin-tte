@@ -14,9 +14,10 @@ import { CASE_INPUTS, loadCaseById } from '@/cases';
  */
 const KNOWN_MODEL_LIMITATIONS: ReadonlySet<string> = new Set([
   // The great vessels against 77 chest CT volumes (decisions 307 and 308): the root sits 8.0 cm below the arch apex and
-  // 9.7 cm below the notch against 9.3-13.6 and 11.4-15.8 on chest CT, which is taken at deep inspiration, when the heart
-  // has descended from the sternum; a four-chamber CT atlas puts the root where the model has it (decision 310), so these
-  // two are the reference's bias, not the model's. In that short room the ascending aorta of the cases with the widest roots reaches the
+  // 9.7 cm below the notch whatever the case's age. Against what the CT predicts for the case's diaphragm, age and sex
+  // (decision 314: the root descends 0.48-0.57 cm a decade while the arch apex and the heart's apex stay), the young
+  // normal case and the 52-year-old prolapse fall inside and the older cases 0.1-2.2 cm under their 10th percentile: the
+  // model does not lower the root with age. In that short room the ascending aorta of the cases with the widest roots reaches the
   // arch at the edge of the CT's tilts: 29° to the right in the HFrEF case (CT 11-28.5°) and 1.8° backward in severe
   // aortic stenosis (CT from 0.4° backward). The gap from the sternum, the ascending depth, the arch width and the apex
   // behind the notch, declared here until the course was placed by the CT (decision 308), now hold in every case.

@@ -2,7 +2,9 @@ import type { Vec3 } from '@/core/vec3';
 import { heartAnchors } from './anchors';
 import { heartToTorso, ROOT_EXCURSION } from './heartFrame';
 import type { HeartModel, HeartPose } from './heartModel';
+import { makeSample, Tissue } from './tissue';
 import {
+  classifyThorax,
   DESC_AORTA_X,
   DESC_AORTA_Z,
   NOTCH_V_CM,
@@ -37,6 +39,8 @@ export interface MediastinumMeasures {
   ascendingRightTiltDeg: number;
   rootToArchApexHeight: number;
   rootToNotchHeight: number;
+  /** How far below the notch the top of the liver lies (cm), as the CT tool takes the dome of its liver (decision 314). */
+  liverDomeBelowNotch: number;
 }
 
 const sub = (a: Vec3, b: Vec3): Vec3 => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
@@ -143,5 +147,23 @@ export function measureMediastinum(
     ascendingRightTiltDeg: (Math.atan2(-v[0]!, v[1]!) * 180) / Math.PI,
     rootToArchApexHeight: apex.y - root.y,
     rootToNotchHeight: notch.y - root.y,
+    liverDomeBelowNotch: NOTCH_V_CM - liverTopY(thorax),
   };
+}
+
+/**
+ * The highest point of the liver (torso y, cm): over the right half of the abdomen, every 0.5 cm, the first liver sample
+ * met walking down every 0.05 cm from the notch's height less 4 cm (decision 314).
+ */
+function liverTopY(thorax: ThoraxModel): number {
+  const q = makeSample();
+  let top = -Infinity;
+  for (let x = -10; x <= 0; x += 0.5)
+    for (let z = -14; z <= 8; z += 0.5)
+      for (let y = NOTCH_V_CM - 4; y > top && y > NOTCH_V_CM - 26; y -= 0.05)
+        if (classifyThorax(thorax, x, y, z, q, 99) && q.tissue === Tissue.Liver) {
+          top = y;
+          break;
+        }
+  return top;
 }
