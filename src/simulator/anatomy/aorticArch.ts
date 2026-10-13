@@ -51,6 +51,62 @@ function bezier(a: Vec3, ca: Vec3, cb: Vec3, b: Vec3, u: number): Vec3 {
   };
 }
 
+/**
+ * Smallest radius of curvature of a cubic Bézier sampled as sampleBezier samples it (STEPS_PER_CURVE + 1 points), without
+ * building the points: the same circumcircles as minBendRadius on the sampled polyline, a hundred thousand times per heart
+ * while the course is searched.
+ */
+function bezierBendRadius(a: Vec3, ca: Vec3, cb: Vec3, b: Vec3): number {
+  let best = Infinity;
+  let px = 0,
+    py = 0,
+    pz = 0,
+    qx = 0,
+    qy = 0,
+    qz = 0;
+  for (let i = 0; i <= STEPS_PER_CURVE; i++) {
+    const u = i / STEPS_PER_CURVE,
+      v = 1 - u;
+    const k0 = v * v * v,
+      k1 = 3 * v * v * u,
+      k2 = 3 * v * u * u,
+      k3 = u * u * u;
+    const x = k0 * a.x + k1 * ca.x + k2 * cb.x + k3 * b.x,
+      y = k0 * a.y + k1 * ca.y + k2 * cb.y + k3 * b.y,
+      z = k0 * a.z + k1 * ca.z + k2 * cb.z + k3 * b.z;
+    if (i >= 2) {
+      const ax = qx - px,
+        ay = qy - py,
+        az = qz - pz,
+        bx = x - qx,
+        by = y - qy,
+        bz = z - qz,
+        cx = x - px,
+        cy = y - py,
+        cz = z - pz;
+      const nx = ay * bz - az * by,
+        ny = az * bx - ax * bz,
+        nz = ax * by - ay * bx;
+      const area2 = Math.sqrt(nx * nx + ny * ny + nz * nz);
+      if (area2 >= 1e-12)
+        best = Math.min(
+          best,
+          (Math.sqrt(ax * ax + ay * ay + az * az) *
+            Math.sqrt(bx * bx + by * by + bz * bz) *
+            Math.sqrt(cx * cx + cy * cy + cz * cz)) /
+            (2 * area2),
+        );
+    }
+    px = qx;
+    py = qy;
+    pz = qz;
+    qx = x;
+    qy = y;
+    qz = z;
+  }
+  return best;
+}
+
 /** Smallest radius of curvature (circumcircle of consecutive samples) of a polyline. */
 function minBendRadius(ps: Vec3[]): number {
   let best = Infinity;
@@ -112,9 +168,33 @@ interface CourseDesign {
   gapCm: number;
 }
 const courseCache = new WeakMap<HeartModel, CourseDesign>();
+/**
+ * The same course for the same inputs, across heart models: the search is a pure function of the root's place at rest
+ * and at its systolic descent, the radii, the column shift and the pulmonary trunk, and a case is built again for every
+ * position, breath and test (each build used to repeat a 0.7-3 s search).
+ */
+const courseMemo = new Map<string, CourseDesign>();
 
 const sampleBezier = (a: Vec3, ca: Vec3, cb: Vec3, b: Vec3): Vec3[] =>
   Array.from({ length: STEPS_PER_CURVE + 1 }, (_, i) => bezier(a, ca, cb, b, i / STEPS_PER_CURVE));
+
+/** The tightest bend of the ascending aorta ascendingCurve would sample, without building it. */
+function ascendingBend(
+  from: Vec3,
+  dir: Vec3,
+  onset: Vec3,
+  onsetDir: Vec3,
+  ka: number,
+  kb: number,
+): number {
+  const span = distance(from, onset);
+  return bezierBendRadius(
+    from,
+    add(from, scale(dir, ka * span)),
+    sub(onset, scale(onsetDir, kb * span)),
+    onset,
+  );
+}
 
 /** The ascending aorta from `from` along `dir` into the onset along `onsetDir`, with handles ka and kb of its span. */
 function ascendingCurve(
@@ -151,11 +231,14 @@ function archHalf(
   let best: { ps: Vec3[]; bend: number } | null = null;
   for (const ka of HANDLES)
     for (const kb of HANDLES) {
-      const ps = sampleBezier(a, add(a, scale(ta, ka * la)), sub(b, scale(tb, kb * lb)), b);
-      const bend = minBendRadius(ps);
+      const ca = add(a, scale(ta, ka * la)),
+        cb = sub(b, scale(tb, kb * lb));
+      const bend = bezierBendRadius(a, ca, cb, b);
+      if (bend < r + BEND_CLEARANCE_CM || (best && bend <= best.bend)) continue;
+      const ps = sampleBezier(a, ca, cb, b);
       const top = Math.max(a.y, b.y);
       if (ps.some((p) => p.y > top + 1e-6)) continue;
-      if (bend >= r + BEND_CLEARANCE_CM && (!best || bend > best.bend)) best = { ps, bend };
+      best = { ps, bend };
     }
   return best?.ps ?? null;
 }
@@ -171,6 +254,24 @@ function designCourse(
 ): CourseDesign {
   const cached = courseCache.get(heart);
   if (cached) return cached;
+  const r3 = (v: Vec3) => `${v.x.toFixed(4)},${v.y.toFixed(4)},${v.z.toFixed(4)}`;
+  const key = [
+    r3(rest),
+    r3(systolic),
+    r3(dir),
+    stjRadius.toFixed(4),
+    ascR.toFixed(4),
+    heart.columnShiftCm.toFixed(4),
+    r3(heartToTorso(heart.frame, A.paStj)),
+    r3(heartToTorso(heart.frame, A.paEnd)),
+    A.paR.toFixed(4),
+    A.rpaR.toFixed(4),
+  ].join('|');
+  const memo = courseMemo.get(key);
+  if (memo) {
+    courseCache.set(heart, memo);
+    return memo;
+  }
   // the arch passes over the pulmonary bifurcation: its trunk, from the sinotubular junction to the bifurcation, keeps
   // clear of the arch by its radius, the arch's and the 0.5 cm the right branch is placed with (vascularPlacement)
   const paA = heartToTorso(heart.frame, A.paStj),
@@ -196,98 +297,131 @@ function designCourse(
   const descZ = DESC_AORTA_Z + heart.columnShiftCm;
   const up: Vec3 = { x: 0, y: 1, z: 0 };
   const descR = DESC_AORTA_MAX_OUTER_R;
-  for (let apexY = apexAt; apexY <= apexMax + 1e-9; apexY += apexStep)
-    for (let gap = STERNUM_GAP.median; gap <= STERNUM_GAP.p90 + 1e-9; gap += 0.1)
-      for (const share of ONSET_SHARES) {
-        const onsetY = rest.y + share * (apexY - rest.y);
-        const sternumBackZ =
-          neckSkinZ(onsetY) - (STERNUM_DEPTH_FRACTION * chestWall + STERNUM_THICKNESS_CM);
-        const onset: Vec3 = {
-          x:
-            rest.x + (dir.x / Math.max(0.3, dir.y)) * (onsetY - rest.y) * ASCENDING_RIGHTWARD_SHARE,
-          y: onsetY,
-          z: sternumBackZ - gap - ascR,
-        };
-        const apex: Vec3 = {
-          x: (onset.x + DESC_AORTA_X) / 2,
-          y: apexY,
-          z: neckSkinZ(NOTCH_V_CM) - APEX_BEHIND_NOTCH_CM,
-        };
-        // the arch comes down into the descending aorta where it did, at the old top of the descending aorta, and only as
-        // much lower as its turn needs: lowered further, its posterior limb closed the way of the right pulmonary artery
-        // under it
-        const topY = rest.y + (dir.y * ASCENDING_LENGTH_CM) / 2 + ASCENDING_LENGTH_CM / 2;
-        const descSpan = Math.hypot(DESC_AORTA_X - apex.x, descZ - apex.z);
-        const back = normalize({ x: DESC_AORTA_X - onset.x, y: 0, z: descZ - onset.z });
-        let end: Vec3 = { x: DESC_AORTA_X, y: topY, z: descZ };
-        let secondHalf: Vec3[] | null = null;
-        for (let drop = 0; drop <= 0.8 * descSpan + 1e-9 && !secondHalf; drop += 0.25) {
-          end = { x: DESC_AORTA_X, y: Math.min(topY, apexY - descSpan * 0.4) - drop, z: descZ };
-          secondHalf = archHalf(
-            apex,
-            back,
-            end,
-            scale(up, -1),
-            Math.hypot(end.x - apex.x, end.z - apex.z),
-            apex.y - end.y,
-            Math.max(ARCH_RADIUS_CM, descR),
-          );
-        }
-        if (!secondHalf) continue;
-        // the ascending aorta reaches the onset still running forward: the least forward tilt that does not fold, at rest
-        // and with the root at its systolic descent
-        for (let deg = 0; deg <= 75; deg += 5) {
-          const t = (deg * Math.PI) / 180;
-          const onsetDir = normalize({ x: 0, y: Math.cos(t), z: Math.sin(t) });
-          const firstHalf = archHalf(
-            onset,
-            onsetDir,
-            apex,
-            back,
-            apexY - onset.y,
-            Math.hypot(apex.x - onset.x, apex.z - onset.z),
-            Math.max(ascR, ARCH_RADIUS_CM),
-          );
-          if (!firstHalf) continue;
-          if (!clearOfTrunk(firstHalf, ARCH_RADIUS_CM) || !clearOfTrunk(secondHalf, ARCH_RADIUS_CM))
-            continue;
-          // the ascending handles: no bend tighter than the lumen along the ascending aorta, nor across its joint with the
-          // arch (each curve can be smooth on its own and still turn sharply where they meet), at rest and at the root's
-          // systolic descent; and none across the arch's apex either
-          const joint = (ps: Vec3[]) => minBendRadius([...ps.slice(-3), ...firstHalf.slice(1, 3)]);
-          const need = Math.max(stjRadius, ascR, ARCH_RADIUS_CM) + BEND_CLEARANCE_CM;
-          if (minBendRadius([...firstHalf.slice(-3), ...secondHalf.slice(1, 3)]) < need) continue;
-          let handles: [number, number] | null = null;
-          for (const ka of HANDLES) {
-            for (const kb of HANDLES) {
-              const fits = [rest, systolic].every((from) => {
-                const ps = ascendingCurve(from, dir, onset, onsetDir, ka, kb);
-                return (
-                  minBendRadius(ps) >= Math.max(stjRadius, ascR) + BEND_CLEARANCE_CM &&
-                  joint(ps) >= need
-                );
-              });
-              if (fits) {
-                handles = [ka, kb];
-                break;
-              }
-            }
-            if (handles) break;
-          }
-          if (!handles) continue;
-          const design = {
-            onset,
-            onsetDir,
-            ka: handles[0],
-            kb: handles[1],
-            firstHalf,
-            secondHalf,
-            gapCm: gap,
-          };
-          courseCache.set(heart, design);
-          return design;
-        }
+  // the course for an apex height and a gap from the sternum, or null when every onset height and arrival folds
+  const tryAt = (apexY: number, gap: number): CourseDesign | null => {
+    for (const share of ONSET_SHARES) {
+      const onsetY = rest.y + share * (apexY - rest.y);
+      const sternumBackZ =
+        neckSkinZ(onsetY) - (STERNUM_DEPTH_FRACTION * chestWall + STERNUM_THICKNESS_CM);
+      const onset: Vec3 = {
+        x: rest.x + (dir.x / Math.max(0.3, dir.y)) * (onsetY - rest.y) * ASCENDING_RIGHTWARD_SHARE,
+        y: onsetY,
+        z: sternumBackZ - gap - ascR,
+      };
+      const apex: Vec3 = {
+        x: (onset.x + DESC_AORTA_X) / 2,
+        y: apexY,
+        z: neckSkinZ(NOTCH_V_CM) - APEX_BEHIND_NOTCH_CM,
+      };
+      // the arch comes down into the descending aorta where it did, at the old top of the descending aorta, and only as
+      // much lower as its turn needs: lowered further, its posterior limb closed the way of the right pulmonary artery
+      // under it
+      const topY = rest.y + (dir.y * ASCENDING_LENGTH_CM) / 2 + ASCENDING_LENGTH_CM / 2;
+      const descSpan = Math.hypot(DESC_AORTA_X - apex.x, descZ - apex.z);
+      const back = normalize({ x: DESC_AORTA_X - onset.x, y: 0, z: descZ - onset.z });
+      let end: Vec3 = { x: DESC_AORTA_X, y: topY, z: descZ };
+      let secondHalf: Vec3[] | null = null;
+      for (let drop = 0; drop <= 0.8 * descSpan + 1e-9 && !secondHalf; drop += 0.25) {
+        end = { x: DESC_AORTA_X, y: Math.min(topY, apexY - descSpan * 0.4) - drop, z: descZ };
+        secondHalf = archHalf(
+          apex,
+          back,
+          end,
+          scale(up, -1),
+          Math.hypot(end.x - apex.x, end.z - apex.z),
+          apex.y - end.y,
+          Math.max(ARCH_RADIUS_CM, descR),
+        );
       }
+      if (!secondHalf) continue;
+      // the ascending aorta reaches the onset still running forward: the least forward tilt that does not fold, at rest
+      // and with the root at its systolic descent
+      for (let deg = 0; deg <= 75; deg += 5) {
+        const t = (deg * Math.PI) / 180;
+        const onsetDir = normalize({ x: 0, y: Math.cos(t), z: Math.sin(t) });
+        // an arrival the ascending aorta cannot make on its own (its bends alone, before the joint) is skipped before the
+        // arch's first half is searched for it
+        const ascendingAlone = HANDLES.some((ka) =>
+          HANDLES.some((kb) =>
+            [rest, systolic].every(
+              (from) =>
+                ascendingBend(from, dir, onset, onsetDir, ka, kb) >=
+                Math.max(stjRadius, ascR) + BEND_CLEARANCE_CM,
+            ),
+          ),
+        );
+        if (!ascendingAlone) continue;
+        const firstHalf = archHalf(
+          onset,
+          onsetDir,
+          apex,
+          back,
+          apexY - onset.y,
+          Math.hypot(apex.x - onset.x, apex.z - onset.z),
+          Math.max(ascR, ARCH_RADIUS_CM),
+        );
+        if (!firstHalf) continue;
+        if (!clearOfTrunk(firstHalf, ARCH_RADIUS_CM) || !clearOfTrunk(secondHalf, ARCH_RADIUS_CM))
+          continue;
+        // the ascending handles: no bend tighter than the lumen along the ascending aorta, nor across its joint with the
+        // arch (each curve can be smooth on its own and still turn sharply where they meet), at rest and at the root's
+        // systolic descent; and none across the arch's apex either
+        const joint = (ps: Vec3[]) => minBendRadius([...ps.slice(-3), ...firstHalf.slice(1, 3)]);
+        const need = Math.max(stjRadius, ascR, ARCH_RADIUS_CM) + BEND_CLEARANCE_CM;
+        if (minBendRadius([...firstHalf.slice(-3), ...secondHalf.slice(1, 3)]) < need) continue;
+        let handles: [number, number] | null = null;
+        for (const ka of HANDLES) {
+          for (const kb of HANDLES) {
+            const fits = [rest, systolic].every((from) => {
+              const ps = ascendingCurve(from, dir, onset, onsetDir, ka, kb);
+              return (
+                minBendRadius(ps) >= Math.max(stjRadius, ascR) + BEND_CLEARANCE_CM &&
+                joint(ps) >= need
+              );
+            });
+            if (fits) {
+              handles = [ka, kb];
+              break;
+            }
+          }
+          if (handles) break;
+        }
+        if (!handles) continue;
+        const design = {
+          onset,
+          onsetDir,
+          ka: handles[0],
+          kb: handles[1],
+          firstHalf,
+          secondHalf,
+          gapCm: gap,
+        };
+
+        return design;
+      }
+    }
+    return null;
+  };
+  // the smallest gap that fits: feasibility only grows with the gap, so 0.4 cm strides, then 0.1 cm within the last one
+  for (let apexY = apexAt; apexY <= apexMax + 1e-9; apexY += apexStep) {
+    let fit: CourseDesign | null = null,
+      lo = STERNUM_GAP.median - 0.1;
+    for (let gap = STERNUM_GAP.median; gap <= STERNUM_GAP.p90 + 0.4 - 1e-9 && !fit; gap += 0.4) {
+      fit = tryAt(apexY, Math.min(gap, STERNUM_GAP.p90));
+      if (!fit) lo = gap;
+    }
+    if (!fit) continue;
+    for (let gap = lo + 0.1; gap < fit.gapCm - 1e-9; gap += 0.1) {
+      const finer = tryAt(apexY, gap);
+      if (finer) {
+        fit = finer;
+        break;
+      }
+    }
+    courseCache.set(heart, fit);
+    courseMemo.set(key, fit);
+    return fit;
+  }
   throw new Error('No course of the ascending aorta and arch that does not fold');
 }
 
