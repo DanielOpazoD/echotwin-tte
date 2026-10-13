@@ -311,6 +311,11 @@ export const SKIN_CM = 0.15;
 export const FAT_FRACTION = 0.45;
 export const FASCIA_HALF_CM = 0.04;
 
+/** The sternum: half width (cm), depth of its front as a fraction of the chest wall, and thickness (cm). */
+export const STERNUM_HALF_WIDTH_CM = 1.6;
+export const STERNUM_DEPTH_FRACTION = 0.3;
+export const STERNUM_THICKNESS_CM = 1.0;
+
 /**
  * Descending thoracic aorta (decision 213): a vertical tube left-anterolateral to the vertebral body, behind the left atrium
  * near the atrioventricular groove, where the parasternal long axis shows it in cross-section (Goldstein et al., JASE
@@ -484,7 +489,13 @@ export function classifyThorax(
   }
   const T = t.chestWall;
   // Sternum
-  if (Math.abs(x) < 1.6 && y > -5 && y < 9.5 && depth > T * 0.3 && depth < T * 0.3 + 1.0) {
+  if (
+    Math.abs(x) < STERNUM_HALF_WIDTH_CM &&
+    y > -5 &&
+    y < 9.5 &&
+    depth > T * STERNUM_DEPTH_FRACTION &&
+    depth < T * STERNUM_DEPTH_FRACTION + STERNUM_THICKNESS_CM
+  ) {
     out.tissue = Tissue.Bone;
     out.structure = Structure.Sternum;
     out.sdf = -0.3;

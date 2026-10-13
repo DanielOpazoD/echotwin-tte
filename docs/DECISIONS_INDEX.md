@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 305 (última: 305).
+Decisiones: 306 (última: 306).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -313,3 +313,4 @@ Decisiones: 305 (última: 305).
 | [303](DECISIONS.md#L1938) | 2026-10-12 | Los sombreadores pierden en el build los espacios que no separan tokens. | vigente |
 | [304](DECISIONS.md#L1942) | 2026-10-12 | El color rechaza el ruido incoherente y su filtro de pared sigue al deslizador. | vigente |
 | [305](DECISIONS.md#L1948) | 2026-10-12 | La cadena de suministro de CI queda fijada y vigilada. | vigente |
+| [306](DECISIONS.md#L1952) | 2026-10-12 | La base se mide por lo que fija la anatomía: bisagras, plano del eje corto y distancia esternal. | vigente |

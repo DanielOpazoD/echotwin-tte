@@ -13,12 +13,12 @@ import { CASE_INPUTS, loadCaseById } from '@/cases';
  * limitation in docs/LIMITATIONS.md; remove it when the anatomy pass fixes the primitive.
  */
 const KNOWN_MODEL_LIMITATIONS: ReadonlySet<string> = new Set([
-  // The tricuspid centre sits 4.3–5.6 cm from the aortic one against 3.0–4.5 in ten of the twelve cases: the
-  // tricuspid ring is not yet part of one fibrous skeleton with the aortic and mitral rings (docs/LIMITATIONS.md).
-  // The plane through the aortic, pulmonary and tricuspid centres, declared here too while it sat 64° from the
-  // aortic axis (decision 59), measures 14–16° in every case: nothing flagged that exemption as stale until
-  // decision 86 added the check below.
-  'av-tv-distance',
+  // The ascending aorta runs 5.8-7.8 cm behind the sternum against 2.7 cm by CT: the ascending aorta and the arch lie
+  // ~3 cm too far back, which is why the suprasternal notch sees the arch 11 cm away (docs/LIMITATIONS.md).
+  'sternum-aorta',
+  // 'av-tv-distance' was declared here while it read the distance between the aortic and tricuspid centres, 4.3-5.6 cm
+  // against an approximate 3.0-4.5 with no source. What the anatomy fixes is the gap between the two hinge lines, which
+  // the membranous septum spans: 0.26-1.14 cm in every case against its 9.0-11.4 mm (decision 306).
   // 'ra-long' was declared here while the right atrial long axis sat at or above the top of its range (4.5-5.9 cm, 5.62
   // in the normal case): the roof had no wall over the tricuspid orifice and the cavity ran 0.22 cm into it. With the
   // roof back (decision 219) it measures 4.50-5.46 in every case but atrial fibrillation, which declares it.

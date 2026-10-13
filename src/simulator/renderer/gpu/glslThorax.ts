@@ -1,4 +1,7 @@
 import {
+  STERNUM_DEPTH_FRACTION,
+  STERNUM_HALF_WIDTH_CM,
+  STERNUM_THICKNESS_CM,
   ANTERIOR_CORRIDOR_CM,
   FUNDUS_MEDIAL_X_CM,
   LIVER_LEFT_LOBE_DEPTH_CM,
@@ -84,7 +87,7 @@ bool classifyThorax(vec3 p, out Sample s, float heartDist) {
   if (depth < 0.0) { s.tissue = T_NONE; s.structure = S_NONE; s.sdf = -depth; return false; }
   if (depth < SKIN_CM) { s.tissue = T_SKIN; s.structure = S_CHEST; s.sdf = -min(depth, SKIN_CM - depth); return true; }
   float T = TH_CHESTWALL;
-  if (abs(x) < 1.6 && y > -5.0 && y < 9.5 && depth > T * 0.3 && depth < T * 0.3 + 1.0) { s.tissue = T_BONE; s.structure = S_STERNUM; s.sdf = -0.3; return true; }
+  if (abs(x) < ${f(STERNUM_HALF_WIDTH_CM)} && y > -5.0 && y < 9.5 && depth > T * ${f(STERNUM_DEPTH_FRACTION)} && depth < T * ${f(STERNUM_DEPTH_FRACTION)} + ${f(STERNUM_THICKNESS_CM)}) { s.tissue = T_BONE; s.structure = S_STERNUM; s.sdf = -0.3; return true; }
   if (abs(x) >= 1.6 && abs(x) < TH_AW * 0.95) {
     float kf = (TH_RIB2Y + TH_RIBSLOPE * abs(x) - y) / ribSpacingAt(x) + 2.0;
     float k = floor(kf + 0.5);
