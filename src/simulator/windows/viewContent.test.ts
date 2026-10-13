@@ -5,6 +5,7 @@ import {
   classifyHeart,
   computeHeartPose,
   createHeartModel,
+  heartAnchors,
   heartDirToTorso,
   heartToTorso,
   torsoToHeart,
@@ -268,6 +269,52 @@ describe('standard views contain the structures they are meant to show', () => {
         .filter((r) => r.ok && KNOWN_VIEW_LIMITATIONS.has(`${view.id}/${r.label}`))
         .map((r) => `${view.id}/${r.label}`);
       expect(stale, `${view.id}: declared limitations that no longer apply`).toEqual([]);
+    });
+  }
+});
+
+describe('the great-vessel short axis holds the pulmonary valve and trunk in every case (decision 306)', () => {
+  // In a great-vessel short axis the right outflow tract, the pulmonary valve and the trunk run in long axis around the
+  // aorta. Measured on the drawn plane in the twelve cases: at end-diastole it passes 0.23-0.43 cm from the pulmonary
+  // valve centre, cuts its closed cusps (0.18-0.27 % of the sector), and the trunk lies 9-10° from it (8-11 % of the
+  // sector, 2.5 % in the difficult window, whose lung covers part of it). In systole the base descends and the plane passes 0.5-0.7 cm above the valve, which it leaves: that is the
+  // fixed plane of a real probe too. The limitations once said the valve was never cut; that had stopped being true.
+  const patient: PatientState = {
+    position: 'left-lateral',
+    respiration: 'expiration',
+    headElevationDeg: 0,
+  };
+  const view = getViewTarget('psax-av');
+  for (const input of CASE_INPUTS) {
+    it(`${input.id}: valve cut and trunk in the plane at end-diastole`, () => {
+      const { thorax, heart, tables } = buildCaseModels(loadCaseById(input.id), patient);
+      const pose = computeHeartPose(heart, cycleStateAt(tables, 0));
+      const f = viewStructureFractions(view, heart, thorax, pose);
+      expect(
+        100 * (f.get(Structure.PulmonaryValve) ?? 0),
+        'pulmonary valve, % of sector',
+      ).toBeGreaterThanOrEqual(0.1);
+      // 2 %: the difficult window puts lung over a third of the trunk on purpose (2.5 % left there, 8-11 % elsewhere)
+      expect(
+        100 * (f.get(Structure.PulmonaryArtery) ?? 0),
+        'pulmonary trunk, % of sector',
+      ).toBeGreaterThanOrEqual(2);
+      const beam = beamFrameFromPose(
+        poseFromControl(thorax, canonicalControl(view, heart, thorax)),
+        1,
+      );
+      const A = heartAnchors(heart);
+      const pv = heartToTorso(
+        heart.frame,
+        v3(A.rvotB.x + pose.swingX, A.rvotB.y, A.rvotB.z + pose.pvZ),
+      );
+      expect(
+        Math.abs(dot(sub(pv, beam.origin), beam.normal)),
+        'valve centre to plane (cm)',
+      ).toBeLessThan(0.5);
+      const trunk = normalize(heartDirToTorso(heart.frame, A.paDir));
+      const tilt = (Math.asin(Math.abs(dot(trunk, beam.normal))) * 180) / Math.PI;
+      expect(tilt, 'trunk against the plane (°)').toBeLessThan(15);
     });
   }
 });

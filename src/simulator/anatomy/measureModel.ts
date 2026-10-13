@@ -13,7 +13,8 @@ import {
 } from './heartModel';
 import { cross, dot, normalize, sub, type Vec3 } from '@/core/vec3';
 import { LVOT_TAPER_CM, ROOT_STJ_T } from './aorticValve';
-import type { PatientState } from './thoraxModel';
+import { skinZ, type PatientState } from './thoraxModel';
+import { skirtOffsetAt, skirtWarpScale } from './valveSkirt';
 import { cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { buildCaseModels, REST_PATIENT } from './caseModels';
 import { makeSample, Structure, Tissue } from './tissue';
@@ -55,7 +56,7 @@ export function measureModel(
   mcSamples = 160000,
 ): ModelMeasurements {
   // the models the app images (decision 237)
-  const { heart, tables } = buildCaseModels(c, patient);
+  const { heart, thorax, tables } = buildCaseModels(c, patient);
   const edPose = computeHeartPose(heart, cycleStateAt(tables, 0.0));
   const esPose = computeHeartPose(heart, cycleStateAt(tables, tables.endSystoleS / tables.rrS));
   let maxLongPhase = 0;
@@ -534,16 +535,47 @@ export function measureModel(
     FS,
     true,
   );
-  add(
-    'av-tv-distance',
-    'Aortic–tricuspid valve centres',
-    dist(A.avCenter, A.tvCenter),
-    'cm',
-    3.0,
-    4.5,
-    FS,
-    true,
-  );
+  // The tricuspid ring meets the aortic one at the membranous septum, which its septal leaflet crosses just below the
+  // commissure between the right and non-coronary sinuses: the gap between the two hinge lines is at most the length of
+  // that septum, 9.0-11.4 mm (means by sex and age group in 107 adult hearts, Folia Morphol 2008;67:259-264). Until
+  // decision 306 this read the distance between the centres, 3.0-4.5 cm by an approximate range with no source, which a
+  // tricuspid annulus prolonged toward the root (decisions 224 and 226) can exceed while its hinge reaches the root.
+  {
+    const tv = edPose.valves.tv;
+    const ring: Vec3[] = [];
+    for (let k = 0; k < 180; k++) {
+      const a = (k / 180) * 2 * Math.PI,
+        cs = Math.cos(a),
+        sn = Math.sin(a);
+      const rho = tv.R / skirtWarpScale(tv, cs, sn);
+      const x = tv.cx + rho * cs,
+        y = tv.cy + rho * sn;
+      ring.push({ x, y, z: A.tvCenter.z + edPose.tvZ + skirtOffsetAt(tv, x, y) });
+    }
+    let gap = Infinity;
+    const avZ = A.avCenter.z + edPose.zAnn * ROOT_EXCURSION;
+    for (let k = 0; k < 180; k++) {
+      const a = (k / 180) * 2 * Math.PI,
+        cs = Math.cos(a) * A.avR,
+        sn = Math.sin(a) * A.avR;
+      const p = {
+        x: A.avCenter.x + A.avE1.x * cs + A.avE2.x * sn,
+        y: A.avCenter.y + A.avE1.y * cs + A.avE2.y * sn,
+        z: avZ + A.avE1.z * cs + A.avE2.z * sn,
+      };
+      for (const q of ring) gap = Math.min(gap, dist(p, q));
+    }
+    add(
+      'av-tv-hinge-gap',
+      'Aortic–tricuspid hinge gap',
+      gap,
+      'cm',
+      0,
+      1.15,
+      'membranous-septum',
+      true,
+    );
+  }
   add(
     'av-mv-distance',
     'Aortic–mitral valve centres',
@@ -554,6 +586,31 @@ export function measureModel(
     FS,
     true,
   );
+  // The ascending aorta lies behind the sternum: 27.3 mm (95 % CI 25.5–29.2) from the sternum to the aorta by CT in 100
+  // controls (SA Heart J 2021;18:4773, planning of right anterior minithoracotomy). Read as the closest approach of the
+  // anterior wall of the ascending aorta to the back of the sternum, at end-diastole; the band around the mean is a
+  // plausibility bound (the interval is of the mean, not of the population), marked approximate.
+  {
+    const T = thorax.chestWall;
+    let gap = Infinity;
+    const path = edPose.aorta.geometry.arch;
+    for (let i = 0; i <= 16; i++) {
+      const c = heartToTorso(heart.frame, path[i]!.p);
+      const xs = Math.max(-1.6, Math.min(1.6, c.x));
+      const sternumBack = skinZ(thorax, xs, c.y) - (0.3 * T + 1.0);
+      gap = Math.min(gap, sternumBack - (c.z + path[i]!.radiusCm));
+    }
+    add(
+      'sternum-aorta',
+      'Sternum to ascending aorta',
+      gap,
+      'cm',
+      1.7,
+      3.7,
+      'sternum-aorta-ct',
+      true,
+    );
+  }
   // The parasternal short axis of the great vessels shows a ROUND aorta surrounded by the other two valves,
   // which is only possible if the plane through the three valve centres is close to perpendicular to the
   // aortic root axis. Measured at 62° when this check was written: that single number explains why the view
