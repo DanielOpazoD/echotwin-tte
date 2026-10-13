@@ -13,9 +13,19 @@ import { CASE_INPUTS, loadCaseById } from '@/cases';
  * limitation in docs/LIMITATIONS.md; remove it when the anatomy pass fixes the primitive.
  */
 const KNOWN_MODEL_LIMITATIONS: ReadonlySet<string> = new Set([
-  // The ascending aorta runs 5.8-7.8 cm behind the sternum against 2.7 cm by CT: the ascending aorta and the arch lie
-  // ~3 cm too far back, which is why the suprasternal notch sees the arch 11 cm away (docs/LIMITATIONS.md).
+  // The great vessels against 40 chest CT volumes (decision 307): the ascending aorta rises 8 cm from the root to the arch
+  // apex against 9.4-13.2 (CT P10-P90), tilted 10-13° backward against a forward median of 8°, so it runs 5.3-7.4 cm
+  // behind the sternum (CT 1.5-4.4) and the arch, 6.2-6.4 cm wide (CT 7.0-10.6), crests 11-14 cm behind and only 1.7 cm
+  // below a notch that sits 9.7 cm above the root (CT 11.8-15.7): docs/LIMITATIONS.md, «Grandes vasos frente a la TC».
   'sternum-aorta',
+  'ascending-depth',
+  'ascending-forward-tilt',
+  'ascending-right-tilt',
+  'arch-width',
+  'notch-arch-apex',
+  'arch-apex-behind-notch',
+  'root-arch-apex-height',
+  'root-notch-height',
   // 'av-tv-distance' was declared here while it read the distance between the aortic and tricuspid centres, 4.3-5.6 cm
   // against an approximate 3.0-4.5 with no source. What the anatomy fixes is the gap between the two hinge lines, which
   // the membranous septum spans: 0.26-1.14 cm in every case against its 9.0-11.4 mm (decision 306).

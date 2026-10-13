@@ -13,18 +13,14 @@ import {
 } from './heartModel';
 import { cross, dot, normalize, sub, type Vec3 } from '@/core/vec3';
 import { LVOT_TAPER_CM, ROOT_STJ_T } from './aorticValve';
-import {
-  skinZ,
-  STERNUM_DEPTH_FRACTION,
-  STERNUM_HALF_WIDTH_CM,
-  STERNUM_THICKNESS_CM,
-  type PatientState,
-} from './thoraxModel';
+import type { PatientState } from './thoraxModel';
 import { skirtOffsetAt, skirtWarpScale } from './valveSkirt';
 import { cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { buildCaseModels, REST_PATIENT } from './caseModels';
 import { makeSample, Structure, Tissue } from './tissue';
 import { createRng } from '@/core/random';
+import { CT_MEDIASTINUM, type CtDistribution } from '@/clinical/reference-values/ctMediastinum';
+import { measureMediastinum } from './mediastinum';
 import { bsaMosteller } from '@/clinical/formulas';
 
 /**
@@ -592,31 +588,71 @@ export function measureModel(
     FS,
     true,
   );
-  // The ascending aorta lies behind the sternum: 27.3 mm (95 % CI 25.5–29.2) from the sternum to the aorta by CT in 100
-  // controls (SA Heart J 2021;18:4773, planning of right anterior minithoracotomy). Read as the closest approach of the
-  // anterior wall of the ascending aorta to the back of the sternum, at end-diastole; the band around the mean is a
-  // plausibility bound (the interval is of the mean, not of the population), marked approximate.
+  // The base of the heart and the mediastinum against chest CT volumes (decision 307, TotalSegmentator dataset): the
+  // same measures, with the same definitions, as tools/clinical/ct-mediastinum.ts takes on CT, each between the CT's
+  // 10th and 90th percentiles. The axial sections are taken the CT's median carina drop below the arch apex. The
+  // sternum-to-aorta distance of decision 306 (27.3 mm by CT in 100 controls) is now this one: the CT's median is 26 mm.
   {
-    const T = thorax.chestWall;
-    let gap = Infinity;
-    const path = edPose.aorta.geometry.arch;
-    for (let i = 0; i <= 16; i++) {
-      const c = heartToTorso(heart.frame, path[i]!.p);
-      const xs = Math.max(-STERNUM_HALF_WIDTH_CM, Math.min(STERNUM_HALF_WIDTH_CM, c.x));
-      const sternumBack =
-        skinZ(thorax, xs, c.y) - (STERNUM_DEPTH_FRACTION * T + STERNUM_THICKNESS_CM);
-      gap = Math.min(gap, sternumBack - (c.z + path[i]!.radiusCm));
-    }
-    add(
+    const ct = CT_MEDIASTINUM;
+    const mm = measureMediastinum(heart, thorax, edPose, ct.carinaBelowArchApex.median);
+    const CT = 'totalsegmentator-ct';
+    const row = (id: string, label: string, value: number, d: CtDistribution, units = 'cm') =>
+      add(id, label, value, units, d.p10, d.p90, CT);
+    row(
       'sternum-aorta',
       'Sternum to ascending aorta',
-      gap,
-      'cm',
-      1.7,
-      3.7,
-      'sternum-aorta-ct',
-      true,
+      mm.sternumToAscendingAorta,
+      ct.sternumToAscendingAorta,
     );
+    row('ascending-depth', 'Ascending aorta depth', mm.ascendingDepth, ct.ascendingDepth);
+    row(
+      'ascending-forward-tilt',
+      'Ascending aorta forward tilt',
+      mm.ascendingForwardTiltDeg,
+      ct.ascendingForwardTiltDeg,
+      '°',
+    );
+    row(
+      'ascending-right-tilt',
+      'Ascending aorta rightward tilt',
+      mm.ascendingRightTiltDeg,
+      ct.ascendingRightTiltDeg,
+      '°',
+    );
+    row('arch-width', 'Arch width (ascending to descending)', mm.archWidth, ct.archWidth);
+    row(
+      'notch-arch-apex',
+      'Suprasternal notch to arch apex',
+      mm.notchToArchApex,
+      ct.notchToArchApex,
+    );
+    row(
+      'arch-apex-below-notch',
+      'Arch apex below the notch',
+      mm.archApexBelowNotch,
+      ct.archApexBelowNotch,
+    );
+    row(
+      'arch-apex-behind-notch',
+      'Arch apex behind the notch',
+      mm.archApexBehindNotch,
+      ct.archApexBehindNotch,
+    );
+    row('root-depth', 'Aortic root depth', mm.rootDepth, ct.rootDepth);
+    row(
+      'root-arch-apex-height',
+      'Aortic root to arch apex (height)',
+      mm.rootToArchApexHeight,
+      ct.rootToArchApexHeight,
+    );
+    row(
+      'root-notch-height',
+      'Aortic root to notch (height)',
+      mm.rootToNotchHeight,
+      ct.rootToNotchHeight,
+    );
+    row('descending-depth', 'Descending aorta depth', mm.descendingDepth, ct.descendingDepth);
+    row('vertebra-depth', 'Vertebral body depth', mm.vertebraDepth, ct.vertebraDepth);
   }
   // The parasternal short axis of the great vessels shows a ROUND aorta surrounded by the other two valves,
   // which is only possible if the plane through the three valve centres is close to perpendicular to the
