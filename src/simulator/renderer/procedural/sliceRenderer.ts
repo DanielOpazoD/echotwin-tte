@@ -142,6 +142,10 @@ export class ProceduralSliceRenderer implements RendererBackend {
   /** Attenuation increment of each sample (Np), for the beam-averaged march of a frame (decision 144). */
   private atten = new Float32Array(0);
   private prefix = new Float32Array(0);
+  /** The chest wall's reverberation of each sample and look before its loss, and whether the sample is heart (decision 312). */
+  private clutRe = new Float32Array(0);
+  private clutIm = new Float32Array(0);
+  private heartFlag = new Uint8Array(0);
   /** Sample of each frame line where it enters lung, −1 where it does not (decision 221). */
   private lungEntry = new Int32Array(0);
   private lineRe = new Float32Array(0);
@@ -192,7 +196,13 @@ export class ProceduralSliceRenderer implements RendererBackend {
       this.tmpAmp = new Float32Array(n);
       this.atten = new Float32Array(n);
       this.prefix = new Float32Array((spec.lines + 1) * spec.samples);
+      this.clutRe = new Float32Array(n * COMPOUND_LOOKS);
+      this.clutIm = new Float32Array(n * COMPOUND_LOOKS);
+      this.heartFlag = new Uint8Array(n);
     }
+    this.clutRe.fill(0);
+    this.clutIm.fill(0);
+    this.heartFlag.fill(0);
     const ctx = this.prepare(scene, beam, spec);
     if (this.lungEntry.length !== spec.lines) this.lungEntry = new Int32Array(spec.lines);
     this.lungEntry.fill(-1);
@@ -210,6 +220,9 @@ export class ProceduralSliceRenderer implements RendererBackend {
         out.tissue,
         this.atten,
         out.segment,
+        this.clutRe,
+        this.clutIm,
+        this.heartFlag,
       );
     }
     this.drawLung(ctx, spec, this.re, this.im, out.transmission);
@@ -226,6 +239,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
       ctx.seed,
       this.prefix,
       COMPOUND_LOOKS,
+      { re: this.clutRe, im: this.clutIm, heart: this.heartFlag, fAtten: ctx.fAtten },
     );
     // the looks are detected one by one and their envelopes averaged (compounding, decision 145)
     out.amplitude.fill(0);
@@ -588,6 +602,9 @@ export class ProceduralSliceRenderer implements RendererBackend {
     ti: Uint8Array,
     atten: Float32Array | null = null,
     sg: Uint8Array | null = null,
+    clutRe: Float32Array | null = null,
+    clutIm: Float32Array | null = null,
+    heartFlag: Uint8Array | null = null,
   ): void {
     const {
       beam,
@@ -643,6 +660,8 @@ export class ProceduralSliceRenderer implements RendererBackend {
     // what the line would transmit through average soft tissue: the chest-wall reverberation reaches each depth through
     // the wall, not through the tissue on the beam's axis (decision 263)
     let softTransmission = lineDrop;
+    // the chest wall's reverberation at the heart's surface over the soft-tissue loss there: −1 until the line reaches it
+    let clutterWall = -1;
     let lungEntryR = -1;
     let lungEntryT = 0;
     let dead = false;
@@ -762,6 +781,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
       st[idx] = s.structure;
       tr[idx] = transmission;
       ti[idx] = tissue;
+      if (heartFlag) heartFlag[idx] = inHeart ? 1 : 0;
       // the LV segment of the tissue the beam crosses here (decision 152), from the same sample as the structure
       if (sg) sg[idx] = s.segment;
       if (tissue === Tissue.Lung) {
@@ -894,9 +914,18 @@ export class ProceduralSliceRenderer implements RendererBackend {
       let cm = 0;
       if (clutter > 0) {
         cm = chestWallClutter(ctx, li, r);
-        // reverberation is not reinforced behind fluid or blood: it carries at most the soft-tissue loss of its depth
-        // (decision 263), as the receiver's depth gain expects
-        cm *= Math.min(1, softTransmission / transmission);
+        // The reverberation of the chest wall lives in the wall: it pays the wall's own loss, at most the soft-tissue loss of
+        // its depth (decision 263: it is not reinforced behind fluid or blood). Past the heart's surface it is an echo of
+        // the wall that arrives late, not sound that crossed the heart, so it carries on with the soft-tissue loss from
+        // what it had there (decision 312). It used to take the loss of whatever the line crossed, so the right ventricle
+        // of the four-chamber view, reached through the apex and the septum, lost its haze: the band beside the septum
+        // read 40 grey against 48-74 in CAMUS Good. A frame's line leaves it unscaled for the beam march, which applies
+        // that loss with the beam's transmission (`clutterLoss`); an M-mode line applies it here with its own.
+        if (line) {
+          if (inHeart && clutterWall < 0)
+            clutterWall = Math.min(1, transmission / softTransmission);
+          cm *= clutterLoss(transmission, softTransmission, clutterWall) / transmission;
+        }
       }
       const cx = ox * CLUTTER_FREQ + li * CLUTTER_LINE_FREQ,
         cy = oy * CLUTTER_FREQ + oz * CLUTTER_FREQ,
@@ -939,24 +968,22 @@ export class ProceduralSliceRenderer implements RendererBackend {
               latticeNoise3(qx * R + PIB_X + sx, qy * R + PIB_Y + sy, qz * R + PIB_Z + sz, latA) -
               1) *
             PHASOR_NORM;
-          let lre = sigma * zr + specular + grain + ringDown;
-          let lim = sigma * zi;
-          if (cm > 0) {
-            lre +=
+          re[k * nFrame + idx] = sigma * zr + specular + grain + ringDown;
+          im[k * nFrame + idx] = sigma * zi;
+          if (cm > 0 && clutRe && clutIm) {
+            clutRe[k * nFrame + idx] =
               cm *
               (latticeNoise3(cx + CLUTTER_RE_A_X + sx, cy + sy, cz + sz, latA) +
                 latticeNoise3(cx * R + CRB_X + sx, cy + CRB_Y + sy, cz * R + sz, latB) -
                 1) *
               PHASOR_NORM;
-            lim +=
+            clutIm[k * nFrame + idx] =
               cm *
               (latticeNoise3(cx + CIA_X + sx, cy + CIA_Y + sy, cz + CIA_Z + sz, latC) +
                 latticeNoise3(cx * R + CIB_X + sx, cy + CIB_Y + sy, cz * R + CIB_Z + sz, latA) -
                 1) *
               PHASOR_NORM;
           }
-          re[k * nFrame + idx] = lre;
-          im[k * nFrame + idx] = lim;
         }
       }
       // two-way amplitude loss integrated over the sample's length (decision 89): 0.23 Np per dB·cm⁻¹·MHz⁻¹ of one-way
@@ -1003,6 +1030,16 @@ function chestWallClutter(ctx: LineContext, li: number, r: number): number {
 }
 
 /**
+ * The loss the chest wall's reverberation carries to a sample (decision 312): the wall's own loss, at most the soft-tissue
+ * one, until the line reaches the heart (`wall` < 0), and past the heart's surface the soft-tissue loss times what it had
+ * there over the soft-tissue loss there (`wall`). `transmission` and `soft` reach the sample; the GPU's pass B does the
+ * same with the beam's transmission.
+ */
+export function clutterLoss(transmission: number, soft: number, wall: number): number {
+  return wall < 0 ? Math.min(transmission, soft) : soft * wall;
+}
+
+/**
  * The march of the beam (decisions 144 and 299). Each line marched its own attenuation, so a line running inside the
  * lateral wall from the apex reached 7 cm 15 dB weaker than its neighbour in the blood. A pulse is not a pencil: the
  * energy that reaches a sample left the whole aperture and crossed, at every depth on the way, the width of the beam
@@ -1027,6 +1064,12 @@ export function beamMarch(
   seed: number,
   prefix: Float32Array,
   looks = 1,
+  clutter: {
+    re: Float32Array;
+    im: Float32Array;
+    heart: Uint8Array;
+    fAtten: number;
+  } | null = null,
 ): void {
   const { lines, samples } = spec;
   const n = lines * samples;
@@ -1080,6 +1123,12 @@ export function beamMarch(
     const drop = hash3(li, 7, 0, seed) > contact ? 0.08 : 1;
     let transmission = drop;
     let lungScale = -1;
+    // the chest wall's reverberation (decision 312): the soft-tissue loss and the wall's loss at the heart's surface
+    let soft = drop;
+    let wall = -1;
+    const softStep = clutter
+      ? Math.exp(-ATTEN_NP_PER_DB * SOFT_TISSUE_ATTEN_DB * clutter.fAtten * dr)
+      : 1;
     for (let si = 0; si < samples; si++) {
       const i = base + si;
       const t = ti[i]!;
@@ -1101,9 +1150,18 @@ export function beamMarch(
       }
       transmission = Math.max(TRANSMISSION_FLOOR, drop * tr[i]!);
       tr[i] = transmission;
+      let loss = 0;
+      if (clutter) {
+        if (clutter.heart[i] && wall < 0) wall = Math.min(1, transmission / soft);
+        loss = clutterLoss(transmission, soft, wall);
+        soft *= softStep;
+        if (soft < TRANSMISSION_FLOOR) soft = TRANSMISSION_FLOOR;
+      }
       for (let k = 0; k < looks; k++) {
-        re[k * n + i]! *= transmission;
-        im[k * n + i]! *= transmission;
+        re[k * n + i] =
+          re[k * n + i]! * transmission + (clutter ? clutter.re[k * n + i]! * loss : 0);
+        im[k * n + i] =
+          im[k * n + i]! * transmission + (clutter ? clutter.im[k * n + i]! * loss : 0);
       }
     }
   }

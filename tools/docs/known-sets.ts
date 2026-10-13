@@ -58,6 +58,11 @@ export const KNOWN_SETS: readonly {
     name: 'KNOWN_SECTOR_DEVIATIONS',
     byStatistic: true,
   },
+  {
+    file: 'src/simulator/renderer/clinicalImage.test.ts',
+    name: 'KNOWN_SURROUNDINGS_DEVIATIONS',
+    byStatistic: true,
+  },
 ];
 
 /** `KNOWN_*` constants that declare no limitation of the model, with the reason. */

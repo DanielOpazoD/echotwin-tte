@@ -30,24 +30,30 @@ const TOLERANCE = 3;
 const KNOWN_RV_EXCESS: ReadonlyMap<string, number> = new Map([
   // Decision 296: without the coarse random envelope, these whole-cavity means expose more of
   // the near-field/partial-volume imbalance. Original 15-grey bound and ±3 drift remain unchanged.
-  ['hfref-severe-mr psax-pm @0.35', 17.2],
+  ['hfref-severe-mr psax-pm @0.35', 21.7],
   ['inferior-rwma plax @0', 15.6],
   ['aortic-stenosis-severe plax @0', 17.6],
   ['aortic-stenosis-severe plax @0.35', 16.3],
-  ['hocm-sam plax @0.35', 17.8],
-  ['hocm-sam psax-pm @0.35', 18.1],
   ['artifact-challenge plax @0', 18.5],
   ['hfref-severe-mr plax @0', 19.2],
   // 16 until decision 297 widened the dilated ventricle (EDV 250 → 275 mL) and with it the parasternal right ventricle
   ['hfref-severe-mr plax @0.35', 20.1],
-  ['hfref-severe-mr psax-pm @0', 20.6],
+  ['hfref-severe-mr psax-pm @0', 24.5],
   ['inferior-rwma psax-pm @0', 16],
-  ['aortic-stenosis-severe psax-pm @0', 15.8],
+  ['aortic-stenosis-severe psax-pm @0', 18.9],
   ['hocm-sam plax @0', 25],
   ['hocm-sam psax-pm @0', 22.5],
   ['artifact-challenge plax @0.35', 20.4],
   // decision 299: the beam beside the ribs of this poor window keeps more of its amplitude, and the RV with it
-  ['artifact-challenge psax-pm @0', 17.4],
+  ['artifact-challenge psax-pm @0', 21.7],
+  // decision 312: the chest wall's reverberation past the heart's surface is no longer shadowed by the right
+  // ventricular free wall and the septum it would have to cross; the small right ventricles of the papillary short axis
+  // read 3-4 grey brighter against the left and three long axes went over the bound (15.5-16.4); the hypertrophic
+  // case's end-systolic short axis fell from 18.1 to 15.1 and its end-systolic long axis came within the bound
+  ['inferior-rwma plax @0.35', 16.4],
+  ['mvp-primary-mr plax @0', 15.5],
+  ['mvp-primary-mr plax @0.35', 15.8],
+  ['hocm-sam psax-pm @0.35', 15.1],
 ]);
 
 const mean = (

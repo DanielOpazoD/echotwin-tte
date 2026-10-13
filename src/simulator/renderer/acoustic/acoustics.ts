@@ -244,8 +244,11 @@ export const CLUTTER_MOD_DEPTH_FREQ = 5;
  * 3 mm bright/dark islands in normal blood, unrelated to scatterers, interfaces or the beam response.
  * The existing relative RMS scale is retained; case level, harmonics, frequency and propagation still apply.
  * This is a reduced diffuse reverberation model, not resolved multipath or spontaneous echo contrast.
+ * 0.05 until decision 312, which stopped the haze recovering through blood and dimming behind myocardium (it carries the
+ * wall's loss to the heart's surface and the soft-tissue loss beyond); recalibrated against the four-chamber
+ * end-diastolic cavity contrast of CAMUS Good (49 against 33-47).
  */
-export const CLUTTER_HAZE = 0.05;
+export const CLUTTER_HAZE = 0.07;
 export const CLUTTER_FREQ = 25;
 export const CLUTTER_LINE_FREQ = 0.9;
 export const CLUTTER_RE_A_X = 3.1;

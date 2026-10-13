@@ -9,6 +9,8 @@ import {
 import { CAMUS_GOOD, type CamusMetric } from '@/clinical/reference-values/camusImageStats';
 import { CAMUS_GOOD_SECTOR } from '@/clinical/reference-values/camusSectorStats';
 import { SECTOR_METRICS, sectorStats } from '@/clinical/sectorStats';
+import { CAMUS_GOOD_SURROUNDINGS } from '@/clinical/reference-values/camusSurroundings';
+import { surroundings, type SurroundingsMetric } from '@/clinical/surroundings';
 import {
   apicalStats,
   meanStat,
@@ -81,11 +83,14 @@ const KNOWN_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // the averaged receiver noise (the end-systolic atria, 82-84 against upper quartiles of 78-79 then, and the two-chamber
   // contrast came inside at decision 263, when the haze stopped growing behind the ventricle's blood)
   ['2CH-ED:myocardialResidualSkew', 0.17],
-  // decision 299: the beam pays the mean of its pencils' amplitudes, so the walls beside blood keep more of their echo;
-  // the four-chamber end-diastolic contrast rises 0.10 widths over the upper quartile (48 against 33-47), the
-  // two-chamber end-systolic cell 0.15 widths taller, and the four-chamber end-diastolic local std comes inside
-  ['4CH-ED:contrast', 0.1],
-  ['2CH-ES:speckleCellVerticalMm', 0.15],
+  // decision 299: the beam pays the mean of its pencils' amplitudes, so the walls beside blood keep more of their echo
+  // and the four-chamber end-diastolic contrast rises over the upper quartile; decision 312 recalibrated the haze of the
+  // cavities with its new loss and left it 0.17 widths over (49 against 33-47), the end-systolic one 0.12 under (34
+  // against 36-49), the two-chamber end-systolic cell inside and the four-chamber end-systolic cell a little narrower
+  // (1.97 against 2.00-2.28)
+  ['4CH-ED:contrast', 0.17],
+  ['4CH-ES:contrast', -0.12],
+  ['4CH-ES:speckleCellHorizontalMm', -0.22],
   // Each entry holds its baseline: the signed distance outside the clinical quartiles, in quartile widths (negative
   // below the 25th percentile, positive above the 75th). A declared deviation used to be checked only for being
   // declared and not stale, so it could grow without limit (external audit F11, decision 88). Baselines measured with
@@ -153,6 +158,44 @@ const QUARTILE_EDGE = 0.1;
  * 4–7 mm to one side of the centre line and the base 6° to the other, a probe off the axis; with the probe on it the apex
  * sits on the line (0.3–0.5 mm) and the axis along it (0.1–0.5°), and leaning the sector moves both to the same side.
  */
+/**
+ * What surrounds the left ventricle (decision 144: near field, far background, the bands outside each wall, the
+ * pericardial line and the transmural profile), against CAMUS Good. Its reference was generated with the decision but
+ * no test read it on the app's chain until decision 312: 20 of its 44 values were outside the quartiles, among them the
+ * right ventricle beside the septum (40 grey against 48-74), which decision 312 brought inside.
+ */
+const KNOWN_SURROUNDINGS_DEVIATIONS: ReadonlyMap<string, number> = new Map([
+  // The wall profile (LIMITATIONS.md): the endocardial fifth reads brighter than the mid-wall (1.04-1.21 against
+  // 0.76-0.88) and the lateral epicardial fifth darker (0.81-0.87 against 1.01-1.18). The apical beams that reach the
+  // outer half of a wall run lengthwise inside it and lose 6.8 dB per cm of myocardium (0.9 dB/cm/MHz, harmonic): with
+  // the myocardium attenuating like blood the profile takes the clinical shape (septum peaked at mid-wall, lateral wall
+  // rising to the epicardium). The fibre helix took 0.2 off the endocardial fifth (decision 144); a march of sub-beams
+  // converging from the whole aperture moved the epicardial fifth only 5 grey (decision 312, not kept); the published anisotropy (0.52 dB/cm/MHz across the
+  // fibres, 1.88 along) averages over the helix to the 0.9 the model has.
+  ['4CH-ED:side1EndoOverMid', 0.84],
+  ['4CH-ED:side2EndoOverMid', 0.99],
+  ['4CH-ED:side2EpiOverMid', -0.38],
+  ['4CH-ES:side1EndoOverMid', 1.44],
+  ['4CH-ES:side2EndoOverMid', 1.18],
+  ['4CH-ES:side2EpiOverMid', -0.34],
+  ['2CH-ED:side1EndoOverMid', 0.92],
+  ['2CH-ED:side2EndoOverMid', 0.55],
+  ['2CH-ES:side1EndoOverMid', 1.0],
+  ['2CH-ES:side1EpiOverMid', -0.25],
+  ['2CH-ES:side2EndoOverMid', 0.88],
+  ['2CH-ES:side2EpiOverMid', -0.17],
+  // The near field, 15 mm under the sector apex, brighter than clinical (132 against 83-122; 125 before decision 312,
+  // at the edge), and at end-systole the lateral band, both pericardial peaks and the bright end of the far background
+  // dimmer; the two-chamber anterior pericardial peak a little brighter.
+  ['4CH-ED:nearFieldGrey', 0.25],
+  ['4CH-ES:nearFieldGrey', 0.25],
+  ['4CH-ES:farBackgroundP99', -0.21],
+  ['4CH-ES:side2BandGrey', -0.25],
+  ['4CH-ES:side1EpicardialPeakGrey', -0.19],
+  ['4CH-ES:side2EpicardialPeakGrey', -0.21],
+  ['2CH-ED:side2EpicardialPeakGrey', 0.13],
+]);
+
 const KNOWN_GEOMETRY_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['4CH-ED:septalMinusLateralGrey', -0.58],
   ['2CH-ED:axisTiltDeg', -0.48],
@@ -172,19 +215,23 @@ const KNOWN_GEOMETRY_DEVIATIONS: ReadonlyMap<string, number> = new Map([
  * phases 1–3 of the fidelity plan. The near field came inside at decision 156.
  */
 const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
-  // Decision 296: diffuse clutter loses coarse image-plane modulation; small residual texture/edge deficits.
-  ['4CH-ED:localStd', -0.18],
-  ['4CH-ED:edgeRollOff', -0.15],
-  ['2CH-ES:localStd', -0.16],
+  // Decision 296: diffuse clutter loses coarse image-plane modulation; small residual texture/edge deficits. At decision
+  // 312 the four-chamber end-diastolic edge came inside, the two-chamber end-systolic local std too, and the two-chamber
+  // end-systolic sector edge falls off faster than clinical (1.33 against 0.96-1.26).
+  ['4CH-ED:localStd', -0.12],
+  ['2CH-ES:edgeRollOff', 0.25],
   // Decision 291: measured texture debt after anatomically constrained LA normalization.
   // Original reference quartiles and drift tolerances remain unchanged.
   // decision 299: the four-chamber end-diastolic correlation came inside and the two-chamber end-systolic one closer (−0.39)
   ['2CH-ES:radialCorr4', -0.14],
+  // decision 312: the four-chamber end-diastolic texture a little anticorrelated at 4 mm along the beam (−0.060 against
+  // −0.055 to −0.014)
+  ['4CH-ED:radialCorr4', -0.11],
   // decisions 271-273: the gastric fundus and the posterior column
   ['2CH-ES:tangentialCorr8', -0.41],
   // decision 270: the lung's diffuse reverberation now carries its path loss, so the outer sector of the end-systolic four-chamber view darkens
-  ['4CH-ES:bandGrey8', -0.2],
   ['4CH-ES:edgeRollOff', -0.12],
+  ['4CH-ES:bandGrey8', -0.1],
   // decision 264: with the chest-wall reverberation fading within 0.8 cm the near field comes inside and the two-chamber cavities darken
   ['2CH-ES:ridgeFraction', 0.53],
   // decision 263: the cavity reverberation no longer reinforced behind blood darkens the end-diastolic cavities
@@ -198,15 +245,11 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // end-systolic sector edge falls off a little faster
   ['4CH-ED:gradientP95', 0.16],
   ['2CH-ES:gradientP95', 0.17],
-  ['2CH-ES:edgeRollOff', 0.23],
   ['2CH-ES:bandGrey2', 0.19],
   // Measured since decision 258 as the app shows it, through the console's persistence, with the haze of the cavities:
-  // the black pixels of the single frame (up to 27.6 quartile widths out in the 4-6 cm band) mostly go, and what
-  // remains is the four-chamber end-diastolic cavity at 4-8 cm.
-  ['4CH-ED:bandDark6', 0.76],
-  ['4CH-ES:bandDark6', 0.3],
-  ['4CH-ED:bandDark8', 0.42],
-  ['4CH-ES:bandDark8', 0.35],
+  // the black pixels of the single frame (up to 27.6 quartile widths out in the 4-6 cm band) mostly went, and the rest,
+  // the four-chamber cavity at 4-8 cm, went at decision 312, when the haze stopped dimming behind the apex and the
+  // septum.
   // sharper than clinical and drawn with thin bright lines, less so through the persistence (median gradient 2.2-2.9
   // quartile widths out before decision 258)
   ['4CH-ED:gradientP50', 0.89],
@@ -224,15 +267,18 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['2CH-ED:radialCorr2', 0.82],
   ['2CH-ED:radialCorr8', -0.36],
   ['2CH-ED:tangentialCorr2', -0.44],
-  ['4CH-ED:radialCorr1', 1.38],
-  ['4CH-ES:radialCorr1', 1.46],
+  ['4CH-ED:radialCorr1', 1.33],
+  ['4CH-ES:radialCorr1', 1.26],
   ['2CH-ED:radialCorr1', 2.08],
-  ['2CH-ES:radialCorr1', 1.89],
+  ['2CH-ES:radialCorr1', 1.81],
   ['2CH-ED:tangentialCorr4', -1.01],
   // grey levels: the 2-4 cm band brighter than clinical (the app's near-field clutter, decision 238, more so without the
   // window's chest-wall attenuation of decision 261; the 0-2 cm band came inside at 264), the four-chamber end-systolic
   // bright end dimmer
   ['4CH-ES:greyP95', -0.19],
+  // decision 312: the haze recalibrated with its new loss also lifts the first 2 cm of the four-chamber end-systolic
+  // sector over the upper quartile (130 against 85-124)
+  ['4CH-ES:bandGrey0', 0.15],
   ['2CH-ED:bandGrey2', 0.5],
 ]);
 
@@ -293,6 +339,15 @@ describe('the default console against clinical optimal-window images (CAMUS Good
       CONDITIONS.flatMap(([k]) => Object.keys(CAMUS_GOOD_SECTOR[k]).map((m) => `${k}:${m}`)),
     );
     expect([...KNOWN_SECTOR_DEVIATIONS.keys()].filter((d) => !realSector.has(d))).toEqual([]);
+    const realSurroundings = new Set(
+      CONDITIONS.flatMap(([k]) => Object.keys(CAMUS_GOOD_SURROUNDINGS[k]).map((m) => `${k}:${m}`)),
+    );
+    expect(
+      [...KNOWN_SURROUNDINGS_DEVIATIONS.keys()].filter((d) => !realSurroundings.has(d)),
+    ).toEqual([]);
+    expect(
+      [...KNOWN_SURROUNDINGS_DEVIATIONS.entries()].filter(([, b]) => Math.abs(b) < QUARTILE_EDGE),
+    ).toEqual([]);
     expect(
       [...KNOWN_SECTOR_DEVIATIONS.entries()].filter(([, b]) => Math.abs(b) < QUARTILE_EDGE),
     ).toEqual([]);
@@ -344,6 +399,33 @@ describe('the default console against clinical optimal-window images (CAMUS Good
       );
     }
     expect(out, 'undeclared, stale and moved whole-sector deviations from CAMUS Good').toEqual({
+      outside: [],
+      stale: [],
+      moved: [],
+    });
+  });
+
+  it('what surrounds the left ventricle reads like clinical images or deviates as declared', () => {
+    const out = { outside: [] as string[], stale: [] as string[], moved: [] as string[] };
+    for (const [key, view, ed] of CONDITIONS) {
+      const g = renderOnce(view, ed).flatMap((r) =>
+        Array.from({ length: NOISE_REALIZATIONS }, (_, fi) =>
+          surroundings(presentApical(r, {}, fi), key.startsWith('4CH') ? '4CH' : '2CH'),
+        ),
+      );
+      const ref = CAMUS_GOOD_SURROUNDINGS[key];
+      audit(
+        key,
+        (Object.keys(ref) as SurroundingsMetric[]).map((m) => [
+          m,
+          g.reduce((a, x) => a + x[m], 0) / g.length,
+          ref[m]!,
+        ]),
+        KNOWN_SURROUNDINGS_DEVIATIONS,
+        out,
+      );
+    }
+    expect(out, 'undeclared, stale and moved deviations around the LV from CAMUS Good').toEqual({
       outside: [],
       stale: [],
       moved: [],
