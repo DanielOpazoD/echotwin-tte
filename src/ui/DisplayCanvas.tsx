@@ -1018,14 +1018,17 @@ function drawOverlay(
     } else ctx.fillRect(layout.sweep ? Math.round(ecgX(layout.headS, layout)) : W - 9, ey, 2, eh);
   }
   ctx.lineWidth = 1.5;
-  for (const ms of measurements) {
-    const sameFamily =
-      ms.modality === modality ||
-      (ms.modality === '2d' && modality === 'color') ||
-      (ms.modality === 'color' && modality === '2d');
-    if (!sameFamily) continue;
-    const geometry = reprojectGeometry(ms.geometry, ms.captureSector, m);
-    drawGeometry(ctx, geometry, ms.kind, '#ffc857');
+  // the value chips first and every caliper over them: with the 12 px minimum of the design review a chip could cover
+  // a cross of another measurement, or of its own after a zoom
+  const shown = measurements
+    .filter(
+      (ms) =>
+        ms.modality === modality ||
+        (ms.modality === '2d' && modality === 'color') ||
+        (ms.modality === 'color' && modality === '2d'),
+    )
+    .map((ms) => ({ ms, geometry: reprojectGeometry(ms.geometry, ms.captureSector, m) }));
+  for (const { ms, geometry } of shown) {
     const p = geometry[geometry.length - 1];
     if (p)
       drawValueChip(
@@ -1036,6 +1039,7 @@ function drawOverlay(
         '#ffc857',
       );
   }
+  for (const { ms, geometry } of shown) drawGeometry(ctx, geometry, ms.kind, '#ffc857');
   if (pending.length)
     drawGeometry(
       ctx,

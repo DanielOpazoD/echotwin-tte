@@ -11,7 +11,8 @@
   --hairline: rgba(255, 255, 255, 0.07);
   --text: #e4e9f0;
   --muted: #8e99aa;
-  --faint: #5f6a7a;
+  /* 5.4:1 on the panel (WCAG AA for small text); #5f6a7a gave 3.4:1 */
+  --faint: #808b9c;
   --accent: #5cc8ff;
   --accent-soft: rgba(92, 200, 255, 0.14);
   --accent-line: rgba(92, 200, 255, 0.45);
@@ -26,13 +27,14 @@
   --shadow-2: 0 10px 32px rgba(0, 0, 0, 0.55);
   --font: 'Inter Variable', 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
   --mono: 'JetBrains Mono Variable', 'JetBrains Mono', 'SF Mono', Menlo, monospace;
-  /* one type scale (decision 198): captions and keys, uppercase kickers, secondary text, panel text, body, titles */
-  --fs-xs: 10px;
-  --fs-caps: 10.5px;
-  --fs-sm: 11px;
-  --fs-md: 12px;
-  --fs-lg: 13px;
-  --fs-xl: 15px;
+  /* one type scale (decision 198), no text under 12 px since the design review of 2026-10-12: captions and keys,
+     uppercase kickers, secondary text, panel text, body, titles */
+  --fs-xs: 12px;
+  --fs-caps: 12px;
+  --fs-sm: 12px;
+  --fs-md: 13px;
+  --fs-lg: 14px;
+  --fs-xl: 16px;
 }
 * {
   box-sizing: border-box;
@@ -718,7 +720,8 @@ select:hover {
 /* LV segments on the ultrasound image (decision 153): the toggle under the case title and the name beside the pointer */
 .img-seg {
   position: absolute;
-  top: 46px;
+  /* under the case title, whatever lines it wraps to (ImageHud publishes its height) */
+  top: calc(var(--hud-tl-h, 30px) + 16px);
   left: 10px;
   display: flex;
   align-items: center;
@@ -834,6 +837,8 @@ select:hover {
 .hud-tl {
   top: 10px;
   left: 10px;
+  /* the case title keeps clear of the acquisition box on the right, whose width ImageHud publishes */
+  max-width: calc(100% - var(--hud-tr-w, 170px) - 30px);
 }
 .hud-title {
   font-family: var(--font);
@@ -841,6 +846,13 @@ select:hover {
   font-weight: 600;
   color: #f1f4f8;
   letter-spacing: 0;
+}
+/* a long case title wraps instead of running under the acquisition box or losing its end to an ellipsis; the segment
+   chip below it follows its height (--hud-tl-h) */
+.hud-box > .hud-title {
+  width: auto;
+  max-width: 100%;
+  white-space: normal;
 }
 .hud-tr {
   top: 10px;
@@ -3128,7 +3140,7 @@ canvas.overlay.armed {
   padding: 2px;
 }
 .dial-lbl {
-  font-size: 10px;
+  font-size: var(--fs-xs);
 }
 .dial-val {
   font-size: 15px;
@@ -3307,15 +3319,7 @@ canvas.overlay.armed {
     max-height: 70dvh;
     overflow-y: auto;
   }
-  .hud-tl {
-    max-width: calc(100% - 145px);
-  }
-  .hud-tl .hud-title {
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
+
   .torso-buttons {
     grid-template-columns: repeat(2, 36px);
     opacity: 1;
@@ -3338,4 +3342,74 @@ canvas.overlay.armed {
   .quick-bar {
     display: none;
   }
+}
+
+/* The case report laid out as an echocardiography lab's report (design review of 2026-10-12): an identification header,
+   sections ruled off from one another and a conclusion, set apart from the teaching evaluation that follows it. */
+.clinical-report {
+  margin: 12px 0 24px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  background: var(--panel-2);
+  overflow: hidden;
+}
+.clinical-report .cr-head {
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--border-strong);
+  background: var(--panel-3);
+}
+.clinical-report .cr-head h2 {
+  margin: 0 0 10px;
+  font-size: var(--fs-xl);
+  letter-spacing: 0.01em;
+}
+.clinical-report .cr-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 8px 20px;
+  margin: 0;
+}
+.clinical-report .cr-meta > div {
+  min-width: 0;
+}
+.clinical-report .cr-meta .cr-meta-wide {
+  grid-column: 1 / -1;
+}
+.clinical-report .cr-meta dt {
+  font-size: var(--fs-caps);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.clinical-report .cr-meta dd {
+  margin: 2px 0 0;
+  color: var(--text);
+}
+.clinical-report .cr-section {
+  padding: 12px 20px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.clinical-report .cr-section:last-child {
+  border-bottom: 0;
+}
+.clinical-report .cr-section h3 {
+  margin: 4px 0 8px;
+  font-size: var(--fs-caps);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+}
+.clinical-report .cr-conclusion ol {
+  margin: 0;
+  padding-left: 20px;
+  font-size: var(--fs-lg);
+  line-height: 1.6;
+}
+.cr-eval {
+  padding-top: 4px;
+  border-top: 1px dashed var(--border-strong);
+}
+.cr-eval > h2 {
+  font-size: var(--fs-xl);
+  color: var(--muted);
 }
