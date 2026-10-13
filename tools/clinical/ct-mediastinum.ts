@@ -256,6 +256,13 @@ interface Row {
   /** principal axis of the whole heart mask, pointed toward the apex: tilt below the horizontal and toward the left (°) */
   heartAxisDownTiltDeg: number;
   heartAxisLeftTiltDeg: number;
+  /**
+   * The heart's closest approach to the anterior skin (cm): for each 1 cm column of the heart, the depth of its most
+   * anterior voxel below the skin straight in front of it, the smallest over the columns, and how far below the notch that
+   * column's voxel lies. The chest CT is supine and at deep inspiration.
+   */
+  heartMinDepth: number;
+  heartMinDepthBelowNotch: number;
 }
 
 function measureSubject(dir: string): Row | string {
@@ -385,6 +392,23 @@ function measureSubject(dir: string): Row | string {
   let heartAxis = principalAxis(heart);
   if (-0.61 * heartAxis[0] + 0.65 * heartAxis[1] - 0.45 * heartAxis[2] < 0)
     heartAxis = [-heartAxis[0], -heartAxis[1], -heartAxis[2]];
+  // the heart's front: for each 1 cm column (x, z) of the heart, its most anterior voxel and the skin in front of it
+  const front = new Map<string, V3>();
+  for (const p of heart) {
+    const k = `${Math.round(p[0] / 10)},${Math.round(p[2] / 10)}`;
+    const f = front.get(k);
+    if (!f || p[1] > f[1]) front.set(k, p);
+  }
+  let minDepth = Infinity,
+    minAt: V3 = heart[0]!;
+  for (const p of front.values()) {
+    const skin = frontSkin(ct, toVoxel, p[0], p[2], frontY);
+    if (skin === null) continue;
+    if (skin - p[1] < minDepth) {
+      minDepth = skin - p[1];
+      minAt = p;
+    }
+  }
   const t = torsoDir(axis);
   const cm = (mm: number) => mm / 10;
   return {
@@ -426,6 +450,8 @@ function measureSubject(dir: string): Row | string {
     heartAxisDownTiltDeg:
       (Math.atan2(-heartAxis[2], Math.hypot(heartAxis[0], heartAxis[1])) * 180) / Math.PI,
     heartAxisLeftTiltDeg: (Math.atan2(-heartAxis[0], heartAxis[1]) * 180) / Math.PI,
+    heartMinDepth: cm(minDepth),
+    heartMinDepthBelowNotch: cm(notch[2] - minAt[2]),
   };
 }
 
@@ -478,6 +504,8 @@ const METRICS = [
   'rootApexLeftTiltDeg',
   'heartAxisDownTiltDeg',
   'heartAxisLeftTiltDeg',
+  'heartMinDepth',
+  'heartMinDepthBelowNotch',
 ] as const;
 const quantile = (xs: number[], q: number): number => {
   const s = [...xs].sort((a, b) => a - b);

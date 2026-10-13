@@ -41,4 +41,6 @@ export const CT_MEDIASTINUM = {
   rootApexLeftTiltDeg: { n: 77, p10: 50.33, q1: 58.68, median: 67.91, q3: 73.65, p90: 81.79 },
   heartAxisDownTiltDeg: { n: 77, p10: 25.68, q1: 30.09, median: 41.08, q3: 48.42, p90: 52.86 },
   heartAxisLeftTiltDeg: { n: 77, p10: 29.03, q1: 37.66, median: 50.37, q3: 61.98, p90: 72.88 },
+  heartMinDepth: { n: 77, p10: 2.04, q1: 2.7, median: 3.45, q3: 4.05, p90: 4.98 },
+  heartMinDepthBelowNotch: { n: 77, p10: 11.4, q1: 13.3, median: 15.22, q3: 16.54, p90: 18.52 },
 } as const satisfies Record<string, CtDistribution>;
