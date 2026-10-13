@@ -2007,3 +2007,20 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     Una cota superior que quitaba el tope a todas las líneas subía la banda a 91, pero aumentaba las crestas del A2C (0,00464) y se descartó. La auditoría del entorno no distinguía la regla anterior (el cambio cae en su tolerancia), así que `beamMarch.test.ts` fija las dos reglas con un cuadro sintético: pared, corazón y pulmón. Volver a cualquiera de las dos reglas anteriores la hace fallar.
 
     El perfil transmural (decisión 312) depende de la convención de los contornos. CAMUS incluye las trabéculas y los músculos papilares en la cavidad y traza el epicardio lateral en la interfaz con el pericardio (protocolo de anotación; Leclerc et al., IEEE TMI 2019). Las etiquetas del simulador son las superficies exactas. Si el contorno endocárdico se dibuja 1 mm hacia la cavidad, el quinto endocárdico pasa de 1,02 a 0,84–0,85 del centro de la pared (la mediana de CAMUS es 0,80–0,84). Si el epicárdico se dibuja 1 mm hacia fuera, el quinto epicárdico lateral pasa de 0,83 a 1,02 (CAMUS 1,18). Con un desplazamiento de contorno del orden de la variabilidad de un trazado manual, esos cocientes no sirven para calibrar la física del render: quedan declarados como medida y no como objetivo.
+
+314. **La raíz de la TC baja con la inspiración y con la edad; el modelo se compara con lo que la TC predice para cada caso.** [Estado: vigente]
+
+    Las decisiones 309 y 310 atribuyeron la raíz «alta» del modelo (9,7 cm bajo la escotadura frente a 11,4–15,8 en la TC) a un sesgo de la referencia, sobre todo a la inspiración profunda. No había una cifra publicada del descenso de la raíz respecto de la escotadura entre la respiración libre y la inspiración profunda: los estudios de radioterapia en apnea inspiratoria dan volúmenes y dosis, no esa distancia. Así que se midió en los propios datos.
+
+    `ct-mediastinum.ts` mide ahora la cúpula hepática bajo la escotadura (16,3 cm de mediana, P10–P90 11,2–20,0) y lee la edad y el sexo de `meta.csv`. Con mínimos cuadrados sobre los 77 sujetos:
+    - La altura raíz–escotadura sube 0,43 cm por cada centímetro de cúpula (t 10,6), 0,48 cm por década (t 5,1) y 1,08 cm en hombres (t 4,0); residuos P10–P90 de −1,5 a +1,4.
+    - La altura raíz–vértice del arco, 0,22 por centímetro de cúpula, 0,57 por década y 0,85 en hombres.
+    - En cambio, el ápex cardíaco (0,11 por década, t 0,8) y el vértice del arco (t −0,8) no se mueven con la edad. El eje raíz–ápex se aplana 2,5° por década (t −3,1) y el eje principal del corazón no cambia.
+
+    Es el corazón que se horizontaliza con los años: se alarga la ascendente y se cierra el ángulo aortoseptal. El descenso de la raíz con la cúpula entre sujetos (0,43) es del orden del 0,57 publicado dentro de un mismo sujeto (Wang et al., 1995).
+
+    Los coeficientes se guardan como agregados en `CT_CONDITIONAL`. `measureModel` compara las dos alturas con el intervalo que la TC predice para el diafragma del modelo (`liverDomeBelowNotch`, el punto más alto del hígado, 12,4–13,8 cm en expiración), la edad y el sexo de cada caso. Resultado:
+    - Entran el caso normal (32 años, hombre: 9,68 frente a 9,52–12,44) y el prolapso mitral (52 años, mujer).
+    - Los otros diez quedan 0,1–2,2 cm por debajo de su P10, porque el modelo pone la raíz a la misma altura a cualquier edad.
+
+    La inspiración explicaba 1,2 de los 3,7 cm de diferencia con la mediana de la TC, y la edad casi todo el resto (la mediana de la TC es de 68 años). El atlas de Rodero, de corazones sanos, coincide con el modelo joven. Lo que falta, y queda declarado, es el descenso de la raíz con la edad.

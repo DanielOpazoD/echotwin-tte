@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 313 (última: 313).
+Decisiones: 314 (última: 314).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -321,3 +321,4 @@ Decisiones: 313 (última: 313).
 | [311](DECISIONS.md#L1973) | 2026-10-12 | En la postura de la TC, el corazón está tan hondo como en la TC; lo que entra en la pared es el decúbito lateral. | vigente |
 | [312](DECISIONS.md#L1977) | 2026-10-12 | La reverberación de la pared torácica no se apaga detrás del corazón, y el entorno del VI se mide contra CAMUS en la cadena de la app. | vigente |
 | [313](DECISIONS.md#L2000) | 2026-10-12 | La reverberación de la pared sobre el pulmón tampoco se apaga detrás del corazón, y el perfil transmural depende de dónde corre el contorno. | vigente |
+| [314](DECISIONS.md#L2011) | 2026-10-12 | La raíz de la TC baja con la inspiración y con la edad; el modelo se compara con lo que la TC predice para cada caso. | vigente |

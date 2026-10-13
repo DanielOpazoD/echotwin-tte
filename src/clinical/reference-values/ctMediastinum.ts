@@ -43,4 +43,41 @@ export const CT_MEDIASTINUM = {
   heartAxisLeftTiltDeg: { n: 77, p10: 29.03, q1: 37.66, median: 50.37, q3: 61.98, p90: 72.88 },
   heartMinDepth: { n: 77, p10: 2.04, q1: 2.7, median: 3.45, q3: 4.05, p90: 4.98 },
   heartMinDepthBelowNotch: { n: 77, p10: 11.4, q1: 13.3, median: 15.22, q3: 16.54, p90: 18.52 },
+  liverDomeBelowNotch: { n: 77, p10: 11.21, q1: 13.88, median: 16.28, q3: 18.1, p90: 20.0 },
 } as const satisfies Record<string, CtDistribution>;
+
+/**
+ * The root's height (cm) against the liver dome's depth below the notch (cm), age (years) and male sex (decision 314):
+ * least squares over the subjects with age and sex in the dataset's metadata, and the 10th–90th percentiles of the
+ * residuals.
+ */
+export interface CtConditional {
+  n: number;
+  intercept: number;
+  perDomeCm: number;
+  perYear: number;
+  male: number;
+  residualP10: number;
+  residualP90: number;
+}
+
+export const CT_CONDITIONAL = {
+  rootToNotchHeight: {
+    n: 77,
+    intercept: 2.696,
+    perDomeCm: 0.4331,
+    perYear: 0.04778,
+    male: 1.079,
+    residualP10: -1.52,
+    residualP90: 1.4,
+  },
+  rootToArchApexHeight: {
+    n: 77,
+    intercept: 3.585,
+    perDomeCm: 0.2227,
+    perYear: 0.05739,
+    male: 0.848,
+    residualP10: -1.7,
+    residualP90: 1.66,
+  },
+} as const satisfies Record<string, CtConditional>;

@@ -263,6 +263,11 @@ interface Row {
    */
   heartMinDepth: number;
   heartMinDepthBelowNotch: number;
+  /**
+   * How far below the notch the dome of the liver (the top of the right hemidiaphragm) lies (cm): how deep the subject
+   * breathed in, which the root follows (decision 314). NaN without a liver mask in the volume.
+   */
+  liverDomeBelowNotch: number;
 }
 
 function measureSubject(dir: string): Row | string {
@@ -274,6 +279,7 @@ function measureSubject(dir: string): Row | string {
   const heart = maskPoints(load(seg('heart')));
   const sternum = maskPoints(load(seg('sternum')));
   const trachea = maskPoints(load(seg('trachea')));
+  const liver = existsSync(seg('liver')) ? maskPoints(load(seg('liver'))) : [];
   if (aorta.length < 2000 || heart.length < 2000 || sternum.length < 500 || trachea.length < 500)
     return 'aorta, heart, sternum or trachea not (fully) in the volume';
   // the arch must be whole: its apex at least 2 cm below the top of the volume
@@ -452,6 +458,7 @@ function measureSubject(dir: string): Row | string {
     heartAxisLeftTiltDeg: (Math.atan2(-heartAxis[0], heartAxis[1]) * 180) / Math.PI,
     heartMinDepth: cm(minDepth),
     heartMinDepthBelowNotch: cm(notch[2] - minAt[2]),
+    liverDomeBelowNotch: liver.length > 2000 ? cm(notch[2] - maxOf(liver, 2)) : NaN,
   };
 }
 
@@ -506,6 +513,7 @@ const METRICS = [
   'heartAxisLeftTiltDeg',
   'heartMinDepth',
   'heartMinDepthBelowNotch',
+  'liverDomeBelowNotch',
 ] as const;
 const quantile = (xs: number[], q: number): number => {
   const s = [...xs].sort((a, b) => a - b);
@@ -529,8 +537,80 @@ for (const m of METRICS) {
     p90: quantile(xs, 0.9),
   };
 }
+/**
+ * The root's height against how deep the subject breathed in, age and sex (decision 314): ordinary least squares over the
+ * subjects with all three (age and sex from the dataset's meta.csv), with the 10th and 90th percentiles of the residuals,
+ * so a case can be compared with what the CT predicts for its own diaphragm, age and sex.
+ */
+const meta = new Map<string, { age: number; male: number }>();
+const metaPath = join(ROOT, 'meta.csv');
+if (existsSync(metaPath)) {
+  const [head, ...lines] = readFileSync(metaPath, 'utf8')
+    .replace(/^\uFEFF/, '')
+    .trim()
+    .split(/\r?\n/);
+  const cols = head!.split(';');
+  const at = (name: string) => cols.indexOf(name);
+  for (const line of lines) {
+    const f = line.split(';');
+    const age = Number(f[at('age')]);
+    const g = f[at('gender')];
+    if (f[at('age')] && Number.isFinite(age) && (g === 'm' || g === 'f'))
+      meta.set(f[at('image_id')]!, { age, male: g === 'm' ? 1 : 0 });
+  }
+}
+function leastSquares(X: number[][], y: number[]): number[] {
+  const k = X[0]!.length;
+  const A = Array.from({ length: k }, (_, i) => [
+    ...Array.from({ length: k }, (_, j) => X.reduce((a, x) => a + x[i]! * x[j]!, 0)),
+    X.reduce((a, x, n) => a + x[i]! * y[n]!, 0),
+  ]);
+  for (let i = 0; i < k; i++) {
+    let p = i;
+    for (let r = i + 1; r < k; r++) if (Math.abs(A[r]![i]!) > Math.abs(A[p]![i]!)) p = r;
+    [A[i], A[p]] = [A[p]!, A[i]!];
+    for (let r = 0; r < k; r++)
+      if (r !== i) {
+        const f = A[r]![i]! / A[i]![i]!;
+        A[r] = A[r]!.map((v, c) => v - f * A[i]![c]!);
+      }
+  }
+  return A.map((row, i) => row[k]! / row[i]!);
+}
+const CONDITIONED = ['rootToNotchHeight', 'rootToArchApexHeight'] as const;
+const conditional: Record<string, Record<string, number>> = {};
+{
+  const usable = rows.filter((r) => meta.has(r.subject) && Number.isFinite(r.liverDomeBelowNotch));
+  for (const m of CONDITIONED) {
+    if (usable.length < 20) break;
+    const X = usable.map((r) => [
+      1,
+      r.liverDomeBelowNotch,
+      meta.get(r.subject)!.age,
+      meta.get(r.subject)!.male,
+    ]);
+    const y = usable.map((r) => r[m]);
+    const [a, dome, year, male] = leastSquares(X, y);
+    const res = usable.map(
+      (_, i) => y[i]! - (a! + dome! * X[i]![1]! + year! * X[i]![2]! + male! * X[i]![3]!),
+    );
+    conditional[m] = {
+      n: usable.length,
+      intercept: a!,
+      perDomeCm: dome!,
+      perYear: year!,
+      male: male!,
+      residualP10: quantile(res, 0.1),
+      residualP90: quantile(res, 0.9),
+    };
+  }
+}
 log(`${rows.length} of ${subjects.length} subjects measured`);
 for (const [why, n] of skipped) log(`  skipped ${n}: ${why}`);
+for (const [m, c] of Object.entries(conditional))
+  log(
+    `${m} = ${c.intercept!.toFixed(2)} + ${c.perDomeCm!.toFixed(3)}·dome + ${c.perYear!.toFixed(4)}·age + ${c.male!.toFixed(2)}·male (n=${c.n}), residual P10–P90 ${c.residualP10!.toFixed(2)}–${c.residualP90!.toFixed(2)}`,
+  );
 for (const [m, s] of Object.entries(summary))
   log(
     `${m.padEnd(26)} n=${String(s.n).padStart(3)}  median ${s.median.toFixed(2)}  IQR ${s.q1.toFixed(2)}–${s.q3.toFixed(2)}  P10–P90 ${s.p10.toFixed(2)}–${s.p90.toFixed(2)}`,
@@ -552,7 +632,16 @@ if (refOut) {
       ` * Zenodo 10047263, CC-BY-4.0). Aggregates only: centimetres and degrees, torso frame (+x left, +y superior, +z anterior).\n` +
       ` * Do not edit by hand; regenerate with the tool and format with Prettier.\n */\n` +
       `export interface CtDistribution {\n  n: number;\n  p10: number;\n  q1: number;\n  median: number;\n  q3: number;\n  p90: number;\n}\n\n` +
-      `export const CT_MEDIASTINUM = {\n${body}\n} as const satisfies Record<string, CtDistribution>;\n`,
+      `export const CT_MEDIASTINUM = {\n${body}\n} as const satisfies Record<string, CtDistribution>;\n\n` +
+      `/**\n * The root's height (cm) against the liver dome's depth below the notch (cm), age (years) and male sex (decision 314):\n` +
+      ` * least squares over the subjects with age and sex in the dataset's metadata, and the 10th–90th percentiles of the\n * residuals.\n */\n` +
+      `export interface CtConditional {\n  n: number;\n  intercept: number;\n  perDomeCm: number;\n  perYear: number;\n  male: number;\n  residualP10: number;\n  residualP90: number;\n}\n\n` +
+      `export const CT_CONDITIONAL = {\n${Object.entries(conditional)
+        .map(
+          ([m, c]) =>
+            `  ${m}: { n: ${c.n}, intercept: ${c.intercept!.toFixed(3)}, perDomeCm: ${c.perDomeCm!.toFixed(4)}, perYear: ${c.perYear!.toFixed(5)}, male: ${c.male!.toFixed(3)}, residualP10: ${c.residualP10!.toFixed(2)}, residualP90: ${c.residualP90!.toFixed(2)} },`,
+        )
+        .join('\n')}\n} as const satisfies Record<string, CtConditional>;\n`,
   );
   log(`wrote ${refOut}`);
 }
