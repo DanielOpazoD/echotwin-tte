@@ -13,17 +13,14 @@ import { CASE_INPUTS, loadCaseById } from '@/cases';
  * limitation in docs/LIMITATIONS.md; remove it when the anatomy pass fixes the primitive.
  */
 const KNOWN_MODEL_LIMITATIONS: ReadonlySet<string> = new Set([
-  // The great vessels against 40 chest CT volumes (decision 307): the ascending aorta rises 8 cm from the root to the arch
-  // apex against 9.4-13.2 (CT P10-P90), tilted 10-13° backward against a forward median of 8°, so it runs 5.3-7.4 cm
-  // behind the sternum (CT 1.5-4.4) and the arch, 6.2-6.4 cm wide (CT 7.0-10.6), crests 11-14 cm behind and only 1.7 cm
-  // below a notch that sits 9.7 cm above the root (CT 11.8-15.7): docs/LIMITATIONS.md, «Grandes vasos frente a la TC».
-  'sternum-aorta',
-  'ascending-depth',
+  // The great vessels against 77 chest CT volumes (decisions 307 and 308): the root sits 8.0 cm below the arch apex and
+  // 9.7 cm below the notch against 9.3-13.6 and 11.4-15.8 on CT, which is taken at deep inspiration, when the heart has
+  // descended from the sternum. In that short room the ascending aorta of the cases with the widest roots reaches the
+  // arch at the edge of the CT's tilts: 29° to the right in the HFrEF case (CT 11-28.5°) and 1.8° backward in severe
+  // aortic stenosis (CT from 0.4° backward). The gap from the sternum, the ascending depth, the arch width and the apex
+  // behind the notch, declared here until the course was placed by the CT (decision 308), now hold in every case.
   'ascending-forward-tilt',
   'ascending-right-tilt',
-  'arch-width',
-  'notch-arch-apex',
-  'arch-apex-behind-notch',
   'root-arch-apex-height',
   'root-notch-height',
   // 'av-tv-distance' was declared here while it read the distance between the aortic and tricuspid centres, 4.3-5.6 cm

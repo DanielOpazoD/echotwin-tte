@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 307 (última: 307).
+Decisiones: 308 (última: 308).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -315,3 +315,4 @@ Decisiones: 307 (última: 307).
 | [305](DECISIONS.md#L1948) | 2026-10-12 | La cadena de suministro de CI queda fijada y vigilada. | vigente |
 | [306](DECISIONS.md#L1952) | 2026-10-12 | La base se mide por lo que fija la anatomía: bisagras, plano del eje corto y distancia esternal. | vigente |
 | [307](DECISIONS.md#L1956) | 2026-10-12 | La base del corazón y el mediastino se miden contra TC de tórax. | vigente |
+| [308](DECISIONS.md#L1960) | 2026-10-12 | La ascendente y el arco se colocan con la TC de tórax. | vigente |

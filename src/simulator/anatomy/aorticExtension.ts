@@ -15,6 +15,8 @@ import type { Vec3 } from '@/core/vec3';
 export const AORTIC_EXTENSION_WALL_CM = 0.2;
 /** 16 ascending and 32 arch segments and three proximal supra-aortic branches. */
 export const AORTIC_EXTENSION_SEGMENTS = 51;
+/** The first segments, the ascending aorta: the only ones the plane of the sinotubular junction bounds. */
+export const AORTIC_ASCENDING_SEGMENTS = 16;
 export interface AorticExtension {
   geometry: AorticArchGeometry;
   tube: VascularTube;
@@ -43,7 +45,7 @@ export function buildAorticExtension(
     paths.flatMap((path, i) => Array<number>(path.length - 1).fill(ids[i]!)),
   );
   // The extra envelope allows the surrounding thorax to leave mediastinal tissue around the vessel.
-  structures.fill(Structure.AscendingAorta, 0, 16);
+  structures.fill(Structure.AscendingAorta, 0, AORTIC_ASCENDING_SEGMENTS);
   const tube = compileVascularTube(paths, AORTIC_EXTENSION_WALL_CM + 0.5);
   const result = { geometry, tube, structures, joinAxis: anchorsCached(heart).avAxis };
   return result;
@@ -60,12 +62,15 @@ export function classifyAorticExtension(
 ): boolean {
   const start = a.geometry.arch[0]!.p,
     axis = a.joinAxis;
+  if (!vascularTubeDistance(a.tube, x, y, z, distance)) return false;
+  // below the sinotubular junction the root is the vessel: the plane through it perpendicular to the root bounds the
+  // ascending segments. It bounded the whole course until the arch came down into the descending aorta below that
+  // plane (decision 308), and then cut off the end of the arch.
   if (
-    (x - start.x) * axis.x + (y - start.y) * axis.y + (z - start.z) * axis.z <
-    -VASCULAR_JOIN_EPS_CM
+    distance.segment < AORTIC_ASCENDING_SEGMENTS &&
+    (x - start.x) * axis.x + (y - start.y) * axis.y + (z - start.z) * axis.z < -VASCULAR_JOIN_EPS_CM
   )
     return false;
-  if (!vascularTubeDistance(a.tube, x, y, z, distance)) return false;
   const d = distance.distance;
   if (d >= AORTIC_EXTENSION_WALL_CM) {
     out.sdf = Math.min(out.sdf, d - AORTIC_EXTENSION_WALL_CM);

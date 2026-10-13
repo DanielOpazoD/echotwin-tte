@@ -5,6 +5,7 @@ import { LA_POSTERIOR_RATIO } from '@/simulator/anatomy/laGeometry';
  */
 import {
   AORTIC_EXTENSION_WALL_CM,
+  AORTIC_ASCENDING_SEGMENTS,
   AORTIC_EXTENSION_SEGMENTS,
 } from '@/simulator/anatomy/aorticExtension';
 import { VASCULAR_JOIN_EPS_CM } from '@/simulator/anatomy/vascularTube';
@@ -643,12 +644,12 @@ vec3 rvCrescent(vec3 p, float az) {
 // Same packed tube geometry as the CPU and navigator.
 const float AO_JOIN_EPS = ${VASCULAR_JOIN_EPS_CM.toFixed(8)};
 const int AO_SEGMENTS = ${AORTIC_EXTENSION_SEGMENTS};
+const int AO_ASCENDING = ${AORTIC_ASCENDING_SEGMENTS};
 const float AO_WALL = ${AORTIC_EXTENSION_WALL_CM.toFixed(8)};
 const float AO_ROOT_END = ${ROOT_TUBE_END_T.toFixed(8)};
 bool classifyAorticExtension(vec3 p, inout Sample s) {
   vec3 start = vec3(P(AO_JOIN_BASE), P(AO_JOIN_BASE+1), P(AO_JOIN_BASE+2));
   vec3 axis = vec3(P(AO_JOIN_BASE+3), P(AO_JOIN_BASE+4), P(AO_JOIN_BASE+5));
-  if (dot(p-start, axis) < -AO_JOIN_EPS) return false;
   vec3 mn = vec3(P(AO_BOUNDS_BASE), P(AO_BOUNDS_BASE+1), P(AO_BOUNDS_BASE+2));
   vec3 mx = vec3(P(AO_BOUNDS_BASE+3), P(AO_BOUNDS_BASE+4), P(AO_BOUNDS_BASE+5));
   if (any(lessThan(p,mn)) || any(greaterThan(p,mx))) return false;
@@ -670,6 +671,7 @@ bool classifyAorticExtension(vec3 p, inout Sample s) {
     float taper=raw>0.0 && raw<1.0 ? (rb-ra)/len2 : 0.0;
     normal=(radial>0.0 ? r/radial : vec3(0.0))-taper*delta;
   }
+  if (segment < AO_ASCENDING && dot(p-start, axis) < -AO_JOIN_EPS) return false;
   if (best>=AO_WALL) { s.sdf=min(s.sdf,best-AO_WALL); return false; }
   float n=length(normal);
   setSample(s, best<0.0 ? T_BLOOD : T_VESSEL, best<0.0 ? best : -min(best,AO_WALL-best), n>0.0 ? normal/n : vec3(0.0), p, 0.0, int(P(AO_IDS_BASE+segment)));

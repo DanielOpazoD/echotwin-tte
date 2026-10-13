@@ -5,6 +5,7 @@ import type { HeartModel, HeartPose } from './heartModel';
 import {
   DESC_AORTA_X,
   DESC_AORTA_Z,
+  NOTCH_V_CM,
   skinZ,
   SPINE_R,
   SPINE_Z,
@@ -17,8 +18,9 @@ import {
  * The base of the heart and the mediastinum measured on the model with the definitions `tools/clinical/ct-mediastinum.ts`
  * uses on CT (decision 307), so the two can be compared number for number. Torso frame, cm; angles in degrees.
  *
- * The CT measures its axial sections at the carina, which the model does not have: the model's sections are taken the
- * CT's median distance below the arch apex (`levelBelowApexCm`).
+ * The CT measures its axial sections at the carina, which the model does not have: the model's sections are taken at the
+ * CT's median height of the carina above the aortic root (`levelAboveRootCm`). Root and carina move together with the
+ * breath; the arch apex and the notch do not, and the CT is taken at deep inspiration (decision 307).
  */
 export interface MediastinumMeasures {
   sternumToAscendingAorta: number;
@@ -36,9 +38,6 @@ export interface MediastinumMeasures {
   rootToArchApexHeight: number;
   rootToNotchHeight: number;
 }
-
-/** The suprasternal notch of the model: the skin over the midline where the suprasternal window is searched from. */
-export const NOTCH_V_CM = 10.5;
 
 const sub = (a: Vec3, b: Vec3): Vec3 => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
 const len = (a: Vec3): number => Math.hypot(a.x, a.y, a.z);
@@ -61,7 +60,7 @@ export function measureMediastinum(
   heart: HeartModel,
   thorax: ThoraxModel,
   edPose: HeartPose,
-  levelBelowApexCm: number,
+  levelAboveRootCm: number,
 ): MediastinumMeasures {
   const A = heartAnchors(heart);
   const arch = edPose.aorta.geometry.arch;
@@ -108,8 +107,8 @@ export function measureMediastinum(
   }
   if (v[1]! < 0) v = v.map((x) => -x);
 
-  // the axial level of the sections: below the apex by the CT's median carina drop
-  const y = apex.y - levelBelowApexCm;
+  // the axial level of the sections: above the root by the CT's median carina height
+  const y = root.y + levelAboveRootCm;
   const asc = atHeight(path, y, 0, top) ?? root;
   const ascR =
     radius[
