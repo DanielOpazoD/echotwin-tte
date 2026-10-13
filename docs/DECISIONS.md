@@ -2024,3 +2024,19 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     - Los otros diez quedan 0,1–2,2 cm por debajo de su P10, porque el modelo pone la raíz a la misma altura a cualquier edad.
 
     La inspiración explicaba 1,2 de los 3,7 cm de diferencia con la mediana de la TC, y la edad casi todo el resto (la mediana de la TC es de 68 años). El atlas de Rodero, de corazones sanos, coincide con el modelo joven. Lo que falta, y queda declarado, es el descenso de la raíz con la edad.
+
+315. **El ángulo aortoseptal del modelo es el de un adulto joven en todos los casos.** [Estado: vigente]
+
+    La decisión 314 mostró en 77 TC que la raíz baja con la edad mientras el ápex y el vértice del arco no se mueven. Antes de cambiar la anatomía se buscó una medida ecocardiográfica independiente del mismo fenómeno: el ángulo aortoseptal, entre la superficie septal del VI y la aorta en el PLAX telediastólico. En 77 sanos mide 134 ± 13° (95–158°) y se correlaciona con la edad con r = −0,64 a 43 ± 14 años, es decir, −0,60° por año, con un residuo de 10,0° (Okada et al., J Clin Ultrasound 2014;42:341).
+
+    `measureModel` lo mide en el plano del PLAX: el endocardio septal de 1,2 a 4 cm bajo el anillo, ajustado a una recta, frente al eje de la raíz aórtica. Lo compara con el P10–P90 de esa regresión para la edad del caso (`aortoseptal-angle`).
+    - El caso normal mide 142,5° frente a 141° esperados a los 32 años: una validación independiente de la orientación de la raíz del modelo joven.
+    - Los demás casos miden 139–144°. Los cuatro de 45 a 52 años quedan dentro, y los ocho de 58 a 79 años, 5–17° por encima de su P90.
+
+    Se probó también el giro rígido del corazón alrededor de la punta del ápex, 2,55° por década, que es lo que aplana el eje raíz–ápex en la TC. Bajaba la raíz 1,0–1,7 cm, pero:
+    - el eje principal del corazón no cambia con la edad en la TC (−0,4° por década, intervalo de confianza que casi excluye −2,5°);
+    - la válvula pulmonar quedaba 2,5–2,8 cm sobre la aórtica (rango 1–2,5);
+    - el arco no encontraba trazado en supino;
+    - fallaban 27 pruebas.
+
+    No se conservó. Lo que cambia con la edad es la raíz respecto del ventrículo, como describe el ángulo aortoseptal. Queda declarado y es el objetivo de la siguiente etapa.
