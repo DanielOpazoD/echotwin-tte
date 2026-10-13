@@ -13,7 +13,13 @@ import {
 } from './heartModel';
 import { cross, dot, normalize, sub, type Vec3 } from '@/core/vec3';
 import { LVOT_TAPER_CM, ROOT_STJ_T } from './aorticValve';
-import { skinZ, type PatientState } from './thoraxModel';
+import {
+  skinZ,
+  STERNUM_DEPTH_FRACTION,
+  STERNUM_HALF_WIDTH_CM,
+  STERNUM_THICKNESS_CM,
+  type PatientState,
+} from './thoraxModel';
 import { skirtOffsetAt, skirtWarpScale } from './valveSkirt';
 import { cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { buildCaseModels, REST_PATIENT } from './caseModels';
@@ -596,8 +602,9 @@ export function measureModel(
     const path = edPose.aorta.geometry.arch;
     for (let i = 0; i <= 16; i++) {
       const c = heartToTorso(heart.frame, path[i]!.p);
-      const xs = Math.max(-1.6, Math.min(1.6, c.x));
-      const sternumBack = skinZ(thorax, xs, c.y) - (0.3 * T + 1.0);
+      const xs = Math.max(-STERNUM_HALF_WIDTH_CM, Math.min(STERNUM_HALF_WIDTH_CM, c.x));
+      const sternumBack =
+        skinZ(thorax, xs, c.y) - (STERNUM_DEPTH_FRACTION * T + STERNUM_THICKNESS_CM);
       gap = Math.min(gap, sternumBack - (c.z + path[i]!.radiusCm));
     }
     add(
