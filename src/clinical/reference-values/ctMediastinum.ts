@@ -33,4 +33,12 @@ export const CT_MEDIASTINUM = {
   sternumLength: { n: 77, p10: 14.34, q1: 15.45, median: 16.5, q3: 18.3, p90: 19.5 },
   rootInSternum: { n: 77, p10: 0.03, q1: 0.09, median: 0.18, q3: 0.26, p90: 0.32 },
   heartBottomInSternum: { n: 77, p10: -0.31, q1: -0.25, median: -0.17, q3: -0.07, p90: 0.01 },
+  apexBelowNotch: { n: 77, p10: 14.41, q1: 16.12, median: 17.5, q3: 19.27, p90: 20.42 },
+  apexBelowRoot: { n: 77, p10: 2.7, q1: 3.28, median: 3.99, q3: 4.93, p90: 5.75 },
+  apexDepth: { n: 77, p10: 3.15, q1: 3.6, median: 4.5, q3: 5.55, p90: 7.5 },
+  rootApexLength: { n: 77, p10: 8.38, q1: 8.81, median: 9.4, q3: 9.88, p90: 10.41 },
+  rootApexDownTiltDeg: { n: 77, p10: 17.41, q1: 20.38, median: 24.8, q3: 31.08, p90: 37.04 },
+  rootApexLeftTiltDeg: { n: 77, p10: 47.85, q1: 53.07, median: 57.72, q3: 64.45, p90: 70.35 },
+  heartAxisDownTiltDeg: { n: 77, p10: 25.68, q1: 30.09, median: 41.08, q3: 48.42, p90: 52.86 },
+  heartAxisLeftTiltDeg: { n: 77, p10: 29.03, q1: 37.66, median: 50.37, q3: 61.98, p90: 72.88 },
 } as const satisfies Record<string, CtDistribution>;
