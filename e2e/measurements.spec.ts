@@ -163,26 +163,35 @@ async function assertProjectedCaliper(
   expect(current.measurement.value).toBe(original.measurement.value);
   expect(current.measurement.geometry).toEqual(original.measurement.geometry);
   expect(current.measurement.captureSector).toEqual(original.measurement.captureSector);
-  const hits = await page.evaluate(
-    ({ points, from }) => {
-      const m = (window as unknown as CaliperWindow).__echotwin.useHudStore.getState().hud.sector;
-      const ctx = document.querySelector<HTMLCanvasElement>('canvas.overlay')!.getContext('2d')!;
-      return points.map((p) => {
-        const x =
-          m.apexX +
-          ((p.x - from.apexX) / from.pxPerCm) * m.pxPerCm * (from.invertLR !== m.invertLR ? -1 : 1);
-        const y = m.apexY + ((p.y - from.apexY) / from.pxPerCm) * m.pxPerCm;
-        const rgba = ctx.getImageData(Math.round(x) - 3, Math.round(y) - 3, 7, 7).data;
-        let n = 0;
-        for (let i = 0; i < rgba.length; i += 4)
-          if (rgba[i]! > 180 && rgba[i + 1]! > 100 && rgba[i + 2]! < 140 && rgba[i + 3]! > 100) n++;
-        return n;
-      });
-    },
-    { points: original.measurement.geometry, from: original.sector },
-  );
-  for (const n of hits)
-    expect(n, 'crosshair must be drawn at its physically reprojected position').toBeGreaterThan(0);
+  // the overlay is redrawn on the next animation frame after the store changes: poll until it shows the crosshairs
+  const hits = () =>
+    page.evaluate(
+      ({ points, from }) => {
+        const m = (window as unknown as CaliperWindow).__echotwin.useHudStore.getState().hud.sector;
+        const ctx = document.querySelector<HTMLCanvasElement>('canvas.overlay')!.getContext('2d')!;
+        return points.map((p) => {
+          const x =
+            m.apexX +
+            ((p.x - from.apexX) / from.pxPerCm) *
+              m.pxPerCm *
+              (from.invertLR !== m.invertLR ? -1 : 1);
+          const y = m.apexY + ((p.y - from.apexY) / from.pxPerCm) * m.pxPerCm;
+          const rgba = ctx.getImageData(Math.round(x) - 3, Math.round(y) - 3, 7, 7).data;
+          let n = 0;
+          for (let i = 0; i < rgba.length; i += 4)
+            if (rgba[i]! > 180 && rgba[i + 1]! > 100 && rgba[i + 2]! < 140 && rgba[i + 3]! > 100)
+              n++;
+          return n;
+        });
+      },
+      { points: original.measurement.geometry, from: original.sector },
+    );
+  await expect
+    .poll(async () => Math.min(...(await hits())), {
+      message: 'crosshair must be drawn at its physically reprojected position',
+      timeout: 5000,
+    })
+    .toBeGreaterThan(0);
 }
 
 test('sector calipers follow zoom, inversion and resize without changing the measured value', async ({
