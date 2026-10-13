@@ -243,7 +243,7 @@ interface Row {
   /** the lowest point of the heart along the sternum (0 low, 1 top) */
   heartBottomInSternum: number;
   /**
-   * The heart's apex (the heart voxel furthest along the usual base-to-apex direction: left, anterior and inferior) and the
+   * The heart's apex (the heart voxel farthest from the aortic valve) and the
    * axis from the aortic root to it: its height below the notch and below the root (cm), its depth below the anterior skin,
    * the axis length (cm) and its tilts (degrees): below the horizontal, and toward the left from straight ahead.
    */
@@ -369,7 +369,13 @@ function measureSubject(dir: string): Row | string {
   let apexOfHeart: V3 = heart[0]!,
     apexScore = -Infinity;
   for (const p of heart) {
-    const score = -0.61 * p[0] + 0.65 * p[1] - 0.45 * p[2];
+    // the apex is the heart's point farthest from the aortic valve below and to the left of it. Taken along a fixed
+    // left-anterior-inferior direction (the simulator's own long axis) it was a point of the anterolateral wall wherever
+    // the ventricle is steeper, and the root-to-apex axis came out flatter than it is (decision 310)
+    // among the points below and to the left of the root only (RAS: lower z, lower X): the farthest of the whole mask is
+    // the top of an atrium or an appendage
+    if (p[2] >= root[2] || p[0] >= root[0]) continue;
+    const score = Math.hypot(p[0] - root[0], p[1] - root[1], p[2] - root[2]);
     if (score > apexScore) {
       apexScore = score;
       apexOfHeart = p;
