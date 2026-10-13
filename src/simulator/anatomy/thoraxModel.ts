@@ -195,9 +195,17 @@ export function skinZ(t: ThoraxModel, x: number, y: number): number {
   const ax = Math.min(Math.abs(x) / t.aw, 0.999);
   const inner = 1 - Math.pow(ax, t.n);
   let z = -t.bDepth * (1 - Math.pow(inner, 1 / t.n));
-  if (y > 8) z -= 0.12 * (y - 8) * (y - 8); // toward the neck / suprasternal notch
+  z += neckSkinZ(y);
   if (y < -8) z -= t.abdomenSlope * (-8 - y); // below the costal margin the abdomen recedes
   return z;
+}
+
+/** The suprasternal notch: the skin over the midline at this height (cm), where the suprasternal window is searched. */
+export const NOTCH_V_CM = 10.5;
+
+/** How far the skin recedes over the midline toward the neck and the suprasternal notch, above y = 8 (cm, ≤ 0). */
+export function neckSkinZ(y: number): number {
+  return y > 8 ? -0.12 * (y - 8) * (y - 8) : 0;
 }
 
 export function skinNormal(t: ThoraxModel, x: number, y: number): Vec3 {

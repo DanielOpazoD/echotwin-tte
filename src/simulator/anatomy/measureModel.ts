@@ -590,11 +590,16 @@ export function measureModel(
   );
   // The base of the heart and the mediastinum against chest CT volumes (decision 307, TotalSegmentator dataset): the
   // same measures, with the same definitions, as tools/clinical/ct-mediastinum.ts takes on CT, each between the CT's
-  // 10th and 90th percentiles. The axial sections are taken the CT's median carina drop below the arch apex. The
+  // 10th and 90th percentiles. The axial sections are taken at the CT's median height of the carina above the root. The
   // sternum-to-aorta distance of decision 306 (27.3 mm by CT in 100 controls) is now this one: the CT's median is 26 mm.
   {
     const ct = CT_MEDIASTINUM;
-    const mm = measureMediastinum(heart, thorax, edPose, ct.carinaBelowArchApex.median);
+    const mm = measureMediastinum(
+      heart,
+      thorax,
+      edPose,
+      ct.rootToArchApexHeight.median - ct.carinaBelowArchApex.median,
+    );
     const CT = 'totalsegmentator-ct';
     const row = (id: string, label: string, value: number, d: CtDistribution, units = 'cm') =>
       add(id, label, value, units, d.p10, d.p90, CT);
