@@ -2234,4 +2234,6 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     - **Vistas:** asoma en el apical de cinco cámaras (hasta el 0,7 % del plano), como un círculo detrás de la aurícula, y en el subcostal de la cava de la hipertensión pulmonar. En el eje corto de grandes vasos no se ve, aunque en la clínica a veces asoma junto a la raíz.
     - `valveAnatomy.test.ts`, que sube desde el anillo tricuspídeo hasta el techo de la aurícula, acepta ahora la orejuela como aurícula.
 
+    El *worker* de simulación llega a 340,1 kB frente a un presupuesto de 340 kB, que la compactación de los sombreadores (decisión 303) había dejado holgado. Lo llenaron las decisiones 304–323 de la auditoría anatómica, así que el presupuesto sube a 350 kB.
+
     Sin modelar: la forma triangular aplanada, los músculos pectíneos, la cresta terminal y su vaciado propio (aquí sigue la escala de la aurícula).
