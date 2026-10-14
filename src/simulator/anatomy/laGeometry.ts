@@ -25,8 +25,13 @@ export function leftAtrialFreeSdf(
 }
 
 export const IAS_X = -2.35;
-export const FOSSA_Y = -1.6;
-export const FOSSA_Z = -2.3;
+/**
+ * Centre of the fossa ovalis on the septal plane (heart frame, cm; decision 319): the middle of the septum both atria
+ * reach (y −0.93 to −1.05, z −1.15 to −1.55 in five cases). At (−1.6, −2.3) it sat where only the left atrium reached the
+ * septum, under the superior vena cava and fat on the right.
+ */
+export const FOSSA_Y = -0.95;
+export const FOSSA_Z = -1.3;
 
 /** Idealized atrial shape: declared AP span plus a volume-constrained transverse/longitudinal scale. */
 export function sizedLeftAtrium(k: number, apDiameterCm: number) {

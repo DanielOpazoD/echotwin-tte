@@ -71,6 +71,12 @@ export const RA_ANTEROMEDIAL_BLEND_CM = 0.6;
 export const RA_SEPTAL_RELEASE_LA_CM = 0.6;
 export const RA_SEPTAL_RELEASE_RAMP_CM = 0.6;
 /**
+ * Out to which fossa radius (1 = its rim, 1.3 = the limbus's outer edge) the left atrium meets the septum (decision 319):
+ * the ellipsoid met the septal plane only around its equator, so its wall ran over the fossa. The right atrium keeps its
+ * shape and its thin wall there (its volume stays the case's).
+ */
+export const FOSSA_REACH = 1.0;
+/**
  * Height (cm) above the annulus of the septal corner the atrium fills (decision 318): it reaches the septum there wherever
  * its own section does at its centre.
  */
@@ -153,15 +159,19 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   // The corner between the septum and the annulus belongs to the atrium (decision 318): its medial wall is the septum
   // down to the septal hinge of the mitral valve. As an ellipsoid it curved away from both toward the annulus, and the
   // oblique four-chamber cut showed the gap as a wedge of wall, fat and ventricular overhang under the hinge.
+  // only toward the septum, where the atrium's own section reaches at this height
+  const dCrossLa = leftAtrialFreeSdf(la.x, y, z, la.x, la.y, czL, lr.x * bo, lr.y * bo, rzL, zTop);
   const dCorner = Math.max(
     xIas + tIas / 2 - x,
     x - la.x,
     zAnn - LA_CORNER_HEIGHT_CM - z,
     z - zAnn,
-    // only toward the septum, where the atrium's own section reaches at this height
-    leftAtrialFreeSdf(la.x, y, z, la.x, la.y, czL, lr.x * bo, lr.y * bo, rzL, zTop),
+    dCrossLa,
   );
-  const d = Math.min(smax(dFreeLa, xIas + tIas / 2 - x, 0.3), dCorner);
+  // and over the fossa ovalis, wherever its section reaches, the atrium meets the septum (decision 319): the fossa's floor
+  // is the one true septum, a membrane between the two atrial cavities; around it the rims are folds of the atrial walls
+  const dFossaLa = Math.max(xIas + tIas / 2 - x, x - la.x, dCrossLa, (fo - FOSSA_REACH) * 0.6);
+  const d = Math.min(smax(dFreeLa, xIas + tIas / 2 - x, 0.3), dCorner, dFossaLa);
   if (d < 0) {
     setSample(
       out,

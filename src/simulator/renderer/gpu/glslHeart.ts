@@ -1,6 +1,6 @@
 import { LA_POSTERIOR_RATIO } from '@/simulator/anatomy/laGeometry';
 import { LV_WALL_BASAL_OVERHANG_CM } from '@/simulator/anatomy/heartFrame';
-import { LA_CORNER_HEIGHT_CM } from '@/simulator/anatomy/classify/atria';
+import { FOSSA_REACH, LA_CORNER_HEIGHT_CM } from '@/simulator/anatomy/classify/atria';
 /**
  * GLSL port of `classifyHeart` (heartModel.ts). Mirrors the CPU classifier block by block; the
  * equivalence test (e2e/gpu-equivalence.spec.ts) compares both on the canonical views.
@@ -90,6 +90,7 @@ const int LV_PROF_BINS = ${LV_PROF_BINS};
 const float LA_POSTERIOR_RATIO = ${f(LA_POSTERIOR_RATIO)};
 const float LV_WALL_BASAL_OVERHANG_CM = ${f(LV_WALL_BASAL_OVERHANG_CM)};
 const float LA_CORNER_HEIGHT_CM = ${f(LA_CORNER_HEIGHT_CM)};
+const float FOSSA_REACH = ${f(FOSSA_REACH)};
 const float ROOT_SINUS_T = ${f(ROOT_SINUS_T)};
 const float LVOT_TAPER_CM = ${f(LVOT_TAPER_CM)};
 const float ROOT_STJ_T = ${f(ROOT_STJ_T)};
@@ -910,7 +911,9 @@ bool classifyHeart(vec3 p0, out Sample s) {
     vec3 pc = vec3(la.x, y, z);
     float dCross = smax(smax(sdEllipsoid(pc, vec3(la.x, la.y, czL), vec3(lr.x * bo, lr.y * bo, rzL)), la.y - LA_POSTERIOR_RATIO * lr.y * bo - y, 0.6), zTop + 0.15 * rzL - z, 0.5);
     float dCorner = max(max(max(xIas + tIas / 2.0 - x, x - la.x), max(zAnn - LA_CORNER_HEIGHT_CM - z, z - zAnn)), dCross);
-    float d = min(smax(dFreeLa, xIas + tIas / 2.0 - x, 0.3), dCorner);
+    // and over the fossa ovalis it meets the septum (decision 319)
+    float dFossaLa = max(max(xIas + tIas / 2.0 - x, x - la.x), max(dCross, (fo - FOSSA_REACH) * 0.6));
+    float d = min(min(smax(dFreeLa, xIas + tIas / 2.0 - x, 0.3), dCorner), dFossaLa);
     if (d < 0.0) {
       setSample(s, T_BLOOD, d, vec3((x - la.x) / lr.x, (y - la.y) / lr.y, (z - czL) / rzL), p, 0.0, S_LA_CAV);
       return true;

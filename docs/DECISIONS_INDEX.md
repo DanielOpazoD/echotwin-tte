@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 318 (última: 318).
+Decisiones: 319 (última: 319).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -326,3 +326,4 @@ Decisiones: 318 (última: 318).
 | [316](DECISIONS.md#L2044) | 2026-10-12 | Tres limitaciones de imagen ya no se cumplían: se miden de nuevo y quedan como pruebas. | vigente |
 | [317](DECISIONS.md#L2060) | 2026-10-12 | El pulso axial se ajusta a la autocorrelación de CAMUS a lo largo del haz. | vigente |
 | [318](DECISIONS.md#L2078) | 2026-10-12 | Entre las aurículas del A4C sólo está el septo: la aurícula izquierda llena su esquina septal y la pared del VI no rebasa el anillo. | vigente |
+| [319](DECISIONS.md#L2102) | 2026-10-12 | La fosa oval es una membrana entre las dos aurículas, donde ambas llegan al septo. | vigente |

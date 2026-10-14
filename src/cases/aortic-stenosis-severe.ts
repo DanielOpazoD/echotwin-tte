@@ -106,9 +106,9 @@ export const aorticStenosisSevereCase: CaseDefinitionInput = {
   expectedDeviations: [
     'ivsd', // concentric hypertrophy
     'lvpwd',
-    // enlarged left atrium (chronic pressure overload, diastolic dysfunction): by volume and across it; its AP and long
-    // axes fell inside their ranges once the atrium was drawn at its declared volume (decision 161)
-    'la-transverse',
+    // enlarged left atrium (chronic pressure overload, diastolic dysfunction): by volume and AP diameter; its long axis
+    // fell inside its range once the atrium was drawn at its declared volume (decision 161), its transverse one (5.06 cm)
+    // when the fossa ovalis moved and the measuring line crossed muscular septum (4.86, decision 319)
     'la-ap',
     'lavi',
     // (its mass, over the range until decision 226, falls inside it with the base narrowed into the mitral annulus)
