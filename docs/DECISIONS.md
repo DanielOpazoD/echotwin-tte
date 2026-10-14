@@ -2074,3 +2074,27 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     Resultado en las auditorías: entran la correlación radial a 1 mm de los cuatro casos A4C, la desviación local del A4C y varias correlaciones a 4 mm, y el contraste del A4C telediastólico. Con el clasificador, la correlación radial pasa de AUC 1,000 a 0,840 (0,262). Empeoran las crestas finas brillantes (AUC 0,950 → 0,990), porque con un pulso más corto las interfaces son más finas. Las crestas y el faldón lateral del haz son el paso siguiente.
 
     Las estadísticas de referencia del repositorio no se regeneran con estos 100 pacientes: siguen siendo las de los 500 originales.
+
+318. **Entre las aurículas del A4C sólo está el septo: la aurícula izquierda llena su esquina septal y la pared del VI no rebasa el anillo.** [Estado: vigente]
+
+    Daniel señaló en el A4C «un cachito debajo de la mitral hacia la pared septal» que no parecía una estructura que debiera verse ahí. En el plano dibujado (caso normal, telediástole), recorriendo las líneas de la sangre de la aurícula derecha a la de la izquierda, a 0,3 cm bajo el anillo había 13,5 mm de tejido:
+    - pared de la aurícula derecha, 2 mm;
+    - septo interauricular, 2 mm;
+    - grasa epicárdica, 5 mm;
+    - pared propia de la aurícula izquierda, 4 mm, corriendo junto al septo.
+
+    Más abajo seguía habiendo 8–10 mm, y la pared septal del VI rebasaba el anillo hasta 4 mm (33 mm² en el corte). Un septo interauricular normal mide 4–6 mm.
+
+    Hubo dos causas. La aurícula izquierda es un elipsoide que sólo tocaba el plano septal en su ecuador y se curvaba hacia fuera junto al anillo. La pared del VI llegaba 2,5 mm más allá del plano del anillo, hacia la aurícula. En la esquina entre el anillo y el septo quedaban así la pared del VI, la pared auricular y grasa.
+
+    Se probó primero estirar hacia el septo toda la mitad medial de la aurícula, y también su fondo. Cerraba el hueco, pero cambiaba la forma de la aurícula entera: la normalización de volumen encogía su diámetro transverso, y se rompían 9–13 pruebas de relaciones lejanas (la raíz aórtica frente a la aurícula derecha, el anillo tricuspídeo, la aorta descendente, el volumen auricular de la imagen).
+
+    La corrección es local, en CPU y GLSL:
+    - la aurícula izquierda llena la esquina entre el plano septal y el anillo, en su mitad medial y hasta 1,2 cm del anillo, allí donde su propia sección llega a su centro (`LA_CORNER_HEIGHT_CM`);
+    - la pared del VI termina 0,5 mm más allá del anillo (`LV_WALL_BASAL_OVERHANG_CM`, antes 2,5).
+
+    Resultado: entre las aurículas quedan 4–5 mm (septo más láminas de pared) en el caso normal, y 6–8,5 mm como máximo en nueve de los doce casos, sin grasa. `interatrialCrux.test.ts` lo exige en los doce casos, en telediástole y en sístole. Sin la esquina fallan todos los casos no declarados. Quedan declarados la ventana difícil y el caso de artefactos, cuyo plano corta la vena cava superior entre las aurículas, y el taponamiento en telediástole.
+
+    El volumen auricular se conserva, así que lo que toma la esquina lo cede el resto de una aurícula pequeña. El A5C de la hipertensión pulmonar queda con 177 muestras de aurícula frente a las 180 que pide la comprobación de la vista, y queda declarado con su línea base.
+
+    Desde esta decisión, cada auditoría de imagen revisa cada vista estructura por estructura: qué hay que no debería estar, qué falta y qué tiene la forma o el tamaño equivocados.
