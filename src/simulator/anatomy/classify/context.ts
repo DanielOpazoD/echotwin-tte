@@ -55,6 +55,12 @@ export interface ClassifyCtx {
   laEpi: number;
   /** Signed distance (cm) to the left atrial cavity, which the coronary sinus keeps its walls from (decision 321). */
   laCav: number;
+  /** Per-pose cache of the atrial geometry that does not change within a frame (decisions 320-321): the pose and anchors it
+   * was filled for, the four vein segments (ostium, end: 6 numbers each) and the coronary sinus course. */
+  atrialHp: unknown;
+  atrialA: unknown;
+  veinSeg: Float64Array;
+  csGeo: Float64Array;
   /** Inside the profile but basal to the annulus and outside the root lumen. */
   inAnnularRegion: boolean;
 
@@ -101,6 +107,10 @@ export const ctx: ClassifyCtx = {
   colDist: 0,
   laEpi: 0,
   laCav: 0,
+  atrialHp: null,
+  atrialA: null,
+  veinSeg: new Float64Array(24),
+  csGeo: new Float64Array(16),
   inAnnularRegion: false,
   lvNormal: new Float64Array(3),
   rvSdf: new Float64Array(3),

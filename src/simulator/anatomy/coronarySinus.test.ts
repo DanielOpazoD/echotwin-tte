@@ -17,7 +17,8 @@ import { cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
  * Declared: the tamponade, whose collapsing right atrium leaves the ostium against the vena cava.
  */
 const KNOWN_CS_OSTIUM: Record<string, string> = {
-  'pericardial-effusion-tamponade': 'the collapsing right atrium leaves the ostium against the vena cava',
+  'pericardial-effusion-tamponade':
+    'the collapsing right atrium leaves the ostium against the vena cava',
 };
 const H = 0.1;
 const CS_BLOOD = Structure.CoronarySinus * 100 + Tissue.Blood;

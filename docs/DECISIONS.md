@@ -2179,4 +2179,6 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
 
     Declarado (`KNOWN_CS_OSTIUM`): el taponamiento, cuya aurícula derecha colapsada deja la boca contra la vena cava en tres de cuatro fases.
 
+    Coste: con las decisiones 320 y 321 el trazador de CPU creció un 26,6 % en el CI, sobre un límite del 25 %, porque los segmentos de las venas se recalculaban con trigonometría en cada muestra. Ahora se calculan una vez por fase (`atrialPoseCache`), igual que el recorrido del seno coronario, y lejos del seno basta una cota inferior de su distancia. La ratio local vuelve a 0,674–0,681, frente a 0,678 antes de la 320. La clasificación es idéntica muestra a muestra, incluida la distancia firmada con cuatro decimales, en cuatro casos y dos fases.
+
     Sin modelar: la válvula de Tebesio, las venas tributarias y el calibre que crece hacia el ostium (aquí un embudo sólo en el último tramo).
