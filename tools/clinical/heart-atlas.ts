@@ -265,7 +265,7 @@ void (async () => {
       z: dist(ps.map((p) => p[2])),
     };
     log(
-      `${key.padEnd(24)} x ${positions[key]!.x.median}  y ${positions[key]!.y.median}  z ${positions[key]!.z.median}`,
+      `${key.padEnd(24)} x ${positions[key].x.median}  y ${positions[key].y.median}  z ${positions[key].z.median}`,
     );
   }
   const vessels: Record<string, { n: number; mean: V3; p90Deg: number; maxDeg: number }> = {};
@@ -282,7 +282,7 @@ void (async () => {
       maxDeg: +Math.max(...angles).toFixed(1),
     };
     log(
-      `${key.padEnd(24)} mean ${vessels[key]!.mean.join(', ')}  spread P90 ${vessels[key]!.p90Deg}° max ${vessels[key]!.maxDeg}°`,
+      `${key.padEnd(24)} mean ${vessels[key].mean.join(', ')}  spread P90 ${vessels[key].p90Deg}° max ${vessels[key].maxDeg}°`,
     );
   }
   const refOut = process.argv.indexOf('--reference-out');
