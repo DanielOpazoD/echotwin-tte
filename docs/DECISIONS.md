@@ -2182,3 +2182,32 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     Coste: con las decisiones 320 y 321 el trazador de CPU creció un 26,6 % en el CI, sobre un límite del 25 %, porque los segmentos de las venas se recalculaban con trigonometría en cada muestra. Ahora se calculan una vez por fase (`atrialPoseCache`), igual que el recorrido del seno coronario, y lejos del seno basta una cota inferior de su distancia. La ratio local vuelve a 0,674–0,681, frente a 0,678 antes de la 320. La clasificación es idéntica muestra a muestra, incluida la distancia firmada con cuatro decimales, en cuatro casos y dos fases.
 
     Sin modelar: la válvula de Tebesio, las venas tributarias y el calibre que crece hacia el ostium (aquí un embudo sólo en el último tramo).
+
+322. **Dónde está cada estructura: el modelo frente a veinte corazones sanos de un atlas de TC, y las venas pulmonares derechas reorientadas.** [Estado: vigente]
+
+    Tercera parte de la auditoría anatómica que pidió Daniel: «puede tener todas las medidas adecuadas […] pero si sus ubicaciones no representan las de un modelo fisiológico, estamos mal». Las decisiones 309 y 310 compararon con el atlas de cuatro cavidades (Rodero et al., PLoS Comput Biol 2021; Zenodo 4590294, CC-BY-4.0) sólo el eje del VI y la altura de la raíz. Ahora se miden todas las estructuras que el atlas etiqueta, en los dos lados con el mismo marco construido sólo desde la anatomía (`atlasFrame.ts` y `tools/clinical/heart-atlas.ts`):
+    - **Origen y ejes.** El origen es el centro mitral y z apunta al ápex del VI (el punto de su miocardio más lejano del centro mitral). x va del centro tricuspídeo al mitral, perpendicular a z (de septal a lateral), e y = z × x, orientado hacia la válvula aórtica.
+    - **Posiciones.** El centroide del miocardio del VD y de las aurículas y el centro de las válvulas aórtica, pulmonar y tricúspide, divididos por la longitud del VI.
+    - **Vasos.** La dirección de cada vaso donde el atlas lo cortó: la normal de su anillo de borde, hacia fuera de su aurícula. La normal coincide con la dirección aurícula → corte con 15–28° de mediana.
+    - **Etiquetas de los anillos.** Se comprobaron contra las entradas que rodean, cada anillo a menos de 1 cm de la suya: en los datos, el 19 es la vena superior izquierda y el 21 la inferior derecha, al revés que en la lista del registro.
+
+    La orientación del corazón en el tórax coincide con el atlas: sus tres ejes caen a 3–14° de la media, dentro de la dispersión de los veinte corazones (máximo 14–24°).
+
+    Hallazgo corregido. **Las venas pulmonares derechas apuntaban fuera de todos los corazones del atlas**: la superior a 58° de la media (el atlas llega a 31°) y la inferior a 61° (el atlas llega a 46°).
+    - **En el tórax**, la superior bajaba en lugar de subir hacia el hilio, y la inferior bajaba y se adelantaba hacia la vena cava inferior, que es donde la aurícula derecha dilatada de la hipertensión pulmonar la atravesaba (decisión 320). Las izquierdas quedan dentro del atlas: la superior a 33° (percentil 85) y la inferior a 23° (percentil 45).
+    - **Cambio.** Los recorridos de las dos venas derechas (`PV_COURSE`) toman la dirección media del atlas en el marco del corazón del caso normal, con la misma longitud. Quedan a 0–4° de la media en los doce casos.
+    - **Contactos en 3D.** La superior derecha pasa ahora por detrás de la vena cava superior y toca su pared, como en un corazón: es la relación de las comunicaciones tipo seno venoso. Ninguna vena entra en la aurícula derecha (sólo las paredes se tocan).
+    - **En las vistas**, las venas derechas asoman algo más en el eje corto de grandes vasos (hasta el 0,95 % del plano, antes el 0,51 %) y en el subcostal de cuatro cámaras (0,59 %, antes el 0,10 %).
+
+    Al cambiar el recorrido, el muestreador de flujo venoso dibujaba en el eje corto de grandes vasos bordes de color rectos de 6–8 mm, frente a un límite de 5 (decisión 166). Tomaba la primera vena cuyo cono contenía el punto, y el de la superior derecha, ahora orientado hacia delante, reclamaba la boca de la inferior con su borde casi parado. Ahora las corrientes de las venas se suman donde se encuentran, y no queda ningún borde recto.
+
+    `atlasPositions.test.ts` (nivel lento) deja la comparación como prueba permanente. Con los recorridos anteriores fallan los doce casos. Exige dos cosas:
+    - **en todos los casos**, la dirección de las cuatro venas, la orejuela y las dos cavas dentro del ángulo máximo de los corazones del atlas respecto de su media;
+    - **en los dos casos normales**, cada coordenada de las posiciones entre los percentiles 10 y 90.
+
+    Queda declarado, con su número, y es la lista de lo que sigue:
+    - **Vena cava superior** (`KNOWN_ATLAS_VESSELS`): entra recta desde arriba en el techo de la aurícula, a 51–61° de la media, frente a un máximo de 30° en el atlas. En los corazones reales sale de la aurícula hacia arriba y hacia atrás.
+    - **Aurícula derecha** (`KNOWN_ATLAS_POSITIONS`): su centroide queda 0,5–0,7 cm hacia el septo y 1,2–2,4 cm por detrás del atlas. Le falta la orejuela derecha, la bolsa anterior que abraza la raíz aórtica.
+    - **Ventrículo derecho**: su miocardio llega 0,1–0,6 cm más a la derecha.
+    - **Ventana difícil**: además, la válvula aórtica, la pulmonar y el VD se desvían 0,2–0,5 cm, porque la pared torácica gruesa gira la base.
+    - **Desvíos menores**: la aurícula izquierda 0,04 cm por detrás del percentil 10 (su orejuela es pequeña) y la válvula pulmonar 0,01 cm.

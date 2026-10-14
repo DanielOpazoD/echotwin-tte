@@ -46,6 +46,8 @@ export const KNOWN_SETS: readonly {
   { file: 'src/simulator/windows/interatrialCrux.test.ts', name: 'KNOWN_FOSSA' },
   { file: 'src/simulator/anatomy/venousMouths.test.ts', name: 'KNOWN_CLOSED_MOUTHS' },
   { file: 'src/simulator/anatomy/coronarySinus.test.ts', name: 'KNOWN_CS_OSTIUM' },
+  { file: 'src/simulator/anatomy/atlasPositions.test.ts', name: 'KNOWN_ATLAS_POSITIONS' },
+  { file: 'src/simulator/anatomy/atlasPositions.test.ts', name: 'KNOWN_ATLAS_VESSELS' },
   { file: 'src/simulator/renderer/papillaryEcho.test.ts', name: 'KNOWN_DIM_PAPILLARY' },
   { file: 'src/simulator/doppler/flowContinuity.test.ts', name: 'KNOWN_INFLOW_FLUX' },
   {

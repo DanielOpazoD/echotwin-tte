@@ -790,7 +790,8 @@ export function samplePulmonaryVeins(
     out.vz += uz * v;
     out.dispersion = Math.max(out.dispersion, p.turbulence['pulmonary-vein'] ?? 0.06);
     out.present = 1;
-    return;
+    // the streams add where they meet in the atrium (decision 322): taking the first vein whose cone held the sample let
+    // the right superior one, aimed forward, claim the right inferior's mouth with its faded edge, a straight border
   }
 }
 
