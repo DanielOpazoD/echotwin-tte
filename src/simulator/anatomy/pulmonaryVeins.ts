@@ -24,9 +24,15 @@ export const PV_INF_Z = 0.35;
  * course of the inferior one with a rise towards the roof, and in the chest that went 2.0 cm backwards to the depth of
  * the front of the vertebral body, through the place of the aorta: the heart frame's lateral and basal directions both
  * point backwards in the torso.
+ * The right veins follow the four-chamber atlas (decision 322): the direction of each vessel where it was cut, the normal
+ * of its border ring, averaged over twenty healthy hearts in the frame of the mitral centre, the LV apex and the tricuspid
+ * centre (Rodero et al., PLoS Comput Biol 2021). The right superior vein ran 58° and the right inferior 61° from it,
+ * beyond every atlas heart (spread at the 90th percentile 25° and 30°): the superior went backwards instead of forwards
+ * behind the superior vena cava, the inferior level instead of towards the base. The left ones are within the atlas
+ * (33° and 23°, at its 85th and 45th percentiles). Lengths unchanged.
  */
 export const PV_COURSE: readonly number[] = [
-  -2.0, -1.0, -0.7, 1.63, 0.81, 1.55, -2.0, -1.0, 0.25, 2.2, -0.5, 0.25,
+  -1.49, 1.09, -1.45, 1.63, 0.81, 1.55, -1.0, -0.92, -1.8, 2.2, -0.5, 0.25,
 ];
 /** Farthest a vein reaches from its ostium (cm): the flow sampler's quick reject. */
 export const PV_REACH = Math.max(
