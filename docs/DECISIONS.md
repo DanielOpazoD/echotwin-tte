@@ -2098,3 +2098,32 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     El volumen auricular se conserva, así que lo que toma la esquina lo cede el resto de una aurícula pequeña. El A5C de la hipertensión pulmonar queda con 177 muestras de aurícula frente a las 180 que pide la comprobación de la vista, y queda declarado con su línea base.
 
     Desde esta decisión, cada auditoría de imagen revisa cada vista estructura por estructura: qué hay que no debería estar, qué falta y qué tiene la forma o el tamaño equivocados.
+
+319. **La fosa oval es una membrana entre las dos aurículas, donde ambas llegan al septo.** [Estado: vigente]
+
+    La auditoría estructura por estructura que siguió a la decisión 318 recorrió, en las 13 vistas, cada paso entre dos cavidades de sangre distintas y lo que había entre ellas. El hallazgo mayor estaba en el septo interauricular. En el subcostal de cuatro cámaras, la vista del septo, entre las aurículas había de 4,6 a 9,4 mm y nunca la fosa fina. En 3D, a través del centro de la fosa, había 11 mm de sangre a sangre:
+    - un trozo de vena cava superior;
+    - pared de la aurícula derecha, 3,4 mm;
+    - grasa, 5 mm;
+    - la membrana de la fosa, 1,2 mm;
+    - pared de la aurícula izquierda, 1,4 mm.
+
+    La fosa estaba en (y −1,6; z −2,3), donde sólo la aurícula izquierda llegaba al septo; la derecha quedaba detrás de la vena cava superior. El suelo de la fosa (septum primum) es el único tabique verdadero entre las aurículas, la ventana de un foramen oval permeable o de una comunicación tipo ostium secundum. Los bordes (limbo y septum secundum) son repliegues de las paredes auriculares con grasa, y ahí unas paredes apiladas son anatómicas.
+
+    Cambios:
+    - **La fosa se mueve al centro del septo que tocan las dos aurículas.** Medido sobre el plano septal en cinco casos, ese centro está en y −0,93 a −1,05 y z −1,15 a −1,55, con 2,6–4,7 cm² de septo común. La fosa queda en (−0,95; −1,3).
+    - **Sobre la fosa, la aurícula izquierda llega al septo donde su propia sección llega** (`FOSSA_REACH`, CPU y GLSL), en vez de correr con su pared al lado.
+
+    Se probaron variantes más amplias, y todas se descartaron:
+    - que las dos aurículas llegaran al septo en toda su altura;
+    - lo mismo, pero en toda la zona que comparten;
+    - lo mismo, pero también para la derecha sobre la fosa.
+
+    Al conservar el volumen de la izquierda estrechaban su diámetro transverso y dejaban el A5C de la hipertensión pulmonar con 108–132 muestras de aurícula. La aurícula derecha, que no se normaliza, crecía por encima del rango del prolapso (27,05 frente a 27).
+
+    Resultado:
+    - A través del cuerpo de la fosa hay 1,2–4,4 mm de sangre a sangre en los doce casos: la membrana más la pared fina de la aurícula derecha, sin grasa ni vena cava.
+    - El límite muscular sigue en 5,4 mm y los bordes conservan su repliegue.
+    - `interatrialCrux.test.ts` exige, en el centro y a 2 mm alrededor, como mucho 4,5 mm (un milímetro menos que el septo muscular) y ningún otro tejido. Con la fosa en su sitio antiguo fallan los doce casos. Queda declarado el taponamiento en telediástole, cuando la aurícula derecha colapsa y se separa del septo.
+    - La línea que mide el diámetro transverso de la aurícula izquierda cruza ahora septo muscular en vez de la fosa. En la estenosis severa (5,06 → 4,86 cm) y la FA (5,16 → 4,94) ese diámetro entra en rango, y deja de figurar entre sus desviaciones esperadas; sus aurículas siguen dilatadas en volumen y diámetro anteroposterior.
+    - El límite de 27 mL/m² del volumen auricular derecho en mujeres es la media más una desviación de la guía ASE/EACVI 2015 (21 ± 6), no el límite normal habitual; queda anotado, sin cambiar.

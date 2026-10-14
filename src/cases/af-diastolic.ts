@@ -100,7 +100,8 @@ export const afDiastolicCase: CaseDefinitionInput = {
     // the next beat: the long axis shortens 0.8 cm between end-diastole and end-systole (decision 162)
     'lv-shortening',
     'la-ap',
-    'la-transverse',
+    // (its transverse axis, 5.16 cm, came inside at 4.94 when the fossa ovalis moved to where both atria meet the septum
+    // and the measuring line crossed muscular septum instead, decision 319)
     'la-long',
     'lavi',
     'la-emptying',
