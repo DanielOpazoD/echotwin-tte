@@ -53,6 +53,8 @@ export interface ClassifyCtx {
   colDist: number;
   /** Distance (cm) to the left atrium's epicardium, its wall's outer face or the appendage's (decision 273). */
   laEpi: number;
+  /** Signed distance (cm) to the left atrial cavity, which the coronary sinus keeps its walls from (decision 321). */
+  laCav: number;
   /** Inside the profile but basal to the annulus and outside the root lumen. */
   inAnnularRegion: boolean;
 
@@ -98,6 +100,7 @@ export const ctx: ClassifyCtx = {
   crestLoss: 0,
   colDist: 0,
   laEpi: 0,
+  laCav: 0,
   inAnnularRegion: false,
   lvNormal: new Float64Array(3),
   rvSdf: new Float64Array(3),

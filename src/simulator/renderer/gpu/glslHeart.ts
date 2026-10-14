@@ -1,6 +1,20 @@
 import { LA_POSTERIOR_RATIO } from '@/simulator/anatomy/laGeometry';
 import { LV_WALL_BASAL_OVERHANG_CM } from '@/simulator/anatomy/heartFrame';
-import { FOSSA_REACH, LA_CORNER_HEIGHT_CM } from '@/simulator/anatomy/classify/atria';
+import {
+  FOSSA_REACH,
+  LA_CORNER_HEIGHT_CM,
+  CS_ABOVE_ANNULUS_CM,
+  CS_LATERAL_X_CM,
+  CS_CRUX_FROM_IAS_CM,
+  CS_OSTIUM_FROM_IAS_CM,
+  CS_OSTIUM_Y_CM,
+  CS_OSTIUM_ABOVE_ANNULUS_CM,
+  CS_RADIUS_CM,
+  CS_OSTIUM_RADIUS_CM,
+  CS_WALL_CM,
+  CS_GROOVE_OFFSET_CM,
+  CS_ANNULUS_OFFSET_CM,
+} from '@/simulator/anatomy/classify/atria';
 /**
  * GLSL port of `classifyHeart` (heartModel.ts). Mirrors the CPU classifier block by block; the
  * equivalence test (e2e/gpu-equivalence.spec.ts) compares both on the canonical views.
@@ -122,6 +136,17 @@ const float RA_MEMBRANOUS_TO_Y = ${f(RA_MEMBRANOUS_TO[1])};
 const float RA_MEMBRANOUS_TO_Z = ${f(RA_MEMBRANOUS_TO[2])};
 const float RA_MEMBRANOUS_R_CM = ${f(RA_MEMBRANOUS_R_CM)};
 const float RA_RIGHT_VEIN_CLEARANCE_CM = ${f(RA_RIGHT_VEIN_CLEARANCE_CM)};
+const float CS_ABOVE_ANNULUS_CM = ${f(CS_ABOVE_ANNULUS_CM)};
+const float CS_LATERAL_X_CM = ${f(CS_LATERAL_X_CM)};
+const float CS_CRUX_FROM_IAS_CM = ${f(CS_CRUX_FROM_IAS_CM)};
+const float CS_OSTIUM_FROM_IAS_CM = ${f(CS_OSTIUM_FROM_IAS_CM)};
+const float CS_OSTIUM_Y_CM = ${f(CS_OSTIUM_Y_CM)};
+const float CS_OSTIUM_ABOVE_ANNULUS_CM = ${f(CS_OSTIUM_ABOVE_ANNULUS_CM)};
+const float CS_RADIUS_CM = ${f(CS_RADIUS_CM)};
+const float CS_OSTIUM_RADIUS_CM = ${f(CS_OSTIUM_RADIUS_CM)};
+const float CS_WALL_CM = ${f(CS_WALL_CM)};
+const float CS_GROOVE_OFFSET_CM = ${f(CS_GROOVE_OFFSET_CM)};
+const float CS_ANNULUS_OFFSET_CM = ${f(CS_ANNULUS_OFFSET_CM)};
 const float RA_CREST_REACH_CM = ${f(RA_CREST_REACH_CM)};
 const float RA_SEPTAL_RELEASE_LA_CM = ${f(RA_SEPTAL_RELEASE_LA_CM)};
 const float RA_SEPTAL_RELEASE_RAMP_CM = ${f(RA_SEPTAL_RELEASE_RAMP_CM)};
@@ -719,6 +744,25 @@ float rightVeinDistance(vec3 p, vec3 la, vec3 lr, float bo, float czL, float rzL
   return min(rightVeinCapsule(0, p, la, lr, bo, czL, rzL), rightVeinCapsule(2, p, la, lr, bo, czL, rzL));
 }
 
+// decision 321: the coronary sinus along the posterior groove above the mitral annulus, opening into the right atrium
+float laPosteriorY(float x, float z, vec3 la, float rx, float ry, float cz, float rz) {
+  float u = (x - la.x) / rx, w = (z - cz) / rz;
+  return max(la.y - ry * sqrt(max(0.0, 1.0 - u * u - w * w)), la.y - LA_POSTERIOR_RATIO * ry);
+}
+float coronarySinusDistance(vec3 p, vec3 la, vec3 lr, float bo, float czL, float rzL, float zAnn, float laCav) {
+  float rx = lr.x * bo, ry = lr.y * bo;
+  float zs = zAnn - CS_ABOVE_ANNULUS_CM;
+  float x0 = IAS_X + CS_CRUX_FROM_IAS_CM;
+  float x1 = min(CS_LATERAL_X_CM, la.x + 0.85 * rx);
+  float xc = min(x1, max(x0, p.x));
+  float yc = min(laPosteriorY(max(xc, la.x), zs, la, rx, ry, czL, rzL) - CS_GROOVE_OFFSET_CM, MVL_CY - sqrt(max(0.0, MVL_R * MVL_R - (xc - MVL_CX) * (xc - MVL_CX))) - CS_ANNULUS_OFFSET_CM);
+  float body = length(vec3(p.x - xc, p.y - yc, p.z - zs)) - CS_RADIUS_CM;
+  vec3 a = vec3(x0, laPosteriorY(max(x0, la.x), zs, la, rx, ry, czL, rzL) - CS_GROOVE_OFFSET_CM, zs);
+  vec3 b = vec3(IAS_X - CS_OSTIUM_FROM_IAS_CM, CS_OSTIUM_Y_CM, zAnn - CS_OSTIUM_ABOVE_ANNULUS_CM);
+  float ostium = sdRoundCone(p, a, b, CS_RADIUS_CM, CS_OSTIUM_RADIUS_CM);
+  return max(min(body, ostium), LA_WALL_CM + CS_WALL_CM - laCav);
+}
+
 bool classifyHeart(vec3 p0, out Sample s) {
   s.segment = 0;
   s.sdf = FAR_FROM_HEART_CM;
@@ -953,6 +997,9 @@ bool classifyHeart(vec3 p0, out Sample s) {
       setSample(s, T_BLOOD, d, vec3((x - la.x) / lr.x, (y - la.y) / lr.y, (z - czL) / rzL), p, 0.0, S_LA_CAV);
       return true;
     }
+    // decision 321
+    float dCs = coronarySinusDistance(p, la, lr, bo, czL, rzL, zAnn, d);
+    laEpi = min(laEpi, dCs - CS_WALL_CM);
     // decision 320
     if (dFreeLa < LA_WALL_CM && x > xIas + tIas / 2.0 && leftAtrialMouthLumen(p, la, lr, bo, czL, rzL, colDist) >= 0.0) {
       setSample(s, T_MYO, -min(dFreeLa, LA_WALL_CM - dFreeLa), vec3((x - la.x) / lr.x, (y - la.y) / lr.y, (z - czL) / rzL), p, 0.0, S_LA_WALL);
@@ -1008,7 +1055,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     // decision 219
     float dSvc = sdCapsule(p, vec3(SVC_AX, SVC_AY, SVC_AZ), vec3(SVC_BX, SVC_BY, SVC_BZ), SVC_R);
     float dIvc = sdCapsule(p, vec3(IVC_AX, IVC_AY, IVC_AZ), vec3(IVC_BX, IVC_BY, IVC_BZ), IVC_R);
-    if (dFreeRa < 0.22 && septumPlane < 0.0 && dSvc >= 0.0 && dIvc >= 0.0) {
+    if (dFreeRa < 0.22 && septumPlane < 0.0 && dSvc >= 0.0 && dIvc >= 0.0 && dCs >= 0.0) {
       // no wall across the tricuspid orifice (decision 64): atrial blood up to the annular plane, ventricular past it
       // decision 219
       // decision 226
@@ -1073,19 +1120,14 @@ bool classifyHeart(vec3 p0, out Sample s) {
       if (dHv < 0.0) { setSample(s, T_BLOOD, dHv, vec3(0.0, 0.0, 1.0), p, 0.0, S_HV); return true; }
       if (dHv < 0.08) { setSample(s, T_VESSEL, -min(dHv, 0.08 - dHv), vec3(0.0, 0.0, 1.0), p, 0.0, S_HV); return true; }
     }
-    // coronary sinus
-    {
-      float rInflow = -MVL_CY + sqrt(max(0.0, MVL_R * MVL_R - MVL_CX * MVL_CX)) - mvInflowTaper(0.6);
-      float gy = -(max(lvCavityRadius(-PI / 2.0, zAnn + 0.6), rInflow) + LV_LVPWD * LV_THICK_K + 0.4);
-      float dCs = sdCapsule(p, vec3(2.2, gy * 0.85, zAnn + 0.35), vec3(ra.x + rar.x * 0.4, gy * 0.7, zAnn + 0.1), 0.33);
-      if (dCs < 0.0) {
-        setSample(s, T_BLOOD, dCs, vec3(0.0, -1.0, 0.0), p, 0.0, S_CS);
-        return true;
-      }
-      if (dCs < 0.1) {
-        setSample(s, T_VESSEL, -min(dCs, 0.1 - dCs), vec3(0.0, -1.0, 0.0), p, 0.0, S_CS);
-        return true;
-      }
+    // coronary sinus (decision 321)
+    if (dCs < 0.0) {
+      setSample(s, T_BLOOD, dCs, vec3(0.0, -1.0, 0.0), p, 0.0, S_CS);
+      return true;
+    }
+    if (dCs < CS_WALL_CM) {
+      setSample(s, T_VESSEL, -min(dCs, CS_WALL_CM - dCs), vec3(0.0, -1.0, 0.0), p, 0.0, S_CS);
+      return true;
     }
   }
 

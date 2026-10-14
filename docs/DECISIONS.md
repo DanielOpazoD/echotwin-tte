@@ -2151,3 +2151,32 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     - Alrededor de los dos anillos auriculoventriculares la grasa del surco toca la sangre de las aurículas (8,7 cm² en la derecha y 5,2 en la izquierda en telediástole) y, en un anillo fino bajo la mitral, la del VI: falta la pared.
     - La orejuela mide 1,3–1,8 mL y tiene una boca de 1,1 cm.
     - Los volúmenes latido de los ventrículos difieren un 7 % (VD 78 mL, VI 73) sin cortocircuito ni regurgitación en el caso normal.
+
+321. **El seno coronario recorre el surco auriculoventricular posterior por encima del anillo mitral y desemboca en la aurícula derecha.** [Estado: vigente]
+
+    Segundo hallazgo del censo 3D de la decisión 320. El seno coronario era un tubo recto de 0,33 cm de radio:
+    - discurría de 1 a 3,5 mm por debajo del anillo mitral, del lado ventricular;
+    - la pared inferior del VI le quitaba parte de la luz (2,6 cm² de contacto con la sangre, sin su pared);
+    - acababa contra la pared de la vena cava inferior, sin abrirse en la aurícula derecha en ningún caso ni fase;
+    - su pared quedaba fuera del saco pericárdico en 12,7 cm².
+
+    En el PLAX y el A2C se veía como un círculo del lado ventricular de la bisagra mitral posterior, medio fuera del pericardio. En TC el seno corre del lado auricular del anillo, a una distancia mínima de 5,1 ± 2,9 mm (Tops et al., Am J Cardiol 2007), con una relación variable (Choure et al., JACC 2006;48:1938). Su ostium mide 1,1–1,6 cm en TC y se abre en la aurícula derecha junto al septo, por delante de la vena cava inferior, en la base del triángulo de Koch.
+
+    Cambios, en la CPU y en la GPU (`coronarySinusDistance`):
+    - **Recorrido.** Un tubo a 5 mm por encima del anillo (`CS_ABOVE_ANNULUS_CM`) que sigue el contorno posterior de la aurícula izquierda, fuera de su pared y de la suya propia, y por detrás del anillo mitral posterior, donde la aurícula se estrecha. Va desde el surco lateral hasta la cruz, detrás del septo.
+    - **Desembocadura.** Desde la cruz, un embudo hasta un ostium de 1,0 cm, 1,2 cm a la derecha del septo y 4 mm por encima del anillo. Se eligió barriendo 64 posiciones: es un punto dentro de la aurícula derecha en los doce casos y en cinco fases.
+    - **La pared de la aurícula derecha no se dibuja sobre su boca**, como en las cavas (decisión 219).
+    - **El seno guarda frente a la cavidad de la aurícula izquierda el grosor de ambas paredes**, para que nunca quede «sin techo» en ella.
+    - **El saco pericárdico lo envuelve con la aurícula**, igual que a la orejuela.
+
+    Resultado:
+    - Su sangre sólo toca la de la aurícula derecha en los doce casos, a lo largo del latido, por una boca de 0,27–0,97 cm².
+    - Ya no toca el VI ni la aurícula izquierda, y queda dentro del saco.
+    - En el PLAX y el A2C aparece como el círculo del surco auriculoventricular entre la aurícula y el ventrículo.
+    - `coronarySinus.test.ts` lo comprueba sobre una rejilla de 1 mm en telediástole y telesístole. Con el seno anterior fallan los doce casos.
+
+    En la imagen el seno añade en el A2C telediastólico la línea especular de su pared en el surco inferior: las líneas finas pasan de 1,6 a 1,83 anchuras intercuartílicas fuera del rango de CAMUS Good y la correlación a 8 mm de −0,11 a −0,42. Son las líneas base nuevas en `clinicalImage.test.ts`; los goldens del PLAX y el A2C se regeneran tras revisarlos.
+
+    Declarado (`KNOWN_CS_OSTIUM`): el taponamiento, cuya aurícula derecha colapsada deja la boca contra la vena cava en tres de cuatro fases.
+
+    Sin modelar: la válvula de Tebesio, las venas tributarias y el calibre que crece hacia el ostium (aquí un embudo sólo en el último tramo).
