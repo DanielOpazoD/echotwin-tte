@@ -1,11 +1,9 @@
-import { iasThickness, leftAtrialFreeSdf } from '../laGeometry';
+import { iasThickness, LA_POSTERIOR_RATIO, leftAtrialFreeSdf } from '../laGeometry';
 export { iasThickness } from '../laGeometry';
 import { Structure, Tissue } from '../tissue';
-import { sdCapsule, sdEllipsoid, smax, smin } from '../sdf';
+import { sdCapsule, sdEllipsoid, sdRoundCone, smax, smin } from '../sdf';
 import { ROOT_EXCURSION } from '../heartFrame';
-import { lvCavityRadius } from '../lvShape';
 import { latticeNoise3 } from '@/core/noise';
-import { inflowTaper } from '../mitralValve';
 import { rvFloorZ, rvRadii } from '../rv';
 import { skirtOffsetAt, skirtWarpScale } from '../valveSkirt';
 import { setSample, type ClassifyCtx } from './context';
@@ -113,8 +111,7 @@ export function ivcDistance(
  * ostia of 0.9-1.3 cm (CT, Kim et al., Radiology 2005;235:43). The wall is not drawn across these lumens, as decision 219 did for the venae cavae.
  */
 export function leftAtrialMouthLumen(
-  m: ClassifyCtx['m'],
-  colDist: number,
+  c: ClassifyCtx,
   x: number,
   y: number,
   z: number,
@@ -122,7 +119,6 @@ export function leftAtrialMouthLumen(
   lr: { x: number; y: number; z: number },
   bo: number,
   czL: number,
-  rzL: number,
 ): number {
   let d = sdCapsule(
     x,
@@ -135,24 +131,13 @@ export function leftAtrialMouthLumen(
     la.y + lr.y * 0.55 + 2.0,
     czL + 0.9,
     0.55 * bo +
-      0.12 * (latticeNoise3(x * 2.3 + 1.7, y * 2.3 + 4.2, z * 2.3 + 8.8, m.wallNoise) - 0.5),
+      0.12 * (latticeNoise3(x * 2.3 + 1.7, y * 2.3 + 4.2, z * 2.3 + 8.8, c.m.wallNoise) - 0.5),
   );
-  for (let i = 0; i < 4; i++) {
-    pulmonaryVeinSegment(i, la, lr, bo, czL, rzL, PV_SEG);
+  const g = c.veinSeg;
+  for (let i = 0; i < 24; i += 6) {
     const dPv = smax(
-      sdCapsule(
-        x,
-        y,
-        z,
-        PV_SEG[0]!,
-        PV_SEG[1]!,
-        PV_SEG[2]!,
-        PV_SEG[3]!,
-        PV_SEG[4]!,
-        PV_SEG[5]!,
-        PV_RADIUS,
-      ),
-      0.12 - colDist,
+      sdCapsule(x, y, z, g[i]!, g[i + 1]!, g[i + 2]!, g[i + 3]!, g[i + 4]!, g[i + 5]!, PV_RADIUS),
+      0.12 - c.colDist,
       0.2,
     );
     d = Math.min(d, dPv);
@@ -167,37 +152,141 @@ export function leftAtrialMouthLumen(
  */
 export const RA_RIGHT_VEIN_CLEARANCE_CM = 0.34;
 
-/** Distance to the lumen of the right pulmonary veins (decision 320). */
-export function rightVeinDistance(
+/** Distance to the lumen of the right pulmonary veins (decision 320), from the per-pose vein segments. */
+export function rightVeinDistance(c: ClassifyCtx, x: number, y: number, z: number): number {
+  const g = c.veinSeg;
+  return Math.min(
+    sdCapsule(x, y, z, g[0]!, g[1]!, g[2]!, g[3]!, g[4]!, g[5]!, PV_RADIUS),
+    sdCapsule(x, y, z, g[12]!, g[13]!, g[14]!, g[15]!, g[16]!, g[17]!, PV_RADIUS),
+  );
+}
+
+/**
+ * Fill the per-pose atrial cache (decisions 320-321): the vein segments and the coronary sinus course depend only on the
+ * pose and the anchors, and computing them per sample cost a quarter of the CPU tracer's time.
+ */
+function atrialPoseCache(
+  c: ClassifyCtx,
   la: { x: number; y: number; z: number },
   lr: { x: number; y: number; z: number },
   bo: number,
   czL: number,
   rzL: number,
-  x: number,
-  y: number,
-  z: number,
-): number {
-  let d = Infinity;
-  for (let i = 0; i < 4; i += 2) {
+): void {
+  if (c.atrialHp === c.hp && c.atrialA === c.A) return;
+  c.atrialHp = c.hp;
+  c.atrialA = c.A;
+  for (let i = 0; i < 4; i++) {
     pulmonaryVeinSegment(i, la, lr, bo, czL, rzL, PV_SEG);
-    d = Math.min(
-      d,
-      sdCapsule(
-        x,
-        y,
-        z,
-        PV_SEG[0]!,
-        PV_SEG[1]!,
-        PV_SEG[2]!,
-        PV_SEG[3]!,
-        PV_SEG[4]!,
-        PV_SEG[5]!,
-        PV_RADIUS,
-      ),
-    );
+    c.veinSeg.set(PV_SEG, 6 * i);
   }
-  return d;
+  const zAnn = c.hp.zAnn;
+  const mv = c.hp.valves.mitral;
+  const rx = lr.x * bo,
+    ry = lr.y * bo;
+  const zs = zAnn - CS_ABOVE_ANNULUS_CM;
+  const x0 = c.A.iasX + CS_CRUX_FROM_IAS_CM;
+  const g = c.csGeo;
+  g[0] = zs;
+  g[1] = x0;
+  g[2] = Math.min(CS_LATERAL_X_CM, la.x + 0.85 * rx);
+  g[3] = rx;
+  g[4] = ry;
+  g[5] = czL;
+  g[6] = rzL;
+  g[7] = laPosteriorY(Math.max(x0, la.x), zs, la, rx, ry, czL, rzL) - CS_GROOVE_OFFSET_CM;
+  g[8] = c.A.iasX - CS_OSTIUM_FROM_IAS_CM;
+  g[9] = CS_OSTIUM_Y_CM;
+  g[10] = zAnn - CS_OSTIUM_ABOVE_ANNULUS_CM;
+  g[11] = mv.cx;
+  g[12] = mv.cy;
+  g[13] = mv.R;
+}
+
+/**
+ * The coronary sinus (decision 321) runs in the posterior atrioventricular groove on the atrial side of the mitral annulus,
+ * CS_ABOVE_ANNULUS_CM above it (minimal distance 5.1 ± 2.9 mm on CT, Tops et al., Am J Cardiol 2007; variable, Choure et
+ * al., JACC 2006;48:1938), against the posterior wall of the left atrium, and opens into the right atrium beside the
+ * septum, in front of the inferior vena cava. It ran 1-3.5 mm below the annulus on the ventricular side, the inferior
+ * wall of the ventricle took part of its lumen (2.6 cm² of contact without its wall), and its end met the wall of the
+ * inferior vena cava instead of the atrium.
+ * Course: a tube along the atrium's posterior contour at that height, outside its wall and its own, from the lateral
+ * groove (CS_LATERAL_X_CM, or the atrium's lateral reach) to the crux behind the septum (CS_CRUX_FROM_IAS_CM), then a
+ * funnel to the ostium CS_OSTIUM_FROM_IAS_CM to the right of the septum at y CS_OSTIUM_Y_CM, CS_OSTIUM_ABOVE_ANNULUS_CM
+ * above the mitral annulus: a point inside the right atrium in every case and phase. Lumen 0.66 cm, ostium 1.0 cm (CT
+ * 1.1-1.6 cm).
+ */
+export const CS_ABOVE_ANNULUS_CM = 0.5;
+export const CS_LATERAL_X_CM = 2.2;
+export const CS_CRUX_FROM_IAS_CM = 0.4;
+export const CS_OSTIUM_FROM_IAS_CM = 1.2;
+export const CS_OSTIUM_Y_CM = -1.2;
+export const CS_OSTIUM_ABOVE_ANNULUS_CM = 0.4;
+export const CS_RADIUS_CM = 0.33;
+export const CS_OSTIUM_RADIUS_CM = 0.5;
+export const CS_WALL_CM = 0.1;
+/** From the atrium's posterior surface to the sinus's axis: the atrial wall, the sinus's wall and its radius (cm). */
+export const CS_GROOVE_OFFSET_CM = LA_WALL_CM + CS_WALL_CM + CS_RADIUS_CM;
+/** From the posterior mitral annulus to the sinus's axis (cm): the ring, the sinus's wall and its radius. */
+export const CS_ANNULUS_OFFSET_CM = 0.15 + CS_WALL_CM + CS_RADIUS_CM;
+
+/** Posterior surface (y) of the left atrial cavity at (x, z), the flattened ellipsoid of `leftAtrialFreeSdf`. */
+function laPosteriorY(
+  x: number,
+  z: number,
+  la: { x: number; y: number },
+  rx: number,
+  ry: number,
+  cz: number,
+  rz: number,
+): number {
+  const u = (x - la.x) / rx,
+    w = (z - cz) / rz;
+  const q = Math.max(0, 1 - u * u - w * w);
+  return Math.max(la.y - ry * Math.sqrt(q), la.y - LA_POSTERIOR_RATIO * ry);
+}
+
+/**
+ * Distance to the coronary sinus lumen (decision 321). Far from its course it may return a lower bound (the distance to
+ * the box that holds it) where that already decides every use of it.
+ */
+export function coronarySinusDistance(c: ClassifyCtx, x: number, y: number, z: number): number {
+  const g = c.csGeo;
+  const zs = g[0]!,
+    x0 = g[1]!,
+    x1 = g[2]!;
+  // the lumen lies within 0.5 cm of zs (the ostium's funnel reaches zs + 0.6) and between the ostium and the lateral end
+  const far = Math.max(
+    Math.abs(z - zs - 0.05) - 0.65,
+    g[8]! - CS_OSTIUM_RADIUS_CM - x,
+    x - x1 - CS_RADIUS_CM,
+  );
+  // a lower bound is enough where it already decides every use: the wall and lumen tests, and the sac's minimum
+  if (far > 0.3 && far - CS_WALL_CM >= c.laEpi) return far;
+  const la = c.A.laCenter;
+  // medial to its centre the atrium reaches as far back as at its centre (the septal corner, decision 318), and behind
+  // the posterior mitral annulus, where the tapering atrium is narrower than the ring
+  const xc = Math.min(x1, Math.max(x0, x));
+  const yc = Math.min(
+    laPosteriorY(Math.max(xc, la.x), zs, la, g[3]!, g[4]!, g[5]!, g[6]!) - CS_GROOVE_OFFSET_CM,
+    g[12]! - Math.sqrt(Math.max(0, g[13]! * g[13]! - (xc - g[11]!) ** 2)) - CS_ANNULUS_OFFSET_CM,
+  );
+  const body = Math.hypot(x - xc, y - yc, z - zs) - CS_RADIUS_CM;
+  const ostium = sdRoundCone(
+    x,
+    y,
+    z,
+    x0,
+    g[7]!,
+    zs,
+    g[8]!,
+    g[9]!,
+    g[10]!,
+    CS_RADIUS_CM,
+    CS_OSTIUM_RADIUS_CM,
+  );
+  // clear of the left atrial cavity by both walls, so the sinus is never unroofed into it
+  return Math.max(Math.min(body, ostium), LA_WALL_CM + CS_WALL_CM - c.laCav);
 }
 
 export function atrialScale(booster: number, reservoir: number, contraction: number): number {
@@ -215,8 +304,6 @@ export function raCollapseScale(raCollapse: number): number {
  */
 export function classifyAtria(c: ClassifyCtx): boolean {
   const { m, hp, A, x, y, z, out } = c;
-  const lv = m.lv;
-  const sh = lv.shape;
   const zAnn = hp.zAnn;
   const V = hp.valves;
   const la = A.laCenter,
@@ -228,6 +315,7 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   // reservoir / conduit / booster: radial size follows LV contraction (maximal at end-systole); the atrial
   // kick and its hold until ejection shrink it further (laBooster)
   const bo = atrialScale(hp.laBooster, A.laReservoir, hp.state.contraction);
+  atrialPoseCache(c, la, lr, bo, czL, rzL);
   const xIas = A.iasX;
   // interatrial septum: muscular septum ~0.55 cm with a thicker limbus around the thin fossa ovalis membrane
   const fo = Math.hypot((y - A.fossaY) / 0.6, (z - A.fossaZ) / 0.7);
@@ -267,6 +355,7 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   // is the one true septum, a membrane between the two atrial cavities; around it the rims are folds of the atrial walls
   const dFossaLa = Math.max(xIas + tIas / 2 - x, x - la.x, dCrossLa, (fo - FOSSA_REACH) * 0.6);
   const d = Math.min(smax(dFreeLa, xIas + tIas / 2 - x, 0.3), dCorner, dFossaLa);
+  c.laCav = d;
   if (d < 0) {
     setSample(
       out,
@@ -283,11 +372,14 @@ export function classifyAtria(c: ClassifyCtx): boolean {
     );
     return true;
   }
+  // the coronary sinus, which the pericardial sac wraps with the atrium (decision 321)
+  const dCs = coronarySinusDistance(c, x, y, z);
+  c.laEpi = Math.min(c.laEpi, dCs - CS_WALL_CM);
   // not across the mouths of the pulmonary veins and the appendage (decision 320)
   if (
     dFreeLa < LA_WALL_CM &&
     x > xIas + tIas / 2 &&
-    leftAtrialMouthLumen(m, c.colDist, x, y, z, la, lr, bo, czL, rzL) >= 0
+    leftAtrialMouthLumen(c, x, y, z, la, lr, bo, czL) >= 0
   ) {
     setSample(
       out,
@@ -397,11 +489,7 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   c.raSleeve = dSleeve;
   dFreeRa = Math.min(dFreeRa, dSleeve);
   // behind, the right pulmonary veins with their wall (decision 320)
-  dFreeRa = smax(
-    dFreeRa,
-    RA_RIGHT_VEIN_CLEARANCE_CM - rightVeinDistance(la, lr, bo, czL, rzL, x, y, z),
-    0.2,
-  );
+  dFreeRa = smax(dFreeRa, RA_RIGHT_VEIN_CLEARANCE_CM - rightVeinDistance(c, x, y, z), 0.2);
   // in front of the left atrium the interatrial plane no longer clips the right atrium (decision 222)
   const q = Math.min(
     1,
@@ -431,7 +519,7 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   // 0.10-0.16 cm the superior one in diastole.
   const dSvc = svcDistance(A, x, y, z);
   const dIvc = ivcDistance(A, hp.ivcCollapse, x, y, z);
-  if (dFreeRa < 0.22 && septumPlane < 0 && dSvc >= 0 && dIvc >= 0) {
+  if (dFreeRa < 0.22 && septumPlane < 0 && dSvc >= 0 && dIvc >= 0 && dCs >= 0) {
     // No wall across the tricuspid orifice: there the atrium opens into the ventricle, and the annulus and
     // leaflets are emitted by the valve block above. Both atria end 0.25 cm past their annulus, but on the
     // left the LV cavity is classified first and claims the orifice, while on the right nothing did — so
@@ -495,7 +583,7 @@ export function classifyAtria(c: ClassifyCtx): boolean {
     if (
       (nearLa || nearRa) &&
       relL < 0.5 &&
-      leftAtrialMouthLumen(m, c.colDist, x, y, z, la, lr, bo, czL, rzL) >= 0
+      leftAtrialMouthLumen(c, x, y, z, la, lr, bo, czL) >= 0
     ) {
       setSample(
         out,
@@ -547,22 +635,11 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   }
   // pulmonary veins: towards the hila from the lateral wall (left) and the posteromedial corner (right); the
   // geometry lives in pulmonaryVeins.ts, shared with the venous flow sampler (decision 143)
-  for (let i = 0; i < 4; i++) {
-    pulmonaryVeinSegment(i, la, lr, bo, czL, rzL, PV_SEG);
+  for (let i = 0; i < 24; i += 6) {
+    const g = c.veinSeg;
     // the veins pass beside the descending aorta and the vertebral body, not through them (decision 273)
     const dPv = smax(
-      sdCapsule(
-        x,
-        y,
-        z,
-        PV_SEG[0]!,
-        PV_SEG[1]!,
-        PV_SEG[2]!,
-        PV_SEG[3]!,
-        PV_SEG[4]!,
-        PV_SEG[5]!,
-        PV_RADIUS,
-      ),
+      sdCapsule(x, y, z, g[i]!, g[i + 1]!, g[i + 2]!, g[i + 3]!, g[i + 4]!, g[i + 5]!, PV_RADIUS),
       0.12 - c.colDist,
       0.2,
     );
@@ -653,38 +730,17 @@ export function classifyAtria(c: ClassifyCtx): boolean {
       return true;
     }
   }
-  // coronary sinus: runs in the posterior atrioventricular groove toward the RA (A4C posterior, A2C inferior)
+  // coronary sinus: in the posterior atrioventricular groove above the mitral annulus, into the RA (decision 321)
   {
-    // outside the inferior wall, which at the annulus follows the posterior mitral annulus
-    const mvI = V.mitral;
-    const rInflow =
-      -mvI.cy + Math.sqrt(Math.max(0, mvI.R * mvI.R - mvI.cx * mvI.cx)) - inflowTaper(0.6, mvI);
-    const gy = -(
-      Math.max(lvCavityRadius(sh, hp.prof, -Math.PI / 2, zAnn + 0.6), rInflow) +
-      lv.lvpwd * hp.thickK +
-      0.4
-    );
-    const dCs = sdCapsule(
-      x,
-      y,
-      z,
-      2.2,
-      gy * 0.85,
-      zAnn + 0.35,
-      ra.x + rr.x * 0.4,
-      gy * 0.7,
-      zAnn + 0.1,
-      0.33,
-    );
     if (dCs < 0) {
       setSample(out, Tissue.Blood, dCs, 0, -1, 0, x, y, z, 0, Structure.CoronarySinus);
       return true;
     }
-    if (dCs < 0.1) {
+    if (dCs < CS_WALL_CM) {
       setSample(
         out,
         Tissue.VesselWall,
-        -Math.min(dCs, 0.1 - dCs),
+        -Math.min(dCs, CS_WALL_CM - dCs),
         0,
         -1,
         0,

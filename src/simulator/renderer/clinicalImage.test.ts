@@ -271,13 +271,15 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // out before): the next target, with the lateral tail
   ['4CH-ED:ridgeFraction', 1.39],
   ['4CH-ES:ridgeFraction', 1.2],
-  ['2CH-ED:ridgeFraction', 1.6],
+  // decision 321: the coronary sinus in the inferior atrioventricular groove adds its wall's specular line (1.6 before)
+  ['2CH-ED:ridgeFraction', 1.83],
   // texture longer along the beam at 1 mm (0.34 against 0.20-0.23), less coherent across it at 2-4 mm in places, and
   // through the persistence a little smoother over the sector (local std)
   ['4CH-ED:tangentialCorr4', -0.13],
   ['4CH-ES:radialCorr4', -0.48],
   ['2CH-ED:radialCorr2', 1.07],
-  ['2CH-ED:radialCorr8', -0.11],
+  // decision 321: with the coronary sinus at the inferior groove, the two-chamber end-diastolic texture at 8 mm (−0.11 before)
+  ['2CH-ED:radialCorr8', -0.42],
   ['2CH-ED:tangentialCorr2', -0.26],
   ['2CH-ED:radialCorr1', 0.62],
   ['2CH-ES:radialCorr1', 0.52],

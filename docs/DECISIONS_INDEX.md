@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 320 (última: 320).
+Decisiones: 321 (última: 321).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -328,3 +328,4 @@ Decisiones: 320 (última: 320).
 | [318](DECISIONS.md#L2078) | 2026-10-12 | Entre las aurículas del A4C sólo está el septo: la aurícula izquierda llena su esquina septal y la pared del VI no rebasa el anillo. | vigente |
 | [319](DECISIONS.md#L2102) | 2026-10-12 | La fosa oval es una membrana entre las dos aurículas, donde ambas llegan al septo. | vigente |
 | [320](DECISIONS.md#L2131) | 2026-10-12 | Las venas pulmonares y la orejuela desembocan en la aurícula izquierda, y la derecha les deja sitio. | vigente |
+| [321](DECISIONS.md#L2155) | 2026-10-12 | El seno coronario recorre el surco auriculoventricular posterior por encima del anillo mitral y desemboca en la aurícula derecha. | vigente |
