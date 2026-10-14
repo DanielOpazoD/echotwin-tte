@@ -72,6 +72,7 @@ import {
   RA_CREST_REACH_CM,
   RA_MEMBRANOUS_R_CM,
   RA_MEMBRANOUS_TO,
+  RA_RIGHT_VEIN_CLEARANCE_CM,
   RA_SEPTAL_RELEASE_CM,
   RA_SEPTAL_RELEASE_LA_CM,
   RA_SEPTAL_RELEASE_RAMP_CM,
@@ -120,6 +121,7 @@ const float RA_MEMBRANOUS_TO_X = ${f(RA_MEMBRANOUS_TO[0])};
 const float RA_MEMBRANOUS_TO_Y = ${f(RA_MEMBRANOUS_TO[1])};
 const float RA_MEMBRANOUS_TO_Z = ${f(RA_MEMBRANOUS_TO[2])};
 const float RA_MEMBRANOUS_R_CM = ${f(RA_MEMBRANOUS_R_CM)};
+const float RA_RIGHT_VEIN_CLEARANCE_CM = ${f(RA_RIGHT_VEIN_CLEARANCE_CM)};
 const float RA_CREST_REACH_CM = ${f(RA_CREST_REACH_CM)};
 const float RA_SEPTAL_RELEASE_LA_CM = ${f(RA_SEPTAL_RELEASE_LA_CM)};
 const float RA_SEPTAL_RELEASE_RAMP_CM = ${f(RA_SEPTAL_RELEASE_RAMP_CM)};
@@ -684,6 +686,39 @@ bool classifyAorticExtension(vec3 p, inout Sample s) {
 }
 
 // Shared RV distance for the pericardium block (recomputed; cheap)
+// decision 320: distance to the lumen of the pulmonary veins and the appendage, which the atrial wall and septum leave open
+float leftAtrialMouthLumen(vec3 p, vec3 la, vec3 lr, float bo, float czL, float rzL, float colDist) {
+  float x = p.x, y = p.y, z = p.z;
+  vec3 a0 = vec3(la.x + lr.x * 0.55, la.y + lr.y * 0.55, czL + 0.4);
+  vec3 a1 = vec3(la.x + lr.x * 0.95, a0.y + 2.0, czL + 0.9);
+  float d = sdCapsule(p, a0, a1, 0.55 * bo + 0.12 * (lat(vec3(x * 2.3 + 1.7, y * 2.3 + 4.2, z * 2.3 + 8.8), 3) - 0.5));
+  for (int i = 0; i < 4; i++) {
+    float sx = (i == 0 || i == 2) ? -1.0 : 1.0;
+    bool sup = i < 2;
+    float dzN = sup ? PV_SUP_Z : PV_INF_Z;
+    float kz = sqrt(1.0 - dzN * dzN);
+    float t = sx > 0.0 ? (sup ? PV_LEFT_SUP_T : PV_LEFT_INF_T) : PV_RIGHT_T;
+    float px = la.x + sx * lr.x * bo * kz * cos(t);
+    float py0 = la.y - lr.y * bo * kz * sin(t);
+    float pz = czL + dzN * rzL;
+    d = min(d, smax(sdCapsule(p, vec3(px, py0, pz), vec3(px + PV_COURSE[3 * i], py0 + PV_COURSE[3 * i + 1], pz + PV_COURSE[3 * i + 2]), PV_RADIUS), 0.12 - colDist, 0.2));
+  }
+  return d;
+}
+
+// decision 320: distance to the lumen of the right pulmonary veins, which the right atrium leaves room for
+float rightVeinCapsule(int i, vec3 p, vec3 la, vec3 lr, float bo, float czL, float rzL) {
+  float dzN = i < 2 ? PV_SUP_Z : PV_INF_Z;
+  float kz = sqrt(1.0 - dzN * dzN);
+  float px = la.x - lr.x * bo * kz * cos(PV_RIGHT_T);
+  float py0 = la.y - lr.y * bo * kz * sin(PV_RIGHT_T);
+  float pz = czL + dzN * rzL;
+  return sdCapsule(p, vec3(px, py0, pz), vec3(px + PV_COURSE[3 * i], py0 + PV_COURSE[3 * i + 1], pz + PV_COURSE[3 * i + 2]), PV_RADIUS);
+}
+float rightVeinDistance(vec3 p, vec3 la, vec3 lr, float bo, float czL, float rzL) {
+  return min(rightVeinCapsule(0, p, la, lr, bo, czL, rzL), rightVeinCapsule(2, p, la, lr, bo, czL, rzL));
+}
+
 bool classifyHeart(vec3 p0, out Sample s) {
   s.segment = 0;
   s.sdf = FAR_FROM_HEART_CM;
@@ -918,7 +953,8 @@ bool classifyHeart(vec3 p0, out Sample s) {
       setSample(s, T_BLOOD, d, vec3((x - la.x) / lr.x, (y - la.y) / lr.y, (z - czL) / rzL), p, 0.0, S_LA_CAV);
       return true;
     }
-    if (dFreeLa < LA_WALL_CM && x > xIas + tIas / 2.0) {
+    // decision 320
+    if (dFreeLa < LA_WALL_CM && x > xIas + tIas / 2.0 && leftAtrialMouthLumen(p, la, lr, bo, czL, rzL, colDist) >= 0.0) {
       setSample(s, T_MYO, -min(dFreeLa, LA_WALL_CM - dFreeLa), vec3((x - la.x) / lr.x, (y - la.y) / lr.y, (z - czL) / rzL), p, 0.0, S_LA_WALL);
       return true;
     }
@@ -958,6 +994,8 @@ bool classifyHeart(vec3 p0, out Sample s) {
       }
     }
     dFreeRa = min(dFreeRa, raSleeve);
+    // decision 320
+    dFreeRa = smax(dFreeRa, RA_RIGHT_VEIN_CLEARANCE_CM - rightVeinDistance(p, la, lr, bo, czL, rzL), 0.2);
     // decision 222
     float qRel = clamp((dFreeLa - RA_SEPTAL_RELEASE_LA_CM) / RA_SEPTAL_RELEASE_RAMP_CM, 0.0, 1.0);
     float relL = qRel * qRel * (3.0 - 2.0 * qRel);
@@ -983,7 +1021,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
       setSample(s, T_MYO, -min(dFreeRa, 0.22 - dFreeRa), vec3((x - ra.x) / rar.x, (y - ra.y) / rar.y, (z - czR) / rzR), p, 0.0, S_RA_WALL);
       return true;
     }
-    if (abs(x - xIas) <= tIas / 2.0 && z < zAnn + 0.4 && relL < 0.5) {
+    if (abs(x - xIas) <= tIas / 2.0 && z < zAnn + 0.4 && relL < 0.5 && leftAtrialMouthLumen(p, la, lr, bo, czL, rzL, colDist) >= 0.0) {
       if (sdEllipsoid(vec3(xIas, y, z), vec3(la.x, la.y, czL), vec3(lr.x * bo, lr.y * bo, rzL)) < 0.45 || sdEllipsoid(vec3(xIas, y, z), vec3(ra.x, ra.y, czR), vec3(rar.x * bo * raC, rar.y * bo * raC, rzR)) < 0.45) {
         setSample(s, T_MYO, -(tIas / 2.0 - abs(x - xIas)), vec3(1.0, 0.0, 0.0), p, 0.0, S_IAS);
         return true;
