@@ -42,12 +42,14 @@ export { APERTURE_MM };
 const FWHM_TO_SIGMA = 1 / (2 * Math.sqrt(2 * Math.log(2)));
 
 /**
- * Scale of the resolution cell against the diffraction formulas below (decision 145): a clinical cardiac image is
- * formed with a narrow-band harmonic receive filter and a line density that smooth it beyond what the aperture and
- * the pulse alone give, and its speckle cell measures 2.1 × 1.7 mm (CAMUS Good, lateral × axial) where the formulas
- * gave 1.5 × 1.0.
+ * Scale of the resolution cell against the diffraction formulas below. Decision 145 lengthened the pulse 1.35× to give
+ * the myocardium the speckle cell of CAMUS Good taken along the image's axes (2.1 × 1.7 mm). Decision 317 fitted it to
+ * the texture's autocorrelation along the beam instead, which is what the pulse sets: in the myocardium of 57 CAMUS Good
+ * four-chamber end-diastolic frames it falls to 0.71, 0.30 and 0.11 at 0.5, 1 and 1.5 mm, and 0.95 gives 0.72, 0.33 and
+ * 0.13 (1.35 gave 0.78, 0.41 and 0.15). The vertical cell of a wall seen 20-30° off its beam also holds lateral
+ * correlation.
  */
-export const PSF_AXIAL_SCALE = 1.35;
+export const PSF_AXIAL_SCALE = 0.95;
 export const PSF_LATERAL_SCALE = 1;
 
 /** Axial resolution (FWHM of the pulse envelope, mm): about two cycles; harmonic imaging trades a little axial resolution. */

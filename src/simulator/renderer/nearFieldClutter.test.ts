@@ -51,7 +51,6 @@ const KNOWN_RV_EXCESS: ReadonlyMap<string, number> = new Map([
   // read 3-4 grey brighter against the left and three long axes went over the bound (15.5-16.4); the hypertrophic
   // case's end-systolic short axis fell from 18.1 to 15.1 and its end-systolic long axis came within the bound
   ['inferior-rwma plax @0.35', 16.4],
-  ['mvp-primary-mr plax @0', 15.5],
   ['mvp-primary-mr plax @0.35', 15.8],
   ['hocm-sam psax-pm @0.35', 15.1],
 ]);

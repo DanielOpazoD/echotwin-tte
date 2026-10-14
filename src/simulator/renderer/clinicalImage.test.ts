@@ -88,9 +88,8 @@ const KNOWN_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // cavities with its new loss and left it 0.17 widths over (49 against 33-47), the end-systolic one 0.12 under (34
   // against 36-49), the two-chamber end-systolic cell inside and the four-chamber end-systolic cell a little narrower
   // (1.97 against 2.00-2.28)
-  ['4CH-ED:contrast', 0.17],
   ['4CH-ES:contrast', -0.12],
-  ['4CH-ES:speckleCellHorizontalMm', -0.22],
+  ['4CH-ES:speckleCellHorizontalMm', -0.46],
   // Each entry holds its baseline: the signed distance outside the clinical quartiles, in quartile widths (negative
   // below the 25th percentile, positive above the 75th). A declared deviation used to be checked only for being
   // declared and not stale, so it could grow without limit (external audit F11, decision 88). Baselines measured with
@@ -114,11 +113,11 @@ const KNOWN_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // 215) the four-chamber walls run closer to their scan lines and their residual texture fell 0.2 widths further.
   // decision 299 brought the residual texture 0.16-0.19 widths closer (−0.95, −0.8, −1.29 and −0.98 before)
   ['4CH-ES:myocardialLocalStd', -0.77],
-  ['2CH-ES:myocardialLocalStd', -0.65],
-  ['4CH-ED:myocardialDetrendedStd', -0.62],
-  ['4CH-ES:myocardialDetrendedStd', -1.13],
+  ['2CH-ES:myocardialLocalStd', -0.49],
+  ['4CH-ED:myocardialDetrendedStd', -0.83],
+  ['4CH-ES:myocardialDetrendedStd', -1.35],
   ['2CH-ED:myocardialDetrendedStd', -0.52],
-  ['2CH-ES:myocardialDetrendedStd', -0.79],
+  ['2CH-ES:myocardialDetrendedStd', -1.02],
   // −0.12 → −0.28 at decision 227, and 2CH-ES out: the chordae, drawn as bright rods until then, lifted the texture of
   // the mid cavity; as thin cords they leave it a little darker and more uniform than CAMUS Good, at the quartiles' edge
   // (the two-chamber end-diastolic cavity came inside at decision 261, and the four-chamber end-diastolic slope at 263)
@@ -127,6 +126,17 @@ const KNOWN_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // inside with the cavity haze of decision 258; the four-chamber one is out again above, decision 263)
   // (the horizontal speckle cell of the myocardium, at the edge of the clinical range since decision 215, came inside
   // at decision 299)
+  // Decision 317 fitted the axial pulse to the autocorrelation of CAMUS Good along the beam (0.71, 0.30, 0.11 at 0.5, 1
+  // and 1.5 mm in the myocardium; 0.72, 0.33, 0.13 now, 0.78, 0.41, 0.15 with the 1.35× pulse of decision 145). The
+  // speckle cell here is taken along the image's axes, and on the walls, 20-30° off the beam, the vertical cell mixes
+  // the axial correlation with the lateral one, whose tail at 2-4 mm the model lacks (tangential 0.17, −0.04, −0.07
+  // at 2, 3 and 4 mm against 0.24, 0.07, 0.05): the cells read 1.4-1.5 mm high and 1.9 mm wide against 1.5-2.0 and
+  // 2.0-2.3. Decision 145 had matched the cell by lengthening the pulse.
+  ['4CH-ED:speckleCellVerticalMm', -0.66],
+  ['4CH-ES:speckleCellVerticalMm', -0.78],
+  ['2CH-ED:speckleCellVerticalMm', -0.69],
+  ['2CH-ES:speckleCellHorizontalMm', -0.45],
+  ['2CH-ES:speckleCellVerticalMm', -0.48],
 ]);
 
 /**
@@ -223,21 +233,18 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // Decision 296: diffuse clutter loses coarse image-plane modulation; small residual texture/edge deficits. At decision
   // 312 the four-chamber end-diastolic edge came inside, the two-chamber end-systolic local std too, and the two-chamber
   // end-systolic sector edge falls off faster than clinical (1.33 against 0.96-1.26).
-  ['4CH-ED:localStd', -0.12],
   ['2CH-ES:edgeRollOff', 0.25],
   // Decision 291: measured texture debt after anatomically constrained LA normalization.
   // Original reference quartiles and drift tolerances remain unchanged.
   // decision 299: the four-chamber end-diastolic correlation came inside and the two-chamber end-systolic one closer (−0.39)
-  ['2CH-ES:radialCorr4', -0.14],
   // decision 312: the four-chamber end-diastolic texture a little anticorrelated at 4 mm along the beam (−0.060 against
   // −0.055 to −0.014)
-  ['4CH-ED:radialCorr4', -0.11],
   // decisions 271-273: the gastric fundus and the posterior column
   ['2CH-ES:tangentialCorr8', -0.41],
   // decision 270: the lung's diffuse reverberation now carries its path loss, so the outer sector of the end-systolic four-chamber view darkens
   ['4CH-ES:edgeRollOff', -0.12],
   // decision 264: with the chest-wall reverberation fading within 0.8 cm the near field comes inside and the two-chamber cavities darken
-  ['2CH-ES:ridgeFraction', 0.53],
+  ['2CH-ES:ridgeFraction', 1.03],
   // decision 263: the cavity reverberation no longer reinforced behind blood darkens the end-diastolic cavities
   // decision 262: with the LV's diaphragmatic face on the diaphragm, liver fills the two-chamber sector beyond the
   // inferior wall where lung reverberation was; at end-systole its texture and the outer sector move out
@@ -260,21 +267,20 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['4CH-ES:gradientP50', 0.71],
   ['2CH-ED:gradientP50', 1.32],
   ['2CH-ES:gradientP50', 0.76],
-  ['4CH-ED:ridgeFraction', 0.71],
-  ['4CH-ES:ridgeFraction', 0.61],
-  ['2CH-ED:ridgeFraction', 0.96],
+  // decision 317: with the shorter pulse the thin bright interfaces stand out more (0.71, 0.61, 0.96 and 0.53 widths
+  // out before): the next target, with the lateral tail
+  ['4CH-ED:ridgeFraction', 1.39],
+  ['4CH-ES:ridgeFraction', 1.2],
+  ['2CH-ED:ridgeFraction', 1.6],
   // texture longer along the beam at 1 mm (0.34 against 0.20-0.23), less coherent across it at 2-4 mm in places, and
   // through the persistence a little smoother over the sector (local std)
-  ['4CH-ED:tangentialCorr4', -0.3],
-  ['4CH-ES:localStd', -0.23],
-  ['4CH-ES:radialCorr4', -1.05],
+  ['4CH-ED:tangentialCorr4', -0.13],
+  ['4CH-ES:radialCorr4', -0.48],
   ['2CH-ED:radialCorr2', 0.82],
   ['2CH-ED:radialCorr8', -0.36],
-  ['2CH-ED:tangentialCorr2', -0.44],
-  ['4CH-ED:radialCorr1', 1.33],
-  ['4CH-ES:radialCorr1', 1.26],
-  ['2CH-ED:radialCorr1', 2.08],
-  ['2CH-ES:radialCorr1', 1.81],
+  ['2CH-ED:tangentialCorr2', -0.26],
+  ['2CH-ED:radialCorr1', 0.62],
+  ['2CH-ES:radialCorr1', 0.52],
   ['2CH-ED:tangentialCorr4', -1.01],
   // grey levels: the 2-4 cm band brighter than clinical (the app's near-field clutter, decision 238, more so without the
   // window's chest-wall attenuation of decision 261; the 0-2 cm band came inside at 264), the four-chamber end-systolic
@@ -282,8 +288,12 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['4CH-ES:greyP95', -0.19],
   // decision 312: the haze recalibrated with its new loss also lifts the first 2 cm of the four-chamber end-systolic
   // sector over the upper quartile (130 against 85-124)
-  ['4CH-ES:bandGrey0', 0.15],
   ['2CH-ED:bandGrey2', 0.5],
+  // decision 317: with the shorter pulse the end-systolic four-chamber outer band and the two-chamber end-systolic dark end
+  // move to the edge, and the two-chamber end-diastolic texture loses its anticorrelation at 4 mm
+  ['4CH-ES:bandGrey8', -0.11],
+  ['2CH-ED:radialCorr4', 0.37],
+  ['2CH-ES:greyP5', 0.11],
 ]);
 
 /**
