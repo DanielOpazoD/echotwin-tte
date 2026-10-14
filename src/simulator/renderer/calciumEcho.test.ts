@@ -24,8 +24,11 @@ import { allocPolarFrame, CALIBRATED_TIER, DEFAULT_ACQUISITION, polarSpecFor } f
 const settings = DEFAULT_ACQUISITION;
 const spec = polarSpecFor(settings, CALIBRATED_TIER);
 
-/** Median over the scan lines that cross the aortic valve of the brightest valve sample on each. */
-function leadingEcho(id: string, view: string, phase: number): number {
+/**
+ * Median over the scan lines that cross the aortic valve of the brightest valve sample on each, and of the length (mm)
+ * of each line within 5 mm of the valve brighter than 200 of grey: how thick the valve's echo reads.
+ */
+function valveEcho(id: string, view: string, phase: number): { top: number; brightMm: number } {
   const c = loadCaseById(id);
   const { heart, thorax, tables } = new SimulatorCore(c, baseInput()).models;
   const beam = beamFrameFromPose(
@@ -48,16 +51,35 @@ function leadingEcho(id: string, view: string, phase: number): number {
   const d = new Uint8ClampedArray(spec.lines * spec.samples);
   applyConsole(f, settings, createConsoleState(c.seed), d, consoleArtifacts(caseArtifactLevels(c)));
   const N = spec.samples;
+  const dr = spec.depthCm / N;
+  const w = Math.round(0.5 / dr);
   const tops: number[] = [];
+  const bright: number[] = [];
   for (let li = 0; li < spec.lines; li++) {
-    let top = -1;
+    let top = -1,
+      first = -1,
+      last = -1;
     for (let s = 0; s < N; s++)
-      if (f.structure[li * N + s] === Structure.AorticValve) top = Math.max(top, d[li * N + s]!);
-    if (top >= 0) tops.push(top);
+      if (f.structure[li * N + s] === Structure.AorticValve) {
+        top = Math.max(top, d[li * N + s]!);
+        if (first < 0) first = s;
+        last = s;
+      }
+    if (top < 0) continue;
+    tops.push(top);
+    let n = 0;
+    for (let s = Math.max(0, first - w); s <= Math.min(N - 1, last + w); s++)
+      if (d[li * N + s]! >= 200) n++;
+    bright.push(n * dr * 10);
   }
-  tops.sort((a, b) => a - b);
-  return tops.length > 5 ? tops[tops.length >> 1]! : NaN;
+  const median = (v: number[]) => {
+    const s = [...v].sort((a, b) => a - b);
+    return s.length > 5 ? s[s.length >> 1]! : NaN;
+  };
+  return { top: median(tops), brightMm: median(bright) };
 }
+const leadingEcho = (id: string, view: string, phase: number): number =>
+  valveEcho(id, view, phase).top;
 
 describe('calcified cusps reflect more than healthy ones (decision 266)', () => {
   it('closed, the leading echo of the severely stenotic valve is brighter than that of the healthy valve', () => {
@@ -71,5 +93,14 @@ describe('calcified cusps reflect more than healthy ones (decision 266)', () => 
         problems.push(`${view}: calcified ${calcified} against healthy ${healthy}`);
     }
     expect(problems).toEqual([]);
+  });
+
+  it('closed, the severely stenotic valve reads thick and bright in the long axis, the healthy one does not (decision 316)', () => {
+    // the limitation said the calcium put out the cusp behind its first millimetre, a point or a line; measured again,
+    // 7.5 mm of each line crossing the closed stenotic valve is brighter than 200 against none for the healthy one
+    const calcified = valveEcho('aortic-stenosis-severe', 'plax', 0).brightMm;
+    const healthy = valveEcho('normal-excellent-window', 'plax', 0).brightMm;
+    expect(calcified, `stenotic ${calcified} mm, healthy ${healthy} mm`).toBeGreaterThanOrEqual(3);
+    expect(healthy).toBeLessThan(1.5);
   });
 });

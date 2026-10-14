@@ -2040,3 +2040,19 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     - fallaban 27 pruebas.
 
     No se conservó. Lo que cambia con la edad es la raíz respecto del ventrículo, como describe el ángulo aortoseptal. Queda declarado y es el objetivo de la siguiente etapa.
+
+316. **Tres limitaciones de imagen ya no se cumplían: se miden de nuevo y quedan como pruebas.** [Estado: vigente]
+
+    Al buscar el siguiente defecto de imagen se midieron otra vez, con la cadena de la app (caso normal, telediástole), las limitaciones de imagen de `LIMITATIONS.md`. Tres estaban desfasadas: cambios posteriores las habían resuelto sin actualizar el texto.
+    - **El septo interauricular** estaba declarado indistinguible de la sangre (71–73 frente a 71–77). Ahora vale 138 de gris en el A4C, frente a 94 de la aurícula izquierda y 75 de la derecha.
+    - **El pericardio** estaba declarado más oscuro que la pared torácica (168–170 frente a 222–223). Ahora vale 164 frente a 137 en el A4C y 227 frente a 157 en el PLAX.
+    - **La válvula aórtica calcificada** estaba declarada como un punto o una línea. Cerrada, en el PLAX, 7,5 mm de cada línea que la cruza pasan de 200 de gris, frente a 0 mm de la válvula sana.
+
+    `structureContrast.test.ts` fija los dos órdenes de brillo, con un margen de 25 y 15 niveles; bajar la reflectividad del pericardio la hace fallar. `calciumEcho.test.ts` exige al menos 3 mm de eco brillante en la estenosis severa y menos de 1,5 en la válvula sana.
+
+    Siguen vigentes, medidas de nuevo:
+    - la mitral cerrada del A4C satura (255) y es lo más brillante de la imagen;
+    - el septo de la miocardiopatía hipertrófica en el A4C (108 frente a 106 del normal);
+    - el derrame del taponamiento, más claro que la sangre en sus primeros 4 cm por la reverberación del campo cercano (118 y 95 de gris). Sin ella, su interior está en el suelo de ruido (43–54) y por detrás ya es más oscuro que la sangre.
+
+    Se corrige además una afirmación de `LIMITATIONS.md`: la atenuación del miocardio no es menor a lo largo de las fibras, sino mayor (1,88 frente a 0,52 dB/cm/MHz en miocardio fresco; decisión 312).
