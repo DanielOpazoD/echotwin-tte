@@ -70,6 +70,11 @@ export const RA_ANTEROMEDIAL_BLEND_CM = 0.6;
  */
 export const RA_SEPTAL_RELEASE_LA_CM = 0.6;
 export const RA_SEPTAL_RELEASE_RAMP_CM = 0.6;
+/**
+ * Height (cm) above the annulus of the septal corner the atrium fills (decision 318): it reaches the septum there wherever
+ * its own section does at its centre.
+ */
+export const LA_CORNER_HEIGHT_CM = 1.2;
 /** How far past the interatrial plane (cm) the released atrium may reach: its own shape bounds it. */
 export const RA_SEPTAL_RELEASE_CM = 4;
 export const RA_MEMBRANOUS_TO: readonly [number, number, number] = [-1.45, -0.85, 0.05];
@@ -145,7 +150,18 @@ export function classifyAtria(c: ClassifyCtx): boolean {
       0.55 * bo,
     ) - LAA_WALL_CM,
   );
-  const d = smax(dFreeLa, xIas + tIas / 2 - x, 0.3);
+  // The corner between the septum and the annulus belongs to the atrium (decision 318): its medial wall is the septum
+  // down to the septal hinge of the mitral valve. As an ellipsoid it curved away from both toward the annulus, and the
+  // oblique four-chamber cut showed the gap as a wedge of wall, fat and ventricular overhang under the hinge.
+  const dCorner = Math.max(
+    xIas + tIas / 2 - x,
+    x - la.x,
+    zAnn - LA_CORNER_HEIGHT_CM - z,
+    z - zAnn,
+    // only toward the septum, where the atrium's own section reaches at this height
+    leftAtrialFreeSdf(la.x, y, z, la.x, la.y, czL, lr.x * bo, lr.y * bo, rzL, zTop),
+  );
+  const d = Math.min(smax(dFreeLa, xIas + tIas / 2 - x, 0.3), dCorner);
   if (d < 0) {
     setSample(
       out,

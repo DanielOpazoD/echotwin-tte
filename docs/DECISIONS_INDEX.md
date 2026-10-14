@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 317 (última: 317).
+Decisiones: 318 (última: 318).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -325,3 +325,4 @@ Decisiones: 317 (última: 317).
 | [315](DECISIONS.md#L2028) | 2026-10-12 | El ángulo aortoseptal del modelo es el de un adulto joven en todos los casos. | vigente |
 | [316](DECISIONS.md#L2044) | 2026-10-12 | Tres limitaciones de imagen ya no se cumplían: se miden de nuevo y quedan como pruebas. | vigente |
 | [317](DECISIONS.md#L2060) | 2026-10-12 | El pulso axial se ajusta a la autocorrelación de CAMUS a lo largo del haz. | vigente |
+| [318](DECISIONS.md#L2078) | 2026-10-12 | Entre las aurículas del A4C sólo está el septo: la aurícula izquierda llena su esquina septal y la pared del VI no rebasa el anillo. | vigente |

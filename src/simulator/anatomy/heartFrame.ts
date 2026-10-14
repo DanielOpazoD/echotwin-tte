@@ -26,6 +26,13 @@ export const AV_AXIS: Vec3 = normalize(v3(-0.15, 0.53, -0.85));
  * does not pull the anatomy into the main bundle.
  */
 export const MITRAL_SHORT_AXIS_CM = 1.4;
+/**
+ * How far basal to the annular plane the ventricular wall reaches (cm). 0.25 cm let the septal wall run 2.5 mm into the
+ * atrium beyond the annulus; the oblique four-chamber cut showed it as a 9 mm wedge under the septal hinge of the mitral
+ * valve (decision 318). The atrium now fills that corner.
+ */
+export const LV_WALL_BASAL_OVERHANG_CM = 0.05;
+
 /** Centre of the mitral annulus (heart frame, cm): 0.9 cm behind the LV long axis and 0.2 cm lateral to it. */
 export const MITRAL_CENTRE_X = 0.2;
 export const MITRAL_CENTRE_Y = -0.9;

@@ -240,7 +240,7 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // decision 312: the four-chamber end-diastolic texture a little anticorrelated at 4 mm along the beam (−0.060 against
   // −0.055 to −0.014)
   // decisions 271-273: the gastric fundus and the posterior column
-  ['2CH-ES:tangentialCorr8', -0.41],
+  ['2CH-ES:tangentialCorr8', -0.2],
   // decision 270: the lung's diffuse reverberation now carries its path loss, so the outer sector of the end-systolic four-chamber view darkens
   ['4CH-ES:edgeRollOff', -0.12],
   // decision 264: with the chest-wall reverberation fading within 0.8 cm the near field comes inside and the two-chamber cavities darken
@@ -276,8 +276,8 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // through the persistence a little smoother over the sector (local std)
   ['4CH-ED:tangentialCorr4', -0.13],
   ['4CH-ES:radialCorr4', -0.48],
-  ['2CH-ED:radialCorr2', 0.82],
-  ['2CH-ED:radialCorr8', -0.36],
+  ['2CH-ED:radialCorr2', 1.07],
+  ['2CH-ED:radialCorr8', -0.11],
   ['2CH-ED:tangentialCorr2', -0.26],
   ['2CH-ED:radialCorr1', 0.62],
   ['2CH-ES:radialCorr1', 0.52],
@@ -292,8 +292,12 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // decision 317: with the shorter pulse the end-systolic four-chamber outer band and the two-chamber end-systolic dark end
   // move to the edge, and the two-chamber end-diastolic texture loses its anticorrelation at 4 mm
   ['4CH-ES:bandGrey8', -0.11],
-  ['2CH-ED:radialCorr4', 0.37],
+  ['2CH-ED:radialCorr4', 0.13],
   ['2CH-ES:greyP5', 0.11],
+  // decision 318: with the atrium filling its septal corner the four-chamber end-diastolic texture at 1 mm and the
+  // two-chamber end-systolic one at 4 mm move just past the quartiles
+  ['4CH-ED:radialCorr1', 0.16],
+  ['2CH-ES:radialCorr4', -0.13],
 ]);
 
 /**

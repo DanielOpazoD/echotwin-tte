@@ -6,6 +6,7 @@ import { insideMitralOutline, mitralHingeZ, mitralInflowSdf } from '../mitralVal
 import { septalCrestFactor, septalShiftAt, wallThicknessAt } from '../lvWall';
 import { aha17FromCode, lvSegmentCode, lvWallKind } from '../lvSegments';
 import { setSample, type ClassifyCtx } from './context';
+import { LV_WALL_BASAL_OVERHANG_CM } from '../heartFrame';
 
 /**
  * LV cavity, papillary muscles, wall and the annular-plane blood. Writes az, levelFrac, the cavity normal, dEllR,
@@ -120,7 +121,12 @@ export function classifyLeftVentricle(c: ClassifyCtx): boolean {
   // Ventricular wall: shell of local thickness around the *unclipped* profile, apical to (slightly above)
   // the annulus. The annular plane itself is not a wall: it holds the mitral orifice, the LVOT and fibrous tissue.
   // the trabeculated inner surface belongs to the wall: from the rough endocardium to the smooth epicardium
-  if (dEllR + trab >= 0 && dEllR < wallT && z >= zAnn - 0.25 && !inOutflowLumen) {
+  if (
+    dEllR + trab >= 0 &&
+    dEllR < wallT &&
+    z >= zAnn - LV_WALL_BASAL_OVERHANG_CM &&
+    !inOutflowLumen
+  ) {
     // the wall label follows the AHA wall of the segment, bounded by the RV insertions (decision 154)
     const wall = lvWallKind(segCode);
     const structure =
