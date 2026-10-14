@@ -56,7 +56,7 @@ Las costillas son cartílago a menos de 5 cm del esternón y hueso más allá; s
 | Constante | Valor | Qué es |
 |---|---|---|
 | `APERTURE_MM` | 14 | apertura lateral (mm) |
-| `PSF_AXIAL_SCALE` | 1,35 | escala del pulso axial sobre la fórmula (decisión 145) |
+| `PSF_AXIAL_SCALE` | 0,95 | escala del pulso axial sobre la fórmula, ajustada a la autocorrelación de CAMUS Good a lo largo del haz (decisión 317; 1,35 en la 145) |
 | `PSF_LATERAL_SCALE` | 1 | escala del haz lateral sobre la fórmula |
 | `SIDE_LOBE_DB` | −35 | primer lóbulo lateral bajo el lóbulo principal (dB) |
 | `SIDE_LOBE_COUNT` | 4 | lóbulos laterales modelados |

@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 316 (última: 316).
+Decisiones: 317 (última: 317).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -324,3 +324,4 @@ Decisiones: 316 (última: 316).
 | [314](DECISIONS.md#L2011) | 2026-10-12 | La raíz de la TC baja con la inspiración y con la edad; el modelo se compara con lo que la TC predice para cada caso. | vigente |
 | [315](DECISIONS.md#L2028) | 2026-10-12 | El ángulo aortoseptal del modelo es el de un adulto joven en todos los casos. | vigente |
 | [316](DECISIONS.md#L2044) | 2026-10-12 | Tres limitaciones de imagen ya no se cumplían: se miden de nuevo y quedan como pruebas. | vigente |
+| [317](DECISIONS.md#L2060) | 2026-10-12 | El pulso axial se ajusta a la autocorrelación de CAMUS a lo largo del haz. | vigente |

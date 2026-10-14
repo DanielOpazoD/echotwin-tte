@@ -2056,3 +2056,21 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     - el derrame del taponamiento, más claro que la sangre en sus primeros 4 cm por la reverberación del campo cercano (118 y 95 de gris). Sin ella, su interior está en el suelo de ruido (43–54) y por detrás ya es más oscuro que la sangre.
 
     Se corrige además una afirmación de `LIMITATIONS.md`: la atenuación del miocardio no es menor a lo largo de las fibras, sino mayor (1,88 frente a 0,52 dB/cm/MHz en miocardio fresco; decisión 312).
+
+317. **El pulso axial se ajusta a la autocorrelación de CAMUS a lo largo del haz.** [Estado: vigente]
+
+    Con 100 pacientes de CAMUS descargados de nuevo (CC BY-NC-SA 4.0, fuera del repositorio, en `~/datos/CAMUS`; 57 cuatro cámaras Good), el clasificador de la decisión 146 sigue en un AUC de 1,000, y una sola estadística basta para delatar la imagen: la correlación de la textura a 1 mm a lo largo del haz (AUC 1,000 por sí sola; 0,350 en el simulador frente a 0,220 en la clínica).
+
+    El exceso está en todas las regiones del sector, no en la neblina de las cavidades: en el miocardio, 0,40 frente a 0,30; en la cavidad, 0,36 frente a 0,28; en la aurícula, 0,32 frente a 0,17; en el resto, 0,35 frente a 0,19. Se midió cuánto lo mueve cada eslabón de la cadena:
+    - la persistencia y el realce de bordes, poco (0,41 → 0,39 y 0,43);
+    - doblar la densidad de muestras axiales, poco (0,38);
+    - los granos de la decisión 145, algo (0,34 sin ellos);
+    - la escala del pulso, sobre todo.
+
+    En el miocardio de CAMUS la autocorrelación a lo largo del haz cae a 0,91, 0,71, 0,49, 0,30, 0,11 y 0,00 a 0,25, 0,5, 0,75, 1, 1,5 y 2 mm. Con el pulso 1,35× de la decisión 145 el simulador daba 0,93, 0,78, 0,58, 0,41, 0,15 y 0,04: la misma forma, un 15 % más larga. Con 0,95 da 0,72, 0,33 y 0,13 a 0,5, 1 y 1,5 mm, frente a 0,71, 0,30 y 0,11.
+
+    La decisión 145 había alargado el pulso para igualar la celda de speckle medida en los ejes de la imagen. En las paredes, que el haz ve a 20–30°, la celda vertical mezcla la correlación axial con la lateral. A la lateral le falta la cola de 2–4 mm (0,17, −0,04 y −0,07 frente a 0,24, 0,07 y 0,05), así que con el pulso correcto las celdas leen 1,4–1,5 mm de alto y 1,9 mm de ancho, frente a 1,5–2,0 y 2,0–2,3, y quedan declaradas.
+
+    Resultado en las auditorías: entran la correlación radial a 1 mm de los cuatro casos A4C, la desviación local del A4C y varias correlaciones a 4 mm, y el contraste del A4C telediastólico. Con el clasificador, la correlación radial pasa de AUC 1,000 a 0,840 (0,262). Empeoran las crestas finas brillantes (AUC 0,950 → 0,990), porque con un pulso más corto las interfaces son más finas. Las crestas y el faldón lateral del haz son el paso siguiente.
+
+    Las estadísticas de referencia del repositorio no se regeneran con estos 100 pacientes: siguen siendo las de los 500 originales.
