@@ -105,6 +105,101 @@ export function ivcDistance(
   return sdCapsule(x, y, z, A.ivcA.x, A.ivcA.y, A.ivcA.z, A.ivcB.x, A.ivcB.y, A.ivcB.z, rI);
 }
 
+/**
+ * Distance to the lumen of the veins and the appendage that open into the left atrium (decision 320), negative inside one
+ * of them. The atrial wall and the interatrial septum are classified before them, so 2.5-6 mm of wall closed every
+ * pulmonary vein and the appendage at its mouth (the septum the right veins at end-systole): in 3D the left atrium met
+ * the veins' blood over 0.4 cm² at end-diastole and none at end-systole, and the appendage's over 0.2 cm², against four
+ * ostia of 0.9-1.3 cm (CT, Kim et al., Radiology 2005;235:43). The wall is not drawn across these lumens, as decision 219 did for the venae cavae.
+ */
+export function leftAtrialMouthLumen(
+  m: ClassifyCtx['m'],
+  colDist: number,
+  x: number,
+  y: number,
+  z: number,
+  la: { x: number; y: number; z: number },
+  lr: { x: number; y: number; z: number },
+  bo: number,
+  czL: number,
+  rzL: number,
+): number {
+  let d = sdCapsule(
+    x,
+    y,
+    z,
+    la.x + lr.x * 0.55,
+    la.y + lr.y * 0.55,
+    czL + 0.4,
+    la.x + lr.x * 0.95,
+    la.y + lr.y * 0.55 + 2.0,
+    czL + 0.9,
+    0.55 * bo +
+      0.12 * (latticeNoise3(x * 2.3 + 1.7, y * 2.3 + 4.2, z * 2.3 + 8.8, m.wallNoise) - 0.5),
+  );
+  for (let i = 0; i < 4; i++) {
+    pulmonaryVeinSegment(i, la, lr, bo, czL, rzL, PV_SEG);
+    const dPv = smax(
+      sdCapsule(
+        x,
+        y,
+        z,
+        PV_SEG[0]!,
+        PV_SEG[1]!,
+        PV_SEG[2]!,
+        PV_SEG[3]!,
+        PV_SEG[4]!,
+        PV_SEG[5]!,
+        PV_RADIUS,
+      ),
+      0.12 - colDist,
+      0.2,
+    );
+    d = Math.min(d, dPv);
+  }
+  return d;
+}
+
+/**
+ * Clearance (cm) the right atrial cavity keeps from the lumen of the right pulmonary veins (decision 320): the vein's wall
+ * (0.12) and its own (0.22). The veins run behind the atrium into the interatrial groove; the dilated atrium of pulmonary
+ * hypertension took up to 46 % of the right inferior vein's first 2 cm, its cavity and wall drawn across the lumen.
+ */
+export const RA_RIGHT_VEIN_CLEARANCE_CM = 0.34;
+
+/** Distance to the lumen of the right pulmonary veins (decision 320). */
+export function rightVeinDistance(
+  la: { x: number; y: number; z: number },
+  lr: { x: number; y: number; z: number },
+  bo: number,
+  czL: number,
+  rzL: number,
+  x: number,
+  y: number,
+  z: number,
+): number {
+  let d = Infinity;
+  for (let i = 0; i < 4; i += 2) {
+    pulmonaryVeinSegment(i, la, lr, bo, czL, rzL, PV_SEG);
+    d = Math.min(
+      d,
+      sdCapsule(
+        x,
+        y,
+        z,
+        PV_SEG[0]!,
+        PV_SEG[1]!,
+        PV_SEG[2]!,
+        PV_SEG[3]!,
+        PV_SEG[4]!,
+        PV_SEG[5]!,
+        PV_RADIUS,
+      ),
+    );
+  }
+  return d;
+}
+
 export function atrialScale(booster: number, reservoir: number, contraction: number): number {
   return booster * (reservoir + (1 - reservoir) * contraction);
 }
@@ -188,7 +283,12 @@ export function classifyAtria(c: ClassifyCtx): boolean {
     );
     return true;
   }
-  if (dFreeLa < LA_WALL_CM && x > xIas + tIas / 2) {
+  // not across the mouths of the pulmonary veins and the appendage (decision 320)
+  if (
+    dFreeLa < LA_WALL_CM &&
+    x > xIas + tIas / 2 &&
+    leftAtrialMouthLumen(m, c.colDist, x, y, z, la, lr, bo, czL, rzL) >= 0
+  ) {
     setSample(
       out,
       Tissue.Myocardium,
@@ -296,6 +396,12 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   }
   c.raSleeve = dSleeve;
   dFreeRa = Math.min(dFreeRa, dSleeve);
+  // behind, the right pulmonary veins with their wall (decision 320)
+  dFreeRa = smax(
+    dFreeRa,
+    RA_RIGHT_VEIN_CLEARANCE_CM - rightVeinDistance(la, lr, bo, czL, rzL, x, y, z),
+    0.2,
+  );
   // in front of the left atrium the interatrial plane no longer clips the right atrium (decision 222)
   const q = Math.min(
     1,
@@ -386,7 +492,11 @@ export function classifyAtria(c: ClassifyCtx): boolean {
     const nearLa = sdEllipsoid(xIas, y, z, la.x, la.y, czL, lr.x * bo, lr.y * bo, rzL) < 0.45;
     const nearRa =
       sdEllipsoid(xIas, y, z, ra.x, ra.y, czR, rr.x * bo * raC, rr.y * bo * raC, rzR) < 0.45;
-    if ((nearLa || nearRa) && relL < 0.5) {
+    if (
+      (nearLa || nearRa) &&
+      relL < 0.5 &&
+      leftAtrialMouthLumen(m, c.colDist, x, y, z, la, lr, bo, czL, rzL) >= 0
+    ) {
       setSample(
         out,
         Tissue.Myocardium,

@@ -44,6 +44,7 @@ export const KNOWN_SETS: readonly {
   { file: 'src/simulator/windows/viewContent.test.ts', name: 'KNOWN_A5C_SMALL_ATRIUM' },
   { file: 'src/simulator/windows/interatrialCrux.test.ts', name: 'KNOWN_INTERATRIAL_TISSUE' },
   { file: 'src/simulator/windows/interatrialCrux.test.ts', name: 'KNOWN_FOSSA' },
+  { file: 'src/simulator/anatomy/venousMouths.test.ts', name: 'KNOWN_CLOSED_MOUTHS' },
   { file: 'src/simulator/renderer/papillaryEcho.test.ts', name: 'KNOWN_DIM_PAPILLARY' },
   { file: 'src/simulator/doppler/flowContinuity.test.ts', name: 'KNOWN_INFLOW_FLUX' },
   {

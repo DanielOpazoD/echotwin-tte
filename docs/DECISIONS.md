@@ -2127,3 +2127,27 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     - `interatrialCrux.test.ts` exige, en el centro y a 2 mm alrededor, como mucho 4,5 mm (un milímetro menos que el septo muscular) y ningún otro tejido. Con la fosa en su sitio antiguo fallan los doce casos. Queda declarado el taponamiento en telediástole, cuando la aurícula derecha colapsa y se separa del septo.
     - La línea que mide el diámetro transverso de la aurícula izquierda cruza ahora septo muscular en vez de la fosa. En la estenosis severa (5,06 → 4,86 cm) y la FA (5,16 → 4,94) ese diámetro entra en rango, y deja de figurar entre sus desviaciones esperadas; sus aurículas siguen dilatadas en volumen y diámetro anteroposterior.
     - El límite de 27 mL/m² del volumen auricular derecho en mujeres es la media más una desviación de la guía ASE/EACVI 2015 (21 ± 6), no el límite normal habitual; queda anotado, sin cambiar.
+
+320. **Las venas pulmonares y la orejuela desembocan en la aurícula izquierda, y la derecha les deja sitio.** [Estado: vigente]
+
+    Primera parte del plan de auditoría anatómica pedido por Daniel: un corazón con todas sus medidas en rango no basta si sus estructuras están donde no deben o aparecen otras que nadie mide. Se hizo un censo 3D del clasificador (rejilla de 0,5 mm en el marco del corazón, telediástole y telesístole): volumen, centro y extensión de cada par estructura/tejido, y la superficie de contacto entre cada pareja de ellos. Lo que no puede tocarse según la anatomía salió solo:
+    - **Venas pulmonares cerradas.** La sangre de la aurícula tocaba la de las venas en 0,4 cm² en telediástole y en ninguno en telesístole, frente a cuatro ostia de 0,9–1,3 cm (TC, Kim et al., Radiology 2005;235:43). Recorriendo el eje de cada vena desde la cavidad había 2,5–6 mm de pared auricular en las cuatro y, en telesístole, 6 mm de septo interauricular en las dos derechas. La pared y el septo se clasifican antes que las venas, el mismo defecto que la decisión 219 corrigió en las cavas.
+    - **Orejuela cerrada.** 2,6 mm de pared en su boca y 0,2 cm² de contacto con la aurícula.
+    - **Vena inferior derecha atravesada por la aurícula derecha.** En la hipertensión pulmonar, la aurícula dilatada (cavidad y pared) ocupaba hasta el 46 % de los primeros 2 cm de su luz; en los demás casos, hasta el 6 %.
+
+    Cambios, en la CPU y en la GPU:
+    - **La pared de la aurícula izquierda y el septo no se dibujan dentro de la luz de una vena pulmonar ni de la orejuela** (`leftAtrialMouthLumen`).
+    - **La aurícula derecha cede ante las venas derechas** con la pared de la vena y la suya (`RA_RIGHT_VEIN_CLEARANCE_CM` = 0,34 cm). Las venas derechas pasan por detrás de ella hacia el surco interauricular. Los volúmenes y diámetros de la aurícula derecha no cambian en ningún caso.
+
+    Resultado (caso normal):
+    - La aurícula comunica con las venas por 4,5 cm² en telediástole y 3,9 en telesístole, y con la orejuela por 1,3–1,4 cm².
+    - Ninguna muestra de los primeros 2 cm de ninguna vena es aurícula derecha ni cava, en ningún caso ni fase.
+    - `venousMouths.test.ts` recorre, en los doce casos, del centro de la aurícula a cada ostium y 0,8 cm por la vena, y exige sangre en todo el camino; y comprueba la luz de las venas a lo largo del latido. Sin los cambios fallan los doce casos en la primera prueba y ocho en la segunda.
+
+    Declarado (`KNOWN_CLOSED_MOUTHS`): la vena superior izquierda de las seis aurículas dilatadas que entran en la aorta descendente (`KNOWN_LA_IN_AORTA`, decisión 273). La vena cede ante la aorta, así que su boca queda dentro de la columna. Se probó otra vez hacer ceder la cavidad de la aurícula: el ajuste de volumen (`fitOccupiedAtrium`) le devuelve todo su volumen, pero su centro está fijo y crece hacia el ápex. En el apical de cuatro cámaras su diámetro transverso bajaba de 5,40 a 3,92 cm en la insuficiencia cardiaca y de 4,94 a 4,06 en la FA, y el largo superaba el rango. Una aurícula que se dilata crece hacia la derecha y hacia arriba, abombando el septo, y eso exige mover su centro y el septo, no recortarla.
+
+    Otros hallazgos del censo, pendientes:
+    - El seno coronario no desemboca en la aurícula derecha: acaba contra la pared de la vena cava inferior. Además discurre del lado ventricular del anillo mitral, y la pared del VI le quita parte de la luz. En TC corre del lado auricular, a una distancia mínima de 5,1 ± 2,9 mm del anillo.
+    - Alrededor de los dos anillos auriculoventriculares la grasa del surco toca la sangre de las aurículas (8,7 cm² en la derecha y 5,2 en la izquierda en telediástole) y, en un anillo fino bajo la mitral, la del VI: falta la pared.
+    - La orejuela mide 1,3–1,8 mL y tiene una boca de 1,1 cm.
+    - Los volúmenes latido de los ventrículos difieren un 7 % (VD 78 mL, VI 73) sin cortocircuito ni regurgitación en el caso normal.
