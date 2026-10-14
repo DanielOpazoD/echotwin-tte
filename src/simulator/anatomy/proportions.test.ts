@@ -25,6 +25,10 @@ const KNOWN_MODEL_LIMITATIONS: ReadonlySet<string> = new Set([
   'ascending-right-tilt',
   'root-arch-apex-height',
   'root-notch-height',
+  // The aortoseptal angle (decision 315) is 139-144° in every case, as in the young normal (141° expected at 32 years by
+  // Okada et al. 2014), where the eight cases aged 58-79 should have closed it to 112-125°: the same missing age change
+  // as the root's height above, seen from the long axis.
+  'aortoseptal-angle',
   // 'av-tv-distance' was declared here while it read the distance between the aortic and tricuspid centres, 4.3-5.6 cm
   // against an approximate 3.0-4.5 with no source. What the anatomy fixes is the gap between the two hinge lines, which
   // the membranous septum spans: 0.26-1.14 cm in every case against its 9.0-11.4 mm (decision 306).

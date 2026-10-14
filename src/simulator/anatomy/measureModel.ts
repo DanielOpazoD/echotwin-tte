@@ -282,6 +282,30 @@ export function measureModel(
   // RV anteroposterior dimension in the PLAX plane (anteroseptal direction, azimuth 120°), at the LVOT level
   const rPlax = lvEpicardialRadiusAt(heart, edPose, 2.094, 3.0) + 0.9;
   const rvPlax = runDir(edPose, rvStructs, [-0.5 * rPlax, 0.866 * rPlax, 3.0], [-0.5, 0.866, 0], 4);
+  // the aortoseptal angle in the PLAX plane (z and the anteroseptal direction): the septal endocardium from 1.2 to 4 cm
+  // below the annulus, fitted with a line, against the aortic root axis
+  const aortoseptalAngleDeg = ((): number => {
+    const pts: [number, number][] = [];
+    for (let z = 1.2; z <= 4.01; z += 0.2)
+      for (let u = 0; u < 5; u += 0.02)
+        if (
+          classifyHeart(heart, edPose, -0.5 * u, 0.866 * u, z, s) &&
+          s.structure === Structure.LvWallSeptal
+        ) {
+          pts.push([u, z]);
+          break;
+        }
+    const n = pts.length;
+    const mu = pts.reduce((a, p) => a + p[0], 0) / n,
+      mz = pts.reduce((a, p) => a + p[1], 0) / n;
+    const b =
+      pts.reduce((a, p) => a + (p[1] - mz) * (p[0] - mu), 0) /
+      pts.reduce((a, p) => a + (p[1] - mz) ** 2, 0);
+    const ax = A.avAxis;
+    const au = -0.5 * ax.x + 0.866 * ax.y;
+    const cos = (b * au + ax.z) / (Math.hypot(b, 1) * Math.hypot(au, ax.z));
+    return (Math.acos(Math.max(-1, Math.min(1, cos))) * 180) / Math.PI;
+  })();
   const laAP = runAt(esPose, [Structure.LaCavity], [A.laCenter.x, A.laCenter.y, A.laCenter.z], 1);
   const laTr = runAt(esPose, [Structure.LaCavity], [A.laCenter.x, A.laCenter.y, A.laCenter.z], 0);
   const laLong = runAt(
@@ -459,6 +483,24 @@ export function measureModel(
   );
   add('rv-wall', 'RV free wall thickness', rvWall, 'cm', 0.2, 0.5, RH);
   add('rv-plax', 'RV AP dimension (PLAX)', rvPlax, 'cm', 1.7, 3.2, RH, true);
+  // The aortoseptal angle (decision 315): in the end-diastolic long axis, between the LV septal surface running toward
+  // the apex and the aorta running out of the heart; 180° would be an aorta in line with the septum. In 77 healthy
+  // adults it measures 134 ± 13° and closes with age (r = −0.64 at 43 ± 14 years: −0.60° a year; Okada et al., J Clin
+  // Ultrasound 2014;42:341), as the ascending aorta lengthens. The range is that regression's 10th–90th percentiles for
+  // the case's age (residual SD 13·√(1 − 0.64²) = 10.0°).
+  {
+    const age = c.demographics.ageYears;
+    const expected = 134 - 0.603 * (age - 43.2);
+    add(
+      'aortoseptal-angle',
+      "Aortoseptal angle (PLAX, for the case's age)",
+      aortoseptalAngleDeg,
+      '°',
+      expected - 12.8,
+      expected + 12.8,
+      'okada-asa-2014',
+    );
+  }
   add('la-ap', 'LA AP diameter (PLAX)', laAP, 'cm', female ? 2.7 : 3.0, female ? 3.8 : 4.0, CQ);
   add('la-transverse', 'LA transverse (A4C)', laTr, 'cm', 3.4, 5.0, CQ, true);
   add('la-long', 'LA long axis (A4C)', laLong, 'cm', 4.0, 5.8, CQ, true);

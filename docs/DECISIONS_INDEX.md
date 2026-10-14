@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 314 (última: 314).
+Decisiones: 315 (última: 315).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -322,3 +322,4 @@ Decisiones: 314 (última: 314).
 | [312](DECISIONS.md#L1977) | 2026-10-12 | La reverberación de la pared torácica no se apaga detrás del corazón, y el entorno del VI se mide contra CAMUS en la cadena de la app. | vigente |
 | [313](DECISIONS.md#L2000) | 2026-10-12 | La reverberación de la pared sobre el pulmón tampoco se apaga detrás del corazón, y el perfil transmural depende de dónde corre el contorno. | vigente |
 | [314](DECISIONS.md#L2011) | 2026-10-12 | La raíz de la TC baja con la inspiración y con la edad; el modelo se compara con lo que la TC predice para cada caso. | vigente |
+| [315](DECISIONS.md#L2028) | 2026-10-12 | El ángulo aortoseptal del modelo es el de un adulto joven en todos los casos. | vigente |
