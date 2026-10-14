@@ -132,6 +132,7 @@ export const STRUCTURE_LABELS: Record<number, string> = {
   [Structure.Chordae]: 'cuerdas tendinosas',
   [Structure.ModeratorBand]: 'banda moderadora',
   [Structure.LaAppendage]: 'orejuela izquierda',
+  [Structure.RaAppendage]: 'orejuela derecha',
   [Structure.PulmonaryVein]: 'vena pulmonar',
   [Structure.CoronarySinus]: 'seno coronario',
   [Structure.PulmonaryArtery]: 'arteria pulmonar',

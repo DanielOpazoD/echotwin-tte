@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 322 (última: 322).
+Decisiones: 323 (última: 323).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -330,3 +330,4 @@ Decisiones: 322 (última: 322).
 | [320](DECISIONS.md#L2131) | 2026-10-12 | Las venas pulmonares y la orejuela desembocan en la aurícula izquierda, y la derecha les deja sitio. | vigente |
 | [321](DECISIONS.md#L2155) | 2026-10-12 | El seno coronario recorre el surco auriculoventricular posterior por encima del anillo mitral y desemboca en la aurícula derecha. | vigente |
 | [322](DECISIONS.md#L2186) | 2026-10-12 | Dónde está cada estructura: el modelo frente a veinte corazones sanos de un atlas de TC, y las venas pulmonares derechas reorientadas. | vigente |
+| [323](DECISIONS.md#L2215) | 2026-10-12 | La aurícula derecha tiene orejuela. | vigente |

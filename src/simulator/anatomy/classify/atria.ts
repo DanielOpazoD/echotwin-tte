@@ -289,6 +289,49 @@ export function coronarySinusDistance(c: ClassifyCtx, x: number, y: number, z: n
   return Math.max(Math.min(body, ostium), LA_WALL_CM + CS_WALL_CM - c.laCav);
 }
 
+/**
+ * The right atrial appendage (decision 323): the broad pouch of the right atrium that runs forward over the atrioventricular
+ * groove beside the right face of the aortic root. The model had none. Against twenty healthy hearts of a four-chamber CT
+ * atlas (Rodero et al., PLoS Comput Biol 2021) the right atrial myocardium of 60 % or more of them filled 17 cm³ in front
+ * of the model's atrium, up to 5 cm forward of its centre, centred at (−4.2, 3.4, −2.2) cm in the heart frame of the
+ * normal case; on CT the appendage holds 13.3 ± 3.5 mL in men and 10.7 ± 2.8 in women at its largest and 5-6 mL at its
+ * smallest, with a 37 × 26 mm base and 24 mm of depth (BMC Cardiovasc Disord 2025, 60 patients in sinus rhythm).
+ * A rounded cone from inside the atrium's anterosuperior face (RAA_BASE, fractions of its radii from its centre) to a tip
+ * set from the aortic valve centre (RAA_TIP_FROM_AV), radii RAA_BASE_R_CM and RAA_TIP_R_CM scaled with the atrium, with the
+ * wall of the left appendage.
+ */
+export const RAA_BASE: readonly [number, number, number] = [0, 0.75, -0.35];
+export const RAA_TIP_FROM_AV: readonly [number, number, number] = [-3.2, 3.0, -1.3];
+export const RAA_BASE_R_CM = 1.1;
+export const RAA_TIP_R_CM = 0.55;
+
+/** Distance to the right atrial appendage's lumen (decision 323). */
+export function rightAppendageDistance(
+  c: ClassifyCtx,
+  bo: number,
+  x: number,
+  y: number,
+  z: number,
+): number {
+  const A = c.A,
+    ra = A.raCenter,
+    rr = A.raR,
+    av = A.avCenter;
+  return sdRoundCone(
+    x,
+    y,
+    z,
+    ra.x + RAA_BASE[0] * rr.x,
+    ra.y + RAA_BASE[1] * rr.y,
+    ra.z + RAA_BASE[2] * rr.z,
+    av.x + RAA_TIP_FROM_AV[0],
+    av.y + RAA_TIP_FROM_AV[1],
+    av.z + RAA_TIP_FROM_AV[2],
+    RAA_BASE_R_CM * bo,
+    RAA_TIP_R_CM * bo,
+  );
+}
+
 export function atrialScale(booster: number, reservoir: number, contraction: number): number {
   return booster * (reservoir + (1 - reservoir) * contraction);
 }
@@ -517,9 +560,12 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   // The venae cavae open into the atrium (decision 219): its wall is not drawn across their mouths. The cavae were
   // classified after the wall, so 0.22-0.24 cm of atrial wall closed the inferior vena cava in every case and phase, and
   // 0.10-0.16 cm the superior one in diastole.
+  // the right atrial appendage opens into the atrium and the sac wraps it (decision 323)
+  const dRaa = rightAppendageDistance(c, bo, x, y, z);
+  c.raaEpi = dRaa - LAA_WALL_CM;
   const dSvc = svcDistance(A, x, y, z);
   const dIvc = ivcDistance(A, hp.ivcCollapse, x, y, z);
-  if (dFreeRa < 0.22 && septumPlane < 0 && dSvc >= 0 && dIvc >= 0 && dCs >= 0) {
+  if (dFreeRa < 0.22 && septumPlane < 0 && dSvc >= 0 && dIvc >= 0 && dCs >= 0 && dRaa >= 0) {
     // No wall across the tricuspid orifice: there the atrium opens into the ventricle, and the annulus and
     // leaflets are emitted by the valve block above. Both atria end 0.25 cm past their annulus, but on the
     // left the LV cavity is classified first and claims the orifice, while on the right nothing did — so
@@ -566,6 +612,26 @@ export function classifyAtria(c: ClassifyCtx): boolean {
       (x - ra.x) / rr.x,
       (y - ra.y) / rr.y,
       (z - czR) / rzR,
+      x,
+      y,
+      z,
+      0,
+      Structure.RaWall,
+    );
+    return true;
+  }
+  if (dRaa < 0) {
+    setSample(out, Tissue.Blood, dRaa, 0, 1, 0, x, y, z, 0, Structure.RaAppendage);
+    return true;
+  }
+  if (dRaa < LAA_WALL_CM) {
+    setSample(
+      out,
+      Tissue.Myocardium,
+      -Math.min(dRaa, LAA_WALL_CM - dRaa),
+      0,
+      1,
+      0,
       x,
       y,
       z,

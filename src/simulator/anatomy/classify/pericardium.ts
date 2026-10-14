@@ -78,6 +78,7 @@ export function classifyPericardium(c: ClassifyCtx): boolean {
   const dRaEpi = Math.min(
     sdEllipsoid(x, y, z, ra.x, ra.y, ra.z, rar.x + 0.22, rar.y + 0.22, rar.z + 0.22),
     raSleeve + 0.22, // the lengthened atrium over the vacated base (decision 133)
+    c.raaEpi, // and its appendage (decision 323)
   );
   // The sac around the outflow tract and the trunk stays where the pericardium is anchored (sternopericardial ligaments in
   // front, the arterial reflection on the trunk) while they descend in systole (decision 111). One envelope stands for the

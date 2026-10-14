@@ -2211,3 +2211,27 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     - **Ventrículo derecho**: su miocardio llega 0,1–0,6 cm más a la derecha.
     - **Ventana difícil**: además, la válvula aórtica, la pulmonar y el VD se desvían 0,2–0,5 cm, porque la pared torácica gruesa gira la base.
     - **Desvíos menores**: la aurícula izquierda 0,04 cm por detrás del percentil 10 (su orejuela es pequeña) y la válvula pulmonar 0,01 cm.
+
+323. **La aurícula derecha tiene orejuela.** [Estado: vigente]
+
+    Cuarta parte de la auditoría anatómica: lo que falta. Al modelo le faltaba la orejuela derecha, la bolsa de la aurícula derecha que avanza sobre el surco auriculoventricular junto a la cara derecha de la raíz aórtica. Dos medidas la señalaron:
+    - **Posición de la aurícula.** Frente al atlas de la decisión 322, el centroide del miocardio auricular derecho quedaba 0,5–0,7 cm hacia el septo y 1,2–2,4 cm por detrás.
+    - **Superficies frente al atlas.** Se compararon las superficies en el mismo marco anatómico: la probabilidad de cada celda de 5 mm de contener miocardio de cada cavidad en los veinte corazones, frente a la distancia a la pared del modelo. Delante de la aurícula del modelo quedaban 3,6 cm³ de miocardio auricular presente en el 68 % de los corazones, y 17 cm³ de celdas presentes en el 40 % o más, hasta 5 cm por delante de su centro. En TC la orejuela mide 13,3 ± 3,5 mL en hombres y 10,7 ± 2,8 mL en mujeres en su máximo y 5–6 mL en su mínimo, con una base de 37 × 26 mm y 24 mm de profundidad (BMC Cardiovasc Disord 2025, 60 pacientes en ritmo sinusal).
+
+    Cambio, en la CPU y en la GPU: un cono redondeado (`rightAppendageDistance`):
+    - **Base:** dentro de la cara anterosuperior de la aurícula (`RAA_BASE`).
+    - **Punta:** referida al centro de la válvula aórtica (`RAA_TIP_FROM_AV`), en la región del atlas.
+    - **Radios:** 1,1 y 0,55 cm, escalados con la aurícula a lo largo del ciclo.
+    - **Pared:** la de la orejuela izquierda.
+    - **Etiqueta propia** (`RaAppendage`), fuera del volumen auricular que se compara con la ecografía, que tampoco la incluye.
+    - **Boca:** la pared auricular no se dibuja sobre ella.
+    - **Saco:** el pericardio la envuelve con la aurícula.
+
+    Resultado (caso normal):
+    - **Volumen:** 5,5 mL en telediástole y 9,6 mL en telesístole. Comunica con la aurícula por 3,9–4,7 cm², y su sangre no toca más que su pared y la aurícula.
+    - **Atlas:** en la comparación de superficies no queda miocardio auricular derecho ausente por delante, ni ninguno sobrante. El centroide de la aurícula derecha entra en los percentiles 10–90 del atlas en los dos ejes en el caso normal, y en x en la ventana difícil. Las declaraciones de `atlasPositions.test.ts` que la prueba detectó como sobrantes se retiran; queda la de la ventana difícil en y.
+    - **Volúmenes y diámetros** de la aurícula derecha, sin cambios.
+    - **Vistas:** asoma en el apical de cinco cámaras (hasta el 0,7 % del plano), como un círculo detrás de la aurícula, y en el subcostal de la cava de la hipertensión pulmonar. En el eje corto de grandes vasos no se ve, aunque en la clínica a veces asoma junto a la raíz.
+    - `valveAnatomy.test.ts`, que sube desde el anillo tricuspídeo hasta el techo de la aurícula, acepta ahora la orejuela como aurícula.
+
+    Sin modelar: la forma triangular aplanada, los músculos pectíneos, la cresta terminal y su vaciado propio (aquí sigue la escala de la aurícula).

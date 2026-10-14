@@ -1222,7 +1222,8 @@ describe('venous inflow (decision 219)', () => {
           for (let z = tv.cz; z > tv.cz - 9; z -= 0.02) {
             const hit = classifyHeart(heart, pose, x + pose.swingX, y, z, s);
             const st = hit ? s.structure : -1;
-            if (st === Structure.RaCavity) inAtrium = true;
+            // the appendage opens from the roof's anterior part and is atrium too (decision 323)
+            if (st === Structure.RaCavity || st === Structure.RaAppendage) inAtrium = true;
             else if (inAtrium) {
               // its own wall, the vein entering it, or the ventricular wall it meets at the atrioventricular junction
               if (st !== Structure.RaWall && st !== Structure.Svc && st !== Structure.RvWall)

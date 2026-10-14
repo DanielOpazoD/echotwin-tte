@@ -172,6 +172,8 @@ export const enum Structure {
   BrachiocephalicArtery,
   LeftCommonCarotid,
   LeftSubclavian,
+  /** The right atrial appendage (decision 323). */
+  RaAppendage,
 }
 
 export function makeSample(): TissueSample {

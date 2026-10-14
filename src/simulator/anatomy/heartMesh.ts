@@ -115,7 +115,8 @@ export const MESH_GROUPS: GroupSpec[] = [
       s === Structure.RaCavity ||
       s === Structure.LaWall ||
       s === Structure.RaWall ||
-      s === Structure.LaAppendage,
+      s === Structure.LaAppendage ||
+      s === Structure.RaAppendage,
   },
   {
     id: 'valves',
