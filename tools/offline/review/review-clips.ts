@@ -1,5 +1,5 @@
 /**
- * Clinical review clips (decision 328): the review of decision 326 as it is lived, not as still frames.
+ * Clinical review clips (decision 329): the review of decision 326 as it is lived, not as still frames.
  *   - Cine: for each view and each of the four review cases, one cardiac cycle at 40 fps through the CPU chain
  *     (`ProceduralSliceRenderer` on the polar frame, the console with its persistence, the scan LUT), played in real
  *     time (1×), looping. With `--map`, the labelled structure map of the same polar frame plays beside the echo.

@@ -1,5 +1,5 @@
 /**
- * What the clinical review tools share (decisions 326 and 328): the four cases of the review, the sector geometry of
+ * What the clinical review tools share (decisions 326 and 329): the four cases of the review, the sector geometry of
  * the CPU chain (the polar spec at high quality, its sector mapping and scan LUT at 512×440), the render of one polar
  * frame through the app's chain, the structure map drawn from that same frame (`frame.structure` through the LUT, as
  * `clinicalImage.ts` reads it) with its labels, and the bitmap text the sheets and clips write with.

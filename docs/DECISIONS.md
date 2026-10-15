@@ -2354,7 +2354,7 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
 
 ## 2026-10-15
 
-328. **Clips de revisión clínica: cine de un ciclo en tiempo real y barridos de sonda, en GIF (y MP4 con ffmpeg).** [Estado: vigente]
+329. **Clips de revisión clínica: cine de un ciclo en tiempo real y barridos de sonda, en GIF (y MP4 con ffmpeg).** [Estado: vigente]
 
     Las hojas de la decisión 326 son fotogramas fijos, y lo que Daniel juzga con ojo clínico es también la cinética (cómo se mueve cada pared, cómo abren y cierran los velos) y la continuidad al mover la sonda (que ninguna estructura aparezca o desaparezca a saltos). `tools/offline/review/review-clips.ts`, hermano de `review-sheets.ts`, genera esa revisión en movimiento con la misma cadena de CPU: `ProceduralSliceRenderer` sobre el fotograma polar en calidad alta, la consola del caso y la conversión de sector por la tabla de barrido (`buildScanLut`) a 512×440. Lo que las dos herramientas comparten (los cuatro casos, la geometría del sector, el render de un fotograma, el mapa de estructuras del mismo fotograma polar con sus rótulos, la fuente de mapa de bits) se extrae a `tools/offline/review/reviewFrame.ts`; las hojas regeneradas tras la extracción son idénticas byte a byte a las anteriores (`cmp` de los PNG y `diff` de los censos del A4C y el PLAX).
 

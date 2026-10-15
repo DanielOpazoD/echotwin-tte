@@ -1,6 +1,6 @@
 /**
  * Minimal animated GIF encoder (GIF89a, one global 256-colour table, LZW, infinite loop), with no dependency, for the
- * review clips (decision 328). A GIF holds 256 colours per image and delays in hundredths of a second: the palette is
+ * review clips (decision 329). A GIF holds 256 colours per image and delays in hundredths of a second: the palette is
  * built by `buildPalette` from the colours a clip is known to draw, and a cadence the delay grid cannot express exactly
  * (40 fps = 2.5 cs) is kept on average by alternating delays (`delaysFor`).
  */
