@@ -15,3 +15,5 @@ public/atlas/*.bin
 *.nii.gz
 database_nifti/
 tsconfig.tsbuildinfo
+# offline tool output (renders, maps, review sheets)
+tools/offline/**/out/

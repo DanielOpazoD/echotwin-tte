@@ -141,6 +141,12 @@ export const STRUCTURE_LABELS: Record<number, string> = {
   [Structure.HepaticVein]: 'vena hepática',
   [Structure.Diaphragm]: 'diafragma',
   [Structure.EpicardialFat]: 'grasa epicárdica',
+  [Structure.Stomach]: 'estómago',
+  [Structure.AscendingAorta]: 'aorta ascendente',
+  [Structure.AorticArch]: 'arco aórtico',
+  [Structure.BrachiocephalicArtery]: 'tronco braquiocefálico',
+  [Structure.LeftCommonCarotid]: 'carótida común izquierda',
+  [Structure.LeftSubclavian]: 'subclavia izquierda',
 };
 
 export const TISSUE_LABELS: Record<number, string> = {
