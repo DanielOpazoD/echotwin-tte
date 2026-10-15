@@ -2,6 +2,9 @@ import {
   IAS_LEFT_FACE_CM,
   iasThickness,
   LA_CORNER_ANTERIOR_MARGIN_CM,
+  LA_CORNER_HEIGHT_CM,
+  LA_BASE_BOUND_READ_CM,
+  laBaseSdf,
   LA_CORNER_FLAT_CM,
   LA_POSTERIOR_RATIO,
   LA_SEPTAL_FLAT_CM,
@@ -14,6 +17,7 @@ export { iasThickness } from '../laGeometry';
 import { Structure, Tissue } from '../tissue';
 import { sdCapsule, sdEllipsoid, sdRoundCone, smax, smin } from '../sdf';
 import { ROOT_EXCURSION } from '../heartFrame';
+import { mitralOutlineSdf } from '../mitralValve';
 import { latticeNoise3 } from '@/core/noise';
 import { rvFloorZ, rvRadii } from '../rv';
 import { skirtOffsetAt, skirtWarpScale } from '../valveSkirt';
@@ -85,11 +89,7 @@ export const RA_SEPTAL_RELEASE_RAMP_CM = 0.6;
  * shape and its thin wall there (its volume stays the case's).
  */
 export const FOSSA_REACH = 1.0;
-/**
- * Height (cm) above the annulus of the septal corner the atrium fills (decision 318): it reaches the septum there wherever
- * its own section does at its centre.
- */
-export const LA_CORNER_HEIGHT_CM = 1.2;
+export { LA_CORNER_HEIGHT_CM } from '../laGeometry';
 /** How far past the interatrial plane (cm) the released atrium may reach: its own shape bounds it. */
 export const RA_SEPTAL_RELEASE_CM = 4;
 export const RA_MEMBRANOUS_TO: readonly [number, number, number] = [-1.45, -0.85, 0.05];
@@ -444,13 +444,37 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   const mvA = V.mitral;
   const rootClearFace =
     (xFace - mvA.cx) * mvA.ux + (y - mvA.cy) * mvA.uy - (mvA.D + LA_CORNER_ANTERIOR_MARGIN_CM);
-  const dCorner = Math.max(
-    xFace + cornerOff - x,
-    x - la.x,
-    zRef - z,
-    z - zHingeHere,
+  // the base reads the curtain's bound a little medial of the point, at the face near the face (decision 328)
+  const xRead = Math.max(xFace, x - LA_BASE_BOUND_READ_CM);
+  const rootClearBase =
+    (xRead - mvA.cx) * mvA.ux + (y - mvA.cy) * mvA.uy - (mvA.D + LA_CORNER_ANTERIOR_MARGIN_CM);
+  // and all around the annulus the base flares from the hinge up to that section (decision 328): the ellipsoid tapered
+  // to a tip above the annulus, so 3 mm outside the ring the blood lay 2.5 cm above the hinge behind 6-19 mm of fat, and
+  // under the anterior hinge of the two-chamber view 10 mm of fat and filler stood where the atrium is
+  const dCrossEq = leftAtrialFreeSdf(
+    la.x,
+    y,
+    czL,
+    la.x,
+    la.y,
+    czL,
+    lr.x * bo,
+    lr.y * bo,
+    rzL,
+    zTop,
+  );
+  const dCorner = laBaseSdf(
+    x,
+    la.x,
+    xFace,
+    cornerOff,
+    z,
+    zRef,
+    zHingeHere,
     dCrossRef,
-    rootClearFace,
+    dCrossEq,
+    rootClearBase,
+    mitralOutlineSdf(x, y, mvA),
   );
   // and over the fossa ovalis, wherever its section reaches, the atrium meets the septum (decision 319): the fossa's floor
   // is the one true septum, a membrane between the two atrial cavities; around it the rims are folds of the atrial walls

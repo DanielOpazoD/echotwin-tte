@@ -250,10 +250,10 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // decision 261: without the window's extra chest-wall attenuation the near field (2-4 cm) is brighter than clinical
   // and the gradients sharper; the cavity bands and the bright end come inside (the 0-2 cm band at decision 264)
   ['4CH-ED:bandGrey2', 0.19],
-  ['2CH-ED:gradientP95', 0.45],
+  ['2CH-ED:gradientP95', 0.62],
   // decision 299: walls beside blood keep more of their echo, so the steepest gradients sharpen and the two-chamber
   // end-systolic sector edge falls off a little faster
-  ['4CH-ED:gradientP95', 0.16],
+  ['4CH-ED:gradientP95', 0.34],
   ['2CH-ES:gradientP95', 0.17],
   ['2CH-ES:bandGrey2', 0.19],
   // Measured since decision 258 as the app shows it, through the console's persistence, with the haze of the cavities:
@@ -276,17 +276,15 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // through the persistence a little smoother over the sector (local std)
   // decision 324: with the superior vena cava joining the top of the atrium, the end-systolic four-chamber texture at
   // 4 mm (−0.48 before); the end-diastolic one at 4 mm across the beam came inside
-  ['4CH-ES:radialCorr4', -0.5],
+  ['4CH-ES:radialCorr4', -0.35],
   ['2CH-ED:radialCorr2', 0.61],
   // decision 321: with the coronary sinus at the inferior groove, the two-chamber end-diastolic texture at 8 mm (−0.11 before)
-  ['2CH-ED:radialCorr8', -0.25],
   ['2CH-ED:radialCorr1', 0.62],
   ['2CH-ES:radialCorr1', 0.52],
   ['2CH-ED:tangentialCorr4', -0.69],
   // grey levels: the 2-4 cm band brighter than clinical (the app's near-field clutter, decision 238, more so without the
   // window's chest-wall attenuation of decision 261; the 0-2 cm band came inside at 264), the four-chamber end-systolic
   // bright end dimmer
-  ['4CH-ES:greyP95', -0.19],
   // decision 312: the haze recalibrated with its new loss also lifts the first 2 cm of the four-chamber end-systolic
   // sector over the upper quartile (130 against 85-124)
   ['2CH-ED:bandGrey2', 0.5],
@@ -296,8 +294,7 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['2CH-ED:radialCorr4', 0.29],
   // decision 318: with the atrium filling its septal corner the four-chamber end-diastolic texture at 1 mm and the
   // two-chamber end-systolic one at 4 mm move just past the quartiles
-  ['4CH-ED:radialCorr1', 0.16],
-  ['2CH-ES:radialCorr4', -0.12],
+  ['4CH-ED:radialCorr1', 0.33],
   // decision 327: the ventricular wall ends at the hinge of its azimuth, basal of the mean annular plane at the anterior
   // and inferior hinges the two-chamber view cuts, and the atrium lies flat on the septum: the two-chamber texture moves
   // (ridges 1.83 → 1.99 and 1.22 → 1.38, the end-diastolic myocardial residual −0.52 → −0.70, the end-systolic speckle
@@ -305,6 +302,13 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // end-systolic dark end inside), and the four-chamber end-diastolic texture at 8 mm across the beam steps just past
   // them (the ridges and the lateral tail remain the next target, docs/LIMITATIONS.md)
   ['4CH-ED:tangentialCorr8', 0.37],
+  // decision 328: with the atrium's base broad on its annulus (the fat wedges under the hinges gone, the atrium against
+  // the root in the long axis) the apical gradients at the 95th percentile and the four-chamber end-diastolic texture at
+  // 1 mm and 4 mm along the beam step a little farther out (0.16 → 0.34, 0.45 → 0.62, 0.16 → 0.33, −0.32), the
+  // end-systolic one at 4 mm closer (−0.5 → −0.35) and at 1 mm across the beam just out (0.13); the end-systolic bright
+  // end, the two-chamber texture at 8 mm along the beam and the end-systolic one at 4 mm come inside
+  ['4CH-ED:radialCorr4', -0.32],
+  ['4CH-ES:tangentialCorr1', 0.13],
 ]);
 
 /**

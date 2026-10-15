@@ -23,7 +23,6 @@ import { atrialScale } from '@/simulator/anatomy/classify/atria';
  */
 const KNOWN_CLOSED_MOUTHS: Record<string, string> = {
   'hfref-severe-mr': 'left superior vein',
-  'aortic-stenosis-moderate': 'left superior vein',
   'aortic-stenosis-severe': 'left superior vein',
   'hocm-sam': 'left superior vein',
   'mvp-primary-mr': 'left superior vein',
