@@ -122,9 +122,9 @@ export function atlasMarks(heart: HeartModel, hp: HeartPose, h = 0.2): AtlasMark
   // the appendage's axis (classify/atria.ts) and the venae cavae from the atrium outward
   vessels['appendage'] = dir([lr.x * 0.4, 2.0, 0.5]);
   vessels['superiorVenaCava'] = dir([
-    A.svcB.x - A.svcA.x,
-    A.svcB.y - A.svcA.y,
-    A.svcB.z - A.svcA.z,
+    A.svcM.x - A.svcA.x,
+    A.svcM.y - A.svcA.y,
+    A.svcM.z - A.svcA.z,
   ]);
   vessels['inferiorVenaCava'] = dir([
     A.ivcB.x - A.ivcA.x,

@@ -23,6 +23,29 @@ import type { Vec3 } from '@/core/vec3';
 import { add, cross, dot, normalize, scale, sub, v3 } from '@/core/vec3';
 
 // ---- Fixed anatomical anchor points (heart frame, ED), scaled by LV size where sensible ----
+/**
+ * Where and how the superior vena cava joins the right atrium (decision 324). Its junction was set at the basal pole of the
+ * atrium in the heart frame, which in the torso points right and back more than up: the cava joined the atrium 2.4 cm
+ * below the aortic valve in the normal case and rose through the apical four-chamber plane, where it drew a circle beyond
+ * the atrium (1.2 % of the sector). Over twenty healthy hearts of a four-chamber CT atlas (Rodero et al., PLoS Comput Biol
+ * 2021) the cava 3 cm from the atrium lies 3.8 cm right of the aortic valve, 1.3 cm above it and 1.0 cm behind, and its
+ * direction there (the normal of the ring where the atlas cut it) is up and back, (0.08, 0.62, −0.78) in the torso.
+ * The junction is now the atrium's surface in the torso direction SVC_JUNCTION_TORSO from its centre, SVC_JUNCTION_INSET_CM
+ * inside it; an entry segment SVC_ENTRY_CM long takes the atlas direction, and the rest rises.
+ */
+export const SVC_JUNCTION_TORSO: readonly [number, number, number] = [-0.15, 1, -0.15];
+export const SVC_JUNCTION_INSET_CM = 1.0;
+export const SVC_ENTRY_TORSO: readonly [number, number, number] = [0.08, 0.62, -0.78];
+export const SVC_ENTRY_CM = 1.5;
+/**
+ * The right atrial appendage leaves the atrium's anterosuperior face (decisions 323-324), in front of the cava's junction,
+ * the crista terminalis between them: its base is the atrium's surface in the torso direction RAA_BASE_TORSO from its
+ * centre, RAA_BASE_INSET_CM inside it. Set at first along the heart frame's anterior axis, which in the torso points
+ * mostly up, the base sat on the atrial roof where the cava joins, and the cava opened into the appendage.
+ */
+export const RAA_BASE_TORSO: readonly [number, number, number] = [-0.15, 0.55, 0.82];
+export const RAA_BASE_INSET_CM = 0.6;
+
 export interface Anchors {
   mvCenter: Vec3;
   mvR: number;
@@ -76,6 +99,10 @@ export interface Anchors {
   fossaZ: number;
   /** Venae cavae and a hepatic vein as capsules (heart frame; directions follow the patient's torso). */
   svcA: Vec3;
+  /** Centre of the right atrial appendage's base (decision 324). */
+  raaBase: Vec3;
+  /** End of the superior vena cava's entry segment, where it turns upward (decision 324). */
+  svcM: Vec3;
   svcB: Vec3;
   svcR: number;
   ivcA: Vec3;
@@ -155,9 +182,19 @@ export function anchors(m: HeartModel): Anchors {
     tAnt = dirH(v3(0, 0, 1)),
     tSup = dirH(v3(0, 1, 0)),
     tInf = dirH(v3(0, -1, 0));
-  // venae cavae: SVC from the posterior RA roof upward, IVC from the posterior RA floor downward and back
+  // venae cavae: SVC from the RA's top (decision 324), IVC from the posterior RA floor downward and back
   const tvZ0 = 0.7;
-  const svcA = v3(raCenter.x + 0.1, raCenter.y - 0.35 * raRy, raCenter.z - raRz + 0.6);
+  // the cava joins the atrium at its top in the torso, and leaves it up and back before it rises (decision 324)
+  const svcUp = normalize(dirH(v3(...SVC_JUNCTION_TORSO)));
+  const svcReach =
+    1 / Math.hypot(svcUp.x / raRx, svcUp.y / raRy, svcUp.z / raRz) - SVC_JUNCTION_INSET_CM;
+  const svcA = add(raCenter, scale(svcUp, svcReach));
+  const svcM = add(svcA, scale(normalize(dirH(v3(...SVC_ENTRY_TORSO))), SVC_ENTRY_CM));
+  const raaU = normalize(dirH(v3(...RAA_BASE_TORSO)));
+  const raaBase = add(
+    raCenter,
+    scale(raaU, 1 / Math.hypot(raaU.x / raRx, raaU.y / raRy, raaU.z / raRz) - RAA_BASE_INSET_CM),
+  );
   const ivcA = v3(raCenter.x + 0.3, raCenter.y - 0.45 * raRy, tvZ0 + 0.25 - 0.4);
   const ivcDir = normalize(add(tInf, scale(tPost, 0.25)));
   const hvA = add(ivcA, scale(ivcDir, 2.4));
@@ -232,7 +269,9 @@ export function anchors(m: HeartModel): Anchors {
     fossaY: FOSSA_Y,
     fossaZ: FOSSA_Z,
     svcA,
-    svcB: add(svcA, scale(tSup, 4.2)),
+    raaBase,
+    svcM,
+    svcB: add(svcM, scale(tSup, 4.2 - SVC_ENTRY_CM)),
     svcR: 0.9,
     ivcA,
     ivcB: add(ivcA, scale(ivcDir, 5.0)),

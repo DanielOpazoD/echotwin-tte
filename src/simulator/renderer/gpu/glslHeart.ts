@@ -87,10 +87,10 @@ import {
   RA_MEMBRANOUS_R_CM,
   RA_MEMBRANOUS_TO,
   RA_RIGHT_VEIN_CLEARANCE_CM,
-  RAA_BASE,
   RAA_TIP_FROM_AV,
   RAA_BASE_R_CM,
   RAA_TIP_R_CM,
+  RAA_ABOVE_FLOOR_CM,
   RA_SEPTAL_RELEASE_CM,
   RA_SEPTAL_RELEASE_LA_CM,
   RA_SEPTAL_RELEASE_RAMP_CM,
@@ -140,14 +140,12 @@ const float RA_MEMBRANOUS_TO_Y = ${f(RA_MEMBRANOUS_TO[1])};
 const float RA_MEMBRANOUS_TO_Z = ${f(RA_MEMBRANOUS_TO[2])};
 const float RA_MEMBRANOUS_R_CM = ${f(RA_MEMBRANOUS_R_CM)};
 const float RA_RIGHT_VEIN_CLEARANCE_CM = ${f(RA_RIGHT_VEIN_CLEARANCE_CM)};
-const float RAA_BASE_X = ${f(RAA_BASE[0])};
-const float RAA_BASE_Y = ${f(RAA_BASE[1])};
-const float RAA_BASE_Z = ${f(RAA_BASE[2])};
 const float RAA_TIP_FROM_AV_X = ${f(RAA_TIP_FROM_AV[0])};
 const float RAA_TIP_FROM_AV_Y = ${f(RAA_TIP_FROM_AV[1])};
 const float RAA_TIP_FROM_AV_Z = ${f(RAA_TIP_FROM_AV[2])};
 const float RAA_BASE_R_CM = ${f(RAA_BASE_R_CM)};
 const float RAA_TIP_R_CM = ${f(RAA_TIP_R_CM)};
+const float RAA_ABOVE_FLOOR_CM = ${f(RAA_ABOVE_FLOOR_CM)};
 const float CS_ABOVE_ANNULUS_CM = ${f(CS_ABOVE_ANNULUS_CM)};
 const float CS_LATERAL_X_CM = ${f(CS_LATERAL_X_CM)};
 const float CS_CRUX_FROM_IAS_CM = ${f(CS_CRUX_FROM_IAS_CM)};
@@ -1067,10 +1065,12 @@ bool classifyHeart(vec3 p0, out Sample s) {
       return true;
     }
     // decision 323
-    float dRaa = sdRoundCone(p, ra + vec3(RAA_BASE_X * rar.x, RAA_BASE_Y * rar.y, RAA_BASE_Z * rar.z), vec3(AV_CX + RAA_TIP_FROM_AV_X, AV_CY + RAA_TIP_FROM_AV_Y, AV_CZ + RAA_TIP_FROM_AV_Z), RAA_BASE_R_CM * bo, RAA_TIP_R_CM * bo);
+    float dRaa = sdRoundCone(p, vec3(RAA_BX, RAA_BY, RAA_BZ), vec3(AV_CX + RAA_TIP_FROM_AV_X, AV_CY + RAA_TIP_FROM_AV_Y, AV_CZ + RAA_TIP_FROM_AV_Z), RAA_BASE_R_CM * bo, RAA_TIP_R_CM * bo);
+    dRaa = smax(dRaa, z - (zBotR - RAA_ABOVE_FLOOR_CM), 0.2);
     raaEpi = dRaa - LAA_WALL_CM;
     // decision 219
-    float dSvc = sdCapsule(p, vec3(SVC_AX, SVC_AY, SVC_AZ), vec3(SVC_BX, SVC_BY, SVC_BZ), SVC_R);
+    // decision 324: the entry segment and the rest that rises
+    float dSvc = min(sdCapsule(p, vec3(SVC_AX, SVC_AY, SVC_AZ), vec3(SVC_MX, SVC_MY, SVC_MZ), SVC_R), sdCapsule(p, vec3(SVC_MX, SVC_MY, SVC_MZ), vec3(SVC_BX, SVC_BY, SVC_BZ), SVC_R));
     float dIvc = sdCapsule(p, vec3(IVC_AX, IVC_AY, IVC_AZ), vec3(IVC_BX, IVC_BY, IVC_BZ), IVC_R);
     if (dFreeRa < 0.22 && septumPlane < 0.0 && dSvc >= 0.0 && dIvc >= 0.0 && dCs >= 0.0 && dRaa >= 0.0) {
       // no wall across the tricuspid orifice (decision 64): atrial blood up to the annular plane, ventricular past it

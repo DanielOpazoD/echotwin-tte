@@ -2237,3 +2237,47 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     El *worker* de simulación llega a 340,1 kB frente a un presupuesto de 340 kB, que la compactación de los sombreadores (decisión 303) había dejado holgado. Lo llenaron las decisiones 304–323 de la auditoría anatómica, así que el presupuesto sube a 350 kB.
 
     Sin modelar: la forma triangular aplanada, los músculos pectíneos, la cresta terminal y su vaciado propio (aquí sigue la escala de la aurícula).
+
+324. **La vena cava superior entra por el techo de la aurícula derecha, hacia arriba y atrás, y la orejuela sale por delante.** [Estado: vigente]
+
+    Lo encontraron dos medidas, el censo de estructuras por vista y el atlas de la decisión 322:
+    - **Censo por vista.** En cada una de las 13 vistas, en los doce casos y dos fases, la fracción del sector que ocupa cada estructura, revisada con ojo clínico. La vena cava superior ocupaba el 1,2 % del apical de cuatro cámaras del caso normal, y otro tanto del VD-focalizado y del subcostal de cuatro cámaras: un círculo más allá de la aurícula, que en un A4C no se ve.
+    - **Atlas.** Su dirección quedaba a 51–61° de la del atlas, donde sale de la aurícula hacia arriba y hacia atrás.
+
+    La causa fue un error de marco, el de la regla 3 del método. La unión se situaba en el polo basal de la aurícula en el marco del corazón, que en el tórax apunta sobre todo a la derecha y atrás, no arriba: la cava se unía a la aurícula 2,4 cm por debajo de la válvula aórtica. En el atlas, a 3 cm de la aurícula, la cava está 3,8 cm a la derecha de la válvula aórtica, 1,3 cm por encima y 1,0 cm por detrás.
+
+    El mismo error afectaba a la orejuela de la decisión 323: su base estaba en el eje anterior del marco del corazón, que en el tórax es casi «arriba». Base y cava compartían el techo, y la cava desembocaba en la orejuela.
+
+    Cambios, en la CPU y en la GPU (anclajes `svcM` y `raaBase`, parámetros `SVC_M*` y `RAA_B*`):
+    - **Unión de la cava.** Es la superficie de la aurícula en la dirección del tórax `SVC_JUNCTION_TORSO` (arriba, algo atrás), 1,0 cm dentro de ella. Con 0,5 o 0,75 cm la boca quedaba cerrada por la pared en mesodiástole en 27 y 19 de 132 casos y fases; con 1,0 cm está abierta en todos.
+    - **Recorrido.** Un tramo de entrada de 1,5 cm con la dirección del atlas en el tórax, y el resto subiendo en vertical.
+    - **Base de la orejuela.** Pasa a la cara anterosuperior de la aurícula en el tórax (`RAA_BASE_TORSO`), y la orejuela se queda 0,5 cm por encima del suelo auricular, porque su pared llegaba al borde anteroseptal del orificio tricuspídeo.
+
+    Resultado:
+    - **Atlas.** La dirección de la cava queda a 0–10° del atlas en los doce casos (antes 51–61°), y su posición a 3 cm de la aurícula, a (−4,1; 1,6; −1,15) cm de la válvula aórtica en el tórax, dentro de los percentiles 10–90 del atlas. El centroide de la aurícula derecha del caso normal entra en el rango del atlas en los dos ejes. Se retiran las declaraciones sobrantes.
+    - **Vistas.** La cava baja en el A4C del 1,4 % al 0,2 % en telediástole y telesístole. En mesodiástole asoma hasta el 1 % como una prolongación del techo auricular, no como un círculo aparte. En el subcostal de cuatro cámaras, a 0. Aparece en el subcostal de la vena cava inferior, que es la vista bicava, y en el borde derecho del PLAX, por detrás de la ascendente, donde está.
+    - **Boca.** La cava desemboca en la cavidad de la aurícula en los doce casos y diez fases, no en la orejuela.
+    - **Orejuela.** 5,7 mL en telediástole y 8,1 mL en telesístole.
+    - **Interatrial.** En el A4C de la ventana difícil y del caso de artefactos ya no hay cava entre las aurículas: el plano pasa por detrás del septo, por el surco interauricular, con 19–22 mm de pared, grasa y septo. Se corrige el motivo de su declaración.
+    - **CAMUS.** La textura a 4 mm del A4C telesistólico se aleja algo (de −0,48 a −0,69 anchuras intercuartílicas) y la telediastólica a 4 mm, de través, entra en rango. Se actualizan las líneas base y los goldens del A4C tras revisarlos.
+
+325. **Nada aparece en una vista sin motivo.** [Estado: vigente]
+
+    Tercer pilar del plan de auditoría: las estructuras que aparecen sin que nadie las mida. `viewContent.test.ts` exige lo que cada vista debe mostrar y prohíbe unas pocas estructuras por su nombre, así que una estructura que nadie pensó en prohibir podía entrar en un plano sin que nada fallara. Es lo que pasó con la vena cava superior en el A4C hasta la decisión 324, y con la orejuela derecha de la decisión 323, que al principio se abría en la unión de la cava.
+
+    Censo: en las 13 vistas, en los doce casos y en telediástole y mesosístole, la fracción del sector que ocupa cada estructura. Revisado con criterio clínico, queda en `viewIntruders.test.ts` como la lista de estructuras cardiacas y vasculares que cada vista puede contener. Cualquier otra por encima del 0,3 % del sector, en cualquier caso, falla. La pared torácica, el pulmón, el hígado, el pericardio, la grasa, el derrame y la aorta descendente son fondo.
+
+    Aceptadas por anatómicas:
+    - la vena cava superior en el borde derecho del PLAX, detrás de la ascendente (decisión 324), y en el A3C;
+    - el seno coronario en el eje corto mitral;
+    - la aorta descendente distal al fondo del A2C;
+    - la orejuela derecha en el A5C;
+    - el TSVD y la aorta ascendente al fondo del supraesternal y del subcostal de la vena cava inferior.
+
+    Declaradas (`KNOWN_VIEW_INTRUDERS`), con su motivo:
+    - **Eje corto mitral.** Las aurículas, sus paredes y una vena pulmonar derecha, al fondo del sector: el plano se inclina hacia las aurículas por detrás de la base, la misma causa que ya metía ahí la vena cava inferior (decisión 164).
+    - **A2C.** El tronco pulmonar (decisiones 72 y 83).
+    - **Taponamiento.** El corazón que se balancea mete la vena cava inferior y la raíz aórtica en el A2C y la cava en el subcostal de cuatro cámaras.
+    - **Caso de artefactos.** El plano del A2C roza la pared del VD en el borde septal.
+
+    Validación por mutación: sin la cava en la lista del PLAX, la prueba falla con «plax/VCS 0,31 %». La lista no limita cuánto ocupa una estructura permitida: la cava del A4C (decisión 324) está permitida hasta su prolongación del techo auricular. Ese control lo hacen el censo y las pruebas propias de cada estructura.

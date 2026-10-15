@@ -88,7 +88,11 @@ export const RA_CREST_REACH_CM = 1.5;
 
 /** Distance to the superior vena cava, which enters the roof of the atrium from above (decision 219). */
 export function svcDistance(A: AnchorsCached, x: number, y: number, z: number): number {
-  return sdCapsule(x, y, z, A.svcA.x, A.svcA.y, A.svcA.z, A.svcB.x, A.svcB.y, A.svcB.z, A.svcR);
+  // its entry segment and the rest that rises (decision 324)
+  return Math.min(
+    sdCapsule(x, y, z, A.svcA.x, A.svcA.y, A.svcA.z, A.svcM.x, A.svcM.y, A.svcM.z, A.svcR),
+    sdCapsule(x, y, z, A.svcM.x, A.svcM.y, A.svcM.z, A.svcB.x, A.svcB.y, A.svcB.z, A.svcR),
+  );
 }
 
 /** Distance to the inferior vena cava, narrowed by its respiratory collapse (decision 113). */
@@ -296,14 +300,18 @@ export function coronarySinusDistance(c: ClassifyCtx, x: number, y: number, z: n
  * of the model's atrium, up to 5 cm forward of its centre, centred at (−4.2, 3.4, −2.2) cm in the heart frame of the
  * normal case; on CT the appendage holds 13.3 ± 3.5 mL in men and 10.7 ± 2.8 in women at its largest and 5-6 mL at its
  * smallest, with a 37 × 26 mm base and 24 mm of depth (BMC Cardiovasc Disord 2025, 60 patients in sinus rhythm).
- * A rounded cone from inside the atrium's anterosuperior face (RAA_BASE, fractions of its radii from its centre) to a tip
+ * A rounded cone from inside the atrium's anterosuperior face (`raaBase` in the anchors, decision 324) to a tip
  * set from the aortic valve centre (RAA_TIP_FROM_AV), radii RAA_BASE_R_CM and RAA_TIP_R_CM scaled with the atrium, with the
  * wall of the left appendage.
  */
-export const RAA_BASE: readonly [number, number, number] = [0, 0.75, -0.35];
 export const RAA_TIP_FROM_AV: readonly [number, number, number] = [-3.2, 3.0, -1.3];
 export const RAA_BASE_R_CM = 1.1;
 export const RAA_TIP_R_CM = 0.55;
+/**
+ * Height (cm) over the atrial floor below which the appendage does not reach (decision 324): its base lies over the
+ * anterior atrioventricular groove, and without this its wall reached the anteroseptal edge of the tricuspid orifice.
+ */
+export const RAA_ABOVE_FLOOR_CM = 0.5;
 
 /** Distance to the right atrial appendage's lumen (decision 323). */
 export function rightAppendageDistance(
@@ -314,16 +322,15 @@ export function rightAppendageDistance(
   z: number,
 ): number {
   const A = c.A,
-    ra = A.raCenter,
-    rr = A.raR,
+    b = A.raaBase,
     av = A.avCenter;
   return sdRoundCone(
     x,
     y,
     z,
-    ra.x + RAA_BASE[0] * rr.x,
-    ra.y + RAA_BASE[1] * rr.y,
-    ra.z + RAA_BASE[2] * rr.z,
+    b.x,
+    b.y,
+    b.z,
     av.x + RAA_TIP_FROM_AV[0],
     av.y + RAA_TIP_FROM_AV[1],
     av.z + RAA_TIP_FROM_AV[2],
@@ -561,7 +568,8 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   // classified after the wall, so 0.22-0.24 cm of atrial wall closed the inferior vena cava in every case and phase, and
   // 0.10-0.16 cm the superior one in diastole.
   // the right atrial appendage opens into the atrium and the sac wraps it (decision 323)
-  const dRaa = rightAppendageDistance(c, bo, x, y, z);
+  // above the atrioventricular groove: it stays RAA_ABOVE_FLOOR_CM over the atrial floor, clear of the tricuspid orifice
+  const dRaa = smax(rightAppendageDistance(c, bo, x, y, z), z - (zBotR - RAA_ABOVE_FLOOR_CM), 0.2);
   c.raaEpi = dRaa - LAA_WALL_CM;
   const dSvc = svcDistance(A, x, y, z);
   const dIvc = ivcDistance(A, hp.ivcCollapse, x, y, z);

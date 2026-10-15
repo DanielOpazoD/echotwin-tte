@@ -25,12 +25,14 @@ import {
  * ellipsoid, met the septum only around its equator. On the drawn plane, from 0.6 to 2.5 cm beyond the deepest annulus
  * sample, across the lines from the right atrial blood to the left atrial blood: at most 9 mm of tissue and no fat.
  *
- * Declared: the difficult window and the artifact challenge, whose four-chamber plane cuts the superior vena cava between
- * the atria (a plane, not a septum, to be measured on its own), and the tamponade at end-diastole.
+ * Declared: the difficult window and the artifact challenge, whose four-chamber plane passes behind the septum through
+ * the interatrial groove (since decision 324 the superior vena cava no longer lies there), and the tamponade at end-diastole.
  */
 const KNOWN_INTERATRIAL_TISSUE: Record<string, string> = {
-  'normal-difficult-window': 'the plane cuts the superior vena cava between the atria',
-  'artifact-challenge': 'the plane cuts the superior vena cava between the atria',
+  'normal-difficult-window':
+    'the plane passes behind the septum, through the interatrial groove: right atrial wall, fat and septum (19 mm)',
+  'artifact-challenge':
+    'the plane passes behind the septum, through the interatrial groove: right atrial wall, fat and septum (19-22 mm)',
   'pericardial-effusion-tamponade @0': 'fat between the atria at end-diastole',
 };
 const MAX_MM = 9;

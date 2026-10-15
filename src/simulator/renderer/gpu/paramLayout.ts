@@ -194,6 +194,12 @@ const SCALARS = [
   'SVC_AX',
   'SVC_AY',
   'SVC_AZ',
+  'SVC_MX',
+  'SVC_MY',
+  'SVC_MZ',
+  'RAA_BX',
+  'RAA_BY',
+  'RAA_BZ',
   'SVC_BX',
   'SVC_BY',
   'SVC_BZ',
@@ -521,6 +527,12 @@ export function packScene(
   set('SVC_AX', A.svcA.x);
   set('SVC_AY', A.svcA.y);
   set('SVC_AZ', A.svcA.z);
+  set('SVC_MX', A.svcM.x);
+  set('SVC_MY', A.svcM.y);
+  set('SVC_MZ', A.svcM.z);
+  set('RAA_BX', A.raaBase.x);
+  set('RAA_BY', A.raaBase.y);
+  set('RAA_BZ', A.raaBase.z);
   set('SVC_BX', A.svcB.x);
   set('SVC_BY', A.svcB.y);
   set('SVC_BZ', A.svcB.z);

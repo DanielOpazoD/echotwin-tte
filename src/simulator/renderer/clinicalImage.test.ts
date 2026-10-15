@@ -275,8 +275,9 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['2CH-ED:ridgeFraction', 1.83],
   // texture longer along the beam at 1 mm (0.34 against 0.20-0.23), less coherent across it at 2-4 mm in places, and
   // through the persistence a little smoother over the sector (local std)
-  ['4CH-ED:tangentialCorr4', -0.13],
-  ['4CH-ES:radialCorr4', -0.48],
+  // decision 324: with the superior vena cava joining the top of the atrium, the end-systolic four-chamber texture at
+  // 4 mm (−0.48 before); the end-diastolic one at 4 mm across the beam came inside
+  ['4CH-ES:radialCorr4', -0.69],
   ['2CH-ED:radialCorr2', 1.07],
   // decision 321: with the coronary sinus at the inferior groove, the two-chamber end-diastolic texture at 8 mm (−0.11 before)
   ['2CH-ED:radialCorr8', -0.42],
