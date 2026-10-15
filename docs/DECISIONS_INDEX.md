@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 325 (última: 325).
+Decisiones: 326 (última: 326).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -333,3 +333,4 @@ Decisiones: 325 (última: 325).
 | [323](DECISIONS.md#L2215) | 2026-10-12 | La aurícula derecha tiene orejuela. | vigente |
 | [324](DECISIONS.md#L2241) | 2026-10-12 | La vena cava superior entra por el techo de la aurícula derecha, hacia arriba y atrás, y la orejuela sale por delante. | vigente |
 | [325](DECISIONS.md#L2264) | 2026-10-12 | Nada aparece en una vista sin motivo. | vigente |
+| [326](DECISIONS.md#L2287) | 2026-10-14 | Hojas de revisión clínica: la eco y su mapa de estructuras rotulado, del mismo fotograma polar. | vigente |
