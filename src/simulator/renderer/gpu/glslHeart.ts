@@ -87,6 +87,10 @@ import {
   RA_MEMBRANOUS_R_CM,
   RA_MEMBRANOUS_TO,
   RA_RIGHT_VEIN_CLEARANCE_CM,
+  RAA_BASE,
+  RAA_TIP_FROM_AV,
+  RAA_BASE_R_CM,
+  RAA_TIP_R_CM,
   RA_SEPTAL_RELEASE_CM,
   RA_SEPTAL_RELEASE_LA_CM,
   RA_SEPTAL_RELEASE_RAMP_CM,
@@ -136,6 +140,14 @@ const float RA_MEMBRANOUS_TO_Y = ${f(RA_MEMBRANOUS_TO[1])};
 const float RA_MEMBRANOUS_TO_Z = ${f(RA_MEMBRANOUS_TO[2])};
 const float RA_MEMBRANOUS_R_CM = ${f(RA_MEMBRANOUS_R_CM)};
 const float RA_RIGHT_VEIN_CLEARANCE_CM = ${f(RA_RIGHT_VEIN_CLEARANCE_CM)};
+const float RAA_BASE_X = ${f(RAA_BASE[0])};
+const float RAA_BASE_Y = ${f(RAA_BASE[1])};
+const float RAA_BASE_Z = ${f(RAA_BASE[2])};
+const float RAA_TIP_FROM_AV_X = ${f(RAA_TIP_FROM_AV[0])};
+const float RAA_TIP_FROM_AV_Y = ${f(RAA_TIP_FROM_AV[1])};
+const float RAA_TIP_FROM_AV_Z = ${f(RAA_TIP_FROM_AV[2])};
+const float RAA_BASE_R_CM = ${f(RAA_BASE_R_CM)};
+const float RAA_TIP_R_CM = ${f(RAA_TIP_R_CM)};
 const float CS_ABOVE_ANNULUS_CM = ${f(CS_ABOVE_ANNULUS_CM)};
 const float CS_LATERAL_X_CM = ${f(CS_LATERAL_X_CM)};
 const float CS_CRUX_FROM_IAS_CM = ${f(CS_CRUX_FROM_IAS_CM)};
@@ -967,6 +979,8 @@ bool classifyHeart(vec3 p0, out Sample s) {
   float raSleeve = 1e3;
   // the left atrium's epicardium, read by the pericardium (decision 273)
   float laEpi = 1e3;
+  // decision 323
+  float raaEpi = 1e3;
   // ---------- atria ----------
   vec3 la = vec3(LA_CX, LA_CY, LA_CZ);
   vec3 lr = vec3(LA_RX, LA_RY, LA_RZ);
@@ -1052,10 +1066,13 @@ bool classifyHeart(vec3 p0, out Sample s) {
       setSample(s, T_BLOOD, dR, vec3((x - ra.x) / rar.x, (y - ra.y) / rar.y, (z - czR) / rzR), p, 0.0, S_RA_CAV);
       return true;
     }
+    // decision 323
+    float dRaa = sdRoundCone(p, ra + vec3(RAA_BASE_X * rar.x, RAA_BASE_Y * rar.y, RAA_BASE_Z * rar.z), vec3(AV_CX + RAA_TIP_FROM_AV_X, AV_CY + RAA_TIP_FROM_AV_Y, AV_CZ + RAA_TIP_FROM_AV_Z), RAA_BASE_R_CM * bo, RAA_TIP_R_CM * bo);
+    raaEpi = dRaa - LAA_WALL_CM;
     // decision 219
     float dSvc = sdCapsule(p, vec3(SVC_AX, SVC_AY, SVC_AZ), vec3(SVC_BX, SVC_BY, SVC_BZ), SVC_R);
     float dIvc = sdCapsule(p, vec3(IVC_AX, IVC_AY, IVC_AZ), vec3(IVC_BX, IVC_BY, IVC_BZ), IVC_R);
-    if (dFreeRa < 0.22 && septumPlane < 0.0 && dSvc >= 0.0 && dIvc >= 0.0 && dCs >= 0.0) {
+    if (dFreeRa < 0.22 && septumPlane < 0.0 && dSvc >= 0.0 && dIvc >= 0.0 && dCs >= 0.0 && dRaa >= 0.0) {
       // no wall across the tricuspid orifice (decision 64): atrial blood up to the annular plane, ventricular past it
       // decision 219
       // decision 226
@@ -1066,6 +1083,15 @@ bool classifyHeart(vec3 p0, out Sample s) {
         return true;
       }
       setSample(s, T_MYO, -min(dFreeRa, 0.22 - dFreeRa), vec3((x - ra.x) / rar.x, (y - ra.y) / rar.y, (z - czR) / rzR), p, 0.0, S_RA_WALL);
+      return true;
+    }
+    // the right atrial appendage (decision 323)
+    if (dRaa < 0.0) {
+      setSample(s, T_BLOOD, dRaa, vec3(0.0, 1.0, 0.0), p, 0.0, S_RAA);
+      return true;
+    }
+    if (dRaa < LAA_WALL_CM) {
+      setSample(s, T_MYO, -min(dRaa, LAA_WALL_CM - dRaa), vec3(0.0, 1.0, 0.0), p, 0.0, S_RA_WALL);
       return true;
     }
     if (abs(x - xIas) <= tIas / 2.0 && z < zAnn + 0.4 && relL < 0.5 && leftAtrialMouthLumen(p, la, lr, bo, czL, rzL, colDist) >= 0.0) {
@@ -1198,7 +1224,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float fw = RV_FW;
     float dRvEpi = dRvU - fw;
     float dLaEpi = laEpi;
-    float dRaEpi = min(sdEllipsoid(p, ra, rar + 0.22), raSleeve + 0.22);
+    float dRaEpi = min(min(sdEllipsoid(p, ra, rar + 0.22), raSleeve + 0.22), raaEpi);
     // the sac around the outflow tract and the trunk stays where the pericardium is anchored (decision 111)
     vec3 rvotA = vec3(RVOT_AX, RVOT_AY, RVOT_AZ);
     vec3 rvotB = vec3(RVOT_BX, RVOT_BY, RVOT_BZ);

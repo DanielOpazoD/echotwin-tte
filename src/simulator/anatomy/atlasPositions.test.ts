@@ -22,10 +22,8 @@ import { HEART_ATLAS_POSITIONS, HEART_ATLAS_VESSELS } from '@/clinical/reference
  * Declared, with what the atlas measured:
  */
 const KNOWN_ATLAS_POSITIONS: Record<string, string> = {
-  'rightAtrium.x':
-    'the right atrium sits 0.5-0.7 cm toward the septum: no right atrial appendage, the pouch that wraps the aortic root',
-  'rightAtrium.y':
-    'and 1.2-2.4 cm behind the atlas hearts, for the same reason and a body set back from the root',
+  'normal-difficult-window:rightAtrium.y':
+    'the right atrium 1.2 cm behind the 10th percentile: the thick chest wall turns the base (see the aortic valve)',
   'rightVentricle.x':
     'the right ventricular myocardium reaches 0.1-0.6 cm further right than the atlas hearts',
   'normal-excellent-window:leftAtrium.y':

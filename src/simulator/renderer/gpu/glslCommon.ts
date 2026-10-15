@@ -97,6 +97,7 @@ export function enumDefinesGlsl(): string {
     S_EFFUSION: Structure.PericardialEffusion,
     S_MOD_BAND: Structure.ModeratorBand,
     S_LAA: Structure.LaAppendage,
+    S_RAA: Structure.RaAppendage,
     S_PVEIN: Structure.PulmonaryVein,
     S_CS: Structure.CoronarySinus,
     S_PA: Structure.PulmonaryArtery,
