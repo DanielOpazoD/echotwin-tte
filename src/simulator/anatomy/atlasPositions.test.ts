@@ -39,8 +39,6 @@ const KNOWN_ATLAS_POSITIONS: Record<string, string> = {
   'normal-difficult-window:rightVentricle.y': 'see the aortic valve',
 };
 const KNOWN_ATLAS_VESSELS: Record<string, string> = {
-  superiorVenaCava:
-    'enters the atrial roof straight from above, 51-61° from the atlas hearts, whose vena cava leaves the atrium upward and backward',
   'normal-difficult-window:appendage': '31° against 30.1°',
   'normal-difficult-window:inferiorVenaCava': '42° against 41.1°',
 };

@@ -2237,3 +2237,26 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     El *worker* de simulación llega a 340,1 kB frente a un presupuesto de 340 kB, que la compactación de los sombreadores (decisión 303) había dejado holgado. Lo llenaron las decisiones 304–323 de la auditoría anatómica, así que el presupuesto sube a 350 kB.
 
     Sin modelar: la forma triangular aplanada, los músculos pectíneos, la cresta terminal y su vaciado propio (aquí sigue la escala de la aurícula).
+
+324. **La vena cava superior entra por el techo de la aurícula derecha, hacia arriba y atrás, y la orejuela sale por delante.** [Estado: vigente]
+
+    Lo encontraron dos medidas, el censo de estructuras por vista y el atlas de la decisión 322:
+    - **Censo por vista.** En cada una de las 13 vistas, en los doce casos y dos fases, la fracción del sector que ocupa cada estructura, revisada con ojo clínico. La vena cava superior ocupaba el 1,2 % del apical de cuatro cámaras del caso normal, y otro tanto del VD-focalizado y del subcostal de cuatro cámaras: un círculo más allá de la aurícula, que en un A4C no se ve.
+    - **Atlas.** Su dirección quedaba a 51–61° de la del atlas, donde sale de la aurícula hacia arriba y hacia atrás.
+
+    La causa fue un error de marco, el de la regla 3 del método. La unión se situaba en el polo basal de la aurícula en el marco del corazón, que en el tórax apunta sobre todo a la derecha y atrás, no arriba: la cava se unía a la aurícula 2,4 cm por debajo de la válvula aórtica. En el atlas, a 3 cm de la aurícula, la cava está 3,8 cm a la derecha de la válvula aórtica, 1,3 cm por encima y 1,0 cm por detrás.
+
+    El mismo error afectaba a la orejuela de la decisión 323: su base estaba en el eje anterior del marco del corazón, que en el tórax es casi «arriba». Base y cava compartían el techo, y la cava desembocaba en la orejuela.
+
+    Cambios, en la CPU y en la GPU (anclajes `svcM` y `raaBase`, parámetros `SVC_M*` y `RAA_B*`):
+    - **Unión de la cava.** Es la superficie de la aurícula en la dirección del tórax `SVC_JUNCTION_TORSO` (arriba, algo atrás), 1,0 cm dentro de ella. Con 0,5 o 0,75 cm la boca quedaba cerrada por la pared en mesodiástole en 27 y 19 de 132 casos y fases; con 1,0 cm está abierta en todos.
+    - **Recorrido.** Un tramo de entrada de 1,5 cm con la dirección del atlas en el tórax, y el resto subiendo en vertical.
+    - **Base de la orejuela.** Pasa a la cara anterosuperior de la aurícula en el tórax (`RAA_BASE_TORSO`), y la orejuela se queda 0,5 cm por encima del suelo auricular, porque su pared llegaba al borde anteroseptal del orificio tricuspídeo.
+
+    Resultado:
+    - **Atlas.** La dirección de la cava queda a 0–10° del atlas en los doce casos (antes 51–61°), y su posición a 3 cm de la aurícula, a (−4,1; 1,6; −1,15) cm de la válvula aórtica en el tórax, dentro de los percentiles 10–90 del atlas. El centroide de la aurícula derecha del caso normal entra en el rango del atlas en los dos ejes. Se retiran las declaraciones sobrantes.
+    - **Vistas.** La cava baja en el A4C del 1,4 % al 0,2 % en telediástole y telesístole. En mesodiástole asoma hasta el 1 % como una prolongación del techo auricular, no como un círculo aparte. En el subcostal de cuatro cámaras, a 0. Aparece en el subcostal de la vena cava inferior, que es la vista bicava, y en el borde derecho del PLAX, por detrás de la ascendente, donde está.
+    - **Boca.** La cava desemboca en la cavidad de la aurícula en los doce casos y diez fases, no en la orejuela.
+    - **Orejuela.** 5,7 mL en telediástole y 8,1 mL en telesístole.
+    - **Interatrial.** En el A4C de la ventana difícil y del caso de artefactos ya no hay cava entre las aurículas: el plano pasa por detrás del septo, por el surco interauricular, con 19–22 mm de pared, grasa y septo. Se corrige el motivo de su declaración.
+    - **CAMUS.** La textura a 4 mm del A4C telesistólico se aleja algo (de −0,48 a −0,69 anchuras intercuartílicas) y la telediastólica a 4 mm, de través, entra en rango. Se actualizan las líneas base y los goldens del A4C tras revisarlos.

@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 323 (última: 323).
+Decisiones: 324 (última: 324).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -331,3 +331,4 @@ Decisiones: 323 (última: 323).
 | [321](DECISIONS.md#L2155) | 2026-10-12 | El seno coronario recorre el surco auriculoventricular posterior por encima del anillo mitral y desemboca en la aurícula derecha. | vigente |
 | [322](DECISIONS.md#L2186) | 2026-10-12 | Dónde está cada estructura: el modelo frente a veinte corazones sanos de un atlas de TC, y las venas pulmonares derechas reorientadas. | vigente |
 | [323](DECISIONS.md#L2215) | 2026-10-12 | La aurícula derecha tiene orejuela. | vigente |
+| [324](DECISIONS.md#L2241) | 2026-10-12 | La vena cava superior entra por el techo de la aurícula derecha, hacia arriba y atrás, y la orejuela sale por delante. | vigente |
