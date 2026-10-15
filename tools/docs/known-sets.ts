@@ -44,6 +44,7 @@ export const KNOWN_SETS: readonly {
   { file: 'src/simulator/windows/viewContent.test.ts', name: 'KNOWN_A5C_SMALL_ATRIUM' },
   { file: 'src/simulator/windows/interatrialCrux.test.ts', name: 'KNOWN_INTERATRIAL_TISSUE' },
   { file: 'src/simulator/windows/interatrialCrux.test.ts', name: 'KNOWN_FOSSA' },
+  { file: 'src/simulator/windows/interatrialCrux.test.ts', name: 'KNOWN_UNDER_SEPTAL_HINGE' },
   { file: 'src/simulator/anatomy/venousMouths.test.ts', name: 'KNOWN_CLOSED_MOUTHS' },
   { file: 'src/simulator/anatomy/coronarySinus.test.ts', name: 'KNOWN_CS_OSTIUM' },
   { file: 'src/simulator/anatomy/atlasPositions.test.ts', name: 'KNOWN_ATLAS_POSITIONS' },

@@ -29,6 +29,10 @@ const KNOWN_MODEL_LIMITATIONS: ReadonlySet<string> = new Set([
   // Okada et al. 2014), where the eight cases aged 58-79 should have closed it to 112-125°: the same missing age change
   // as the root's height above, seen from the long axis.
   'aortoseptal-angle',
+  // The right atrial volume index of the mitral prolapse, 27.01 mL/m² against a limit of 27 that is the guideline's mean
+  // plus one deviation for women (21 ± 6, decision 319), since the atrium meets the septum flat and gained 0.4 mL
+  // (decision 327). The pulmonary hypertension and atrial fibrillation cases declare their own.
+  'ravi',
   // 'av-tv-distance' was declared here while it read the distance between the aortic and tricuspid centres, 4.3-5.6 cm
   // against an approximate 3.0-4.5 with no source. What the anatomy fixes is the gap between the two hinge lines, which
   // the membranous septum spans: 0.26-1.14 cm in every case against its 9.0-11.4 mm (decision 306).

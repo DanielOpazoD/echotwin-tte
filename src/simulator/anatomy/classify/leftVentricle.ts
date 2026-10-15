@@ -72,6 +72,7 @@ export function classifyLeftVentricle(c: ClassifyCtx): boolean {
   // geometry.
   const inRootTube = rootT > -1.6 && rootRr < rootR + 0.2;
   const zHinge = mitralHingeZ(x, y, V.mitral);
+  c.zHinge = zHinge;
   const dInflow = inRootTube ? 1e3 : mitralInflowSdf(x, y, z, V.mitral);
   const dLvBlood = smin(dCavR, dInflow, 0.3);
   // these are read by the aortic root, atria and pericardium blocks even when this one classifies nothing
@@ -119,12 +120,15 @@ export function classifyLeftVentricle(c: ClassifyCtx): boolean {
     return true;
   }
   // Ventricular wall: shell of local thickness around the *unclipped* profile, apical to (slightly above)
-  // the annulus. The annular plane itself is not a wall: it holds the mitral orifice, the LVOT and fibrous tissue.
+  // the hinge at this azimuth (decision 327): the annulus is a saddle, and a wall that ended at the mean annular plane
+  // hung 3-4 mm past the septal hinge into the left atrium in the four-chamber view, under the hinge, where the
+  // commissural hinges sit apical of the plane. The annular plane itself is not a wall: it holds the mitral orifice,
+  // the LVOT and fibrous tissue.
   // the trabeculated inner surface belongs to the wall: from the rough endocardium to the smooth epicardium
   if (
     dEllR + trab >= 0 &&
     dEllR < wallT &&
-    z >= zAnn - LV_WALL_BASAL_OVERHANG_CM &&
+    z >= zHinge - LV_WALL_BASAL_OVERHANG_CM &&
     !inOutflowLumen
   ) {
     // the wall label follows the AHA wall of the segment, bounded by the RV insertions (decision 154)

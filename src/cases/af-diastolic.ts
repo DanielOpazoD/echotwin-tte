@@ -101,8 +101,8 @@ export const afDiastolicCase: CaseDefinitionInput = {
     'lv-shortening',
     'la-ap',
     // (its transverse axis, 5.16 cm, came inside at 4.94 when the fossa ovalis moved to where both atria meet the septum
-    // and the measuring line crossed muscular septum instead, decision 319)
-    'la-long',
+    // and the measuring line crossed muscular septum instead, decision 319; its long axis when the atrium met the
+    // septum flat and the volume normalisation took the rest, decision 327)
     'lavi',
     'la-emptying',
     'ravi',
