@@ -32,10 +32,11 @@ describe('the paired verdict of the CPU tracer guard', () => {
   });
 
   it('normalises each run by its own kernel, so a slow spell on one run does not read as growth', () => {
-    // round 2: the machine slowed down while the reference ran, tracer and kernel alike
+    // in rounds 1 and 2 the machine slowed down while the reference ran, tracer and kernel alike (two rounds, so the
+    // median cannot hide it)
     const g = pairedGrowth([
-      { head: { msPerFrame: 60, kernelMs: 50 }, ref: { msPerFrame: 50, kernelMs: 50 } },
       { head: { msPerFrame: 60, kernelMs: 50 }, ref: { msPerFrame: 80, kernelMs: 80 } },
+      { head: { msPerFrame: 60, kernelMs: 50 }, ref: { msPerFrame: 75, kernelMs: 75 } },
       { head: { msPerFrame: 60, kernelMs: 50 }, ref: { msPerFrame: 50, kernelMs: 50 } },
     ]);
     expect(g).toBeCloseTo(1.2, 6);
