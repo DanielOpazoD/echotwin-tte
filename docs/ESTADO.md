@@ -26,9 +26,12 @@ mal, con cifra). El método de trabajo está en `.claude/skills/fidelity-method/
 ## Qué está a medias (16-10-2026)
 
 - El presupuesto del trazador CPU (`tools/ci/tracer-budget.ts`, límite +25 % sobre la decisión 247)
-  falla por ruido en los runners lentos (kernel ≈ 79 ms da 30–45 %; kernel ≈ 67 ms da 12–18 % con el
-  mismo código). Relanzar el job `build` basta; una decisión pendiente debe hacerlo robusto
-  (baseline por clase de runner o una medida menos sensible al runner).
+  depende de la clase de máquina del runner, no del código: divide el coste del trazador por el de
+  un núcleo aritmético fijo, y esa razón cambia entre microarquitecturas. Con el mismo código de
+  `main`, el 16 de octubre: núcleo de 48–50 ms → razón 1,06–1,25 (pasa); 67 ms → 1,20–1,30 (pasa);
+  73–80 ms → 1,42–1,59 (falla siempre, también en `main`). Relanzar solo sirve si toca otra clase.
+  Hace falta una decisión que lo arregle: baseline por modelo de CPU, o comparar contra `main`
+  medido en el mismo job; pendiente de Daniel.
 - `docs/ROADMAP.md` se detiene en la decisión 211 y `docs/ITERATIONS.md` en octubre 4: el orden de
   prioridades vigente es el de este archivo, hasta que se actualicen o se retiren.
 - Las PR apiladas de esta tanda (#160, #161, #162) se fusionaron con commit de fusión, no squash,
