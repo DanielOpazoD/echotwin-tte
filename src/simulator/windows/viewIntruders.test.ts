@@ -119,6 +119,9 @@ const ALLOWED: Record<string, readonly Structure[]> = {
     Structure.Svc,
   ],
   a5c: [
+    // the appendage beside the atrium's base, broad on the annulus since decision 328 (0.31 % in the pulmonary
+    // hypertension at mid-systole)
+    Structure.LaAppendage,
     Structure.AorticRoot,
     Structure.AscendingAorta,
     Structure.LaCavity,
@@ -253,15 +256,14 @@ const KNOWN_VIEW_INTRUDERS: Record<string, string> = {
     'the plane clips the pulmonary trunk beside the appendage, 12-14 cm deep (decisions 72 and 83)',
   'a2c/Ivc': 'the swinging heart of the tamponade brings the inferior vena cava into the plane',
   'a2c/AorticRoot': 'the swinging heart of the tamponade brings the aortic root into the plane',
-  'a2c/RvWall': "the artifact case's plane clips the right ventricular wall at the septal edge",
+  'a2c/RvWall':
+    'the plane of the artifact case clips the right ventricular wall at the septal edge',
   'subcostal-4c/Ivc':
     'the swinging heart of the tamponade brings the inferior vena cava into the plane',
   'suprasternal-arch/InteratrialSeptum':
     'the atrial roof reaches the bottom of the sector in the difficult window: the septum, 0.31 % at mid-systole, since the atria meet it flat (decision 327)',
   'suprasternal-arch/RaWall':
     'the dilated right atrium of the HFrEF reaches the edge of the sector (10.5-13.5 cm deep): its wall, 0.30 % at mid-systole, since the atria meet the septum flat (decision 327)',
-  'plax/PulmonaryVein':
-    'a pulmonary vein behind the left atrium of the tamponade, 0.32 %, since the atrium meets the septum flat and its volume normalisation rescaled it (decision 327)',
 };
 
 /** The structures named in KNOWN_VIEW_INTRUDERS. */

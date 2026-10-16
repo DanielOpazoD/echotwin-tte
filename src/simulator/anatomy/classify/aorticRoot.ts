@@ -54,14 +54,32 @@ export function classifyAorticRoot(c: ClassifyCtx): boolean {
   // hung 2-4.5 mm into the left atrium as a bright tooth beside the septum; withdrawn from everywhere basal of the hinge
   // it left the atrium's orifice column against the outflow tract at the curtain
   const mv = c.hp.valves.mitral;
-  if (
-    inAnnularRegion &&
-    z > zAnn - 1.2 &&
-    (z >= c.zHinge - LV_WALL_BASAL_OVERHANG_CM ||
-      (x - mv.cx) * mv.ux + (y - mv.cy) * mv.uy > mv.D + LA_CORNER_ANTERIOR_MARGIN_CM)
-  ) {
-    setSample(out, Tissue.Fibrous, -0.15, 0, 0, 1, x, y, z, 0, Structure.LvWallSeptal);
-    return true;
+  // in front of the corner's bound: the curtain, a sheet between the atrium and the outflow tube, with the sheet's own
+  // faces and normal (decision 328): drawn as a block with its distance fixed at 1.5 mm and its normal along the beam of
+  // the apical views, it read as a bright mass under the anterior hinge of the two-chamber view
+  const inFront = (x - mv.cx) * mv.ux + (y - mv.cy) * mv.uy - (mv.D + LA_CORNER_ANTERIOR_MARGIN_CM);
+  if (inAnnularRegion && z > zAnn - 1.2) {
+    if (inFront > 0 && rootT > -90) {
+      const toLumen = rootRr - rootR - AORTIC_ROOT_WALL_CM;
+      setSample(
+        out,
+        Tissue.Fibrous,
+        -Math.max(0, Math.min(inFront, toLumen)),
+        mv.ux,
+        mv.uy,
+        0,
+        x,
+        y,
+        z,
+        0,
+        Structure.LvWallSeptal,
+      );
+      return true;
+    }
+    if (z >= c.zHinge - LV_WALL_BASAL_OVERHANG_CM) {
+      setSample(out, Tissue.Fibrous, -0.15, 0, 0, 1, x, y, z, 0, Structure.LvWallSeptal);
+      return true;
+    }
   }
   return false;
 }

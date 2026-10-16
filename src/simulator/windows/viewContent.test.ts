@@ -405,18 +405,6 @@ describe('apical presets keep the ventricle clear of lung where the window allow
  * the corner between the septum and the annulus, and as its volume is the case's, the rest of a small atrium gives up
  * what the corner takes: the pulmonary hypertension's left atrium, the smallest, reads 177.
  */
-/**
- * Left atrial samples in the five-chamber plane of the cases that fall short of the 180 it asks for: the septal corner of
- * the atrium is bounded by its own chord since decision 327 (it used to be a prism of the whole central section that
- * reached the plane also in front of the atrium, behind the aortic root, and that flange was what the five-chamber plane
- * cut, 147 in the difficult window with the chord alone; 111 once the corner ends at the aortomitral curtain in front
- * and its floor is the hinge at its azimuth); the atrium's anterior reach behind the root is the next task
- * (docs/LIMITATIONS.md).
- */
-const KNOWN_A5C_SMALL_ATRIUM: Record<string, number> = {
-  'pulmonary-hypertension-rv': 115,
-  'normal-difficult-window': 111,
-};
 
 describe('apical five-chamber view (decisions 85, 216 and 217)', () => {
   it('puts the aortic valve against the septum with the mitral valve and the left atrium beside it, not under the middle of the ventricle', () => {
@@ -510,9 +498,9 @@ describe('apical five-chamber view (decisions 85, 216 and 217)', () => {
         // 1 % of the 80° sector 16 cm deep (179 cm²) is 180 samples of this 1 mm grid: the share the view's structure
         // check needs for the left atrium, and a third of it for the right ventricle's crescent
         mean.rv > 60 &&
-        (KNOWN_A5C_SMALL_ATRIUM[input.id] === undefined
-          ? mean.la > 180
-          : Math.abs(mean.la - KNOWN_A5C_SMALL_ATRIUM[input.id]!) <= 10 && mean.la <= 180) &&
+        // (declared deficits of the atrium until decision 328, when its base, broad on the annulus, gave the
+        // pulmonary hypertension 200 and the difficult window 208)
+        mean.la > 180 &&
         mean.mv > 5 &&
         septalSide &&
         toCavity >= 0.6

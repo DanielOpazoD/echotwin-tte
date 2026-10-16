@@ -52,9 +52,10 @@ describe('descending aorta (decision 213)', () => {
       gap = Math.min(gap, r - OUTER);
     }
     // 0.28 cm until decision 327, by the right inferior pulmonary vein; 0.40 since, the vein 1.2 mm farther as the
-    // atrium's volume normalisation rescaled it once its medial wall met the septum flat (docs/LIMITATIONS.md: the atrium
-    // should grow elsewhere, not shrink)
-    expect(gap).toBeLessThan(0.45);
+    // atrium's volume normalisation rescaled it once its medial wall met the septum flat, and 0.46 since decision 328
+    // (the base on the annulus takes more of the declared volume; docs/LIMITATIONS.md: the atrium should grow elsewhere,
+    // not shrink)
+    expect(gap).toBeLessThan(0.5);
   });
 
   it('is never crossed by the heart or the pulmonary veins, which pass in front of it through the cycle', () => {

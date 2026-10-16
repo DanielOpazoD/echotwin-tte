@@ -41,7 +41,6 @@ export const KNOWN_SETS: readonly {
   },
   { file: 'src/simulator/core/mmodeStrip.test.ts', name: 'KNOWN_TEXTURE_LIMITATIONS' },
   { file: 'src/simulator/renderer/nearFieldClutter.test.ts', name: 'KNOWN_RV_EXCESS' },
-  { file: 'src/simulator/windows/viewContent.test.ts', name: 'KNOWN_A5C_SMALL_ATRIUM' },
   { file: 'src/simulator/windows/interatrialCrux.test.ts', name: 'KNOWN_INTERATRIAL_TISSUE' },
   { file: 'src/simulator/windows/interatrialCrux.test.ts', name: 'KNOWN_FOSSA' },
   { file: 'src/simulator/windows/interatrialCrux.test.ts', name: 'KNOWN_UNDER_SEPTAL_HINGE' },

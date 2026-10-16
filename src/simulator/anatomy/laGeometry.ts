@@ -64,6 +64,67 @@ export const LA_TOUCH_CM = 0.3;
  */
 export const RA_LA_MIN_CM = 0.3;
 /**
+ * Height (cm) above the annulus of the base the atrium keeps down to the hinge (decision 318): in the septal corner it
+ * reaches the septum there wherever its own section does at its centre, and all around (decision 328) its wall flares
+ * from the annulus up to that section.
+ */
+export const LA_CORNER_HEIGHT_CM = 1.2;
+/**
+ * The atrium's base sits on the whole annulus (decision 328): from the hinge up its wall flares LA_BASE_FLARE cm per cm
+ * of height until, LA_CORNER_HEIGHT_CM above the hinge, the body's own section takes over. The ellipsoid tapered to a tip
+ * above the annulus: inside the ring the orifice column drew the atrium, but 3 mm outside the ring (normal case, 24
+ * azimuths) the blood lay more than 2.5 cm above the hinge behind 6-19 mm of fat, and under the anterior hinge of the
+ * two-chamber view 10 mm of fat and fibrous filler stood where the atrium is. The atrial walls rise from the annulus
+ * (the atrial volume is traced to the annular plane, ASE 2015); no published value for the flare was found, so 0.5
+ * (27°, 0.6 cm of widening over the corner's height) is declared as an assumption.
+ */
+export const LA_BASE_FLARE = 0.5;
+/**
+ * How far (cm) the flare may stand beyond the body's widest section: the ellipsoid's anterior reach at the lateral end of
+ * the straight edge, where the two-chamber view cuts the anterior hinge, is the hinge itself, so bounded by the section
+ * exactly the flare left 12 mm of atrial wall along the beam there (a bound tangent to the beam stretches the wall band).
+ * The blend with the body rounds the step. Declared as an assumption, like the flare.
+ */
+export const LA_BASE_SECTION_SLACK_CM = 0.3;
+/**
+ * The base's signed distance: the septal corner (the medial half of the section at zRef, decisions 318 and 327) united
+ * with the flared annulus outline (`outlineSdf` is the D-shaped outline's distance in the hinge plane). Both lie between
+ * the hinge and zRef, behind the curtain (read at the face) and clear of the septal face by the corner's offset; the
+ * corner is bounded by the body's section at zRef, the flare by its widest section (`dCrossEq`, at the equator): at zRef
+ * the body's rounded posterior edge sits 2-3 mm inside its clip plane, and bounded by that section the flare left
+ * 14 mm of atrial wall over the posterior annulus. Shared with GLSL.
+ */
+export function laBaseSdf(
+  x: number,
+  laX: number,
+  xFace: number,
+  cornerOff: number,
+  z: number,
+  zRef: number,
+  zHinge: number,
+  dCrossRef: number,
+  dCrossEq: number,
+  rootClearBase: number,
+  outlineSdf: number,
+): number {
+  const shared = Math.max(xFace + cornerOff - x, zRef - z, z - zHinge, rootClearBase);
+  // the flare's lateral bound: the widest section with its slack at the hinge, the section at zRef where the body takes
+  // over, so no shoulder stands between them
+  const t = Math.min(1, Math.max(0, (zHinge - z) / (zHinge - zRef)));
+  const bound = (dCrossEq - LA_BASE_SECTION_SLACK_CM) * (1 - t) + dCrossRef * t;
+  return Math.min(
+    Math.max(shared, dCrossRef, x - laX),
+    Math.max(shared, bound, outlineSdf - LA_BASE_FLARE * (zHinge - z)),
+  );
+}
+/**
+ * The curtain bound of the base is read this far (cm) medial of the point, and never medial of the septal face: at the
+ * face it is the corner's bound of decision 327 (the slab is drawn from it), and away from the face it follows the
+ * oblique edge within 0.26 cm (the edge runs 22° to y), where read at the face it stood 1 cm behind the edge at the
+ * anterior hinge of the two-chamber view and kept the base from it.
+ */
+export const LA_BASE_BOUND_READ_CM = 0.7;
+/**
  * How far (cm) the atrium's medial face stands off the septal plane where its body's medial chord is `gap` from it: none
  * up to `flat`, the whole gap beyond `flat` + LA_SEPTAL_TAPER_CM.
  */
@@ -132,6 +193,8 @@ export const atrialQuadrature = Float64Array.from(
 /** Numerical volume of the shared clipped atrial body at full nominal annular excursion.
  * Excludes appendage and pulmonary veins (ASE comprehensive TTE 2019, section 4.C.2).
  * This is geometry normalization, not patient calibration or a flow/pressure solver.
+ * The corner and the flared base over the annulus (decisions 318 and 328) are not here: `fitOccupiedAtrium` refits the
+ * scale by classification afterwards, with them and with what the neighbours take.
  */
 export function maximalAtrialBodyVolume(
   k: number,
@@ -147,13 +210,13 @@ export function maximalAtrialBodyVolume(
     bottom = excursionCm + 0.25;
   const cz = (top + bottom) / 2,
     rz = (bottom - top) / 2;
+  const xFace = IAS_X + IAS_LEFT_FACE_CM;
   let inside = 0;
   for (let i = 0; i < POINTS; i++) {
     const x = cx + rx * atrialQuadrature[3 * i]!,
       y = cy + ry * atrialQuadrature[3 * i + 1]!,
       z = cz + rz * atrialQuadrature[3 * i + 2]!;
     const free = leftAtrialFreeSdf(x, y, z, cx, cy, cz, rx, ry, rz, top);
-    const xFace = IAS_X + IAS_LEFT_FACE_CM;
     // and the body flattened against the septum where it comes close (decision 327), as the classifier draws it
     const u = (y - cy) / ry,
       w = (z - cz) / rz;
