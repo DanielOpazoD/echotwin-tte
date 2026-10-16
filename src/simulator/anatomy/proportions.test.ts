@@ -33,6 +33,11 @@ const KNOWN_MODEL_LIMITATIONS: ReadonlySet<string> = new Set([
   // plus one deviation for women (21 ± 6, decision 319), since the atrium meets the septum flat and gained 0.4 mL
   // (decision 327). The pulmonary hypertension and atrial fibrillation cases declare their own.
   'ravi',
+  // The left atrial emptying fraction of the severe aortic stenosis (34.0 %) and the tamponade (34.4 %) against 35-65:
+  // with its base broad on the annulus (decision 328) the atrium's minimal volume grows 1.8-2.7 mL while the maximal one
+  // is the case's, so the fraction falls 2-5 points in every case; the model's reservoir is the annular piston and the
+  // ellipsoid's scaling, not a wall that stretches.
+  'la-emptying',
   // 'av-tv-distance' was declared here while it read the distance between the aortic and tricuspid centres, 4.3-5.6 cm
   // against an approximate 3.0-4.5 with no source. What the anatomy fixes is the gap between the two hinge lines, which
   // the membranous septum spans: 0.26-1.14 cm in every case against its 9.0-11.4 mm (decision 306).

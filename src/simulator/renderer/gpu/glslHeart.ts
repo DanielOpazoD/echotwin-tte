@@ -984,9 +984,18 @@ bool classifyHeart(vec3 p0, out Sample s) {
     }
   }
   // basal of the hinge at this azimuth only in front of the atrium's septal corner, the curtain itself (decision 327)
-  if (inAnnularRegion && z > zAnn - 1.2 && (z >= zHinge - LV_WALL_BASAL_OVERHANG_CM || (x - MVL_CX) * MVL_UX + (y - MVL_CY) * MVL_UY > MVL_D + LA_CORNER_ANTERIOR_MARGIN_CM)) {
-    setSample(s, T_FIBROUS, -0.15, vec3(0.0, 0.0, 1.0), p, 0.0, S_LV_SEPT);
-    return true;
+  // the curtain in front of the corner's bound is a sheet with its own faces and normal (decision 328)
+  float inFront = (x - MVL_CX) * MVL_UX + (y - MVL_CY) * MVL_UY - (MVL_D + LA_CORNER_ANTERIOR_MARGIN_CM);
+  if (inAnnularRegion && z > zAnn - 1.2) {
+    if (inFront > 0.0 && rootT > -90.0) {
+      float toLumen = rootRr - rootR - AORTIC_ROOT_WALL_CM;
+      setSample(s, T_FIBROUS, -max(0.0, min(inFront, toLumen)), vec3(MVL_UX, MVL_UY, 0.0), p, 0.0, S_LV_SEPT);
+      return true;
+    }
+    if (z >= zHinge - LV_WALL_BASAL_OVERHANG_CM) {
+      setSample(s, T_FIBROUS, -0.15, vec3(0.0, 0.0, 1.0), p, 0.0, S_LV_SEPT);
+      return true;
+    }
   }
 
   // the base the ventricle vacated as the annulus descended, atrium now (decision 133); read again by the pericardium
@@ -1032,7 +1041,11 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float zHingeA = zHinge;
     // and in front it ends at the aortomitral curtain, the straight anterior edge of the annulus (decision 222)
     float rootClearFace = (xFace - MVL_CX) * MVL_UX + (y - MVL_CY) * MVL_UY - (MVL_D + LA_CORNER_ANTERIOR_MARGIN_CM);
-    float dCorner = max(max(max(xFace + cornerOff - x, x - la.x), max(zRef - z, z - zHingeA)), max(dCrossRef, rootClearFace));
+    // and the base flares from the hinge all around the annulus (decision 328)
+    float xRead = max(xFace, x - LA_BASE_BOUND_READ_CM);
+    float rootClearBase = (xRead - MVL_CX) * MVL_UX + (y - MVL_CY) * MVL_UY - (MVL_D + LA_CORNER_ANTERIOR_MARGIN_CM);
+    float dCrossEq = smax(smax(sdEllipsoid(vec3(la.x, y, czL), vec3(la.x, la.y, czL), vec3(lr.x * bo, lr.y * bo, rzL)), la.y - LA_POSTERIOR_RATIO * lr.y * bo - y, 0.6), zTop + 0.15 * rzL - czL, 0.5);
+    float dCorner = laBaseSdf(x, la.x, xFace, cornerOff, z, zRef, zHingeA, dCrossRef, dCrossEq, rootClearBase, mvOutlineSdf(p.xy));
     // and over the fossa ovalis it meets the septum (decision 319)
     float dFossaLa = max(max(xFace - x, x - la.x), max(dCross, (fo - FOSSA_REACH) * 0.6));
     // and wherever its body comes close to the septal plane (decision 327)

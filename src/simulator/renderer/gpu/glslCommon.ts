@@ -3,7 +3,12 @@ import { paramDefinesGlsl } from './paramLayout';
 import { acousticDefinesGlsl } from '../acoustic/acoustics';
 import { ENVELOPE_NORM, psfDefinesGlsl } from '../acoustic/psf';
 import { GLSL_GENERATED } from './glslGenerated';
-import { LA_SEPTAL_TAPER_CM } from '@/simulator/anatomy/laGeometry';
+import {
+  LA_BASE_BOUND_READ_CM,
+  LA_BASE_FLARE,
+  LA_BASE_SECTION_SLACK_CM,
+  LA_SEPTAL_TAPER_CM,
+} from '@/simulator/anatomy/laGeometry';
 import {
   DESC_AORTA_MAX_OUTER_R,
   DESC_AORTA_R,
@@ -24,6 +29,7 @@ import {
   RV_HINGE_FADE_RAD,
 } from '@/simulator/anatomy/rv';
 import { TV_SYSTOLIC_SHORTENING } from '@/simulator/anatomy/valveSkirt';
+import { AORTIC_ROOT_WALL_CM } from '@/simulator/anatomy/aorticValve';
 import {
   LA_WALL_CM,
   LAA_WALL_CM,
@@ -164,6 +170,10 @@ const float TV_SYSTOLIC_SHORTENING = ${gf(TV_SYSTOLIC_SHORTENING)};
 const float OBLIQUE_SINUS_EFFUSION_CM = ${gf(OBLIQUE_SINUS_EFFUSION_CM)};
 const float OBLIQUE_SINUS_TAPER_CM = ${gf(OBLIQUE_SINUS_TAPER_CM)};
 const float LA_SEPTAL_TAPER_CM = ${gf(LA_SEPTAL_TAPER_CM)};
+const float LA_BASE_FLARE = ${gf(LA_BASE_FLARE)};
+const float AORTIC_ROOT_WALL_CM = ${gf(AORTIC_ROOT_WALL_CM)};
+const float LA_BASE_BOUND_READ_CM = ${gf(LA_BASE_BOUND_READ_CM)};
+const float LA_BASE_SECTION_SLACK_CM = ${gf(LA_BASE_SECTION_SLACK_CM)};
 const float RV_INFLOW_REACH_CM = ${gf(RV_INFLOW_REACH_CM)};
 // septal crest (lvWall.ts, decision 223): read by the generated septalCrestFactor
 const float SEPTAL_CREST_AZ = ${gf(SEPTAL_CREST_AZ)};
