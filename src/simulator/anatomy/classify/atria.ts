@@ -1,4 +1,15 @@
-import { iasThickness, LA_POSTERIOR_RATIO, leftAtrialFreeSdf } from '../laGeometry';
+import {
+  IAS_LEFT_FACE_CM,
+  iasThickness,
+  LA_CORNER_ANTERIOR_MARGIN_CM,
+  LA_CORNER_FLAT_CM,
+  LA_POSTERIOR_RATIO,
+  LA_SEPTAL_FLAT_CM,
+  LA_TOUCH_CM,
+  laMedialFaceOffset,
+  leftAtrialFreeSdf,
+  RA_LA_MIN_CM,
+} from '../laGeometry';
 export { iasThickness } from '../laGeometry';
 import { Structure, Tissue } from '../tissue';
 import { sdCapsule, sdEllipsoid, sdRoundCone, smax, smin } from '../sdf';
@@ -367,9 +378,11 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   const bo = atrialScale(hp.laBooster, A.laReservoir, hp.state.contraction);
   atrialPoseCache(c, la, lr, bo, czL, rzL);
   const xIas = A.iasX;
-  // interatrial septum: muscular septum ~0.55 cm with a thicker limbus around the thin fossa ovalis membrane
+  // interatrial septum: muscular septum ~0.55 cm with a thicker limbus around the thin fossa ovalis membrane. Its left
+  // face is flat (decision 327): the limbus stands and the fossa sinks on the right atrial side only.
   const fo = Math.hypot((y - A.fossaY) / 0.6, (z - A.fossaZ) / 0.7);
   const tIas = iasThickness(fo);
+  const xFace = xIas + IAS_LEFT_FACE_CM;
   // LA: ellipsoid flattened against the septum (medial clip), against the oesophagus / descending aorta
   // (posterior clip) and under the pulmonary bifurcation (roof clip)
   const dFreeLa = leftAtrialFreeSdf(x, y, z, la.x, la.y, czL, lr.x * bo, lr.y * bo, rzL, zTop);
@@ -394,17 +407,76 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   // oblique four-chamber cut showed the gap as a wedge of wall, fat and ventricular overhang under the hinge.
   // only toward the septum, where the atrium's own section reaches at this height
   const dCrossLa = leftAtrialFreeSdf(la.x, y, z, la.x, la.y, czL, lr.x * bo, lr.y * bo, rzL, zTop);
+  // the gap between the plane and the ellipsoid's medial chord at this (y, z) (decision 327)
+  const uL = (y - la.y) / (lr.y * bo),
+    wL = (z - czL) / rzL;
+  const gap = la.x - lr.x * bo * Math.sqrt(Math.max(0, 1 - uL * uL - wL * wL)) - xFace;
+  // In the corner the atrium keeps, down to the annulus, the section it has LA_CORNER_HEIGHT_CM above it: the ellipsoid
+  // tapers to a tip there and left fat and wall under the septal hinge of the four-chamber view, where the base of a real
+  // atrium sits broad on the annulus. Up to LA_CORNER_FLAT_CM of that section's chord is closed to the plane, so bounded
+  // by the chord the corner stops short of the aortic root; its floor is the hinge at this azimuth (the annulus is a
+  // saddle, and the commissural hinges of the four-chamber view sit apical of the mean plane).
+  const zRef = zAnn - LA_CORNER_HEIGHT_CM;
+  const wRef = (zRef - czL) / rzL;
+  const gapRef = la.x - lr.x * bo * Math.sqrt(Math.max(0, 1 - uL * uL - wRef * wRef)) - xFace;
+  const cornerOff = laMedialFaceOffset(gapRef, LA_CORNER_FLAT_CM);
+  const dCrossRef = leftAtrialFreeSdf(
+    la.x,
+    y,
+    zRef,
+    la.x,
+    la.y,
+    czL,
+    lr.x * bo,
+    lr.y * bo,
+    rzL,
+    zTop,
+  );
+  const zHingeHere = c.zHinge;
+  // and in front it ends at the aortomitral curtain, the straight anterior edge of the annulus: beyond it the right atrium
+  // reaches the outflow tract across the membranous septum (decision 222)
+  // (measured along the valve's anterior axis, the normal of the straight edge, which runs 22° obliquely to y; the
+  // four-chamber plane cuts the corner 2.9-3.5 mm in front of the edge, within the margin)
+  // read at the septal face, where the corner meets the plane, and carried across the atrium: read at the sample the
+  // oblique edge crossed the slab and the corner's own edge, so the right atrium's wall stood 1.1 mm inside the septum
+  // and the corner ended 1-1.5 mm short of the face behind its own wall (the valve's axis points to the septal side, so
+  // to the right of the face the edge lies farther in front than the bound: the corner never passes it there)
+  const mvA = V.mitral;
+  const rootClearFace =
+    (xFace - mvA.cx) * mvA.ux + (y - mvA.cy) * mvA.uy - (mvA.D + LA_CORNER_ANTERIOR_MARGIN_CM);
   const dCorner = Math.max(
-    xIas + tIas / 2 - x,
+    xFace + cornerOff - x,
     x - la.x,
-    zAnn - LA_CORNER_HEIGHT_CM - z,
-    z - zAnn,
-    dCrossLa,
+    zRef - z,
+    z - zHingeHere,
+    dCrossRef,
+    rootClearFace,
   );
   // and over the fossa ovalis, wherever its section reaches, the atrium meets the septum (decision 319): the fossa's floor
   // is the one true septum, a membrane between the two atrial cavities; around it the rims are folds of the atrial walls
-  const dFossaLa = Math.max(xIas + tIas / 2 - x, x - la.x, dCrossLa, (fo - FOSSA_REACH) * 0.6);
-  const d = Math.min(smax(dFreeLa, xIas + tIas / 2 - x, 0.3), dCorner, dFossaLa);
+  const dFossaLa = Math.max(xFace - x, x - la.x, dCrossLa, (fo - FOSSA_REACH) * 0.6);
+  // and wherever its body comes close to the septal plane, its medial wall is the septum (decision 327): the gap is closed
+  // up to LA_SEPTAL_FLAT_CM and eases back to the body's own shape over LA_SEPTAL_TAPER_CM, so no wall, fat or thicker
+  // septum stacks between the atria where they face each other
+  const faceOff = laMedialFaceOffset(gap, LA_SEPTAL_FLAT_CM);
+  const dFlat = Math.max(xFace + faceOff - x, x - la.x, dCrossLa);
+  // the body with its fills, before the septal clip: what its wall wraps, what the sac wraps, and what the right atrium
+  // keeps clear of (the release of decision 222 read the bare ellipsoid, so where a fill brought the left atrium to the
+  // plane the right atrium was let through the slab and no septum was drawn: 2.3 cm² of blood against blood in the normal
+  // case at mid-systole)
+  const dLaBody = Math.min(dFreeLa, dCorner, dFossaLa, dFlat);
+  c.laEpi = Math.min(c.laEpi, dLaBody - LA_WALL_CM);
+  // the same body seen from the septal plane: within 0.45 cm of it the septum is drawn and the right atrium meets its face
+  // negative where a fill leaves the atrium within LA_TOUCH_CM of the plane: there the septum is drawn and the right
+  // atrium meets its face; the bare ellipsoid keeps the 0.45 cm of decision 222
+  const laTouch = Math.min(
+    Math.max(dCrossLa, faceOff - LA_TOUCH_CM),
+    Math.max(dCrossRef, zRef - z, z - zHingeHere, cornerOff - LA_TOUCH_CM, rootClearFace),
+    Math.max(dCrossLa, (fo - FOSSA_REACH) * 0.6),
+  );
+  const nearLa =
+    laTouch < 0 || sdEllipsoid(xIas, y, z, la.x, la.y, czL, lr.x * bo, lr.y * bo, rzL) < 0.45;
+  const d = Math.min(smax(dFreeLa, xFace - x, 0.3), dCorner, dFossaLa, dFlat);
   c.laCav = d;
   if (d < 0) {
     setSample(
@@ -426,15 +498,11 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   const dCs = coronarySinusDistance(c, x, y, z);
   c.laEpi = Math.min(c.laEpi, dCs - CS_WALL_CM);
   // not across the mouths of the pulmonary veins and the appendage (decision 320)
-  if (
-    dFreeLa < LA_WALL_CM &&
-    x > xIas + tIas / 2 &&
-    leftAtrialMouthLumen(c, x, y, z, la, lr, bo, czL) >= 0
-  ) {
+  if (dLaBody < LA_WALL_CM && x > xFace && leftAtrialMouthLumen(c, x, y, z, la, lr, bo, czL) >= 0) {
     setSample(
       out,
       Tissue.Myocardium,
-      -Math.min(dFreeLa, LA_WALL_CM - dFreeLa),
+      -Math.min(dLaBody, LA_WALL_CM - dLaBody),
       (x - la.x) / lr.x,
       (y - la.y) / lr.y,
       (z - czL) / rzL,
@@ -539,16 +607,42 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   c.raSleeve = dSleeve;
   dFreeRa = Math.min(dFreeRa, dSleeve);
   // behind, the right pulmonary veins with their wall (decision 320)
-  dFreeRa = smax(dFreeRa, RA_RIGHT_VEIN_CLEARANCE_CM - rightVeinDistance(c, x, y, z), 0.2);
+  const rightVeinClear = RA_RIGHT_VEIN_CLEARANCE_CM - rightVeinDistance(c, x, y, z);
+  dFreeRa = smax(dFreeRa, rightVeinClear, 0.2);
   // in front of the left atrium the interatrial plane no longer clips the right atrium (decision 222)
   const q = Math.min(
     1,
     Math.max(0, (dFreeLa - RA_SEPTAL_RELEASE_LA_CM) / RA_SEPTAL_RELEASE_RAMP_CM),
   );
   const relL = q * q * (3 - 2 * q);
-  const septumPlane = x - (xIas - tIas / 2) - RA_SEPTAL_RELEASE_CM * relL;
-  const dR = smax(dFreeRa, septumPlane, 0.3);
-  if (dR < 0) {
+  const xRaFace = xFace - tIas;
+  const septumPlane = x - xRaFace - RA_SEPTAL_RELEASE_CM * relL;
+  // and the right atrium meets its face of the septum wherever its body comes close (decision 327), as the left does,
+  // where there is a septum to meet (the left atrium near the plane) and clear of the right pulmonary veins
+  const uR = (y - ra.y) / (rr.y * bo * raC),
+    wR = (z - czR) / rzR;
+  const gapR = xRaFace - (ra.x + rr.x * bo * raC * Math.sqrt(Math.max(0, 1 - uR * uR - wR * wR)));
+  const dCrossRa = smax(
+    sdEllipsoid(ra.x, y, z, ra.x, ra.y, czR, rr.x * bo * raC, rr.y * bo * raC, rzR),
+    ra.y - 0.8 * rr.y * bo - y,
+    0.6,
+  );
+  const dFlatRa = Math.max(
+    x - (xRaFace - laMedialFaceOffset(gapR, LA_SEPTAL_FLAT_CM)),
+    ra.x - x,
+    dCrossRa,
+    laTouch,
+    rightVeinClear,
+  );
+  // and never within the septum's thickness of the left atrial blood: the release of decision 222 reads the bare ellipsoid,
+  // and where a fill brought the left atrium to the plane it let the right atrium through the slab (blood against blood
+  // over 0.1-0.34 cm² in five cases, the septum thinned to 0.5-2 mm over 0.4-1.6 cm² in all)
+  // (the membrane of the fossa is thinner than that minimum: there it is the membrane)
+  const raLaMin = Math.min(tIas, RA_LA_MIN_CM);
+  const dR = Math.max(Math.min(smax(dFreeRa, septumPlane, 0.3), dFlatRa), raLaMin - c.laCav);
+  // and not where the septum stands: there the slab below is drawn
+  const inSeptum = x <= xFace && x >= xFace - tIas && nearLa;
+  if (dR < 0 && !inSeptum) {
     setSample(
       out,
       Tissue.Blood,
@@ -573,7 +667,17 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   c.raaEpi = dRaa - LAA_WALL_CM;
   const dSvc = svcDistance(A, x, y, z);
   const dIvc = ivcDistance(A, hp.ivcCollapse, x, y, z);
-  if (dFreeRa < 0.22 && septumPlane < 0 && dSvc >= 0 && dIvc >= 0 && dCs >= 0 && dRaa >= 0) {
+  // not where the septum stands (decision 327): there the slab below is drawn, and the vestibule's blood keeps its
+  // distance from the left atrial blood like the cavity does
+  if (
+    !inSeptum &&
+    dFreeRa < 0.22 &&
+    septumPlane < 0 &&
+    dSvc >= 0 &&
+    dIvc >= 0 &&
+    dCs >= 0 &&
+    dRaa >= 0
+  ) {
     // No wall across the tricuspid orifice: there the atrium opens into the ventricle, and the annulus and
     // leaflets are emitted by the valve block above. Both atria end 0.25 cm past their annulus, but on the
     // left the LV cavity is classified first and claims the orifice, while on the right nothing did — so
@@ -594,7 +698,11 @@ export function classifyAtria(c: ClassifyCtx): boolean {
       1,
       Math.max(0, (toward - RA_VESTIBULE_SEPTAL_COS) / RA_VESTIBULE_SEPTAL_RAMP),
     );
-    if (z > czR && smin(dFreeRa, dOrifice, 1e-3 + RA_VESTIBULE_UNION_CM * septalSide) < 0) {
+    if (
+      z > czR &&
+      smin(dFreeRa, dOrifice, 1e-3 + RA_VESTIBULE_UNION_CM * septalSide) < 0 &&
+      c.laCav > raLaMin
+    ) {
       // past the annulus the blood belongs to the ventricle, as it does on the left where the LV cavity
       // claims the mitral orifice: calling it atrium instead stretched ra-long past its reference range
       const past = z > A.tvCenter.z + hp.tvZ + tvOff;
@@ -650,19 +758,21 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   }
   // interatrial septum: slab between the clipped atria wherever either atrium reaches the septal plane (behind the aortic
   // root in PSAX-AV as well as in A4C and subcostal views), not in front of the left atrium (decision 222)
-  if (Math.abs(x - xIas) <= tIas / 2 && z < zAnn + 0.4) {
-    const nearLa = sdEllipsoid(xIas, y, z, la.x, la.y, czL, lr.x * bo, lr.y * bo, rzL) < 0.45;
+  if (x <= xFace && x >= xFace - tIas && z < zAnn + 0.4) {
+    // wherever the left atrium, with its fills, is at the plane there is a septum; where only the right atrium is, not in
+    // front of the left atrium (decision 222)
     const nearRa =
       sdEllipsoid(xIas, y, z, ra.x, ra.y, czR, rr.x * bo * raC, rr.y * bo * raC, rzR) < 0.45;
+    // and not across the coronary sinus, which passes behind the crux (decision 321)
     if (
-      (nearLa || nearRa) &&
-      relL < 0.5 &&
+      (nearLa || (nearRa && relL < 0.5)) &&
+      dCs >= 0 &&
       leftAtrialMouthLumen(c, x, y, z, la, lr, bo, czL) >= 0
     ) {
       setSample(
         out,
         Tissue.Myocardium,
-        -(tIas / 2 - Math.abs(x - xIas)),
+        -Math.min(xFace - x, x - (xFace - tIas)),
         1,
         0,
         0,

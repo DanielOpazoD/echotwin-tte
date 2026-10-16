@@ -3,6 +3,7 @@ import { paramDefinesGlsl } from './paramLayout';
 import { acousticDefinesGlsl } from '../acoustic/acoustics';
 import { ENVELOPE_NORM, psfDefinesGlsl } from '../acoustic/psf';
 import { GLSL_GENERATED } from './glslGenerated';
+import { LA_SEPTAL_TAPER_CM } from '@/simulator/anatomy/laGeometry';
 import {
   DESC_AORTA_MAX_OUTER_R,
   DESC_AORTA_R,
@@ -162,6 +163,7 @@ const float TV_SYSTOLIC_SHORTENING = ${gf(TV_SYSTOLIC_SHORTENING)};
 // the effusion over the left atrium (pericardium.ts, decision 255)
 const float OBLIQUE_SINUS_EFFUSION_CM = ${gf(OBLIQUE_SINUS_EFFUSION_CM)};
 const float OBLIQUE_SINUS_TAPER_CM = ${gf(OBLIQUE_SINUS_TAPER_CM)};
+const float LA_SEPTAL_TAPER_CM = ${gf(LA_SEPTAL_TAPER_CM)};
 const float RV_INFLOW_REACH_CM = ${gf(RV_INFLOW_REACH_CM)};
 // septal crest (lvWall.ts, decision 223): read by the generated septalCrestFactor
 const float SEPTAL_CREST_AZ = ${gf(SEPTAL_CREST_AZ)};

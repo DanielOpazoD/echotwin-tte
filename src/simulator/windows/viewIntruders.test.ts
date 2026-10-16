@@ -256,11 +256,18 @@ const KNOWN_VIEW_INTRUDERS: Record<string, string> = {
   'a2c/RvWall': "the artifact case's plane clips the right ventricular wall at the septal edge",
   'subcostal-4c/Ivc':
     'the swinging heart of the tamponade brings the inferior vena cava into the plane',
+  'suprasternal-arch/InteratrialSeptum':
+    'the atrial roof reaches the bottom of the sector in the difficult window: the septum, 0.31 % at mid-systole, since the atria meet it flat (decision 327)',
+  'suprasternal-arch/RaWall':
+    'the dilated right atrium of the HFrEF reaches the edge of the sector (10.5-13.5 cm deep): its wall, 0.30 % at mid-systole, since the atria meet the septum flat (decision 327)',
+  'plax/PulmonaryVein':
+    'a pulmonary vein behind the left atrium of the tamponade, 0.32 %, since the atrium meets the septum flat and its volume normalisation rescaled it (decision 327)',
 };
 
 /** The structures named in KNOWN_VIEW_INTRUDERS. */
 const BY_NAME: Record<string, Structure> = {
   AorticRoot: Structure.AorticRoot,
+  InteratrialSeptum: Structure.InteratrialSeptum,
   Ivc: Structure.Ivc,
   LaCavity: Structure.LaCavity,
   LaWall: Structure.LaWall,
