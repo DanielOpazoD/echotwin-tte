@@ -124,9 +124,21 @@ jobs:
       - run: npm ci
       # tipos, vite build y el presupuesto de bundle (tools/ci/bundle-budget.mjs)
       - run: npm run build
-      # coste del trazador CPU frente a su línea base (decisión 247): falla si crece más de un 25 %
+      # Coste del trazador CPU (decisiones 247 y 332): mide el árbol de referencia que nombra tracer-budget.json y este, en
+      # esta misma máquina y alternados, y falla si este cuesta más de un 25 % más. Una cifra sola no viaja entre
+      # máquinas; la proporción medida en la misma sí.
+      - name: Árbol de referencia del trazador
+        run: |
+          ref=$(node -p "require('./tools/ci/tracer-budget.json').reference.commit")
+          git fetch --no-tags --depth=1 origin "$ref"
+          git worktree add --detach /tmp/tracer-ref "$ref"
+          if cmp -s package-lock.json /tmp/tracer-ref/package-lock.json; then
+            ln -s "$PWD/node_modules" /tmp/tracer-ref/node_modules
+          else
+            (cd /tmp/tracer-ref && npm ci --no-audit --no-fund)
+          fi
       - name: Coste del trazador CPU
-        run: npx tsx tools/ci/tracer-budget.ts
+        run: npx tsx tools/ci/tracer-budget.ts --reference /tmp/tracer-ref
       # Los E2E manejan la app por window.__echotwin, que sólo instala la build de pruebas (src/main.tsx); la build de
       # producción de arriba se comprueba sin él en el presupuesto de bundle.
       - name: Build con el gancho de pruebas para los E2E

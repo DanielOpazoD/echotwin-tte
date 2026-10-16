@@ -1,6 +1,8 @@
 {
-  "ratio": 1.097,
-  "decision": 247,
-  "msPerFrame": 74.1,
-  "kernelMs": 67.5
+  "reference": {
+    "commit": "be13bbf25780b36afda13282c2f5fdf1fa4d2800",
+    "decision": 331,
+    "recordedBy": 332
+  },
+  "rounds": 3
 }
