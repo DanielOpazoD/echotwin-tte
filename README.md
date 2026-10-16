@@ -60,6 +60,7 @@ funcionando en CPU, más despacio.
 - [`docs/ITERATIONS.md`](docs/ITERATIONS.md) — mejoras, comprobaciones y alcance de cada iteración.
 
 - [`docs/MISION.md`](docs/MISION.md) — misión, objetivos medibles, cómo se prioriza y límites que no se cruzan.
+- [`docs/ESTADO.md`](docs/ESTADO.md) — estado del proyecto para quien lo retoma: qué funciona, qué está a medias, decisiones vigentes y cómo seguir.
 - [`docs/DECISIONS.md`](docs/DECISIONS.md) — cada decisión de diseño con las mediciones que la
   motivaron, incluidos los callejones sin salida y los errores corregidos.
 - [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) — qué no simula y qué está mal, con números.
