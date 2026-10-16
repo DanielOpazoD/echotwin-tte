@@ -6,13 +6,19 @@ mal, con cifra). El método de trabajo está en `.claude/skills/fidelity-method/
 
 ## Qué funciona
 
-- `main` contiene las decisiones 1–331. Las últimas: 326 (hojas de revisión clínica por vista),
+- `main` contiene las decisiones 1–332. Las últimas: 326 (hojas de revisión clínica por vista),
   327 (aurículas planas sobre el septo, fosa por la derecha), 328 (base ancha de la aurícula
   izquierda sobre todo el anillo; cortina aortomitral como lámina), 329 (clips de revisión: cine de
   un ciclo y barridos de sonda, GIF/MP4), 330 (la pared posterior de la AI apoyada en la aorta
   descendente) y 331 (censo de coherencia interna: contactos entre sangres, islas, grises por
   estructura y bordes rectos; `src/tests/coherence/`, CLI en `tools/offline/review/coherence-census.ts`
   y `coherence-planes.ts`).
+- El guardián del coste del trazador CPU (decisión 332) mide el árbol de referencia que nombra
+  `tools/ci/tracer-budget.json` (hoy, la fusión de la decisión 331) y el de la rama en la misma
+  máquina, alternados, y falla si la rama cuesta más de un 25 % más. Antes comparaba con un número
+  fijo, que variaba ±7 % entre máquinas del mismo modelo y tumbaba `main` en las lentas. Un trazador
+  más caro necesita una decisión que lo explique y que ponga su commit como referencia. Se puede
+  correr en local: `npx tsx tools/ci/tracer-budget.ts --reference <worktree del commit>`.
 - Herramientas de revisión con ojo clínico, que son el mecanismo por el que Daniel aporta defectos:
   `tools/offline/review/review-sheets.ts` (eco + mapa rotulado del mismo fotograma polar) y
   `review-clips.ts` (cine y barridos). El censo de coherencia es el instrumento de «ojos limpios»:
@@ -25,15 +31,10 @@ mal, con cifra). El método de trabajo está en `.claude/skills/fidelity-method/
 
 ## Qué está a medias (16-10-2026)
 
-- El presupuesto del trazador CPU (`tools/ci/tracer-budget.ts`, límite +25 % sobre la decisión 247)
-  depende de la clase de máquina del runner, no del código: divide el coste del trazador por el de
-  un núcleo aritmético fijo, y esa razón cambia entre microarquitecturas. Con el mismo código de
-  `main`, el 16 de octubre: núcleo de 48–50 ms → razón 1,06–1,25 (pasa); 67 ms → 1,20–1,30 (pasa);
-  73–80 ms → 1,42–1,59 (falla siempre, también en `main`). Relanzar solo sirve si toca otra clase.
-  Hace falta una decisión que lo arregle: baseline por modelo de CPU, o comparar contra `main`
-  medido en el mismo job; pendiente de Daniel.
 - `docs/ROADMAP.md` se detiene en la decisión 211 y `docs/ITERATIONS.md` en octubre 4: el orden de
   prioridades vigente es el de este archivo, hasta que se actualicen o se retiren.
+- El trazador creció un 23,5 % entre las decisiones 248 y 318 sin que ninguna lo declarara; la
+  decisión 332 lo declara y mueve la referencia a la 331.
 - Las PR apiladas de esta tanda (#160, #161, #162) se fusionaron con commit de fusión, no squash,
   para que cada una entrara limpia sobre la anterior; el historial de `main` tiene esos merges.
 
