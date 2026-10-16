@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 329 (última: 330).
+Decisiones: 330 (última: 331).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -337,3 +337,4 @@ Decisiones: 329 (última: 330).
 | [327](DECISIONS.md#L2301) | 2026-10-14 | Las aurículas se apoyan planas en el septo, que es liso por la izquierda y lleva la fosa por la derecha; y entre las dos sangres siempre hay septo. | vigente |
 | [328](DECISIONS.md#L2355) | 2026-10-14 | La aurícula izquierda se apoya ancha sobre todo su anillo, y la cortina aortomitral es una lámina con sus caras. | vigente |
 | [330](DECISIONS.md#L2374) | 2026-10-15 | La pared posterior de la aurícula izquierda descansa sobre la aorta descendente en todo el ciclo, y la aurícula dilatada no entra en ella. | vigente |
+| [331](DECISIONS.md#L2410) | 2026-10-15 | Censo de coherencia interna: contactos entre sangres, islas, grises en orden físico y bordes rectos, como prueba permanente. | vigente |
