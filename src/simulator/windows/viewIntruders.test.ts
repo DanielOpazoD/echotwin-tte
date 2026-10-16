@@ -260,10 +260,8 @@ const KNOWN_VIEW_INTRUDERS: Record<string, string> = {
     'the plane of the artifact case clips the right ventricular wall at the septal edge',
   'subcostal-4c/Ivc':
     'the swinging heart of the tamponade brings the inferior vena cava into the plane',
-  'suprasternal-arch/InteratrialSeptum':
-    'the atrial roof reaches the bottom of the sector in the difficult window: the septum, 0.31 % at mid-systole, since the atria meet it flat (decision 327)',
-  'suprasternal-arch/RaWall':
-    'the dilated right atrium of the HFrEF reaches the edge of the sector (10.5-13.5 cm deep): its wall, 0.30 % at mid-systole, since the atria meet the septum flat (decision 327)',
+  // (the septum and the right atrial wall left the suprasternal arch's sector in decision 330, with the left atrium's
+  // posterior wall on the column and the right atrium's own radial fraction)
 };
 
 /** The structures named in KNOWN_VIEW_INTRUDERS. */

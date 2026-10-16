@@ -1280,6 +1280,16 @@ describe('septal hinges at the crux (decision 220)', () => {
 });
 
 describe('right atrium at the membranous septum (decision 222)', () => {
+  /**
+   * Declared (decision 330): with their posterior wall on the descending aorta the two largest regurgitant atria are drawn
+   * forward out of the column, 1.4 cm in the heart failure case, and their septal corner behind the aortic annulus
+   * stands where the right atrium reached the root's wall at end-systole: 0.7-1.1 and 0.6 cm of fat and septum.
+   */
+  const KNOWN_THICK_PARTITION: Record<string, number> = {
+    'hfref-severe-mr@0.35@0.3': 0.72,
+    'hfref-severe-mr@0.35@-0.2': 1.1,
+    'mvp-primary-mr@0.35@-0.2': 0.58,
+  };
   it('toward the commissure of the non-coronary and right coronary sinuses only a thin partition separates the outflow tract and root from the right atrium', () => {
     // The atrium was clipped flat against the interatrial plane also in front of the left atrium, so between the outflow
     // tract or root lumen and the atrial cavity there were 0.70-0.92 cm at the level of the sinuses and 1.12-1.56 cm just
@@ -1322,6 +1332,12 @@ describe('right atrium at the membranous septum (decision 222)', () => {
           if (next === Structure.AorticRoot) continue;
           const key = `${input.id}@${ph}@${h}`;
           const ok = next === Structure.RaCavity && gap <= 0.45;
+          const declared = KNOWN_THICK_PARTITION[key];
+          if (declared !== undefined) {
+            if (ok || gap > declared + 0.1)
+              problems.push(`${key}: ${gap.toFixed(2)} cm, declared ${declared} (stale or worse)`);
+            continue;
+          }
           if (!ok) problems.push(`${key}: ${gap.toFixed(2)} cm to structure ${next}`);
         }
       }

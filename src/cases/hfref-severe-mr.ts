@@ -125,7 +125,8 @@ export const hfrefSevereMrCase: CaseDefinitionInput = {
     'rv-edv',
     'rv-ef',
     'la-ap',
-    'la-transverse',
+    // (the transverse diameter, 5.2 cm while the atrium ran into the descending aorta, reads 4.5 against the posterior
+    // column that now stops it, decision 330: the enlargement is drawn in the AP span, the volume and the height)
     'lavi',
     'la-emptying',
     'la-ao',

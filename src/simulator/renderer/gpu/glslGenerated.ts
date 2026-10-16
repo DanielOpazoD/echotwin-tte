@@ -261,6 +261,10 @@ float laBaseSdf(float x, float laX, float xFace, float cornerOff, float z, float
   float bound = (dCrossEq - LA_BASE_SECTION_SLACK_CM) * (1.0 - t) + dCrossRef * t;
   return min(max(max(shared, dCrossRef), x - laX), max(max(shared, bound), outlineSdf - LA_BASE_FLARE * (zHinge - z)));
 }
+// src/simulator/anatomy/laGeometry.ts: laFootprintScale
+float laFootprintScale(float bo) {
+  return 0.5 * (1.0 + bo);
+}
 // src/simulator/anatomy/classify/pericardium.ts: effusionAt
 float effusionAt(float eff, float dLa, float dRest) {
   float w = min(1.0, max(0.0, (dRest - dLa) / OBLIQUE_SINUS_TAPER_CM));

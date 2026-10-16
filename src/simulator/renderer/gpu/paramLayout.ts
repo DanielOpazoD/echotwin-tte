@@ -127,6 +127,10 @@ const SCALARS = [
   'LA_RX',
   'LA_RY',
   'LA_RZ',
+  'LA_PNX',
+  'LA_PNY',
+  'LA_PNZ',
+  'LA_PD',
   'COL_UX',
   'COL_UY',
   'COL_UZ',
@@ -188,6 +192,7 @@ const SCALARS = [
   'PV_SEGLEN',
   'PV_T',
   'LA_RESERVOIR',
+  'RA_RESERVOIR',
   'IAS_X',
   'FOSSA_Y',
   'FOSSA_Z',
@@ -473,6 +478,11 @@ export function packScene(
   set('LA_RX', A.laR.x);
   set('LA_RY', A.laR.y);
   set('LA_RZ', A.laR.z);
+  // the posterior wall on the descending aorta (decision 330)
+  set('LA_PNX', A.laPostN.x);
+  set('LA_PNY', A.laPostN.y);
+  set('LA_PNZ', A.laPostN.z);
+  set('LA_PD', A.laPostD);
   // the posterior column in the heart frame (decision 273)
   set('COL_UX', A.colU.x);
   set('COL_UY', A.colU.y);
@@ -521,6 +531,7 @@ export function packScene(
   set('LPA_R', A.lpaR);
   set('RV_PAP_AZ', A.rvPapAz);
   set('LA_RESERVOIR', A.laReservoir);
+  set('RA_RESERVOIR', A.raReservoir);
   set('IAS_X', A.iasX);
   set('FOSSA_Y', A.fossaY);
   set('FOSSA_Z', A.fossaZ);

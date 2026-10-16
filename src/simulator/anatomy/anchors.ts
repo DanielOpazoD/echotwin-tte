@@ -1,4 +1,11 @@
-import { atrialScaleForVolume, sizedLeftAtrium, IAS_X, FOSSA_Y, FOSSA_Z } from './laGeometry';
+import {
+  atrialScaleForVolume,
+  sizedLeftAtrium,
+  IAS_X,
+  FOSSA_Y,
+  FOSSA_Z,
+  LA_RESERVOIR_MIN,
+} from './laGeometry';
 import { buildAorticArch, type AorticArchGeometry } from './aorticArch';
 import type { CycleState } from '@/simulator/cardiac-cycle/cycleModel';
 import { fitOccupiedAtrium } from './laNormalization';
@@ -14,7 +21,8 @@ import {
   heartToTorso,
   torsoToHeart,
 } from './heartFrame';
-import { DESC_AORTA_X, DESC_AORTA_Z, SPINE_Z } from './thoraxModel';
+import { DESC_AORTA_MAX_OUTER_R, DESC_AORTA_X, DESC_AORTA_Z, SPINE_Z } from './thoraxModel';
+import { LA_WALL_CM, PERICARDIUM_CM } from './classify/pericardium';
 import { placeVascularNeighbours } from './vascularPlacement';
 import { computeChamberPose } from './heartPose';
 import { classifyChambers } from './classify';
@@ -56,6 +64,9 @@ export interface Anchors {
   ascR: number;
   laCenter: Vec3;
   laR: Vec3;
+  /** Centroid of the left atrial blood the volume fit counted (body and posterior prism, decision 330): where the
+   * cavity is, which the body's centre is not once the prism carries blood back to the column. */
+  laCentroid: Vec3;
   raCenter: Vec3;
   raR: Vec3;
   rvCenter: Vec3;
@@ -91,8 +102,18 @@ export interface Anchors {
   rvPapAz: number;
   rvPapZetaBase: number;
   rvPapZetaTip: number;
-  /** Minimal radial fraction of the atria (end-diastole): a dilated, remodelled atrium empties less. */
+  /** Minimal radial fraction of the left atrial body (end-diastole): a dilated, remodelled atrium empties less. */
   laReservoir: number;
+  /** The same for the right atrium (decision 149's value, kept apart in decision 330). */
+  raReservoir: number;
+  /**
+   * The posterior wall of the left atrium (decision 330): a plane fixed in the thorax, vertical and perpendicular to the
+   * sagittal plane, tangent to the descending aorta at its systolic maximum plus the pericardium and the atrial wall.
+   * `laPostN` is its unit normal in the heart frame (the torso's posterior), and a point lies behind the wall where
+   * `dot(p, laPostN) > laPostD`.
+   */
+  laPostN: Vec3;
+  laPostD: number;
   /** Interatrial septal plane (x) and fossa ovalis centre (y, z). */
   iasX: number;
   fossaY: number;
@@ -135,7 +156,22 @@ export function anchors(m: HeartModel): Anchors {
   // Atria: ellipsoids scaled from the case volume (maximal volume, end-systole) with the proportions of a
   // normal LA (AP < transverse < long) and RA; the long axis follows the annulus (reservoir stretch).
   const laK = atrialScaleForVolume(a.la.volumeMl, m.physiology.mapseCm, a.la.apDiameterCm);
-  const { center: laCenter, radii: laR } = sizedLeftAtrium(laK, a.la.apDiameterCm);
+  // the posterior wall of the left atrium, on the descending aorta (decision 330): the torso's posterior in the heart
+  // frame, and the plane tangent to the aorta at its systolic maximum plus the pericardium and the atrial wall
+  const laPostN = normalize(v3(-m.frame.ex.z, -m.frame.ey.z, -m.frame.ez.z));
+  const laPostD = dot(
+    torsoToHeart(
+      m.frame,
+      v3(
+        DESC_AORTA_X,
+        0,
+        DESC_AORTA_Z + m.columnShiftCm + DESC_AORTA_MAX_OUTER_R + PERICARDIUM_CM + LA_WALL_CM,
+      ),
+    ),
+    laPostN,
+  );
+  const laWall = { nx: laPostN.x, ny: laPostN.y, nz: laPostN.z, d: laPostD };
+  const { center: laCenter, radii: laR } = sizedLeftAtrium(laK, a.la.apDiameterCm, laWall);
   const raK = Math.cbrt(a.ra.volumeMl / 44);
   const raRx = 2.15 * raK,
     raRy = 1.93 * raK,
@@ -209,6 +245,7 @@ export function anchors(m: HeartModel): Anchors {
     // both atria hang from the interatrial plane (x ≈ −2.3) so that enlarging one never swallows the septum
     laCenter,
     laR,
+    laCentroid: laCenter,
     raCenter,
     raR: v3(raRx, raRy, raRz),
     // RV modelled as a large ellipsoid carved by the LV epicardium → crescent wrapping the septum;
@@ -264,7 +301,12 @@ export function anchors(m: HeartModel): Anchors {
     rvPapAz: 2.35,
     rvPapZetaBase: 0.68,
     rvPapZetaTip: 0.46,
-    laReservoir: 0.84 + 0.1 * Math.min(1, Math.max(0, (a.la.volumeMl - 60) / 60)),
+    laReservoir: LA_RESERVOIR_MIN + 0.1 * Math.min(1, Math.max(0, (a.la.volumeMl - 60) / 60)),
+    // the right atrium keeps the radial fraction of decision 149: the left one's changed with its fixed posterior wall
+    // (decision 330), and shared, it shrank the right atrium and opened a seam between it and its appendage
+    raReservoir: 0.84 + 0.1 * Math.min(1, Math.max(0, (a.la.volumeMl - 60) / 60)),
+    laPostN,
+    laPostD,
     iasX,
     fossaY: FOSSA_Y,
     fossaZ: FOSSA_Z,
@@ -366,7 +408,17 @@ export function heartLandmarks(m: HeartModel): Landmark[] {
       p: add(A.avCenter, scale(A.avAxis, 1.8)),
       radius: 1.1,
     },
-    { id: 'la', label: 'Aurícula izquierda', p: A.laCenter, radius: 1.5 },
+    // the centroid of the blood the volume fit counted, with the radius of the sphere of the declared volume (decision
+    // 330): the body's centre is not where the cavity is once the prism carries blood back to the column and the base
+    // flares to the annulus (0.6 cm lateral and 1 cm basal of it in the normal case), and a fixed 1.5 cm sphere reached
+    // 1.28 cm from the plane, which the long-axis planes passed by 0.02-0.23 cm and the aortic short axis, which cuts the
+    // atrium's roof, by 1.3-1.4 cm from the centroid
+    {
+      id: 'la',
+      label: 'Aurícula izquierda',
+      p: A.laCentroid,
+      radius: Math.cbrt((3 * m.anatomy.la.volumeMl) / (4 * Math.PI)),
+    },
     { id: 'ra', label: 'Aurícula derecha', p: A.raCenter, radius: 1.4 },
     { id: 'rv', label: 'Ventrículo derecho (entrada)', p: v3(rvc.x, -0.35, L * 0.35), radius: 1.3 },
     { id: 'pa', label: 'Tronco pulmonar', p: add(A.rvotB, scale(A.paDir, 1.5)), radius: 1.0 },

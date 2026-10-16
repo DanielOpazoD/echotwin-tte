@@ -17,6 +17,7 @@
 | Núcleo del simulador    | `src/simulator/core`                               | `SimulatorCore` (headless), `protocol.ts`, `client.ts`                                                                                                                                          |
 | Clínica                 | `src/clinical`                                     | fórmulas puras, referencias versionadas, rangos normales, valores de referencia, lector NIfTI y estadísticas de región (capa hoja: cualquier capa puede leerla, ella no importa nada del motor) |
 | Educación               | `src/education`                                    | técnica de medición, currículo, causas, impresión, informe educativo (`report.ts`) y `scoring/` (adquisición, mediciones, resumen de examen)                                                    |
+| Censo de coherencia     | `src/tests` (`coherence/`)                         | censo 3D del corazón (contactos entre estructuras, islas) y censo de los planos dibujados (grises por estructura, bordes rectos), compartido por las pruebas y por `tools/offline/review` (decisión 331) |
 | Aplicación              | `src/app`, `src/ui`, `src/workers`, `src/main.tsx` | React 19, zustand, `frameBus`, three.js (torso), tutorial de 8 pasos (`Tutorial.tsx`), exportación PNG con marca de agua (`exportImage.ts`)                                                     |
 
 Qué importa cada capa lo dice la tabla siguiente, generada desde los imports reales de `src/` (sin pruebas; decisión 177) con `npx tsx tools/docs/layer-graph.ts`. `docsConsistency.test.ts` falla si no coincide con el código, así que una arista nueva entre capas aparece en la revisión del cambio que la crea. Los paquetes (zod, React, three.js) no figuran.
@@ -40,6 +41,7 @@ Qué importa cada capa lo dice la tabla siguiente, generada desde los imports re
 | `simulator/renderer` | `cases`, `clinical`, `core`, `simulator/anatomy`, `simulator/cardiac-cycle`, `simulator/probe`, `simulator/windows` |
 | `simulator/view-recognition` | `clinical`, `core`, `simulator/anatomy`, `simulator/probe`, `simulator/renderer`, `simulator/windows` |
 | `simulator/windows` | `core`, `simulator/anatomy`, `simulator/probe` |
+| `tests` | `cases`, `simulator/anatomy`, `simulator/cardiac-cycle`, `simulator/core`, `simulator/probe`, `simulator/renderer`, `simulator/windows` |
 | `ui` | `app`, `cases`, `clinical`, `education`, `simulator/anatomy`, `simulator/core`, `simulator/doppler`, `simulator/measurements`, `simulator/probe`, `simulator/renderer`, `simulator/view-recognition`, `simulator/windows`, `workers` |
 | `workers` | `cases`, `simulator/anatomy`, `simulator/cardiac-cycle`, `simulator/core`, `simulator/renderer`, `simulator/windows` |
 <!-- /generado -->

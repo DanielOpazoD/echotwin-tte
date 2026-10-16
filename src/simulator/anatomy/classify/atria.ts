@@ -6,6 +6,9 @@ import {
   LA_BASE_BOUND_READ_CM,
   laBaseSdf,
   LA_CORNER_FLAT_CM,
+  LA_FLOOR_Y_CM,
+  laFootprintScale,
+  LA_POSTERIOR_FLOOR_DROP_CM,
   LA_POSTERIOR_RATIO,
   LA_SEPTAL_FLAT_CM,
   LA_TOUCH_CM,
@@ -28,6 +31,10 @@ import { PV_RADIUS, pulmonaryVeinSegment } from '../pulmonaryVeins';
 
 /** Scratch for the pulmonary vein segment of the sample being classified (no allocation per sample). */
 const PV_SEG = new Float64Array(6);
+/** The posterior wall plane of the anchors, in the shape the vein placement takes (decision 330). */
+export function laWallOf(A: AnchorsCached): { nx: number; ny: number; nz: number; d: number } {
+  return { nx: A.laPostN.x, ny: A.laPostN.y, nz: A.laPostN.z, d: A.laPostD };
+}
 
 /** Radial scale of the atria: reservoir/conduit/booster with the LV contraction, shrunk by the atrial kick and its hold. */
 /**
@@ -191,14 +198,16 @@ function atrialPoseCache(
   if (c.atrialHp === c.hp && c.atrialA === c.A) return;
   c.atrialHp = c.hp;
   c.atrialA = c.A;
+  const wall = laWallOf(c.A);
   for (let i = 0; i < 4; i++) {
-    pulmonaryVeinSegment(i, la, lr, bo, czL, rzL, PV_SEG);
+    pulmonaryVeinSegment(i, la, lr, bo, czL, rzL, PV_SEG, wall);
     c.veinSeg.set(PV_SEG, 6 * i);
   }
   const zAnn = c.hp.zAnn;
   const mv = c.hp.valves.mitral;
-  const rx = lr.x * bo,
-    ry = lr.y * bo;
+  // the sinus lies in the groove, under the body's full posterior surface, whatever the radial scale (decision 330)
+  const rx = lr.x,
+    ry = lr.y;
   const zs = zAnn - CS_ABOVE_ANNULUS_CM;
   const x0 = c.A.iasX + CS_CRUX_FROM_IAS_CM;
   const g = c.csGeo;
@@ -209,7 +218,12 @@ function atrialPoseCache(
   g[4] = ry;
   g[5] = czL;
   g[6] = rzL;
-  g[7] = laPosteriorY(Math.max(x0, la.x), zs, la, rx, ry, czL, rzL) - CS_GROOVE_OFFSET_CM;
+  g[7] = Math.max(
+    laPosteriorY(Math.max(x0, la.x), zs, la, rx, ry, czL, rzL) -
+      LA_POSTERIOR_FLOOR_DROP_CM -
+      CS_GROOVE_OFFSET_CM,
+    csWallFloor(c, x0, zs),
+  );
   g[8] = c.A.iasX - CS_OSTIUM_FROM_IAS_CM;
   g[9] = CS_OSTIUM_Y_CM;
   g[10] = zAnn - CS_OSTIUM_ABOVE_ANNULUS_CM;
@@ -244,6 +258,12 @@ export const CS_WALL_CM = 0.1;
 export const CS_GROOVE_OFFSET_CM = LA_WALL_CM + CS_WALL_CM + CS_RADIUS_CM;
 /** From the posterior mitral annulus to the sinus's axis (cm): the ring, the sinus's wall and its radius. */
 export const CS_ANNULUS_OFFSET_CM = 0.15 + CS_WALL_CM + CS_RADIUS_CM;
+
+/** Lowest y the sinus's axis may take at (x, z) to stay its wall in front of the posterior wall plane (decision 330). */
+function csWallFloor(c: ClassifyCtx, x: number, z: number): number {
+  const n = c.A.laPostN;
+  return (c.A.laPostD - CS_RADIUS_CM - CS_WALL_CM - x * n.x - z * n.z) / n.y;
+}
 
 /** Posterior surface (y) of the left atrial cavity at (x, z), the flattened ellipsoid of `leftAtrialFreeSdf`. */
 function laPosteriorY(
@@ -282,9 +302,16 @@ export function coronarySinusDistance(c: ClassifyCtx, x: number, y: number, z: n
   // medial to its centre the atrium reaches as far back as at its centre (the septal corner, decision 318), and behind
   // the posterior mitral annulus, where the tapering atrium is narrower than the ring
   const xc = Math.min(x1, Math.max(x0, x));
-  const yc = Math.min(
-    laPosteriorY(Math.max(xc, la.x), zs, la, g[3]!, g[4]!, g[5]!, g[6]!) - CS_GROOVE_OFFSET_CM,
-    g[12]! - Math.sqrt(Math.max(0, g[13]! * g[13]! - (xc - g[11]!) ** 2)) - CS_ANNULUS_OFFSET_CM,
+  // under the atrium's floor at the back (LA_POSTERIOR_FLOOR_DROP_CM lower, decision 330), and in front of the
+  // posterior wall plane by its own wall
+  const yc = Math.max(
+    Math.min(
+      laPosteriorY(Math.max(xc, la.x), zs, la, g[3]!, g[4]!, g[5]!, g[6]!) -
+        LA_POSTERIOR_FLOOR_DROP_CM -
+        CS_GROOVE_OFFSET_CM,
+      g[12]! - Math.sqrt(Math.max(0, g[13]! * g[13]! - (xc - g[11]!) ** 2)) - CS_ANNULUS_OFFSET_CM,
+    ),
+    csWallFloor(c, xc, zs),
   );
   const body = Math.hypot(x - xc, y - yc, z - zs) - CS_RADIUS_CM;
   const ostium = sdRoundCone(
@@ -376,6 +403,8 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   // reservoir / conduit / booster: radial size follows LV contraction (maximal at end-systole); the atrial
   // kick and its hold until ejection shrink it further (laBooster)
   const bo = atrialScale(hp.laBooster, A.laReservoir, hp.state.contraction);
+  // the right atrium's own (decision 330)
+  const boR = atrialScale(hp.laBooster, A.raReservoir, hp.state.contraction);
   atrialPoseCache(c, la, lr, bo, czL, rzL);
   const xIas = A.iasX;
   // interatrial septum: muscular septum ~0.55 cm with a thicker limbus around the thin fossa ovalis membrane. Its left
@@ -420,18 +449,9 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   const wRef = (zRef - czL) / rzL;
   const gapRef = la.x - lr.x * bo * Math.sqrt(Math.max(0, 1 - uL * uL - wRef * wRef)) - xFace;
   const cornerOff = laMedialFaceOffset(gapRef, LA_CORNER_FLAT_CM);
-  const dCrossRef = leftAtrialFreeSdf(
-    la.x,
-    y,
-    zRef,
-    la.x,
-    la.y,
-    czL,
-    lr.x * bo,
-    lr.y * bo,
-    rzL,
-    zTop,
-  );
+  // (the base, on the annulus, keeps the body's full sections whatever the radial scale of the moment, decision 330:
+  // tethered to the skeleton, it does not shrink with the kick as the body does)
+  const dCrossRef = leftAtrialFreeSdf(la.x, y, zRef, la.x, la.y, czL, lr.x, lr.y, rzL, zTop);
   const zHingeHere = c.zHinge;
   // and in front it ends at the aortomitral curtain, the straight anterior edge of the annulus: beyond it the right atrium
   // reaches the outflow tract across the membranous septum (decision 222)
@@ -451,18 +471,7 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   // and all around the annulus the base flares from the hinge up to that section (decision 328): the ellipsoid tapered
   // to a tip above the annulus, so 3 mm outside the ring the blood lay 2.5 cm above the hinge behind 6-19 mm of fat, and
   // under the anterior hinge of the two-chamber view 10 mm of fat and filler stood where the atrium is
-  const dCrossEq = leftAtrialFreeSdf(
-    la.x,
-    y,
-    czL,
-    la.x,
-    la.y,
-    czL,
-    lr.x * bo,
-    lr.y * bo,
-    rzL,
-    zTop,
-  );
+  const dCrossEq = leftAtrialFreeSdf(la.x, y, czL, la.x, la.y, czL, lr.x, lr.y, rzL, zTop);
   const dCorner = laBaseSdf(
     x,
     la.x,
@@ -478,7 +487,10 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   );
   // and over the fossa ovalis, wherever its section reaches, the atrium meets the septum (decision 319): the fossa's floor
   // is the one true septum, a membrane between the two atrial cavities; around it the rims are folds of the atrial walls
-  const dFossaLa = Math.max(xFace - x, x - la.x, dCrossLa, (fo - FOSSA_REACH) * 0.6);
+  // (the fossa is on the fixed septum: the fill reads the body's full section, whatever the radial scale of the moment,
+  // decision 330; at the scale of the moment 1-2 mm of fat stood behind the membrane at end-diastole)
+  const dCrossLaFull = leftAtrialFreeSdf(la.x, y, z, la.x, la.y, czL, lr.x, lr.y, rzL, zTop);
+  const dFossaLa = Math.max(xFace - x, x - la.x, dCrossLaFull, (fo - FOSSA_REACH) * 0.6);
   // and wherever its body comes close to the septal plane, its medial wall is the septum (decision 327): the gap is closed
   // up to LA_SEPTAL_FLAT_CM and eases back to the body's own shape over LA_SEPTAL_TAPER_CM, so no wall, fat or thicker
   // septum stacks between the atria where they face each other
@@ -488,7 +500,61 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   // keeps clear of (the release of decision 222 read the bare ellipsoid, so where a fill brought the left atrium to the
   // plane the right atrium was let through the slab and no septum was drawn: 2.3 cm² of blood against blood in the normal
   // case at mid-systole)
-  const dLaBody = Math.min(dFreeLa, dCorner, dFossaLa, dFlat);
+  // and behind, its wall is the plane on the descending aorta (decision 330): behind its centre the body is the prism
+  // of its full section (the footprint of the posterior wall, which does not shrink with the beat) up to that plane,
+  // with the body's roof, the groove (LA_FLOOR_Y_CM) as its floor and the hinge level as its end, so the wall is flat
+  // across the atrium and down to the groove and does not move with the beat (the ellipsoid curved away
+  // from the aorta toward the groove, leaving 4-16 mm of fat between them in the long axis, and moved back 4-5 mm with
+  // each beat)
+  const pn = A.laPostN;
+  const tPost = x * pn.x + y * pn.y + z * pn.z - A.laPostD;
+  const sPost = (x - la.x) * pn.x + (y - la.y) * pn.y + (z - czL) * pn.z;
+  // (its footprint below the equator is the equator's: the wall runs straight down to the groove; the footprint's
+  // edges follow half of the body's radial scale, the sides of the atrium moving 2 mm where its body moves 4)
+  // (the prism's front is the plane through the centre that stands along the heart's axis: the plane across the
+  // wall's normal, which leans back toward the annulus, left the posterior ring of a tall atrium in front of it)
+  const sFront = (x - la.x) * pn.x + (y - la.y) * pn.y;
+  // in front of that plane by more than the blend of the prism's union with the body (0.6, below) plus the body's own
+  // distance, the prism cannot change the body's distance, and its silhouette is not evaluated: the same value the
+  // union would read (the CPU tracer's cost guard, decision 247)
+  let dPost: number;
+  if (-sFront >= Math.max(dFreeLa, 0) + 0.6) dPost = dFreeLa + 0.6;
+  else {
+    const fp = laFootprintScale(bo);
+    // (and below the centre the footprint keeps the centre's width, down to the groove: the body's own floor, lifted
+    // with the AP span of a dilated atrium, left the posterior ring under fat and the coronary sinus)
+    const dSil = sdEllipsoid(
+      x - sPost * pn.x,
+      Math.max(y - sPost * pn.y, la.y),
+      Math.min(z - sPost * pn.z, czL),
+      la.x,
+      la.y,
+      czL,
+      lr.x * fp,
+      lr.y * fp,
+      rzL,
+    );
+    // and it ends at the hinge level, where the groove is
+    // (its cavity ends half a wall above the hinge level: down to the hinge it put blood behind the posterior annulus,
+    // where the groove is, and a whole wall left fat behind the wall on the long axis's groove lines)
+    dPost = smax(
+      smax(
+        Math.max(tPost, -sFront, dSil, z - (c.zHinge - 0.5 * LA_WALL_CM)),
+        LA_FLOOR_Y_CM - y,
+        0.3,
+      ),
+      zTop + 0.15 * rzL - z,
+      0.5,
+    );
+  }
+  // in front of the curtain the body keeps RA_LA_MIN_CM from the septal plane (decision 330): drawn forward, a dilated
+  // atrium reached the plane where the right atrium passes to the membranous septum (decision 222)
+  const frontClear = Math.min(rootClearFace, xFace + RA_LA_MIN_CM - x);
+  const dLaBody = Math.max(
+    Math.min(smin(dFreeLa, dPost, 0.6), dCorner, dFossaLa, dFlat),
+    tPost,
+    frontClear,
+  );
   c.laEpi = Math.min(c.laEpi, dLaBody - LA_WALL_CM);
   // the same body seen from the septal plane: within 0.45 cm of it the septum is drawn and the right atrium meets its face
   // negative where a fill leaves the atrium within LA_TOUCH_CM of the plane: there the septum is drawn and the right
@@ -496,11 +562,18 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   const laTouch = Math.min(
     Math.max(dCrossLa, faceOff - LA_TOUCH_CM),
     Math.max(dCrossRef, zRef - z, z - zHingeHere, cornerOff - LA_TOUCH_CM, rootClearFace),
-    Math.max(dCrossLa, (fo - FOSSA_REACH) * 0.6),
+    // (over the fossa the body's full section, as the fill reads it, decision 330)
+    Math.max(dCrossLaFull, (fo - FOSSA_REACH) * 0.6),
   );
   const nearLa =
-    laTouch < 0 || sdEllipsoid(xIas, y, z, la.x, la.y, czL, lr.x * bo, lr.y * bo, rzL) < 0.45;
-  const d = Math.min(smax(dFreeLa, xFace - x, 0.3), dCorner, dFossaLa, dFlat);
+    laTouch < 0 ||
+    (rootClearFace < 0 &&
+      sdEllipsoid(xIas, y, z, la.x, la.y, czL, lr.x * bo, lr.y * bo, rzL) < 0.45);
+  const d = Math.max(
+    Math.min(smax(smin(dFreeLa, dPost, 0.6), xFace - x, 0.3), dCorner, dFossaLa, dFlat),
+    tPost,
+    frontClear,
+  );
   c.laCav = d;
   if (d < 0) {
     setSample(
@@ -552,8 +625,8 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   const czR = (zTopR + zBotR) / 2,
     rzR = (zBotR - zTopR) / 2;
   const raC = raCollapseScale(hp.raCollapse);
-  const dEllRa = sdEllipsoid(x, y, z, ra.x, ra.y, czR, rr.x * bo * raC, rr.y * bo * raC, rzR);
-  let dFreeRa = smax(dEllRa, ra.y - 0.8 * rr.y * bo - y, 0.6);
+  const dEllRa = sdEllipsoid(x, y, z, ra.x, ra.y, czR, rr.x * boR * raC, rr.y * boR * raC, rzR);
+  let dFreeRa = smax(dEllRa, ra.y - 0.8 * rr.y * boR - y, 0.6);
   // the anteromedial atrium beside the right side of the aortic root (decision 218)
   {
     const av = A.avCenter;
@@ -569,7 +642,7 @@ export function classifyAtria(c: ClassifyCtx): boolean {
       av.x + t[0],
       av.y + t[1],
       av.z + zAnn * ROOT_EXCURSION + t[2],
-      RA_ANTEROMEDIAL_R_CM * bo,
+      RA_ANTEROMEDIAL_R_CM * boR,
     );
     dFreeRa = smin(dFreeRa, dAm, RA_ANTEROMEDIAL_BLEND_CM);
     // on down to the membranous septum (decision 222): above the tricuspid floor, and outside the ventricular wall
@@ -586,7 +659,7 @@ export function classifyAtria(c: ClassifyCtx): boolean {
       av.x + m2[0],
       av.y + m2[1],
       av.z + zr + m2[2],
-      RA_MEMBRANOUS_R_CM * bo,
+      RA_MEMBRANOUS_R_CM * boR,
     );
     dMs = smax(dMs, z - zBotR, 0.1);
     dMs = smax(dMs, -Math.max(c.dEllR - c.wallT - 0.05, zAnn - 0.25 - z), 0.1);
@@ -630,25 +703,36 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   }
   c.raSleeve = dSleeve;
   dFreeRa = Math.min(dFreeRa, dSleeve);
-  // behind, the right pulmonary veins with their wall (decision 320)
-  const rightVeinClear = RA_RIGHT_VEIN_CLEARANCE_CM - rightVeinDistance(c, x, y, z);
+  // behind, the right pulmonary veins with their wall (decision 320); over the fossa the membrane is what stands between
+  // the right atrium and the veins' mouths, and the atrium meets it (decision 330: the right inferior vein, risen with the
+  // forward-drawn body, passed 0.9-1.0 cm behind the fossa's centre, and the clearance left 0.2-1 mm of fat or 4.6-6.8 mm
+  // of wall between the right atrial blood and the membrane in four cases)
+  const rightVeinClear = Math.min(
+    RA_RIGHT_VEIN_CLEARANCE_CM - rightVeinDistance(c, x, y, z),
+    (fo - FOSSA_REACH) * 0.6,
+  );
   dFreeRa = smax(dFreeRa, rightVeinClear, 0.2);
-  // in front of the left atrium the interatrial plane no longer clips the right atrium (decision 222)
+  // in front of the left atrium the interatrial plane no longer clips the right atrium (decision 222); in front of the
+  // curtain the left atrium does not count, however close its body comes (decision 330: drawn forward, a dilated
+  // atrium's body reached the plane behind the root, and a septum stood between the root and the right atrium)
   const q = Math.min(
     1,
-    Math.max(0, (dFreeLa - RA_SEPTAL_RELEASE_LA_CM) / RA_SEPTAL_RELEASE_RAMP_CM),
+    Math.max(
+      0,
+      (Math.max(dFreeLa, rootClearFace) - RA_SEPTAL_RELEASE_LA_CM) / RA_SEPTAL_RELEASE_RAMP_CM,
+    ),
   );
   const relL = q * q * (3 - 2 * q);
   const xRaFace = xFace - tIas;
   const septumPlane = x - xRaFace - RA_SEPTAL_RELEASE_CM * relL;
   // and the right atrium meets its face of the septum wherever its body comes close (decision 327), as the left does,
   // where there is a septum to meet (the left atrium near the plane) and clear of the right pulmonary veins
-  const uR = (y - ra.y) / (rr.y * bo * raC),
+  const uR = (y - ra.y) / (rr.y * boR * raC),
     wR = (z - czR) / rzR;
-  const gapR = xRaFace - (ra.x + rr.x * bo * raC * Math.sqrt(Math.max(0, 1 - uR * uR - wR * wR)));
+  const gapR = xRaFace - (ra.x + rr.x * boR * raC * Math.sqrt(Math.max(0, 1 - uR * uR - wR * wR)));
   const dCrossRa = smax(
-    sdEllipsoid(ra.x, y, z, ra.x, ra.y, czR, rr.x * bo * raC, rr.y * bo * raC, rzR),
-    ra.y - 0.8 * rr.y * bo - y,
+    sdEllipsoid(ra.x, y, z, ra.x, ra.y, czR, rr.x * boR * raC, rr.y * boR * raC, rzR),
+    ra.y - 0.8 * rr.y * boR - y,
     0.6,
   );
   const dFlatRa = Math.max(
@@ -687,7 +771,7 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   // 0.10-0.16 cm the superior one in diastole.
   // the right atrial appendage opens into the atrium and the sac wraps it (decision 323)
   // above the atrioventricular groove: it stays RAA_ABOVE_FLOOR_CM over the atrial floor, clear of the tricuspid orifice
-  const dRaa = smax(rightAppendageDistance(c, bo, x, y, z), z - (zBotR - RAA_ABOVE_FLOOR_CM), 0.2);
+  const dRaa = smax(rightAppendageDistance(c, boR, x, y, z), z - (zBotR - RAA_ABOVE_FLOOR_CM), 0.2);
   c.raaEpi = dRaa - LAA_WALL_CM;
   const dSvc = svcDistance(A, x, y, z);
   const dIvc = ivcDistance(A, hp.ivcCollapse, x, y, z);
@@ -786,7 +870,7 @@ export function classifyAtria(c: ClassifyCtx): boolean {
     // wherever the left atrium, with its fills, is at the plane there is a septum; where only the right atrium is, not in
     // front of the left atrium (decision 222)
     const nearRa =
-      sdEllipsoid(xIas, y, z, ra.x, ra.y, czR, rr.x * bo * raC, rr.y * bo * raC, rzR) < 0.45;
+      sdEllipsoid(xIas, y, z, ra.x, ra.y, czR, rr.x * boR * raC, rr.y * boR * raC, rzR) < 0.45;
     // and not across the coronary sinus, which passes behind the crux (decision 321)
     if (
       (nearLa || (nearRa && relL < 0.5)) &&
