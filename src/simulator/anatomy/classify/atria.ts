@@ -511,31 +511,42 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   const sPost = (x - la.x) * pn.x + (y - la.y) * pn.y + (z - czL) * pn.z;
   // (its footprint below the equator is the equator's: the wall runs straight down to the groove; the footprint's
   // edges follow half of the body's radial scale, the sides of the atrium moving 2 mm where its body moves 4)
-  const fp = laFootprintScale(bo);
-  // (and below the centre the footprint keeps the centre's width, down to the groove: the body's own floor, lifted with
-  // the AP span of a dilated atrium, left the posterior ring under fat and the coronary sinus)
-  const dSil = sdEllipsoid(
-    x - sPost * pn.x,
-    Math.max(y - sPost * pn.y, la.y),
-    Math.min(z - sPost * pn.z, czL),
-    la.x,
-    la.y,
-    czL,
-    lr.x * fp,
-    lr.y * fp,
-    rzL,
-  );
-  // and it ends at the hinge level, where the groove is
   // (the prism's front is the plane through the centre that stands along the heart's axis: the plane across the
   // wall's normal, which leans back toward the annulus, left the posterior ring of a tall atrium in front of it)
   const sFront = (x - la.x) * pn.x + (y - la.y) * pn.y;
-  // (its cavity ends half a wall above the hinge level: down to the hinge it put blood behind the posterior annulus,
-  // where the groove is, and a whole wall left fat behind the wall on the long axis's groove lines)
-  const dPost = smax(
-    smax(Math.max(tPost, -sFront, dSil, z - (c.zHinge - 0.5 * LA_WALL_CM)), LA_FLOOR_Y_CM - y, 0.3),
-    zTop + 0.15 * rzL - z,
-    0.5,
-  );
+  // in front of that plane by more than the blend of the prism's union with the body (0.6, below) plus the body's own
+  // distance, the prism cannot change the body's distance, and its silhouette is not evaluated: the same value the
+  // union would read (the CPU tracer's cost guard, decision 247)
+  let dPost: number;
+  if (-sFront >= Math.max(dFreeLa, 0) + 0.6) dPost = dFreeLa + 0.6;
+  else {
+    const fp = laFootprintScale(bo);
+    // (and below the centre the footprint keeps the centre's width, down to the groove: the body's own floor, lifted
+    // with the AP span of a dilated atrium, left the posterior ring under fat and the coronary sinus)
+    const dSil = sdEllipsoid(
+      x - sPost * pn.x,
+      Math.max(y - sPost * pn.y, la.y),
+      Math.min(z - sPost * pn.z, czL),
+      la.x,
+      la.y,
+      czL,
+      lr.x * fp,
+      lr.y * fp,
+      rzL,
+    );
+    // and it ends at the hinge level, where the groove is
+    // (its cavity ends half a wall above the hinge level: down to the hinge it put blood behind the posterior annulus,
+    // where the groove is, and a whole wall left fat behind the wall on the long axis's groove lines)
+    dPost = smax(
+      smax(
+        Math.max(tPost, -sFront, dSil, z - (c.zHinge - 0.5 * LA_WALL_CM)),
+        LA_FLOOR_Y_CM - y,
+        0.3,
+      ),
+      zTop + 0.15 * rzL - z,
+      0.5,
+    );
+  }
   // in front of the curtain the body keeps RA_LA_MIN_CM from the septal plane (decision 330): drawn forward, a dilated
   // atrium reached the plane where the right atrium passes to the membranous septum (decision 222)
   const frontClear = Math.min(rootClearFace, xFace + RA_LA_MIN_CM - x);

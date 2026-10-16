@@ -1083,11 +1083,16 @@ bool classifyHeart(vec3 p0, out Sample s) {
     vec3 pn = vec3(LA_PNX, LA_PNY, LA_PNZ);
     float tPost = dot(p, pn) - LA_PD;
     float sPost = dot(p - vec3(la.x, la.y, czL), pn);
-    vec3 pSil = p - sPost * pn;
-    float fp = laFootprintScale(bo);
-    float dSil = sdEllipsoid(vec3(pSil.x, max(pSil.y, la.y), min(pSil.z, czL)), vec3(la.x, la.y, czL), vec3(lr.x * fp, lr.y * fp, rzL));
     float sFront = dot(p.xy - la.xy, pn.xy);
-    float dPost = smax(smax(max(max(max(tPost, -sFront), dSil), z - (zHinge - 0.5 * LA_WALL_CM)), LA_FLOOR_Y_CM - y, 0.3), zTop + 0.15 * rzL - z, 0.5);
+    // in front of the prism's front by more than the union's blend plus the body's distance the prism cannot change it
+    float dPost;
+    if (-sFront >= max(dFreeLa, 0.0) + 0.6) dPost = dFreeLa + 0.6;
+    else {
+      vec3 pSil = p - sPost * pn;
+      float fp = laFootprintScale(bo);
+      float dSil = sdEllipsoid(vec3(pSil.x, max(pSil.y, la.y), min(pSil.z, czL)), vec3(la.x, la.y, czL), vec3(lr.x * fp, lr.y * fp, rzL));
+      dPost = smax(smax(max(max(max(tPost, -sFront), dSil), z - (zHinge - 0.5 * LA_WALL_CM)), LA_FLOOR_Y_CM - y, 0.3), zTop + 0.15 * rzL - z, 0.5);
+    }
     // in front of the curtain the body keeps RA_LA_MIN_CM from the septal plane (decision 330)
     float frontClear = min(rootClearFace, xFace + RA_LA_MIN_CM - x);
     float dLaBody = max(max(min(min(smin(dFreeLa, dPost, 0.6), dCorner), min(dFossaLa, dFlat)), tPost), frontClear);
