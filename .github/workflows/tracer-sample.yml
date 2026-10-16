@@ -1,0 +1,36 @@
+# Temporal (decisión 332): muestrea los runners para fijar una línea base del trazador por modelo de CPU. En cada
+# máquina mide el árbol de la decisión 247 y el actual, alternados, con la misma herramienta de cada árbol. Se borra
+# antes de fusionar.
+name: tracer-sample
+on:
+  push:
+    branches: [tracer-budget-per-cpu]
+permissions:
+  contents: read
+jobs:
+  sample:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        n: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Árbol de la decisión 247
+        run: git worktree add /tmp/d247 db5e0c7 && cd /tmp/d247 && npm ci --no-audit --no-fund
+      - name: Medidas alternadas
+        run: |
+          echo "SAMPLE cpu=$(node -p "require('os').cpus()[0].model.trim()") n=$(nproc)"
+          for i in 1 2; do
+            echo "SAMPLE head $(npx tsx tools/ci/tracer-budget.ts --record 332 | head -1)"
+            echo "SAMPLE d247 $(cd /tmp/d247 && npx tsx tools/ci/tracer-budget.ts --record 247 | head -1)"
+          done
