@@ -212,9 +212,6 @@ const KNOWN_VIEW_LIMITATIONS: ReadonlySet<string> = new Set([
   // The two-chamber plane clips the pulmonary trunk beside the left atrial appendage, 12-14 cm deep at the anterior edge
   // of the sector. The lung hid it until the A2C preset stopped sliding under the lingula (decisions 72 and 83).
   'a2c/pulmonary artery',
-  // The long axis clips a pulmonary vein behind the left atrium, 0.11 % of its plane against the 0.05 % allowed, since
-  // the atrium meets the septum flat and its volume normalisation rescaled it (decision 327).
-  'plax/pulmonary veins',
 ]);
 
 describe('standard views contain the structures they are meant to show', () => {

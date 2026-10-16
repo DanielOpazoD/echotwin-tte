@@ -33,7 +33,6 @@ export const KNOWN_SETS: readonly {
   { file: 'src/simulator/anatomy/valveAnatomy.test.ts', name: 'KNOWN_ANNULUS_PARTITIONS' },
   { file: 'src/simulator/anatomy/valveAnatomy.test.ts', name: 'KNOWN_PAPILLARY_GAPS_CM' },
   { file: 'src/simulator/anatomy/chestWall.test.ts', name: 'KNOWN_INTRUSION_CM' },
-  { file: 'src/simulator/anatomy/posteriorColumn.test.ts', name: 'KNOWN_LA_IN_AORTA' },
   {
     file: 'src/simulator/view-recognition/segmentCoverage.test.ts',
     name: 'KNOWN_EXTRA_ASSESSABLE',
@@ -45,6 +44,10 @@ export const KNOWN_SETS: readonly {
   { file: 'src/simulator/windows/interatrialCrux.test.ts', name: 'KNOWN_FOSSA' },
   { file: 'src/simulator/windows/interatrialCrux.test.ts', name: 'KNOWN_UNDER_SEPTAL_HINGE' },
   { file: 'src/simulator/anatomy/venousMouths.test.ts', name: 'KNOWN_CLOSED_MOUTHS' },
+  { file: 'src/simulator/anatomy/venousMouths.test.ts', name: 'KNOWN_RA_IN_VEIN' },
+  { file: 'src/simulator/anatomy/valveAnatomy.test.ts', name: 'KNOWN_THICK_PARTITION' },
+  { file: 'src/simulator/anatomy/leftAtrialBase.test.ts', name: 'KNOWN_VEIN_AT_HINGE' },
+  { file: 'src/simulator/measurements/laVolume.test.ts', name: 'KNOWN_BIPLANE_SHORTFALL' },
   { file: 'src/simulator/anatomy/coronarySinus.test.ts', name: 'KNOWN_CS_OSTIUM' },
   { file: 'src/simulator/anatomy/atlasPositions.test.ts', name: 'KNOWN_ATLAS_POSITIONS' },
   { file: 'src/simulator/anatomy/atlasPositions.test.ts', name: 'KNOWN_ATLAS_VESSELS' },
