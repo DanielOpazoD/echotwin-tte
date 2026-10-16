@@ -5,12 +5,15 @@
  * BUDGET over the recorded baseline, so that a costlier tracer comes with the decision that justifies it.
  *
  * Time is CPU time of this process (`process.cpuUsage`), not wall time, so another process on the machine does not
- * count; and it is divided by the CPU time of a fixed reference kernel measured in the same process, so that a faster or
- * slower machine moves both alike. The ratio is compared only on CI (`CI` set), where the baseline was measured; on other
- * machines it is reported.
- *   npx tsx tools/ci/tracer-budget.ts            # measure and compare
- *   npx tsx tools/ci/tracer-budget.ts --record N # print the JSON of a new baseline set by decision N
+ * count; and it is divided by the CPU time of a fixed reference kernel measured in the same process. That ratio does not
+ * travel between machines (decision 332), so the guard measures the reference tree named in `tracer-budget.json` and
+ * this tree on the same machine, alternating, each with its own copy of this tool, and compares the median of the
+ * paired ratios with the budget (`tracerBudgetCheck.ts`). Being paired, the comparison holds on any machine.
+ *   npx tsx tools/ci/tracer-budget.ts                     # measure this tree and report its ratio
+ *   npx tsx tools/ci/tracer-budget.ts --reference <dir>   # compare with the reference tree checked out in <dir>
+ *   npx tsx tools/ci/tracer-budget.ts --record N          # print one measurement as JSON (what --reference reads)
  */
+import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadCaseById } from '@/cases';
@@ -27,20 +30,18 @@ import {
 } from '@/simulator/renderer/types';
 import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
 import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
+import {
+  BUDGET,
+  overBudget,
+  type Pair,
+  pairedGrowth,
+  parseRun,
+  type Reference,
+} from './tracerBudgetCheck';
 
-/** How much the ratio may grow over the baseline before the guard fails. */
-const BUDGET = 1.25;
 const VIEWS = ['a4c', 'plax'] as const;
 const WARMUP = 4;
 const FRAMES = 12;
-
-interface Baseline {
-  ratio: number;
-  /** The decision that set it: raising the baseline takes a decision that explains the cost. */
-  decision: number;
-  msPerFrame: number;
-  kernelMs: number;
-}
 
 const cpuMs = (run: () => void): number => {
   const u0 = process.cpuUsage();
@@ -103,6 +104,61 @@ function tracerMsPerFrame(): number {
   return medians.reduce((a, b) => a + b, 0) / medians.length;
 }
 
+/** Measures one tree with its own copy of this tool, in a process of its own. */
+function measureTree(dir: string): ReturnType<typeof parseRun> {
+  const r = spawnSync('npx', ['tsx', 'tools/ci/tracer-budget.ts', '--record', '1'], {
+    cwd: dir,
+    encoding: 'utf8',
+  });
+  if (r.status !== 0) throw new Error(`measuring ${dir} failed:\n${r.stdout}\n${r.stderr}`);
+  return parseRun(r.stdout);
+}
+
+const referenceAt = process.argv.indexOf('--reference');
+if (referenceAt >= 0) {
+  const refDir = process.argv[referenceAt + 1];
+  if (!refDir) throw new Error('--reference needs the directory of the reference tree');
+  const { reference, rounds } = JSON.parse(
+    readFileSync(join(process.cwd(), 'tools', 'ci', 'tracer-budget.json'), 'utf8'),
+  ) as { reference: Reference; rounds: number };
+  const pairs: Pair[] = [];
+  for (let i = 0; i < rounds; i++) {
+    // the order alternates, so that a drift of the machine over the run weighs on both trees alike
+    const first = i % 2 === 0 ? 'ref' : 'head';
+    const a = measureTree(first === 'ref' ? refDir : process.cwd());
+    const b = measureTree(first === 'ref' ? process.cwd() : refDir);
+    const pair = first === 'ref' ? { ref: a, head: b } : { head: a, ref: b };
+    pairs.push(pair);
+    process.stdout.write(
+      `round ${i + 1}: this tree ${pair.head.msPerFrame.toFixed(1)} ms/frame (kernel ${pair.head.kernelMs.toFixed(1)}), ` +
+        `reference ${pair.ref.msPerFrame.toFixed(1)} ms/frame (kernel ${pair.ref.kernelMs.toFixed(1)})\n`,
+    );
+  }
+  const growth = pairedGrowth(pairs);
+  const at = spawnSync('git', ['rev-parse', 'HEAD'], {
+    cwd: refDir,
+    encoding: 'utf8',
+  }).stdout.trim();
+  const which =
+    at === reference.commit
+      ? `the tree of decision ${reference.decision} (${reference.commit.slice(0, 7)})`
+      : `the tree in ${refDir} (${at.slice(0, 7) || 'not a git checkout'}; tracer-budget.json names ${reference.commit.slice(0, 7)}, decision ${reference.decision})`;
+  const line = `CPU tracer: ${((growth - 1) * 100).toFixed(1)} % over ${which}, measured on this machine in ${rounds} alternated rounds; limit ${((BUDGET - 1) * 100).toFixed(0)} %`;
+  process.stdout.write(`${line}\n`);
+  if (process.env['CI'])
+    process.stdout.write(
+      `::${overBudget(growth) ? 'error' : 'notice'} title=CPU tracer budget::${line}\n`,
+    );
+  if (overBudget(growth)) {
+    process.stdout.write(
+      `the CPU tracer costs ${((growth - 1) * 100).toFixed(0)} % more than at decision ${reference.decision}: ` +
+        `a costlier tracer needs a decision that explains it, and that decision's commit as the reference in tools/ci/tracer-budget.json\n`,
+    );
+    process.exit(1);
+  }
+  process.exit(0);
+}
+
 let sink = 0;
 for (let i = 0; i < 3; i++) sink += kernel();
 const kernelMs = median(Array.from({ length: 9 }, () => cpuMs(() => (sink += kernel()))));
@@ -112,40 +168,13 @@ const line = `tracer ${msPerFrame.toFixed(1)} ms/frame (CPU, medium tier, ${VIEW
 // the kernel's result is used, so that no compiler can drop the work it measures
 if (!Number.isFinite(sink)) throw new Error('reference kernel diverged');
 
-const recordAt = process.argv.indexOf('--record');
-if (recordAt >= 0) {
-  const decision = Number(process.argv[recordAt + 1]);
-  if (!(decision > 0))
-    throw new Error('--record needs the number of the decision that sets the baseline');
+if (process.argv.includes('--record')) {
+  // the format every version of this tool prints since decision 247: a line, then the measurement as JSON
   process.stdout.write(
-    `${line}\n${JSON.stringify({ ratio: +ratio.toFixed(3), decision, msPerFrame: +msPerFrame.toFixed(1), kernelMs: +kernelMs.toFixed(1) }, null, 2)}\n`,
+    `${line}\n${JSON.stringify({ ratio: +ratio.toFixed(3), msPerFrame: +msPerFrame.toFixed(1), kernelMs: +kernelMs.toFixed(1) }, null, 2)}\n`,
   );
   process.exit(0);
 }
-const baseline = JSON.parse(
-  readFileSync(join(process.cwd(), 'tools', 'ci', 'tracer-budget.json'), 'utf8'),
-) as Baseline;
-if (!(baseline.ratio > 0)) {
-  // no baseline recorded yet: report the runner's ratio so one can be set from it
-  process.stdout.write(`${line}\nno baseline recorded yet (tools/ci/tracer-budget.json)\n`);
-  process.exit(0);
-}
-const growth = ratio / baseline.ratio;
 process.stdout.write(
-  `${line}\nbaseline ${baseline.ratio.toFixed(3)} (decision ${baseline.decision}): ${((growth - 1) * 100).toFixed(1)} %\n`,
+  `${line}\nthe ratio alone does not travel between machines: compare with --reference <dir of the reference tree> (decision 332)\n`,
 );
-if (process.env['CI'])
-  process.stdout.write(
-    `::${growth > BUDGET ? 'error' : 'notice'} title=CPU tracer budget::${line}; baseline ${baseline.ratio.toFixed(3)}, growth ${((growth - 1) * 100).toFixed(1)}%, limit ${((BUDGET - 1) * 100).toFixed(0)}%\n`,
-  );
-if (!process.env['CI']) {
-  process.stdout.write(
-    'not on CI: the ratio is reported, not compared (the baseline is a CI runner’s)\n',
-  );
-} else if (growth > BUDGET) {
-  process.stdout.write(
-    `the CPU tracer costs ${((growth - 1) * 100).toFixed(0)} % more than at decision ${baseline.decision}: ` +
-      `a costlier tracer needs a decision that explains it, and a new baseline (--record N) in tools/ci/tracer-budget.json\n`,
-  );
-  process.exit(1);
-}

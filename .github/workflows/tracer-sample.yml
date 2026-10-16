@@ -27,10 +27,13 @@ jobs:
       - run: npm ci
       - name: Árbol de la decisión 247
         run: git worktree add /tmp/d247 db5e0c7 && cd /tmp/d247 && npm ci --no-audit --no-fund
-      - name: Medidas alternadas
+      - name: Árbol de referencia (como en ci.yml)
         run: |
-          echo "SAMPLE cpu=$(node -p "require('os').cpus()[0].model.trim()") n=$(nproc)"
-          for i in 1 2; do
-            echo "SAMPLE head $(npx tsx tools/ci/tracer-budget.ts --record 332 | head -1)"
-            echo "SAMPLE d247 $(cd /tmp/d247 && npx tsx tools/ci/tracer-budget.ts --record 247 | head -1)"
-          done
+          ref=$(node -p "require('./tools/ci/tracer-budget.json').reference.commit")
+          git worktree add --detach /tmp/tracer-ref "$ref"
+          if cmp -s package-lock.json /tmp/tracer-ref/package-lock.json; then ln -s "$PWD/node_modules" /tmp/tracer-ref/node_modules; else (cd /tmp/tracer-ref && npm ci --no-audit --no-fund); fi
+      - name: Guardián emparejado
+        run: |
+          echo "SAMPLE cpu=$(node -p "require('os').cpus()[0].model.trim()")"
+          echo "SAMPLE vs331 $(npx tsx tools/ci/tracer-budget.ts --reference /tmp/tracer-ref | grep 'CPU tracer:')"
+          echo "SAMPLE vs247 $(npx tsx tools/ci/tracer-budget.ts --reference /tmp/d247 | grep 'CPU tracer:')"
