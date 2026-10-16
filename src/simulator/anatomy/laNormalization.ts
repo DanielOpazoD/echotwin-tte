@@ -6,6 +6,9 @@ import { classifyChambers } from './classify';
 import { makeSample, Structure } from './tissue';
 import { atrialQuadrature, ATRIAL_QUADRATURE_POINTS, sizedLeftAtrium } from './laGeometry';
 
+/** Most steps of the volume fit; the fit stops once the volume is within 0.2 % of the declared one. */
+const ATRIAL_FIT_MAX_STEPS = 6;
+
 /** Fit the remaining atrial blood volume after neighbouring structures take their space.
  * Called once after publishing the provisional anchors, before vascular placement.
  * The AP axis stays fixed; transverse and longitudinal axes solve the volume constraint.
@@ -15,8 +18,13 @@ export function fitOccupiedAtrium(m: HeartModel, a: AnchorsCached, state: CycleS
   let k = a.laR.x / 2.5;
   const sample = makeSample();
   const wall = { nx: a.laPostN.x, ny: a.laPostN.y, nz: a.laPostN.z, d: a.laPostD };
-  // (eight steps: the posterior prism scales less than the body's square, decision 330)
-  for (let iteration = 0; iteration < 8; iteration++) {
+  // the volume grows with a power of the radial scale between the square (a body whose AP axis is declared) and
+  // nothing (the prism to the posterior wall and the base on the annulus do not scale, decision 330): the exponent is
+  // read from the last two steps, the square on the first (with the square alone the fit took 7-8 steps of 16384
+  // samples, and the model build cost 2.3 times the base's; with the secant 2-4 steps)
+  let prevLnK = NaN,
+    prevLnV = NaN;
+  for (let iteration = 0; iteration < ATRIAL_FIT_MAX_STEPS; iteration++) {
     const hp = computeChamberPose(m, state);
     const top = a.laCenter.z - a.laR.z;
     const bottom = hp.zAnn + 0.25;
@@ -58,7 +66,15 @@ export function fitOccupiedAtrium(m: HeartModel, a: AnchorsCached, state: CycleS
     const volume = (8 * hx * hy * hz * inside) / ATRIAL_QUADRATURE_POINTS;
     if (!(volume > 0)) throw new Error('Atrial normalization has no blood volume');
     if (Math.abs(volume / m.anatomy.la.volumeMl - 1) < 0.002) break;
-    k *= Math.sqrt(m.anatomy.la.volumeMl / volume);
+    const lnK = Math.log(k),
+      lnV = Math.log(volume);
+    const p =
+      Number.isFinite(prevLnK) && Math.abs(lnK - prevLnK) > 1e-6
+        ? Math.min(3, Math.max(0.5, (lnV - prevLnV) / (lnK - prevLnK)))
+        : 2;
+    prevLnK = lnK;
+    prevLnV = lnV;
+    k *= Math.pow(m.anatomy.la.volumeMl / volume, 1 / p);
     const shape = sizedLeftAtrium(k, m.anatomy.la.apDiameterCm, wall);
     a.laCenter = shape.center;
     a.laR = shape.radii;

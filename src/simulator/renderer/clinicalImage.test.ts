@@ -279,7 +279,7 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['4CH-ES:radialCorr4', -0.11],
   ['2CH-ED:radialCorr2', 0.38],
   // decision 321: with the coronary sinus at the inferior groove, the two-chamber end-diastolic texture at 8 mm (−0.11 before)
-  ['2CH-ED:radialCorr1', 0.62],
+  ['2CH-ED:radialCorr1', 0.46],
   ['2CH-ES:radialCorr1', 0.52],
   ['2CH-ED:tangentialCorr4', -0.21],
   // grey levels: the 2-4 cm band brighter than clinical (the app's near-field clutter, decision 238, more so without the
@@ -312,7 +312,7 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // end-diastolic one at 2 mm along and 4 mm across it come closer (−0.35 → −0.11, 0.61 → 0.38, −0.69 → −0.21), and the
   // four-chamber end-diastolic texture at 4 mm along and 8 mm across the beam, the end-systolic one at 1 mm across it
   // and the two-chamber end-diastolic one at 4 mm along it come inside
-  ['4CH-ES:tangentialCorr8', -0.14],
+  // (with the volume fit's secant the four-chamber end-systolic texture at 8 mm across the beam came back inside)
   ['2CH-ES:radialCorr8', 0.13],
 ]);
 

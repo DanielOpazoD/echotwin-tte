@@ -269,7 +269,7 @@ export function sizedLeftAtrium(k: number, apDiameterCm: number, wall?: LaPoster
   return { center, radii: { x: rx, y: ry, z: rz * 0.88 } };
 }
 
-export const ATRIAL_QUADRATURE_POINTS = 16384;
+export const ATRIAL_QUADRATURE_POINTS = 8192;
 const POINTS = ATRIAL_QUADRATURE_POINTS;
 function radicalInverse(i: number, base: number): number {
   let f = 1,
