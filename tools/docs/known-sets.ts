@@ -43,6 +43,15 @@ export const KNOWN_SETS: readonly {
   { file: 'src/simulator/windows/interatrialCrux.test.ts', name: 'KNOWN_INTERATRIAL_TISSUE' },
   { file: 'src/simulator/windows/interatrialCrux.test.ts', name: 'KNOWN_FOSSA' },
   { file: 'src/simulator/windows/interatrialCrux.test.ts', name: 'KNOWN_UNDER_SEPTAL_HINGE' },
+  { file: 'src/tests/coherence/coherenceCensus.test.ts', name: 'KNOWN_BLOOD_CONTACTS' },
+  {
+    file: 'src/tests/coherence/coherenceCensus.test.ts',
+    name: 'KNOWN_GREY_INVERSIONS',
+  },
+  {
+    file: 'src/tests/coherence/coherenceCensus.test.ts',
+    name: 'KNOWN_STRAIGHT_BORDERS',
+  },
   { file: 'src/simulator/anatomy/venousMouths.test.ts', name: 'KNOWN_CLOSED_MOUTHS' },
   { file: 'src/simulator/anatomy/venousMouths.test.ts', name: 'KNOWN_RA_IN_VEIN' },
   { file: 'src/simulator/anatomy/valveAnatomy.test.ts', name: 'KNOWN_THICK_PARTITION' },

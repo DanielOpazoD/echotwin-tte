@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 330 (última: 330).
+Decisiones: 331 (última: 331).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -338,3 +338,4 @@ Decisiones: 330 (última: 330).
 | [328](DECISIONS.md#L2355) | 2026-10-14 | La aurícula izquierda se apoya ancha sobre todo su anillo, y la cortina aortomitral es una lámina con sus caras. | vigente |
 | [329](DECISIONS.md#L2374) | 2026-10-15 | Clips de revisión clínica: cine de un ciclo en tiempo real y barridos de sonda, en GIF (y MP4 con ffmpeg). | vigente |
 | [330](DECISIONS.md#L2391) | 2026-10-15 | La pared posterior de la aurícula izquierda descansa sobre la aorta descendente en todo el ciclo, y la aurícula dilatada no entra en ella. | vigente |
+| [331](DECISIONS.md#L2427) | 2026-10-15 | Censo de coherencia interna: contactos entre sangres, islas, grises en orden físico y bordes rectos, como prueba permanente. | vigente |
