@@ -2,6 +2,8 @@ import {
   IAS_LEFT_FACE_CM,
   LA_CORNER_ANTERIOR_MARGIN_CM,
   LA_CORNER_FLAT_CM,
+  LA_FLOOR_Y_CM,
+  LA_POSTERIOR_FLOOR_DROP_CM,
   LA_POSTERIOR_RATIO,
   LA_SEPTAL_FLAT_CM,
   LA_TOUCH_CM,
@@ -40,6 +42,7 @@ import {
   PV_LEFT_INF_T,
   PV_LEFT_SUP_T,
   PV_COURSE,
+  PV_OSTIUM_AHEAD_CM,
   PV_RADIUS,
   PV_RIGHT_T,
   PV_SUP_Z,
@@ -115,6 +118,8 @@ const f = (v: number): string => (Number.isInteger(v) ? `${v}.0` : `${v}`);
 export const GLSL_HEART = /* glsl */ `
 const int LV_PROF_BINS = ${LV_PROF_BINS};
 const float LA_POSTERIOR_RATIO = ${f(LA_POSTERIOR_RATIO)};
+const float LA_POSTERIOR_FLOOR_DROP_CM = ${f(LA_POSTERIOR_FLOOR_DROP_CM)};
+const float LA_FLOOR_Y_CM = ${f(LA_FLOOR_Y_CM)};
 const float LV_WALL_BASAL_OVERHANG_CM = ${f(LV_WALL_BASAL_OVERHANG_CM)};
 const float LA_CORNER_HEIGHT_CM = ${f(LA_CORNER_HEIGHT_CM)};
 const float FOSSA_REACH = ${f(FOSSA_REACH)};
@@ -170,6 +175,7 @@ const float CS_RADIUS_CM = ${f(CS_RADIUS_CM)};
 const float CS_OSTIUM_RADIUS_CM = ${f(CS_OSTIUM_RADIUS_CM)};
 const float CS_WALL_CM = ${f(CS_WALL_CM)};
 const float CS_GROOVE_OFFSET_CM = ${f(CS_GROOVE_OFFSET_CM)};
+const float PV_OSTIUM_AHEAD_CM = ${f(PV_OSTIUM_AHEAD_CM)};
 const float CS_ANNULUS_OFFSET_CM = ${f(CS_ANNULUS_OFFSET_CM)};
 const float RA_CREST_REACH_CM = ${f(RA_CREST_REACH_CM)};
 const float RA_SEPTAL_RELEASE_LA_CM = ${f(RA_SEPTAL_RELEASE_LA_CM)};
@@ -736,6 +742,13 @@ bool classifyAorticExtension(vec3 p, inout Sample s) {
 
 // Shared RV distance for the pericardium block (recomputed; cheap)
 // decision 320: distance to the lumen of the pulmonary veins and the appendage, which the atrial wall and septum leave open
+// decision 330: a vein's ostium the posterior wall plane would leave behind it comes forward, with its course
+vec3 veinOstiumAhead(vec3 o) {
+  vec3 pn = vec3(LA_PNX, LA_PNY, LA_PNZ);
+  float back = dot(o, pn) - (LA_PD - PV_OSTIUM_AHEAD_CM);
+  // toward the root
+  return back > 0.0 ? o - vec3(0.0, back / pn.y, 0.0) : o;
+}
 float leftAtrialMouthLumen(vec3 p, vec3 la, vec3 lr, float bo, float czL, float rzL, float colDist) {
   float x = p.x, y = p.y, z = p.z;
   vec3 a0 = vec3(la.x + lr.x * 0.55, la.y + lr.y * 0.55, czL + 0.4);
@@ -750,7 +763,9 @@ float leftAtrialMouthLumen(vec3 p, vec3 la, vec3 lr, float bo, float czL, float 
     float px = la.x + sx * lr.x * bo * kz * cos(t);
     float py0 = la.y - lr.y * bo * kz * sin(t);
     float pz = czL + dzN * rzL;
-    d = min(d, smax(sdCapsule(p, vec3(px, py0, pz), vec3(px + PV_COURSE[3 * i], py0 + PV_COURSE[3 * i + 1], pz + PV_COURSE[3 * i + 2]), PV_RADIUS), 0.12 - colDist, 0.2));
+    // decision 330: a left vein's ostium stays in front of the posterior wall plane
+    vec3 o = sx > 0.0 ? veinOstiumAhead(vec3(px, py0, pz)) : vec3(px, py0, pz);
+    d = min(d, smax(sdCapsule(p, o, o + vec3(PV_COURSE[3 * i], PV_COURSE[3 * i + 1], PV_COURSE[3 * i + 2]), PV_RADIUS), 0.12 - colDist, 0.2));
   }
   return d;
 }
@@ -762,7 +777,8 @@ float rightVeinCapsule(int i, vec3 p, vec3 la, vec3 lr, float bo, float czL, flo
   float px = la.x - lr.x * bo * kz * cos(PV_RIGHT_T);
   float py0 = la.y - lr.y * bo * kz * sin(PV_RIGHT_T);
   float pz = czL + dzN * rzL;
-  return sdCapsule(p, vec3(px, py0, pz), vec3(px + PV_COURSE[3 * i], py0 + PV_COURSE[3 * i + 1], pz + PV_COURSE[3 * i + 2]), PV_RADIUS);
+  vec3 o = vec3(px, py0, pz);
+  return sdCapsule(p, o, o + vec3(PV_COURSE[3 * i], PV_COURSE[3 * i + 1], PV_COURSE[3 * i + 2]), PV_RADIUS);
 }
 float rightVeinDistance(vec3 p, vec3 la, vec3 lr, float bo, float czL, float rzL) {
   return min(rightVeinCapsule(0, p, la, lr, bo, czL, rzL), rightVeinCapsule(2, p, la, lr, bo, czL, rzL));
@@ -773,15 +789,21 @@ float laPosteriorY(float x, float z, vec3 la, float rx, float ry, float cz, floa
   float u = (x - la.x) / rx, w = (z - cz) / rz;
   return max(la.y - ry * sqrt(max(0.0, 1.0 - u * u - w * w)), la.y - LA_POSTERIOR_RATIO * ry);
 }
+// decision 330: lowest y of the sinus's axis at (x, z) that keeps its wall in front of the posterior wall plane
+float csWallFloor(float x, float z) {
+  return (LA_PD - CS_RADIUS_CM - CS_WALL_CM - x * LA_PNX - z * LA_PNZ) / LA_PNY;
+}
 float coronarySinusDistance(vec3 p, vec3 la, vec3 lr, float bo, float czL, float rzL, float zAnn, float laCav) {
-  float rx = lr.x * bo, ry = lr.y * bo;
+  // in the groove, under the body's full posterior surface (decision 330)
+  float rx = lr.x, ry = lr.y;
   float zs = zAnn - CS_ABOVE_ANNULUS_CM;
   float x0 = IAS_X + CS_CRUX_FROM_IAS_CM;
   float x1 = min(CS_LATERAL_X_CM, la.x + 0.85 * rx);
   float xc = min(x1, max(x0, p.x));
-  float yc = min(laPosteriorY(max(xc, la.x), zs, la, rx, ry, czL, rzL) - CS_GROOVE_OFFSET_CM, MVL_CY - sqrt(max(0.0, MVL_R * MVL_R - (xc - MVL_CX) * (xc - MVL_CX))) - CS_ANNULUS_OFFSET_CM);
+  // under the atrium's floor at the back and in front of the posterior wall plane (decision 330)
+  float yc = max(min(laPosteriorY(max(xc, la.x), zs, la, rx, ry, czL, rzL) - LA_POSTERIOR_FLOOR_DROP_CM - CS_GROOVE_OFFSET_CM, MVL_CY - sqrt(max(0.0, MVL_R * MVL_R - (xc - MVL_CX) * (xc - MVL_CX))) - CS_ANNULUS_OFFSET_CM), csWallFloor(xc, zs));
   float body = length(vec3(p.x - xc, p.y - yc, p.z - zs)) - CS_RADIUS_CM;
-  vec3 a = vec3(x0, laPosteriorY(max(x0, la.x), zs, la, rx, ry, czL, rzL) - CS_GROOVE_OFFSET_CM, zs);
+  vec3 a = vec3(x0, max(laPosteriorY(max(x0, la.x), zs, la, rx, ry, czL, rzL) - LA_POSTERIOR_FLOOR_DROP_CM - CS_GROOVE_OFFSET_CM, csWallFloor(x0, zs)), zs);
   vec3 b = vec3(IAS_X - CS_OSTIUM_FROM_IAS_CM, CS_OSTIUM_Y_CM, zAnn - CS_OSTIUM_ABOVE_ANNULUS_CM);
   float ostium = sdRoundCone(p, a, b, CS_RADIUS_CM, CS_OSTIUM_RADIUS_CM);
   return max(min(body, ostium), LA_WALL_CM + CS_WALL_CM - laCav);
@@ -1010,6 +1032,8 @@ bool classifyHeart(vec3 p0, out Sample s) {
   vec3 ra = vec3(RA_CX, RA_CY, RA_CZ);
   vec3 rar = vec3(RA_RX, RA_RY, RA_RZ);
   float bo = atrialScale(LA_BOOSTER, LA_RESERVOIR, CONTRACTION);
+  // the right atrium's own (decision 330)
+  float boR = atrialScale(LA_BOOSTER, RA_RESERVOIR, CONTRACTION);
   float czL, rzL, czR, rzR;
   {
     float zTop = la.z - lr.z;
@@ -1037,27 +1061,41 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float wRef = (zRef - czL) / rzL;
     float gapRef = la.x - lr.x * bo * sqrt(max(0.0, 1.0 - uL * uL - wRef * wRef)) - xFace;
     float cornerOff = laMedialFaceOffset(gapRef, LA_CORNER_FLAT_CM);
-    float dCrossRef = smax(smax(sdEllipsoid(vec3(la.x, y, zRef), vec3(la.x, la.y, czL), vec3(lr.x * bo, lr.y * bo, rzL)), la.y - LA_POSTERIOR_RATIO * lr.y * bo - y, 0.6), zTop + 0.15 * rzL - zRef, 0.5);
+    // the base keeps the body's full sections (decision 330)
+    float dCrossRef = smax(smax(sdEllipsoid(vec3(la.x, y, zRef), vec3(la.x, la.y, czL), vec3(lr.x, lr.y, rzL)), la.y - LA_POSTERIOR_RATIO * lr.y - y, 0.6), zTop + 0.15 * rzL - zRef, 0.5);
     float zHingeA = zHinge;
     // and in front it ends at the aortomitral curtain, the straight anterior edge of the annulus (decision 222)
     float rootClearFace = (xFace - MVL_CX) * MVL_UX + (y - MVL_CY) * MVL_UY - (MVL_D + LA_CORNER_ANTERIOR_MARGIN_CM);
     // and the base flares from the hinge all around the annulus (decision 328)
     float xRead = max(xFace, x - LA_BASE_BOUND_READ_CM);
     float rootClearBase = (xRead - MVL_CX) * MVL_UX + (y - MVL_CY) * MVL_UY - (MVL_D + LA_CORNER_ANTERIOR_MARGIN_CM);
-    float dCrossEq = smax(smax(sdEllipsoid(vec3(la.x, y, czL), vec3(la.x, la.y, czL), vec3(lr.x * bo, lr.y * bo, rzL)), la.y - LA_POSTERIOR_RATIO * lr.y * bo - y, 0.6), zTop + 0.15 * rzL - czL, 0.5);
+    float dCrossEq = smax(smax(sdEllipsoid(vec3(la.x, y, czL), vec3(la.x, la.y, czL), vec3(lr.x, lr.y, rzL)), la.y - LA_POSTERIOR_RATIO * lr.y - y, 0.6), zTop + 0.15 * rzL - czL, 0.5);
     float dCorner = laBaseSdf(x, la.x, xFace, cornerOff, z, zRef, zHingeA, dCrossRef, dCrossEq, rootClearBase, mvOutlineSdf(p.xy));
     // and over the fossa ovalis it meets the septum (decision 319)
-    float dFossaLa = max(max(xFace - x, x - la.x), max(dCross, (fo - FOSSA_REACH) * 0.6));
+    // the fossa fill reads the body's full section (decision 330)
+    float dCrossFull = smax(smax(sdEllipsoid(pc, vec3(la.x, la.y, czL), vec3(lr.x, lr.y, rzL)), la.y - LA_POSTERIOR_RATIO * lr.y - y, 0.6), zTop + 0.15 * rzL - z, 0.5);
+    float dFossaLa = max(max(xFace - x, x - la.x), max(dCrossFull, (fo - FOSSA_REACH) * 0.6));
     // and wherever its body comes close to the septal plane (decision 327)
     float faceOff = laMedialFaceOffset(gap, LA_SEPTAL_FLAT_CM);
     float dFlat = max(max(xFace + faceOff - x, x - la.x), dCross);
     // the body with its fills, before the septal clip
-    float dLaBody = min(min(dFreeLa, dCorner), min(dFossaLa, dFlat));
+    // decision 330: the posterior wall on the descending aorta, the prism of the body's full section behind its centre
+    vec3 pn = vec3(LA_PNX, LA_PNY, LA_PNZ);
+    float tPost = dot(p, pn) - LA_PD;
+    float sPost = dot(p - vec3(la.x, la.y, czL), pn);
+    vec3 pSil = p - sPost * pn;
+    float fp = laFootprintScale(bo);
+    float dSil = sdEllipsoid(vec3(pSil.x, max(pSil.y, la.y), min(pSil.z, czL)), vec3(la.x, la.y, czL), vec3(lr.x * fp, lr.y * fp, rzL));
+    float sFront = dot(p.xy - la.xy, pn.xy);
+    float dPost = smax(smax(max(max(max(tPost, -sFront), dSil), z - (zHinge - 0.5 * LA_WALL_CM)), LA_FLOOR_Y_CM - y, 0.3), zTop + 0.15 * rzL - z, 0.5);
+    // in front of the curtain the body keeps RA_LA_MIN_CM from the septal plane (decision 330)
+    float frontClear = min(rootClearFace, xFace + RA_LA_MIN_CM - x);
+    float dLaBody = max(max(min(min(smin(dFreeLa, dPost, 0.6), dCorner), min(dFossaLa, dFlat)), tPost), frontClear);
     laEpi = min(laEpi, dLaBody - LA_WALL_CM);
     // negative where a fill leaves the atrium within LA_TOUCH_CM of the plane
-    float laTouch = min(max(dCross, faceOff - LA_TOUCH_CM), min(max(max(max(dCrossRef, rootClearFace), cornerOff - LA_TOUCH_CM), max(zRef - z, z - zHingeA)), max(dCross, (fo - FOSSA_REACH) * 0.6)));
-    bool nearLa = laTouch < 0.0 || sdEllipsoid(vec3(xIas, y, z), vec3(la.x, la.y, czL), vec3(lr.x * bo, lr.y * bo, rzL)) < 0.45;
-    float d = min(min(min(smax(dFreeLa, xFace - x, 0.3), dCorner), dFossaLa), dFlat);
+    float laTouch = min(max(dCross, faceOff - LA_TOUCH_CM), min(max(max(max(dCrossRef, rootClearFace), cornerOff - LA_TOUCH_CM), max(zRef - z, z - zHingeA)), max(dCrossFull, (fo - FOSSA_REACH) * 0.6)));
+    bool nearLa = laTouch < 0.0 || (rootClearFace < 0.0 && sdEllipsoid(vec3(xIas, y, z), vec3(la.x, la.y, czL), vec3(lr.x * bo, lr.y * bo, rzL)) < 0.45);
+    float d = max(max(min(min(min(smax(smin(dFreeLa, dPost, 0.6), xFace - x, 0.3), dCorner), dFossaLa), dFlat), tPost), frontClear);
     if (d < 0.0) {
       setSample(s, T_BLOOD, d, vec3((x - la.x) / lr.x, (y - la.y) / lr.y, (z - czL) / rzL), p, 0.0, S_LA_CAV);
       return true;
@@ -1077,15 +1115,15 @@ bool classifyHeart(vec3 p0, out Sample s) {
     czR = (zTopR + zBotR) / 2.0;
     rzR = (zBotR - zTopR) / 2.0;
     float raC = raCollapseScale(RA_COLLAPSE);
-    float dEllRa = sdEllipsoid(p, vec3(ra.x, ra.y, czR), vec3(rar.x * bo * raC, rar.y * bo * raC, rzR));
-    float dFreeRa = smax(dEllRa, ra.y - 0.8 * rar.y * bo - y, 0.6);
+    float dEllRa = sdEllipsoid(p, vec3(ra.x, ra.y, czR), vec3(rar.x * boR * raC, rar.y * boR * raC, rzR));
+    float dFreeRa = smax(dEllRa, ra.y - 0.8 * rar.y * boR - y, 0.6);
     // decision 218
     vec3 amFrom = ra + vec3(RA_ANTEROMEDIAL_FROM_X, RA_ANTEROMEDIAL_FROM_Y, RA_ANTEROMEDIAL_FROM_Z);
     vec3 amTo = vec3(AV_CX + RA_ANTEROMEDIAL_TO_X, AV_CY + RA_ANTEROMEDIAL_TO_Y, AV_CZ + zAnn * ROOT_EXCURSION + RA_ANTEROMEDIAL_TO_Z);
-    dFreeRa = smin(dFreeRa, sdCapsule(p, amFrom, amTo, RA_ANTEROMEDIAL_R_CM * bo), RA_ANTEROMEDIAL_BLEND_CM);
+    dFreeRa = smin(dFreeRa, sdCapsule(p, amFrom, amTo, RA_ANTEROMEDIAL_R_CM * boR), RA_ANTEROMEDIAL_BLEND_CM);
     // decision 222
     vec3 msTo = vec3(AV_CX + RA_MEMBRANOUS_TO_X, AV_CY + RA_MEMBRANOUS_TO_Y, AV_CZ + zAnn * ROOT_EXCURSION + RA_MEMBRANOUS_TO_Z);
-    float dMs = smax(sdCapsule(p, amTo, msTo, RA_MEMBRANOUS_R_CM * bo), z - zBotR, 0.1);
+    float dMs = smax(sdCapsule(p, amTo, msTo, RA_MEMBRANOUS_R_CM * boR), z - zBotR, 0.1);
     dMs = smax(dMs, -max(dEllR - wallT - 0.05, zAnn - 0.25 - z), 0.1);
     dFreeRa = smin(dFreeRa, dMs, 0.3);
     // decision 223
@@ -1107,18 +1145,19 @@ bool classifyHeart(vec3 p0, out Sample s) {
     }
     dFreeRa = min(dFreeRa, raSleeve);
     // decision 320
-    float rightVeinClear = RA_RIGHT_VEIN_CLEARANCE_CM - rightVeinDistance(p, la, lr, bo, czL, rzL);
+    // decision 330: over the fossa the membrane stands between the right atrium and the veins' mouths
+    float rightVeinClear = min(RA_RIGHT_VEIN_CLEARANCE_CM - rightVeinDistance(p, la, lr, bo, czL, rzL), (fo - FOSSA_REACH) * 0.6);
     dFreeRa = smax(dFreeRa, rightVeinClear, 0.2);
     // decision 222
-    float qRel = clamp((dFreeLa - RA_SEPTAL_RELEASE_LA_CM) / RA_SEPTAL_RELEASE_RAMP_CM, 0.0, 1.0);
+    float qRel = clamp((max(dFreeLa, rootClearFace) - RA_SEPTAL_RELEASE_LA_CM) / RA_SEPTAL_RELEASE_RAMP_CM, 0.0, 1.0);
     float relL = qRel * qRel * (3.0 - 2.0 * qRel);
     float xRaFace = xFace - tIas;
     float septumPlane = x - xRaFace - RA_SEPTAL_RELEASE_CM * relL;
     // the right atrium meets its face of the septum wherever its body comes close (decision 327)
-    float uR = (y - ra.y) / (rar.y * bo * raC);
+    float uR = (y - ra.y) / (rar.y * boR * raC);
     float wR = (z - czR) / rzR;
-    float gapR = xRaFace - (ra.x + rar.x * bo * raC * sqrt(max(0.0, 1.0 - uR * uR - wR * wR)));
-    float dCrossRa = smax(sdEllipsoid(vec3(ra.x, y, z), vec3(ra.x, ra.y, czR), vec3(rar.x * bo * raC, rar.y * bo * raC, rzR)), ra.y - 0.8 * rar.y * bo - y, 0.6);
+    float gapR = xRaFace - (ra.x + rar.x * boR * raC * sqrt(max(0.0, 1.0 - uR * uR - wR * wR)));
+    float dCrossRa = smax(sdEllipsoid(vec3(ra.x, y, z), vec3(ra.x, ra.y, czR), vec3(rar.x * boR * raC, rar.y * boR * raC, rzR)), ra.y - 0.8 * rar.y * boR - y, 0.6);
     float dFlatRa = max(max(max(x - (xRaFace - laMedialFaceOffset(gapR, LA_SEPTAL_FLAT_CM)), ra.x - x), max(dCrossRa, laTouch)), rightVeinClear);
     // and never within the septum's thickness of the left atrial blood (decision 327)
     float raLaMin = min(tIas, RA_LA_MIN_CM);
@@ -1130,7 +1169,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
       return true;
     }
     // decision 323
-    float dRaa = sdRoundCone(p, vec3(RAA_BX, RAA_BY, RAA_BZ), vec3(AV_CX + RAA_TIP_FROM_AV_X, AV_CY + RAA_TIP_FROM_AV_Y, AV_CZ + RAA_TIP_FROM_AV_Z), RAA_BASE_R_CM * bo, RAA_TIP_R_CM * bo);
+    float dRaa = sdRoundCone(p, vec3(RAA_BX, RAA_BY, RAA_BZ), vec3(AV_CX + RAA_TIP_FROM_AV_X, AV_CY + RAA_TIP_FROM_AV_Y, AV_CZ + RAA_TIP_FROM_AV_Z), RAA_BASE_R_CM * boR, RAA_TIP_R_CM * boR);
     dRaa = smax(dRaa, z - (zBotR - RAA_ABOVE_FLOOR_CM), 0.2);
     raaEpi = dRaa - LAA_WALL_CM;
     // decision 219
@@ -1160,7 +1199,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
       return true;
     }
     if (x <= xFace && x >= xFace - tIas && z < zAnn + 0.4 && dCs >= 0.0 && leftAtrialMouthLumen(p, la, lr, bo, czL, rzL, colDist) >= 0.0) {
-      if (nearLa || (relL < 0.5 && sdEllipsoid(vec3(xIas, y, z), vec3(ra.x, ra.y, czR), vec3(rar.x * bo * raC, rar.y * bo * raC, rzR)) < 0.45)) {
+      if (nearLa || (relL < 0.5 && sdEllipsoid(vec3(xIas, y, z), vec3(ra.x, ra.y, czR), vec3(rar.x * boR * raC, rar.y * boR * raC, rzR)) < 0.45)) {
         setSample(s, T_MYO, -min(xFace - x, x - (xFace - tIas)), vec3(1.0, 0.0, 0.0), p, 0.0, S_IAS);
         return true;
       }
@@ -1191,7 +1230,9 @@ bool classifyHeart(vec3 p0, out Sample s) {
       float px = la.x + sx * lr.x * bo * kz * cos(t);
       float py0 = la.y - lr.y * bo * kz * sin(t);
       float pz = czL + dzN * rzL;
-      float dPv = smax(sdCapsule(p, vec3(px, py0, pz), vec3(px + PV_COURSE[3 * i], py0 + PV_COURSE[3 * i + 1], pz + PV_COURSE[3 * i + 2]), PV_RADIUS), 0.12 - colDist, 0.2);
+      // decision 330: a left vein's ostium stays in front of the posterior wall plane (pulmonaryVeinSegment)
+      vec3 o = sx > 0.0 ? veinOstiumAhead(vec3(px, py0, pz)) : vec3(px, py0, pz);
+      float dPv = smax(sdCapsule(p, o, o + vec3(PV_COURSE[3 * i], PV_COURSE[3 * i + 1], PV_COURSE[3 * i + 2]), PV_RADIUS), 0.12 - colDist, 0.2);
       if (dPv < 0.0) {
         setSample(s, T_BLOOD, dPv, vec3(0.0, -1.0, 0.0), p, 0.0, S_PVEIN);
         return true;

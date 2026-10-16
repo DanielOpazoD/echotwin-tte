@@ -17,14 +17,14 @@ import { canonicalPlane, landmarkReachCm, VIEW_TARGETS } from './viewTargets';
  */
 const KNOWN_UNREACHABLE_LANDMARKS: ReadonlySet<string> = new Set([
   // optional landmarks outside the plane in every case: the mid-level RV inflow of the papillary short axis, the apex tip in the apical short axis, the interatrial septum of the A4C, the RV
-  // inflow of the A5C (its mitral valve is in the plane since decision 217), and the LV apex of the RV-focused view; the left atrium and the tricuspid
-  // valve of the subcostal four-chamber view, up to 1.11 and 1.32 reaches away in some cases: its window is below the
-  // four-chamber plane, and its solved plane keeps the required landmarks nearer (decision 167)
+  // inflow of the A5C (its mitral valve is in the plane since decision 217), and the LV apex of the RV-focused view; the
+  // tricuspid valve of the subcostal four-chamber view, up to 1.32 reaches away in some cases: its window is below the
+  // four-chamber plane, and its solved plane keeps the required landmarks nearer (decision 167; the left atrium's
+  // landmark, at the centroid of its blood with the radius of its volume since decision 330, is within reach)
   'psax-pm/rv',
   'psax-apex/lv-apex',
   'a4c/ias',
   'a5c/rv',
-  'subcostal-4c/la',
   'subcostal-4c/tv',
   'rv-focused/lv-apex',
   // the tricuspid valve of the great-vessel short axis, outside in four cases (decision 148 turns the plane toward it)

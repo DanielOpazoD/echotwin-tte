@@ -32,18 +32,6 @@ import { makeSample, Structure } from './tissue';
  */
 const PHASES = [0, 0.2, 0.35, 0.6, 0.85];
 
-/**
- * Cases whose left atrial cavity or wall still runs into the descending aorta (decision 273, `docs/LIMITATIONS.md`): the
- * enlarged atria, and the borderline ones by a few samples. Making the atrium yield took its volume (the regurgitant
- * case's 98 mL drew 79): a real atrium grows elsewhere, which the ellipsoid cannot.
- */
-const KNOWN_LA_IN_AORTA = new Set([
-  'hfref-severe-mr',
-  'aortic-stenosis-severe',
-  'hocm-sam',
-  'mvp-primary-mr',
-  'af-diastolic',
-]);
 const LA_STRUCTURES = new Set<number>([Structure.LaCavity, Structure.LaWall]);
 
 function models(id: string) {
@@ -119,16 +107,13 @@ function plax(id: string) {
 }
 
 describe('the heart against the posterior column (decision 273)', () => {
-  it('no part of the heart, its veins or its sac lies inside the vertebral body or the descending aorta, but the declared atria', () => {
+  // the enlarged atria ran into the aorta (up to 2 mL and 7 mm deep) until their posterior wall was drawn against it
+  // (decision 330; `KNOWN_LA_IN_AORTA` declared five of them)
+  it('no part of the heart, its veins or its sac lies inside the vertebral body or the descending aorta', () => {
     const problems: string[] = [];
     for (const { id } of CASE_INPUTS) {
       const found = heartInColumn(id);
-      const declared = KNOWN_LA_IN_AORTA.has(id);
-      for (const [k, n] of Object.entries(found))
-        if (!(declared && k === 'atrium in the aorta'))
-          problems.push(`${id}: ${n} samples of ${k}`);
-      if (declared && !found['atrium in the aorta'])
-        problems.push(`${id}: declared in KNOWN_LA_IN_AORTA, and its atrium is clear of the aorta`);
+      for (const [k, n] of Object.entries(found)) problems.push(`${id}: ${n} samples of ${k}`);
     }
     expect(problems).toEqual([]);
   });

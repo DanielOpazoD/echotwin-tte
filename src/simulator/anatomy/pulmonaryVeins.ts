@@ -12,9 +12,15 @@
 export const PV_LEFT_SUP_T = 0.0;
 export const PV_LEFT_INF_T = 0.2;
 export const PV_RIGHT_T = 0.5;
-/** Height of the two pairs on the atrium (fraction of its half length; negative towards the roof). */
+/**
+ * Height of the two pairs on the atrium (fraction of its half length; negative towards the roof). The inferior pair
+ * rose from 0.35 to 0.25 in decision 330: with the atrium's posterior wall on the column the volume fit draws the body
+ * shorter, and at 0.35 the left inferior vein's lumen lay 3-6 mm above the posterolateral mitral hinge at end-diastole
+ * in four cases, crossing the base's column of `leftAtrialBase.test.ts`. No published distance from the inferior
+ * ostia to the mitral annulus was found; the fraction is declared as an assumption.
+ */
 export const PV_SUP_Z = -0.55;
-export const PV_INF_Z = 0.35;
+export const PV_INF_Z = 0.25;
 /**
  * Course of each vein from its ostium to its distal end (cm, heart frame: x lateral, y anterior, z towards the apex), in
  * the order of `pulmonaryVeinSegment`: right superior, left superior, right inferior, left inferior. The right veins run
@@ -56,6 +62,7 @@ export function pulmonaryVeinSegment(
   czL: number,
   rzL: number,
   out: Float64Array,
+  wall?: { nx: number; ny: number; nz: number; d: number },
 ): void {
   const sx = i % 2 === 0 ? -1 : 1;
   const sup = i < 2;
@@ -63,8 +70,15 @@ export function pulmonaryVeinSegment(
   const kz = Math.sqrt(1 - dzN * dzN); // radius of the atrial section at that height
   const t = sx > 0 ? (sup ? PV_LEFT_SUP_T : PV_LEFT_INF_T) : PV_RIGHT_T;
   const ox = la.x + sx * lr.x * bo * kz * Math.cos(t);
-  const oy = la.y - lr.y * bo * kz * Math.sin(t);
+  let oy = la.y - lr.y * bo * kz * Math.sin(t);
   const oz = czL + dzN * rzL;
+  if (wall && sx > 0) {
+    // the left veins enter the posterior wall, which stands on the column (decision 330): an ostium the wall plane
+    // would leave behind it comes forward, with its course, to PV_OSTIUM_AHEAD_CM in front of the plane, toward the
+    // root (toward the septum the right veins ran into it; toward the annulus the left inferior vein lay on the hinge)
+    const back = ox * wall.nx + oy * wall.ny + oz * wall.nz - (wall.d - PV_OSTIUM_AHEAD_CM);
+    if (back > 0 && wall.ny < 0) oy -= back / wall.ny;
+  }
   out[0] = ox;
   out[1] = oy;
   out[2] = oz;
@@ -72,3 +86,10 @@ export function pulmonaryVeinSegment(
   out[4] = oy + PV_COURSE[3 * i + 1]!;
   out[5] = oz + PV_COURSE[3 * i + 2]!;
 }
+/**
+ * How far (cm) in front of the posterior wall plane a left pulmonary vein's ostium lies at least (decision 330): the
+ * vein's lumen radius, so the mouth opens in the cavity where the body is clipped against the column (the dilated
+ * atria's left veins had their mouths inside the column, `KNOWN_CLOSED_MOUTHS` of decision 320); moved farther forward,
+ * the left inferior vein lay on the posterolateral hinge.
+ */
+export const PV_OSTIUM_AHEAD_CM = PV_RADIUS;

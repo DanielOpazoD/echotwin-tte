@@ -45,6 +45,8 @@ const KNOWN_INTERATRIAL_TISSUE: Record<string, string> = {
     'at mid-systole the right atrium tapers from the upper rim of the fossa, 2.7-2.8 cm below the annulus: 1-3 mm of fat behind the membrane, 2.4-4.8 mm from blood to blood',
   'mvp-primary-mr @0.35':
     'at mid-systole the right atrium tapers from the upper rim of the fossa, 2.8 cm below the annulus: 1 mm of fat behind the membrane, 2.3 mm from blood to blood',
+  'pericardial-effusion-tamponade @0':
+    'at end-diastole the smallest atrium (42 mL) at its radial minimum (decision 330, 0.70) recedes from the septum at its roof: 2.4-2.6 cm above the annulus its wall and 1-2 cm of fat stand between the right atrial blood and its own (10-23 mm), and higher the plane finds no left atrial blood',
 };
 const MAX_MM = 8;
 const MAX_STEP_MM = 1.5;

@@ -268,20 +268,20 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['2CH-ES:gradientP50', 0.76],
   // decision 317: with the shorter pulse the thin bright interfaces stand out more (0.71, 0.61, 0.96 and 0.53 widths
   // out before): the next target, with the lateral tail
-  ['4CH-ED:ridgeFraction', 1.39],
+  ['4CH-ED:ridgeFraction', 1.71],
   ['4CH-ES:ridgeFraction', 1.42],
   // decision 321: the coronary sinus in the inferior atrioventricular groove adds its wall's specular line (1.6 before)
-  ['2CH-ED:ridgeFraction', 1.99],
+  ['2CH-ED:ridgeFraction', 2.35],
   // texture longer along the beam at 1 mm (0.34 against 0.20-0.23), less coherent across it at 2-4 mm in places, and
   // through the persistence a little smoother over the sector (local std)
   // decision 324: with the superior vena cava joining the top of the atrium, the end-systolic four-chamber texture at
   // 4 mm (−0.48 before); the end-diastolic one at 4 mm across the beam came inside
-  ['4CH-ES:radialCorr4', -0.35],
-  ['2CH-ED:radialCorr2', 0.61],
+  ['4CH-ES:radialCorr4', -0.11],
+  ['2CH-ED:radialCorr2', 0.38],
   // decision 321: with the coronary sinus at the inferior groove, the two-chamber end-diastolic texture at 8 mm (−0.11 before)
   ['2CH-ED:radialCorr1', 0.62],
   ['2CH-ES:radialCorr1', 0.52],
-  ['2CH-ED:tangentialCorr4', -0.69],
+  ['2CH-ED:tangentialCorr4', -0.21],
   // grey levels: the 2-4 cm band brighter than clinical (the app's near-field clutter, decision 238, more so without the
   // window's chest-wall attenuation of decision 261; the 0-2 cm band came inside at 264), the four-chamber end-systolic
   // bright end dimmer
@@ -291,7 +291,6 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // decision 317: with the shorter pulse the end-systolic four-chamber outer band and the two-chamber end-systolic dark end
   // move to the edge, and the two-chamber end-diastolic texture loses its anticorrelation at 4 mm
   ['4CH-ES:bandGrey8', -0.11],
-  ['2CH-ED:radialCorr4', 0.29],
   // decision 318: with the atrium filling its septal corner the four-chamber end-diastolic texture at 1 mm and the
   // two-chamber end-systolic one at 4 mm move just past the quartiles
   ['4CH-ED:radialCorr1', 0.33],
@@ -301,14 +300,20 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // cell across the beam −0.45 → −0.64; at 2-8 mm along the beam closer to the quartiles, at 2 mm across it and the
   // end-systolic dark end inside), and the four-chamber end-diastolic texture at 8 mm across the beam steps just past
   // them (the ridges and the lateral tail remain the next target, docs/LIMITATIONS.md)
-  ['4CH-ED:tangentialCorr8', 0.37],
   // decision 328: with the atrium's base broad on its annulus (the fat wedges under the hinges gone, the atrium against
   // the root in the long axis) the apical gradients at the 95th percentile and the four-chamber end-diastolic texture at
   // 1 mm and 4 mm along the beam step a little farther out (0.16 → 0.34, 0.45 → 0.62, 0.16 → 0.33, −0.32), the
   // end-systolic one at 4 mm closer (−0.5 → −0.35) and at 1 mm across the beam just out (0.13); the end-systolic bright
   // end, the two-chamber texture at 8 mm along the beam and the end-systolic one at 4 mm come inside
-  ['4CH-ED:radialCorr4', -0.32],
-  ['4CH-ES:tangentialCorr1', 0.13],
+  // decision 330: with the atrium's posterior wall flat on the descending aorta (the band behind it a single line, the
+  // body narrower and drawn forward) the ridges step farther out (1.39 → 1.71, 1.99 → 2.35: still the next target), the
+  // end-systolic four-chamber texture at 8 mm across the beam and the two-chamber one at 8 mm along it step just past the
+  // quartiles (−0.14, 0.13), the four-chamber end-systolic texture at 4 mm along the beam and the two-chamber
+  // end-diastolic one at 2 mm along and 4 mm across it come closer (−0.35 → −0.11, 0.61 → 0.38, −0.69 → −0.21), and the
+  // four-chamber end-diastolic texture at 4 mm along and 8 mm across the beam, the end-systolic one at 1 mm across it
+  // and the two-chamber end-diastolic one at 4 mm along it come inside
+  ['4CH-ES:tangentialCorr8', -0.14],
+  ['2CH-ES:radialCorr8', 0.13],
 ]);
 
 /**

@@ -134,6 +134,83 @@ export function laMedialFaceOffset(gap: number, flatCm: number): number {
   return gap * t * t * (3 - 2 * t);
 }
 
+/**
+ * The posterior wall of the left atrium rests on the descending aorta (decision 330). The wall is a plane fixed in the
+ * thorax: vertical, perpendicular to the sagittal plane, tangent to the aorta at its systolic maximum plus the
+ * pericardium and the atrial wall (`laPostN`, `laPostD` in the anchors). Behind its centre the body is the prism of its
+ * own section (the silhouette along the wall's normal) up to that plane, so the wall is flat across the atrium's whole
+ * width and down to the floor behind the annulus, and it does not move with the beat or the annulus: the ellipsoid
+ * curved away from the aorta toward the atrioventricular groove (in the long axis of the normal case 4-16 mm of
+ * mediastinal fat lay between the atrial wall and the aorta, and the wall moved 4-5 mm back from end-diastole to
+ * end-systole), while on M-mode the posterior atrial wall is almost immobile and on CT the descending aorta lies
+ * against the atrium or its left veins (50 of 65, Cury et al., Heart Rhythm 2005;2:1317). The dilated atria crossed the
+ * plane into the aorta (up to 2 mL and 7 mm deep); clipped by it they are flat against the column, and the volume fit
+ * gives them their size across, in height and in front. Their centre does not move: in this heart frame the torso's
+ * anterior is medial, toward the root and toward the annulus at once, and drawing a dilated atrium forward by what the
+ * column takes behind it (1.8 cm in the heart failure case) ran it 1 cm into the septal plane and the aortic root.
+ */
+/**
+ * The posterior prism's floor lies this (cm) under the body's inferoposterior clip (decision 330): the posterior wall
+ * runs down to the top of the coronary sinus (the atrial wall and the sinus's, CS_GROOVE_OFFSET_CM less its radius),
+ * where the long axis shows the descending aorta behind the groove. The prism keeps the body's full section whatever
+ * the radial scale of the moment, so the posterior wall and its footprint do not move with the beat, as on M-mode; the
+ * reservoir's radial scale moves the anterior wall, the roof and the sides.
+ */
+export const LA_POSTERIOR_FLOOR_DROP_CM = 0.35;
+/**
+ * Radial fraction of the atrial body at end-diastole (decision 330; 0.84 before it, decision 149). With the posterior
+ * wall and its footprint fixed in the thorax, the same radial scale emptied the atrium less: the normal case's emptying
+ * fraction fell from 39 % to 34 % against 35-65, and every case lost 3-5 points. The scale now moves the anterior wall,
+ * the roof and the sides of the body and the footprint's edges by half, with the posterior wall, the groove and the
+ * base on the annulus fixed, so it is set deeper, 0.70 (the AP span of the normal atrium then changes 0.9 cm over the
+ * beat, as the aortic root's 1 cm on M-mode), which gives the normal case 36 %; a dilated atrium still empties less (up
+ * to +0.1 at 120 mL). The published total emptying fraction of a normal atrium is higher than the model's (the
+ * guideline range's upper half), so this is not a limit; what the model lacks is a broad floor for the annular piston.
+ */
+export const LA_RESERVOIR_MIN = 0.7;
+/**
+ * Radial scale of the posterior wall's footprint for a radial scale `bo` of the body (decision 330): half the body's
+ * change. The posterior wall itself does not move; its lateral edges, where the sides of the atrium meet it, follow the
+ * sides by half (2 mm where the body's sides move 4). Shared with GLSL.
+ */
+export function laFootprintScale(bo: number): number {
+  return 0.5 * (1 + bo);
+}
+/**
+ * Where the left atrium's floor behind the annulus lies (decision 330): LA_FLOOR_Y_CM, the atrioventricular groove in
+ * the heart frame, whatever the atrium's size. The posterior prism descends to it; the body's own inferoposterior clip
+ * (LA_POSTERIOR_RATIO of the AP radius below the centre) lies LA_POSTERIOR_FLOOR_DROP_CM above it, and the declared AP
+ * span runs from the groove to the body's anterior pole, so an atrium with a wider span grows forward, toward the root,
+ * as the posterior aortic wall is its anterior one and the posterior wall and the groove are the thorax's. −2.97 cm is
+ * the normal case's floor before the change (centre y −1.3, AP radius 1.83, drop 0.35). With the centre fixed instead,
+ * the heart failure atrium's floor went 0.5 cm lower, into the column, and the long axis showed the aorta 1 cm behind
+ * its groove. The centre's other coordinates keep the rules of decision 291 (the septal overlap sets x, the body's own
+ * height z); placing the centre at a fixed depth in front of the wall was tried and discarded, because in this heart
+ * frame the torso's anterior is medial, toward the root and toward the annulus at once, and the dilated atria then sat
+ * so low that the root took up to 1.4 cm of their AP span, or so far into the septal plane that the fit doubled their
+ * width. Where the dilated body crosses the wall plane it is clipped flat against the column and the fit gives the
+ * volume back across and in height.
+ */
+export const LA_FLOOR_Y_CM = -2.97;
+/**
+ * The atrium's AP span is drawn whole in front of the posterior wall (decision 330): the groove's floor at the centre's
+ * own x and height keeps at least this (cm) in front of the wall, so the chord from the groove to the anterior pole,
+ * where the AP diameter is measured, is not cut by the column. Where it would come closer the centre moves toward the
+ * septum and the root (the torso's anterior without its apical part, which would lower the roof): to the right and
+ * forward, where a dilated atrium grows, bulging the septum and lifting the root. The heart failure atrium (98 mL),
+ * placed by its size alone, had its centre 0.3 cm in front of the wall once the fit had grown it to the left and up
+ * (both toward the column here), and its AP diameter read 3.1 cm for 4.7 declared; drawn 1.4 cm forward it reads 5.0.
+ * Declared as an assumption.
+ */
+export const LA_FLOOR_AHEAD_CM = 0.3;
+/** The posterior wall plane in the heart frame: unit normal (the torso's posterior) and offset, `dot(p, n) > d` behind it. */
+export interface LaPosteriorWall {
+  nx: number;
+  ny: number;
+  nz: number;
+  d: number;
+}
+
 /** The actual atrial body, including its posterior and roof flattening. */
 export function leftAtrialFreeSdf(
   x: number,
@@ -160,20 +237,39 @@ export const IAS_X = -2.35;
 export const FOSSA_Y = -0.95;
 export const FOSSA_Z = -1.3;
 
-/** Idealized atrial shape: declared AP span plus a volume-constrained transverse/longitudinal scale. */
-export function sizedLeftAtrium(k: number, apDiameterCm: number) {
+/**
+ * Idealized atrial shape: declared AP span plus a volume-constrained transverse/longitudinal scale. The posterior cut
+ * retains LA_POSTERIOR_RATIO of the AP radius behind the centre and the anterior side the whole radius; behind the
+ * centre the floor lies LA_POSTERIOR_FLOOR_DROP_CM lower (decision 330), so the declared span is the sum.
+ */
+export function sizedLeftAtrium(k: number, apDiameterCm: number, wall?: LaPosteriorWall) {
   const rx = 2.5 * k,
-    // The posterior cut retains 0.72 ry and the anterior side ry.
-    // Set their total span from the declared AP dimension; volume sets the other axes.
-    ry = apDiameterCm / (1 + LA_POSTERIOR_RATIO),
+    ry = (apDiameterCm - LA_POSTERIOR_FLOOR_DROP_CM) / (1 + LA_POSTERIOR_RATIO),
     rz = 2.65 * k;
-  return {
-    center: { x: IAS_X - 0.35 + rx, y: -1.3, z: -rz * 0.85 },
-    radii: { x: rx, y: ry, z: rz * 0.88 },
+  // the declared AP span runs from the groove to the anterior pole (decision 330)
+  const center = {
+    x: IAS_X - 0.35 + rx,
+    y: LA_FLOOR_Y_CM + apDiameterCm - ry,
+    z: -rz * 0.85,
   };
+  if (wall) {
+    // and the groove at the centre's x and height keeps in front of the wall, the centre drawn toward the septum and
+    // the root where it would not
+    const behind =
+      center.x * wall.nx +
+      LA_FLOOR_Y_CM * wall.ny +
+      center.z * wall.nz -
+      (wall.d - LA_FLOOR_AHEAD_CM);
+    const h = Math.hypot(wall.nx, wall.ny);
+    if (behind > 0 && h > 0) {
+      center.x -= (behind * wall.nx) / (h * h);
+      center.y -= (behind * wall.ny) / (h * h);
+    }
+  }
+  return { center, radii: { x: rx, y: ry, z: rz * 0.88 } };
 }
 
-export const ATRIAL_QUADRATURE_POINTS = 8192;
+export const ATRIAL_QUADRATURE_POINTS = 16384;
 const POINTS = ATRIAL_QUADRATURE_POINTS;
 function radicalInverse(i: number, base: number): number {
   let f = 1,
