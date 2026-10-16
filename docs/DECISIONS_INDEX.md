@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 328 (última: 328).
+Decisiones: 329 (última: 329).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -336,3 +336,4 @@ Decisiones: 328 (última: 328).
 | [326](DECISIONS.md#L2287) | 2026-10-14 | Hojas de revisión clínica: la eco y su mapa de estructuras rotulado, del mismo fotograma polar. | vigente |
 | [327](DECISIONS.md#L2301) | 2026-10-14 | Las aurículas se apoyan planas en el septo, que es liso por la izquierda y lleva la fosa por la derecha; y entre las dos sangres siempre hay septo. | vigente |
 | [328](DECISIONS.md#L2355) | 2026-10-14 | La aurícula izquierda se apoya ancha sobre todo su anillo, y la cortina aortomitral es una lámina con sus caras. | vigente |
+| [329](DECISIONS.md#L2374) | 2026-10-15 | Clips de revisión clínica: cine de un ciclo en tiempo real y barridos de sonda, en GIF (y MP4 con ffmpeg). | vigente |
