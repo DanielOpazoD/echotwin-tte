@@ -295,23 +295,26 @@ export function CutMapView() {
   return (
     <div
       className="cut-map"
-      ref={ref}
       aria-label={
         segmentsOn
           ? 'Corte ecográfico: segmentos del ventrículo izquierdo que atraviesa el plano de la imagen'
           : 'Corte ecográfico: estructuras en el plano de la imagen'
       }
     >
-      <div className="torso-caption bottom">
-        {segmentsOn ? 'Corte ecográfico · segmentos' : 'Corte ecográfico'}
+      <div className="cut-map-head">
+        <span className="torso-caption bottom">
+          {segmentsOn ? 'Corte ecográfico · segmentos' : 'Corte ecográfico'}
+        </span>
+        <div className="cut-map-hover" ref={hoverRef} aria-live="off" />
       </div>
-      <div className="cut-map-hover" ref={hoverRef} aria-live="off" />
-      <div className="torso-help cut">
-        {segmentsOn
-          ? 'Pasar el ratón: nombre · clic: seleccionar'
-          : labels
-            ? 'Pasar el ratón: nombre completo'
-            : 'Pasar el ratón: nombre'}
+      <div className="cut-map-body" ref={ref}>
+        <div className="torso-help cut">
+          {segmentsOn
+            ? 'Pasar el ratón: nombre · clic: seleccionar'
+            : labels
+              ? 'Pasar el ratón: nombre completo'
+              : 'Pasar el ratón: nombre'}
+        </div>
       </div>
     </div>
   );
@@ -329,9 +332,9 @@ function drawRuler(
     ey = Math.cos(half);
   const ox = -Math.cos(half),
     oy = -Math.sin(half);
-  ctx.strokeStyle = 'rgba(255, 200, 87, 0.85)';
-  ctx.fillStyle = 'rgba(255, 200, 87, 0.9)';
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = '#64748b';
+  ctx.fillStyle = '#1e293b';
+  ctx.lineWidth = 1.2;
   ctx.font = canvasFont(10, 'mono');
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
