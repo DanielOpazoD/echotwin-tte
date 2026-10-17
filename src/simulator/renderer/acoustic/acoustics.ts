@@ -328,6 +328,17 @@ export function cordWeight(axisDotPlane: number, sliceHalfWidthCm: number): numb
 export function cordAlignment(axisDotBeam: number): number {
   return Math.sqrt(Math.max(0, 1 - axisDotBeam * axisDotBeam));
 }
+/** Pressure reflection coefficient of a plane interface between two impedances. */
+export function interfaceReflection(z1: number, z2: number): number {
+  return Math.abs(z1 - z2) / (z1 + z2);
+}
+/**
+ * An interface echo against tissue of impedance `zBacking` over the same tissue's echo against lung, the interface the
+ * specular scale of 1.0 stands for (decision 333): the ratio of their pressure reflection coefficients.
+ */
+export function echoOverLung(z: number, zBacking: number, zLung: number): number {
+  return Math.min(1, interfaceReflection(z, zBacking) / interfaceReflection(z, zLung));
+}
 /**
  * Fraction of the slice a membrane fills: 1 when it stands across the plane (|n·N| = 0) and its thickness over the
  * slice thickness (2 × half width) when it lies in the plane.

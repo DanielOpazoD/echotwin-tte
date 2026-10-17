@@ -230,6 +230,13 @@ const KNOWN_GEOMETRY_DEVIATIONS: ReadonlyMap<string, number> = new Map([
  * phases 1–3 of the fidelity plan. The near field came inside at decision 156.
  */
 const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
+  // decision 333: the pericardium's interface echo is collagen against fat (0.15, not 1.0): the white lines it drew
+  // across the beam were thin bright ridges, and the end-systolic ridge deficit grows (1.42 → 1.67 four-chamber,
+  // 1.38 → 1.58 two-chamber); the two-chamber correlation 1 mm along the beam comes closer (0.46/0.52 → 0.24) and
+  // the four-chamber ones at 1 mm (end-diastole) and 4 mm (end-systole) inside; the end-systolic four-chamber texture 8
+  // mm across the beam and the end-diastolic two-chamber one 4 mm along it step just outside
+  ['4CH-ES:tangentialCorr8', -0.27],
+  ['2CH-ED:radialCorr4', 0.24],
   // Decision 296: diffuse clutter loses coarse image-plane modulation; small residual texture/edge deficits. At decision
   // 312 the four-chamber end-diastolic edge came inside, the two-chamber end-systolic local std too, and the two-chamber
   // end-systolic sector edge falls off faster than clinical (1.33 against 0.96-1.26).
@@ -243,7 +250,7 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // decision 270: the lung's diffuse reverberation now carries its path loss, so the outer sector of the end-systolic four-chamber view darkens
   ['4CH-ES:edgeRollOff', -0.12],
   // decision 264: with the chest-wall reverberation fading within 0.8 cm the near field comes inside and the two-chamber cavities darken
-  ['2CH-ES:ridgeFraction', 1.38],
+  ['2CH-ES:ridgeFraction', 1.58],
   // decision 263: the cavity reverberation no longer reinforced behind blood darkens the end-diastolic cavities
   // decision 262: with the LV's diaphragmatic face on the diaphragm, liver fills the two-chamber sector beyond the
   // inferior wall where lung reverberation was; at end-systole its texture and the outer sector move out
@@ -269,19 +276,18 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // decision 317: with the shorter pulse the thin bright interfaces stand out more (0.71, 0.61, 0.96 and 0.53 widths
   // out before): the next target, with the lateral tail
   ['4CH-ED:ridgeFraction', 1.71],
-  ['4CH-ES:ridgeFraction', 1.42],
+  ['4CH-ES:ridgeFraction', 1.67],
   // decision 321: the coronary sinus in the inferior atrioventricular groove adds its wall's specular line (1.6 before)
   ['2CH-ED:ridgeFraction', 2.35],
   // texture longer along the beam at 1 mm (0.34 against 0.20-0.23), less coherent across it at 2-4 mm in places, and
   // through the persistence a little smoother over the sector (local std)
   // decision 324: with the superior vena cava joining the top of the atrium, the end-systolic four-chamber texture at
   // 4 mm (−0.48 before); the end-diastolic one at 4 mm across the beam came inside
-  ['4CH-ES:radialCorr4', -0.11],
   ['2CH-ED:radialCorr2', 0.38],
   // decision 321: with the coronary sinus at the inferior groove, the two-chamber end-diastolic texture at 8 mm (−0.11 before)
-  ['2CH-ED:radialCorr1', 0.46],
-  ['2CH-ES:radialCorr1', 0.52],
-  ['2CH-ED:tangentialCorr4', -0.21],
+  ['2CH-ED:radialCorr1', 0.24],
+  ['2CH-ES:radialCorr1', 0.24],
+  ['2CH-ED:tangentialCorr4', -0.42],
   // grey levels: the 2-4 cm band brighter than clinical (the app's near-field clutter, decision 238, more so without the
   // window's chest-wall attenuation of decision 261; the 0-2 cm band came inside at 264), the four-chamber end-systolic
   // bright end dimmer
@@ -293,7 +299,6 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['4CH-ES:bandGrey8', -0.11],
   // decision 318: with the atrium filling its septal corner the four-chamber end-diastolic texture at 1 mm and the
   // two-chamber end-systolic one at 4 mm move just past the quartiles
-  ['4CH-ED:radialCorr1', 0.33],
   // decision 327: the ventricular wall ends at the hinge of its azimuth, basal of the mean annular plane at the anterior
   // and inferior hinges the two-chamber view cuts, and the atrium lies flat on the septum: the two-chamber texture moves
   // (ridges 1.83 → 1.99 and 1.22 → 1.38, the end-diastolic myocardial residual −0.52 → −0.70, the end-systolic speckle

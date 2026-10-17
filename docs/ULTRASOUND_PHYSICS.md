@@ -11,7 +11,7 @@ Valores del modelo, relativos entre sí. `src/tests/physicsDocs.test.ts` compara
 | `blood` | Sangre | 0,0126 | 0 | 0,18 | 7 |
 | `myocardium` | Miocardio | 0,21 | 0,12 | 0,9 | 6,5 |
 | `valve` | Válvula | 0,5 | 0,7 | 0,8 | 5 |
-| `pericardium` | Pericardio | 0,85 | 1 | 0,9 | 3 |
+| `pericardium` | Pericardio | 0,85 | 0,15 | 0,9 | 3 |
 | `fat` | Grasa | 0,12 | 0,1 | 0,6 | 2,5 |
 | `muscle` | Músculo | 0,05 | 0,2 | 1 | 3 |
 | `bone` | Hueso | 1 | 1 | 20 | 3 |

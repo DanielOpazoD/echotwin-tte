@@ -126,7 +126,9 @@ describe('coherence census: the bloods touch only through the orifices, and noth
  * brighter than the pericardium. Declared inversions, `case view @phase` → the pairs, with the largest figures: the left
  * atrial wall over the pericardium in the apical views at end-diastole in eleven cases (the atrial wall scatters without
  * anisotropy and sits in the far field under the time-gain), and the artifact case's anterior wall darker than its blood
- * (its window, by design).
+ * (its window, by design). Since decision 333 the pericardium's interface echo is that of collagen against fat, and the
+ * bright line beyond it is the pleura, 1.5 mm out, which the census counts as lung: in the two-chamber view of four more
+ * planes a wall reads over the pericardium.
  */
 const KNOWN_GREY_INVERSIONS: Record<string, string[]> = {
   'normal-excellent-window a4c @0': ['LaWall>Pericardium'],
@@ -142,16 +144,26 @@ const KNOWN_GREY_INVERSIONS: Record<string, string[]> = {
   'aortic-stenosis-moderate a2c @0': ['LaWall>Pericardium'],
   'aortic-stenosis-severe a4c @0': ['LaWall>Pericardium'],
   'aortic-stenosis-severe a2c @0': ['LaWall>Pericardium'],
+  'aortic-stenosis-severe a2c @0.35': ['LaWall>Pericardium'],
   'hocm-sam a4c @0': ['LaWall>Pericardium'],
-  'hocm-sam a2c @0': ['LaWall>Pericardium'],
+  'hocm-sam a2c @0': ['LaWall>Pericardium', 'LvApex>Pericardium'],
   'mvp-primary-mr a4c @0': ['LaWall>Pericardium'],
   'mvp-primary-mr a4c @0.35': ['LaWall>Pericardium'],
   'mvp-primary-mr a2c @0': ['LaWall>Pericardium'],
   'pulmonary-hypertension-rv a4c @0': ['LaWall>Pericardium'],
   'pulmonary-hypertension-rv a2c @0': ['LaWall>Pericardium'],
   'af-diastolic a2c @0': ['LaWall>Pericardium'],
-  'artifact-challenge a2c @0': ['LvCavity>=LvWallAnterior', 'LvApex>Pericardium'],
-  'artifact-challenge a2c @0.35': ['LvCavity>=LvWallAnterior', 'LvApex>Pericardium'],
+  'af-diastolic a2c @0.35': ['LaWall>Pericardium'],
+  'artifact-challenge a2c @0': [
+    'LvCavity>=LvWallAnterior',
+    'LvApex>Pericardium',
+    'LvWallSeptal>Pericardium',
+  ],
+  'artifact-challenge a2c @0.35': [
+    'LvCavity>=LvWallAnterior',
+    'LvApex>Pericardium',
+    'LvWallSeptal>Pericardium',
+  ],
   'artifact-challenge psax-mv @0': ['LvCavity>=LvWallAnterior'],
   'artifact-challenge psax-mv @0.35': ['LvCavity>=LvWallSeptal', 'LvCavity>=LvWallInferior'],
 };
