@@ -45,13 +45,13 @@ mal, con cifra). El método de trabajo está en `.claude/skills/fidelity-method/
 - Los scripts de medición temporales viven en el scratchpad de la sesión, nunca en el repo; lo que
   se reutiliza pasa a `tools/offline`.
 - Lo que el censo de coherencia (331) deja declarado con cifra, cada punto una decisión futura:
-  cresta supraventricular (AD contra TSVD por delante de la raíz, 0,2–1,4 cm²), cava inferior en el
-  flujo de entrada del VD (1,1 cm²), seno coronario contra cava inferior, pared de la AI más
-  brillante que el pericardio en los apicales (11 casos), VD plano en el eje corto (6,5 cm), techo
-  auricular plano (3,3 cm).
-- Deuda del renderizador, no de la anatomía: las láminas finas tangentes al haz (cortina, pared de
-  la AI, aorta ascendente) se ven como bandas brillantes porque no hay volumen parcial lateral.
-  Es el siguiente paso recomendado (CPU + GLSL, moverá las comparaciones con CAMUS).
+  cava inferior en el flujo de entrada del VD (1,1 cm²), seno coronario contra cava inferior, pared
+  de la AI más brillante que el pericardio en los apicales, VD plano en el eje corto (6,5 cm), techo
+  auricular plano (3,3 cm). La cresta supraventricular (AD contra TSVD) quedó resuelta en la decisión
+  334.
+- Detrás del techo de la AI, la imagen sale algo más brillante que CAMUS en telesístole (decisión
+  333, `KNOWN_LA_ROOF_EXCESS`): no es volumen parcial de láminas tangentes, que se midió y está bien,
+  sino la reflectividad difusa del pericardio, atada a la línea pericárdica lateral.
 - Después, en el orden fijado por Daniel: envoltura anterior del VD (media luna de los ejes
   cortos), AI dilatada que invade la aorta descendente en seis casos (`KNOWN_LA_IN_AORTA`),
   menores (orejuela izquierda pequeña, cava superior en el A4C, pared auricular junto a los

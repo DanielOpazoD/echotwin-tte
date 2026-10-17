@@ -176,6 +176,28 @@ export function classifyRightVentricle(c: ClassifyCtx): boolean {
       }
     }
     const rr = Math.hypot(x, y) || 1;
+    // the supraventricular crest (decision 334): above the annulus the inflow column is atrium, and between it and the
+    // outflow tract stands the muscular fold that parts the tricuspid orifice from the pulmonary one (Ho and
+    // Nihoyannopoulos, Heart 2006). The smooth union of decision 214 joined them: right atrial blood against the
+    // infundibulum's over 0.2-1.4 cm² in every case. The column keeps a free wall's thickness from the outflow tract.
+    const zAnnulus = A.tvCenter.z + hp.tvZ + skirtOffsetAt(V.tv, x, y);
+    if (dRvot >= dRvU && dRv >= 0 && z <= zAnnulus && dRvot < fw) {
+      setSample(
+        out,
+        Tissue.Myocardium,
+        // both positive where the crest stands
+        -Math.min(fw - dRvot, dRvot - dRvU),
+        x / rr,
+        y / rr,
+        0,
+        x,
+        y,
+        z,
+        0,
+        Structure.RvWall,
+      );
+      return true;
+    }
     setSample(
       out,
       Tissue.Blood,
@@ -190,7 +212,7 @@ export function classifyRightVentricle(c: ClassifyCtx): boolean {
       dRvot < dRvU
         ? Structure.Rvot
         : // the inflow column above the annulus is atrium (the annulus level itself since decisions 133 and 138)
-          dRv >= 0 && z <= A.tvCenter.z + hp.tvZ + skirtOffsetAt(V.tv, x, y)
+          dRv >= 0 && z <= zAnnulus
           ? Structure.RaCavity
           : Structure.RvCavity,
     );
