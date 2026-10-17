@@ -458,11 +458,14 @@ describe('M-mode strip through the simulator (decision 84)', () => {
     const errors = new Map<number, number[]>();
     const bloodPersistence: number[] = [];
     const pulseSamples = axialFwhmMm(physics.frequencyMHz, physics.harmonics) / 10 / dr;
+    // 60 phases: since decision 335 the left atrial wall behind the root lies against the root's wall, and over 40 phases
+    // only 4 of its runs passed the 2 mm and matching filters (7 in main, tracked as well: median error 0.1 mm)
+    const PHASES = 60;
     for (const th of [theta, avTheta]) {
-      for (let p = 0; p < 40; p++) {
-        const A = render(p / 40, th),
-          B = render(p / 40 + 0.02, th),
-          next = render(p / 40 + 0.004, th, 8);
+      for (let p = 0; p < PHASES; p++) {
+        const A = render(p / PHASES, th),
+          B = render(p / PHASES + 0.02, th),
+          next = render(p / PHASES + 0.004, th, 8);
         const runs = (o: typeof A): [number, number][] => {
           const out: [number, number][] = [];
           for (let i = 0; i < S;) {

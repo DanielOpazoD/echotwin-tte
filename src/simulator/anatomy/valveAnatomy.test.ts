@@ -1289,6 +1289,9 @@ describe('right atrium at the membranous septum (decision 222)', () => {
     'hfref-severe-mr@0.35@0.3': 0.72,
     'hfref-severe-mr@0.35@-0.2': 1.1,
     'mvp-primary-mr@0.35@-0.2': 0.58,
+    // decision 335: the septum now reaches the root at the sinuses, and in these two the right atrium meets it past it
+    'hfref-severe-mr@0@0.3': 0.72,
+    'hocm-sam@0.35@0.3': 0.76,
   };
   it('toward the commissure of the non-coronary and right coronary sinuses only a thin partition separates the outflow tract and root from the right atrium', () => {
     // The atrium was clipped flat against the interatrial plane also in front of the left atrium, so between the outflow
