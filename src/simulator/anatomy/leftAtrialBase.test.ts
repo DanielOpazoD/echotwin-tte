@@ -27,10 +27,13 @@ const NAME = CUT_MAP_LABELS as Partial<Record<number, string>>;
  * Declared (decision 330): with the posterior wall on the column the volume fit draws the tamponade's small atrium (42 mL)
  * shorter, and its left inferior pulmonary vein, placed at a fraction of the atrium's length, lies 1.0 cm above the
  * annulus at end-diastole: its lumen crosses the column 3 mm outside the posterolateral ring, 3-5 mm above the hinge, in
- * front of the atrial blood. An entry whose column shows no vein is stale.
+ * front of the atrial blood. Since decision 335, where the atrium meets its septal face beside the root, the fit draws
+ * the difficult window's atrium the same way at end-diastole (0.6 mm of fat and the vein). An entry whose column shows no
+ * vein is stale.
  */
 const KNOWN_VEIN_AT_HINGE: Record<string, string> = {
   'pericardial-effusion-tamponade @0': '210°',
+  'normal-difficult-window @0': '210°',
 };
 const MAX_BELOW_MM = 10;
 const MAX_FAT_MM = 1;

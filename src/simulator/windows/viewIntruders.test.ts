@@ -262,6 +262,8 @@ const KNOWN_VIEW_INTRUDERS: Record<string, string> = {
     'the swinging heart of the tamponade brings the inferior vena cava into the plane',
   // (the septum and the right atrial wall left the suprasternal arch's sector in decision 330, with the left atrium's
   // posterior wall on the column and the right atrium's own radial fraction)
+  'suprasternal-arch/InteratrialSeptum':
+    'the anterior rim of the septum, which rests on the sinuses of the root since decision 335, enters the sector of the difficult window at end-systole',
 };
 
 /** The structures named in KNOWN_VIEW_INTRUDERS. */

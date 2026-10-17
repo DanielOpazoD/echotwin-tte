@@ -103,6 +103,10 @@ import {
   RAA_TIP_R_CM,
   RAA_ABOVE_FLOOR_CM,
   RA_SEPTAL_RELEASE_CM,
+  LA_ROOT_GAP_CM,
+  LA_ROOT_NEAR_CM,
+  LA_ROOT_TOP_CM,
+  LA_ROOT_RELEASE_CM,
   RA_SEPTAL_RELEASE_LA_CM,
   RA_SEPTAL_RELEASE_RAMP_CM,
   RA_ROOF_DESCENT_SHARE,
@@ -181,6 +185,10 @@ const float RA_CREST_REACH_CM = ${f(RA_CREST_REACH_CM)};
 const float RA_SEPTAL_RELEASE_LA_CM = ${f(RA_SEPTAL_RELEASE_LA_CM)};
 const float RA_SEPTAL_RELEASE_RAMP_CM = ${f(RA_SEPTAL_RELEASE_RAMP_CM)};
 const float RA_SEPTAL_RELEASE_CM = ${f(RA_SEPTAL_RELEASE_CM)};
+const float LA_ROOT_GAP_CM = ${f(LA_ROOT_GAP_CM)};
+const float LA_ROOT_NEAR_CM = ${f(LA_ROOT_NEAR_CM)};
+const float LA_ROOT_TOP_CM = ${f(LA_ROOT_TOP_CM)};
+const float LA_ROOT_RELEASE_CM = ${f(LA_ROOT_RELEASE_CM)};
 const int MV_BINS = ${MV_BINS};
 const float AML_ARC_EXTENSION = ${f(AML_ARC_EXTENSION)};
 const float MV_CLOSED_REACH[3] = float[3](${CLOSED_REACH.map(f).join(', ')});
@@ -1065,10 +1073,20 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float dCrossRef = smax(smax(sdEllipsoid(vec3(la.x, y, zRef), vec3(la.x, la.y, czL), vec3(lr.x, lr.y, rzL)), la.y - LA_POSTERIOR_RATIO * lr.y - y, 0.6), zTop + 0.15 * rzL - zRef, 0.5);
     float zHingeA = zHinge;
     // and in front it ends at the aortomitral curtain, the straight anterior edge of the annulus (decision 222)
-    float rootClearFace = (xFace - MVL_CX) * MVL_UX + (y - MVL_CY) * MVL_UY - (MVL_D + LA_CORNER_ANTERIOR_MARGIN_CM);
+    float rootClearFaceLine = (xFace - MVL_CX) * MVL_UX + (y - MVL_CY) * MVL_UY - (MVL_D + LA_CORNER_ANTERIOR_MARGIN_CM);
     // and the base flares from the hinge all around the annulus (decision 328)
     float xRead = max(xFace, x - LA_BASE_BOUND_READ_CM);
-    float rootClearBase = (xRead - MVL_CX) * MVL_UX + (y - MVL_CY) * MVL_UY - (MVL_D + LA_CORNER_ANTERIOR_MARGIN_CM);
+    float rootClearBaseLine = (xRead - MVL_CX) * MVL_UX + (y - MVL_CY) * MVL_UY - (MVL_D + LA_CORNER_ANTERIOR_MARGIN_CM);
+    // decision 222: the right atrium's release, read at the curtain's straight bound
+    float qRel = clamp((max(dFreeLa, rootClearFaceLine) - RA_SEPTAL_RELEASE_LA_CM) / RA_SEPTAL_RELEASE_RAMP_CM, 0.0, 1.0);
+    float relL = qRel * qRel * (3.0 - 2.0 * qRel);
+    // decision 335: above the annulus, near the round root, the atrium comes up to a wall of its outer wall, giving up the
+    // ground as the right atrium is released
+    float rootOuter = rootRr - rootR - AORTIC_ROOT_WALL_CM;
+    bool atSinuses = rootT >= 0.0 && rootT <= LA_ROOT_TOP_CM;
+    float rootWall = atSinuses ? max(LA_WALL_CM + LA_ROOT_GAP_CM - rootOuter, rootOuter - LA_ROOT_NEAR_CM) + LA_ROOT_RELEASE_CM * relL : 1e3;
+    float rootClearFace = min(rootClearFaceLine, rootWall);
+    float rootClearBase = min(rootClearBaseLine, rootWall);
     float dCrossEq = smax(smax(sdEllipsoid(vec3(la.x, y, czL), vec3(la.x, la.y, czL), vec3(lr.x, lr.y, rzL)), la.y - LA_POSTERIOR_RATIO * lr.y - y, 0.6), zTop + 0.15 * rzL - czL, 0.5);
     float dCorner = laBaseSdf(x, la.x, xFace, cornerOff, z, zRef, zHingeA, dCrossRef, dCrossEq, rootClearBase, mvOutlineSdf(p.xy));
     // and over the fossa ovalis it meets the septum (decision 319)
@@ -1094,13 +1112,19 @@ bool classifyHeart(vec3 p0, out Sample s) {
       dPost = smax(smax(max(max(max(tPost, -sFront), dSil), z - (zHinge - 0.5 * LA_WALL_CM)), LA_FLOOR_Y_CM - y, 0.3), zTop + 0.15 * rzL - z, 0.5);
     }
     // in front of the curtain the body keeps RA_LA_MIN_CM from the septal plane (decision 330)
-    float frontClear = min(rootClearFace, xFace + RA_LA_MIN_CM - x);
-    float dLaBody = max(max(min(min(smin(dFreeLa, dPost, 0.6), dCorner), min(dFossaLa, dFlat)), tPost), frontClear);
+    float raReach = min(1.0, RA_SEPTAL_RELEASE_CM * relL / tIas);
+    float holdShare = atSinuses && rootOuter < LA_ROOT_NEAR_CM ? raReach : 1.0;
+    float frontClear = min(rootClearFaceLine, xFace + RA_LA_MIN_CM * holdShare - x);
+    float faceKeep = rootClearFaceLine > 0.0 ? xFace - x : -1e3;
+    float dLaBody = max(max(max(min(min(smin(dFreeLa, dPost, 0.6), dCorner), min(dFossaLa, dFlat)), tPost), frontClear), faceKeep);
     laEpi = min(laEpi, dLaBody - LA_WALL_CM);
     // negative where a fill leaves the atrium within LA_TOUCH_CM of the plane
     float laTouch = min(max(dCross, faceOff - LA_TOUCH_CM), min(max(max(max(dCrossRef, rootClearFace), cornerOff - LA_TOUCH_CM), max(zRef - z, z - zHingeA)), max(dCrossFull, (fo - FOSSA_REACH) * 0.6)));
     bool nearLa = laTouch < 0.0 || (rootClearFace < 0.0 && sdEllipsoid(vec3(xIas, y, z), vec3(la.x, la.y, czL), vec3(lr.x * bo, lr.y * bo, rzL)) < 0.45);
-    float d = max(max(min(min(min(smax(smin(dFreeLa, dPost, 0.6), xFace - x, 0.3), dCorner), dFossaLa), dFlat), tPost), frontClear);
+    float d = max(max(max(min(min(min(smax(smin(dFreeLa, dPost, 0.6), xFace - x, 0.3), dCorner), dFossaLa), dFlat), tPost), frontClear), faceKeep);
+    // decision 335: and wherever the body with its fills comes within LA_TOUCH_CM of its face beside the point
+    bool nearRoot = atSinuses && rootOuter < LA_ROOT_NEAR_CM;
+    bool nearLaBody = nearLa || (nearRoot && x <= xFace && d < tIas + LA_TOUCH_CM);
     if (d < 0.0) {
       setSample(s, T_BLOOD, d, vec3((x - la.x) / lr.x, (y - la.y) / lr.y, (z - czL) / rzL), p, 0.0, S_LA_CAV);
       return true;
@@ -1154,8 +1178,6 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float rightVeinClear = min(RA_RIGHT_VEIN_CLEARANCE_CM - rightVeinDistance(p, la, lr, bo, czL, rzL), (fo - FOSSA_REACH) * 0.6);
     dFreeRa = smax(dFreeRa, rightVeinClear, 0.2);
     // decision 222
-    float qRel = clamp((max(dFreeLa, rootClearFace) - RA_SEPTAL_RELEASE_LA_CM) / RA_SEPTAL_RELEASE_RAMP_CM, 0.0, 1.0);
-    float relL = qRel * qRel * (3.0 - 2.0 * qRel);
     float xRaFace = xFace - tIas;
     float septumPlane = x - xRaFace - RA_SEPTAL_RELEASE_CM * relL;
     // the right atrium meets its face of the septum wherever its body comes close (decision 327)
@@ -1168,7 +1190,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float raLaMin = min(tIas, RA_LA_MIN_CM);
     float dR = max(min(smax(dFreeRa, septumPlane, 0.3), dFlatRa), raLaMin - d);
     // and not where the septum stands (decision 327)
-    bool inSeptum = x <= xFace && x >= xFace - tIas && nearLa;
+    bool inSeptum = x <= xFace && x >= xFace - tIas && nearLaBody;
     if (dR < 0.0 && !inSeptum) {
       setSample(s, T_BLOOD, dR, vec3((x - ra.x) / rar.x, (y - ra.y) / rar.y, (z - czR) / rzR), p, 0.0, S_RA_CAV);
       return true;
@@ -1195,7 +1217,8 @@ bool classifyHeart(vec3 p0, out Sample s) {
       return true;
     }
     // the right atrial appendage (decision 323)
-    if (dRaa < 0.0) {
+    // decision 335: the appendage keeps out of the septum and off the left atrial blood
+    if (dRaa < 0.0 && !(nearRoot && (inSeptum || d <= raLaMin))) {
       setSample(s, T_BLOOD, dRaa, vec3(0.0, 1.0, 0.0), p, 0.0, S_RAA);
       return true;
     }
@@ -1204,7 +1227,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
       return true;
     }
     if (x <= xFace && x >= xFace - tIas && z < zAnn + 0.4 && dCs >= 0.0 && leftAtrialMouthLumen(p, la, lr, bo, czL, rzL, colDist) >= 0.0) {
-      if (nearLa || (relL < 0.5 && sdEllipsoid(vec3(xIas, y, z), vec3(ra.x, ra.y, czR), vec3(rar.x * boR * raC, rar.y * boR * raC, rzR)) < 0.45)) {
+      if (nearLaBody || (relL < 0.5 && sdEllipsoid(vec3(xIas, y, z), vec3(ra.x, ra.y, czR), vec3(rar.x * boR * raC, rar.y * boR * raC, rzR)) < 0.45)) {
         setSample(s, T_MYO, -min(xFace - x, x - (xFace - tIas)), vec3(1.0, 0.0, 0.0), p, 0.0, S_IAS);
         return true;
       }

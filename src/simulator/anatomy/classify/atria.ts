@@ -25,6 +25,7 @@ import { latticeNoise3 } from '@/core/noise';
 import { rvFloorZ, rvRadii } from '../rv';
 import { skirtOffsetAt, skirtWarpScale } from '../valveSkirt';
 import { setSample, type ClassifyCtx } from './context';
+import { AORTIC_ROOT_WALL_CM } from '../aorticValve';
 import { LA_WALL_CM, LAA_WALL_CM } from './pericardium';
 import type { AnchorsCached } from '../anchors';
 import { PV_RADIUS, pulmonaryVeinSegment } from '../pulmonaryVeins';
@@ -253,6 +254,16 @@ export const CS_OSTIUM_Y_CM = -1.2;
 export const CS_OSTIUM_ABOVE_ANNULUS_CM = 0.4;
 export const CS_RADIUS_CM = 0.33;
 export const CS_OSTIUM_RADIUS_CM = 0.5;
+/**
+ * Above the annulus the left atrium comes up to the root's outer wall less its own wall and this gap (cm), within
+ * LA_ROOT_NEAR_CM of the root (decision 335): the wall of the atrium and the wall of the root, with a film between.
+ */
+export const LA_ROOT_GAP_CM = 0.05;
+export const LA_ROOT_NEAR_CM = 1.2;
+/** Up to how far above the annulus, along the root's axis, the septum's anterior rim rests on the root: the sinuses (cm). */
+export const LA_ROOT_TOP_CM = 1.5;
+/** How fast the right atrium's release takes the root's ground back from the left atrium (cm per unit of release). */
+export const LA_ROOT_RELEASE_CM = RA_SEPTAL_RELEASE_CM;
 export const CS_WALL_CM = 0.1;
 /** From the atrium's posterior surface to the sinus's axis: the atrial wall, the sinus's wall and its radius (cm). */
 export const CS_GROOVE_OFFSET_CM = LA_WALL_CM + CS_WALL_CM + CS_RADIUS_CM;
@@ -462,12 +473,35 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   // and the corner ended 1-1.5 mm short of the face behind its own wall (the valve's axis points to the septal side, so
   // to the right of the face the edge lies farther in front than the bound: the corner never passes it there)
   const mvA = V.mitral;
-  const rootClearFace =
+  const rootClearFaceLine =
     (xFace - mvA.cx) * mvA.ux + (y - mvA.cy) * mvA.uy - (mvA.D + LA_CORNER_ANTERIOR_MARGIN_CM);
   // the base reads the curtain's bound a little medial of the point, at the face near the face (decision 328)
   const xRead = Math.max(xFace, x - LA_BASE_BOUND_READ_CM);
-  const rootClearBase =
+  const rootClearBaseLine =
     (xRead - mvA.cx) * mvA.ux + (y - mvA.cy) * mvA.uy - (mvA.D + LA_CORNER_ANTERIOR_MARGIN_CM);
+  // above the annulus the root is round and recedes from the curtain's straight bound: near it the atrium comes up to a
+  // wall's thickness of the root's outer wall (decision 335). Behind the root in the parasternal short axis a wedge of fat
+  // 7-10 mm across stood between the bound and the root, the left atrium held off its septal face, and the septum did
+  // not reach the root.
+  // the right atrium is released from the septal plane in front of the left atrium (decision 222): by how much
+  const qRel = Math.min(
+    1,
+    Math.max(
+      0,
+      (Math.max(dFreeLa, rootClearFaceLine) - RA_SEPTAL_RELEASE_LA_CM) / RA_SEPTAL_RELEASE_RAMP_CM,
+    ),
+  );
+  const relL = qRel * qRel * (3 - 2 * qRel);
+  const rootOuter = c.rootRr - c.rootR - AORTIC_ROOT_WALL_CM;
+  // (not where the right atrium is released past the plane toward the root: the atrium gives up the root's ground by as
+  // much as the right atrium's face moves)
+  const atSinuses = c.rootT >= 0 && c.rootT <= LA_ROOT_TOP_CM;
+  const rootWall = atSinuses
+    ? Math.max(LA_WALL_CM + LA_ROOT_GAP_CM - rootOuter, rootOuter - LA_ROOT_NEAR_CM) +
+      LA_ROOT_RELEASE_CM * relL
+    : 1e3;
+  const rootClearFace = Math.min(rootClearFaceLine, rootWall);
+  const rootClearBase = Math.min(rootClearBaseLine, rootWall);
   // and all around the annulus the base flares from the hinge up to that section (decision 328): the ellipsoid tapered
   // to a tip above the annulus, so 3 mm outside the ring the blood lay 2.5 cm above the hinge behind 6-19 mm of fat, and
   // under the anterior hinge of the two-chamber view 10 mm of fat and filler stood where the atrium is
@@ -549,11 +583,19 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   }
   // in front of the curtain the body keeps RA_LA_MIN_CM from the septal plane (decision 330): drawn forward, a dilated
   // atrium reached the plane where the right atrium passes to the membranous septum (decision 222)
-  const frontClear = Math.min(rootClearFace, xFace + RA_LA_MIN_CM - x);
+  // and only as far as it is released does the body keep its distance, in full once the released face reaches the left
+  // one: next to the root, where the right atrium meets its face of the septum, the left meets the other (decision 335)
+  const raReach = Math.min(1, (RA_SEPTAL_RELEASE_CM * relL) / tIas);
+  // (in front of the curtain's bound, where the root lets the fills in, the atrium ends at its face like the rest of the
+  // septum: the fills crossed it by up to 2.6 mm, thinning the septum to 1.2 mm)
+  const holdShare = atSinuses && rootOuter < LA_ROOT_NEAR_CM ? raReach : 1;
+  const frontClear = Math.min(rootClearFaceLine, xFace + RA_LA_MIN_CM * holdShare - x);
+  const faceKeep = rootClearFaceLine > 0 ? xFace - x : -1e3;
   const dLaBody = Math.max(
     Math.min(smin(dFreeLa, dPost, 0.6), dCorner, dFossaLa, dFlat),
     tPost,
     frontClear,
+    faceKeep,
   );
   c.laEpi = Math.min(c.laEpi, dLaBody - LA_WALL_CM);
   // the same body seen from the septal plane: within 0.45 cm of it the septum is drawn and the right atrium meets its face
@@ -573,8 +615,13 @@ export function classifyAtria(c: ClassifyCtx): boolean {
     Math.min(smax(smin(dFreeLa, dPost, 0.6), xFace - x, 0.3), dCorner, dFossaLa, dFlat),
     tPost,
     frontClear,
+    faceKeep,
   );
   c.laCav = d;
+  // and, near the root, wherever the body with its fills comes within the septum's thickness and LA_TOUCH_CM of a point
+  // right of its face: there the fill reaches the face where the touch test above reads the curtain's bound (decision 335)
+  const nearRoot = atSinuses && rootOuter < LA_ROOT_NEAR_CM;
+  const nearLaBody = nearLa || (nearRoot && x <= xFace && d < tIas + LA_TOUCH_CM);
   if (d < 0) {
     setSample(
       out,
@@ -715,14 +762,7 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   // in front of the left atrium the interatrial plane no longer clips the right atrium (decision 222); in front of the
   // curtain the left atrium does not count, however close its body comes (decision 330: drawn forward, a dilated
   // atrium's body reached the plane behind the root, and a septum stood between the root and the right atrium)
-  const q = Math.min(
-    1,
-    Math.max(
-      0,
-      (Math.max(dFreeLa, rootClearFace) - RA_SEPTAL_RELEASE_LA_CM) / RA_SEPTAL_RELEASE_RAMP_CM,
-    ),
-  );
-  const relL = q * q * (3 - 2 * q);
+  // (relL, computed with the left atrium's body, reads the curtain's straight bound)
   const xRaFace = xFace - tIas;
   const septumPlane = x - xRaFace - RA_SEPTAL_RELEASE_CM * relL;
   // and the right atrium meets its face of the septum wherever its body comes close (decision 327), as the left does,
@@ -749,7 +789,7 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   const raLaMin = Math.min(tIas, RA_LA_MIN_CM);
   const dR = Math.max(Math.min(smax(dFreeRa, septumPlane, 0.3), dFlatRa), raLaMin - c.laCav);
   // and not where the septum stands: there the slab below is drawn
-  const inSeptum = x <= xFace && x >= xFace - tIas && nearLa;
+  const inSeptum = x <= xFace && x >= xFace - tIas && nearLaBody;
   if (dR < 0 && !inSeptum) {
     setSample(
       out,
@@ -844,7 +884,9 @@ export function classifyAtria(c: ClassifyCtx): boolean {
     );
     return true;
   }
-  if (dRaa < 0) {
+  // near the root the appendage keeps out of the septum and off the left atrial blood as the cavity does (decision 335:
+  // there the left atrium now meets its face, and the appendage reached into the slab)
+  if (dRaa < 0 && !(nearRoot && (inSeptum || c.laCav <= raLaMin))) {
     setSample(out, Tissue.Blood, dRaa, 0, 1, 0, x, y, z, 0, Structure.RaAppendage);
     return true;
   }
@@ -873,7 +915,7 @@ export function classifyAtria(c: ClassifyCtx): boolean {
       sdEllipsoid(xIas, y, z, ra.x, ra.y, czR, rr.x * boR * raC, rr.y * boR * raC, rzR) < 0.45;
     // and not across the coronary sinus, which passes behind the crux (decision 321)
     if (
-      (nearLa || (nearRa && relL < 0.5)) &&
+      (nearLaBody || (nearRa && relL < 0.5)) &&
       dCs >= 0 &&
       leftAtrialMouthLumen(c, x, y, z, la, lr, bo, czL) >= 0
     ) {
