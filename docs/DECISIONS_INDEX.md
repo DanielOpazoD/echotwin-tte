@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 336 (última: 336).
+Decisiones: 337 (última: 337).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -344,3 +344,4 @@ Decisiones: 336 (última: 336).
 | [334](DECISIONS.md#L2474) | 2026-10-16 | La cresta supraventricular separa la columna de entrada tricuspídea del tracto de salida | vigente |
 | [335](DECISIONS.md#L2480) | 2026-10-16 | El tabique interauricular llega a la raíz aórtica en el eje corto paraesternal | vigente |
 | [336](DECISIONS.md#L2488) | 2026-10-16 | El pulmón no se mete delante del tronco pulmonar en el eje corto paraesternal | vigente |
+| [337](DECISIONS.md#L2498) | 2026-10-17 | La boca de la vena pulmonar superior izquierda gira por la aurícula en vez de salirse de ella | vigente |
