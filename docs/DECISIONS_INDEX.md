@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 332 (última: 332).
+Decisiones: 333 (última: 333).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -340,3 +340,4 @@ Decisiones: 332 (última: 332).
 | [330](DECISIONS.md#L2391) | 2026-10-15 | La pared posterior de la aurícula izquierda descansa sobre la aorta descendente en todo el ciclo, y la aurícula dilatada no entra en ella. | vigente |
 | [331](DECISIONS.md#L2427) | 2026-10-15 | Censo de coherencia interna: contactos entre sangres, islas, grises en orden físico y bordes rectos, como prueba permanente. | vigente |
 | [332](DECISIONS.md#L2447) | 2026-10-16 | El coste del trazador CPU se compara con un árbol de referencia medido en la misma máquina, y la referencia pasa a la decisión 331 | vigente |
+| [333](DECISIONS.md#L2466) | 2026-10-16 | El eco de interfaz del pericardio es el del colágeno contra grasa, no el de una interfaz con pulmón | vigente |

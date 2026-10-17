@@ -45,9 +45,14 @@ export const TISSUE_PROPS: Record<number, TissueProps> = {
     name: 'myocardium',
   },
   [Tissue.Valve]: { reflect: 0.5, specular: 0.7, attenuation: 0.8, grain: 5, name: 'valve' },
+  // The interface echo of the sac is that of collagen against fat, which lies on both sides of it in the model (the
+  // epicardial fat inside, the pericardial fat pad between it and the lung outside, PERICARDIAL_FAT_CM): the
+  // pressure reflection coefficient with fat over the one with lung, the interface the specular scale of 1.0 stands
+  // for (TISSUE_IMPEDANCE_MRAYL; decision 333). At 1.0 it read as a lung interface: across the beam behind the left
+  // atrium, a white line whose spread lifted the atrial wall and the fat behind it 0.2–0.4 myocardial medians.
   [Tissue.Pericardium]: {
     reflect: 0.85,
-    specular: 1.0,
+    specular: 0.15,
     attenuation: 0.9,
     grain: 3,
     name: 'pericardium',
@@ -90,6 +95,35 @@ export const TISSUE_PROPS: Record<number, TissueProps> = {
     name: 'fibrous annulus',
   },
   [Tissue.Chordae]: { reflect: 0.3, specular: 0.4, attenuation: 0.8, grain: 5, name: 'chordae' },
+};
+
+/**
+ * Characteristic acoustic impedance of each tissue (MRayl), from which an interface echo between two tissues follows
+ * (decision 333: the pericardium's). Published values (Duck, Physical Properties of Tissue, 1990, as tabulated in
+ * radiology physics references): air 0.0004, lung 0.18, fat 1.34–1.38, water 1.48, blood 1.65, liver 1.65, muscle 1.71,
+ * bone 7.8. No value was found for the pericardium or the other dense collagenous tissues (valves, annulus, cords,
+ * vessel wall, cartilage): they take 1.75, above muscle, and the pericardium's echo against fat moves from 0.16 to 0.24 of
+ * its echo against lung between 1.75 and 2.0. Skin takes the soft-tissue value.
+ */
+export const TISSUE_IMPEDANCE_MRAYL: Record<number, number> = {
+  [Tissue.None]: 0.0004,
+  [Tissue.Blood]: 1.65,
+  [Tissue.Myocardium]: 1.71,
+  [Tissue.Valve]: 1.75,
+  [Tissue.Pericardium]: 1.75,
+  [Tissue.Fat]: 1.36,
+  [Tissue.Muscle]: 1.71,
+  [Tissue.Bone]: 7.8,
+  [Tissue.Cartilage]: 1.75,
+  [Tissue.Lung]: 0.18,
+  [Tissue.Fluid]: 1.48,
+  [Tissue.VesselWall]: 1.75,
+  [Tissue.Calcium]: 7.8,
+  [Tissue.Skin]: 1.71,
+  [Tissue.Liver]: 1.65,
+  [Tissue.Spine]: 7.8,
+  [Tissue.Fibrous]: 1.75,
+  [Tissue.Chordae]: 1.75,
 };
 
 /** Result of classifying a 3D point. Reused per sample to avoid allocation. */

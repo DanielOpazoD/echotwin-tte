@@ -52,6 +52,11 @@ export const KNOWN_SETS: readonly {
     file: 'src/tests/coherence/coherenceCensus.test.ts',
     name: 'KNOWN_STRAIGHT_BORDERS',
   },
+  { file: 'src/simulator/renderer/atrialSurroundings.test.ts', name: 'KNOWN_LA_ROOF_EXCESS' },
+  {
+    file: 'src/simulator/renderer/acoustic/imageFormation.test.ts',
+    name: 'KNOWN_LOW_TISSUE_BLOOD_DB',
+  },
   { file: 'src/simulator/anatomy/venousMouths.test.ts', name: 'KNOWN_CLOSED_MOUTHS' },
   { file: 'src/simulator/anatomy/venousMouths.test.ts', name: 'KNOWN_RA_IN_VEIN' },
   { file: 'src/simulator/anatomy/valveAnatomy.test.ts', name: 'KNOWN_THICK_PARTITION' },
