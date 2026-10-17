@@ -46,14 +46,15 @@ mal, con cifra). El método de trabajo está en `.claude/skills/fidelity-method/
   se reutiliza pasa a `tools/offline`.
 - Lo que el censo de coherencia (331) deja declarado con cifra, cada punto una decisión futura:
   cava inferior en el flujo de entrada del VD (1,1 cm²), seno coronario contra cava inferior, pared
-  de la AI más brillante que el pericardio en los apicales, VD plano en el eje corto (6,5 cm), techo
-  auricular plano (3,3 cm). La cresta supraventricular (AD contra TSVD) quedó resuelta en la decisión
-  334.
+  de la AI más brillante que el pericardio en los apicales y techo auricular plano (3,3 cm). La
+  cresta supraventricular (AD contra TSVD) quedó resuelta en la decisión 334. El «VD plano en el eje
+  corto (6,5 cm)» no es un defecto: medido el 2026-10-17, es la resolución de la regla de rectas
+  del censo (ver `LIMITATIONS.md`).
 - Detrás del techo de la AI, la imagen sale algo más brillante que CAMUS en telesístole (decisión
   333, `KNOWN_LA_ROOF_EXCESS`): no es volumen parcial de láminas tangentes, que se midió y está bien,
   sino la reflectividad difusa del pericardio, atada a la línea pericárdica lateral.
-- Después, en el orden fijado por Daniel: envoltura anterior del VD (media luna de los ejes
-  cortos), AI dilatada que invade la aorta descendente en seis casos (`KNOWN_LA_IN_AORTA`),
+- Después, en el orden fijado por Daniel (la envoltura anterior del VD se midió el 2026-10-17 y
+  está dentro de la anatomía: arco septal de 120°, cavidad de 18–34 mm): AI dilatada que invade la aorta descendente en seis casos (`KNOWN_LA_IN_AORTA`),
   menores (orejuela izquierda pequeña, cava superior en el A4C, pared auricular junto a los
   anillos, inclinación del eje corto mitral), textura frente a CAMUS, y un segmentador entrenado
   con ecos reales como observador independiente.
