@@ -177,18 +177,39 @@ export function buildWindowMarks(t: ThoraxModel, marks: WindowMark[]): THREE.Gro
 export function textSprite(text: string, color: number): THREE.Sprite {
   const canvas = document.createElement('canvas');
   const scale = 2;
-  const font = `${13 * scale}px system-ui, sans-serif`;
+  const font = `600 ${11 * scale}px system-ui, -apple-system, sans-serif`;
   const ctx = canvas.getContext('2d');
-  const w = ctx ? Math.ceil(((ctx.font = font), ctx.measureText(text).width) + 12 * scale) : 96;
+  const textW = ctx ? ((ctx.font = font), ctx.measureText(text).width) : 80;
+  const dotR = 3 * scale;
+  const dotX = 7 * scale + dotR;
+  const textX = dotX + dotR + 4 * scale;
+  const w = Math.ceil(textX + textW + 7 * scale);
+  const h = 20 * scale;
   canvas.width = w;
-  canvas.height = 20 * scale;
+  canvas.height = h;
   if (ctx) {
     ctx.font = font;
-    ctx.fillStyle = 'rgba(12, 16, 22, 0.72)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const r = 5 * scale;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.94)';
+    ctx.beginPath();
+    if (typeof ctx.roundRect === 'function') {
+      ctx.roundRect(0, 0, w, h, r);
+    } else {
+      ctx.rect(0, 0, w, h);
+    }
+    ctx.fill();
+    ctx.lineWidth = 1 * scale;
+    ctx.strokeStyle = 'rgba(203, 213, 225, 0.9)';
+    ctx.stroke();
+
     ctx.fillStyle = `#${color.toString(16).padStart(6, '0')}`;
+    ctx.beginPath();
+    ctx.arc(dotX, h / 2, dotR, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#0f172a';
     ctx.textBaseline = 'middle';
-    ctx.fillText(text, 6 * scale, canvas.height / 2);
+    ctx.fillText(text, textX, h / 2);
   }
   const tex = new THREE.CanvasTexture(canvas);
   const sprite = new THREE.Sprite(

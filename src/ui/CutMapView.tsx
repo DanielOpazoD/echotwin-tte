@@ -332,8 +332,8 @@ function drawRuler(
     ey = Math.cos(half);
   const ox = -Math.cos(half),
     oy = -Math.sin(half);
-  ctx.strokeStyle = '#64748b';
-  ctx.fillStyle = '#1e293b';
+  ctx.strokeStyle = '#f59e0b';
+  ctx.fillStyle = '#d97706';
   ctx.lineWidth = 1.2;
   ctx.font = canvasFont(10, 'mono');
   ctx.textAlign = 'right';
