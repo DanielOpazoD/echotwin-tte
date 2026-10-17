@@ -69,16 +69,24 @@ export function pulmonaryVeinSegment(
   const dzN = sup ? PV_SUP_Z : PV_INF_Z;
   const kz = Math.sqrt(1 - dzN * dzN); // radius of the atrial section at that height
   const t = sx > 0 ? (sup ? PV_LEFT_SUP_T : PV_LEFT_INF_T) : PV_RIGHT_T;
-  const ox = la.x + sx * lr.x * bo * kz * Math.cos(t);
-  let oy = la.y - lr.y * bo * kz * Math.sin(t);
+  const a = lr.x * bo * kz,
+    b = lr.y * bo * kz;
   const oz = czL + dzN * rzL;
+  let tt = t;
   if (wall && sx > 0) {
     // the left veins enter the posterior wall, which stands on the column (decision 330): an ostium the wall plane
-    // would leave behind it comes forward, with its course, to PV_OSTIUM_AHEAD_CM in front of the plane, toward the
-    // root (toward the septum the right veins ran into it; toward the annulus the left inferior vein lay on the hinge)
-    const back = ox * wall.nx + oy * wall.ny + oz * wall.nz - (wall.d - PV_OSTIUM_AHEAD_CM);
-    if (back > 0 && wall.ny < 0) oy -= back / wall.ny;
+    // would leave behind it turns forward along the atrial section, to PV_OSTIUM_AHEAD_CM in front of the plane
+    // (decision 337; slid straight forward, it left the atrial surface and its mouth closed in the dilated atria)
+    const C = wall.d - PV_OSTIUM_AHEAD_CM - wall.nx * la.x - wall.ny * la.y - wall.nz * oz;
+    const P = wall.nx * a,
+      Q = -wall.ny * b;
+    if (P * Math.cos(t) + Q * Math.sin(t) > C) {
+      const R = Math.hypot(P, Q);
+      if (R > Math.abs(C)) tt = Math.atan2(Q, P) - Math.acos(C / R);
+    }
   }
+  const ox = la.x + sx * a * Math.cos(tt);
+  const oy = la.y - b * Math.sin(tt);
   out[0] = ox;
   out[1] = oy;
   out[2] = oz;
@@ -88,8 +96,8 @@ export function pulmonaryVeinSegment(
 }
 /**
  * How far (cm) in front of the posterior wall plane a left pulmonary vein's ostium lies at least (decision 330): the
- * vein's lumen radius, so the mouth opens in the cavity where the body is clipped against the column (the dilated
- * atria's left veins had their mouths inside the column, `KNOWN_CLOSED_MOUTHS` of decision 320); moved farther forward,
- * the left inferior vein lay on the posterolateral hinge.
+ * vein's lumen radius, so the mouth opens in the cavity where the body is clipped against the column; moved farther
+ * forward, the left inferior vein lay on the posterolateral hinge. The ostium reaches it by turning along the atrial
+ * section (decision 337), not by sliding forward off the surface.
  */
 export const PV_OSTIUM_AHEAD_CM = PV_RADIUS;

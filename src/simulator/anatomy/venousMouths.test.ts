@@ -17,19 +17,11 @@ import { atrialScale } from '@/simulator/anatomy/classify/atria';
  * four ostia of 0.9-1.3 cm (CT, Kim et al., Radiology 2005;235:43). From the atrium's centre to the ostium of each vein and of the appendage and 0.8 cm on along its
  * axis, every sample is blood, at end-diastole and at end-systole.
  *
- * Declared: the left superior vein of the six dilated atria, which run into the descending aorta (`KNOWN_LA_IN_AORTA` in
- * `posteriorColumn.test.ts`, decision 273): the vein yields to the aorta there, so its mouth lies inside the column.
- * Making the atrium yield too kept its volume but narrowed it in the four-chamber view by 0.9-1.5 cm, because its centre
- * is fixed and it grew toward the apex instead of to the right and upwards, as a dilating atrium does.
+ * The left superior vein of the dilated atria closed at its mouth (decision 320, `KNOWN_CLOSED_MOUTHS`): where the
+ * posterior wall stands on the column (decision 330) its ostium came forward 1.4-2.6 cm straight along the heart's
+ * anterior axis, off the atrial surface, and the walk from the centre met atrial wall, pericardium and the outside
+ * before the lumen. Since decision 337 it turns forward along the atrial section instead, and every mouth opens.
  */
-// (decision 330 draws the atrium out of the aorta and its left veins' ostia in front of the posterior wall plane: the
-// hypertrophic and prolapse cases' veins open; in the three largest atria the vein, yielding to the aorta behind the
-// wall, still closes within 0.8 cm of its mouth)
-const KNOWN_CLOSED_MOUTHS: Record<string, string> = {
-  'hfref-severe-mr': 'left superior vein',
-  'aortic-stenosis-severe': 'left superior vein',
-  'af-diastolic': 'left superior vein',
-};
 const NAMES = [
   'right superior vein',
   'left superior vein',
@@ -90,14 +82,7 @@ describe('the pulmonary veins and the appendage open into the left atrium (decis
   for (const { id } of CASE_INPUTS)
     it(id, () => {
       const closed = [0, 0.35].flatMap((phase) => mouths(id, phase).map((m) => `@${phase} ${m}`));
-      const declared = KNOWN_CLOSED_MOUTHS[id];
-      const unexpected = closed.filter((m) => !declared || !m.includes(declared));
-      expect(unexpected).toEqual([]);
-      // a declared mouth that opens makes the entry stale
-      if (declared)
-        expect(closed.length, `${id}: ${declared} declared closed, and it opens`).toBeGreaterThan(
-          0,
-        );
+      expect(closed).toEqual([]);
     });
 });
 

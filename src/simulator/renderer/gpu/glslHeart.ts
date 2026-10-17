@@ -750,12 +750,14 @@ bool classifyAorticExtension(vec3 p, inout Sample s) {
 
 // Shared RV distance for the pericardium block (recomputed; cheap)
 // decision 320: distance to the lumen of the pulmonary veins and the appendage, which the atrial wall and septum leave open
-// decision 330: a vein's ostium the posterior wall plane would leave behind it comes forward, with its course
-vec3 veinOstiumAhead(vec3 o) {
-  vec3 pn = vec3(LA_PNX, LA_PNY, LA_PNZ);
-  float back = dot(o, pn) - (LA_PD - PV_OSTIUM_AHEAD_CM);
-  // toward the root
-  return back > 0.0 ? o - vec3(0.0, back / pn.y, 0.0) : o;
+// decision 330: a left vein's ostium the posterior wall plane would leave behind it moves in front of the plane;
+// decision 337: it turns forward along the atrial section (mirror of pulmonaryVeinSegment), staying on the atrium
+float veinOstiumAngle(float t, vec3 la, float a, float b, float oz) {
+  float C = LA_PD - PV_OSTIUM_AHEAD_CM - LA_PNX * la.x - LA_PNY * la.y - LA_PNZ * oz;
+  float P = LA_PNX * a, Q = -LA_PNY * b;
+  if (P * cos(t) + Q * sin(t) <= C) return t;
+  float R = length(vec2(P, Q));
+  return R > abs(C) ? atan(Q, P) - acos(C / R) : t;
 }
 float leftAtrialMouthLumen(vec3 p, vec3 la, vec3 lr, float bo, float czL, float rzL, float colDist) {
   float x = p.x, y = p.y, z = p.z;
@@ -768,11 +770,11 @@ float leftAtrialMouthLumen(vec3 p, vec3 la, vec3 lr, float bo, float czL, float 
     float dzN = sup ? PV_SUP_Z : PV_INF_Z;
     float kz = sqrt(1.0 - dzN * dzN);
     float t = sx > 0.0 ? (sup ? PV_LEFT_SUP_T : PV_LEFT_INF_T) : PV_RIGHT_T;
-    float px = la.x + sx * lr.x * bo * kz * cos(t);
-    float py0 = la.y - lr.y * bo * kz * sin(t);
+    float ea = lr.x * bo * kz, eb = lr.y * bo * kz;
     float pz = czL + dzN * rzL;
-    // decision 330: a left vein's ostium stays in front of the posterior wall plane
-    vec3 o = sx > 0.0 ? veinOstiumAhead(vec3(px, py0, pz)) : vec3(px, py0, pz);
+    if (sx > 0.0) t = veinOstiumAngle(t, la, ea, eb, pz);
+    // decisions 330 and 337: a left vein's ostium stays on the atrium in front of the posterior wall plane
+    vec3 o = vec3(la.x + sx * ea * cos(t), la.y - eb * sin(t), pz);
     d = min(d, smax(sdCapsule(p, o, o + vec3(PV_COURSE[3 * i], PV_COURSE[3 * i + 1], PV_COURSE[3 * i + 2]), PV_RADIUS), 0.12 - colDist, 0.2));
   }
   return d;
@@ -1255,11 +1257,11 @@ bool classifyHeart(vec3 p0, out Sample s) {
       float dzN = sup ? PV_SUP_Z : PV_INF_Z;
       float kz = sqrt(1.0 - dzN * dzN);
       float t = sx > 0.0 ? (sup ? PV_LEFT_SUP_T : PV_LEFT_INF_T) : PV_RIGHT_T;
-      float px = la.x + sx * lr.x * bo * kz * cos(t);
-      float py0 = la.y - lr.y * bo * kz * sin(t);
+      float ea = lr.x * bo * kz, eb = lr.y * bo * kz;
       float pz = czL + dzN * rzL;
-      // decision 330: a left vein's ostium stays in front of the posterior wall plane (pulmonaryVeinSegment)
-      vec3 o = sx > 0.0 ? veinOstiumAhead(vec3(px, py0, pz)) : vec3(px, py0, pz);
+      if (sx > 0.0) t = veinOstiumAngle(t, la, ea, eb, pz);
+      // decisions 330 and 337: a left vein's ostium stays on the atrium in front of the posterior wall plane (pulmonaryVeinSegment)
+      vec3 o = vec3(la.x + sx * ea * cos(t), la.y - eb * sin(t), pz);
       float dPv = smax(sdCapsule(p, o, o + vec3(PV_COURSE[3 * i], PV_COURSE[3 * i + 1], PV_COURSE[3 * i + 2]), PV_RADIUS), 0.12 - colDist, 0.2);
       if (dPv < 0.0) {
         setSample(s, T_BLOOD, dPv, vec3(0.0, -1.0, 0.0), p, 0.0, S_PVEIN);
