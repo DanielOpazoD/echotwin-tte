@@ -53,8 +53,9 @@ mal, con cifra). El método de trabajo está en `.claude/skills/fidelity-method/
 - Detrás del techo de la AI, la imagen sale algo más brillante que CAMUS en telesístole (decisión
   333, `KNOWN_LA_ROOF_EXCESS`): no es volumen parcial de láminas tangentes, que se midió y está bien,
   sino la reflectividad difusa del pericardio, atada a la línea pericárdica lateral.
-- Después, en el orden fijado por Daniel (la envoltura anterior del VD se midió el 2026-10-17 y
-  está dentro de la anatomía: arco septal de 120°, cavidad de 18–34 mm): AI dilatada que invade la aorta descendente en seis casos (`KNOWN_LA_IN_AORTA`),
+- Hechos del orden fijado por Daniel: la envoltura anterior del VD se midió el 2026-10-17 y está
+  dentro de la anatomía (arco septal de 120°, cavidad de 18–34 mm); la AI dilatada ya no invade la
+  aorta (decisión 330) y la boca de su vena superior izquierda abre desde la 337. Siguen los
   menores (orejuela izquierda pequeña, cava superior en el A4C, pared auricular junto a los
   anillos, inclinación del eje corto mitral), textura frente a CAMUS, y un segmentador entrenado
   con ecos reales como observador independiente.
