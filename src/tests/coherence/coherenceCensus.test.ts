@@ -134,6 +134,8 @@ const KNOWN_GREY_INVERSIONS: Record<string, string[]> = {
   'normal-difficult-window psax-mv @0': ['LvWallLateral>Pericardium'],
   'hfref-severe-mr a2c @0': ['LaWall>Pericardium'],
   'hfref-severe-mr a2c @0.35': ['LaWall>Pericardium'],
+  // decision 337: the vein's mouth moves 3-4 mm of wall out of the plane and the wall ties the pericardium (174.9 vs 174.7)
+  'hfref-severe-mr a4c @0.35': ['LaWall>Pericardium'],
   'inferior-rwma a4c @0': ['LaWall>Pericardium'],
   'inferior-rwma a4c @0.35': ['LaWall>Pericardium'],
   'inferior-rwma a2c @0': ['LaWall>Pericardium'],
@@ -151,7 +153,6 @@ const KNOWN_GREY_INVERSIONS: Record<string, string[]> = {
   'pulmonary-hypertension-rv a4c @0': ['LaWall>Pericardium'],
   'pulmonary-hypertension-rv a2c @0': ['LaWall>Pericardium'],
   'af-diastolic a2c @0': ['LaWall>Pericardium'],
-  'af-diastolic a2c @0.35': ['LaWall>Pericardium'],
   'artifact-challenge a2c @0': [
     'LvCavity>=LvWallAnterior',
     'LvApex>Pericardium',
