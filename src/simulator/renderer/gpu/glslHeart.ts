@@ -753,11 +753,11 @@ bool classifyAorticExtension(vec3 p, inout Sample s) {
 // decision 330: a left vein's ostium the posterior wall plane would leave behind it moves in front of the plane;
 // decision 337: it turns forward along the atrial section (mirror of pulmonaryVeinSegment), staying on the atrium
 float veinOstiumAngle(float t, vec3 la, float a, float b, float oz) {
-  float C = LA_PD - PV_OSTIUM_AHEAD_CM - LA_PNX * la.x - LA_PNY * la.y - LA_PNZ * oz;
-  float P = LA_PNX * a, Q = -LA_PNY * b;
-  if (P * cos(t) + Q * sin(t) <= C) return t;
-  float R = length(vec2(P, Q));
-  return R > abs(C) ? atan(Q, P) - acos(C / R) : t;
+  float lim = LA_PD - PV_OSTIUM_AHEAD_CM - LA_PNX * la.x - LA_PNY * la.y - LA_PNZ * oz;
+  float ca = LA_PNX * a, cb = -LA_PNY * b;
+  if (ca * cos(t) + cb * sin(t) <= lim) return t;
+  float rr = length(vec2(ca, cb));
+  return rr > abs(lim) ? atan(cb, ca) - acos(lim / rr) : t;
 }
 float leftAtrialMouthLumen(vec3 p, vec3 la, vec3 lr, float bo, float czL, float rzL, float colDist) {
   float x = p.x, y = p.y, z = p.z;
