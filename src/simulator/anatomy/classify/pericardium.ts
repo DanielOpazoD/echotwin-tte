@@ -5,6 +5,11 @@ import { AORTIC_ROOT_WALL_CM } from '../aorticValve';
 import { DESC_AORTA_MAX_OUTER_R, SPINE_R } from '../thoraxModel';
 
 /** Left atrial wall (cm) and the appendage's. */
+/**
+ * The mediastinal fat in front of the pulmonary trunk that the lung does not cross (cm; decision 336), straight in front
+ * of the trunk and less as the point turns to its sides.
+ */
+export const PA_ANTERIOR_FAT_CM = 1.0;
 export const LA_WALL_CM = 0.25;
 export const LAA_WALL_CM = 0.18;
 /** Thickness (cm) of the pericardium the sac draws outside the epicardium. */
@@ -194,6 +199,15 @@ export function classifyPericardium(c: ClassifyCtx): boolean {
   // the sac — what the thorax classifier needs to wrap the lungs around the heart (decision 144)
   const dSac = dEpi - 0.12 - (eff > 0 ? eff + 0.12 : 0);
   const dRoot = c.rootT > -90 ? c.rootRr - c.rootR - AORTIC_ROOT_WALL_CM : dSac;
-  out.sdf = Math.min(dSac, dRoot);
+  // in front of the pulmonary trunk the mediastinum's fat stands between the trunk and the lung, as far as the point lies
+  // in front of the trunk's middle, the torso's anterior direction read in the heart frame (decision 336)
+  const F = m.frame;
+  const mx = x - 0.5 * (A.rvotB.x + A.paStj.x),
+    my = y - 0.5 * (A.rvotB.y + A.paStj.y),
+    mz = z - 0.5 * (A.rvotB.z + A.paStj.z);
+  const ml = Math.sqrt(mx * mx + my * my + mz * mz);
+  const front = ml > 1e-6 ? (mx * F.ex.z + my * F.ey.z + mz * F.ez.z) / ml : 0;
+  const dTrunkFront = dPaEpi - PERICARDIUM_CM - PA_ANTERIOR_FAT_CM * Math.max(0, front);
+  out.sdf = Math.min(dSac, dRoot, dTrunkFront);
   return false;
 }

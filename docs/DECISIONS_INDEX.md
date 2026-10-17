@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 335 (última: 335).
+Decisiones: 336 (última: 336).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -343,3 +343,4 @@ Decisiones: 335 (última: 335).
 | [333](DECISIONS.md#L2466) | 2026-10-16 | El eco de interfaz del pericardio es el del colágeno contra grasa, no el de una interfaz con pulmón | vigente |
 | [334](DECISIONS.md#L2474) | 2026-10-16 | La cresta supraventricular separa la columna de entrada tricuspídea del tracto de salida | vigente |
 | [335](DECISIONS.md#L2480) | 2026-10-16 | El tabique interauricular llega a la raíz aórtica en el eje corto paraesternal | vigente |
+| [336](DECISIONS.md#L2488) | 2026-10-16 | El pulmón no se mete delante del tronco pulmonar en el eje corto paraesternal | vigente |

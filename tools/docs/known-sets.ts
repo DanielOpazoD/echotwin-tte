@@ -59,6 +59,7 @@ export const KNOWN_SETS: readonly {
     name: 'KNOWN_LOW_TISSUE_BLOOD_DB',
   },
   { file: 'src/simulator/windows/interatrialRoot.test.ts', name: 'KNOWN_JUNCTION_FAT' },
+  { file: 'src/simulator/windows/pulmonaryTrunkWindow.test.ts', name: 'KNOWN_TRUNK_HIDDEN' },
   { file: 'src/simulator/anatomy/venousMouths.test.ts', name: 'KNOWN_CLOSED_MOUTHS' },
   { file: 'src/simulator/anatomy/venousMouths.test.ts', name: 'KNOWN_RA_IN_VEIN' },
   { file: 'src/simulator/anatomy/valveAnatomy.test.ts', name: 'KNOWN_THICK_PARTITION' },

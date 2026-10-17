@@ -1396,7 +1396,12 @@ bool classifyHeart(vec3 p0, out Sample s) {
     // outside the sac: distance beyond the parietal pericardium or the wall of the ascending aorta (decision 144)
     float dSac = dEpi - 0.12 - (eff > 0.0 ? eff + 0.12 : 0.0);
     float dRoot = rootT > -90.0 ? rootRr - rootR - 0.2 : dSac;
-    s.sdf = min(min(dSac, dRoot), vascularDistance);
+    // decision 336: in front of the pulmonary trunk the mediastinum's fat stands between the trunk and the lung
+    vec3 tm = p - 0.5 * (vec3(RVOT_BX, RVOT_BY, RVOT_BZ) + vec3(PA_SX, PA_SY, PA_SZ));
+    float tl = length(tm);
+    float front = tl > 1e-6 ? dot(tm, vec3(HF_EXZ, HF_EYZ, HF_EZZ)) / tl : 0.0;
+    float dTrunkFront = dPaEpi - PERICARDIUM_CM - PA_ANTERIOR_FAT_CM * max(0.0, front);
+    s.sdf = min(min(min(dSac, dRoot), vascularDistance), dTrunkFront);
   }
   return false;
 }
