@@ -1319,7 +1319,13 @@ bool classifyHeart(vec3 p0, out Sample s) {
         }
       }
       float rr = length(p.xy); if (rr == 0.0) rr = 1.0;
-      setSample(s, T_BLOOD, dCavRv, vec3(x / rr, y / rr, 0.0), vec3(x / sc3, y / sc3, z), 0.0, dRvot < dRvU ? S_RVOT : ((dRv >= 0.0 && z <= TV_CZ + TVZ + tvOffsetAt(p.xy)) ? S_RA_CAV : S_RV_CAV));
+      // the supraventricular crest between the atrial inflow column and the outflow tract (decision 334)
+      float zAnnulus = TV_CZ + TVZ + tvOffsetAt(p.xy);
+      if (dRvot >= dRvU && dRv >= 0.0 && z <= zAnnulus && dRvot < fw) {
+        setSample(s, T_MYO, -min(fw - dRvot, dRvot - dRvU), vec3(x / rr, y / rr, 0.0), p, 0.0, S_RV_WALL);
+        return true;
+      }
+      setSample(s, T_BLOOD, dCavRv, vec3(x / rr, y / rr, 0.0), vec3(x / sc3, y / sc3, z), 0.0, dRvot < dRvU ? S_RVOT : ((dRv >= 0.0 && z <= zAnnulus) ? S_RA_CAV : S_RV_CAV));
       return true;
     }
     if (dCavRv < fw) {

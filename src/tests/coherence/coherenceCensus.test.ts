@@ -56,13 +56,11 @@ const ALLOWED_BLOOD = new Set<string>(
 /**
  * Blood against blood where a wall belongs, with the largest area (cm²) any case shows at either phase: each entry is a
  * defect the census found and no decision has corrected yet. The right ventricle's inflow runs into the inferior vena
- * cava; the right atrium touches the outflow tract in front of the root, and in the dilated heart a right pulmonary vein
- * (decision 330: `KNOWN_RA_IN_VEIN`); a pulmonary vein meets the superior vena cava behind the atria; the left atrium
- * reaches the root's lumen and the outflow tract at the curtain (decision 328: the orifice column against the LVOT).
+ * cava; in the dilated heart the right atrium touches a right pulmonary vein (decision 330: `KNOWN_RA_IN_VEIN`); a pulmonary vein meets the superior vena cava behind the atria; the left atrium
+ * reaches the root's lumen and the outflow tract at the curtain (decision 328: the orifice column against the LVOT). The
+ * right atrium against the outflow tract in front of the root left with the supraventricular crest (decision 334).
  */
 const KNOWN_BLOOD_CONTACTS: Record<string, number> = {
-  // the right atrium meets the outflow tract in front of the root, where the supraventricular crest should part them (all cases, 0.2-1.4 cm²)
-  'RaCavity|Rvot': 1.44,
   // the inferior vena cava runs into the right ventricular inflow under the tricuspid ring at end-diastole (eleven cases, 0.04-1.1 cm²)
   'Ivc|RvCavity': 1.13,
   // a right pulmonary vein opens beside the fossa in the HFrEF, whose body sits forward (decision 330, KNOWN_RA_IN_VEIN)
