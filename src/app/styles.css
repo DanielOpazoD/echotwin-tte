@@ -1,25 +1,25 @@
 :root {
   color-scheme: light;
-  /* surfaces (premium light, 2026-10-17): white cards floating on a cool neutral canvas */
-  --canvas: #eef1f5;
-  --bg: #f6f7f9;
-  --panel: #ffffff;
-  --panel-2: #f4f6f9;
-  --panel-3: #e9edf2;
-  --panel-4: #d5dce5;
-  --track: #e3e8ee;
-  --border: #e3e7ed;
-  --border-soft: #eef1f4;
-  --border-strong: #cfd6df;
-  --hairline: rgba(15, 23, 42, 0.07);
-  --text: #0b1220;
-  --text-muted: #4a5466;
-  --muted: #5b6577;
-  --faint: #6b7587;
+  /* surfaces (modern clinical light gray, comfortable and non-glare): soft neutral surfaces */
+  --canvas: #e2e8f0;
+  --bg: #eceff4;
+  --panel: #f1f4f8;
+  --panel-2: #e2e7ef;
+  --panel-3: #d3dbe6;
+  --panel-4: #c2cddc;
+  --track: #cbd5e1;
+  --border: #cbd5e1;
+  --border-soft: #dbe2ea;
+  --border-strong: #94a3b8;
+  --hairline: rgba(15, 23, 42, 0.08);
+  --text: #0f172a;
+  --text-muted: #475569;
+  --muted: #64748b;
+  --faint: #64748b;
   --accent: #2563eb;
   --accent-strong: #1d4ed8;
-  --accent-soft: rgba(37, 99, 235, 0.08);
-  --accent-line: rgba(37, 99, 235, 0.32);
+  --accent-soft: rgba(37, 99, 235, 0.1);
+  --accent-line: rgba(37, 99, 235, 0.35);
   --accent-2: #d97706;
   --ok: #059669;
   --warn: #d97706;
@@ -244,7 +244,7 @@ select:hover {
   align-items: center;
   gap: 14px;
   padding: 0 16px;
-  background: rgba(255, 255, 255, 0.96);
+  background: rgba(241, 244, 248, 0.96);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
   font-variant-numeric: tabular-nums;
@@ -375,11 +375,11 @@ select:hover {
   font-size: 12px;
   font-weight: 500;
   color: var(--text-muted);
-  background-color: var(--panel-2);
+  background-color: #ffffff;
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 2px 24px 2px 10px;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
   cursor: pointer;
   transition: all 0.14s ease;
 }
@@ -387,7 +387,7 @@ select:hover {
   background-color: #ffffff;
   color: var(--text);
   border-color: var(--border-strong);
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
 }
 .left {
   grid-column: 1;
@@ -536,7 +536,7 @@ select:hover {
   display: flex;
   flex: 0 0 auto;
   border-bottom: 1px solid var(--border);
-  background: #ffffff;
+  background: var(--panel);
   padding: 4px 6px 0;
   gap: 2px;
 }
@@ -644,7 +644,7 @@ select:hover {
   align-items: center;
   gap: 12px;
   padding: 0 16px;
-  background: rgba(255, 255, 255, 0.96);
+  background: rgba(241, 244, 248, 0.96);
   backdrop-filter: blur(12px);
   border-top: 1px solid var(--border);
   box-shadow: 0 -1px 3px rgba(15, 23, 42, 0.03);
@@ -1267,8 +1267,8 @@ select:hover {
   flex: 1 1 100%;
   min-height: 0;
   position: relative;
-  /* pristine studio backdrop behind the torso */
-  background: radial-gradient(120% 90% at 50% 32%, #ffffff 0%, #f1f5f9 65%, #e2e8f0 100%);
+  /* soft studio backdrop behind the torso */
+  background: radial-gradient(120% 90% at 50% 32%, #edf2f7 0%, #e2e8f0 65%, #cbd5e1 100%);
 }
 .torso-wrap.split .torso-3d {
   flex: 1 1 50%;
@@ -1279,7 +1279,7 @@ select:hover {
   display: flex;
   flex-direction: column;
   position: relative;
-  background: #f8fafc;
+  background: #000000;
   border-top: 1px solid var(--border);
 }
 .cut-map-head {
@@ -1287,8 +1287,8 @@ select:hover {
   align-items: center;
   justify-content: space-between;
   padding: 5px 10px;
-  background: #ffffff;
-  border-bottom: 1px solid var(--border-soft);
+  background: #090d14;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   min-height: 28px;
   flex-shrink: 0;
   z-index: 3;
@@ -1299,10 +1299,10 @@ select:hover {
   font-weight: 700;
   letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: var(--text-muted);
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   padding: 2px 8px;
   border-radius: 999px;
   pointer-events: none;
@@ -1312,10 +1312,10 @@ select:hover {
   position: static;
   font-size: var(--fs-xs);
   font-weight: 600;
-  color: var(--accent);
-  background: var(--accent-soft);
-  border: 1px solid var(--border);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   padding: 2px 8px;
   border-radius: 999px;
 }
@@ -1326,11 +1326,13 @@ select:hover {
   flex: 1;
   min-height: 0;
   position: relative;
+  background: #000000;
 }
 .cut-map-body canvas {
   width: 100% !important;
   height: 100% !important;
   display: block;
+  background: #000000;
 }
 /* the gesture legend shows while the pointer is over the navigator, not on top of the torso all the time */
 .torso-help {
@@ -2872,15 +2874,15 @@ canvas.overlay.armed {
   position: fixed;
   z-index: 1000;
   width: max-content;
-  max-width: 280px;
-  padding: 6px 9px;
+  max-width: 290px;
+  padding: 7px 11px;
   border-radius: 8px;
-  background: rgba(13, 17, 23, 0.97);
-  border: 1px solid var(--border-strong);
-  box-shadow: var(--shadow-2);
-  color: var(--text);
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.25);
+  color: #f8fafc;
   font-size: var(--fs-md);
-  font-weight: 400;
+  font-weight: 500;
   line-height: 1.45;
   text-align: left;
   white-space: normal;
@@ -2895,6 +2897,11 @@ canvas.overlay.armed {
   gap: 3px;
   margin-left: 8px;
   vertical-align: 1px;
+}
+.tooltip kbd {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #ffffff;
 }
 @keyframes fade-in {
   from {

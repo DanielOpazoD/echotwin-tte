@@ -130,7 +130,8 @@ export function CutMapView() {
       backCtx.putImageData(img, 0, 0);
       const dpr = canvas.width / cssW;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.imageSmoothingEnabled = true;
       ctx.drawImage(back, 0, 0, canvas.width, canvas.height);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -333,7 +334,7 @@ function drawRuler(
   const ox = -Math.cos(half),
     oy = -Math.sin(half);
   ctx.strokeStyle = '#f59e0b';
-  ctx.fillStyle = '#d97706';
+  ctx.fillStyle = '#fbbf24';
   ctx.lineWidth = 1.2;
   ctx.font = canvasFont(10, 'mono');
   ctx.textAlign = 'right';
