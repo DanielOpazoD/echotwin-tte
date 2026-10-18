@@ -43,51 +43,8 @@ export function TorsoView() {
 
   return (
     <div className={`torso-wrap${split ? ' split' : ''}`}>
-      <div className="torso-3d" ref={ref} aria-label="Torso 3D y sonda virtual" data-tour="torso">
-        {/* inside the torso so it sits at the torso's own bottom edge, whatever height the cut map leaves it
-            (decision 197) */}
-        <div className="torso-help">
-          {frozen ? (
-            'Sonda de la adquisición congelada · Arrastrar: orbitar cámara · Rueda: zoom'
-          ) : dragAction === 'camera' ? (
-            'Arrastrar: orbitar cámara · Rueda: zoom · La sonda conserva su posición'
-          ) : (
-            <>
-              Arrastrar: deslizar · Rueda: rotar · Shift: rock · Alt: tilt ·{' '}
-              <kbd className="kbd">?</kbd> todos los gestos
-            </>
-          )}
-        </div>
-        {webglError && (
-          <div className="panel-error" role="alert">
-            <b>La vista 3D necesita WebGL 2, que este navegador no ofrece.</b>
-            <span className="small">
-              La imagen ecográfica, el mapa del corte y los controles de la sonda siguen
-              funcionando.
-            </span>
-          </div>
-        )}
-      </div>
-      {split && <div className="torso-caption top">Sonda y tórax</div>}
-      {split && <CutMapView />}
-      <label className="torso-gesture">
-        Arrastrar
-        <select
-          aria-label="Acción al arrastrar en el navegador"
-          value={frozen ? 'camera' : dragAction}
-          disabled={frozen}
-          onChange={(e) => {
-            const action = e.target.value as 'probe' | 'camera';
-            dragActionRef.current = action;
-            setDragAction(action);
-          }}
-        >
-          <option value="probe">Sonda</option>
-          <option value="camera">Cámara</option>
-        </select>
-      </label>
-      <div className="torso-tools">
-        <RotationDial />
+      <div className="torso-head">
+        {split && <div className="torso-caption top">Sonda y tórax</div>}
         <div className="torso-buttons">
           <button
             className="icon-btn"
@@ -135,6 +92,51 @@ export function TorsoView() {
           {/* in exam mode the layers are fixed to the skin and the ribs (decision 256) */}
           {anatomy && <LayerMenu />}
         </div>
+      </div>
+      <div className="torso-3d" ref={ref} aria-label="Torso 3D y sonda virtual" data-tour="torso">
+        {/* inside the torso so it sits at the torso's own bottom edge, whatever height the cut map leaves it
+            (decision 197) */}
+        <div className="torso-help">
+          {frozen ? (
+            'Sonda de la adquisición congelada · Arrastrar: orbitar cámara · Rueda: zoom'
+          ) : dragAction === 'camera' ? (
+            'Arrastrar: orbitar cámara · Rueda: zoom · La sonda conserva su posición'
+          ) : (
+            <>
+              Arrastrar: deslizar · Rueda: rotar · Shift: rock · Alt: tilt ·{' '}
+              <kbd className="kbd">?</kbd> todos los gestos
+            </>
+          )}
+        </div>
+        {webglError && (
+          <div className="panel-error" role="alert">
+            <b>La vista 3D necesita WebGL 2, que este navegador no ofrece.</b>
+            <span className="small">
+              La imagen ecográfica, el mapa del corte y los controles de la sonda siguen
+              funcionando.
+            </span>
+          </div>
+        )}
+      </div>
+      {split && <CutMapView />}
+      <label className="torso-gesture">
+        Arrastrar
+        <select
+          aria-label="Acción al arrastrar en el navegador"
+          value={frozen ? 'camera' : dragAction}
+          disabled={frozen}
+          onChange={(e) => {
+            const action = e.target.value as 'probe' | 'camera';
+            dragActionRef.current = action;
+            setDragAction(action);
+          }}
+        >
+          <option value="probe">Sonda</option>
+          <option value="camera">Cámara</option>
+        </select>
+      </label>
+      <div className="torso-tools">
+        <RotationDial />
       </div>
     </div>
   );

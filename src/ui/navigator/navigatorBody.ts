@@ -39,7 +39,7 @@ export function buildSkin(t: ThoraxModel): THREE.Mesh {
   const nT = 64,
     nY = 44;
   const thMax = 1.45; // ~83° each side: anterior and lateral chest
-  const ys = -16,
+  const ys = -19,
     ye = 13;
   const pos: number[] = [];
   const idx: number[] = [];
@@ -97,10 +97,10 @@ export function buildSkin(t: ThoraxModel): THREE.Mesh {
 
 /** Colour of each acoustic window's marks: the same family the console uses for the view presets. */
 const WINDOW_COLORS: Record<WindowMark['window'], number> = {
-  parasternal: 0xffc857,
-  apical: 0x5cc8ff,
-  subcostal: 0x7ce8a0,
-  suprasternal: 0xf28cb1,
+  parasternal: 0xf59e0b,
+  apical: 0x0ea5e9,
+  subcostal: 0x10b981,
+  suprasternal: 0xec4899,
 };
 
 const WINDOW_LABELS: Record<WindowMark['window'], string> = {
@@ -128,9 +128,10 @@ export function buildWindowMarks(t: ThoraxModel, marks: WindowMark[]): THREE.Gro
       new THREE.MeshBasicMaterial({
         color: WINDOW_COLORS[m.window],
         transparent: true,
-        opacity: 0.85,
+        opacity: 0.9,
         side: THREE.DoubleSide,
         depthWrite: false,
+        toneMapped: false,
       }),
     );
     const halo = new THREE.Mesh(
@@ -138,9 +139,10 @@ export function buildWindowMarks(t: ThoraxModel, marks: WindowMark[]): THREE.Gro
       new THREE.MeshBasicMaterial({
         color: WINDOW_COLORS[m.window],
         transparent: true,
-        opacity: 0.22,
+        opacity: 0.25,
         side: THREE.DoubleSide,
         depthWrite: false,
+        toneMapped: false,
       }),
     );
     halo.renderOrder = 3;
@@ -190,7 +192,7 @@ export function textSprite(text: string, color: number): THREE.Sprite {
   if (ctx) {
     ctx.font = font;
     const r = 5 * scale;
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.94)';
+    ctx.fillStyle = 'rgba(248, 250, 252, 0.94)';
     ctx.beginPath();
     if (typeof ctx.roundRect === 'function') {
       ctx.roundRect(0, 0, w, h, r);
@@ -198,8 +200,8 @@ export function textSprite(text: string, color: number): THREE.Sprite {
       ctx.rect(0, 0, w, h);
     }
     ctx.fill();
-    ctx.lineWidth = 1 * scale;
-    ctx.strokeStyle = 'rgba(203, 213, 225, 0.9)';
+    ctx.lineWidth = 1.2 * scale;
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.7)';
     ctx.stroke();
 
     ctx.fillStyle = `#${color.toString(16).padStart(6, '0')}`;
@@ -212,8 +214,15 @@ export function textSprite(text: string, color: number): THREE.Sprite {
     ctx.fillText(text, textX, h / 2);
   }
   const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
   const sprite = new THREE.Sprite(
-    new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false }),
+    new THREE.SpriteMaterial({
+      map: tex,
+      transparent: true,
+      depthWrite: false,
+      depthTest: false,
+      toneMapped: false,
+    }),
   );
   sprite.scale.set((canvas.width / canvas.height) * 1.1, 1.1, 1);
   return sprite;
