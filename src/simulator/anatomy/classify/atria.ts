@@ -442,8 +442,12 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   // (posterior clip) and under the pulmonary bifurcation (roof clip)
   // beside the aortic root the body keeps its end-systolic size (decision 341): the scale at this point
   const rootOuter = c.rootRr - c.rootR - AORTIC_ROOT_WALL_CM;
-  const boL = bo + (1 - bo) * laRootHold(c.rootT, rootOuter);
+  const boL = bo + (1 - bo) * laRootHold(c.rootT, rootOuter, x - (A.iasX + IAS_LEFT_FACE_CM));
   const dFreeLa = leftAtrialFreeSdf(x, y, z, la.x, la.y, czL, lr.x * boL, lr.y * boL, rzL, zTop);
+  // the body at the scale of the moment, without the hold: what the right atrium's release reads (decision 222), which
+  // the hold would otherwise keep from the membranous septum beside the root
+  const dFreeLaNow =
+    boL === bo ? dFreeLa : leftAtrialFreeSdf(x, y, z, la.x, la.y, czL, lr.x * bo, lr.y * bo, rzL, zTop);
   // the atrium's epicardium, for the pericardial sac: the outer face of its wall and of the appendage's (decision 273)
   c.laEpi = Math.min(
     dFreeLa - LA_WALL_CM,
@@ -506,7 +510,7 @@ export function classifyAtria(c: ClassifyCtx): boolean {
     1,
     Math.max(
       0,
-      (Math.max(dFreeLa, rootClearFaceLine) - RA_SEPTAL_RELEASE_LA_CM) / RA_SEPTAL_RELEASE_RAMP_CM,
+      (Math.max(dFreeLaNow, rootClearFaceLine) - RA_SEPTAL_RELEASE_LA_CM) / RA_SEPTAL_RELEASE_RAMP_CM,
     ),
   );
   const relL = qRel * qRel * (3 - 2 * qRel);

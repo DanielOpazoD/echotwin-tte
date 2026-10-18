@@ -1061,9 +1061,11 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float xFace = xIas + IAS_LEFT_FACE_CM;
     // decision 341: beside the aortic root the body keeps its end-systolic size
     float rootOuter = rootRr - rootR - AORTIC_ROOT_WALL_CM;
-    float boL = bo + (1.0 - bo) * laRootHold(rootT, rootOuter);
+    float boL = bo + (1.0 - bo) * laRootHold(rootT, rootOuter, x - (IAS_X + IAS_LEFT_FACE_CM));
     float dEllLa = sdEllipsoid(p, vec3(la.x, la.y, czL), vec3(lr.x * boL, lr.y * boL, rzL));
     float dFreeLa = smax(smax(dEllLa, la.y - LA_POSTERIOR_RATIO * lr.y * boL - y, 0.6), zTop + 0.15 * rzL - z, 0.5);
+    // the body at the scale of the moment, without the hold: what the right atrium's release reads (decision 341)
+    float dFreeLaNow = boL == bo ? dFreeLa : smax(smax(sdEllipsoid(p, vec3(la.x, la.y, czL), vec3(lr.x * bo, lr.y * bo, rzL)), la.y - LA_POSTERIOR_RATIO * lr.y * bo - y, 0.6), zTop + 0.15 * rzL - z, 0.5);
     laEpi = min(dFreeLa - LA_WALL_CM, sdCapsule(p, vec3(la.x + lr.x * 0.55, la.y + lr.y * 0.55, czL + 0.4), vec3(la.x + lr.x * 0.95, la.y + lr.y * 0.55 + 2.0, czL + 0.9), 0.55 * bo) - LAA_WALL_CM);
     // the septal corner above the annulus belongs to the atrium (decision 318)
     // only toward the septum, where the atrium's own section reaches at this height
@@ -1087,7 +1089,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float xRead = max(xFace, x - LA_BASE_BOUND_READ_CM);
     float rootClearBaseLine = (xRead - MVL_CX) * MVL_UX + (y - MVL_CY) * MVL_UY - (MVL_D + LA_CORNER_ANTERIOR_MARGIN_CM);
     // decision 222: the right atrium's release, read at the curtain's straight bound
-    float qRel = clamp((max(dFreeLa, rootClearFaceLine) - RA_SEPTAL_RELEASE_LA_CM) / RA_SEPTAL_RELEASE_RAMP_CM, 0.0, 1.0);
+    float qRel = clamp((max(dFreeLaNow, rootClearFaceLine) - RA_SEPTAL_RELEASE_LA_CM) / RA_SEPTAL_RELEASE_RAMP_CM, 0.0, 1.0);
     float relL = qRel * qRel * (3.0 - 2.0 * qRel);
     // decision 335: above the annulus, near the round root, the atrium comes up to a wall of its outer wall, giving up the
     // ground as the right atrium is released

@@ -182,16 +182,26 @@ export const LA_ROOT_HOLD_NEAR_CM = 0.3;
 export const LA_ROOT_HOLD_FAR_CM = 0.8;
 export const LA_ROOT_HOLD_T_MAX_CM = 2.0;
 export const LA_ROOT_HOLD_T_FADE_CM = 0.4;
-/** How much of its full size the atrium keeps at a point (0–1) from the root coordinate t and the root's outer wall. */
-export function laRootHold(rootT: number, rootOuter: number): number {
+/**
+ * The hold starts this far lateral of the septum's left face and is whole twice as far: at the septal edge of the root the
+ * right atrium meets it across the membranous septum (decisions 222 and 335), and a held atrium drew the interatrial
+ * septum there, 0.5 cm in front of the root.
+ */
+export const LA_ROOT_HOLD_SEPTAL_CM = 0.5;
+/**
+ * How much of its full size the atrium keeps at a point (0–1) from the root coordinate t, the root's outer wall and how
+ * far lateral of the septum's left face the point lies.
+ */
+export function laRootHold(rootT: number, rootOuter: number, lateralCm: number): number {
   if (rootT < -LA_ROOT_HOLD_T_FADE_CM || rootT > LA_ROOT_HOLD_T_MAX_CM) return 0;
+  const sx = Math.min(1, Math.max(0, lateralCm / LA_ROOT_HOLD_SEPTAL_CM - 1));
   const q = Math.min(
     1,
     Math.max(0, (rootOuter - LA_ROOT_HOLD_NEAR_CM) / (LA_ROOT_HOLD_FAR_CM - LA_ROOT_HOLD_NEAR_CM)),
   );
   const a = Math.min(1, Math.max(0, (rootT + LA_ROOT_HOLD_T_FADE_CM) / LA_ROOT_HOLD_T_FADE_CM));
   const b = Math.min(1, Math.max(0, (LA_ROOT_HOLD_T_MAX_CM - rootT) / LA_ROOT_HOLD_T_FADE_CM));
-  return (1 - q * q * (3 - 2 * q)) * a * a * (3 - 2 * a) * b * b * (3 - 2 * b);
+  return (1 - q * q * (3 - 2 * q)) * a * a * (3 - 2 * a) * b * b * (3 - 2 * b) * sx * sx * (3 - 2 * sx);
 }
 /**
  * Radial scale of the posterior wall's footprint for a radial scale `bo` of the body (decision 330): half the body's
