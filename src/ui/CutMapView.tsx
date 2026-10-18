@@ -42,7 +42,6 @@ function labelBox(ctx: CanvasRenderingContext2D): (text: string) => { w: number;
 export function CutMapView() {
   const ref = useRef<HTMLDivElement>(null);
   const hoverRef = useRef<HTMLDivElement>(null);
-  const labels = useSimStore((s) => s.ui.navLabels);
   const segmentsOn = useSimStore(segmentLayerOn);
 
   useEffect(() => {
@@ -308,15 +307,7 @@ export function CutMapView() {
         </span>
         <div className="cut-map-hover" ref={hoverRef} aria-live="off" />
       </div>
-      <div className="cut-map-body" ref={ref}>
-        <div className="torso-help cut">
-          {segmentsOn
-            ? 'Pasar el ratón: nombre · clic: seleccionar'
-            : labels
-              ? 'Pasar el ratón: nombre completo'
-              : 'Pasar el ratón: nombre'}
-        </div>
-      </div>
+      <div className="cut-map-body" ref={ref} />
     </div>
   );
 }

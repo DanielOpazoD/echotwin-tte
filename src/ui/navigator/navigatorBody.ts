@@ -192,7 +192,7 @@ export function textSprite(text: string, color: number): THREE.Sprite {
   if (ctx) {
     ctx.font = font;
     const r = 5 * scale;
-    ctx.fillStyle = 'rgba(248, 250, 252, 0.94)';
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
     ctx.beginPath();
     if (typeof ctx.roundRect === 'function') {
       ctx.roundRect(0, 0, w, h, r);
@@ -201,7 +201,7 @@ export function textSprite(text: string, color: number): THREE.Sprite {
     }
     ctx.fill();
     ctx.lineWidth = 1.2 * scale;
-    ctx.strokeStyle = 'rgba(148, 163, 184, 0.7)';
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.42)';
     ctx.stroke();
 
     ctx.fillStyle = `#${color.toString(16).padStart(6, '0')}`;
@@ -209,7 +209,7 @@ export function textSprite(text: string, color: number): THREE.Sprite {
     ctx.arc(dotX, h / 2, dotR, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = '#0f172a';
+    ctx.fillStyle = '#f8fafc';
     ctx.textBaseline = 'middle';
     ctx.fillText(text, textX, h / 2);
   }
