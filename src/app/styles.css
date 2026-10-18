@@ -3528,7 +3528,7 @@ canvas.overlay.armed {
 .review-tool {
   margin: 8px 0;
 }
-.review-place.review-explain {
+.review-explain {
   color: var(--muted);
   font-size: var(--fs-sm);
   line-height: 1.45;

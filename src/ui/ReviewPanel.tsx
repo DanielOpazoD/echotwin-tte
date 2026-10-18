@@ -258,15 +258,13 @@ export function ReviewPanel() {
                   {[regionLine(m), explainLine(m)].map(
                     (t) =>
                       t && (
-                        <div className="review-place review-explain" key={t}>
+                        <div className="review-explain" key={t}>
                           {t}
                         </div>
                       ),
                   )}
                   {m.space === 'image' && !m.strip && !m.explain && (
-                    <div className="review-place review-explain">
-                      Midiendo de dónde viene el eco…
-                    </div>
+                    <div className="review-explain">Midiendo de dónde viene el eco…</div>
                   )}
                   <textarea
                     aria-label={`Nota del marcador ${m.n}`}

@@ -1,3 +1,4 @@
+import type { EchoSourceId } from '@/simulator/renderer/scenePhysics';
 import type { ProbeControl } from '@/simulator/probe/pose';
 import type { PatientState } from '@/simulator/anatomy/thoraxModel';
 import type { AcquisitionSettings, ImagingModality } from '@/simulator/renderer/types';
@@ -219,8 +220,7 @@ export type SimResponse =
   | { kind: 'probePoint'; point: ProbePointInfo }
   | { kind: 'explainPoint'; explain: PointExplanation };
 
-/** A switchable source of echo the CPU tracer can form the frame without (decision 340). */
-export type EchoSourceId = 'clutter' | 'chestWall' | 'sideLobe' | 'beamWidth';
+export type { EchoSourceId };
 
 /**
  * Where the echo at one point of the image comes from (decision 340): the displayed frame re-formed by the CPU tracer in a

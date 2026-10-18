@@ -7,8 +7,8 @@ import {
   type PolarFrame,
   type PolarFrameSpec,
   type Scene,
-  type ScenePhysics,
 } from '@/simulator/renderer/types';
+import { physicsWithout } from '@/simulator/renderer/scenePhysics';
 import type { EchoSourceId, PointExplanation } from './protocol';
 
 /** Lines of the wedge re-formed around the point: enough for the lateral PSF and its side lobes to act as in the frame. */
@@ -21,13 +21,8 @@ const EXPLAIN_SHADOW_WINDOW_CM = 0.5;
 /** Past this loss nothing comes back (the tracer floors the transmission): the report says so instead of a number. */
 export const EXPLAIN_DROP_CAP_DB = 60;
 
-/** Each switchable source and the physics without it. */
-const ABLATIONS: { id: EchoSourceId; off: Partial<ScenePhysics> }[] = [
-  { id: 'clutter', off: { clutterLevel: 0 } },
-  { id: 'chestWall', off: { windowAttenuation: 0 } },
-  { id: 'sideLobe', off: { sideLobe: 0 } },
-  { id: 'beamWidth', off: { beamWidth: 0 } },
-];
+/** The switchable sources, in the order the wedge is re-formed without each. */
+const SOURCES: EchoSourceId[] = ['clutter', 'chestWall', 'sideLobe', 'beamWidth'];
 
 /** The beam turned by `thetaRad` in its plane, so the line through the point is the wedge's centre line. */
 export function beamTowards(beam: BeamFrame, thetaRad: number): BeamFrame {
@@ -89,17 +84,13 @@ export function explainPointAt(
 
   const sources: PointExplanation['sources'] = [];
   const scratch = allocPolarFrame(spec);
-  for (const a of ABLATIONS) {
-    const physics = { ...scene.physics, ...a.off };
-    const unchanged = (Object.keys(a.off) as (keyof ScenePhysics)[]).every(
-      (k) => (scene.physics[k] ?? 0) === (physics[k] ?? 0),
-    );
-    if (unchanged) continue;
+  for (const id of SOURCES) {
+    const physics = physicsWithout(scene.physics, id);
+    if (!physics) continue;
     renderer.render({ ...scene, physics }, wedge, spec, 0, scratch);
     const e = energy(scratch);
     const share = e0 > 0 ? Math.max(0, Math.min(1, 1 - e / e0)) : 0;
-    if (share > 0.005)
-      sources.push({ id: a.id, share, db: e > 0 ? 10 * Math.log10(e0 / e) : Infinity });
+    if (share > 0.005) sources.push({ id, share, db: e > 0 ? 10 * Math.log10(e0 / e) : Infinity });
   }
   sources.sort((p, q) => q.share - p.share);
   // shares are measured one source at a time: they can overlap, so what is left is bounded below by zero
