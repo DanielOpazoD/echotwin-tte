@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 339 (última: 339).
+Decisiones: 340 (última: 340).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -347,3 +347,4 @@ Decisiones: 339 (última: 339).
 | [337](DECISIONS.md#L2498) | 2026-10-17 | La boca de la vena pulmonar superior izquierda gira por la aurícula en vez de salirse de ella | vigente |
 | [338](DECISIONS.md#L2508) | 2026-10-18 | Lo que la PR 173 cambió en la anatomía, medido uno por uno: se quita lo inerte y se nombra lo que queda | vigente |
 | [339](DECISIONS.md#L2517) | 2026-10-18 | La interfaz, un solo sistema: grises neutros, un acento, tres radios y ninguna sombra de adorno | vigente |
+| [340](DECISIONS.md#L2527) | 2026-10-18 | En el modo revisión, tocar identifica y resalta lo que hay, dice de dónde viene el eco, y un lápiz rodea a mano lo que no sea una estructura | vigente |
