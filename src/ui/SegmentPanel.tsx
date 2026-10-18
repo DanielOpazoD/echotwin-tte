@@ -1,4 +1,7 @@
+import { useState } from 'react';
 import { useHudStore, useSegmentHover, useSegmentOrientation, useSimStore } from '@/app/store';
+import { useShallow } from 'zustand/shallow';
+import { SteadySegments } from '@/app/steadySegments';
 import { InfoTip } from './controls';
 import { modePolicy } from '@/app/modePolicy';
 import { aha17Info, LV_AHA17, type LvSegmentInfo } from '@/clinical/segmentation/catalog';
@@ -94,7 +97,19 @@ const textOn = (id: number): string => {
 };
 
 export function SegmentPanel() {
-  const view = useHudStore((h) => h.hud?.view ?? null);
+  const { view, timeS, rrS } = useHudStore(
+    useShallow((h) => ({
+      view: h.hud?.view ?? null,
+      timeS: h.hud?.timeS ?? 0,
+      rrS: h.hud?.rrS ?? 1,
+    })),
+  );
+  // the window's segments, steady over its beat (decision 342): a holder per mounted panel
+  const [steady] = useState(() => new SteadySegments());
+  // the window: what decides which segments the plane holds (the frame's own phase does not)
+  const windowKey = useSimStore((s) =>
+    JSON.stringify([s.caseId, s.probe, s.patient, s.settings, s.modality]),
+  );
   const mode = useSimStore((s) => s.mode);
   const model = useSimStore((s) => s.ui.segmentModel);
   const selected = useSimStore((s) => s.ui.selectedSegment);
@@ -105,7 +120,15 @@ export function SegmentPanel() {
   const insertions = useSegmentOrientation((o) => o.insertions);
   const setUi = useSimStore((s) => s.setUi);
   if (!modePolicy(mode).hintsEnabled) return null;
-  const coverage = view ? (model === 'LV_AHA17' ? view.segments.aha17 : view.segments.lv16) : [];
+  const held = view
+    ? steady.push(windowKey, {
+        aha17: view.segments.aha17,
+        lv16: view.segments.lv16,
+        timeS,
+        rrS,
+      })
+    : null;
+  const coverage = held ? (model === 'LV_AHA17' ? held.aha17 : held.lv16) : [];
   const covOf = (id: number) => coverage.find((c) => c.segmentId === id);
   const segments = LV_AHA17.filter((s) => model === 'LV_AHA17' || s.id !== 17);
   const select = (id: number | null) => setUi({ selectedSegment: id === selected ? null : id });
