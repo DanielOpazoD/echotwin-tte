@@ -23,16 +23,17 @@ import { GLSL_THORAX } from './glslThorax';
 // The posterior flattening ratio is shared with GLSL, removing its duplicated literal.
 // Decision 294: the mediastinal capsule radius guard is generated from TypeScript into GLSL.
 // Decision 341: the left atrium's hold beside the aortic root (0.3, 0.8 and the fade 0.4 cm) reaches the shader as
-// header constants of laGeometry.ts; the anatomy side counts them once.
+// header constants of laGeometry.ts; the anatomy side counts them once. The shader writes the atrium's free body a second
+// time at the scale of the moment (its clips, 0.15 and 0.6), where the CPU calls leftAtrialFreeSdf again.
 // Decision 330: the posterior prism's blends (0.6, 0.3, 0.15) on both sides; the atrium's radial fraction (0.7), the
 // groove's drop (0.35) and the right atrium's own fraction (0.1) on the anatomy side; the centre's y (1.3) and the
 // forward allowance tried and removed (1.5) leave it.
 const KNOWN_SHARED_CLASSIFIER_LITERALS: Record<string, [anatomy: number, glsl: number]> = {
   '1e-12': [6, 4], '1e-9': [12, 5], '0.000001': [12, 11], '0.001': [8, 5], '0.012': [1, 1], '0.02': [12, 3],
   '0.03': [3, 3], '0.035': [2, 1], '0.04': [4, 2], '0.045': [1, 1], '0.05': [29, 6], '0.06': [6, 1], '0.08': [4, 2],
-  '0.09': [2, 1], '0.1': [46, 9], '0.11': [1, 1], '0.12': [27, 20], '0.15': [27, 9], '0.18': [11, 2], '0.2': [49, 13],
+  '0.09': [2, 1], '0.1': [46, 9], '0.11': [1, 1], '0.12': [27, 20], '0.15': [27, 10], '0.18': [11, 2], '0.2': [49, 13],
   '0.22': [9, 6], '0.28': [4, 2], '0.29': [1, 1], '0.3': [57, 19], '0.35': [27, 4], '0.4': [40, 10],
-  '0.45': [33, 6], '0.55': [30, 13], '0.6': [52, 23], '0.65': [12, 2], '0.68': [2, 1], '0.7': [32, 3],
+  '0.45': [33, 6], '0.55': [30, 13], '0.6': [52, 24], '0.65': [12, 2], '0.68': [2, 1], '0.7': [32, 3],
   '0.75': [9, 2], '0.8': [35, 7], '0.85': [17, 3], '0.88': [2, 1], '0.9': [43, 6], '0.95': [14, 6], '0.97': [4, 2],
   '0.98': [3, 3], '0.999': [3, 2], '1.0001': [2, 1], '1.1': [10, 1], '1.2': [18, 2], '1.3': [9, 2], '1.4': [8, 2],
   '1.5': [32, 1], '1.6': [17, 9], '1.7': [6, 2], '1.8': [10, 1], '2.1': [4, 1], '2.2': [13, 2], '2.3': [11, 6],

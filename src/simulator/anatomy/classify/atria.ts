@@ -447,7 +447,9 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   // the body at the scale of the moment, without the hold: what the right atrium's release reads (decision 222), which
   // the hold would otherwise keep from the membranous septum beside the root
   const dFreeLaNow =
-    boL === bo ? dFreeLa : leftAtrialFreeSdf(x, y, z, la.x, la.y, czL, lr.x * bo, lr.y * bo, rzL, zTop);
+    boL === bo
+      ? dFreeLa
+      : leftAtrialFreeSdf(x, y, z, la.x, la.y, czL, lr.x * bo, lr.y * bo, rzL, zTop);
   // the atrium's epicardium, for the pericardial sac: the outer face of its wall and of the appendage's (decision 273)
   c.laEpi = Math.min(
     dFreeLa - LA_WALL_CM,
@@ -468,7 +470,18 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   // down to the septal hinge of the mitral valve. As an ellipsoid it curved away from both toward the annulus, and the
   // oblique four-chamber cut showed the gap as a wedge of wall, fat and ventricular overhang under the hinge.
   // only toward the septum, where the atrium's own section reaches at this height
-  const dCrossLa = leftAtrialFreeSdf(la.x, y, z, la.x, la.y, czL, lr.x * boL, lr.y * boL, rzL, zTop);
+  const dCrossLa = leftAtrialFreeSdf(
+    la.x,
+    y,
+    z,
+    la.x,
+    la.y,
+    czL,
+    lr.x * boL,
+    lr.y * boL,
+    rzL,
+    zTop,
+  );
   // the gap between the plane and the ellipsoid's medial chord at this (y, z) (decision 327)
   const uL = (y - la.y) / (lr.y * boL),
     wL = (z - czL) / rzL;
@@ -510,7 +523,8 @@ export function classifyAtria(c: ClassifyCtx): boolean {
     1,
     Math.max(
       0,
-      (Math.max(dFreeLaNow, rootClearFaceLine) - RA_SEPTAL_RELEASE_LA_CM) / RA_SEPTAL_RELEASE_RAMP_CM,
+      (Math.max(dFreeLaNow, rootClearFaceLine) - RA_SEPTAL_RELEASE_LA_CM) /
+        RA_SEPTAL_RELEASE_RAMP_CM,
     ),
   );
   const relL = qRel * qRel * (3 - 2 * qRel);

@@ -201,7 +201,9 @@ export function laRootHold(rootT: number, rootOuter: number, lateralCm: number):
   );
   const a = Math.min(1, Math.max(0, (rootT + LA_ROOT_HOLD_T_FADE_CM) / LA_ROOT_HOLD_T_FADE_CM));
   const b = Math.min(1, Math.max(0, (LA_ROOT_HOLD_T_MAX_CM - rootT) / LA_ROOT_HOLD_T_FADE_CM));
-  return (1 - q * q * (3 - 2 * q)) * a * a * (3 - 2 * a) * b * b * (3 - 2 * b) * sx * sx * (3 - 2 * sx);
+  return (
+    (1 - q * q * (3 - 2 * q)) * a * a * (3 - 2 * a) * b * b * (3 - 2 * b) * sx * sx * (3 - 2 * sx)
+  );
 }
 /**
  * Radial scale of the posterior wall's footprint for a radial scale `bo` of the body (decision 330): half the body's

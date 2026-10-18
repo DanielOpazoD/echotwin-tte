@@ -276,7 +276,7 @@ float laRootHold(float rootT, float rootOuter, float lateralCm) {
   float q = min(1.0, max(0.0, (rootOuter - LA_ROOT_HOLD_NEAR_CM) / (LA_ROOT_HOLD_FAR_CM - LA_ROOT_HOLD_NEAR_CM)));
   float a = min(1.0, max(0.0, (rootT + LA_ROOT_HOLD_T_FADE_CM) / LA_ROOT_HOLD_T_FADE_CM));
   float b = min(1.0, max(0.0, (LA_ROOT_HOLD_T_MAX_CM - rootT) / LA_ROOT_HOLD_T_FADE_CM));
-  return (1.0 - q * q * (3.0 - 2.0 * q)) * a * a * (3.0 - 2.0 * a) * b * b * (3.0 - 2.0 * b) * sx * sx * (3.0 - 2.0 * sx);
+  return ((1.0 - q * q * (3.0 - 2.0 * q)) * a * a * (3.0 - 2.0 * a) * b * b * (3.0 - 2.0 * b) * sx * sx * (3.0 - 2.0 * sx));
 }
 // src/simulator/anatomy/classify/pericardium.ts: effusionAt
 float effusionAt(float eff, float dLa, float dRest) {
