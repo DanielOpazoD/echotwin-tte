@@ -1,36 +1,37 @@
 :root {
   color-scheme: light;
-  /* surfaces (GE HealthCare / Claude clinical workstation): serene, low-glare architectural slate & stone */
-  --canvas: #dfe4ec;
-  --bg: #e7ebf2;
-  --panel: #eef1f6;
-  --card: #f8fafc;
-  --panel-2: #e2e7f0;
-  --panel-3: #d4dce8;
-  --panel-4: #c2cddc;
-  --track: #cbd5e1;
-  --border: #cbd5e1;
-  --border-soft: #d8e0ea;
-  --border-strong: #94a3b8;
-  --hairline: rgba(15, 23, 42, 0.08);
-  --text: #0f172a;
-  --text-muted: #334155;
-  --muted: #475569;
-  --faint: #64748b;
-  --accent: #0b6bcb;
-  --accent-strong: #0856a6;
-  --accent-soft: rgba(11, 107, 203, 0.1);
-  --accent-line: rgba(11, 107, 203, 0.36);
-  --accent-2: #d97706;
-  --ok: #059669;
-  --warn: #d97706;
-  --bad: #e11d48;
-  --r-sm: 7px;
-  --r-md: 10px;
-  --r-lg: 14px;
-  --shadow-1: 0 1px 2px rgba(15, 23, 42, 0.05);
-  --shadow-2: 0 16px 40px -12px rgba(15, 23, 42, 0.2), 0 4px 10px -4px rgba(15, 23, 42, 0.08);
-  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 12px -4px rgba(15, 23, 42, 0.06);
+  /* surfaces: neutral, low-glare greys; one accent; flat (hairlines, no decorative shadows) — decision 339 */
+  --canvas: #eceef1;
+  --bg: #f1f3f5;
+  --panel: #f4f5f7;
+  --card: #ffffff;
+  --panel-2: #eef0f3;
+  --panel-3: #e4e7eb;
+  --panel-4: #d5d9df;
+  --track: #d9dde3;
+  --border: #dcdfe4;
+  --border-soft: #e6e8ec;
+  --border-strong: #b9bec7;
+  --hairline: rgba(20, 24, 31, 0.08);
+  --text: #16191d;
+  --text-muted: #3d434b;
+  --muted: #545b65;
+  --faint: #656c76;
+  --accent: #2563a8;
+  --accent-strong: #1d4f87;
+  --accent-soft: rgba(37, 99, 168, 0.09);
+  --accent-line: rgba(37, 99, 168, 0.34);
+  --accent-2: #b7791f;
+  --ok: #2f855a;
+  --warn: #b7791f;
+  --bad: #c53030;
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --shadow-1: none;
+  --shadow-2: 0 12px 32px -12px rgba(20, 24, 31, 0.22), 0 2px 6px -2px rgba(20, 24, 31, 0.08);
+  --shadow-card: none;
   --font: 'Inter Variable', 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
   --mono: 'JetBrains Mono Variable', 'JetBrains Mono', 'SF Mono', Menlo, monospace;
   /* one type scale (decision 198), no text under 12 px since the design review of 2026-10-12: captions and keys,
@@ -120,7 +121,7 @@ button {
     transform 0.06s ease;
 }
 button:hover {
-  background: #ffffff;
+  background: var(--panel-2);
   border-color: var(--border-strong);
 }
 button:active {
@@ -149,7 +150,7 @@ button.primary {
   border-color: var(--accent);
   color: #ffffff;
   font-weight: 600;
-  box-shadow: 0 1px 3px rgba(11, 107, 203, 0.3);
+  box-shadow: none;
 }
 button.primary:hover {
   background: var(--accent-strong);
@@ -164,10 +165,10 @@ button.ghost {
   font-size: var(--fs-sm);
   font-weight: 600;
   padding: 4px 10px;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
 }
 button.ghost:hover {
-  background: #ffffff;
+  background: var(--card);
   border-color: var(--border-strong);
   color: var(--text);
 }
@@ -186,7 +187,7 @@ button.icon-btn {
   display: inline-block;
   min-width: 15px;
   padding: 0 4px;
-  border-radius: 4px;
+  border-radius: var(--r-xs);
   border: 1px solid var(--border);
   background: var(--panel-2);
   font-family: var(--mono);
@@ -199,10 +200,10 @@ button.icon-btn {
 button.active .kbd {
   color: var(--accent-strong);
   border-color: var(--accent-line);
-  background: #ffffff;
+  background: var(--card);
 }
 select {
-  background: #ffffff;
+  background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--r-sm);
   box-shadow: var(--shadow-1);
@@ -214,7 +215,7 @@ select {
   background-position: right 9px center;
 }
 select:hover {
-  background-color: #ffffff;
+  background-color: var(--card);
   border-color: var(--border-strong);
 }
 .app {
@@ -250,10 +251,9 @@ select:hover {
   align-items: center;
   gap: 12px;
   padding: 0 16px;
-  background: linear-gradient(180deg, #f5f7fa 0%, #edf1f6 100%);
-  border-bottom: 1px solid #c6d0de;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
   font-variant-numeric: tabular-nums;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
   z-index: 10;
 }
 .topbar .brand {
@@ -270,7 +270,7 @@ select:hover {
 .brand-mark {
   width: 22px;
   height: 22px;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background:
     radial-gradient(circle at 50% 24%, #ffffff 0 1.8px, transparent 2.2px),
     conic-gradient(
@@ -285,14 +285,10 @@ select:hover {
     0 1px 3px rgba(11, 107, 203, 0.25);
 }
 .brand-sub {
-  color: var(--accent-strong);
-  font-weight: 700;
-  font-size: 12px;
-  letter-spacing: 0.06em;
-  padding: 1px 6px;
-  border-radius: 5px;
-  background: var(--accent-soft);
-  border: 1px solid rgba(11, 107, 203, 0.22);
+  color: var(--faint);
+  font-weight: 600;
+  font-size: var(--fs-sm);
+  letter-spacing: 0.04em;
   margin-left: 2px;
 }
 .run-state {
@@ -300,12 +296,10 @@ select:hover {
   align-items: center;
   gap: 6px;
   height: 24px;
-  padding: 0 10px 0 8px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  border: 1px solid transparent;
+  padding: 0 4px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: 0.04em;
 }
 .run-state .run-dot {
   width: 7px;
@@ -314,22 +308,10 @@ select:hover {
   background: currentColor;
 }
 .run-state.live {
-  color: #047857;
-  border-color: rgba(5, 150, 105, 0.28);
-  background: rgba(5, 150, 105, 0.1);
-}
-.run-state.live .run-dot {
-  animation: live-pulse 1.6s ease-in-out infinite;
+  color: var(--ok);
 }
 .run-state.frozen {
-  color: #b45309;
-  border-color: rgba(217, 119, 6, 0.32);
-  background: rgba(245, 158, 11, 0.12);
-}
-@keyframes live-pulse {
-  50% {
-    opacity: 0.35;
-  }
+  color: var(--warn);
 }
 /* the screens as one precision segmented control in the middle of the bar */
 .nav-seg {
@@ -337,31 +319,30 @@ select:hover {
   gap: 2px;
   padding: 3px;
   margin: 0 auto;
-  border-radius: 8px;
-  background: #dfe5ee;
-  border: 1px solid #c5cfdc;
-  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+  border-radius: var(--r-md);
+  background: var(--panel-2);
+  border: 0;
 }
 .nav-seg button {
   border: 0;
   background: transparent;
   color: var(--text-muted);
   padding: 4px 16px;
-  border-radius: 6px;
-  font-size: 12.5px;
+  border-radius: var(--r-sm);
+  font-size: var(--fs-md);
   font-weight: 600;
   box-shadow: none;
   transition: all 0.12s ease;
 }
 .nav-seg button:hover {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.6);
 }
 .nav-seg button.active {
-  background: #ffffff;
-  color: var(--accent-strong);
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
-  font-weight: 650;
+  background: var(--card);
+  color: var(--text);
+  box-shadow: 0 0 0 1px var(--border);
+  font-weight: 600;
 }
 .nav-seg button:disabled {
   opacity: 0.35;
@@ -383,28 +364,26 @@ select:hover {
 }
 .topbar select {
   height: 30px;
-  font-size: 12.5px;
+  font-size: var(--fs-md);
   font-weight: 550;
   color: var(--text-muted);
   background-color: var(--card);
-  border: 1px solid #c5cfdc;
-  border-radius: 7px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
   padding: 2px 26px 2px 10px;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
   cursor: pointer;
   transition: all 0.14s ease;
 }
 .topbar select:hover {
-  background-color: #ffffff;
+  background-color: var(--card);
   color: var(--text);
   border-color: var(--border-strong);
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
 }
 .left {
   grid-column: 1;
   position: relative;
   background: var(--panel);
-  border-right: 1px solid #c6d0de;
+  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -430,12 +409,12 @@ select:hover {
   justify-content: center;
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
   color: var(--text-muted);
 }
 .rail-collapse:hover {
-  background: #ffffff;
+  background: var(--card);
   color: var(--text);
   border-color: var(--border-strong);
 }
@@ -448,17 +427,17 @@ select:hover {
   margin: 6px 8px 0;
   padding: 7px 11px;
   background: var(--card);
-  border: 1px solid #ccd5e1;
-  border-radius: 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
   color: var(--text-muted);
-  font-size: 12.5px;
+  font-size: var(--fs-md);
   font-weight: 650;
   text-align: left;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
   transition: all 0.14s ease;
 }
 .rail-head:hover {
-  background: #ffffff;
+  background: var(--card);
   border-color: var(--border-strong);
   color: var(--text);
   box-shadow: 0 2px 4px rgba(15, 23, 42, 0.05);
@@ -466,7 +445,7 @@ select:hover {
 .rail-head[aria-expanded='true'] {
   color: var(--text);
   border-color: var(--border-strong);
-  background: #ffffff;
+  background: var(--card);
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
 }
 .rail-head .chev {
@@ -506,7 +485,7 @@ select:hover {
   max-height: 120px;
   min-height: 30px;
   background: var(--panel-3);
-  border-radius: 3px;
+  border-radius: var(--r-xs);
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -515,7 +494,7 @@ select:hover {
 .rail-strip-bar i {
   display: block;
   width: 100%;
-  border-radius: 3px;
+  border-radius: var(--r-xs);
 }
 .center {
   grid-column: 2;
@@ -530,7 +509,7 @@ select:hover {
 .right {
   grid-column: 3;
   background: var(--panel);
-  border-left: 1px solid #c6d0de;
+  border-left: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -547,8 +526,8 @@ select:hover {
 .console-tabs {
   display: flex;
   flex: 0 0 auto;
-  border-bottom: 1px solid #c6d0de;
-  background: #e1e7f0;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel-2);
   padding: 4px 6px;
   gap: 3px;
 }
@@ -561,7 +540,7 @@ select:hover {
   padding: 6px 2px 5px;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   color: var(--muted);
   font-size: 12px;
   font-weight: 600;
@@ -577,8 +556,8 @@ select:hover {
 .console-tabs button.on {
   color: var(--accent-strong);
   font-weight: 700;
-  background: #ffffff;
-  border-color: #c8d2e0;
+  background: var(--card);
+  border-color: var(--border);
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
 }
 .console-tabs button.on::after {
@@ -594,7 +573,7 @@ select:hover {
   min-width: 14px;
   height: 14px;
   padding: 0 4px;
-  border-radius: 7px;
+  border-radius: var(--r-sm);
   background: var(--accent);
   color: #ffffff;
   font-size: var(--fs-xs);
@@ -625,8 +604,8 @@ select:hover {
   width: 8px;
 }
 .console-scroll::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
+  background: var(--track);
+  border-radius: var(--r-xs);
 }
 .console-scroll::-webkit-scrollbar-track {
   background: transparent;
@@ -651,8 +630,8 @@ select:hover {
   align-items: center;
   gap: 12px;
   padding: 0 16px;
-  background: linear-gradient(180deg, #eff2f7 0%, #e6ebf2 100%);
-  border-top: 1px solid #c6d0de;
+  background: var(--card);
+  border-top: 1px solid var(--border);
   box-shadow: 0 -1px 2px rgba(15, 23, 42, 0.03);
   z-index: 10;
 }
@@ -661,9 +640,9 @@ select:hover {
   display: flex;
   gap: 2px;
   padding: 3px;
-  border-radius: 8px;
-  background: #dce2ec;
-  border: 1px solid #c2ccd9;
+  border-radius: var(--r-md);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
   box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 .seg-bar button {
@@ -671,11 +650,11 @@ select:hover {
   align-items: center;
   gap: 6px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--text-muted);
   padding: 4px 11px;
-  font-size: 12.5px;
+  font-size: var(--fs-md);
   font-weight: 650;
   letter-spacing: 0.01em;
   box-shadow: none;
@@ -686,14 +665,14 @@ select:hover {
   background: rgba(255, 255, 255, 0.45);
 }
 .seg-bar button.active {
-  background: #ffffff;
+  background: var(--card);
   color: var(--accent-strong);
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
 }
 .modebar .sep {
   width: 1px;
   height: 22px;
-  background: #c5cfdc;
+  background: var(--track);
 }
 .freeze-btn {
   display: inline-flex;
@@ -703,18 +682,18 @@ select:hover {
   height: 32px;
   padding: 0 14px;
   justify-content: center;
-  border-radius: 8px;
-  font-size: 12.5px;
+  border-radius: var(--r-md);
+  font-size: var(--fs-md);
   font-weight: 650;
   background: var(--card);
-  border: 1px solid #c2ccd9;
+  border: 1px solid var(--border);
   color: var(--text);
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
   cursor: pointer;
   transition: all 0.14s ease;
 }
 .freeze-btn:hover {
-  background: #ffffff;
+  background: var(--card);
   border-color: var(--border-strong);
   box-shadow: 0 2px 4px rgba(15, 23, 42, 0.07);
 }
@@ -726,12 +705,12 @@ select:hover {
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
 }
 .freeze-btn.active {
-  background: #fffbeb;
-  border-color: #f59e0b;
+  background: color-mix(in srgb, var(--warn) 12%, var(--card));
+  border-color: var(--warn);
   color: #b45309;
 }
 .freeze-btn.active .run-dot {
-  background: #f59e0b;
+  background: var(--warn);
   box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.25);
 }
 .ctx-chip {
@@ -741,7 +720,7 @@ select:hover {
   color: var(--accent-strong);
   background: var(--accent-soft);
   border: 1px solid var(--accent-line);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   padding: 3px 8px;
   white-space: nowrap;
 }
@@ -764,7 +743,7 @@ select:hover {
   min-width: 230px;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--r-md);
   padding: 5px;
   box-shadow: var(--shadow-2);
   z-index: 30;
@@ -781,7 +760,7 @@ select:hover {
   text-align: left;
   background: transparent;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   padding: 8px 9px;
   font-size: var(--fs-md);
   color: var(--text);
@@ -829,7 +808,7 @@ select:hover {
   flex: 1;
   min-height: 0;
   background: #000000;
-  border-radius: 14px;
+  border-radius: var(--r-lg);
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.08),
     0 0 0 1px rgba(15, 23, 42, 0.16),
@@ -868,7 +847,7 @@ select:hover {
   font-weight: 550;
   background: rgba(15, 23, 42, 0.78);
   border: 1px solid rgba(148, 163, 184, 0.22);
-  border-radius: 7px;
+  border-radius: var(--r-sm);
   color: #e2e8f0;
   backdrop-filter: blur(8px);
 }
@@ -905,7 +884,7 @@ select:hover {
   display: inline-flex;
   background: rgba(15, 23, 42, 0.78);
   border: 1px solid rgba(148, 163, 184, 0.22);
-  border-radius: 7px;
+  border-radius: var(--r-sm);
   overflow: hidden;
   backdrop-filter: blur(8px);
 }
@@ -935,7 +914,7 @@ select:hover {
   padding: 5px 9px;
   background: rgba(8, 11, 16, 0.92);
   border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   font-size: var(--fs-md);
   color: #f4f6fa;
   pointer-events: none;
@@ -946,7 +925,7 @@ select:hover {
   grid-row: span 2;
   width: 12px;
   height: 28px;
-  border-radius: 3px;
+  border-radius: var(--r-xs);
 }
 .seg-tip span {
   color: #94a3b8;
@@ -969,7 +948,7 @@ select:hover {
   flex-direction: column;
   gap: 2px;
   padding: 5px 10px;
-  border-radius: 7px;
+  border-radius: var(--r-sm);
   background: rgba(15, 23, 42, 0.76);
   border: 1px solid rgba(148, 163, 184, 0.18);
   backdrop-filter: blur(8px);
@@ -1009,7 +988,7 @@ select:hover {
   background: rgba(255, 179, 71, 0.92);
   font-weight: 600;
   padding: 1px 6px;
-  border-radius: 4px;
+  border-radius: var(--r-xs);
   text-shadow: none;
 }
 .panel-error {
@@ -1020,7 +999,7 @@ select:hover {
   margin: 10px;
   padding: 10px 12px;
   border: 1px solid rgba(255, 107, 107, 0.5);
-  border-radius: 8px;
+  border-radius: var(--r-md);
   background: rgba(40, 12, 14, 0.85);
   color: #f8fafc;
   font-size: var(--fs-md);
@@ -1044,22 +1023,21 @@ select:hover {
 }
 .section {
   background: var(--card);
-  border: 1px solid #d5dce6;
-  border-radius: 9px;
-  padding: 9px 11px;
-  margin: 0 0 7px;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-md);
+  padding: 10px 12px;
+  margin: 0 0 8px;
 }
 .section:last-child {
   margin-bottom: 0;
 }
 .section h4 {
-  margin: 0 0 7px;
-  font-size: 12px;
-  font-weight: 700;
+  margin: 0 0 8px;
+  font-size: var(--fs-caps);
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--text-muted);
+  letter-spacing: 0.06em;
+  color: var(--muted);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1069,7 +1047,7 @@ select:hover {
   font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.06em;
   color: var(--muted);
 }
 .row {
@@ -1081,7 +1059,7 @@ select:hover {
 .row label {
   flex: 1;
   color: var(--text-muted);
-  font-size: 12.5px;
+  font-size: var(--fs-md);
   font-weight: 500;
   white-space: nowrap;
 }
@@ -1102,7 +1080,7 @@ select:hover {
   color: var(--text);
   background: var(--panel);
   border: 1px solid var(--border-soft);
-  border-radius: 5px;
+  border-radius: var(--r-xs);
   padding: 1px 6px;
 }
 .row.small {
@@ -1125,50 +1103,15 @@ select:hover {
 .cine input[type='range']::-webkit-slider-runnable-track,
 .artifact-row input[type='range']::-webkit-slider-runnable-track {
   height: 5px;
-  border-radius: 3px;
+  border-radius: var(--r-xs);
   background: linear-gradient(90deg, var(--accent) var(--fill, 0%), var(--track) var(--fill, 0%));
-}
-.row input[type='range']::-webkit-slider-thumb,
-.cine input[type='range']::-webkit-slider-thumb,
-.artifact-row input[type='range']::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 15px;
-  height: 15px;
-  margin-top: -5px;
-  border-radius: 50%;
-  border: 2px solid #ffffff;
-  background: var(--accent);
-  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.25);
-  transition:
-    transform 0.12s ease,
-    box-shadow 0.12s ease;
-}
-.row input[type='range']:hover::-webkit-slider-thumb,
-.cine input[type='range']:hover::-webkit-slider-thumb,
-.artifact-row input[type='range']:hover::-webkit-slider-thumb {
-  transform: scale(1.15);
-  box-shadow: 0 2px 6px rgba(11, 107, 203, 0.4);
 }
 .row input[type='range']::-moz-range-track,
 .cine input[type='range']::-moz-range-track,
 .artifact-row input[type='range']::-moz-range-track {
   height: 5px;
-  border-radius: 3px;
+  border-radius: var(--r-xs);
   background: linear-gradient(90deg, var(--accent) var(--fill, 0%), var(--track) var(--fill, 0%));
-}
-.row input[type='range']::-moz-range-thumb,
-.cine input[type='range']::-moz-range-thumb,
-.artifact-row input[type='range']::-moz-range-thumb {
-  width: 15px;
-  height: 15px;
-  border-radius: 50%;
-  border: 2px solid #ffffff;
-  background: var(--accent);
-  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.25);
-  transition:
-    transform 0.12s ease,
-    box-shadow 0.12s ease;
 }
 .row input[type='range']:hover::-moz-range-thumb,
 .cine input[type='range']:hover::-moz-range-thumb,
@@ -1182,16 +1125,13 @@ select:hover {
   opacity: 0.45;
   cursor: not-allowed;
 }
-.tgc input[type='range'] {
-  accent-color: var(--accent);
-}
 
 /* switch control */
 .switch {
   flex: 0 0 auto;
   width: 32px;
   height: 18px;
-  border-radius: 9px;
+  border-radius: var(--r-md);
   background: var(--panel-3);
   border: 1px solid var(--border-strong);
   padding: 0;
@@ -1231,22 +1171,6 @@ select:hover {
   height: 110px;
   align-items: stretch;
 }
-.tgc input[type='range'] {
-  writing-mode: vertical-lr;
-  direction: rtl;
-  width: 18px;
-  height: 100%;
-}
-.seg {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 2px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  padding: 2px;
-  background: var(--panel-2);
-  max-width: 100%;
-}
 /* rows whose control is a segmented group stack: label above, buttons share the full width */
 .row:has(> .seg) {
   flex-direction: column;
@@ -1262,7 +1186,7 @@ select:hover {
 }
 .seg button {
   border: 0;
-  border-radius: 5px;
+  border-radius: var(--r-xs);
   padding: 4px 9px;
   background: transparent;
   color: var(--muted);
@@ -1274,12 +1198,6 @@ select:hover {
 .seg button:hover {
   color: var(--text);
   background: rgba(255, 255, 255, 0.45);
-}
-.seg button.active {
-  background: #ffffff;
-  color: var(--accent-strong);
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
-  font-weight: 600;
 }
 .torso-wrap {
   flex: 1;
@@ -1302,7 +1220,8 @@ select:hover {
   justify-content: space-between;
   padding: 0 8px 0 38px;
   background: var(--panel);
-  border-bottom: 1px solid #ccd5e1;
+  border-bottom: 1px solid var(--border);
+  gap: 8px;
   z-index: 6;
 }
 /* the WebGL torso above and, when split, the 2D cut map below (decision 141) */
@@ -1311,17 +1230,11 @@ select:hover {
   min-height: 0;
   position: relative;
   margin: 6px 8px 0;
-  border-radius: 10px;
-  border: 1px solid rgba(15, 23, 42, 0.25);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 2px 6px rgba(15, 23, 42, 0.1);
+  border-radius: var(--r-md);
+  border: 0;
   overflow: hidden;
   /* dark studio chamber with subtle central vignette so the probe silhouette never disappears */
   background: radial-gradient(ellipse at 50% 44%, #111827 0%, #050811 66%, #000000 100%);
-}
-.torso-wrap.split .torso-3d {
-  flex: 1 1 50%;
 }
 .cut-map {
   flex: 1 1 50%;
@@ -1330,9 +1243,8 @@ select:hover {
   flex-direction: column;
   position: relative;
   margin: 6px 8px 0;
-  border-radius: 10px;
-  border: 1px solid rgba(15, 23, 42, 0.22);
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+  border-radius: var(--r-md);
+  border: 0;
   overflow: hidden;
   background: #000000;
 }
@@ -1349,9 +1261,9 @@ select:hover {
 }
 .cut-map-head .torso-caption.bottom {
   position: static;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.07em;
+  font-size: var(--fs-caps);
+  font-weight: 600;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: #cbd5e1;
   background: transparent;
@@ -1401,7 +1313,7 @@ select:hover {
   backdrop-filter: blur(6px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   padding: 4px 8px;
-  border-radius: 7px;
+  border-radius: var(--r-sm);
   line-height: 1.35;
   opacity: 0;
   transition: opacity 0.18s ease;
@@ -1411,28 +1323,6 @@ select:hover {
 .torso-3d:focus-within > .torso-help,
 .cut-map:hover .torso-help.cut {
   opacity: 1;
-}
-.torso-tools {
-  position: absolute;
-  right: 14px;
-  top: 48px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
-  z-index: 4;
-}
-.dial {
-  background: rgba(15, 23, 42, 0.82);
-  border: 1px solid rgba(148, 163, 184, 0.24);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
-  border-radius: 8px;
-  padding: 3px;
-  backdrop-filter: blur(8px);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
 }
 .dial svg {
   cursor: grab;
@@ -1449,14 +1339,6 @@ select:hover {
   padding: 1px 5px;
   font-size: var(--fs-xs);
 }
-.torso-buttons {
-  display: flex;
-  gap: 4px;
-}
-.torso-buttons button {
-  padding: 2px 7px;
-  font-size: var(--fs-sm);
-}
 /* LV segment panel (decision 152): polar map, legend in words, inspector; it scrolls when the rail is short */
 #lv-segments {
   flex: 0 1 auto;
@@ -1464,16 +1346,6 @@ select:hover {
   max-height: 52%;
   display: flex;
   flex-direction: column;
-}
-.segment-panel {
-  padding: 8px;
-  border-top: 1px solid var(--border);
-  min-height: 0;
-  overflow-y: auto;
-  font-size: var(--fs-md);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
 }
 .segment-panel .row {
   display: flex;
@@ -1552,7 +1424,7 @@ select:hover {
   display: inline-block;
   width: 10px;
   height: 10px;
-  border-radius: 2px;
+  border-radius: var(--r-xs);
   vertical-align: -1px;
   margin-right: 3px;
 }
@@ -1567,12 +1439,6 @@ select:hover {
   background: #262c36;
   border: 1px solid var(--border);
 }
-.segment-inspector {
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 6px 8px;
-}
 .segment-title {
   display: flex;
   align-items: baseline;
@@ -1583,15 +1449,9 @@ select:hover {
   display: inline-block;
   min-width: 20px;
   text-align: center;
-  border-radius: 4px;
+  border-radius: var(--r-xs);
   font-weight: 700;
   padding: 0 4px;
-}
-.segment-inspector dl {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 2px 8px;
-  margin: 6px 0 0;
 }
 .segment-inspector dt {
   color: var(--muted);
@@ -1669,7 +1529,7 @@ select:hover {
 .bar {
   height: 5px;
   background: #222a35;
-  border-radius: 3px;
+  border-radius: var(--r-xs);
   overflow: hidden;
   margin: 2px 0 6px;
 }
@@ -1694,7 +1554,7 @@ select:hover {
   overflow: auto;
   background: rgba(10, 14, 20, 0.92);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--r-md);
   padding: 8px;
   font-family: var(--mono);
   font-size: var(--fs-sm);
@@ -1722,7 +1582,7 @@ select:hover {
   border: 1px solid var(--bad);
   color: #ffd7d7;
   padding: 8px;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   z-index: 6;
   white-space: pre-wrap;
   font-family: var(--mono);
@@ -1789,13 +1649,13 @@ select:hover {
   font-size: var(--fs-md);
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--r-md);
   overflow: hidden;
 }
 .screen th {
   font-size: var(--fs-caps);
   font-weight: 600;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
   background: var(--panel-2);
@@ -1818,7 +1678,7 @@ select:hover {
   font-size: var(--fs-sm);
   background: var(--panel-2);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--r-xs);
   padding: 1px 6px;
 }
 .screen a {
@@ -1829,7 +1689,7 @@ select:hover {
   align-items: center;
   gap: 5px;
   padding: 2px 8px 2px 7px;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   font-size: var(--fs-xs);
   font-weight: 600;
   letter-spacing: 0.03em;
@@ -1854,12 +1714,6 @@ select:hover {
 .small {
   font-size: var(--fs-sm);
   color: var(--muted);
-}
-.modebar-status {
-  font-family: var(--mono);
-  font-size: var(--fs-xs);
-  color: var(--faint);
-  letter-spacing: 0.02em;
 }
 .cine {
   display: flex;
@@ -1981,27 +1835,10 @@ select:hover {
 .tut-steps i.now {
   background: var(--accent);
   width: 16px;
-  border-radius: 3px;
-}
-
-.preset-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 5px;
-  margin-bottom: 5px;
+  border-radius: var(--r-xs);
 }
 .preset-grid.secondary {
   grid-template-columns: repeat(3, 1fr);
-}
-.preset-grid button {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-  padding: 6px 4px 5px;
-  font-size: var(--fs-md);
-  font-weight: 600;
-  letter-spacing: 0.02em;
 }
 .preset-sub {
   white-space: nowrap;
@@ -2051,7 +1888,7 @@ select:hover {
 .protocol-instruction {
   background: var(--panel-2);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   padding: 6px;
   margin-bottom: 4px;
   font-size: var(--fs-sm);
@@ -2107,7 +1944,7 @@ select:hover {
   padding: 8px 10px;
   margin-bottom: 6px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--r-md);
   background: var(--panel);
 }
 .curriculum .tasks li:last-child {
@@ -2135,7 +1972,7 @@ select:hover {
 }
 .impression-form fieldset {
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--r-md);
   padding: 8px 10px;
   background: var(--panel);
   margin: 0;
@@ -2143,7 +1980,7 @@ select:hover {
 .impression-form legend {
   font-size: var(--fs-caps);
   font-weight: 600;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
   padding: 0 4px;
@@ -2172,7 +2009,7 @@ select:hover {
 /* collapsed "fine tuning" group inside console sections */
 details.adv {
   margin-top: 8px;
-  border-top: 1px solid #1c2330;
+  border-top: 1px solid var(--border-soft);
   padding-top: 6px;
 }
 details.adv > summary {
@@ -2207,14 +2044,6 @@ details.adv > summary:hover {
 details.adv > summary:hover::before {
   border-color: var(--text);
 }
-
-/* compact 3×3 picker for free measurement tools */
-.tool-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 4px;
-  margin: 6px 0 8px;
-}
 .tool-grid button {
   padding: 5px 2px;
   font-size: var(--fs-sm);
@@ -2241,9 +2070,6 @@ details.adv > summary:hover::before {
   line-height: 1.5;
   color: var(--text);
 }
-.capture-cancel {
-  width: 100%;
-}
 @keyframes pulse {
   50% {
     opacity: 0.4;
@@ -2265,7 +2091,7 @@ details.adv > summary:hover::before {
   text-align: center;
   color: var(--muted);
   border: 1px dashed var(--border);
-  border-radius: 10px;
+  border-radius: var(--r-md);
 }
 .empty svg {
   opacity: 0.45;
@@ -2287,13 +2113,6 @@ details.adv > summary:hover::before {
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-.review-item {
-  border: 1px solid #2a3140;
-  border-radius: 8px;
-  padding: 8px;
-  display: grid;
-  gap: 6px;
 }
 .review-head {
   display: flex;
@@ -2333,7 +2152,7 @@ details.adv > summary:hover::before {
   background: #0e1218;
   color: inherit;
   border: 1px solid #2a3140;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   padding: 6px;
   box-sizing: border-box;
 }
@@ -2360,13 +2179,18 @@ details.adv > summary:hover::before {
   box-shadow: 0 0 0 1px #ff6ad5 inset;
 }
 .review-item {
+  border: 1px solid #2a3140;
+  border-radius: var(--r-md);
+  padding: 8px;
+  display: grid;
+  gap: 6px;
   cursor: pointer;
 }
 .review-chip {
   font-size: var(--fs-xs);
   border: 1px solid #ff6ad5;
   color: #ff6ad5;
-  border-radius: 4px;
+  border-radius: var(--r-xs);
   padding: 0 4px;
   flex: none;
 }
@@ -2403,7 +2227,7 @@ canvas.overlay.armed {
 }
 .review-n.small {
   width: 26px;
-  border-radius: 8px;
+  border-radius: var(--r-md);
   font-size: var(--fs-sm);
 }
 .review-actions button.on {
@@ -2413,11 +2237,11 @@ canvas.overlay.armed {
 
 /* ---- split navigator: torso above, cut face below (decision 137) ---- */
 .torso-caption {
-  font-size: 12px;
-  letter-spacing: 0.07em;
+  font-size: var(--fs-caps);
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  font-weight: 700;
-  color: var(--text-muted);
+  font-weight: 600;
+  color: var(--muted);
   background: transparent;
   border: 0;
   box-shadow: none;
@@ -2427,6 +2251,10 @@ canvas.overlay.armed {
 }
 .torso-caption.top {
   position: static;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 .torso-caption.bottom {
   position: static;
@@ -2454,20 +2282,6 @@ canvas.overlay.armed {
   margin-left: 6px;
   vertical-align: 1px;
 }
-/* the navigator's tools: header bar buttons on the right, rotation dial in the 3D corner */
-.torso-tools {
-  gap: 4px;
-}
-.torso-buttons {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 0;
-  background: transparent;
-  border: 0;
-  box-shadow: none;
-}
 .torso-buttons button {
   padding: 0;
   font-size: var(--fs-sm);
@@ -2478,22 +2292,11 @@ canvas.overlay.armed {
   background: var(--card);
   color: var(--text);
 }
-.torso-buttons button.icon-btn {
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--text-muted);
-}
 .torso-buttons button.icon-btn:hover,
 .torso-buttons button.icon-btn.active {
   color: var(--text);
   background: var(--card);
   border-color: var(--border);
-}
-.dial {
-  border-radius: 8px;
 }
 /* the score of the recognised view as a small ring beside its name */
 .mini-ring {
@@ -2626,6 +2429,9 @@ canvas.overlay.armed {
   color: var(--faint);
 }
 .modebar-status {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.02em;
   color: var(--warn);
 }
 
@@ -2639,7 +2445,7 @@ canvas.overlay.armed {
   align-items: center;
   gap: 8px;
   padding: 4px 8px;
-  border-radius: 7px;
+  border-radius: var(--r-sm);
   background: rgba(15, 23, 42, 0.78);
   border: 1px solid rgba(148, 163, 184, 0.18);
   backdrop-filter: blur(8px);
@@ -2680,7 +2486,7 @@ canvas.overlay.armed {
 .quick-bar button.icon-btn {
   width: 20px;
   height: 20px;
-  border-radius: 5px;
+  border-radius: var(--r-xs);
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: rgba(255, 255, 255, 0.08);
   color: #e2e8f0;
@@ -2702,16 +2508,6 @@ canvas.overlay.armed {
 }
 
 /* ---- interface, fourth round: the navigator (decision 188) ---- */
-/* the dial: its value in the middle, ticks every 30°, dark-glass instrument inside the 3D chamber */
-.dial {
-  padding: 3px;
-  gap: 0;
-  background: rgba(15, 23, 42, 0.82);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(148, 163, 184, 0.24);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
-  border-radius: 8px;
-}
 .dial-ring {
   fill: rgba(255, 255, 255, 0.03);
   stroke: rgba(148, 163, 184, 0.35);
@@ -2720,11 +2516,6 @@ canvas.overlay.armed {
 .dial-tick {
   stroke: #64748b;
   stroke-width: 1;
-}
-.dial-lbl {
-  fill: #94a3b8;
-  font-size: 7.5px;
-  font-family: var(--font);
 }
 .dial-needle {
   stroke: #38bdf8;
@@ -2736,25 +2527,10 @@ canvas.overlay.armed {
   stroke: #0f172a;
   stroke-width: 1.5;
 }
-.dial-val {
-  fill: #f8fafc;
-  font-size: var(--fs-sm);
-  font-family: var(--mono);
-  font-variant-numeric: tabular-nums;
-}
 .dial svg:focus-visible {
   outline: 2px solid var(--accent-line);
   outline-offset: 1px;
   border-radius: 50%;
-}
-/* the camera tools: docked in the navigator header bar on the right */
-.torso-tools {
-  flex-direction: column;
-  align-items: flex-end;
-}
-.torso-buttons {
-  flex-direction: row;
-  opacity: 1;
 }
 .sheet-sub {
   margin: 14px 0 0;
@@ -2789,6 +2565,23 @@ canvas.overlay.armed {
   padding-right: 14px;
 }
 @media (max-width: 760px) {
+  /* the case title and the acquisition box start under the floating freeze button and the image's two corner buttons,
+     and the box wraps its lines instead of taking the image's width (with the CPU tracer's notice it reached 305 of
+     378 px and left the title 43 px) — decision 339 */
+  .hud-tl {
+    top: 44px;
+  }
+  .img-seg {
+    top: calc(var(--hud-tl-h, 30px) + 50px);
+  }
+  .hud-tr {
+    top: 44px;
+    max-width: 58%;
+  }
+  .hud-tr > * {
+    max-width: 100%;
+    white-space: normal;
+  }
   .sheet-cols {
     grid-template-columns: 1fr;
   }
@@ -2802,34 +2595,20 @@ canvas.overlay.armed {
 .row.end {
   justify-content: flex-end;
 }
+
+/* compact 3×3 picker for free measurement tools */
 .tool-grid {
+  display: grid;
+  gap: 4px;
+  margin: 6px 0 8px;
   grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
 }
 .capture-cancel {
+  width: 100%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-}
-/* the guide's box: its percentage cap resolved against its own content, so it kept the whole height of the content
-   and showed 46 % of it, with the details and the causes clipped below an empty band; the cap now sits on the
-   wrapper, against the rail, and the guide scrolls inside it */
-#view-guidance {
-  flex: 0 1 auto;
-  min-height: 0;
-  max-height: 50%;
-  display: flex;
-  flex-direction: column;
-}
-#view-guidance .guidance {
-  max-height: none;
-  min-height: 0;
-}
-/* the cut map takes the height its sector needs and leaves the rest to the torso */
-.torso-wrap.split .cut-map {
-  flex: 0 1 auto;
-  aspect-ratio: 6 / 5;
-  min-height: 0;
 }
 
 /* ---- the image at rest (decision 192): only what describes the image stays; the controls come with the pointer ---- */
@@ -2892,9 +2671,13 @@ canvas.overlay.armed {
   min-height: 230px;
 }
 .torso-wrap.split .torso-3d {
+  flex: 1 1 50%;
   min-height: 120px;
 }
+/* the cut map takes the height its sector needs and leaves the rest to the torso */
 .torso-wrap.split .cut-map {
+  flex: 0 1 auto;
+  aspect-ratio: 6 / 5;
   min-height: 110px;
 }
 
@@ -2917,7 +2700,7 @@ canvas.overlay.armed {
   width: max-content;
   max-width: 290px;
   padding: 7px 11px;
-  border-radius: 8px;
+  border-radius: var(--r-md);
   background: #0f172a;
   border: 1px solid rgba(255, 255, 255, 0.16);
   box-shadow: 0 4px 16px rgba(15, 23, 42, 0.25);
@@ -3029,7 +2812,7 @@ canvas.overlay.armed {
 .tour-hole {
   position: fixed;
   z-index: 6;
-  border-radius: 10px;
+  border-radius: var(--r-md);
   border: 1.5px solid var(--accent-line);
   box-shadow: 0 0 0 9999px rgba(4, 7, 11, 0.6);
   pointer-events: none;
@@ -3103,6 +2886,12 @@ canvas.overlay.armed {
 .row input[type='range']::-webkit-slider-thumb,
 .cine input[type='range']::-webkit-slider-thumb,
 .artifact-row input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  border-radius: 50%;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
   width: 14px;
   height: 14px;
   margin-top: -5px;
@@ -3120,6 +2909,11 @@ canvas.overlay.armed {
 .row input[type='range']::-moz-range-thumb,
 .cine input[type='range']::-moz-range-thumb,
 .artifact-row input[type='range']::-moz-range-thumb {
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.25);
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
   width: 14px;
   height: 14px;
   background: var(--accent);
@@ -3127,6 +2921,10 @@ canvas.overlay.armed {
 }
 /* the TGC verticals in the same language as the other sliders */
 .tgc input[type='range'] {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 18px;
+  height: 100%;
   -webkit-appearance: none;
   appearance: none;
   background: transparent;
@@ -3134,7 +2932,7 @@ canvas.overlay.armed {
 }
 .tgc input[type='range']::-webkit-slider-runnable-track {
   width: 3px;
-  border-radius: 2px;
+  border-radius: var(--r-xs);
   background: var(--track);
 }
 .tgc input[type='range']::-webkit-slider-thumb {
@@ -3153,44 +2951,47 @@ canvas.overlay.armed {
   transform: scale(1.15);
 }
 .seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  max-width: 100%;
   border: 1px solid var(--border);
   background: var(--panel-2);
   padding: 3px;
-  border-radius: 9px;
+  border-radius: var(--r-md);
 }
 .seg button.active {
-  background: #ffffff;
+  font-weight: 600;
+  background: var(--card);
   color: var(--accent);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 /* preset tiles: clean clinical cards with active sapphire accent */
 .preset-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin-bottom: 5px;
   gap: 5px;
 }
 .preset-grid button {
-  background: #ffffff;
-  border: 1px solid var(--border);
-  border-radius: 7px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  font-size: var(--fs-md);
+  letter-spacing: 0.02em;
+  background: var(--panel-2);
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
   padding: 5px 4px 4px;
   color: var(--text);
-  font-weight: 700;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+  font-weight: 600;
+  box-shadow: none;
   transition: all 0.14s ease;
 }
 .preset-grid button:hover {
-  background: #ffffff;
-  border-color: var(--border-strong);
-  color: var(--accent-strong);
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
-  transform: translateY(-1px);
-}
-.preset-grid button.active {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-  color: var(--accent-strong);
-  box-shadow:
-    0 0 0 1px var(--accent),
-    0 2px 6px rgba(11, 107, 203, 0.12);
+  background: var(--card);
+  border-color: var(--border);
 }
 
 /* ---- sliding indicators (decision 209): the chosen option is a pill that travels, not a fill that jumps ---- */
@@ -3210,18 +3011,18 @@ canvas.overlay.armed {
   top: 3px;
   bottom: 3px;
   left: 0;
-  border-radius: 6px;
-  background: #ffffff;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  border-radius: var(--r-sm);
+  background: var(--card);
+  box-shadow: 0 0 0 1px var(--border);
   pointer-events: none;
   transition:
     transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
     width 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .seg-pill.accent {
-  background: #ffffff;
+  background: var(--card);
   border: 1px solid var(--accent-line);
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
+  box-shadow: none;
 }
 .nav-seg:has(.seg-pill) > button.active,
 .seg-bar:has(.seg-pill) > button.active {
@@ -3244,6 +3045,9 @@ canvas.overlay.armed {
 /* ---- what the review of 208–209 found (decision 210) ---- */
 /* the chosen preset keeps its accent fill: the tonal tile rule came later and had the same weight */
 .preset-grid button.active {
+  border-color: var(--accent-line);
+  color: var(--accent-strong);
+  box-shadow: none;
   background: var(--accent-soft);
 }
 /* the cine and artefact sliders set no --fill: a plain track, not an unlit gradient */
@@ -3258,7 +3062,7 @@ canvas.overlay.armed {
 /* the TGC verticals in Firefox */
 .tgc input[type='range']::-moz-range-track {
   width: 3px;
-  border-radius: 2px;
+  border-radius: var(--r-xs);
   background: var(--track);
 }
 .tgc input[type='range']::-moz-range-thumb {
@@ -3266,13 +3070,18 @@ canvas.overlay.armed {
   height: 12px;
   border-radius: 50%;
   border: 0;
-  background: #eef2f7;
+  background: var(--panel-2);
 }
 /* captions on the rail: clean clinical badges aligned with modern white theme */
 
 /* ---- the rail, compact (decision 242): the LV segments in fewer words and less room, the view guide at the bottom
    edge and smaller, the navigator's tools out of the probe's way ---- */
 .segment-panel {
+  border-top: 1px solid var(--border);
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   padding: 6px 8px;
   gap: 4px;
   font-size: var(--fs-sm);
@@ -3314,9 +3123,15 @@ canvas.overlay.armed {
   text-align: center;
 }
 .segment-inspector {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
   padding: 4px 6px;
 }
 .segment-inspector dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  margin: 6px 0 0;
   margin-top: 4px;
   gap: 1px 6px;
 }
@@ -3327,10 +3142,19 @@ canvas.overlay.armed {
   padding: 6px 10px;
   font-size: var(--fs-sm);
 }
+/* the guide's box: its percentage cap resolved against its own content, so it kept the whole height of the content
+   and showed 46 % of it, with the details and the causes clipped below an empty band; the cap now sits on the
+   wrapper, against the rail, and the guide scrolls inside it */
 #view-guidance {
+  flex: 0 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   max-height: 38%;
 }
 #view-guidance .guidance {
+  max-height: none;
+  min-height: 0;
   padding: 6px 8px;
   font-size: var(--fs-sm);
 }
@@ -3355,7 +3179,10 @@ canvas.overlay.armed {
   margin: 2px 0;
 }
 /* the navigator's tools: the dial sits in the top-right corner of the 3D card; the camera buttons live in .torso-head */
+/* the navigator's tools: header bar buttons on the right, rotation dial in the 3D corner */
+/* the camera tools: docked in the navigator header bar on the right */
 .torso-tools {
+  display: flex;
   position: absolute;
   top: 50px;
   right: 16px;
@@ -3368,32 +3195,50 @@ canvas.overlay.armed {
 .torso-tools > * {
   pointer-events: auto;
 }
+/* the dial: its value in the middle, ticks every 30°, dark-glass instrument inside the 3D chamber */
 .dial {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  backdrop-filter: blur(8px);
   padding: 3px;
   background: rgba(15, 23, 42, 0.82);
   border: 1px solid rgba(148, 163, 184, 0.24);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
-  border-radius: 8px;
+  border-radius: var(--r-md);
 }
 .dial-lbl {
+  fill: #94a3b8;
+  font-family: var(--font);
   font-size: var(--fs-xs);
 }
 .dial-val {
+  fill: #f8fafc;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
   font-size: 14px;
   font-weight: 600;
 }
 .torso-buttons {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  opacity: 1;
   margin-left: auto;
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 2px;
+  gap: 0;
   padding: 0;
 }
 .torso-buttons button.icon-btn {
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  width: 22px;
+  height: 22px;
+  border-radius: var(--r-sm);
 }
 /* the layers menu hangs from the header bar's right edge */
 .torso-head .menu-wrap {
@@ -3404,15 +3249,13 @@ canvas.overlay.armed {
   top: calc(100% + 6px);
 }
 
-/* the case card under the case selector: clinical patient chart card with GE sapphire indicator */
+/* the case card under the case selector: the patient's history, plain */
 .case-card {
   margin: 6px 0 4px;
   padding: 10px 12px;
-  background: #eff3f8;
-  border: 1px solid #d5dce6;
-  border-left: 3px solid var(--accent);
-  border-radius: 7px;
-  box-shadow: none;
+  background: var(--panel-2);
+  border: 0;
+  border-radius: var(--r-sm);
 }
 .case-history {
   margin: 0;
@@ -3450,7 +3293,7 @@ canvas.overlay.armed {
   background: rgba(15, 23, 42, 0.82);
   border: 1px solid rgba(148, 163, 184, 0.24);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
-  border-radius: 7px;
+  border-radius: var(--r-sm);
   padding: 3px 6px 3px 8px;
   backdrop-filter: blur(8px);
 }
@@ -3463,7 +3306,7 @@ canvas.overlay.armed {
   background-color: rgba(30, 41, 59, 0.92);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
   border: 1px solid rgba(148, 163, 184, 0.3);
-  border-radius: 5px;
+  border-radius: var(--r-xs);
   color: #f8fafc;
 }
 .torso-3d canvas {
@@ -3614,15 +3457,15 @@ canvas.overlay.armed {
    sections ruled off from one another and a conclusion, set apart from the teaching evaluation that follows it. */
 .clinical-report {
   margin: 12px 0 24px;
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--border);
   border-radius: var(--r-lg);
-  background: var(--panel-2);
+  background: var(--card);
   overflow: hidden;
 }
 .clinical-report .cr-head {
   padding: 16px 20px 12px;
-  border-bottom: 1px solid var(--border-strong);
-  background: var(--panel-3);
+  border-bottom: 1px solid var(--border-soft);
+  background: transparent;
 }
 .clinical-report .cr-head h2 {
   margin: 0 0 10px;
@@ -3653,7 +3496,7 @@ canvas.overlay.armed {
 }
 .clinical-report .cr-section {
   padding: 12px 20px 16px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-soft);
 }
 .clinical-report .cr-section:last-child {
   border-bottom: 0;
@@ -3661,9 +3504,10 @@ canvas.overlay.armed {
 .clinical-report .cr-section h3 {
   margin: 4px 0 8px;
   font-size: var(--fs-caps);
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--accent);
+  letter-spacing: 0.06em;
+  color: var(--muted);
 }
 .clinical-report .cr-conclusion ol {
   margin: 0;
@@ -3673,7 +3517,7 @@ canvas.overlay.armed {
 }
 .cr-eval {
   padding-top: 4px;
-  border-top: 1px dashed var(--border-strong);
+  border-top: 1px dashed var(--border);
 }
 .cr-eval > h2 {
   font-size: var(--fs-xl);
