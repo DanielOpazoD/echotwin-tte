@@ -38,7 +38,7 @@ export const PV_INF_Z = 0.25;
  * (33° and 23°, at its 85th and 45th percentiles). Lengths unchanged.
  */
 export const PV_COURSE: readonly number[] = [
-  -1.49, 1.09, -1.45, 1.63, 0.81, 1.55, -1.0, -0.92, -1.8, 2.2, -0.5, 0.25,
+  -1.49, 1.09, -1.45, 1.63, 0.81, 0.35, -1.0, -0.92, -1.8, 2.2, -0.5, 0.25,
 ];
 /** Farthest a vein reaches from its ostium (cm): the flow sampler's quick reject. */
 export const PV_REACH = Math.max(

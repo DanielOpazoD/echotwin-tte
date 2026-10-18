@@ -236,7 +236,7 @@ Cada prueba del modelo que tolera una desviación la declara en un conjunto `KNO
 | `KNOWN_TRUNK_HIDDEN` | `simulator/windows/pulmonaryTrunkWindow.test.ts` | 4 | `normal-difficult-window ED`, `normal-difficult-window ES`, `artifact-challenge ED`, `artifact-challenge ES` |
 | `KNOWN_RA_IN_VEIN` | `simulator/anatomy/venousMouths.test.ts` | 1 | `hfref-severe-mr` |
 | `KNOWN_THICK_PARTITION` | `simulator/anatomy/valveAnatomy.test.ts` | 5 | `hfref-severe-mr@0.35@0.3`, `hfref-severe-mr@0.35@-0.2`, `mvp-primary-mr@0.35@-0.2`, `hfref-severe-mr@0@0.3`, `hocm-sam@0.35@0.3` |
-| `KNOWN_VEIN_AT_HINGE` | `simulator/anatomy/leftAtrialBase.test.ts` | 2 | `pericardial-effusion-tamponade @0`, `normal-difficult-window @0` |
+| `KNOWN_VEIN_AT_HINGE` | `simulator/anatomy/leftAtrialBase.test.ts` | 1 | `pericardial-effusion-tamponade @0` |
 | `KNOWN_BIPLANE_SHORTFALL` | `simulator/measurements/laVolume.test.ts` | 4 | `normal-excellent-window`, `hfref-severe-mr`, `pulmonary-hypertension-rv`, `pericardial-effusion-tamponade` |
 | `KNOWN_CS_OSTIUM` | `simulator/anatomy/coronarySinus.test.ts` | 1 | `pericardial-effusion-tamponade` |
 | `KNOWN_ATLAS_POSITIONS` | `simulator/anatomy/atlasPositions.test.ts` | 13 | `normal-difficult-window:rightAtrium.y`, `rightVentricle.x`, `normal-excellent-window:leftAtrium.y`, `normal-excellent-window:leftAtrium.x`, `normal-difficult-window:leftAtrium.x`, `normal-difficult-window:leftAtrium.z`, `normal-excellent-window:leftAtrium.z`, `normal-excellent-window:pulmonaryValve.y`, `normal-difficult-window:leftAtrium.y`, `normal-difficult-window:aorticValve.x`, `normal-difficult-window:pulmonaryValve.x`, `normal-difficult-window:pulmonaryValve.y`, `normal-difficult-window:rightVentricle.y` |

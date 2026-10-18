@@ -54,7 +54,7 @@ const LINING: ReadonlySet<number> = new Set([
  * How steeply the diaphragm falls away beside the heart (cm per cm, about 56°): a shape assumption, not a published
  * value. It only has to leave the heart's edge so that the lung keeps the recesses beside it.
  */
-export const DIAPHRAGM_FALL = 1.5;
+export const DIAPHRAGM_FALL = 2.2;
 /**
  * Steps of the search for the lowest point of a column (cm): coarse ones up from below — finer than a chamber is tall, so
  * only a sliver of wall at the heart's margin can be stepped over — and fine ones back down.
@@ -98,6 +98,10 @@ export function fitDiaphragmMap(heart: HeartModel, state: CycleState): Diaphragm
           break;
         }
       if (!Number.isFinite(yb)) continue;
+      // at the acute margin a sliver of free wall covers the lung's cardiophrenic recess: whole chambers only
+      let top = yb;
+      while (top < yb + 1.6 && heartAt(x, top + STEP_CM, z) >= 0) top += STEP_CM;
+      if (top < yb + 1.5) continue;
       // the chambers just inside the sac: the right heart rests here if it is among those within half a centimetre of
       // the first (at the junction of the septum with the right ventricle either may come first by a millimetre)
       let first = NaN,

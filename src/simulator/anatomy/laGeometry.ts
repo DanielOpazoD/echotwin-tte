@@ -68,7 +68,7 @@ export const RA_LA_MIN_CM = 0.3;
  * reaches the septum there wherever its own section does at its centre, and all around (decision 328) its wall flares
  * from the annulus up to that section.
  */
-export const LA_CORNER_HEIGHT_CM = 1.2;
+export const LA_CORNER_HEIGHT_CM = 1.3;
 /**
  * The atrium's base sits on the whole annulus (decision 328): from the hinge up its wall flares LA_BASE_FLARE cm per cm
  * of height until, LA_CORNER_HEIGHT_CM above the hinge, the body's own section takes over. The ellipsoid tapered to a tip
@@ -92,7 +92,8 @@ export const LA_BASE_SECTION_SLACK_CM = 0.3;
  * the hinge and zRef, behind the curtain (read at the face) and clear of the septal face by the corner's offset; the
  * corner is bounded by the body's section at zRef, the flare by its widest section (`dCrossEq`, at the equator): at zRef
  * the body's rounded posterior edge sits 2-3 mm inside its clip plane, and bounded by that section the flare left
- * 14 mm of atrial wall over the posterior annulus. Shared with GLSL.
+ * 14 mm of atrial wall over the posterior annulus. Above half the corner's height the annular flare tapers back inward
+ * into the body's lateral contour instead of ending at a horizontal shelf at zRef. Shared with GLSL.
  */
 export function laBaseSdf(
   x: number,
@@ -107,14 +108,15 @@ export function laBaseSdf(
   rootClearBase: number,
   outlineSdf: number,
 ): number {
-  const shared = Math.max(xFace + cornerOff - x, zRef - z, z - zHinge, rootClearBase);
+  const dz = zHinge - z;
+  const shared = Math.max(xFace + cornerOff - x, -dz, rootClearBase);
   // the flare's lateral bound: the widest section with its slack at the hinge, the section at zRef where the body takes
   // over, so no shoulder stands between them
-  const t = Math.min(1, Math.max(0, (zHinge - z) / (zHinge - zRef)));
+  const t = Math.min(1, Math.max(0, dz / (zHinge - zRef)));
   const bound = (dCrossEq - LA_BASE_SECTION_SLACK_CM) * (1 - t) + dCrossRef * t;
   return Math.min(
-    Math.max(shared, dCrossRef, x - laX),
-    Math.max(shared, bound, outlineSdf - LA_BASE_FLARE * (zHinge - z)),
+    Math.max(shared, zRef - z, dCrossRef, x - laX),
+    Math.max(shared, bound, outlineSdf - LA_BASE_FLARE * Math.min(dz, LA_CORNER_HEIGHT_CM - dz)),
   );
 }
 /**

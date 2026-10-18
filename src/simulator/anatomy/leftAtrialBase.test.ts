@@ -33,7 +33,6 @@ const NAME = CUT_MAP_LABELS as Partial<Record<number, string>>;
  */
 const KNOWN_VEIN_AT_HINGE: Record<string, string> = {
   'pericardial-effusion-tamponade @0': '210°',
-  'normal-difficult-window @0': '210°',
 };
 const MAX_BELOW_MM = 10;
 const MAX_FAT_MM = 1;

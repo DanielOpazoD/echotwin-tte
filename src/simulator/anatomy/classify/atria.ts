@@ -123,7 +123,21 @@ export function ivcDistance(
   z: number,
 ): number {
   const rI = A.ivcR * (1 - ivcCollapse);
-  return sdCapsule(x, y, z, A.ivcA.x, A.ivcA.y, A.ivcA.z, A.ivcB.x, A.ivcB.y, A.ivcB.z, rI);
+  return Math.min(
+    sdCapsule(x, y, z, A.ivcA.x, A.ivcA.y, A.ivcA.z, A.ivcB.x, A.ivcB.y, A.ivcB.z, rI),
+    sdCapsule(
+      x,
+      y,
+      z,
+      A.ivcB.x,
+      A.ivcB.y,
+      A.ivcB.z,
+      A.ivcB.x - 0.5,
+      A.ivcB.y - 4.0,
+      A.ivcB.z - 1.0,
+      rI,
+    ),
+  );
 }
 
 /**
