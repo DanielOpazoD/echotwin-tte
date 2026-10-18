@@ -92,8 +92,8 @@ const TV_BUMP_WINDOW = [0, 0.5, 1, 1, 1, 1, 1, 1, 0.5, 0, 0, 0];
 
 /** Closed tricuspid leaflets: depth of the central coaptation below the hinges (cm) and the profile's vertex fractions. */
 const TV_TENTING_CM = 0.3;
-const TV_CLOSED_REACH = [0.36, 0.71, 1];
-const TV_CLOSED_DEPTH = [0.3, 0.62, 1];
+const TV_CLOSED_REACH = [0.38, 0.74, 1];
+const TV_CLOSED_DEPTH = [0.27, 0.59, 1];
 
 /** Per-frame deformation parameters derived from the cycle state (computed once per frame). */
 export interface HeartPose extends ChamberPose {

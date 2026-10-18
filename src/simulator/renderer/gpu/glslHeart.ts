@@ -9,7 +9,11 @@ import {
   LA_TOUCH_CM,
   RA_LA_MIN_CM,
 } from '@/simulator/anatomy/laGeometry';
-import { LV_WALL_BASAL_OVERHANG_CM } from '@/simulator/anatomy/heartFrame';
+import {
+  LV_WALL_BASAL_OVERHANG_CM,
+  PAP_ROOT_FLARE,
+  PAP_ROOT_LEVEL,
+} from '@/simulator/anatomy/heartFrame';
 import {
   FOSSA_REACH,
   LA_CORNER_HEIGHT_CM,
@@ -125,6 +129,8 @@ const float LA_POSTERIOR_RATIO = ${f(LA_POSTERIOR_RATIO)};
 const float LA_POSTERIOR_FLOOR_DROP_CM = ${f(LA_POSTERIOR_FLOOR_DROP_CM)};
 const float LA_FLOOR_Y_CM = ${f(LA_FLOOR_Y_CM)};
 const float LV_WALL_BASAL_OVERHANG_CM = ${f(LV_WALL_BASAL_OVERHANG_CM)};
+const float PAP_ROOT_LEVEL = ${f(PAP_ROOT_LEVEL)};
+const float PAP_ROOT_FLARE = ${f(PAP_ROOT_FLARE)};
 const float LA_CORNER_HEIGHT_CM = ${f(LA_CORNER_HEIGHT_CM)};
 const float FOSSA_REACH = ${f(FOSSA_REACH)};
 const float IAS_LEFT_FACE_CM = ${f(IAS_LEFT_FACE_CM)};
@@ -968,7 +974,8 @@ bool classifyHeart(vec3 p0, out Sample s) {
   if (dLvBlood < 0.0) {
     float dPa = sdRoundCone(p, vec3(P(PAPS_BASE), P(PAPS_BASE + 1), P(PAPS_BASE + 2)), vec3(P(PAPS_BASE + 3), P(PAPS_BASE + 4), P(PAPS_BASE + 5)), P(PAPS_BASE + 6), P(PAPS_BASE + 7));
     float dPm = sdRoundCone(p, vec3(P(PAPS_BASE + 8), P(PAPS_BASE + 9), P(PAPS_BASE + 10)), vec3(P(PAPS_BASE + 11), P(PAPS_BASE + 12), P(PAPS_BASE + 13)), P(PAPS_BASE + 14), P(PAPS_BASE + 15));
-    float dPap = min(dPa, dPm);
+    float papRoot = levelFrac > PAP_ROOT_LEVEL ? PAP_ROOT_FLARE * (levelFrac - PAP_ROOT_LEVEL) : 0.0;
+    float dPap = min(dPa, dPm) - papRoot;
     if (dPap < 0.0) {
       setSample(s, T_MYO, dPap, vec3(x, y, 0.0), vec3(x / rs, y / rs, z / ls), 0.0, S_PAP);
       return true;

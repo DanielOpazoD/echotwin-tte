@@ -32,6 +32,13 @@ export const MITRAL_SHORT_AXIS_CM = 1.4;
  * valve (decision 318). The atrium now fills that corner.
  */
 export const LV_WALL_BASAL_OVERHANG_CM = 0.05;
+/**
+ * Apical trabecular collar of the papillary muscles: below PAP_ROOT_LEVEL of the ventricle's length the papillary cones
+ * widen by PAP_ROOT_FLARE cm per unit of levelFrac so their base emerges organically from the endocardium in long-axis
+ * views without altering the mid-ventricular short axis (PSAX-PM).
+ */
+export const PAP_ROOT_LEVEL = 0.67;
+export const PAP_ROOT_FLARE = 0.038;
 
 /** Centre of the mitral annulus (heart frame, cm): 0.9 cm behind the LV long axis and 0.2 cm lateral to it. */
 export const MITRAL_CENTRE_X = 0.2;

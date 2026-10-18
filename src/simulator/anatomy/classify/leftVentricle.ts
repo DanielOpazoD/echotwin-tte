@@ -6,7 +6,7 @@ import { insideMitralOutline, mitralHingeZ, mitralInflowSdf } from '../mitralVal
 import { septalCrestFactor, septalShiftAt, wallThicknessAt } from '../lvWall';
 import { aha17FromCode, lvSegmentCode, lvWallKind } from '../lvSegments';
 import { setSample, type ClassifyCtx } from './context';
-import { LV_WALL_BASAL_OVERHANG_CM } from '../heartFrame';
+import { LV_WALL_BASAL_OVERHANG_CM, PAP_ROOT_FLARE, PAP_ROOT_LEVEL } from '../heartFrame';
 
 /**
  * LV cavity, papillary muscles, wall and the annular-plane blood. Writes az, levelFrac, the cavity normal, dEllR,
@@ -86,7 +86,8 @@ export function classifyLeftVentricle(c: ClassifyCtx): boolean {
     const P = hp.paps;
     const dPa = sdRoundCone(x, y, z, P[0]!, P[1]!, P[2]!, P[3]!, P[4]!, P[5]!, P[6]!, P[7]!);
     const dPm = sdRoundCone(x, y, z, P[8]!, P[9]!, P[10]!, P[11]!, P[12]!, P[13]!, P[14]!, P[15]!);
-    const dPap = Math.min(dPa, dPm);
+    const papRoot = levelFrac > PAP_ROOT_LEVEL ? PAP_ROOT_FLARE * (levelFrac - PAP_ROOT_LEVEL) : 0;
+    const dPap = Math.min(dPa, dPm) - papRoot;
     if (dPap < 0) {
       setSample(
         out,
