@@ -317,8 +317,6 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // end-diastolic one at 2 mm along and 4 mm across it come closer (−0.35 → −0.11, 0.61 → 0.38, −0.69 → −0.21), and the
   // four-chamber end-diastolic texture at 4 mm along and 8 mm across the beam, the end-systolic one at 1 mm across it
   // and the two-chamber end-diastolic one at 4 mm along it come inside
-  // with pulmonary vein course at physiological depth the two-chamber end-diastolic texture at 8 mm sits at the quartile edge
-  ['2CH-ED:radialCorr8', -0.12],
   ['2CH-ES:radialCorr8', 0.13],
 ]);
 

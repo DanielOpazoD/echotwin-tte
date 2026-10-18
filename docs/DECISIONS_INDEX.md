@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 337 (última: 337).
+Decisiones: 338 (última: 338).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -345,3 +345,4 @@ Decisiones: 337 (última: 337).
 | [335](DECISIONS.md#L2480) | 2026-10-16 | El tabique interauricular llega a la raíz aórtica en el eje corto paraesternal | vigente |
 | [336](DECISIONS.md#L2488) | 2026-10-16 | El pulmón no se mete delante del tronco pulmonar en el eje corto paraesternal | vigente |
 | [337](DECISIONS.md#L2498) | 2026-10-17 | La boca de la vena pulmonar superior izquierda gira por la aurícula en vez de salirse de ella | vigente |
+| [338](DECISIONS.md#L2508) | 2026-10-18 | Lo que la PR 173 cambió en la anatomía, medido uno por uno: se quita lo inerte y se nombra lo que queda | vigente |

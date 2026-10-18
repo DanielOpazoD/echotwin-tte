@@ -113,9 +113,7 @@ export function laBaseSdf(
   // over, so no shoulder stands between them
   const t = Math.min(1, Math.max(0, dz / (zHinge - zRef)));
   const bound = (dCrossEq - LA_BASE_SECTION_SLACK_CM) * (1 - t) + dCrossRef * t;
-  const lat = Math.min(0.76, Math.max(0, x - laX - 1.36));
-  const ta = Math.max(0, t - 0.36);
-  const flare = LA_BASE_FLARE * dz + 0.21 * lat * ta * (1 - t);
+  const flare = LA_BASE_FLARE * dz;
   return Math.min(
     Math.max(shared, dCrossRef, x - laX),
     Math.max(shared, bound, outlineSdf - flare),

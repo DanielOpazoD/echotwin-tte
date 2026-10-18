@@ -25,8 +25,10 @@ export const PV_INF_Z = 0.25;
  * Course of each vein from its ostium to its distal end (cm, heart frame: x lateral, y anterior, z towards the apex), in
  * the order of `pulmonaryVeinSegment`: right superior, left superior, right inferior, left inferior. The right veins run
  * medially and backwards, the superior one towards the roof; the left inferior one laterally and a little backwards.
- * The left superior vein runs to the hilum laterally, slightly upwards and slightly forwards in the chest (torso
- * (2.3, 0.4, 0.5) cm in the normal case), passing in front of the descending aorta (decision 213). It used to share the
+ * The left superior vein runs to the hilum laterally, upwards and a little backwards in the chest (torso (1.6, 0.9, -0.3)
+ * cm in the normal case, 1.85 cm long), passing in front of the descending aorta (decision 213). PR 173 lowered its
+ * course toward the apex from 1.55 to 0.35 cm (decision 338): it ran 30-38 degrees from the atlas mean and runs 2-17
+ * now, in the twelve cases. Before that it ran forwards (torso (2.3, 0.4, 0.5) cm); it used to share the
  * course of the inferior one with a rise towards the roof, and in the chest that went 2.0 cm backwards to the depth of
  * the front of the vertebral body, through the place of the aorta: the heart frame's lateral and basal directions both
  * point backwards in the torso.
@@ -34,8 +36,8 @@ export const PV_INF_Z = 0.25;
  * of its border ring, averaged over twenty healthy hearts in the frame of the mitral centre, the LV apex and the tricuspid
  * centre (Rodero et al., PLoS Comput Biol 2021). The right superior vein ran 58° and the right inferior 61° from it,
  * beyond every atlas heart (spread at the 90th percentile 25° and 30°): the superior went backwards instead of forwards
- * behind the superior vena cava, the inferior level instead of towards the base. The left ones are within the atlas
- * (33° and 23°, at its 85th and 45th percentiles). Lengths unchanged.
+ * behind the superior vena cava, the inferior level instead of towards the base. The left ones were within the atlas
+ * (33° and 23°, at its 85th and 45th percentiles; the superior 14° since decision 338). Lengths unchanged then.
  */
 export const PV_COURSE: readonly number[] = [
   -1.49, 1.09, -1.45, 1.63, 0.81, 0.35, -1.0, -0.92, -1.8, 2.2, -0.5, 0.25,

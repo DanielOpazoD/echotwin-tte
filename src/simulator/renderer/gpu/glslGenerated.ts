@@ -260,9 +260,7 @@ float laBaseSdf(float x, float laX, float xFace, float cornerOff, float z, float
   float shared = max(max(max(xFace + cornerOff - x, zRef - z), -dz), rootClearBase);
   float t = min(1.0, max(0.0, dz / (zHinge - zRef)));
   float bound = (dCrossEq - LA_BASE_SECTION_SLACK_CM) * (1.0 - t) + dCrossRef * t;
-  float lat = min(0.76, max(0.0, x - laX - 1.36));
-  float ta = max(0.0, t - 0.36);
-  float flare = LA_BASE_FLARE * dz + 0.21 * lat * ta * (1.0 - t);
+  float flare = LA_BASE_FLARE * dz;
   return min(max(max(shared, dCrossRef), x - laX), max(max(shared, bound), outlineSdf - flare));
 }
 // src/simulator/anatomy/laGeometry.ts: laFootprintScale
