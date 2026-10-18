@@ -53,7 +53,6 @@ export const KNOWN_SETS: readonly {
     name: 'KNOWN_STRAIGHT_BORDERS',
   },
   { file: 'src/simulator/renderer/atrialSurroundings.test.ts', name: 'KNOWN_LA_ROOF_EXCESS' },
-  { file: 'src/simulator/renderer/atrialSurroundings.test.ts', name: 'KNOWN_SIDE_WALL_LOW' },
   {
     file: 'src/simulator/renderer/acoustic/imageFormation.test.ts',
     name: 'KNOWN_LOW_TISSUE_BLOOD_DB',

@@ -107,14 +107,18 @@ export function laBaseSdf(
   rootClearBase: number,
   outlineSdf: number,
 ): number {
-  const shared = Math.max(xFace + cornerOff - x, zRef - z, z - zHinge, rootClearBase);
+  const dz = zHinge - z;
+  const shared = Math.max(xFace + cornerOff - x, zRef - z, -dz, rootClearBase);
   // the flare's lateral bound: the widest section with its slack at the hinge, the section at zRef where the body takes
   // over, so no shoulder stands between them
-  const t = Math.min(1, Math.max(0, (zHinge - z) / (zHinge - zRef)));
+  const t = Math.min(1, Math.max(0, dz / (zHinge - zRef)));
   const bound = (dCrossEq - LA_BASE_SECTION_SLACK_CM) * (1 - t) + dCrossRef * t;
+  const lat = Math.min(0.76, Math.max(0, x - laX - 1.36));
+  const ta = Math.max(0, t - 0.36);
+  const flare = LA_BASE_FLARE * dz + 0.21 * lat * ta * (1 - t);
   return Math.min(
     Math.max(shared, dCrossRef, x - laX),
-    Math.max(shared, bound, outlineSdf - LA_BASE_FLARE * (zHinge - z)),
+    Math.max(shared, bound, outlineSdf - flare),
   );
 }
 /**

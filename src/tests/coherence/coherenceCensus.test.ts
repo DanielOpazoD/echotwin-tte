@@ -150,7 +150,6 @@ const KNOWN_GREY_INVERSIONS: Record<string, string[]> = {
   'mvp-primary-mr a4c @0': ['LaWall>Pericardium'],
   'mvp-primary-mr a4c @0.35': ['LaWall>Pericardium'],
   'mvp-primary-mr a2c @0': ['LaWall>Pericardium'],
-  'pulmonary-hypertension-rv a4c @0': ['LaWall>Pericardium'],
   'pulmonary-hypertension-rv a2c @0': ['LaWall>Pericardium'],
   'af-diastolic a2c @0': ['LaWall>Pericardium'],
   'artifact-challenge a2c @0': [

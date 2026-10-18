@@ -34,13 +34,6 @@ const KNOWN_LA_ROOF_EXCESS: Record<string, number> = {
   'pulmonary-hypertension-rv a2c ES roofBeyond': 0.07,
 };
 
-/**
- * Side walls declared just under the CAMUS 10th percentile, as measured (myocardial medians): since decision 335 the
- * hypertension case's atrium meets its septal face beside the root and its end-diastolic four-chamber side band reads
- * 1.15 against 1.16.
- */
-const KNOWN_SIDE_WALL_LOW: Record<string, number> = { 'pulmonary-hypertension-rv a4c ED': 1.15 };
-
 const TOLERANCE = 0.05;
 const STALE = 0.1;
 
@@ -89,12 +82,6 @@ describe('outside the left atrium, against CAMUS Good', () => {
   it('keeps the side walls, which run along the beam, inside the CAMUS 10th–90th percentiles', () => {
     for (const m of measured) {
       const q = ref(m).sideWall;
-      const low = KNOWN_SIDE_WALL_LOW[m.key];
-      if (low !== undefined) {
-        expect(m.v.sideWall, `${m.key} sideWall below p10 as declared`).toBeLessThan(q.p10);
-        expect(m.v.sideWall, `${m.key} sideWall`).toBeGreaterThanOrEqual(low - 0.05);
-        continue;
-      }
       expect(m.v.sideWall, `${m.key} sideWall`).toBeGreaterThanOrEqual(q.p10);
       expect(m.v.sideWall, `${m.key} sideWall`).toBeLessThanOrEqual(q.p90);
     }

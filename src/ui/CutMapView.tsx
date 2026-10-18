@@ -42,7 +42,6 @@ function labelBox(ctx: CanvasRenderingContext2D): (text: string) => { w: number;
 export function CutMapView() {
   const ref = useRef<HTMLDivElement>(null);
   const hoverRef = useRef<HTMLDivElement>(null);
-  const labels = useSimStore((s) => s.ui.navLabels);
   const segmentsOn = useSimStore(segmentLayerOn);
 
   useEffect(() => {
@@ -130,7 +129,8 @@ export function CutMapView() {
       backCtx.putImageData(img, 0, 0);
       const dpr = canvas.width / cssW;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.imageSmoothingEnabled = true;
       ctx.drawImage(back, 0, 0, canvas.width, canvas.height);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -295,24 +295,19 @@ export function CutMapView() {
   return (
     <div
       className="cut-map"
-      ref={ref}
       aria-label={
         segmentsOn
           ? 'Corte ecográfico: segmentos del ventrículo izquierdo que atraviesa el plano de la imagen'
           : 'Corte ecográfico: estructuras en el plano de la imagen'
       }
     >
-      <div className="torso-caption bottom">
-        {segmentsOn ? 'Corte ecográfico · segmentos' : 'Corte ecográfico'}
+      <div className="cut-map-head">
+        <span className="torso-caption bottom">
+          {segmentsOn ? 'Corte ecográfico · segmentos' : 'Corte ecográfico'}
+        </span>
+        <div className="cut-map-hover" ref={hoverRef} aria-live="off" />
       </div>
-      <div className="cut-map-hover" ref={hoverRef} aria-live="off" />
-      <div className="torso-help cut">
-        {segmentsOn
-          ? 'Pasar el ratón: nombre · clic: seleccionar'
-          : labels
-            ? 'Pasar el ratón: nombre completo'
-            : 'Pasar el ratón: nombre'}
-      </div>
+      <div className="cut-map-body" ref={ref} />
     </div>
   );
 }
@@ -329,9 +324,9 @@ function drawRuler(
     ey = Math.cos(half);
   const ox = -Math.cos(half),
     oy = -Math.sin(half);
-  ctx.strokeStyle = 'rgba(255, 200, 87, 0.85)';
-  ctx.fillStyle = 'rgba(255, 200, 87, 0.9)';
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = '#f59e0b';
+  ctx.fillStyle = '#fbbf24';
+  ctx.lineWidth = 1.2;
   ctx.font = canvasFont(10, 'mono');
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';

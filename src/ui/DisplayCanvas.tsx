@@ -815,8 +815,8 @@ function drawOverlay(
   const sectorH = m.height;
   const half = m.sectorRad / 2;
   const rightX = Math.min(W - 6, m.apexX + m.depthCm * m.pxPerCm * Math.sin(half) + 10);
-  ctx.strokeStyle = '#9aa4b5';
-  ctx.fillStyle = '#9aa4b5';
+  ctx.strokeStyle = '#f59e0b';
+  ctx.fillStyle = '#fbbf24';
   ctx.lineWidth = 1;
   // the depth scale as on a scanner (decision 200): a tick every centimetre, a longer one with its figure every five
   // when the width limits the sector its edge is 14 px from the canvas edge: the scale then grows inwards and the
