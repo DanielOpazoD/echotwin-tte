@@ -54,6 +54,15 @@ export const SVC_ENTRY_CM = 1.5;
 export const RAA_BASE_TORSO: readonly [number, number, number] = [-0.15, 0.55, 0.82];
 export const RAA_BASE_INSET_CM = 0.6;
 
+/**
+ * The intrahepatic inferior vena cava below the capsule `ivcA`–`ivcB` (heart frame, cm; PR 173, named in decision 338):
+ * a second capsule of the same radius from `ivcB`, 4.1 cm long, that in the torso runs on downwards and backwards
+ * (1.4 cm to the right, 3.1 cm down, 2.4 cm back), as the cava does in its groove behind the liver. It draws the cava
+ * across the subcostal IVC view and the A2C's far field (37,064 of the canonical planes' samples) instead of ending in
+ * the liver 5 cm below the atrium.
+ */
+export const IVC_HEPATIC_SEGMENT_CM: readonly [number, number, number] = [-0.5, -4.0, -1.0];
+
 export interface Anchors {
   mvCenter: Vec3;
   mvR: number;

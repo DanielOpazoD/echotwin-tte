@@ -27,7 +27,7 @@ import { skirtOffsetAt, skirtWarpScale } from '../valveSkirt';
 import { setSample, type ClassifyCtx } from './context';
 import { AORTIC_ROOT_WALL_CM } from '../aorticValve';
 import { LA_WALL_CM, LAA_WALL_CM } from './pericardium';
-import type { AnchorsCached } from '../anchors';
+import { IVC_HEPATIC_SEGMENT_CM, type AnchorsCached } from '../anchors';
 import { PV_RADIUS, pulmonaryVeinSegment } from '../pulmonaryVeins';
 
 /** Scratch for the pulmonary vein segment of the sample being classified (no allocation per sample). */
@@ -114,7 +114,7 @@ export function svcDistance(A: AnchorsCached, x: number, y: number, z: number): 
   );
 }
 
-/** Distance to the inferior vena cava, narrowed by its respiratory collapse (decision 113). */
+/** Distance to the inferior vena cava and its intrahepatic segment, narrowed by its respiratory collapse (decision 113). */
 export function ivcDistance(
   A: AnchorsCached,
   ivcCollapse: number,
@@ -132,9 +132,9 @@ export function ivcDistance(
       A.ivcB.x,
       A.ivcB.y,
       A.ivcB.z,
-      A.ivcB.x - 0.5,
-      A.ivcB.y - 4.0,
-      A.ivcB.z - 1.0,
+      A.ivcB.x + IVC_HEPATIC_SEGMENT_CM[0],
+      A.ivcB.y + IVC_HEPATIC_SEGMENT_CM[1],
+      A.ivcB.z + IVC_HEPATIC_SEGMENT_CM[2],
       rI,
     ),
   );
