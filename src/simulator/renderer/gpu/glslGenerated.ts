@@ -256,11 +256,10 @@ float laMedialFaceOffset(float gap, float flatCm) {
 }
 // src/simulator/anatomy/laGeometry.ts: laBaseSdf
 float laBaseSdf(float x, float laX, float xFace, float cornerOff, float z, float zRef, float zHinge, float dCrossRef, float dCrossEq, float rootClearBase, float outlineSdf) {
-  float dz = zHinge - z;
-  float shared = max(max(xFace + cornerOff - x, -dz), rootClearBase);
-  float t = min(1.0, max(0.0, dz / (zHinge - zRef)));
+  float shared = max(max(max(xFace + cornerOff - x, zRef - z), z - zHinge), rootClearBase);
+  float t = min(1.0, max(0.0, (zHinge - z) / (zHinge - zRef)));
   float bound = (dCrossEq - LA_BASE_SECTION_SLACK_CM) * (1.0 - t) + dCrossRef * t;
-  return min(max(max(max(shared, zRef - z), dCrossRef), x - laX), max(max(shared, bound), outlineSdf - LA_BASE_FLARE * min(dz, LA_CORNER_HEIGHT_CM - dz)));
+  return min(max(max(shared, dCrossRef), x - laX), max(max(shared, bound), outlineSdf - LA_BASE_FLARE * (zHinge - z)));
 }
 // src/simulator/anatomy/laGeometry.ts: laFootprintScale
 float laFootprintScale(float bo) {
@@ -370,4 +369,4 @@ float sliceHalfWidthCm(float rCm) {
 `;
 
 /** Shader constants the generated functions read (must be #defines or constants of the including shader). */
-export const GLSL_GENERATED_FREE_IDENTIFIERS: readonly string[] = ["ATTEN_NP_PER_DB","CALCIUM_ATTEN_DB","CALCIUM_ATTEN_THRESHOLD","CORD_CM","DESC_AORTA_MAX_OUTER_R","DESC_AORTA_R","DESC_AORTA_SLEEVE","DESC_AORTA_SLEEVE_REACH","DESC_AORTA_WALL","DESC_AORTA_X","DESC_AORTA_Z","ELEVATION_FOCUS_CM","FOCUS_HALF_APERTURE_MM","FOCUS_HALF_ELEVATION_MM","FOCUS_WAIST_ELEVATION_MM","FOCUS_WAIST_LATERAL_MM","LA_BASE_FLARE","LA_BASE_SECTION_SLACK_CM","LA_CORNER_HEIGHT_CM","LA_SEPTAL_TAPER_CM","LV_NECK_ZETA","MEMBRANE_CM","MYO_ANISO_FLOOR","MYO_HELIX_ENDO_DEG","MYO_HELIX_EPI_DEG","OBLIQUE_SINUS_EFFUSION_CM","OBLIQUE_SINUS_TAPER_CM","POSTERIOR_MEDIASTINUM_Z","REVERB_DECAY","REVERB_DIFFUSE","REVERB_DIFFUSE_DECAY_CM","REVERB_GAIN","REVERB_PERIOD_MIN_CM","REVERB_WIDTH_CM","RV_BODY_RADIAL_CONTRACTION","RV_HINGE_CM","RV_HINGE_FADE_RAD","RV_HINGE_PLATEAU_CM","RV_INFLOW_REACH_CM","SEPTAL_CREST_AZ","SEPTAL_CREST_HALF_WIDTH","SEPTAL_CREST_Z_CM","SLICE_HALF_BASE_CM","SLICE_HALF_SLOPE","SOFT_TISSUE_ATTEN_DB","SPINE_R","TV_SYSTOLIC_SHORTENING"];
+export const GLSL_GENERATED_FREE_IDENTIFIERS: readonly string[] = ["ATTEN_NP_PER_DB","CALCIUM_ATTEN_DB","CALCIUM_ATTEN_THRESHOLD","CORD_CM","DESC_AORTA_MAX_OUTER_R","DESC_AORTA_R","DESC_AORTA_SLEEVE","DESC_AORTA_SLEEVE_REACH","DESC_AORTA_WALL","DESC_AORTA_X","DESC_AORTA_Z","ELEVATION_FOCUS_CM","FOCUS_HALF_APERTURE_MM","FOCUS_HALF_ELEVATION_MM","FOCUS_WAIST_ELEVATION_MM","FOCUS_WAIST_LATERAL_MM","LA_BASE_FLARE","LA_BASE_SECTION_SLACK_CM","LA_SEPTAL_TAPER_CM","LV_NECK_ZETA","MEMBRANE_CM","MYO_ANISO_FLOOR","MYO_HELIX_ENDO_DEG","MYO_HELIX_EPI_DEG","OBLIQUE_SINUS_EFFUSION_CM","OBLIQUE_SINUS_TAPER_CM","POSTERIOR_MEDIASTINUM_Z","REVERB_DECAY","REVERB_DIFFUSE","REVERB_DIFFUSE_DECAY_CM","REVERB_GAIN","REVERB_PERIOD_MIN_CM","REVERB_WIDTH_CM","RV_BODY_RADIAL_CONTRACTION","RV_HINGE_CM","RV_HINGE_FADE_RAD","RV_HINGE_PLATEAU_CM","RV_INFLOW_REACH_CM","SEPTAL_CREST_AZ","SEPTAL_CREST_HALF_WIDTH","SEPTAL_CREST_Z_CM","SLICE_HALF_BASE_CM","SLICE_HALF_SLOPE","SOFT_TISSUE_ATTEN_DB","SPINE_R","TV_SYSTOLIC_SHORTENING"];

@@ -117,7 +117,7 @@ bool classifyThorax(vec3 p, out Sample s, float heartDist) {
     if (y < yDome && z > -14.0) {
       bool fibrous = y > yDome - 0.25;
       // decision 271: the gastric fundus, a gas interface, left of the midline and behind the left lobe of the liver
-      bool fundus = !fibrous && x > FUNDUS_MEDIAL_X_CM && depth > LIVER_LEFT_LOBE_DEPTH_CM - (x - FUNDUS_MEDIAL_X_CM) * FUNDUS_MEDIAL_X_CM;
+      bool fundus = !fibrous && x > FUNDUS_MEDIAL_X_CM && depth > LIVER_LEFT_LOBE_DEPTH_CM;
       s.tissue = fibrous ? T_FIBROUS : (fundus ? T_LUNG : T_LIVER); s.structure = fibrous ? S_DIAPH : (fundus ? S_STOMACH : S_LIVER); s.sdf = fibrous ? -0.1 : -1.0;
       s.n = vec3(0.0, 1.0, 0.0);
       return true;

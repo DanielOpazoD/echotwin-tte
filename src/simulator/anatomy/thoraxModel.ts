@@ -555,11 +555,8 @@ export function classifyThorax(
     if (y < yDome && z > -14) {
       const fibrous = y > yDome - 0.25;
       // left of the midline and behind the left lobe of the liver lies the gastric fundus, its air bubble under the dome
-      // (decision 271): a gas interface, as the lung is; the left lobe tapers laterally past FUNDUS_MEDIAL_X_CM
-      const fundus =
-        !fibrous &&
-        x > FUNDUS_MEDIAL_X_CM &&
-        depth > LIVER_LEFT_LOBE_DEPTH_CM - (x - FUNDUS_MEDIAL_X_CM) * FUNDUS_MEDIAL_X_CM;
+      // (decision 271): a gas interface, as the lung is
+      const fundus = !fibrous && x > FUNDUS_MEDIAL_X_CM && depth > LIVER_LEFT_LOBE_DEPTH_CM;
       out.tissue = fibrous ? Tissue.Fibrous : fundus ? Tissue.Lung : Tissue.Liver;
       out.structure = fibrous ? Structure.Diaphragm : fundus ? Structure.Stomach : Structure.Liver;
       out.sdf = fibrous ? -0.1 : -1;

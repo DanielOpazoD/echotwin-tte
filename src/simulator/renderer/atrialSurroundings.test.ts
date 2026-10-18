@@ -39,7 +39,7 @@ const KNOWN_LA_ROOF_EXCESS: Record<string, number> = {
  * hypertension case's atrium meets its septal face beside the root and its end-diastolic four-chamber side band reads
  * 1.15 against 1.16.
  */
-const KNOWN_SIDE_WALL_LOW: Record<string, number> = { 'pulmonary-hypertension-rv a4c ED': 1.15 };
+const KNOWN_SIDE_WALL_LOW: Record<string, number> = {};
 
 const TOLERANCE = 0.05;
 const STALE = 0.1;
