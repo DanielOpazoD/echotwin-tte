@@ -25,7 +25,7 @@ Qué importa cada capa lo dice la tabla siguiente, generada desde los imports re
 <!-- generado por tools/docs/layer-graph.ts: no editar a mano -->
 | Capa | Importa de |
 |---|---|
-| `app` | `cases`, `education`, `simulator/anatomy`, `simulator/cardiac-cycle`, `simulator/core`, `simulator/doppler`, `simulator/hemodynamics`, `simulator/measurements`, `simulator/probe`, `simulator/renderer`, `simulator/windows`, `ui` |
+| `app` | `cases`, `education`, `simulator/anatomy`, `simulator/cardiac-cycle`, `simulator/core`, `simulator/doppler`, `simulator/hemodynamics`, `simulator/measurements`, `simulator/probe`, `simulator/renderer`, `simulator/view-recognition`, `simulator/windows`, `ui` |
 | `cases` | — |
 | `clinical` | — |
 | `core` | — |
