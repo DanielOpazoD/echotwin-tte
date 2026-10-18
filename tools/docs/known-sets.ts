@@ -59,6 +59,7 @@ export const KNOWN_SETS: readonly {
   },
   { file: 'src/simulator/windows/interatrialRoot.test.ts', name: 'KNOWN_JUNCTION_FAT' },
   { file: 'src/simulator/windows/pulmonaryTrunkWindow.test.ts', name: 'KNOWN_TRUNK_HIDDEN' },
+  { file: 'src/simulator/anatomy/laOnRoot.test.ts', name: 'KNOWN_OFF_ROOT' },
   { file: 'src/simulator/anatomy/venousMouths.test.ts', name: 'KNOWN_RA_IN_VEIN' },
   { file: 'src/simulator/anatomy/valveAnatomy.test.ts', name: 'KNOWN_THICK_PARTITION' },
   { file: 'src/simulator/anatomy/leftAtrialBase.test.ts', name: 'KNOWN_VEIN_AT_HINGE' },

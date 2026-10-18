@@ -152,6 +152,8 @@ const KNOWN_GREY_INVERSIONS: Record<string, string[]> = {
   'mvp-primary-mr a2c @0': ['LaWall>Pericardium'],
   'pulmonary-hypertension-rv a2c @0': ['LaWall>Pericardium'],
   'af-diastolic a2c @0': ['LaWall>Pericardium'],
+  // decision 341: back at the tie it left in decision 337 (the wall and the pericardium within a grey level)
+  'af-diastolic a2c @0.35': ['LaWall>Pericardium'],
   'artifact-challenge a2c @0': [
     'LvCavity>=LvWallAnterior',
     'LvApex>Pericardium',

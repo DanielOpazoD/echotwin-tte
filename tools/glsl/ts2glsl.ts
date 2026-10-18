@@ -54,7 +54,13 @@ export const TARGETS: GenTarget[] = [
   },
   {
     file: 'src/simulator/anatomy/laGeometry.ts',
-    functions: ['iasThickness', 'laMedialFaceOffset', 'laBaseSdf', 'laFootprintScale'],
+    functions: [
+      'iasThickness',
+      'laMedialFaceOffset',
+      'laBaseSdf',
+      'laFootprintScale',
+      'laRootHold',
+    ],
   },
   {
     file: 'src/simulator/anatomy/classify/pericardium.ts',

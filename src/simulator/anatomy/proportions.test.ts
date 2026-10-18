@@ -38,7 +38,8 @@ const KNOWN_MODEL_LIMITATIONS: ReadonlySet<string> = new Set([
   // fixed in the thorax (decision 330) only the body's front, roof and sides and the annular piston empty it, so the
   // fraction reads 33-36 % in the normal cases (36 in the normal, 39 before), 29-30 % in the tamponade and 25-28 % in
   // the dilated atria that declare it; the model's reservoir is the annular piston on a narrow neck, not a wall that
-  // stretches.
+  // stretches. Since decision 341 the front beside the aortic root does not empty either (it lies on the root): 0.7-2.0
+  // points less, 35.3 % in the normal case, 26.7-36.4 % in all.
   'la-emptying',
   // 'av-tv-distance' was declared here while it read the distance between the aortic and tricuspid centres, 4.3-5.6 cm
   // against an approximate 3.0-4.5 with no source. What the anatomy fixes is the gap between the two hinge lines, which

@@ -171,6 +171,41 @@ export const LA_POSTERIOR_FLOOR_DROP_CM = 0.35;
  */
 export const LA_RESERVOIR_MIN = 0.7;
 /**
+ * Beside the aortic root the left atrium keeps its end-systolic size through the beat (decision 341): its anterior wall
+ * lies on the root's posterior wall, and in M-mode the two move together. Scaled whole with the reservoir and the kick,
+ * the atrium's front left the root by 10 mm at end-diastole in the normal case's long axis (2.4 at end-systole), and fat,
+ * the pericardium and lung filled the space. Within LA_ROOT_HOLD_NEAR_CM of the root's outer wall the body keeps its full
+ * radial size, easing back to the scale of the moment by LA_ROOT_HOLD_FAR_CM; between the annulus and the sinotubular
+ * junction (root coordinate t), faded in over its first LA_ROOT_HOLD_T_FADE_CM and out over its last.
+ */
+export const LA_ROOT_HOLD_NEAR_CM = 0.3;
+export const LA_ROOT_HOLD_FAR_CM = 0.8;
+export const LA_ROOT_HOLD_T_MAX_CM = 2.0;
+export const LA_ROOT_HOLD_T_FADE_CM = 0.4;
+/**
+ * The hold starts this far lateral of the septum's left face and is whole twice as far: at the septal edge of the root the
+ * right atrium meets it across the membranous septum (decisions 222 and 335), and a held atrium drew the interatrial
+ * septum there, 0.5 cm in front of the root.
+ */
+export const LA_ROOT_HOLD_SEPTAL_CM = 0.5;
+/**
+ * How much of its full size the atrium keeps at a point (0–1) from the root coordinate t, the root's outer wall and how
+ * far lateral of the septum's left face the point lies.
+ */
+export function laRootHold(rootT: number, rootOuter: number, lateralCm: number): number {
+  if (rootT < -LA_ROOT_HOLD_T_FADE_CM || rootT > LA_ROOT_HOLD_T_MAX_CM) return 0;
+  const sx = Math.min(1, Math.max(0, lateralCm / LA_ROOT_HOLD_SEPTAL_CM - 1));
+  const q = Math.min(
+    1,
+    Math.max(0, (rootOuter - LA_ROOT_HOLD_NEAR_CM) / (LA_ROOT_HOLD_FAR_CM - LA_ROOT_HOLD_NEAR_CM)),
+  );
+  const a = Math.min(1, Math.max(0, (rootT + LA_ROOT_HOLD_T_FADE_CM) / LA_ROOT_HOLD_T_FADE_CM));
+  const b = Math.min(1, Math.max(0, (LA_ROOT_HOLD_T_MAX_CM - rootT) / LA_ROOT_HOLD_T_FADE_CM));
+  return (
+    (1 - q * q * (3 - 2 * q)) * a * a * (3 - 2 * a) * b * b * (3 - 2 * b) * sx * sx * (3 - 2 * sx)
+  );
+}
+/**
  * Radial scale of the posterior wall's footprint for a radial scale `bo` of the body (decision 330): half the body's
  * change. The posterior wall itself does not move; its lateral edges, where the sides of the atrium meet it, follow the
  * sides by half (2 mm where the body's sides move 4). Shared with GLSL.
