@@ -90,7 +90,11 @@ export const TV_BUMP_MAX_CM = 1.8;
 // −30° … 80°
 const TV_BUMP_WINDOW = [0, 0.5, 1, 1, 1, 1, 1, 1, 0.5, 0, 0, 0];
 
-/** Closed tricuspid leaflets: depth of the central coaptation below the hinges (cm) and the profile's vertex fractions. */
+/**
+ * Closed tricuspid leaflets: depth of the central coaptation below the hinges (cm) and the profile's vertex fractions.
+ * PR 173 moved the inner vertices toward the coaptation and up (reach 0.36/0.71 → 0.38/0.74, depth 0.30/0.62 →
+ * 0.27/0.59): up to 0.6 mm, on 1,658 samples of the canonical planes (decision 338). Neither profile has a reference.
+ */
 const TV_TENTING_CM = 0.3;
 const TV_CLOSED_REACH = [0.38, 0.74, 1];
 const TV_CLOSED_DEPTH = [0.27, 0.59, 1];

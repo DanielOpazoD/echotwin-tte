@@ -9,11 +9,8 @@ import {
   LA_TOUCH_CM,
   RA_LA_MIN_CM,
 } from '@/simulator/anatomy/laGeometry';
-import {
-  LV_WALL_BASAL_OVERHANG_CM,
-  PAP_ROOT_FLARE,
-  PAP_ROOT_LEVEL,
-} from '@/simulator/anatomy/heartFrame';
+import { LV_WALL_BASAL_OVERHANG_CM } from '@/simulator/anatomy/heartFrame';
+import { IVC_HEPATIC_SEGMENT_CM } from '@/simulator/anatomy/anchors';
 import {
   FOSSA_REACH,
   LA_CORNER_HEIGHT_CM,
@@ -129,8 +126,7 @@ const float LA_POSTERIOR_RATIO = ${f(LA_POSTERIOR_RATIO)};
 const float LA_POSTERIOR_FLOOR_DROP_CM = ${f(LA_POSTERIOR_FLOOR_DROP_CM)};
 const float LA_FLOOR_Y_CM = ${f(LA_FLOOR_Y_CM)};
 const float LV_WALL_BASAL_OVERHANG_CM = ${f(LV_WALL_BASAL_OVERHANG_CM)};
-const float PAP_ROOT_LEVEL = ${f(PAP_ROOT_LEVEL)};
-const float PAP_ROOT_FLARE = ${f(PAP_ROOT_FLARE)};
+const vec3 IVC_HEPATIC = vec3(${f(IVC_HEPATIC_SEGMENT_CM[0])}, ${f(IVC_HEPATIC_SEGMENT_CM[1])}, ${f(IVC_HEPATIC_SEGMENT_CM[2])});
 const float LA_CORNER_HEIGHT_CM = ${f(LA_CORNER_HEIGHT_CM)};
 const float FOSSA_REACH = ${f(FOSSA_REACH)};
 const float IAS_LEFT_FACE_CM = ${f(IAS_LEFT_FACE_CM)};
@@ -974,8 +970,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
   if (dLvBlood < 0.0) {
     float dPa = sdRoundCone(p, vec3(P(PAPS_BASE), P(PAPS_BASE + 1), P(PAPS_BASE + 2)), vec3(P(PAPS_BASE + 3), P(PAPS_BASE + 4), P(PAPS_BASE + 5)), P(PAPS_BASE + 6), P(PAPS_BASE + 7));
     float dPm = sdRoundCone(p, vec3(P(PAPS_BASE + 8), P(PAPS_BASE + 9), P(PAPS_BASE + 10)), vec3(P(PAPS_BASE + 11), P(PAPS_BASE + 12), P(PAPS_BASE + 13)), P(PAPS_BASE + 14), P(PAPS_BASE + 15));
-    float papRoot = levelFrac > PAP_ROOT_LEVEL ? PAP_ROOT_FLARE * (levelFrac - PAP_ROOT_LEVEL) : 0.0;
-    float dPap = min(dPa, dPm) - papRoot;
+    float dPap = min(dPa, dPm);
     if (dPap < 0.0) {
       setSample(s, T_MYO, dPap, vec3(x, y, 0.0), vec3(x / rs, y / rs, z / ls), 0.0, S_PAP);
       return true;
@@ -1211,7 +1206,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     // decision 219
     // decision 324: the entry segment and the rest that rises
     float dSvc = min(sdCapsule(p, vec3(SVC_AX, SVC_AY, SVC_AZ), vec3(SVC_MX, SVC_MY, SVC_MZ), SVC_R), sdCapsule(p, vec3(SVC_MX, SVC_MY, SVC_MZ), vec3(SVC_BX, SVC_BY, SVC_BZ), SVC_R));
-    float dIvc = min(sdCapsule(p, vec3(IVC_AX, IVC_AY, IVC_AZ), vec3(IVC_BX, IVC_BY, IVC_BZ), IVC_R), sdCapsule(p, vec3(IVC_BX, IVC_BY, IVC_BZ), vec3(IVC_BX - 0.5, IVC_BY - 4.0, IVC_BZ - 1.0), IVC_R));
+    float dIvc = min(sdCapsule(p, vec3(IVC_AX, IVC_AY, IVC_AZ), vec3(IVC_BX, IVC_BY, IVC_BZ), IVC_R), sdCapsule(p, vec3(IVC_BX, IVC_BY, IVC_BZ), vec3(IVC_BX, IVC_BY, IVC_BZ) + IVC_HEPATIC, IVC_R));
     if (!inSeptum && dFreeRa < 0.22 && septumPlane < 0.0 && dSvc >= 0.0 && dIvc >= 0.0 && dCs >= 0.0 && dRaa >= 0.0) {
       // no wall across the tricuspid orifice (decision 64): atrial blood up to the annular plane, ventricular past it
       // decision 219
