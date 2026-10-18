@@ -27,6 +27,16 @@ import {
   type CaptureExtras,
 } from '@/app/measurementCapture';
 import { markerLabel, structureLabel, type ReviewMarker } from '@/app/review';
+import {
+  cellAt,
+  lassoCells,
+  lassoCentroid,
+  regionSummary,
+  structureComponent,
+  thinLasso,
+  type LassoPoint,
+  type PolarMap,
+} from '@/app/reviewRegion';
 import { nearestSampleLut, paintStructureOutline, placeLabels } from './cutMap';
 import {
   paintSegmentOverlay,
@@ -61,6 +71,11 @@ interface Pending {
   context?: string;
 }
 
+/** A review marker's id: time and a random tail, unique within a session. */
+function newMarkerId(): string {
+  return `r${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
+}
+
 export function DisplayCanvas(props: { onSize: (s: { width: number; height: number }) => void }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLCanvasElement>(null);
@@ -71,7 +86,7 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
   /** the overlay redraw of the drawing effect, so tool clicks refresh the overlay without waiting for a frame */
   const redrawOverlayRef = useRef<() => void>(() => {});
   const dragRef = useRef<{
-    kind: 'box-move' | 'box-resize' | 'cursor' | 'marker' | 'cine' | 'none';
+    kind: 'box-move' | 'box-resize' | 'cursor' | 'marker' | 'cine' | 'lasso' | 'none';
     startX: number;
     startY: number;
     box?: { t0: number; t1: number; r0: number; r1: number };
@@ -79,7 +94,10 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
     markerId?: string;
     moved?: boolean;
   }>({ kind: 'none', startX: 0, startY: 0 });
+  /** the lasso being drawn in review mode (decision 340), polar */
+  const lassoRef = useRef<LassoPoint[]>([]);
   const reviewMode = useSimStore((s) => s.ui.reviewMode);
+  const reviewTool = useSimStore((s) => s.ui.reviewTool);
   const frozen = useSimStore((s) => s.frozen);
   const armed = useSimStore((s) => s.activeTool !== 'none');
   const segTipRef = useRef<HTMLDivElement>(null);
@@ -149,6 +167,7 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
         out,
         state,
         reprojectGeometry(pending.points, pending.captureSector, out.sector),
+        lassoRef.current.map((q) => polarToPixel(out.sector, q.rCm, q.thetaRad)),
       );
     };
     const unsubFrame = frameBus.subscribe((out) => {
@@ -198,13 +217,19 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
       const hit = markerAt(p, hud, st.reviewMarkers);
       if (hit) {
         st.selectReviewMarker(hit.id);
-        dragRef.current = {
-          kind: 'marker',
-          startX: p.x,
-          startY: p.y,
-          markerId: hit.id,
-          moved: false,
-        };
+        // a lasso keeps its outline where it was drawn: its number selects it, it does not drag
+        if (!hit.lasso)
+          dragRef.current = {
+            kind: 'marker',
+            startX: p.x,
+            startY: p.y,
+            markerId: hit.id,
+            moved: false,
+          };
+      } else if (st.ui.reviewTool === 'lasso' && inSector) {
+        // the pencil (decision 340): press, draw the outline, release to close it
+        lassoRef.current = [pixelToPolar(m, p.x, p.y)];
+        dragRef.current = { kind: 'lasso', startX: p.x, startY: p.y };
       } else {
         // Alt+click with a marker selected, or the armed «+ secundario», links the new point to that primary
         const sel = st.reviewMarkers.find((x) => x.id === st.reviewSelectedId);
@@ -316,6 +341,21 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
       st.setCineOffset(cineOffsetAtX(p.x, layout, hud.cineWindow, hud.cineLength));
       return;
     }
+    if (dragRef.current.kind === 'lasso') {
+      const q = pixelToPolar(m, p.x, Math.min(p.y, m.height - 1));
+      const last = lassoRef.current[lassoRef.current.length - 1];
+      const step = last
+        ? Math.hypot(
+            q.rCm * Math.sin(q.thetaRad) - last.rCm * Math.sin(last.thetaRad),
+            q.rCm * Math.cos(q.thetaRad) - last.rCm * Math.cos(last.thetaRad),
+          )
+        : Infinity;
+      if (step >= 0.05) {
+        lassoRef.current.push(q);
+        redrawOverlayRef.current();
+      }
+      return;
+    }
     if (dragRef.current.kind === 'marker') {
       const f = fieldsAt(p, hud);
       if (f && dragRef.current.markerId) {
@@ -354,11 +394,97 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
   const onMouseUp = () => {
     const d = dragRef.current;
     if (d.kind === 'marker' && d.moved && d.markerId) {
-      // moved: ask the worker again for what lies under the new position
+      // moved: ask the worker again for what lies under the new position, and outline the piece there
       const mk = useSimStore.getState().reviewMarkers.find((m) => m.id === d.markerId);
-      if (mk) askWorker(mk.id, mk.rCm, mk.thetaRad);
+      if (mk) identify(mk.id, mk.rCm, mk.thetaRad);
     }
+    if (d.kind === 'lasso') finishLasso();
     dragRef.current = { kind: 'none', startX: 0, startY: 0 };
+  };
+
+  /** The frame's polar structure map, or null when the frame carries none. */
+  const polarMapOf = (hud: SimOutput): PolarMap | null =>
+    hud.structure.length === hud.polar.lines * hud.polar.samples
+      ? { ...hud.polar, structure: hud.structure }
+      : null;
+  /** The displayed grey at a polar point, read once from the image canvas for a whole region. */
+  const greyReader = (hud: SimOutput): ((q: LassoPoint) => number | null) => {
+    const c = imgRef.current;
+    const ctx = c?.getContext('2d');
+    if (!c || !ctx || !c.width || !c.height) return () => null;
+    const d = ctx.getImageData(0, 0, c.width, c.height).data;
+    return (q) => {
+      const px = polarToPixel(hud.sector, q.rCm, q.thetaRad);
+      const x = Math.round(px.x),
+        y = Math.round(px.y);
+      if (x < 0 || y < 0 || x >= c.width || y >= c.height) return null;
+      const i = (y * c.width + x) * 4;
+      return Math.round((d[i]! + d[i + 1]! + d[i + 2]!) / 3);
+    };
+  };
+  /** Where the echo at a marker comes from (decision 340): the worker re-forms a wedge without each source. */
+  const askExplain = (id: string, rCm: number | null, thetaRad: number | null) => {
+    if (rCm === null || thetaRad === null) return;
+    void frameBus
+      .request({ kind: 'explainPoint', rCm, thetaRad })
+      .then((res) => {
+        if (res && res.kind === 'explainPoint')
+          useSimStore.getState().updateReviewMarker(id, { explain: res.explain });
+      })
+      .catch((e: unknown) => {
+        console.warn('explain point request failed', e instanceof Error ? e.message : e);
+      });
+  };
+  /** A click's identification (decision 340): the piece of the structure there, the model's reading and the echo's sources. */
+  const identify = (id: string, rCm: number | null, thetaRad: number | null) => {
+    const hud = lastOutRef.current;
+    const pm = hud ? polarMapOf(hud) : null;
+    let region = null;
+    if (hud && pm && rCm !== null && thetaRad !== null) {
+      const cell = cellAt(pm, rCm, thetaRad);
+      if (cell >= 0) region = regionSummary(pm, structureComponent(pm, cell), greyReader(hud));
+    }
+    useSimStore.getState().updateReviewMarker(id, { region, explain: null });
+    askWorker(id, rCm, thetaRad);
+    askExplain(id, rCm, thetaRad);
+  };
+  /** Closes the pencil's outline into a marker at its centroid, with what it holds (decision 340). */
+  const finishLasso = () => {
+    const hud = lastOutRef.current;
+    const drawn = lassoRef.current;
+    lassoRef.current = [];
+    redrawOverlayRef.current();
+    const pm = hud ? polarMapOf(hud) : null;
+    if (!hud || !pm || drawn.length < 3) return;
+    const poly = thinLasso(drawn);
+    const cells = lassoCells(pm, poly);
+    if (!cells.length) return;
+    const c = lassoCentroid(pm, cells, poly);
+    const at = polarToPixel(hud.sector, c.rCm, c.thetaRad);
+    const f = fieldsAt(at, hud);
+    if (!f) return;
+    const st = useSimStore.getState();
+    const id = newMarkerId();
+    st.addReviewMarker({
+      id,
+      n: 0,
+      parentId: null,
+      space: 'image',
+      torso: null,
+      group: null,
+      ...f,
+      frameId: hud.frameId,
+      phase: hud.phase,
+      modality: hud.acquisition?.modality ?? st.modality,
+      point: null,
+      note: '',
+      category: 'textura',
+      lasso: poly,
+      region: regionSummary(pm, cells, greyReader(hud)),
+      explain: null,
+    });
+    askWorker(id, f.rCm, f.thetaRad);
+    askExplain(id, f.rCm, f.thetaRad);
   };
 
   /** The fields of a marker that depend on where a display point lies: sector (polar, structure) or strip. */
@@ -417,7 +543,7 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
     const st = useSimStore.getState();
     const f = fieldsAt(p, hud);
     if (!f) return;
-    const id = `r${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
+    const id = newMarkerId();
     const parent = parentId ? st.reviewMarkers.find((x) => x.id === parentId) : undefined;
     st.addReviewMarker({
       id,
@@ -434,7 +560,7 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
       note: '',
       category: parent ? parent.category : 'anatomia',
     });
-    askWorker(id, f.rCm, f.thetaRad);
+    identify(id, f.rCm, f.thetaRad);
   };
   /** The image marker under a display point (within 12 px), if any. */
   const markerAt = (
@@ -757,7 +883,7 @@ export function DisplayCanvas(props: { onSize: (s: { width: number; height: numb
       />
       <canvas
         ref={ovRef}
-        className={`overlay${reviewMode ? ' review' : ''}${armed ? ' armed' : ''}`}
+        className={`overlay${reviewMode ? ' review' : ''}${reviewMode && reviewTool === 'lasso' ? ' lasso' : ''}${armed ? ' armed' : ''}`}
         style={{ width: '100%', height: '100%' }}
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
@@ -785,6 +911,7 @@ function drawOverlay(
   hud: SimOutput,
   st: SimStore,
   pending: { x: number; y: number }[],
+  lassoDraft: { x: number; y: number }[] = [],
 ): void {
   const { ui, activeTool, measurements, reviewMarkers } = st;
   const {
@@ -1066,6 +1193,46 @@ function drawOverlay(
       tagY,
     );
   }
+  // what is picked (decision 340): the piece of the structure under the selected click, tinted and outlined; each lasso
+  // drawn by hand, the selected one brighter; and the outline being drawn
+  if (ui.reviewMode || reviewMarkers.length) {
+    const sel = reviewMarkers.find((x) => x.id === st.reviewSelectedId);
+    if (
+      sel &&
+      sel.space === 'image' &&
+      !sel.lasso &&
+      !sel.strip &&
+      sel.rCm !== null &&
+      sel.thetaRad !== null
+    )
+      drawPickedRegion(ctx, hud, sel);
+    for (const mk of reviewMarkers) {
+      if (!mk.lasso || mk.lasso.length < 3) continue;
+      const on = mk.id === st.reviewSelectedId;
+      ctx.beginPath();
+      mk.lasso.forEach((q, i) => {
+        const px = polarToPixel(m, q.rCm, q.thetaRad);
+        if (i === 0) ctx.moveTo(px.x, px.y);
+        else ctx.lineTo(px.x, px.y);
+      });
+      ctx.closePath();
+      ctx.fillStyle = on ? 'rgba(255,106,213,0.18)' : 'rgba(255,106,213,0.08)';
+      ctx.fill();
+      ctx.strokeStyle = on ? '#ff6ad5' : 'rgba(255,106,213,0.7)';
+      ctx.lineWidth = on ? 2 : 1.2;
+      ctx.stroke();
+    }
+    if (lassoDraft.length > 1) {
+      ctx.beginPath();
+      lassoDraft.forEach((q, i) => (i === 0 ? ctx.moveTo(q.x, q.y) : ctx.lineTo(q.x, q.y)));
+      ctx.strokeStyle = '#ff6ad5';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 3]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    ctx.lineWidth = 1;
+  }
   // links from each secondary point to its primary (decision 136), under the rings
   for (const mk of reviewMarkers) {
     if (mk.space !== 'image' || !mk.parentId) continue;
@@ -1112,6 +1279,7 @@ function drawOverlay(
     if (!mk.strip) {
       const note = mk.note.trim();
       const label =
+        (mk.lasso ? 'lazo · ' : '') +
         structureLabel(mk.point ? mk.point.structure : mk.structure) +
         (note ? ` — ${note.length > 28 ? `${note.slice(0, 27)}…` : note}` : '');
       const w = ctx.measureText(label).width + 8;
@@ -1249,6 +1417,65 @@ function drawValueChip(
   ctx.textBaseline = 'middle';
   ctx.fillText(text, left + 6, top + h / 2 + 0.5);
   ctx.font = font;
+}
+
+/** Layer of the picked region (decision 340): the pixel-to-sample table and the piece's mask, kept while they stay. */
+const pickLayer: {
+  key: string;
+  maskKey: string;
+  lut: Int32Array | null;
+  mask: Uint8Array | null;
+  canvas: HTMLCanvasElement | null;
+  img: ImageData | null;
+} = { key: '', maskKey: '', lut: null, mask: null, canvas: null, img: null };
+
+/**
+ * The piece of the structure under the selected click (decision 340), tinted and outlined in the markers' colour, so the
+ * reader sees what the click picked: the connected run of that structure on the frame's own map, not every piece of it.
+ */
+function drawPickedRegion(ctx: CanvasRenderingContext2D, hud: SimOutput, mk: ReviewMarker): void {
+  const m = hud.sector;
+  const p = hud.polar;
+  if (hud.structure.length !== p.lines * p.samples || m.width < 8 || m.height < 8) return;
+  const w = Math.round(m.width),
+    h = Math.round(m.height);
+  const key = `${p.lines}x${p.samples}|${p.sectorRad.toFixed(4)}|${p.depthCm}|${w}x${h}|${m.apexX.toFixed(1)},${m.apexY.toFixed(1)}|${m.pxPerCm.toFixed(3)}|${m.invertLR ? 1 : 0}`;
+  if (key !== pickLayer.key || !pickLayer.lut || !pickLayer.canvas || !pickLayer.img) {
+    pickLayer.lut = nearestSampleLut(p, { ...m, width: w, height: h });
+    pickLayer.canvas = document.createElement('canvas');
+    pickLayer.canvas.width = w;
+    pickLayer.canvas.height = h;
+    pickLayer.img = new ImageData(w, h);
+    pickLayer.key = key;
+    pickLayer.maskKey = '';
+  }
+  const maskKey = `${key}|${hud.frameId}|${mk.id}|${mk.rCm}|${mk.thetaRad}`;
+  if (maskKey !== pickLayer.maskKey || !pickLayer.mask) {
+    const pm = { ...p, structure: hud.structure };
+    const cell = cellAt(pm, mk.rCm!, mk.thetaRad!);
+    const mask = new Uint8Array(p.lines * p.samples);
+    for (const c of structureComponent(pm, cell)) mask[c] = 1;
+    pickLayer.mask = mask;
+    pickLayer.maskKey = maskKey;
+  }
+  const img = pickLayer.img;
+  const lut = pickLayer.lut;
+  const mask = pickLayer.mask;
+  img.data.fill(0);
+  // a light tint over the piece, then its edge
+  for (let i = 0; i < lut.length; i++) {
+    if (lut[i]! < 0 || !mask[lut[i]!]) continue;
+    const o = i * 4;
+    img.data[o] = 255;
+    img.data[o + 1] = 106;
+    img.data[o + 2] = 213;
+    img.data[o + 3] = 46;
+  }
+  if (!paintStructureOutline(img.data, lut, mask, w, 1, [255, 106, 213])) return;
+  const off = pickLayer.canvas.getContext('2d');
+  if (!off) return;
+  off.putImageData(img, 0, 0);
+  ctx.drawImage(pickLayer.canvas, m.x, m.y);
 }
 
 /** Pixel-to-sample table and layer for the outline of the hovered structure, kept while the geometry stays. */

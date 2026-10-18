@@ -5,12 +5,15 @@ import { buildInput } from '@/app/useSimulation';
 import { displayPngBlob, exportDisplayPng } from '@/app/exportImage';
 import {
   buildReviewReport,
+  explainLine,
   markerDistanceCm,
+  markerReport,
   markerLabel,
   markerPlace,
   parseReviewReport,
   reportToMarkdown,
   REVIEW_CATEGORIES,
+  regionLine,
   type ReviewCategory,
 } from '@/app/review';
 import { listCases } from '@/cases';
@@ -33,6 +36,7 @@ export function ReviewPanel() {
       source: st.reviewSource,
       undoCount: st.reviewUndo.length,
       freezeOnMark: st.ui.reviewFreezeOnMark,
+      tool: st.ui.reviewTool,
       selectReviewMarker: st.selectReviewMarker,
       undoReviewRemove: st.undoReviewRemove,
       linkParentId: st.reviewLinkParentId,
@@ -71,16 +75,23 @@ export function ReviewPanel() {
     });
   };
 
-  const copyReport = async () => {
-    const md = reportToMarkdown(report());
+  const copyText = async (md: string, done: string) => {
     setPreview(md);
     try {
       await navigator.clipboard.writeText(md);
-      setStatus('Informe copiado al portapapeles: pégalo en el chat.');
+      setStatus(done);
     } catch {
       setStatus('El navegador no dejó copiar: selecciona el texto de abajo y cópialo a mano.');
     }
   };
+  const copyReport = () =>
+    copyText(reportToMarkdown(report()), 'Informe copiado al portapapeles: pégalo en el chat.');
+  // one marker with its secondary points and the exact state of the frame (decision 340)
+  const copyMarker = (id: string, n: number) =>
+    copyText(
+      reportToMarkdown(markerReport(report(), id)),
+      `Marcador ${n} copiado con el estado del cuadro: pégalo en el chat.`,
+    );
 
   const copyImage = async () => {
     const blob = await displayPngBlob();
@@ -110,9 +121,29 @@ export function ReviewPanel() {
       <Section title="Modo revisión">
         <p className="small">
           Clic sobre la imagen o sobre el torso 3D deja un marcador numerado con lo que el modelo
-          tiene debajo. Escribe qué ves mal en cada marcador, copia el informe y pégalo en el chat:
-          incluye el estado exacto para reproducir el cuadro.
+          tiene debajo: la estructura se resalta en la imagen y el marcador dice de dónde viene el
+          eco ahí (tejido, ruido, reverberación, lóbulos, sombra). Con el lápiz rodeas a mano lo que
+          no sea una estructura. Copia el informe o un marcador y pégalo en el chat: incluye el
+          estado exacto para reproducir el cuadro.
         </p>
+        <div className="seg review-tool" role="group" aria-label="Herramienta de revisión">
+          <button
+            className={s.tool === 'point' ? 'active' : ''}
+            aria-pressed={s.tool === 'point'}
+            onClick={() => s.setUi({ reviewTool: 'point' })}
+            data-tip="Clic: identifica la estructura y el origen del eco"
+          >
+            Punto
+          </button>
+          <button
+            className={s.tool === 'lasso' ? 'active' : ''}
+            aria-pressed={s.tool === 'lasso'}
+            onClick={() => s.setUi({ reviewTool: 'lasso' })}
+            data-tip="Arrastra para rodear a mano una zona; al soltar se cierra"
+          >
+            Lápiz
+          </button>
+        </div>
         <div className="review-help">
           Arrastra un marcador para moverlo · clic lo selecciona · Supr o Retroceso lo borra ·
           Ctrl+Z deshace · Esc deselecciona · Shift+clic usa la herramienta normal · Alt+clic añade
@@ -224,6 +255,19 @@ export function ReviewPanel() {
                     </button>
                   </div>
                   <div className="review-place">{markerPlace(m)}</div>
+                  {[regionLine(m), explainLine(m)].map(
+                    (t) =>
+                      t && (
+                        <div className="review-place review-explain" key={t}>
+                          {t}
+                        </div>
+                      ),
+                  )}
+                  {m.space === 'image' && !m.strip && !m.explain && (
+                    <div className="review-place review-explain">
+                      Midiendo de dónde viene el eco…
+                    </div>
+                  )}
                   <textarea
                     aria-label={`Nota del marcador ${m.n}`}
                     placeholder="¿Qué está mal aquí?"
@@ -295,6 +339,16 @@ export function ReviewPanel() {
                       }}
                     >
                       {arming ? 'Añadiendo secundarios… (Esc termina)' : '+ Punto secundario'}
+                    </button>
+                    <button
+                      aria-label={`Copiar el marcador ${m.n}`}
+                      data-tip="Copia este marcador con el estado del cuadro, listo para el chat"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void copyMarker(m.id, m.n);
+                      }}
+                    >
+                      Copiar este
                     </button>
                   </div>
                 </div>

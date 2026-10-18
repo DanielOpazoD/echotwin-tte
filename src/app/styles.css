@@ -3523,3 +3523,16 @@ canvas.overlay.armed {
   font-size: var(--fs-xl);
   color: var(--muted);
 }
+
+/* review mode's identification and pencil (decision 340) */
+.review-tool {
+  margin: 8px 0;
+}
+.review-place.review-explain {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+}
+.overlay.review.lasso {
+  cursor: crosshair;
+}

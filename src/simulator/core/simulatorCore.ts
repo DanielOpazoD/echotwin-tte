@@ -70,6 +70,7 @@ import {
 } from '@/simulator/probe/pose';
 import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
 import { probePointAt, probeTorsoPointAt } from './probePoint';
+import { explainPointAt } from './explainPoint';
 import { analyzeView, type ViewAnalysis } from '@/simulator/view-recognition/viewQuality';
 import {
   buildFlowParams,
@@ -129,6 +130,8 @@ export class SimulatorCore {
     thorax: ThoraxModel;
   }>();
   private procedural = new ProceduralSliceRenderer();
+  /** The CPU tracer of review mode's point explanation (decision 340), made on first use. */
+  private explainTracer: ProceduralSliceRenderer | null = null;
   private atlas: AtlasRenderer;
   private backend: RendererBackend;
   /** WebGL2 port of the procedural renderer; null when unavailable (reason in `gpuReason`). */
@@ -833,6 +836,24 @@ export class SimulatorCore {
               req.thetaRad ?? 0,
               phase,
             ),
+      };
+    }
+    if (req.kind === 'explainPoint') {
+      const frame = this.displayedFrame;
+      if (!frame) return null;
+      // a tracer of its own: the wedge would resize the frame tracer's buffers (decision 340)
+      this.explainTracer ??= new ProceduralSliceRenderer();
+      return {
+        kind: 'explainPoint',
+        explain: explainPointAt(
+          this.explainTracer,
+          frame.scene,
+          frame.beam,
+          frame.spec,
+          req.rCm,
+          req.thetaRad,
+          this.artifactLevels.mirror,
+        ),
       };
     }
     if (req.kind === 'canonicalControl')
