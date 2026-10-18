@@ -20,7 +20,10 @@ import {
   type PolarMap,
 } from './reviewRegion';
 
-/** 40 lines × 100 samples, 1 rad, 10 cm: structure 5 in two separate blocks, 7 in a third, 0 elsewhere. */
+/**
+ * 40 lines × 100 samples, 1 rad, 10 cm: structure 5 in two separate blocks, 9 glued to the first one's deep side, 7 in a
+ * block of its own, 0 elsewhere.
+ */
 function map(): PolarMap {
   const lines = 40,
     samples = 100;
@@ -31,6 +34,7 @@ function map(): PolarMap {
       if (li >= 5 && li < 15 && si >= 30 && si < 50) structure[c] = 5;
       if (li >= 25 && li < 35 && si >= 30 && si < 50) structure[c] = 5;
       if (li >= 15 && li < 25 && si >= 60 && si < 80) structure[c] = 7;
+      if (li >= 5 && li < 15 && si >= 50 && si < 55) structure[c] = 9;
     }
   return { lines, samples, sectorRad: 1, depthCm: 10, structure };
 }
@@ -41,7 +45,7 @@ describe('review regions (decision 340)', () => {
     const c = cellCentre(p, 10 * 100 + 40);
     const piece = structureComponent(p, cellAt(p, c.rCm, c.thetaRad));
     expect(piece.length).toBe(10 * 20);
-    expect([...piece].every((k) => Math.floor(k / 100) < 15)).toBe(true);
+    expect([...piece].every((k) => Math.floor(k / 100) < 15 && k % 100 < 50)).toBe(true);
     // its outline is the block's edge: 2 × 10 + 2 × 18 cells
     expect(regionOutline(p, piece).length).toBe(2 * 20 + 2 * 8);
   });
