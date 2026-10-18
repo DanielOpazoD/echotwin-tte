@@ -32,6 +32,7 @@ const NAME = CUT_MAP_LABELS as Partial<Record<number, string>>;
  * vein is stale.
  */
 const KNOWN_VEIN_AT_HINGE: Record<string, string> = {
+  'normal-difficult-window @0': '210°',
   'pericardial-effusion-tamponade @0': '210°',
 };
 const MAX_BELOW_MM = 10;
