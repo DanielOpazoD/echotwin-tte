@@ -61,3 +61,24 @@ export function scenePhysicsFor(
 export function consoleArtifacts(a: ArtifactLevels): ArtifactSettings {
   return { sideLobe: a.sideLobe, mirror: a.mirror, beamWidth: a.beamWidth };
 }
+
+/** A switchable source of echo the CPU tracer can form a frame without (decision 340). */
+export type EchoSourceId = 'clutter' | 'chestWall' | 'sideLobe' | 'beamWidth';
+
+/**
+ * The scene physics without one switchable source of echo (decision 340): what review mode's point explanation forms
+ * the wedge with to measure that source's share. Null when the source is already off.
+ */
+export function physicsWithout(physics: ScenePhysics, source: EchoSourceId): ScenePhysics | null {
+  const off: Record<EchoSourceId, Partial<ScenePhysics>> = {
+    clutter: { clutterLevel: 0 },
+    chestWall: { windowAttenuation: 0 },
+    sideLobe: { sideLobe: 0 },
+    beamWidth: { beamWidth: 0 },
+  };
+  const next = { ...physics, ...off[source] };
+  const same = (Object.keys(off[source]) as (keyof ScenePhysics)[]).every(
+    (k) => (physics[k] ?? 0) === (next[k] ?? 0),
+  );
+  return same ? null : next;
+}

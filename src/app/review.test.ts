@@ -2,7 +2,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildReviewReport,
+  explainLine,
   markerDistanceCm,
+  markerReport,
+  regionLine,
   markerLabel,
   markerPlace,
   parseReviewReport,
@@ -228,5 +231,91 @@ describe('review report (decision 134)', () => {
     expect(parseReviewReport('hola')).toBeNull();
     expect(parseReviewReport('```json\n{"format":"otro"}\n```')).toBeNull();
     expect(parseReviewReport('{"format":"echotwin-review"}')).toBeNull();
+  });
+
+  it('writes what a click picked and where its echo comes from, and carries a lasso through the report (decision 340)', () => {
+    const lasso = [
+      { rCm: 6, thetaRad: -0.1 },
+      { rCm: 6, thetaRad: 0.1 },
+      { rCm: 8, thetaRad: 0 },
+    ];
+    const blood = marker({
+      region: {
+        areaCm2: 8.24,
+        structures: [{ id: Structure.LaCavity, share: 1 }],
+        grey: { p10: 40, median: 55, p90: 80 },
+      },
+      explain: {
+        rCm: 7.9,
+        thetaRad: 0.05,
+        structure: Structure.LaCavity,
+        tissue: Tissue.Blood,
+        behindPleura: false,
+        transmissionDb: -27,
+        shadow: { structure: Structure.Rib, tissue: Tissue.Cartilage, atCm: 1.04, dropDb: 6.7 },
+        sources: [
+          { id: 'clutter', share: 0.8, db: 7 },
+          { id: 'chestWall', share: 0.16, db: 0.8 },
+          { id: 'sideLobe', share: 0.01, db: 0.04 },
+        ],
+        ownShare: 0.04,
+        mirrorLevel: 0,
+      },
+    });
+    expect(regionLine(blood)).toBe(
+      'zona resaltada 8.2 cm² · 100 % aurícula izquierda · gris mediana 55 (p10 40, p90 80)',
+    );
+    // a source under 5 % is left out of the line, and the loss names the rib's tissue
+    expect(explainLine(blood)).toBe(
+      'eco aquí: 80 % ruido de campo cercano, 16 % reverberación de la pared torácica; propio del tejido 4 % · mayor pérdida en el camino: costilla (cartílago) a 1.0 cm, −6.7 dB',
+    );
+    const lung = marker({
+      id: 'r2',
+      n: 2,
+      lasso,
+      explain: {
+        ...blood.explain!,
+        tissue: Tissue.Lung,
+        behindPleura: true,
+        sources: [],
+        ownShare: 1,
+        shadow: { structure: Structure.Lung, tissue: Tissue.Lung, atCm: 12, dropDb: 60 },
+      },
+    });
+    // behind the pleura what is left is the pleura's reverberation, and a total loss reads as such
+    expect(explainLine(lung)).toBe(
+      'eco aquí: tras la pleura: lo dibujado es la reverberación pleural, no tejido · reverberación pleural (ninguna fuente conmutable aporta un 5 %) · mayor pérdida en el camino: pulmón (pulmón) a 12.0 cm, no pasa nada (más de 60 dB)',
+    );
+    expect(markerPlace(lung)).toMatch(/^lazo a mano de 3 puntos; centro: válvula aórtica/);
+    const report = buildReviewReport({
+      caseId: 'normal-excellent-window',
+      caseTitle: 'Normal',
+      mode: 'sandbox',
+      workerMode: 'worker',
+      input: baseInput(),
+      hud: null,
+      note: 'general',
+      markers: [blood, lung, marker({ id: 'r3', n: 3, parentId: 'r2' })],
+    });
+    const md = reportToMarkdown(report);
+    expect(md).toContain('   zona resaltada 8.2 cm²');
+    expect(md).toContain('   eco aquí: 80 % ruido de campo cercano');
+    const back = parseReviewReport(md)!;
+    expect(back.markers[1]!.lasso).toEqual(lasso);
+    expect(back.markers[0]!.explain).toEqual(blood.explain);
+    // «copiar este»: the marker with its secondary points, without the general note
+    const one = markerReport(report, 'r3');
+    expect(one.markers.map((m) => m.id)).toEqual(['r2', 'r3']);
+    expect(one.note).toBe('');
+    // reports written before decision 340 read back with no region, lasso or explanation
+    const old = JSON.parse(JSON.stringify(report)) as { markers: Record<string, unknown>[] };
+    for (const m of old.markers) {
+      delete m['lasso'];
+      delete m['region'];
+      delete m['explain'];
+    }
+    const oldBack = parseReviewReport(JSON.stringify(old))!;
+    expect(oldBack.markers[0]!.lasso).toBeNull();
+    expect(oldBack.markers[0]!.explain).toBeNull();
   });
 });

@@ -14,8 +14,10 @@ const BUDGETS = [
   // navigator model comes from the mesh worker and the inline core loads on demand (audit B7) — without the
   // anatomy engine: 499 kB measured on 2026-09-16, down from 703 kB. It had grown to 574.9 kB by decision 244, of which
   // ~205 kB were React's DOM renderer: the react chunk named `react-dom` but not `react-dom/client`, the module the app
-  // imports, nor its scheduler (decision 245). 369 kB since then.
-  [/^index-.*\.js$/, 400 * KB],
+  // imports, nor its scheduler (decision 245). 369 kB since then, 396.7 kB by decision 339. Decision 340 (review mode's
+  // identification, echo sources and pencil: the region code, the overlay layers and the report lines) took it to
+  // 406.1 kB; raised to 410 kB.
+  [/^index-.*\.js$/, 410 * KB],
   [/^three-.*\.js$/, 600 * KB], // three.js, loaded with the navigator
   [/^react-.*\.js$/, 230 * KB], // React and its DOM renderer: 216 kB at decision 245
   [/^TorsoView-.*\.js$/, 60 * KB],

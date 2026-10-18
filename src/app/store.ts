@@ -91,6 +91,8 @@ export interface UiPrefs {
   reviewMode: boolean;
   /** Freeze the image when the first marker is placed on a live frame, so the markers keep their frame (decision 135). */
   reviewFreezeOnMark: boolean;
+  /** What a press on the image does in review mode (decision 340): a point that identifies, or the hand-drawn lasso. */
+  reviewTool: 'point' | 'lasso';
   showEcg: boolean;
   tutorialDone: boolean;
   /** Machine-style telemetry overlay on the image corners (case, vitals, acquisition params). */
@@ -434,6 +436,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
     devPanel: false,
     reviewMode: false,
     reviewFreezeOnMark: true,
+    reviewTool: 'point',
     showEcg: true,
     tutorialDone: false,
     showHud: true,

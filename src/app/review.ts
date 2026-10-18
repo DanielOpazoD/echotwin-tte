@@ -1,4 +1,12 @@
-import type { ProbePointInfo, QualityTier, SimInput, SimOutput } from '@/simulator/core/protocol';
+import type {
+  EchoSourceId,
+  PointExplanation,
+  ProbePointInfo,
+  QualityTier,
+  SimInput,
+  SimOutput,
+} from '@/simulator/core/protocol';
+import type { LassoPoint, RegionSummary } from './reviewRegion';
 import type { ImagingModality } from '@/simulator/renderer/types';
 import type { SectorMapping } from '@/simulator/renderer/scanConvert';
 import { Structure, Tissue } from '@/simulator/anatomy/tissue';
@@ -51,6 +59,12 @@ export interface ReviewMarker {
   category: ReviewCategory;
   /** Primary marker this one is linked to as a secondary point of the same problem (decision 136); null for a primary. */
   parentId: string | null;
+  /** A hand-drawn outline (decision 340), polar: the marker sits at its centroid. Absent or null for a click. */
+  lasso?: LassoPoint[] | null;
+  /** What the outlined region holds (decision 340): the piece of the clicked structure, or the lasso's cells. */
+  region?: RegionSummary | null;
+  /** Where the echo at the marker comes from (decision 340), from the worker's CPU tracer; null until it arrives. */
+  explain?: PointExplanation | null;
 }
 
 export interface ReviewReport {
@@ -241,6 +255,53 @@ const deg = (rad: number): string => `${((rad * 180) / Math.PI).toFixed(0)}°`;
 const f1 = (v: number): string => v.toFixed(1);
 const f2 = (v: number): string => v.toFixed(2);
 
+export const ECHO_SOURCE_LABELS: Record<EchoSourceId, string> = {
+  clutter: 'ruido de campo cercano',
+  chestWall: 'reverberación de la pared torácica',
+  sideLobe: 'lóbulos laterales',
+  beamWidth: 'ancho del haz',
+};
+const pct = (v: number): string => `${Math.round(v * 100)} %`;
+
+/** What the region of a marker holds, in one line (decision 340). */
+export function regionLine(m: ReviewMarker): string | null {
+  const g = m.region;
+  if (!g) return null;
+  const parts = [
+    `${m.lasso ? 'lazo' : 'zona resaltada'} ${g.areaCm2.toFixed(1)} cm²`,
+    g.structures
+      .slice(0, 4)
+      .map((x) => `${pct(x.share)} ${structureLabel(x.id)}`)
+      .join(', '),
+  ];
+  if (g.grey) parts.push(`gris mediana ${g.grey.median} (p10 ${g.grey.p10}, p90 ${g.grey.p90})`);
+  return parts.join(' · ');
+}
+
+/** Where the echo at a marker comes from, in one line (decision 340). */
+export function explainLine(m: ReviewMarker): string | null {
+  const e = m.explain;
+  if (!e) return null;
+  const parts: string[] = [];
+  if (e.behindPleura)
+    parts.push('tras la pleura: lo dibujado es la reverberación pleural, no tejido');
+  // behind the pleura what no switchable source supplies is the pleura's reverberation, not the tissue's own echo
+  const own = e.behindPleura ? 'reverberación pleural' : 'propio del tejido';
+  const src = e.sources.filter((x) => x.share >= 0.05);
+  parts.push(
+    src.length
+      ? `${src.map((x) => `${pct(x.share)} ${ECHO_SOURCE_LABELS[x.id]}`).join(', ')}; ${own} ${pct(e.ownShare)}`
+      : `${own} (ninguna fuente conmutable aporta un 5 %)`,
+  );
+  if (e.shadow)
+    parts.push(
+      `mayor pérdida en el camino: ${structureLabel(e.shadow.structure)} (${tissueLabel(e.shadow.tissue)}) a ${f1(e.shadow.atCm)} cm, ${e.shadow.dropDb >= 60 ? 'no pasa nada (más de 60 dB)' : `−${f1(e.shadow.dropDb)} dB`}`,
+    );
+  if (e.mirrorLevel > 0)
+    parts.push(`espejo de la consola activo (${f2(e.mirrorLevel)}), no medido aquí`);
+  return `eco aquí: ${parts.join(' · ')}`;
+}
+
 /** Where a marker sits, in the words the model uses: structure, tissue, polar position and local coordinates. */
 export function markerPlace(m: ReviewMarker): string {
   if (m.space === 'model') {
@@ -264,7 +325,11 @@ export function markerPlace(m: ReviewMarker): string {
     return `tira ${m.strip.kind === 'spectral' ? 'espectral' : 'modo M'} · columna ${m.strip.column.toFixed(0)} · ${m.strip.kind === 'spectral' ? `${f2(m.strip.value)} m/s` : `${f1(m.strip.value)} cm`}`;
   const parts: string[] = [];
   const p = m.point;
-  parts.push(structureLabel(p ? p.structure : m.structure));
+  parts.push(
+    m.lasso
+      ? `lazo a mano de ${m.lasso.length} puntos; centro: ${structureLabel(p ? p.structure : m.structure)}`
+      : structureLabel(p ? p.structure : m.structure),
+  );
   if (p) parts.push(tissueLabel(p.tissue));
   if (m.rCm !== null && m.thetaRad !== null) parts.push(`${f1(m.rCm)} cm · ${deg(m.thetaRad)}`);
   if (p) {
@@ -376,6 +441,7 @@ export function reportToMarkdown(r: ReviewReport): string {
       lines.push(
         `${m.n}. [${cat}] ${markerPlace(m)} · fase ${f2(m.phase)}${m.note.trim() ? ` — «${m.note.trim()}»` : ''}`,
       );
+      for (const d of [regionLine(m), explainLine(m)]) if (d) lines.push(`   ${d}`);
       // secondary points of the same problem, with their distance to the primary (decision 136)
       for (const c of r.markers) {
         if (c.parentId !== m.id) continue;
@@ -383,6 +449,7 @@ export function reportToMarkdown(r: ReviewReport): string {
         lines.push(
           `  ${markerLabel(c, r.markers)}. ${markerPlace(c)} · fase ${f2(c.phase)}${d ? ` · a ${f1(d.cm)} cm de ${m.n} (${d.where})` : ''}${c.note.trim() ? ` — «${c.note.trim()}»` : ''}`,
         );
+        for (const t of [regionLine(c), explainLine(c)]) if (t) lines.push(`     ${t}`);
       }
     }
     lines.push('');
@@ -416,6 +483,9 @@ export function parseReviewReport(text: string): ReviewReport | null {
           torso: mk.torso ?? null,
           group: mk.group ?? null,
           parentId: mk.parentId ?? null,
+          lasso: mk.lasso ?? null,
+          region: mk.region ?? null,
+          explain: mk.explain ?? null,
         }));
         return { ...obj, markers, note: obj.note ?? '', version: 1 } as ReviewReport;
       }
@@ -424,4 +494,11 @@ export function parseReviewReport(text: string): ReviewReport | null {
     }
   }
   return null;
+}
+
+/** The report narrowed to one primary marker and its secondary points (decision 340): what «copiar este» puts on the clipboard. */
+export function markerReport(r: ReviewReport, id: string): ReviewReport {
+  const primary = r.markers.find((m) => m.id === id);
+  const root = primary?.parentId ?? id;
+  return { ...r, note: '', markers: r.markers.filter((m) => m.id === root || m.parentId === root) };
 }

@@ -1,3 +1,4 @@
+import type { EchoSourceId } from '@/simulator/renderer/scenePhysics';
 import type { ProbeControl } from '@/simulator/probe/pose';
 import type { PatientState } from '@/simulator/anatomy/thoraxModel';
 import type { AcquisitionSettings, ImagingModality } from '@/simulator/renderer/types';
@@ -203,7 +204,9 @@ export type SimRequest =
       rCm?: number;
       thetaRad?: number;
       torso?: { x: number; y: number; z: number };
-    };
+    }
+  /** Where the echo at one point of the displayed frame comes from (review mode, decision 340). */
+  | { kind: 'explainPoint'; rCm: number; thetaRad: number };
 export type SimResponse =
   | {
       kind: 'autoTrace';
@@ -214,7 +217,35 @@ export type SimResponse =
       pixelsPerColumn: number;
     }
   | { kind: 'canonicalControl'; control: ProbeControl }
-  | { kind: 'probePoint'; point: ProbePointInfo };
+  | { kind: 'probePoint'; point: ProbePointInfo }
+  | { kind: 'explainPoint'; explain: PointExplanation };
+
+export type { EchoSourceId };
+
+/**
+ * Where the echo at one point of the image comes from (decision 340): the displayed frame re-formed by the CPU tracer in a
+ * narrow wedge around the point, once as shown and once without each switchable source; what each one takes away is its
+ * share of the echo energy there. Shadowing and the lung are read from the same trace: the two-way transmission down the
+ * line and the tissue at the point.
+ */
+export interface PointExplanation {
+  rCm: number;
+  thetaRad: number;
+  structure: number;
+  tissue: number;
+  /** The point lies in the lung, behind the pleura: what is drawn there is the pleura's reverberation, not tissue. */
+  behindPleura: boolean;
+  /** Two-way amplitude transmission reaching the point (dB, 0 = none lost; soft-tissue attenuation included). */
+  transmissionDb: number;
+  /** The steepest loss on the way down the line, if it shadows the point (≥ 3 dB within 5 mm). */
+  shadow: { structure: number; tissue: number; atCm: number; dropDb: number } | null;
+  /** Share of the echo energy at the point each switchable source supplies (0–1), and its level in dB. */
+  sources: { id: EchoSourceId; share: number; db: number }[];
+  /** What is left: the tissue's own echo (backscatter, specular, pleural reverberation, blurred by the PSF). */
+  ownShare: number;
+  /** The console's mirror artifact is added after the tracer (its level, 0 when off): not measured here. */
+  mirrorLevel: number;
+}
 
 /** The model at one point of the image: classification and the coordinates the anatomy code reasons in. */
 export interface ProbePointInfo {
