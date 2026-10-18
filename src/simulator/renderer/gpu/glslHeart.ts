@@ -1059,21 +1059,24 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float tIas = iasThickness(fo);
     // the septum's left face is flat; the limbus and the fossa shape its right side (decision 327)
     float xFace = xIas + IAS_LEFT_FACE_CM;
-    float dEllLa = sdEllipsoid(p, vec3(la.x, la.y, czL), vec3(lr.x * bo, lr.y * bo, rzL));
-    float dFreeLa = smax(smax(dEllLa, la.y - LA_POSTERIOR_RATIO * lr.y * bo - y, 0.6), zTop + 0.15 * rzL - z, 0.5);
+    // decision 341: beside the aortic root the body keeps its end-systolic size
+    float rootOuter = rootRr - rootR - AORTIC_ROOT_WALL_CM;
+    float boL = bo + (1.0 - bo) * laRootHold(rootT, rootOuter);
+    float dEllLa = sdEllipsoid(p, vec3(la.x, la.y, czL), vec3(lr.x * boL, lr.y * boL, rzL));
+    float dFreeLa = smax(smax(dEllLa, la.y - LA_POSTERIOR_RATIO * lr.y * boL - y, 0.6), zTop + 0.15 * rzL - z, 0.5);
     laEpi = min(dFreeLa - LA_WALL_CM, sdCapsule(p, vec3(la.x + lr.x * 0.55, la.y + lr.y * 0.55, czL + 0.4), vec3(la.x + lr.x * 0.95, la.y + lr.y * 0.55 + 2.0, czL + 0.9), 0.55 * bo) - LAA_WALL_CM);
     // the septal corner above the annulus belongs to the atrium (decision 318)
     // only toward the septum, where the atrium's own section reaches at this height
     vec3 pc = vec3(la.x, y, z);
-    float dCross = smax(smax(sdEllipsoid(pc, vec3(la.x, la.y, czL), vec3(lr.x * bo, lr.y * bo, rzL)), la.y - LA_POSTERIOR_RATIO * lr.y * bo - y, 0.6), zTop + 0.15 * rzL - z, 0.5);
-    float uL = (y - la.y) / (lr.y * bo);
+    float dCross = smax(smax(sdEllipsoid(pc, vec3(la.x, la.y, czL), vec3(lr.x * boL, lr.y * boL, rzL)), la.y - LA_POSTERIOR_RATIO * lr.y * boL - y, 0.6), zTop + 0.15 * rzL - z, 0.5);
+    float uL = (y - la.y) / (lr.y * boL);
     float wL = (z - czL) / rzL;
-    float gap = la.x - lr.x * bo * sqrt(max(0.0, 1.0 - uL * uL - wL * wL)) - xFace;
+    float gap = la.x - lr.x * boL * sqrt(max(0.0, 1.0 - uL * uL - wL * wL)) - xFace;
     // in the corner the atrium keeps, down to the hinge at this azimuth, the section it has LA_CORNER_HEIGHT_CM above the
     // annulus (decision 327)
     float zRef = zAnn - LA_CORNER_HEIGHT_CM;
     float wRef = (zRef - czL) / rzL;
-    float gapRef = la.x - lr.x * bo * sqrt(max(0.0, 1.0 - uL * uL - wRef * wRef)) - xFace;
+    float gapRef = la.x - lr.x * boL * sqrt(max(0.0, 1.0 - uL * uL - wRef * wRef)) - xFace;
     float cornerOff = laMedialFaceOffset(gapRef, LA_CORNER_FLAT_CM);
     // the base keeps the body's full sections (decision 330)
     float dCrossRef = smax(smax(sdEllipsoid(vec3(la.x, y, zRef), vec3(la.x, la.y, czL), vec3(lr.x, lr.y, rzL)), la.y - LA_POSTERIOR_RATIO * lr.y - y, 0.6), zTop + 0.15 * rzL - zRef, 0.5);
@@ -1088,7 +1091,6 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float relL = qRel * qRel * (3.0 - 2.0 * qRel);
     // decision 335: above the annulus, near the round root, the atrium comes up to a wall of its outer wall, giving up the
     // ground as the right atrium is released
-    float rootOuter = rootRr - rootR - AORTIC_ROOT_WALL_CM;
     bool atSinuses = rootT >= 0.0 && rootT <= LA_ROOT_TOP_CM;
     float rootWall = atSinuses ? max(LA_WALL_CM + LA_ROOT_GAP_CM - rootOuter, rootOuter - LA_ROOT_NEAR_CM) + LA_ROOT_RELEASE_CM * relL : 1e3;
     float rootClearFace = min(rootClearFaceLine, rootWall);

@@ -6,6 +6,10 @@ import { GLSL_GENERATED } from './glslGenerated';
 import {
   LA_BASE_BOUND_READ_CM,
   LA_BASE_FLARE,
+  LA_ROOT_HOLD_FAR_CM,
+  LA_ROOT_HOLD_NEAR_CM,
+  LA_ROOT_HOLD_T_FADE_CM,
+  LA_ROOT_HOLD_T_MAX_CM,
   LA_BASE_SECTION_SLACK_CM,
   LA_SEPTAL_TAPER_CM,
 } from '@/simulator/anatomy/laGeometry';
@@ -173,6 +177,10 @@ const float OBLIQUE_SINUS_EFFUSION_CM = ${gf(OBLIQUE_SINUS_EFFUSION_CM)};
 const float OBLIQUE_SINUS_TAPER_CM = ${gf(OBLIQUE_SINUS_TAPER_CM)};
 const float LA_SEPTAL_TAPER_CM = ${gf(LA_SEPTAL_TAPER_CM)};
 const float LA_BASE_FLARE = ${gf(LA_BASE_FLARE)};
+const float LA_ROOT_HOLD_NEAR_CM = ${gf(LA_ROOT_HOLD_NEAR_CM)};
+const float LA_ROOT_HOLD_FAR_CM = ${gf(LA_ROOT_HOLD_FAR_CM)};
+const float LA_ROOT_HOLD_T_MAX_CM = ${gf(LA_ROOT_HOLD_T_MAX_CM)};
+const float LA_ROOT_HOLD_T_FADE_CM = ${gf(LA_ROOT_HOLD_T_FADE_CM)};
 const float AORTIC_ROOT_WALL_CM = ${gf(AORTIC_ROOT_WALL_CM)};
 const float LA_BASE_BOUND_READ_CM = ${gf(LA_BASE_BOUND_READ_CM)};
 const float LA_BASE_SECTION_SLACK_CM = ${gf(LA_BASE_SECTION_SLACK_CM)};

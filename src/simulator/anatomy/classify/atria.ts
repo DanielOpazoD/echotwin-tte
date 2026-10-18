@@ -8,6 +8,7 @@ import {
   LA_CORNER_FLAT_CM,
   LA_FLOOR_Y_CM,
   laFootprintScale,
+  laRootHold,
   LA_POSTERIOR_FLOOR_DROP_CM,
   LA_POSTERIOR_RATIO,
   LA_SEPTAL_FLAT_CM,
@@ -439,7 +440,10 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   const xFace = xIas + IAS_LEFT_FACE_CM;
   // LA: ellipsoid flattened against the septum (medial clip), against the oesophagus / descending aorta
   // (posterior clip) and under the pulmonary bifurcation (roof clip)
-  const dFreeLa = leftAtrialFreeSdf(x, y, z, la.x, la.y, czL, lr.x * bo, lr.y * bo, rzL, zTop);
+  // beside the aortic root the body keeps its end-systolic size (decision 341): the scale at this point
+  const rootOuter = c.rootRr - c.rootR - AORTIC_ROOT_WALL_CM;
+  const boL = bo + (1 - bo) * laRootHold(c.rootT, rootOuter);
+  const dFreeLa = leftAtrialFreeSdf(x, y, z, la.x, la.y, czL, lr.x * boL, lr.y * boL, rzL, zTop);
   // the atrium's epicardium, for the pericardial sac: the outer face of its wall and of the appendage's (decision 273)
   c.laEpi = Math.min(
     dFreeLa - LA_WALL_CM,
@@ -460,11 +464,11 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   // down to the septal hinge of the mitral valve. As an ellipsoid it curved away from both toward the annulus, and the
   // oblique four-chamber cut showed the gap as a wedge of wall, fat and ventricular overhang under the hinge.
   // only toward the septum, where the atrium's own section reaches at this height
-  const dCrossLa = leftAtrialFreeSdf(la.x, y, z, la.x, la.y, czL, lr.x * bo, lr.y * bo, rzL, zTop);
+  const dCrossLa = leftAtrialFreeSdf(la.x, y, z, la.x, la.y, czL, lr.x * boL, lr.y * boL, rzL, zTop);
   // the gap between the plane and the ellipsoid's medial chord at this (y, z) (decision 327)
-  const uL = (y - la.y) / (lr.y * bo),
+  const uL = (y - la.y) / (lr.y * boL),
     wL = (z - czL) / rzL;
-  const gap = la.x - lr.x * bo * Math.sqrt(Math.max(0, 1 - uL * uL - wL * wL)) - xFace;
+  const gap = la.x - lr.x * boL * Math.sqrt(Math.max(0, 1 - uL * uL - wL * wL)) - xFace;
   // In the corner the atrium keeps, down to the annulus, the section it has LA_CORNER_HEIGHT_CM above it: the ellipsoid
   // tapers to a tip there and left fat and wall under the septal hinge of the four-chamber view, where the base of a real
   // atrium sits broad on the annulus. Up to LA_CORNER_FLAT_CM of that section's chord is closed to the plane, so bounded
@@ -472,7 +476,7 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   // saddle, and the commissural hinges of the four-chamber view sit apical of the mean plane).
   const zRef = zAnn - LA_CORNER_HEIGHT_CM;
   const wRef = (zRef - czL) / rzL;
-  const gapRef = la.x - lr.x * bo * Math.sqrt(Math.max(0, 1 - uL * uL - wRef * wRef)) - xFace;
+  const gapRef = la.x - lr.x * boL * Math.sqrt(Math.max(0, 1 - uL * uL - wRef * wRef)) - xFace;
   const cornerOff = laMedialFaceOffset(gapRef, LA_CORNER_FLAT_CM);
   // (the base, on the annulus, keeps the body's full sections whatever the radial scale of the moment, decision 330:
   // tethered to the skeleton, it does not shrink with the kick as the body does)
@@ -506,7 +510,6 @@ export function classifyAtria(c: ClassifyCtx): boolean {
     ),
   );
   const relL = qRel * qRel * (3 - 2 * qRel);
-  const rootOuter = c.rootRr - c.rootR - AORTIC_ROOT_WALL_CM;
   // (not where the right atrium is released past the plane toward the root: the atrium gives up the root's ground by as
   // much as the right atrium's face moves)
   const atSinuses = c.rootT >= 0 && c.rootT <= LA_ROOT_TOP_CM;
