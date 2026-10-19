@@ -2555,4 +2555,6 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
 
     Cambio: cuando el caso termina de cargar en el modo libre y la sonda sigue en `START_PROBE`, va de inmediato al PLAX canónico (`START_VIEW_ID`), sin animación, por el mismo camino que el botón PLAX: la pose la calcula el núcleo con sus propios modelos y cuenta como preajuste, no como vista adquirida a mano (decisión 174). La práctica guiada y el examen conservan la pose imperfecta; una sonda que ya se movió (o que trajo un informe cargado) no se toca.
 
-    Prueba: `store.test.ts` (libre al PLAX, sin animación y como preajuste; guiada y examen sin moverse; sonda movida intacta). Tres mutaciones, tres fallos: todos los modos abren en el PLAX, con animación en vez de al instante, y una sonda movida vuelve al PLAX.
+    El salto inicial cede si la sonda se mueve mientras su pose viene del núcleo, y reiniciar la sonda cancela cualquier preajuste en camino. La prueba de la guía de vista (`learning.spec.ts`) suponía la pose imperfecta de inicio para tener causas que explicar: ahora la pide antes de abrir la guía.
+
+    Prueba: `store.test.ts` (libre al PLAX, sin animación y como preajuste; guiada y examen sin moverse; sonda movida intacta, también si se mueve mientras llega la pose; reinicio que cancela). Tres mutaciones, tres fallos: todos los modos abren en el PLAX, con animación en vez de al instante, y una sonda movida vuelve al PLAX.

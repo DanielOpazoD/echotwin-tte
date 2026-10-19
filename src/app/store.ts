@@ -389,6 +389,11 @@ function savePrefs(ui: UiPrefs): void {
   }
 }
 
+/** Whether a probe is still at START_PROBE, untouched. */
+function atStartProbe(p: ProbeControl): boolean {
+  return (Object.keys(START_PROBE) as (keyof ProbeControl)[]).every((k) => p[k] === START_PROBE[k]);
+}
+
 /** The view free practice opens on (decision 343). */
 export const START_VIEW_ID = 'plax';
 
@@ -759,8 +764,11 @@ export const useSimStore = create<SimStore>((set, get) => ({
         // the pose arrives asynchronously: a session started or a preset cancelled meanwhile does not get it, even if it
         // went back to practice by then
         if (token !== presetToken || s.mode === 'exam') return s;
+        // the opening jump (decision 343) yields to a probe moved while its pose was on the way
         if (opts?.instant)
-          return { probe: to, presetAnim: null, targetViewId: viewId, frozen: false };
+          return atStartProbe(s.probe)
+            ? { probe: to, presetAnim: null, targetViewId: viewId, frozen: false }
+            : s;
         const from = { ...s.probe };
         return {
           presetAnim: {
@@ -861,15 +869,15 @@ export const useSimStore = create<SimStore>((set, get) => ({
   setWorkerMode: (m) => set({ workerMode: m }),
   setNavigatorReady: (ready) => set({ navigatorReady: ready }),
   setFpsUi: (f) => set({ fpsUi: f }),
-  resetProbe: () => set({ probe: { ...START_PROBE }, presetAnim: null }),
+  resetProbe: () => {
+    // a preset pose still on its way does not undo the reset
+    presetToken++;
+    set({ probe: { ...START_PROBE }, presetAnim: null });
+  },
   openOnStartView: () => {
     const s = get();
     if (s.mode !== 'sandbox' || s.presetAnim || s.targetViewId) return;
-    const p = s.probe;
-    const atStart = (Object.keys(START_PROBE) as (keyof ProbeControl)[]).every(
-      (k) => p[k] === START_PROBE[k],
-    );
-    if (atStart) s.startPresetView(START_VIEW_ID, { instant: true });
+    if (atStartProbe(s.probe)) s.startPresetView(START_VIEW_ID, { instant: true });
   },
   loadCase: (id) =>
     set((s) => {

@@ -254,6 +254,17 @@ describe('useSimStore', () => {
     expect(store.getState().probe).toEqual(plax);
     expect(store.getState().presetAnim).toBeNull();
     expect(store.getState().presetViews).toContain('plax');
+    // a probe moved while the opening pose is on its way keeps the learner's pose, and a reset cancels it
+    store.getState().loadCase('normal-excellent-window');
+    store.getState().openOnStartView();
+    store.getState().setProbe({ u: 6 });
+    await settle();
+    expect(store.getState().probe.u).toBe(6);
+    store.getState().loadCase('normal-excellent-window');
+    store.getState().openOnStartView();
+    store.getState().resetProbe();
+    await settle();
+    expect(store.getState().probe).toEqual(START_PROBE);
     // a probe the learner (or a loaded report) already moved stays where it is
     store.getState().loadCase('normal-excellent-window');
     store.getState().setProbe({ u: 5 });
