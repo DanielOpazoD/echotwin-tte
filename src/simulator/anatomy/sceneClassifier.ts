@@ -3,14 +3,16 @@ import { classifyThorax, descAortaScale, isAnteriorLung } from '@/simulator/anat
 import { Structure, Tissue, type TissueSample } from '@/simulator/anatomy/tissue';
 import type { HeartModel, HeartPose } from './heartModel';
 import type { ThoraxModel } from './thoraxModel';
+import type { HeartClassifier } from '@/simulator/renderer/types';
 
 /** Same precedence for imaging and Doppler propagation: anterior lung, heart, surrounding thorax. */
 export function sceneClassifier(scene: {
   heart: HeartModel;
   heartPose: HeartPose;
   thorax: ThoraxModel;
+  heartClassifier?: HeartClassifier;
 }) {
-  const { heart, heartPose, thorax } = scene;
+  const { heart, heartPose, thorax, heartClassifier } = scene;
   const hf = heart.frame;
   const daScale = descAortaScale(thorax, heartPose.state.aorticPressure);
   return (px: number, py: number, pz: number, q: TissueSample): number => {
@@ -34,7 +36,12 @@ export function sceneClassifier(scene: {
       (px - hf.origin.x) * hf.ey.x + (py - hf.origin.y) * hf.ey.y + (pz - hf.origin.z) * hf.ey.z;
     const hz =
       (px - hf.origin.x) * hf.ez.x + (py - hf.origin.y) * hf.ez.y + (pz - hf.origin.z) * hf.ez.z;
-    if (classifyHeart(heart, heartPose, hx, hy, hz, q)) return 2;
+    if (
+      heartClassifier
+        ? heartClassifier(hx, hy, hz, q)
+        : classifyHeart(heart, heartPose, hx, hy, hz, q)
+    )
+      return 2;
     return classifyThorax(thorax, px, py, pz, q, q.sdf, daScale) ? 1 : 0;
   };
 }

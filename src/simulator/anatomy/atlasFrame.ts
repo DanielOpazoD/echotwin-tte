@@ -22,6 +22,8 @@ export interface AtlasMarks {
   positions: Record<string, AtlasV3>;
   /** Unit vessel directions in the anatomical frame. */
   vessels: Record<string, AtlasV3>;
+  /** The anatomical frame itself in heart-frame coordinates: origin the mitral centre, unit axes. */
+  frame: { origin: AtlasV3; ex: AtlasV3; ey: AtlasV3; ez: AtlasV3 };
 }
 
 const GROUP: Partial<Record<Structure, string>> = {
@@ -131,5 +133,5 @@ export function atlasMarks(heart: HeartModel, hp: HeartPose, h = 0.2): AtlasMark
     A.ivcB.y - A.ivcA.y,
     A.ivcB.z - A.ivcA.z,
   ]);
-  return { lvLength: far, positions, vessels };
+  return { lvLength: far, positions, vessels, frame: { origin: mv, ex, ey, ez } };
 }
