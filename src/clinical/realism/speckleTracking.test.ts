@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   matchBlock,
+  offsetPolyline,
   parabolicOffset,
   peakStrain,
   polylineLength,
   resamplePolyline,
   strainPercent,
   tissueDecorrelation,
+  trackedVersusTraced,
   trackPoints,
   type GreyFrame,
 } from './speckleTracking';
@@ -140,5 +142,50 @@ describe('tissueDecorrelation', () => {
       rand: seededRandom(1),
     });
     expect(diff.peak).toBeLessThan(0.8);
+  });
+});
+
+describe('contours of the traced-contour tracking', () => {
+  it('moves a contour outward, away from its centroid', () => {
+    const arc = Array.from({ length: 21 }, (_, k) => {
+      const a = Math.PI * (k / 20);
+      return { x: 50 + 20 * Math.cos(a), y: 50 - 20 * Math.sin(a) };
+    });
+    const out = offsetPolyline(arc, 3);
+    // the arc's centroid lies inside it, below its middle: every point moves away from it
+    const cx = arc.reduce((s, p) => s + p.x, 0) / arc.length,
+      cy = arc.reduce((s, p) => s + p.y, 0) / arc.length;
+    for (let k = 0; k < arc.length; k++)
+      expect(Math.hypot(out[k]!.x - cx, out[k]!.y - cy)).toBeGreaterThan(
+        Math.hypot(arc[k]!.x - cx, arc[k]!.y - cy),
+      );
+    expect(Math.hypot(out[10]!.x - 50, out[10]!.y - 50)).toBeCloseTo(23, 1);
+  });
+  it('the median regularization overrides one wild match', () => {
+    const a = frame((x, y) => [x, y]);
+    // everything moves 2 px down except a patch around (80, 120), which moves 3 px up
+    const b = frame((x, y) => (Math.hypot(x - 80, y - 120) < 9 ? [x, y - 3] : [x, y + 2]));
+    const start = Array.from({ length: 9 }, (_, k) => ({ x: 40 + 10 * k, y: 120 }));
+    const raw = trackPoints([a, b], start, { halfKernel: 4, search: 4 });
+    const reg = trackPoints([a, b], start, { halfKernel: 4, search: 4, regularize: 2 });
+    expect(raw.positions[1]![4]!.y - 120).toBeLessThan(0);
+    for (const p of reg.positions[1]!) expect(p.y - 120).toBeCloseTo(2, 0);
+  });
+  it('a tracker that follows the wall reads the traced strain (ratio near 1)', () => {
+    const n = 15;
+    const squeeze = (k: number) => 1 - (0.2 * k) / (n - 1);
+    const frames = Array.from({ length: n }, (_, k) =>
+      frame((x, y) => [x, 30 + (y - 30) * squeeze(k)]),
+    );
+    // a U-shaped endocardium, apex at the top (y = 30), base at y = 220
+    const u = (s: number) =>
+      [
+        ...Array.from({ length: 20 }, (_, i) => ({ x: 50, y: 220 - 9.5 * i })),
+        ...Array.from({ length: 20 }, (_, i) => ({ x: 110, y: 30 + 9.5 * i })),
+      ].map((p) => ({ x: p.x, y: 30 + (p.y - 30) * s }));
+    const r = trackedVersusTraced(frames, u(1), u(squeeze(n - 1)));
+    expect(r.traced).toBeLessThan(-10);
+    expect(r.ratio).toBeGreaterThan(0.8);
+    expect(r.ratio).toBeLessThan(1.2);
   });
 });

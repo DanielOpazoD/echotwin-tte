@@ -8,6 +8,7 @@ import {
   parseVolumeTracings,
   singlePlaneMl,
   tracedEdEs,
+  tracingContour,
   tracingVolumePx3,
 } from './lvVolume';
 
@@ -85,5 +86,29 @@ describe('EchoNet-Dynamic tables', () => {
     const e = tracedEdEs(t)!;
     expect([e.edFrame, e.esFrame]).toEqual([10, 30]);
     expect(e.ef).toBeCloseTo(100 * (1 - (14 / 20) ** 2), 6);
+  });
+});
+
+describe('tracingContour', () => {
+  // long axis, then chords from the base (wide, y = 80) to the apex (narrow, y = 20)
+  const segs = [
+    { x1: 50, y1: 80, x2: 50, y2: 10 },
+    ...Array.from({ length: 6 }, (_, i) => {
+      const y = 80 - 12 * i,
+        w = 30 - 4 * i;
+      return { x1: 50 - w / 2, y1: y, x2: 50 + w / 2, y2: y };
+    }),
+  ];
+  it('runs from one side of the base round the apex to the other, without the long axis', () => {
+    const c = tracingContour(segs);
+    expect(c).toHaveLength(12);
+    expect(c[0]).toEqual({ x: 35, y: 80 });
+    expect(c[5]).toEqual({ x: 45, y: 20 });
+    expect(c[6]).toEqual({ x: 55, y: 20 });
+    expect(c[11]).toEqual({ x: 65, y: 80 });
+  });
+  it('starts at the base whichever end the chords were listed from', () => {
+    const reversed = [segs[0]!, ...segs.slice(1).reverse()];
+    expect(tracingContour(reversed)).toEqual(tracingContour(segs));
   });
 });

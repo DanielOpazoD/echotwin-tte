@@ -19,6 +19,12 @@ export interface MatchOptions {
   halfKernel: number;
   /** Largest displacement searched along each axis (px). */
   search: number;
+  /**
+   * Spatial regularization of a tracked contour: each step's displacement replaced by the median of the point's and
+   * its neighbours' within ±regularize along the contour (0 or absent: none). The simplest form of what speckle-tracking
+   * software does to keep a contour from tearing on noisy matches.
+   */
+  regularize?: number;
 }
 
 export interface Match {
@@ -166,6 +172,20 @@ export function trackPoints(
       const dy = nb.length ? nb.reduce((a, v) => a + v.dy, 0) / nb.length : 0;
       return { x: p.x + dx, y: p.y + dy };
     });
+    const r = o.regularize ?? 0;
+    if (r > 0) {
+      const dx = next.map((p, k) => p.x - cur[k]!.x),
+        dy = next.map((p, k) => p.y - cur[k]!.y);
+      const med = (v: number[]): number => {
+        const w = [...v].sort((a, b) => a - b);
+        return w[Math.floor(w.length / 2)]!;
+      };
+      for (let k = 0; k < next.length; k++) {
+        const lo = Math.max(0, k - r),
+          hi = Math.min(next.length, k + r + 1);
+        next[k] = { x: cur[k]!.x + med(dx.slice(lo, hi)), y: cur[k]!.y + med(dy.slice(lo, hi)) };
+      }
+    }
     positions.push(next);
     meanPeak.push(n ? sp / n : NaN);
     meanZeroShift.push(nz ? sz / nz : NaN);
@@ -267,4 +287,81 @@ export function tissueDecorrelation(
     }
   }
   return { peak: sp / n, zeroShift: sz / n, pairs: n };
+}
+
+/**
+ * A polyline moved `px` outward along its normals, the side away from the centroid of its points: an endocardial
+ * contour moved into the wall, where the myocardium's speckle is (the normal at each point from its neighbours ±3).
+ */
+export function offsetPolyline(
+  pts: readonly { x: number; y: number }[],
+  px: number,
+): { x: number; y: number }[] {
+  const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length,
+    cy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
+  return pts.map((p, i) => {
+    const a = pts[Math.max(0, i - 3)]!,
+      b = pts[Math.min(pts.length - 1, i + 3)]!;
+    let nx = b.y - a.y,
+      ny = -(b.x - a.x);
+    const L = Math.hypot(nx, ny) || 1;
+    nx /= L;
+    ny /= L;
+    if (nx * (p.x - cx) + ny * (p.y - cy) < 0) {
+      nx = -nx;
+      ny = -ny;
+    }
+    return { x: p.x + nx * px, y: p.y + ny * px };
+  });
+}
+
+/**
+ * Strain of a contour carried from the first frame to the last of `frames` (end-diastole to end-systole): the length
+ * of the tracked contour at the last frame against the first, in %, with the mean NCC peak of the steps.
+ */
+export function trackedStrain(
+  frames: readonly GreyFrame[],
+  start: readonly { x: number; y: number }[],
+  o: MatchOptions,
+): { strain: number; meanPeak: number; lost: number; end: { x: number; y: number }[] } {
+  const t = trackPoints(frames, start, o);
+  const end = t.positions[t.positions.length - 1]!;
+  const peaks = t.meanPeak.filter(Number.isFinite);
+  return {
+    strain: strainPercent(polylineLength(start), polylineLength(end)),
+    meanPeak: peaks.reduce((a, b) => a + b, 0) / Math.max(1, peaks.length),
+    lost: t.lost,
+    end,
+  };
+}
+
+/**
+ * The bench's tracking of a traced contour (decision 347), the same on EchoNet's videos and on the simulator in their
+ * format: the end-diastolic endocardium moved `offsetPx` into the wall, resampled to `points` evenly spaced points
+ * (fewer points: the tracker's jitter lengthens a dense contour), carried to end-systole with a median regularization.
+ */
+export const TRACED_CONTOUR_TRACKING = {
+  points: 13,
+  offsetPx: 2,
+  halfKernel: 3,
+  search: 3,
+  regularize: 2,
+} as const;
+
+/**
+ * Strain of a contour tracked from end-diastole to end-systole against the strain of the same layer traced in both
+ * frames: `frames` run from end-diastole to end-systole, `edContour` and `esContour` are the endocardium traced in the
+ * first and last. A ratio of 1 is a tracker that follows the wall as the tracing does.
+ */
+export function trackedVersusTraced(
+  frames: readonly GreyFrame[],
+  edContour: readonly { x: number; y: number }[],
+  esContour: readonly { x: number; y: number }[],
+  o: typeof TRACED_CONTOUR_TRACKING = TRACED_CONTOUR_TRACKING,
+): { traced: number; tracked: number; ratio: number; meanPeak: number } {
+  const ed = resamplePolyline(offsetPolyline(edContour, o.offsetPx), o.points);
+  const es = resamplePolyline(offsetPolyline(esContour, o.offsetPx), o.points);
+  const traced = strainPercent(polylineLength(ed), polylineLength(es));
+  const t = trackedStrain(frames, ed, o);
+  return { traced, tracked: t.strain, ratio: t.strain / traced, meanPeak: t.meanPeak };
 }
