@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { getStore, waitForFrames } from './helpers';
+import { getStore, waitForFrames, type EchoWindow } from './helpers';
 
 /**
  * Instructional layer (proposal 7): curriculum tasks complete automatically from the learner's
@@ -89,8 +89,12 @@ test('a curriculum task completes when the learner reaches the view by hand, not
 test('the guidance panel explains causes and the report scores a structured impression', async ({
   page,
 }) => {
-  // the guide is hidden until asked for (decision 141); an imperfect pose (start probe) yields at least one
-  // causal explanation
+  // the guide is hidden until asked for (decision 141); an imperfect pose yields at least one causal explanation.
+  // Free practice opens on the canonical PLAX (decision 343), so the probe goes back to the imperfect start pose
+  await page.evaluate(() => {
+    const w = window as unknown as EchoWindow;
+    (w.__echotwin.useSimStore.getState()['resetProbe'] as () => void)();
+  });
   await expect(page.locator('.guidance')).toHaveCount(0);
   await page.getByRole('button', { name: 'Guía de la vista' }).click();
   await expect(page.locator('.guidance .causes')).toHaveCount(1);
