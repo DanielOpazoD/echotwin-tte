@@ -2598,3 +2598,54 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     Con la secuencia que hay en la máquina, el rastreador lee 0,66 [0,62–0,81] del acortamiento verdadero de las tres capas internas (−22,8, −20,0 y −17,4 %), con 1,5–2,2 mm de error en telesístole; ni el ajuste gaussiano del pico ni saltar cuadros lo mejoran. En el simulador lee 0,55 del acortamiento del contorno del modelo (−10,9 frente a −19,9 %). La brecha nueva compara las dos fracciones (0,8 de la tolerancia): lo que falta es compatible con la capa fija del clutter, que en el tabique medio frena el movimiento longitudinal del speckle (decisión 344).
 
     Pruebas: el lector MAT sobre un archivo construido en memoria, con su variante comprimida (`matV5.test.ts`); dos mutaciones, dos fallos. No cambia el simulador.
+
+350. **Fase 2 de la reconstrucción: el corazón de Rodero se mueve con el ciclo del caso, y el banco lo prefiere al modelo actual en siete brechas y lo da peor en una**: el corazón medio de la decisión 346 estaba quieto en telediástole, y el banco no podía juzgarlo en sus brechas de movimiento. Ahora un campo de movimiento cinemático lo lleva por el ciclo (`src/simulator/anatomy/volumeHeart.ts`, motor `rodero-movil`). Para cada punto y cada instante, el campo dice dónde estaba ese tejido en telediástole, y ahí se lee la etiqueta: el mapa hacia atrás se escribe directo, sin iterar, en el marco anatómico. Lo mueve la fisiología que el modelo ya tiene para el caso, y nada nuevo que calibrar:
+
+    - **Descenso de la base**: la base baja con el desplazamiento del anillo mitral (MAPSE) en el lado izquierdo y del tricuspídeo (TAPSE) en la pared libre del VD, con una transición entre 1,5 y 3,5 cm hacia septal. El ápex queda quieto y el techo auricular anclado a las venas. Debajo del anillo el ventrículo se acorta y encima la aurícula se estira.
+    - **VI en su sección**: en cada corte y en cada sector de 10° alrededor del centro de la cavidad, el radio pasa a r′² = (r² − α·r_endo²)/λ, con α = 1 − V/VTD del caso y λ el acortamiento longitudinal. El miocardio es así incompresible y la fracción de eyección del volumen es la del caso. Con un solo radio equivalente por corte, el septo, plano, se engrosaba un 91 %.
+    - **Torsión**: la de Kocabay 2014, lineal de −6,9° en la base a +13,0° en el ápex, con la contracción del caso.
+    - **Pared libre del VD**: va hacia dentro con la escala del VD del modelo, fuera del alcance del VI.
+    - **Aurículas**: cada una sigue la curva de volumen de la aurícula analítica, contada a cada pose. El estiramiento longitudinal medio de sus vóxeles y una escala radial resuelta sobre ellos dan juntos esa curva. Cada punto es de la aurícula cuya propia escala lo devuelve a su tejido; por distancia, la AD, más ancha, se quedaba con el lado septal de la AI, y la AI crecía 1,15 veces donde se pedían 1,26.
+    - **Speckle**: las coordenadas materiales son la posición de telediástole, así que los dispersores se mueven con el tejido.
+    - **Normal**: gira con la torsión.
+    - **Aparato valvular**: velos y cuerdas analíticos en la fase de cada cuadro; músculos papilares y banda moderadora de telediástole, llevados con las paredes.
+
+    **Anillos fibrosos**: el borde de los planos mitral y tricuspídeo contra las paredes pasa a ser anillo fibroso, con el grosor de los toros analíticos (0,11 y 0,09 cm). Sin ellos el contorno con que el banco mide el GLS, que termina en el anillo, seguía por los velos cerrados, y el GLS del contorno salía −5,2 % en vez de −15.
+
+    **Medido en el caso normal** (malla de 1,5 mm, un ciclo):
+
+    | | Rodero móvil | Referencia |
+    |---|---|---|
+    | Fracción de eyección del volumen | 59,2 % | modelo 62,5 % |
+    | Volumen del miocardio | constante a 1,1 % (141,6–143,1 mL) | — |
+    | Engrosamiento a media altura | septo +64 %, lateral +36 %, anterior +41 %, inferior +42 % | — |
+    | Fracción de eyección del VD | 48 % | — |
+    | Vaciado de la AI | 33,8 % | aurícula analítica 36,6 % |
+    | Vaciado de la AD | 31,8 % | 33,9 % |
+
+    **Banco** (`ECHONET_DIR` incluido), frente a la línea base del modelo actual: mixto, mejoran 7, empeoran 1, iguales 12.
+
+    - **Mejoran**: la textura del miocardio frente a CAMUS (desviación, asimetría y curtosis residuales), la correlación de bloques en formato EchoNet, la FE de la imagen frente a la del modelo y las dos razones del rastreador. El speckle sigue al tejido: lo rastreado queda en 0,58 de lo trazado frente a 0,55, y la razón en formato EchoNet en 0,31 frente a 0,43.
+    - **Iguales**: GLS del contorno −18,3 % frente a −19,9 %; FE biplano 64,1 % frente a 66,1; VTD 126 mL.
+    - **Empeora**: el gris mediano del miocardio (109 → 114, puntuación 0,3 → 0,5), como en el motor estático.
+
+    **Lo que queda**:
+
+    - La torsión sigue a la contracción por volumen, así que no se destuerce en la relajación isovolumétrica.
+    - La AI y la AD vacían 2–3 puntos menos que las analíticas, que ya están bajo el rango clínico (`la-emptying`).
+    - El plano fijo de una vista atraviesa la base al bajar: en el PSAX mitral de telesístole corta los velos cerrados y la pared anterior engrosada.
+    - No hay GLSL; el motor sigue siendo fuera de línea.
+
+    **Prueba**: `volumeHeart.test.ts` (lenta), sobre el ventrículo sintético con un VD en caja y dos aurículas. Comprueba:
+
+    - identidad en telediástole;
+    - miocardio incompresible, y cavidad que vacía con la curva del caso a 0,05;
+    - descenso de la base con el ápex quieto;
+    - torsión según el perfil de Kocabay a la altura de telediástole;
+    - engrosamiento y speckle llevado con el tejido;
+    - la normal que gira con la torsión;
+    - la pared libre del VD que entra más que lo que da el TAPSE;
+    - cada aurícula con su curva, y la AI escalada sobre su propio eje;
+    - el anillo fibroso.
+
+    Doce mutaciones del movimiento, doce fallos, y las diez de la decisión 346 siguen fallando.

@@ -75,6 +75,11 @@ Fase 1 en piloto (decisión 346): el corazón medio de Rodero, estático, entra 
 motor `rodero-estatico` del banco. Mejora la textura del miocardio y, sin movimiento, pierde todas las brechas de
 movimiento; la fase 2 es la siguiente.
 
+Fase 2 en piloto (decisión 350): el mismo corazón movido por el ciclo del caso (descenso de la base, VI incompresible
+con la curva de volumen, torsión de Kocabay, VD y aurículas), motor `rodero-movil`. Frente al modelo actual, el banco
+da 7 brechas mejores, 1 peor (el gris del miocardio) y 12 iguales; GLS del contorno −18,3 %. Siguiente: la imagen por
+convolución con dispersores lagrangianos (fase 3) o llevar el corazón móvil al GPU.
+
 ## Cómo seguir
 
 1. `git switch main && git pull`; los worktrees temporales viven en `$TMPDIR/wt-*` y se borran al
