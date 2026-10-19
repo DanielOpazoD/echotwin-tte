@@ -206,3 +206,21 @@ export function tracedEdEs(
     es = v[v.length - 1]!;
   return { edFrame: ed.f, esFrame: es.f, ef: ejectionFraction(ed.v, es.v) };
 }
+
+/**
+ * The endocardial contour of an EchoNet tracing, from one side of the base round the apex to the other: the chords
+ * ordered from the wide end (the base) to the apex, their first ends going up, then their second ends coming back down
+ * (as EchoNet's own code closes the tracing into a polygon). The long axis, the first segment, is left out.
+ */
+export function tracingContour(segments: readonly Segment[]): { x: number; y: number }[] {
+  let chords = segments.slice(1);
+  const width = (s: Segment): number => Math.hypot(s.x2 - s.x1, s.y2 - s.y1);
+  const k = Math.max(1, Math.floor(chords.length / 4));
+  const head = chords.slice(0, k).reduce((a, s) => a + width(s), 0);
+  const tail = chords.slice(-k).reduce((a, s) => a + width(s), 0);
+  if (head < tail) chords = [...chords].reverse();
+  return [
+    ...chords.map((s) => ({ x: s.x1, y: s.y1 })),
+    ...chords.map((s) => ({ x: s.x2, y: s.y2 })).reverse(),
+  ];
+}

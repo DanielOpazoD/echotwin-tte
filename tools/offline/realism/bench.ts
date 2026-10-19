@@ -34,19 +34,28 @@ import { cpus, homedir } from 'node:os';
 import { join } from 'node:path';
 import type { ClipItem } from '@/clinical/realism/turing';
 import { gradeTuring, type AnswerSheet, type Trial } from '@/clinical/realism/turing';
-import { tissueDecorrelation } from '@/clinical/realism/speckleTracking';
+import { tissueDecorrelation, trackedVersusTraced } from '@/clinical/realism/speckleTracking';
 import { seededRandom } from '@/clinical/realism/turing';
 import { compareGaps, toBaseline, type Baseline } from '@/clinical/realism/verdict';
 import type { Cine } from './simCine';
 import { engineById, type CineVariant } from './engines';
-import { cineMetrics, type CineMetrics } from './cineMetrics';
+import { cineMetrics, endocardialContour, type CineMetrics } from './cineMetrics';
 import {
   assertOutsideRepo,
   camusSummary,
   ECHONET_DECORRELATION,
   echonetSummary,
 } from './clinicalData';
-import { hasFfmpeg, toEchonet, toTile, writeMp4, writePngGrey, type Grey } from './formats';
+import {
+  type Grey,
+  hasFfmpeg,
+  litBox,
+  toEchonet,
+  toEchonetPoint,
+  toTile,
+  writeMp4,
+  writePngGrey,
+} from './formats';
 import { exportTuring } from './turingExport';
 import { aggregate, reportMd } from './report';
 
@@ -80,6 +89,11 @@ export interface CineResult {
   metrics: CineMetrics;
   /** Frame-to-frame correlation of the cine in EchoNet's format, by grey alone (as on EchoNet). */
   echonetDecorrelation: { peak: number; zeroShift: number; pairs: number };
+  /**
+   * In EchoNet's format, the end-diastolic endocardium of the structure map tracked to end-systole against the one the
+   * map draws there (`trackedVersusTraced`), as on EchoNet's tracings: four-chamber cines only.
+   */
+  echonetTracking: { traced: number; tracked: number; ratio: number; meanPeak: number } | null;
   clips: ClipItem[];
   seconds: number;
 }
@@ -236,17 +250,35 @@ function runJob(job: CineJob): CineResult | null {
   if (!cyc) return null;
   const metrics = cineMetrics(cyc);
   const W = Math.sqrt(cyc.frames[0]!.grey.length);
+  // one bounding square for the whole cine, as EchoNet crops a video once
+  const box = litBox(cyc.frames[0]!.grey, W, W);
   const small = cyc.frames.map((f) => {
-    const g = toEchonet(f.grey, W, W);
+    const g = toEchonet(f.grey, W, W, box);
     return { width: g.width, height: g.height, grey: Float32Array.from(g.data) };
   });
+  const esFrame = Math.min(cyc.frames.length - 1, Math.round(cyc.esPhase * cyc.rrS * cyc.fps));
+  const echonetTracking =
+    job.view === 'a4c'
+      ? trackedVersusTraced(
+          small.slice(0, esFrame + 1),
+          endocardialContour(cyc.frames[0]!.structure).map((p) => toEchonetPoint(p, box)),
+          endocardialContour(cyc.frames[esFrame]!.structure).map((p) => toEchonetPoint(p, box)),
+        )
+      : null;
   const echonetDecorrelation = tissueDecorrelation(small, {
     ...ECHONET_DECORRELATION,
     rand: seededRandom(343),
   });
   // a clip longer than a cycle repeats the cycle, as a loop of the scanner's cine memory
   const clips = writeSimClips(cyc, job);
-  return { job, metrics, echonetDecorrelation, clips, seconds: (performance.now() - t0) / 1000 };
+  return {
+    job,
+    metrics,
+    echonetDecorrelation,
+    echonetTracking,
+    clips,
+    seconds: (performance.now() - t0) / 1000,
+  };
 }
 
 async function runChild(jobs: CineJob[], k: number, out: string): Promise<CineResult[]> {

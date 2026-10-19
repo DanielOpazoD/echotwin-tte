@@ -17,10 +17,11 @@ import {
   parseEchonetFileList,
   parseVolumeTracings,
   tracedEdEs,
+  tracingContour,
   type Segment,
 } from '@/clinical/realism/lvVolume';
 import { pearson, quantiles, type Quantiles } from '@/clinical/realism/speckleStats';
-import { tissueDecorrelation } from '@/clinical/realism/speckleTracking';
+import { tissueDecorrelation, trackedVersusTraced } from '@/clinical/realism/speckleTracking';
 import { seededRandom } from '@/clinical/realism/turing';
 import { textureStats, type TextureStats } from './cineMetrics';
 import { readVideoGrey } from './formats';
@@ -181,6 +182,11 @@ export interface EchonetSummary {
   edToEsMs: Quantiles;
   tracingEfAgreement: { bias: number; mae: number; n: number };
   decorrelation: { videos: number; peak: Quantiles; zeroShift: Quantiles; fps: Quantiles } | null;
+  /**
+   * The traced end-diastolic contour tracked to end-systole in the same videos (`trackedVersusTraced`): the traced and
+   * tracked strain of the layer 2 px inside the wall, and their ratio.
+   */
+  tracking: { videos: number; traced: Quantiles; tracked: Quantiles; ratio: Quantiles } | null;
 }
 
 /** EchoNet-Dynamic aggregates; `videos` AVIs of normal EF are read for the decorrelation (0 skips it). */
@@ -207,6 +213,7 @@ export function echonetSummary(dir: string, videos = 40): EchonetSummary {
   }
   const normal = list.filter((r) => r.ef >= 55);
   let decorrelation: EchonetSummary['decorrelation'] = null;
+  let tracking: EchonetSummary['tracking'] = null;
   const videoDir = existsSync(join(dir, 'Videos')) ? join(dir, 'Videos') : dir;
   if (videos > 0) {
     const rand = seededRandom(343);
@@ -219,6 +226,9 @@ export function echonetSummary(dir: string, videos = 40): EchonetSummary {
     const peaks: number[] = [],
       zeros: number[] = [],
       fps: number[] = [];
+    const traced: number[] = [],
+      tracked: number[] = [],
+      ratio: number[] = [];
     for (const r of picked) {
       const v = readVideoGrey(join(videoDir, `${r.fileName}.avi`));
       const frames = v.frames.slice(0, Math.round(v.fps)).map((g) => ({
@@ -230,12 +240,41 @@ export function echonetSummary(dir: string, videos = 40): EchonetSummary {
       peaks.push(d.peak);
       zeros.push(d.zeroShift);
       fps.push(v.fps);
+      const t = tracings.get(r.fileName);
+      const e = t ? tracedEdEs(t) : null;
+      if (t && e) {
+        const a = Math.min(e.edFrame, e.esFrame),
+          b = Math.max(e.edFrame, e.esFrame);
+        let span = v.frames.slice(a, b + 1).map((g) => ({
+          width: g.width,
+          height: g.height,
+          grey: Float32Array.from(g.data),
+        }));
+        // a video traced with end-systole first is tracked backwards: the motion is the same
+        if (e.esFrame < e.edFrame) span = span.reverse();
+        if (span.length >= 2) {
+          const k = trackedVersusTraced(
+            span,
+            tracingContour(t.get(e.edFrame)!),
+            tracingContour(t.get(e.esFrame)!),
+          );
+          traced.push(k.traced);
+          tracked.push(k.tracked);
+          ratio.push(k.ratio);
+        }
+      }
     }
     decorrelation = {
       videos: picked.length,
       peak: quantiles(peaks),
       zeroShift: quantiles(zeros),
       fps: quantiles(fps),
+    };
+    tracking = {
+      videos: ratio.length,
+      traced: quantiles(traced),
+      tracked: quantiles(tracked),
+      ratio: quantiles(ratio),
     };
   }
   return {
@@ -255,5 +294,6 @@ export function echonetSummary(dir: string, videos = 40): EchonetSummary {
       n: diffs.length,
     },
     decorrelation,
+    tracking,
   };
 }
