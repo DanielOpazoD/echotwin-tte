@@ -23,6 +23,10 @@ mal, con cifra). El método de trabajo está en `.claude/skills/fidelity-method/
   `tools/offline/review/review-sheets.ts` (eco + mapa rotulado del mismo fotograma polar) y
   `review-clips.ts` (cine y barridos). El censo de coherencia es el instrumento de «ojos limpios»:
   correrlo antes y después de cada decisión y comparar.
+- Banco de realismo (decisión 343, `npm run realism`): fantomas de la formación de imagen frente a una referencia tipo
+  Field II, volumen del VI, GLS por seguimiento de speckle, decorrelación y textura frente a CAMUS y EchoNet, y una
+  prueba de Turing visual ciega. Es el juez de cualquier refundación de la anatomía o de la imagen; el informe con las
+  brechas ordenadas está en `docs/validation/banco-realismo.md`.
 - CI: lint, cuatro shards de la suite completa (`VITEST_TIER=all`), cobertura fundida, build con
   presupuesto de bundle y de trazador CPU, E2E sobre `dist/`, fidelidad. Las pruebas de documentación
   (`docsConsistency.test.ts`, `limitationsConsistency.test.ts`) exigen numeración sin huecos en
