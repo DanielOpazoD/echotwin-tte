@@ -12,6 +12,8 @@ export interface GapScore {
   sim: number;
   ref: number;
   score: number;
+  /** Why the gap's instrument is not validated (the report keeps it out of its ranking): it stays out of the verdict too. */
+  caveat?: string;
 }
 
 export interface Baseline {
@@ -23,11 +25,12 @@ export interface Baseline {
 }
 
 /**
+ * `sin validar`: the run marks the gap's instrument as not validated (decision 348), so what it reads does not count.
  * `referencia distinta`: the reference itself changed (a clinical distribution read over fewer patients, a reference
  * model with other parameters), so the scores do not compare and the gap is left out of the verdict.
  */
 export type GapVerdict =
-  'mejora' | 'empeora' | 'igual' | 'nueva' | 'sin medir' | 'referencia distinta';
+  'mejora' | 'empeora' | 'igual' | 'nueva' | 'sin medir' | 'referencia distinta' | 'sin validar';
 
 export interface GapComparison {
   id: string;
@@ -74,6 +77,7 @@ export function compareGaps(
       sa = a && Number.isFinite(a.score) ? a.score : null;
     let verdict: GapVerdict;
     if (sa === null) verdict = 'sin medir';
+    else if (a!.caveat) verdict = 'sin validar';
     else if (sb === null) verdict = 'nueva';
     else if (!sameReference(b!.ref, a!.ref)) verdict = 'referencia distinta';
     else if (sa <= sb - tolerance) verdict = 'mejora';
