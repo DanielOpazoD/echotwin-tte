@@ -61,7 +61,27 @@ export const ENGINES: Readonly<Record<string, CineEngine>> = {
         seed,
         physics: variant === 'noclutter' ? { clutterLevel: 0 } : undefined,
         heartClassifier: (heart, _pose, endDiastole) =>
-          loadVolumeHeart(anatomy2Dir(), heart, endDiastole).classifier(endDiastole),
+          loadVolumeHeart(anatomy2Dir(), heart, endDiastole).classifier({ apparatus: endDiastole }),
+      }),
+    phantoms: runPhantoms,
+  },
+  // phase 2 of the reconstruction (decision 350): the same heart moved by the cycle of the case — the base's descent
+  // (MAPSE, TAPSE on the right), the LV's incompressible radial motion with the case's volume curve and the twist of
+  // Kocabay 2014, the atria's reservoir and booster — with the analytic leaflets of each frame and the papillary
+  // muscles carried with the walls.
+  'rodero-movil': {
+    id: 'rodero-movil',
+    label: 'corazón medio de Rodero 2021 movido por el ciclo del caso (cinemático, con torsión)',
+    renderCine: (caseId, view, { fps, variant, seed }) =>
+      renderCine(caseId, view, {
+        fps,
+        seed,
+        physics: variant === 'noclutter' ? { clutterLevel: 0 } : undefined,
+        heartClassifier: (heart, pose, endDiastole) =>
+          loadVolumeHeart(anatomy2Dir(), heart, endDiastole).classifier({
+            apparatus: pose,
+            motion: { pose, endDiastole },
+          }),
       }),
     phantoms: runPhantoms,
   },
