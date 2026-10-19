@@ -234,6 +234,12 @@ Protocolo: `CAMUS_DIR=… npx tsx tools/clinical/blind-test.ts --out <carpeta fu
 |---|---|---|---|---|
 | — | — | ninguna sesión rendida todavía | — | — |
 
+Prueba de Turing visual del banco de realismo (decisión 344): la misma idea con clips y vistas, la seguridad del lector (1–3) y lo que lo delató; se genera con `npm run realism -- --turing <carpeta fuera del repositorio>` y se corrige con `tools/offline/realism/turing-grade.ts` (acierto, p binomial y AUC de la calificación de seis pasos; meta: AUC ≤ 0,6 en quien lee ecocardiogramas). Procedimiento en `docs/validation/README.md` § 5.
+
+| Fecha | Versión | Evaluador | Elementos | Aciertos | AUC |
+|---|---|---|---|---|---|
+| — | — | ninguna sesión rendida todavía | — | — | — |
+
 Distinguibilidad automática (`tools/clinical/discriminate.ts`): regresión logística sobre las 33 estadísticas de sector, 1010 cuadros CAMUS Good contra 96 simulados, AUC en cinco pliegues estratificados. Meta: ≤ 0,7.
 
 | Fecha | Versión | AUC | Lo que más delata (AUC de cada estadística sola) |
@@ -266,7 +272,7 @@ El protocolo preregistrado (tres estudios: puntuación experta por vista y versi
 ## Pendientes registrados antes de esta tanda
 
 Esta lista histórica no es el inventario actual: las auditorías PR100/PR110 distinguen las comprobaciones incorporadas y los límites todavía abiertos.
-- Comparación contra imágenes reales o contra un simulador físico (PyMUST/OpenBCSim/i4h): `tools/offline/{pymust-validation,optional-cuda-reference,optical-flow}` están vacías (`atlas-generation/build-atlas.ts` sólo produce hojas de contacto para inspección visual).
+- Comparación contra un simulador físico (PyMUST/OpenBCSim/i4h/Field II): no hay ninguno en el repositorio. El banco de realismo (decisión 344) compara la formación de imagen con una suma con retardos propia al modo de Field II (mismo pulso de sus ejemplos, elementos puntuales), validada contra 0,886 λF y la SNR de Rayleigh; una corrida de Field II de verdad sigue pendiente.
 - Precisión numérica de las herramientas frente a la verdad de terreno a través de la UI: los E2E comprueban el flujo y la procedencia, no el valor; no hay prueba unitaria del mapeo píxel↔cm ni de velocidad/VTI/tiempo manuales.
 - Color Doppler en imagen (aliasing, blooming, sombra): sólo humo; la persistencia del color sí tiene prueba (decisión 56). El modo M tiene pruebas de tiempo, definición, textura y niveles (decisión 84), pero no de sus mediciones (TAPSE, diámetros) frente a la verdad de terreno.
 - Caso de estenosis aórtica: ninguna prueba comprueba su Vmax/gradientes/AVA ni la graduación del informe (sus proporciones y su válvula sí se prueban).

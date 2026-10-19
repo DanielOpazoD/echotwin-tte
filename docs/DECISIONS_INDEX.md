@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 343 (última: 343).
+Decisiones: 344 (última: 344).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -351,3 +351,4 @@ Decisiones: 343 (última: 343).
 | [341](DECISIONS.md#L2536) | 2026-10-18 | La aurícula izquierda queda apoyada en la raíz aórtica en todo el ciclo | vigente |
 | [342](DECISIONS.md#L2546) | 2026-10-18 | El panel de segmentos se queda quieto mientras la ventana no cambia | vigente |
 | [343](DECISIONS.md#L2554) | 2026-10-18 | La práctica libre abre en el PLAX canónico | vigente |
+| [344](DECISIONS.md#L2562) | 2026-10-18 | Un banco de realismo independiente juzga cada cambio antes de refundar la anatomía o la imagen | vigente |
