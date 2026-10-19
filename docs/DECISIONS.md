@@ -2649,3 +2649,54 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     - el anillo fibroso.
 
     Doce mutaciones del movimiento, doce fallos, y las diez de la decisión 346 siguen fallando.
+
+351. **Fase 3 de la reconstrucción: imagen por convolución de dispersores puntuales anclados al tejido con la PSF de la referencia del banco**: el trazador formaba el eco incoherente de cada muestra con un fasor de ruido de valor en las coordenadas materiales, lo compuesto en dos miradas y lo filtraba con una PSF de fórmulas cerradas (decisiones 52, 145 y 155). El banco le marcaba tres brechas de física:
+
+    - **Haz lateral más estrecho que su apertura**: 2,9 frente a 3,6 mm a 9 cm.
+    - **Speckle más regular que el de Rayleigh**: SNR 2,67 frente a 1,91, exactamente √2 por las dos miradas.
+    - **Quiste más oscuro que la referencia**: −20,4 frente a −16,5 dB.
+
+    La formación por convolución (Bamber y Dickinson 1980; COLE, Gao et al. 2009) es un modo nuevo del trazador CPU (`ImageFormation`; la app sigue con el de siempre). Tiene tres piezas:
+
+    - **Dispersores puntuales en el tejido** (`renderer/acoustic/scatterers.ts`): uno por cubo de 0,5 mm del espacio material, desplazado por un hash, con amplitud de media cero y varianza uno. Cada uno suma en las dos muestras y las dos líneas más cercanas con peso lineal y, a través del plano, con el perfil de elevación del corte. Lleva la fase de su profundidad, exp(−2jk·r), con k la del eco recibido (el doble en imagen armónica).
+    - **Núcleos de la referencia** (`renderer/acoustic/colePsf.ts`): los de la suma con retardos que el banco valida contra 0,886 λF: 64 elementos sobre la apertura del simulador, foco de emisión de la consola, recepción dinámica a F/1, sin apodización. A lo largo del haz, la envolvente del pulso de Field II, estirada 1,15 en armónica como ya suponía la PSF anterior. A través, el perfil de pulso-eco con el signo de cada lóbulo: lejos del foco cambia de signo; en el foco es un sinc² con lóbulos 26 dB abajo.
+    - **Una sola mirada.**
+
+    El arnés de fantomas (`tools/offline/realism/phantoms.ts`) acepta la formación, y el banco tiene dos motores: `cole` (anatomía actual) y `rodero-cole` (el corazón móvil de la decisión 350).
+
+    **Un error encontrado al medir**: al principio cada dispersor sumaba sólo en la muestra que lo contenía. Su eco se quedaba en el centro de la muestra hasta saltar a la siguiente, así que el tejido que se movía menos de una muestra giraba todas las fases a la vez y no movía la envolvente: el rastreador leía 0,12 del acortamiento en el corazón móvil. Con el peso lineal entre muestras lee 0,65.
+
+    **Fantomas** (frente a la referencia sin apodizar):
+
+    | | Convolución | Referencia | Formación actual |
+    |---|---|---|---|
+    | Resolución lateral a 5, 9 y 15 cm | 2,10 / 3,53 / 5,96 mm | 2,15 / 3,56 / 6,05 mm | — |
+    | SNR del speckle | 1,91 | Rayleigh 1,91 | — |
+    | Quiste de 8 mm a 9 cm | −16,7 dB | −16,5 dB | — |
+    | Resolución axial | 0,57 mm | 0,64 mm | 0,69 mm |
+    | Celda lateral del speckle | 3,32 mm | 2,83 mm medida en su imagen | 2,79 mm |
+
+    - **Resolución axial**: el pulso verdadero, muestreado cada 0,5 mm, mide corto.
+    - **Celda lateral**: la referencia mide 2,83 mm en su imagen, pero la autocorrelación de su propio núcleo da 3,43 y la del núcleo de banda estrecha 3,31. La discrepancia está en cómo el banco mide la imagen de referencia y queda por revisar.
+
+    **Banco con EchoNet** frente a la línea base del modelo actual:
+
+    - **`cole`**: mejoran 7, empeoran 4, iguales 9. Mejoran los fantomas, la desviación de la textura del miocardio (14,8 → 17,6; CAMUS 17,7–22,0), la fracción del acortamiento que lee el rastreador (0,55 → 0,75) y la razón rastreado/trazado en formato EchoNet. Empeoran la celda lateral, la resolución axial y la asimetría y la curtosis de la textura.
+    - **`rodero-cole`**: mejoran 9, empeoran 4, iguales 7. Mejoran además la correlación de bloques y la FE de la imagen; empeoran la celda lateral, la resolución axial, la asimetría y el gris mediano del miocardio (109 → 115).
+
+    **Coste**: la formación por convolución cuesta unos 1,5 s por cuadro en el A4C, frente a 1 s. El modo de la app no cambia de coste: −0,0 % y −9,4 % en dos mediciones frente al árbol de referencia del presupuesto del trazador (decisión 332), la diferencia es el ruido de la máquina. El worker de simulación de la app pasa de 354,7 a 355,3 kB (el código de los dispersores lo traen los motores, no el worker; quedan las miradas y la rama del fasor en el bucle del trazador): su presupuesto sube de 355 a 360 kB, el total sin cambios.
+
+    **Lo que no hace**:
+
+    - Los núcleos son separables: la referencia de banda ancha no lo es del todo.
+    - Los ecos especulares, los granos y el clutter siguen como antes.
+    - No hay GLSL.
+    - Las rotaciones del tejido no giran los ejes del retículo (aproximación localmente rígida dentro de una muestra).
+
+    **Pruebas**:
+
+    - `scatterers.test.ts`: Gauss circular de potencia uno con envolvente de Rayleigh; giro −2kδ con el movimiento; perfil de elevación; un cuarto de la potencia compartida con la muestra vecina; el eco que sigue al tejido un cuarto de muestra.
+    - `colePsf.test.ts`: energía unidad; ancho lateral y lóbulos de la referencia en el foco; cambio de signo lejos de él; estrechamiento armónico; pulso de Field II.
+    - `coleFormation.test.ts` (lenta): el trazador usa el fasor, las miradas y los núcleos que se le dan, y por omisión el de la app.
+
+    Dieciocho mutaciones, dieciocho fallos.

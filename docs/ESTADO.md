@@ -80,6 +80,11 @@ con la curva de volumen, torsión de Kocabay, VD y aurículas), motor `rodero-mo
 da 7 brechas mejores, 1 peor (el gris del miocardio) y 12 iguales; GLS del contorno −18,3 %. Siguiente: la imagen por
 convolución con dispersores lagrangianos (fase 3) o llevar el corazón móvil al GPU.
 
+Fase 3 en piloto (decisión 351): imagen por convolución de dispersores puntuales anclados al tejido con la PSF de la
+referencia del banco y una mirada, motores `cole` y `rodero-cole`. Los fantomas casan con la referencia (resolución
+lateral, SNR de Rayleigh, quiste); con el corazón móvil el banco da 9 brechas mejores, 4 peores y 7 iguales. Siguiente:
+llevar anatomía móvil e imagen al GPU, o el Doppler (fase 4).
+
 ## Cómo seguir
 
 1. `git switch main && git pull`; los worktrees temporales viven en `$TMPDIR/wt-*` y se borran al

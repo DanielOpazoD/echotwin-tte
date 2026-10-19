@@ -31,8 +31,9 @@ const BUDGETS = [
   // Decisions 304-323: the anatomy audit (septal corner and fossa, venous mouths, coronary sinus, the right atrial
   // appendage) and its per-pose cache took it back to 340.1 kB; raised to 350 kB, the room the shader compaction gave.
   // Decisions 324-335 (the census of decision 331, the supraventricular crest, the septum resting on the root): 350.4 kB;
-  // raised to 355 kB, the total budget unchanged.
-  [/^sim\.worker-.*\.js$/, 355 * KB],
+  // raised to 355 kB, the total budget unchanged. Decision 351's image formation option (the looks and the scatterer
+  // branch of the tracer, whose code the engines bring) took it to 355.3 kB: raised to 360 kB, the total unchanged.
+  [/^sim\.worker-.*\.js$/, 360 * KB],
   // the WebGL2 port and its shaders: shared by the simulation worker and the lazy backend comparison. 119.7 kB at
   // decision 151; the LV segment code in GLSL and its read-back (decision 152) took it to 121.0 kB; the mirrors of the
   // right atrium beside the root and the membranous septum, the open venae cavae, the septal tricuspid hinge and the
