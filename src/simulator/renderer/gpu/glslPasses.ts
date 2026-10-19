@@ -87,7 +87,12 @@ void main() {
   if (isAnteriorLung(pT)) {
     s.tissue = T_LUNG; s.structure = S_LUNG; s.sdf = -1.0; s.n = vec3(0.0, 0.0, 1.0); s.m = pT; s.extra = 0.0;
   } else {
+#ifdef VOLUME_HEART
+    // a heart read from a label volume (decision 353)
+    inHeart = classifyVolumeHeart(pH, s);
+#else
     inHeart = classifyHeart(pH, s);
+#endif
     if (!inHeart) { float heartDist = s.sdf; inBody = classifyThorax(pT, s, heartDist); }
   }
   if (!inBody) {

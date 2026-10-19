@@ -98,8 +98,9 @@ import type {
 } from './protocol';
 import { resolveQualityTier } from './quality';
 import type { AssetFetcher } from '@/simulator/anatomy/roderoAsset';
-import type * as RoderoHeartModule from '@/simulator/anatomy/roderoHeart';
+import type * as RoderoHeartModule from '@/simulator/core/roderoHeart';
 import type { LabelVolume, VolumeHeart } from '@/simulator/anatomy/volumeHeart';
+import type { HeartVolumeGpu } from '@/simulator/renderer/types';
 import { MMODE_TRACE_SHARE } from './mmodeStrip';
 import { StripEngine, type StripCtx } from './stripEngine';
 
@@ -135,15 +136,19 @@ export class SimulatorCore {
   private procedural = new ProceduralSliceRenderer();
   /**
    * The experimental anatomy (decision 352): the shipped Rodero volume, loaded once on demand, and the volume heart bound
-   * to the current heart model with its end-diastolic pose. While it is chosen the CPU tracer forms the image: the GPU
-   * port does not read a scene's heart classifier.
+   * to the current heart model with its end-diastolic pose: the CPU tracer and the GPU port each read it (decision 353).
    */
   private readonly fetchAsset: AssetFetcher;
   private roderoLib: typeof RoderoHeartModule | null = null;
   private roderoVolume: LabelVolume | null = null;
   private roderoLoad: Promise<void> | null = null;
   private roderoFailure: string | null = null;
-  private roderoBound: { heart: HeartModel; vh: VolumeHeart; endDiastole: HeartPose } | null = null;
+  private roderoBound: {
+    heart: HeartModel;
+    vh: VolumeHeart;
+    gpu: HeartVolumeGpu;
+    endDiastole: HeartPose;
+  } | null = null;
   /** The CPU tracer of review mode's point explanation (decision 340), made on first use. */
   private explainTracer: ProceduralSliceRenderer | null = null;
   private atlas: AtlasRenderer;
@@ -253,7 +258,7 @@ export class SimulatorCore {
     kind: SimInput['rendererBackend'],
     anatomy: SimInput['anatomy'] = this.input.anatomy,
   ): RendererBackend {
-    if (kind === 'procedural' || anatomy === 'rodero') return this.procedural;
+    if (kind === 'procedural' || (anatomy === 'rodero' && !this.gpu)) return this.procedural;
     if (kind === 'webgl2') return this.gpu ?? this.procedural;
     return this.atlas;
   }
@@ -577,6 +582,7 @@ export class SimulatorCore {
               apparatus: heartPose,
               motion: { pose: heartPose, endDiastole: rodero.endDiastole },
             }),
+            heartVolumeGpu: rodero.gpu,
           }
         : {}),
     };
@@ -586,10 +592,10 @@ export class SimulatorCore {
    * The Rodero volume heart bound to the current heart model, when the experimental anatomy is chosen and its volume has
    * arrived; starts loading it the first time it is asked for. Null otherwise (the analytic heart draws meanwhile).
    */
-  private roderoHeart(): { vh: VolumeHeart; endDiastole: HeartPose } | null {
+  private roderoHeart(): { vh: VolumeHeart; gpu: HeartVolumeGpu; endDiastole: HeartPose } | null {
     if (this.input.anatomy !== 'rodero') return null;
     if (!this.roderoLoad)
-      this.roderoLoad = import('@/simulator/anatomy/roderoHeart')
+      this.roderoLoad = import('@/simulator/core/roderoHeart')
         .then(async (lib) => {
           this.roderoVolume = await lib.loadRoderoVolume(this.fetchAsset);
           this.roderoLib = lib;
@@ -600,9 +606,11 @@ export class SimulatorCore {
     if (!this.roderoLib || !this.roderoVolume) return null;
     if (this.roderoBound?.heart !== this.heart) {
       const endDiastole = computeHeartPose(this.heart, cycleStateAt(this.tables, 0));
+      const vh = this.roderoLib.volumeHeart(this.roderoVolume, this.heart, endDiastole);
       this.roderoBound = {
         heart: this.heart,
-        vh: this.roderoLib.volumeHeart(this.roderoVolume, this.heart, endDiastole),
+        vh,
+        gpu: this.roderoLib.volumeHeartGpu(vh, endDiastole),
         endDiastole,
       };
     }
@@ -619,7 +627,8 @@ export class SimulatorCore {
   private anatomyStatus(): string {
     if (this.input.anatomy !== 'rodero') return 'analítica';
     if (this.roderoFailure) return `Rodero: error (${this.roderoFailure})`;
-    return this.roderoLib && this.roderoVolume ? 'Rodero (CPU)' : 'Rodero (cargando…)';
+    if (!this.roderoLib || !this.roderoVolume) return 'Rodero (cargando…)';
+    return this.backend === this.procedural ? 'Rodero (CPU)' : 'Rodero (GPU)';
   }
 
   private renderFrame(beam: BeamFrame, spec: PolarFrameSpec): void {

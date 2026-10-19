@@ -86,7 +86,7 @@ lateral, SNR de Rayleigh, quiste); con el corazón móvil el banco da 9 brechas 
 llevar anatomía móvil e imagen al GPU, o el Doppler (fase 4).
 
 En la app (decisión 352): el panel Dev elige la anatomía, analítica o Rodero (experimental, volumen de 1 mm en
-`public/anatomy`, trazador CPU a 3–5 cuadros por segundo). Siguen el GLSL del corazón de volumen y la imagen por
+`public/anatomy`). Desde la decisión 353 lo forma el GPU (37 ms por cuadro; CPU sin WebGL2). Sigue la imagen por
 convolución en el GPU.
 
 ## Cómo seguir

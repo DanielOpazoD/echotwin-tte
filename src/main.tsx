@@ -6,7 +6,7 @@ import { useHudStore, useSimStore } from './app/store';
 import '@fontsource-variable/inter';
 import '@fontsource-variable/jetbrains-mono';
 import './app/styles.css';
-import type { compareBackends, compareImageChain } from '@/app/debugCompare';
+import type { compareBackends, compareImageChain, compareRoderoBackends } from '@/app/debugCompare';
 import { frameBus } from '@/app/frameBus';
 
 // Test/debug hook (used by Playwright E2E and the dev console). It exposes the stores, and with them the case's ground
@@ -21,6 +21,8 @@ if (import.meta.env.DEV || import.meta.env.VITE_TEST_HOOKS === '1') {
     useHudStore,
     compareBackends: (...args: Parameters<typeof compareBackends>) =>
       import('@/app/debugCompare').then((m) => m.compareBackends(...args)),
+    compareRoderoBackends: (...args: Parameters<typeof compareRoderoBackends>) =>
+      import('@/app/debugCompare').then((m) => m.compareRoderoBackends(...args)),
     compareImageChain: (...args: Parameters<typeof compareImageChain>) =>
       import('@/app/debugCompare').then((m) => m.compareImageChain(...args)),
     frameBus,

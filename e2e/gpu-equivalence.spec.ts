@@ -178,6 +178,54 @@ for (const [caseId, views, phases, tier, offsetV, position] of MATRIX) {
 }
 
 /**
+ * The experimental Rodero heart (decisions 352 and 353): the GPU port's pass A over the volume's textures must
+ * reproduce the CPU tracer over its classifier, motion included, with the bounds of the matrix: in mid-systole (the twist,
+ * the base's descent and the closed leaflets at work), at the low tier. Each test binds the volume and compiles the
+ * variant of pass A anew, minutes on SwiftShader. The volume heart labels no LV segments, so they are not compared.
+ */
+for (const viewId of ['a4c', 'plax'])
+  test(`Rodero heart: GPU equals CPU, ${viewId} in mid-systole`, async ({ page }) => {
+    test.setTimeout(600_000);
+    const phase = 0.35;
+    const r = await page.evaluate(
+      ([v, p]) =>
+        (
+          window as unknown as {
+            __echotwin: {
+              compareRoderoBackends: (
+                view: string,
+                phase: number,
+                caseId: string,
+                tier: string,
+              ) => Promise<Comparison>;
+            };
+          }
+        ).__echotwin.compareRoderoBackends(v, p, 'normal-excellent-window', 'low'),
+      [viewId, phase] as const,
+    );
+    expect(r.error, 'WebGL2 must be available in the test browser').toBeUndefined();
+    expect(r.structureAgreement).toBeGreaterThan(0.995);
+    expect(r.tissueAgreement).toBeGreaterThan(0.995);
+    expect(r.ampRelDiff).toBeLessThan(MAX_AMP_REL_DIFF);
+    expect(r.transDiff).toBeLessThan(0.001);
+    const worst = Object.entries(r.perStructure ?? {})
+      .filter(([, v]) => v.samples >= MIN_SAMPLES)
+      .map(([name, v]) => ({ name, frac: v.mismatched / v.samples, ...v }))
+      .sort((a, b) => b.frac - a.frac);
+    console.info(
+      `Rodero ${viewId} ${phase}: structures ${(100 * r.structureAgreement).toFixed(2)}%, amplitude ${(100 * r.ampRelDiff).toFixed(2)}%, worst ${worst
+        .slice(0, 3)
+        .map((w) => `${w.name} ${(100 * w.frac).toFixed(2)}% of ${w.samples}`)
+        .join(', ')}`,
+    );
+    for (const w of worst)
+      expect(
+        w.frac,
+        `${w.name}: ${w.mismatched} of ${w.samples} samples differ between CPU and GPU`,
+      ).toBeLessThanOrEqual(MAX_STRUCTURE_DISAGREEMENT);
+  });
+
+/**
  * GPU image chain (decision 54): a four-frame chain formed on the GPU, GPU, CPU and GPU against the CPU console on
  * every frame (persistence within the GPU and across both switches), and the present pass (scan conversion +
  * colour overlay) against the CPU scan conversion and colour overlay of the same display.

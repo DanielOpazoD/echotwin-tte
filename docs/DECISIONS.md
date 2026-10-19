@@ -2714,3 +2714,53 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     Un error encontrado en la prueba: al volver a la anatomía analítica con una entrada sin el campo, el valor por defecto del parámetro recuperaba la elección anterior y el backend se quedaba en CPU.
 
     Pruebas: `labelVolumeCodec.test.ts`, `roderoAsset.test.ts` (rejilla, etiquetas, VI de 120–133 mL, puntos de referencia, fuente y licencia, cabeceras rotas) y `roderoAnatomy.test.ts` (lenta: el núcleo carga el volumen, dibuja otro corazón con el trazador CPU, devuelve el backend y avisa si el volumen no llega). Nueve mutaciones, nueve fallos.
+
+353. **El corazón de Rodero se dibuja en el GPU: su volumen y su movimiento en GLSL**: segundo paso de los tres (decisión 352). Con el trazador CPU el corazón de Rodero iba a 3–5 cuadros por segundo; ahora el puerto WebGL2 lo forma en vivo.
+
+    **En el GPU**:
+
+    - **Variante del paso A**: un programa propio (`VOLUME_HEART`) por volumen enlazado, compilado la primera vez que la escena lo trae. Llama a `classifyVolumeHeart` en lugar del corazón analítico; los demás pasos no cambian.
+    - **El shader** (`gpu/glslVolumeHeart.ts`) es el espejo del clasificador de la CPU:
+      - el mapa hacia atrás del movimiento, con los números de cada cuadro calculados en la CPU (`motionParams`);
+      - el mapa de etiquetas a tejido y estructura;
+      - el pericardio y la distancia fuera del saco;
+      - el sector de la pared del VI;
+      - la normal girada con la torsión;
+      - los velos y cuerdas analíticos de la fase, con una sola llamada al clasificador analítico.
+    - **Texturas**: etiquetas en R8UI 3D; distancias y normal octaédrica en RGBA16F 3D; tablas de cortes en R32F.
+    - **Constantes**: cada una llega como uniforme desde el TypeScript, así que ningún número de la anatomía se escribe dos veces.
+    - **Carga diferida**: el GLSL y la subida van en el trozo diferido del corazón de volumen (`core/roderoHeart.ts`), no en el de WebGL2, que está a 1 kB de su presupuesto.
+
+    **Lo que cambia en la CPU para que ambos lean lo mismo**:
+
+    - **Músculos papilares y banda moderadora**: el GPU sólo tiene los parámetros de la pose del cuadro, así que dejan de leerse del corazón analítico de fin de diástole en el punto de referencia. Se rasterizan en el volumen al enlazarlo al caso, con una pasada gruesa cada 3 vóxeles y luego vóxel a vóxel donde los hay, y la CPU y el GPU los leen de ahí.
+    - **Normales**: las da una sola función por vóxel, la misma que llena la tabla del GPU.
+    - **Curva auricular**: el GPU la necesita en cada cuadro. Se cuenta en una malla de 5 mm y se guarda por corazón y por 1/48 del ciclo, igual que la escala auricular resuelta. Contada de nuevo en cada cuadro a 2,5 mm se llevaba 200 ms de cada cuadro de la app.
+    - **Efecto medido en el caso normal**: la FE del volumen pasa de 59,2 a 58,6 % (los papilares ocupan cavidad); el vaciado de la AI, de 33,8 a 32,8 % (el de la aurícula analítica, a 34,8 % con la malla gruesa); el de la AD, de 31,8 a 31,6 %.
+    - **Sin GPU**, el núcleo sigue con el trazador CPU.
+
+    **Paridad CPU ↔ GPU** (`e2e/gpu-equivalence.spec.ts`, dos filas nuevas: A4C y PLAX a mitad de la sístole, con torsión, descenso de la base y velos cerrados, nivel bajo, SwiftShader):
+
+    | Vista | Estructuras iguales | Diferencia de amplitud |
+    |---|---|---|
+    | A4C | 99,95 % | 0,08 % |
+    | PLAX | 100 % | 0,14 % |
+
+    La peor estructura es el pericardio (0,36 %). Las cotas de la matriz son 99,5 % y 1,5 %. Cada fila enlaza el volumen y compila la variante (unos 2,5 min en SwiftShader); la primera tanda de cuatro filas a nivel medio pasó el tiempo de 5 min en tres.
+
+    **En la app** (Mac del proyecto, GPU), tras enlazar:
+
+    - 37 ms por cuadro con el corazón de Rodero frente a 11 ms con el analítico. El paso A llama al clasificador analítico en cada muestra de cavidad para los velos.
+    - Al elegirlo, la imagen se detiene unos segundos mientras el núcleo enlaza el volumen: 5 s del censo del marco anatómico (con una malla de 3 mm el marco se movía hasta 0,8 cm) y 2,5 s de campos y normales.
+    - El primer latido completa la curva auricular.
+
+    Paquetes: el trozo diferido pasa a 29 kB (dos copias), el de WebGL2 a 212,8 kB (214), el worker a 357,5 kB (360) y el total a 2094,9 kB (2100).
+
+    **Pruebas**:
+
+    - `volumeHeartGpu.test.ts` (lenta), sobre un WebGL2 de mentira que registra: cada uniforme del GLSL recibe valor; las texturas llevan el volumen en los formatos que lee el shader; el movimiento del cuadro es el de la CPU.
+    - `volumeHeart.test.ts`: papilares horneados con y sin pose, velos sólo con ella.
+    - `glslParity.test.ts`: el renderizador define la variante.
+    - La paridad e2e.
+
+    Siete mutaciones, siete fallos; el GLSL lo juzga la paridad.

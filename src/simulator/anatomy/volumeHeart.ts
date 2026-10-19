@@ -62,6 +62,11 @@ export const LABELS: Record<number, [Tissue, Structure]> = {
   22: [Tissue.VesselWall, Structure.PulmonaryVein],
   23: [Tissue.VesselWall, Structure.Svc],
   24: [Tissue.VesselWall, Structure.Ivc],
+  // the analytic heart's papillary muscles and moderator band at end diastole, rasterised into the cavities when the
+  // volume is bound to a heart (decision 353): carried with the walls, and the same voxels on the CPU and the GPU
+  40: [Tissue.Myocardium, Structure.PapillaryMuscle],
+  41: [Tissue.Myocardium, Structure.RvPapillary],
+  42: [Tissue.Myocardium, Structure.ModeratorBand],
   // the rims of the atrioventricular planes against the walls: the fibrous annuli (decision 350)
   37: [Tissue.Fibrous, Structure.MitralAnnulus],
   38: [Tissue.Fibrous, Structure.TricuspidAnnulus],
@@ -75,6 +80,18 @@ export const LABELS: Record<number, [Tissue, Structure]> = {
 /** Reach (voxels) and width of the Gaussian that weighs the interface normal on the voxels that border an interface. */
 const NORMAL_REACH = 5;
 const NORMAL_SIGMA = 2.5;
+/** The neighbours the border normal sums, with their Gaussian weights: (dx, dy, dz, weight) in a row. */
+const NORMAL_OFFSETS = (() => {
+  const o: number[] = [];
+  for (let w = -NORMAL_REACH; w <= NORMAL_REACH; w++)
+    for (let u = -NORMAL_REACH; u <= NORMAL_REACH; u++)
+      for (let t = -NORMAL_REACH; t <= NORMAL_REACH; t++) {
+        const r2 = t * t + u * u + w * w;
+        if (r2 === 0 || r2 > NORMAL_REACH * NORMAL_REACH) continue;
+        o.push(t, u, w, Math.exp(-r2 / (2 * NORMAL_SIGMA * NORMAL_SIGMA)));
+      }
+  return Float64Array.from(o);
+})();
 /**
  * Rotation of the LV at end-systole (degrees, positive counterclockwise seen from the apex), at its base and its apex,
  * linear in between: Kocabay et al. 2014 (healthy adults by speckle tracking, base −6.9 ± 3.5°, apex +13.0 ± 6.5°).
@@ -82,13 +99,21 @@ const NORMAL_SIGMA = 2.5;
 export const TWIST_BASE_DEG = -6.9;
 export const TWIST_APEX_DEG = 13.0;
 /** Height of the slices of the motion tables (cm), and their angular sectors around the LV slice's centre. */
-const SLICE_CM = 0.25;
-const SECTORS = 36;
+export const SLICE_CM = 0.25;
+export const SECTORS = 36;
 /** Width (cm) of the band beyond the LV epicardium over which the LV's radial motion and twist fade out. */
-const LV_FADE_CM = 1.5;
+export const LV_FADE_CM = 1.5;
+/** Heights (cm, from the mitral centre toward the apex) over which the LV's motion starts below the annulus. */
+export const LV_BAND_CM: readonly [number, number] = [-1, 0];
+/** Heights (cm) over which the atria's radial motion fades out toward the annulus. */
+export const ATRIAL_BAND_CM: readonly [number, number] = [0.5, -0.5];
+/** Distances (over the RV's slice radius) over which the RV free wall's inward motion fades out. */
+export const RV_REACH: readonly [number, number] = [1.6, 2.4];
+/** Share of the LV length beyond which the LV wall is the apex. */
+export const APEX_SHARE = 0.85;
 /** Septal → lateral coordinate (cm) over which the base's descent goes from MAPSE (LV side) to TAPSE (RV free wall). */
-const RV_DESCENT_FROM_CM = -1.5;
-const RV_DESCENT_TO_CM = -3.5;
+export const RV_DESCENT_FROM_CM = -1.5;
+export const RV_DESCENT_TO_CM = -3.5;
 /**
  * Reach (mm, mesh scale) of the fibrous annuli from the walls into the atrioventricular planes: the radii of the analytic
  * heart's annular tori (mitral 0.11 cm, tricuspid 0.09 cm). Without them the plane is cavity up to the wall, and the
@@ -193,7 +218,7 @@ export const APPARATUS = new Set<Structure>([
   Structure.ModeratorBand,
 ]);
 /** The parts of the apparatus that move with the analytic valves: leaflets and chords. */
-const LEAFLETS = new Set<Structure>([
+export const LEAFLETS = new Set<Structure>([
   Structure.MitralAnterior,
   Structure.MitralPosterior,
   Structure.TricuspidValve,
@@ -203,24 +228,33 @@ const LEAFLETS = new Set<Structure>([
 export const APPARATUS_HOSTS = new Set([7, 8, 31, 32, 33, 34]);
 
 /** The labels of each atrium's tissue: left (cavity, wall, the pulmonary veins' and appendage's caps and rings), right. */
-const ATRIAL_TISSUE = [
+export const ATRIAL_TISSUE = [
   new Set([33, 3, 11, 12, 13, 14, 15, 18, 19, 20, 21, 22]),
   new Set([34, 4, 16, 17, 23, 24]),
 ];
 /** Voxels of each atrium's cavity over which the radial scale that gives its volume is solved. */
 const ATRIAL_SAMPLES = 4000;
-/** Grid (cm) on which the analytic atria are counted. */
-const ATRIAL_GRID_CM = 0.25;
-const atrialCache = new WeakMap<HeartPose, { la: number; ra: number }>();
+/**
+ * Grid (cm) on which the analytic atria are counted, and the bins of the cycle over which a count is kept. Counted anew
+ * for every pose on a 2.5 mm grid, the curve took 200 ms of every frame of the app (decision 353): it depends only on the
+ * phase, and the ratio of two volumes on a 5 mm grid moves by about 1 %.
+ */
+const ATRIAL_GRID_CM = 0.5;
+export const ATRIAL_PHASE_BINS = 48;
+const atrialCache = new WeakMap<HeartModel, Map<number, { la: number; ra: number }>>();
 /**
  * Volumes (mL) of the analytic heart's left and right atrial cavities at `pose`, counted on a grid of ATRIAL_GRID_CM
- * around each atrium: the curves the volume's atria follow (decision 350).
+ * around each atrium: the curves the volume's atria follow (decision 350). Kept per heart and per bin of the cycle's
+ * phase: the first pose of a bin counts it.
  */
 export function analyticAtrialVolumes(
   heart: HeartModel,
   pose: HeartPose,
 ): { la: number; ra: number } {
-  const kept = atrialCache.get(pose);
+  const bin = Math.round(pose.state.phase * ATRIAL_PHASE_BINS) % ATRIAL_PHASE_BINS;
+  let bins = atrialCache.get(heart);
+  if (!bins) atrialCache.set(heart, (bins = new Map<number, { la: number; ra: number }>()));
+  const kept = bins.get(bin);
   if (kept) return kept;
   const A = heartAnchors(heart);
   const q = makeSample();
@@ -241,7 +275,7 @@ export function analyticAtrialVolumes(
     la: count(A.laCenter, A.laR, Structure.LaCavity),
     ra: count(A.raCenter, A.raR, Structure.RaCavity),
   };
-  atrialCache.set(pose, v);
+  bins.set(bin, v);
   return v;
 }
 
@@ -253,6 +287,49 @@ export interface VolumeHeartOptions {
   apparatus?: HeartPose;
   /** The cycle's pose that moves the volume (decision 350), and the end-diastolic pose the volume stands for. */
   motion?: { pose: HeartPose; endDiastole: HeartPose };
+}
+
+/**
+ * The bound volume as the GPU samples it (decision 353): its labels (baked apparatus, annuli and groove fat included),
+ * per voxel the distance beyond the epicardium and to the nearest interface (mm) and the unit normal in mesh axes
+ * (octahedral), the LV and RV slice tables (GPU_SLICE_COLUMNS per slice: LV centre, RV centre and radius, then the
+ * endocardial and epicardial radius of each sector) and the geometry the shader maps points with.
+ */
+export interface VolumeGpuData {
+  dims: V3;
+  labels: Uint8Array;
+  fields: Float32Array;
+  slices: Float32Array;
+  nSlices: number;
+  /** Grid origin (mm, mesh), voxel (mm), mesh frame (origin, axes), anatomical frame (origin, axes, heart frame). */
+  gridOrigin: V3;
+  voxelMm: number;
+  mesh: { o: V3; ex: V3; ey: V3; ez: V3; far: number };
+  frame: { origin: V3; ex: V3; ey: V3; ez: V3 };
+  /** cm of the model per mm of the mesh, LV length (cm), handedness of the twist. */
+  k: number;
+  lvLength: number;
+  hand: number;
+  /** Per atrium (left, right): axis centre x, y (cm), reach (cm), 1 when the volume has it. */
+  atria: number[];
+}
+/** Columns of a slice in `VolumeGpuData.slices`: LV cx, cy, RV cx, cy, radius, then 36 endocardial and 36 epicardial radii. */
+export const GPU_SLICE_COLUMNS = 5 + 2 * SECTORS;
+
+/**
+ * The motion of one frame (decision 350), what the backward map needs besides the volume's own geometry: the base's descent
+ * on the left and the right (cm), the LV's longitudinal stretch and emptied fraction, the twist at full weight (rad per
+ * degree of the profile), the atrial roof (cm), each atrium's radial scale and the RV free wall's.
+ */
+export interface MotionParams {
+  sL: number;
+  sR: number;
+  lambda: number;
+  alpha: number;
+  twist: number;
+  roof: number;
+  atrialScales: number[];
+  rvRatio: number;
 }
 
 /** A point carried back to end diastole, in the anatomical frame (cm), and the twist (rad) that carried it. */
@@ -279,6 +356,10 @@ export interface VolumeHeart {
    * per sector of 360°/SECTORS around it, the endocardial and epicardial radii of the sector's area (cm; slice-major).
    */
   lvSlices: { cx: Float64Array; cy: Float64Array; rEndo: Float64Array; rEpi: Float64Array };
+  /** The motion of the frame at `pose` (decision 350), the numbers the GPU's backward map takes (decision 353). */
+  motionParams(pose: HeartPose, endDiastole: HeartPose): MotionParams;
+  /** What the GPU samples (decision 353): built on first request and kept. */
+  gpu(): VolumeGpuData;
   /** The volume's label at a heart-frame point (cm), the groove fat as 254; −1 beyond the grid. */
   labelAt(hx: number, hy: number, hz: number): number;
   /** cm of the model per mm of the mesh. */
@@ -291,13 +372,12 @@ interface Fields {
   dEpi: Float32Array;
   dIf: Float32Array;
 }
-const fieldCache = new WeakMap<LabelVolume, Fields>();
 
-/** The volume's fields: labels with the groove fat, the distance beyond the epicardium and to the nearest interface (mm). */
-function volumeFields(vol: LabelVolume): Fields {
-  const h = vol.header;
-  // a copy: the groove fat is written into it
-  const label = Uint8Array.from(vol.labels);
+/**
+ * The volume's fields over labels the caller owns (the bound heart's copy): the fibrous annuli and the groove fat written
+ * into them, the distance beyond the epicardium and to the nearest interface (mm).
+ */
+function volumeFields(h: LabelVolumeHeader, label: Uint8Array): Fields {
   const dims = h.dims;
   const [nx, ny] = dims;
   const vox = h.voxelMm;
@@ -353,22 +433,109 @@ function volumeFields(vol: LabelVolume): Fields {
   return { h, label, dEpi, dIf };
 }
 
+/** Stride (voxels) of the coarse pass that finds where the baked apparatus lies. */
+const BAKE_STRIDE = 3;
+/** Structures of the analytic heart baked into the volume's cavities, with their labels. */
+const BAKED: Partial<Record<Structure, number>> = {
+  [Structure.PapillaryMuscle]: 40,
+  [Structure.RvPapillary]: 41,
+  [Structure.ModeratorBand]: 42,
+};
+
+/**
+ * A copy of the volume's labels with the analytic heart's papillary muscles and moderator band at end diastole written
+ * into its cavity voxels: each voxel centre taken to the heart frame and classified by the analytic heart.
+ */
+function bakeApparatus(
+  vol: LabelVolume,
+  heart: HeartModel,
+  ed: HeartPose,
+  M: { o: V3; ex: V3; ey: V3; ez: V3 },
+  F: { origin: V3; ex: V3; ey: V3; ez: V3 },
+  k: number,
+): Uint8Array {
+  const h = vol.header;
+  const label = Uint8Array.from(vol.labels);
+  const [nx, ny, nz] = h.dims;
+  const q = makeSample();
+  /** The baked label of the analytic heart at voxel (i, j, kk), 0 for none. */
+  const bakedAt = (i: number, j: number, kk: number): number => {
+    const m: V3 = [
+      h.origin[0] + (i + 0.5) * h.voxelMm - M.o[0],
+      h.origin[1] + (j + 0.5) * h.voxelMm - M.o[1],
+      h.origin[2] + (kk + 0.5) * h.voxelMm - M.o[2],
+    ];
+    const ax = dot(m, M.ex) * k,
+      ay = dot(m, M.ey) * k,
+      az = dot(m, M.ez) * k;
+    const hx = F.origin[0] + ax * F.ex[0] + ay * F.ey[0] + az * F.ez[0];
+    const hy = F.origin[1] + ax * F.ex[1] + ay * F.ey[1] + az * F.ez[1];
+    const hz = F.origin[2] + ax * F.ex[2] + ay * F.ey[2] + az * F.ez[2];
+    if (!classifyHeart(heart, ed, hx + ed.swingX, hy, hz, q)) return 0;
+    return BAKED[q.structure] ?? 0;
+  };
+  // a coarse pass over every BAKE_STRIDE-th voxel finds the blocks the apparatus reaches; the voxels of those blocks and
+  // their neighbours are classified one by one (the papillary muscles and the band are some millimetres across)
+  const S = BAKE_STRIDE;
+  const bx = Math.ceil(nx / S),
+    by = Math.ceil(ny / S),
+    bz = Math.ceil(nz / S);
+  const hit = new Uint8Array(bx * by * bz);
+  for (let kk = 0; kk < nz; kk += S)
+    for (let j = 0; j < ny; j += S)
+      for (let i = 0; i < nx; i += S)
+        if (APPARATUS_HOSTS.has(label[i + nx * (j + ny * kk)]!) && bakedAt(i, j, kk))
+          hit[i / S + bx * (j / S + by * (kk / S))] = 1;
+  for (let c = 0; c < bz; c++)
+    for (let b = 0; b < by; b++)
+      for (let a = 0; a < bx; a++) {
+        let near = false;
+        for (let w = -1; w <= 1 && !near; w++)
+          for (let u = -1; u <= 1 && !near; u++)
+            for (let t = -1; t <= 1 && !near; t++) {
+              const A = a + t,
+                B = b + u,
+                C = c + w;
+              if (
+                A >= 0 &&
+                B >= 0 &&
+                C >= 0 &&
+                A < bx &&
+                B < by &&
+                C < bz &&
+                hit[A + bx * (B + by * C)]
+              )
+                near = true;
+            }
+        if (!near) continue;
+        for (let kk = c * S; kk < Math.min(nz, (c + 1) * S); kk++)
+          for (let j = b * S; j < Math.min(ny, (b + 1) * S); j++)
+            for (let i = a * S; i < Math.min(nx, (a + 1) * S); i++) {
+              const v = i + nx * (j + ny * kk);
+              if (!APPARATUS_HOSTS.has(label[v]!)) continue;
+              const l = bakedAt(i, j, kk);
+              if (l) label[v] = l;
+            }
+      }
+  return label;
+}
+
 /** A label volume in the frame of `heart`, aligned by its end-diastolic pose `endDiastole`. */
 export function volumeHeart(
   vol: LabelVolume,
   heart: HeartModel,
   endDiastole: HeartPose,
 ): VolumeHeart {
-  const fields = fieldCache.get(vol) ?? volumeFields(vol);
-  fieldCache.set(vol, fields);
-  const { h, label, dEpi, dIf } = fields;
-  const dims = h.dims;
-  const [nx, ny, nz] = dims;
-  const vox = h.voxelMm;
-  const M = meshFrame(h);
+  const h0 = vol.header;
+  const M = meshFrame(h0);
   const marks = atlasMarks(heart, endDiastole);
   const F = marks.frame;
   const k = marks.lvLength / M.far;
+  const label = bakeApparatus(vol, heart, endDiastole, M, F, k);
+  const { h, dEpi, dIf } = volumeFields(h0, label);
+  const dims = h.dims;
+  const [nx, ny, nz] = dims;
+  const vox = h.voxelMm;
   const cls = (l: number): number => (l === FAT ? 1 : (LABELS[l]?.[0] ?? 0) + 2);
 
   const at = (i: number, j: number, kk: number): number => i + nx * (j + ny * kk);
@@ -425,43 +592,55 @@ export function volumeHeart(
       q,
     );
   /**
-   * Normal of the interfaces around the voxel's tissue. Off the interface, the gradient of the distance to it (the
-   * direction to the nearest interface, smooth: Euclidean). On the voxels that border it, where that distance has a kink
-   * and no gradient, the Gaussian-weighted gradient of the indicator of the voxel's own class over ±NORMAL_REACH voxels:
-   * a 3-voxel Sobel followed the staircase of an inclined surface and missed its normal by 10°. The volume is static:
-   * each bordering voxel's normal is worked out once, in mesh axes, and kept.
+   * Normal of the interfaces around a voxel's tissue, in mesh axes (not unit). Off the interface, the gradient of the
+   * distance to it (the direction to the nearest interface, smooth: Euclidean). On the voxels that border it, where that
+   * distance has a kink and no gradient, the Gaussian-weighted gradient of the indicator of the voxel's own class over
+   * ±NORMAL_REACH voxels: a 3-voxel Sobel followed the staircase of an inclined surface and missed its normal by 10°. Each
+   * bordering voxel's normal is worked out once and kept. The GPU's table holds the same normals (`gpu()`).
    */
   const borderNormals = new Map<number, V3>();
-  const classNormal = (i: number, j: number, kk: number, q: TissueSample): void => {
+  const meshNormal = (i: number, j: number, kk: number): V3 => {
     const v = at(i, j, kk);
-    if (dIf[v]! > vox) {
-      fieldNormal(dIf, i, j, kk, q);
-      return;
-    }
+    if (dIf[v]! > vox)
+      return [
+        dIf[at(clampI(i + 1, nx), j, kk)]! - dIf[at(clampI(i - 1, nx), j, kk)]!,
+        dIf[at(i, clampI(j + 1, ny), kk)]! - dIf[at(i, clampI(j - 1, ny), kk)]!,
+        dIf[at(i, j, clampI(kk + 1, nz))]! - dIf[at(i, j, clampI(kk - 1, nz))]!,
+      ];
     const kept = borderNormals.get(v);
-    if (kept) {
-      toHeart(kept[0], kept[1], kept[2], q);
-      return;
-    }
+    if (kept) return kept;
     const c = cls(label[v]!);
     let gx = 0,
       gy = 0,
       gz = 0;
-    for (let w = -NORMAL_REACH; w <= NORMAL_REACH; w++)
-      for (let u = -NORMAL_REACH; u <= NORMAL_REACH; u++)
-        for (let t = -NORMAL_REACH; t <= NORMAL_REACH; t++) {
-          const r2 = t * t + u * u + w * w;
-          if (r2 === 0 || r2 > NORMAL_REACH * NORMAL_REACH) continue;
-          const l = label[at(clampI(i + t, nx), clampI(j + u, ny), clampI(kk + w, nz))]!;
-          if (cls(l) === c) continue;
-          // the other tissue lies along +r: the outward normal points there
-          const wt = Math.exp(-r2 / (2 * NORMAL_SIGMA * NORMAL_SIGMA));
-          gx += wt * t;
-          gy += wt * u;
-          gz += wt * w;
-        }
-    borderNormals.set(v, [gx, gy, gz]);
-    toHeart(gx, gy, gz, q);
+    const inner =
+      i >= NORMAL_REACH &&
+      j >= NORMAL_REACH &&
+      kk >= NORMAL_REACH &&
+      i < nx - NORMAL_REACH &&
+      j < ny - NORMAL_REACH &&
+      kk < nz - NORMAL_REACH;
+    for (let o = 0; o < NORMAL_OFFSETS.length; o += 4) {
+      const t = NORMAL_OFFSETS[o]!,
+        u = NORMAL_OFFSETS[o + 1]!,
+        w = NORMAL_OFFSETS[o + 2]!;
+      const l = inner
+        ? label[v + t + nx * (u + ny * w)]!
+        : label[at(clampI(i + t, nx), clampI(j + u, ny), clampI(kk + w, nz))]!;
+      if (cls(l) === c) continue;
+      // the other tissue lies along +r: the outward normal points there
+      const wt = NORMAL_OFFSETS[o + 3]!;
+      gx += wt * t;
+      gy += wt * u;
+      gz += wt * w;
+    }
+    const n: V3 = [gx, gy, gz];
+    borderNormals.set(v, n);
+    return n;
+  };
+  const classNormal = (i: number, j: number, kk: number, q: TissueSample): void => {
+    const n = meshNormal(i, j, kk);
+    toHeart(n[0], n[1], n[2], q);
   };
 
   // heart frame (cm) → anatomical frame (mm of the mesh) → grid (voxels); the last point mapped, in `g`
@@ -647,7 +826,7 @@ export function volumeHeart(
   };
   /** The atrial radial motion's weight at height z and normalised distance d (distance over the atrium's reach). */
   const atrialWeight = (z: number, d: number, r: number): number =>
-    smooth(0.5, -0.5, z) * (1 - smooth(1, 1 + 1 / r, d));
+    smooth(ATRIAL_BAND_CM[0], ATRIAL_BAND_CM[1], z) * (1 - smooth(1, 1 + 1 / r, d));
   /**
    * How much the atrium's cavity grows in cross-section under a radial scale `sc` with the weights the map applies: the
    * mean of the area element's change (1 + (sc − 1)w)(1 + (sc − 1)(w + d·w′)) over a sample of its voxels.
@@ -699,10 +878,9 @@ export function volumeHeart(
     );
     return i < 0 || j < 0 || kk < 0 || i >= nx || j >= ny || kk >= nz ? -1 : label[at(i, j, kk)]!;
   };
-  const toReference = (
-    pose: HeartPose,
-    ed: HeartPose,
-  ): ((x: number, y: number, z: number, out: ReferencePoint) => void) => {
+  // the atria's scales of each bin of the cycle, solved once (they depend on the phase alone, as their curve does)
+  const atrialScaleBins = new Map<number, number[]>();
+  const motionParams = (pose: HeartPose, ed: HeartPose): MotionParams => {
     const sL = pose.zAnn - ed.zAnn;
     const sR = pose.tvZ - ed.tvZ;
     const lambda = 1 - sL / L;
@@ -714,17 +892,28 @@ export function volumeHeart(
     const vNow = analyticAtrialVolumes(heart, pose),
       vEd = analyticAtrialVolumes(heart, ed);
     const ratios = [vNow.la / vEd.la, vNow.ra / vEd.ra];
-    const atrialScales = atria.map((a2, i) => {
-      // the longitudinal step stretches the atrium above the annular plane by 1 + s/|roof| and compresses what of it lies
-      // below the plane (the right atrium reaches below the mitral centre) by 1 − s/L: its mean over the atrium's voxels
-      const sA = sL + (sR - sL) * smooth(RV_DESCENT_FROM_CM, RV_DESCENT_TO_CM, a2.cx);
-      const pts = atrialSamples[i]!;
-      let stretch = 0;
-      for (const [, z] of pts) stretch += z < 0 ? 1 + sA / -roof : 1 - sA / L;
-      stretch = pts.length ? stretch / pts.length : 1;
-      return atrialScaleFor(i, ratios[i]! / stretch);
-    });
+    const bin = Math.round(pose.state.phase * ATRIAL_PHASE_BINS) % ATRIAL_PHASE_BINS;
+    const keptScales = atrialScaleBins.get(bin);
+    const atrialScales =
+      keptScales ??
+      atria.map((a2, i) => {
+        // the longitudinal step stretches the atrium above the annular plane by 1 + s/|roof| and compresses what of it lies
+        // below the plane (the right atrium reaches below the mitral centre) by 1 − s/L: its mean over the atrium's voxels
+        const sA = sL + (sR - sL) * smooth(RV_DESCENT_FROM_CM, RV_DESCENT_TO_CM, a2.cx);
+        const pts = atrialSamples[i]!;
+        let stretch = 0;
+        for (const [, z] of pts) stretch += z < 0 ? 1 + sA / -roof : 1 - sA / L;
+        stretch = pts.length ? stretch / pts.length : 1;
+        return atrialScaleFor(i, ratios[i]! / stretch);
+      });
+    if (!keptScales) atrialScaleBins.set(bin, atrialScales);
     const rvRatio = pose.rvScale / ed.rvScale;
+    return { sL, sR, lambda, alpha, twist, roof, atrialScales, rvRatio };
+  };
+  const backward = (
+    mp: MotionParams,
+  ): ((x: number, y: number, z: number, out: ReferencePoint) => void) => {
+    const { sL, sR, lambda, alpha, twist, roof, atrialScales, rvRatio } = mp;
     return (x, y, z, out) => {
       // the LV's radial motion and twist, in the cross-section, toward the slice's centre
       // (the longitudinal step leaves x and y alone, so the slice is found by undoing it first)
@@ -735,7 +924,7 @@ export function volumeHeart(
         py = y,
         rot = 0,
         lvReach = 0;
-      const wz = smooth(-1, 0, zr);
+      const wz = smooth(LV_BAND_CM[0], LV_BAND_CM[1], zr);
       if (wz > 0) {
         const cx = slice(zr, lvSlices.cx),
           cy = slice(zr, lvSlices.cy);
@@ -767,7 +956,7 @@ export function volumeHeart(
           rr = slice(zr, rvR);
         if (rr > 0) {
           const d = Math.hypot(px - rcx, py - rcy) / rr;
-          const w = wz * (1 - lvReach) * (1 - smooth(1.6, 2.4, d));
+          const w = wz * (1 - lvReach) * (1 - smooth(RV_REACH[0], RV_REACH[1], d));
           if (w > 0) {
             const sc = 1 + (rvRatio - 1) * w;
             px = rcx + (px - rcx) / sc;
@@ -779,7 +968,7 @@ export function volumeHeart(
       // atrium whose own scaling carries it back onto that atrium's tissue (the left first); elsewhere to the nearer one,
       // by distance over each one's reach. By distance alone the larger right atrium took the left's septal side and
       // scaled it about its own axis: the left grew 1.15 times where 1.26 was asked.
-      const wa = smooth(0.5, -0.5, zr);
+      const wa = smooth(ATRIAL_BAND_CM[0], ATRIAL_BAND_CM[1], zr);
       if (wa > 0 && (atria[0]!.n || atria[1]!.n)) {
         const back = (ai: number): [number, number] => {
           const a2 = atria[ai]!;
@@ -816,6 +1005,7 @@ export function volumeHeart(
       out.twist = rot;
     };
   };
+  const toReference = (pose: HeartPose, ed: HeartPose) => backward(motionParams(pose, ed));
 
   // the anatomical frame (cm) of a heart-frame point, and back
   const toAnat = (hx: number, hy: number, hz: number, o: V3): void => {
@@ -833,7 +1023,6 @@ export function volumeHeart(
     const back = options.motion
       ? toReference(options.motion.pose, options.motion.endDiastole)
       : null;
-    const papPose = options.motion ? options.motion.endDiastole : options.apparatus;
     const cur: V3 = [0, 0, 0],
       refH: V3 = [0, 0, 0];
     const ref: ReferencePoint = { x: 0, y: 0, z: 0, twist: 0 };
@@ -883,25 +1072,15 @@ export function volumeHeart(
         fieldNormal(dEpi, i, j, kk, q);
         return true;
       }
-      // the analytic valve apparatus in the cavities: leaflets and chords where the analytic heart has them now, the
-      // papillary muscles and the moderator band carried with the walls from end diastole
-      if (APPARATUS_HOSTS.has(l)) {
-        if (
-          options.apparatus &&
-          classifyHeart(heart, options.apparatus, hx, hy, hz, q) &&
-          APPARATUS.has(q.structure) &&
-          (!back || LEAFLETS.has(q.structure))
-        )
-          return true;
-        if (
-          back &&
-          papPose &&
-          classifyHeart(heart, papPose, rx, ry, rz, q) &&
-          APPARATUS.has(q.structure) &&
-          !LEAFLETS.has(q.structure)
-        )
-          return true;
-      }
+      // the analytic leaflets and chords where the analytic heart has them now; the papillary muscles and the moderator
+      // band are the volume's own voxels, baked at end diastole and carried with the walls (decision 353)
+      if (
+        options.apparatus &&
+        APPARATUS_HOSTS.has(l) &&
+        classifyHeart(heart, options.apparatus, hx, hy, hz, q) &&
+        LEAFLETS.has(q.structure)
+      )
+        return true;
       setMaterial(q, rx, ry, rz);
       const lab = l === FAT ? null : LABELS[l];
       if (l !== FAT && !lab) {
@@ -914,7 +1093,7 @@ export function volumeHeart(
         // the LV wall by its sector around the long axis, the apex beyond 85 % of the length
         const phi = Math.atan2(ay, ax);
         q.structure =
-          az > 0.85 * M.far
+          az > APEX_SHARE * M.far
             ? Structure.LvApex
             : Math.abs(phi) < Math.PI / 4
               ? Structure.LvWallLateral
@@ -929,5 +1108,64 @@ export function volumeHeart(
       return true;
     };
   };
-  return { classifier, toReference, lvSlices, labelAt, cmPerMm: k };
+  let gpuData: VolumeGpuData | null = null;
+  const gpu = (): VolumeGpuData => {
+    if (gpuData) return gpuData;
+    const n = label.length;
+    const fields = new Float32Array(4 * n);
+    for (let kk = 0; kk < nz; kk++)
+      for (let j = 0; j < ny; j++)
+        for (let i = 0; i < nx; i++) {
+          const v = at(i, j, kk);
+          const [gx, gy, gz] = meshNormal(i, j, kk);
+          // octahedral code of the unit normal: (0, 0) for none, which decodes to +z
+          const l1 = Math.abs(gx) + Math.abs(gy) + Math.abs(gz);
+          let ox = 0,
+            oy = 0;
+          if (l1 > 0) {
+            ox = gx / l1;
+            oy = gy / l1;
+            if (gz < 0) {
+              const tx = (1 - Math.abs(oy)) * (ox >= 0 ? 1 : -1),
+                ty = (1 - Math.abs(ox)) * (oy >= 0 ? 1 : -1);
+              ox = tx;
+              oy = ty;
+            }
+          }
+          fields[4 * v] = dEpi[v]!;
+          fields[4 * v + 1] = dIf[v]!;
+          fields[4 * v + 2] = ox;
+          fields[4 * v + 3] = oy;
+        }
+    const slices = new Float32Array(nSlices * GPU_SLICE_COLUMNS);
+    for (let si = 0; si < nSlices; si++) {
+      const o = si * GPU_SLICE_COLUMNS;
+      slices[o] = lvSlices.cx[si]!;
+      slices[o + 1] = lvSlices.cy[si]!;
+      slices[o + 2] = rvC.cx[si]!;
+      slices[o + 3] = rvC.cy[si]!;
+      slices[o + 4] = rvR[si]!;
+      for (let t = 0; t < SECTORS; t++) {
+        slices[o + 5 + t] = lvSlices.rEndo[si * SECTORS + t]!;
+        slices[o + 5 + SECTORS + t] = lvSlices.rEpi[si * SECTORS + t]!;
+      }
+    }
+    gpuData = {
+      dims,
+      labels: label,
+      fields,
+      slices,
+      nSlices,
+      gridOrigin: h.origin,
+      voxelMm: vox,
+      mesh: M,
+      frame: { origin: F.origin, ex: F.ex, ey: F.ey, ez: F.ez },
+      k,
+      lvLength: L,
+      hand,
+      atria: atria.flatMap((a2) => [a2.cx, a2.cy, a2.r, a2.n ? 1 : 0]),
+    };
+    return gpuData;
+  };
+  return { classifier, toReference, motionParams, gpu, lvSlices, labelAt, cmPerMm: k };
 }

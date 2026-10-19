@@ -122,6 +122,9 @@ export class Webgl2Renderer implements RendererBackend {
   readonly id = 'webgl2-procedural' as const;
   private gl: WebGL2RenderingContext;
   private progA: WebGLProgram;
+  /** Pass A over a heart read from a label volume (decision 353): one variant per bound volume, compiled on first use. */
+  private volumePassA = new Map<string, WebGLProgram>();
+  private common = '';
   private progB: WebGLProgram;
   private progL: WebGLProgram;
   private progP: WebGLProgram;
@@ -221,6 +224,7 @@ export class Webgl2Renderer implements RendererBackend {
     const ext = gl.getExtension('EXT_color_buffer_float');
     if (!ext) throw new Error('EXT_color_buffer_float unavailable');
     const common = `#version 300 es\n${GLSL_COMMON}`;
+    this.common = common;
     this.progA = buildProgram(
       gl,
       GLSL_VERT,
@@ -250,18 +254,8 @@ export class Webgl2Renderer implements RendererBackend {
     this.noiseTex = gl.createTexture()!;
     this.psfTex = makeTexture2D(gl);
     this.uElevK = gl.getUniformLocation(this.progA, 'uElevK');
-    gl.useProgram(this.progA);
-    const tp = new Float32Array(20 * 4);
-    for (let t = 0; t < 20; t++) {
-      const p = TISSUE_PROPS[t];
-      if (!p) continue;
-      tp[t * 4] = p.reflect;
-      tp[t * 4 + 1] = p.specular;
-      tp[t * 4 + 2] = p.attenuation;
-      tp[t * 4 + 3] = p.grain;
-    }
-    gl.uniform4fv(gl.getUniformLocation(this.progA, 'uTissue'), tp);
-    for (const prog of [this.progA, this.progL, this.progP, this.progB, this.progC, this.progD]) {
+    this.initPassA(this.progA);
+    for (const prog of [this.progL, this.progP, this.progB, this.progC, this.progD]) {
       gl.useProgram(prog);
       gl.uniform1i(gl.getUniformLocation(prog, 'uParams'), 0);
       gl.uniform1i(gl.getUniformLocation(prog, 'uNoise'), 1);
@@ -331,6 +325,7 @@ export class Webgl2Renderer implements RendererBackend {
     this.disposed = true;
     const gl = this.gl;
     for (const p of [
+      ...this.volumePassA.values(),
       this.progA,
       this.progL,
       this.progP,
@@ -574,6 +569,43 @@ export class Webgl2Renderer implements RendererBackend {
   }
 
   /** Passes A–D: envelope amplitude and transmission in texD0, ids in texB1; fbD stays bound. */
+  /** Pass A's constant uniforms: the tissue table, the parameter and noise units. */
+  private initPassA(prog: WebGLProgram): void {
+    const gl = this.gl;
+    gl.useProgram(prog);
+    const tp = new Float32Array(20 * 4);
+    for (let t = 0; t < 20; t++) {
+      const p = TISSUE_PROPS[t];
+      if (!p) continue;
+      tp[t * 4] = p.reflect;
+      tp[t * 4 + 1] = p.specular;
+      tp[t * 4 + 2] = p.attenuation;
+      tp[t * 4 + 3] = p.grain;
+    }
+    gl.uniform4fv(gl.getUniformLocation(prog, 'uTissue'), tp);
+    gl.uniform1i(gl.getUniformLocation(prog, 'uParams'), 0);
+    gl.uniform1i(gl.getUniformLocation(prog, 'uNoise'), 1);
+  }
+
+  /** The pass A program of a scene: the analytic heart's, or the variant over the scene's volume heart (decision 353). */
+  private passAFor(scene: Scene): WebGLProgram {
+    const hv = scene.heartVolumeGpu;
+    if (!hv) return this.progA;
+    let prog = this.volumePassA.get(hv.key);
+    if (!prog) {
+      const gl = this.gl;
+      prog = buildProgram(
+        gl,
+        GLSL_VERT,
+        `${this.common}#define VOLUME_HEART\n${GLSL_HEART}${GLSL_THORAX}${hv.glsl}${GLSL_PASS_A_MAIN}`,
+      );
+      this.initPassA(prog);
+      hv.upload(gl);
+      this.volumePassA.set(hv.key, prog);
+    }
+    return prog;
+  }
+
   private formEnvelope(scene: Scene, beam: BeamFrame, spec: PolarFrameSpec): void {
     const gl = this.gl;
     const w = spec.samples,
@@ -594,16 +626,22 @@ export class Webgl2Renderer implements RendererBackend {
     // pass A: the side elevation planes first (slice thickness, high tier; one classifier call per shader,
     // because a shader with two inlined copies of the classifier silently fails under SwiftShader), then the
     // central plane whose ids, attenuation, phasor and lung entry are the ones kept
-    gl.useProgram(this.progA);
+    const progA = this.passAFor(scene);
+    gl.useProgram(progA);
+    const uElevK = progA === this.progA ? this.uElevK : gl.getUniformLocation(progA, 'uElevK');
+    if (scene.heartVolumeGpu) {
+      scene.heartVolumeGpu.bind(gl, progA, 2);
+      scene.heartVolumeGpu.frame(gl, progA, scene.heartPose);
+    }
     if (spec.elevationSamples > 1) {
-      gl.uniform1f(this.uElevK, -1);
+      gl.uniform1f(uElevK, -1);
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbS0);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
-      gl.uniform1f(this.uElevK, 1);
+      gl.uniform1f(uElevK, 1);
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbS1);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     }
-    gl.uniform1f(this.uElevK, 0);
+    gl.uniform1f(uElevK, 0);
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbA);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     const bindAt = (unit: number, tex: WebGLTexture | null): void => this.bindAt(unit, tex);

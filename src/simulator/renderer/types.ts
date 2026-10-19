@@ -112,12 +112,27 @@ export interface Scene {
   thorax: ThoraxModel;
   physics: ScenePhysics;
   /**
-   * A heart in place of the analytic one (decision 346): the CPU tracer asks it instead of `classifyHeart`. The app never
-   * sets it, and the GPU backend does not read it; offline engines measure other anatomies with it.
+   * A heart in place of the analytic one (decision 346): the CPU tracer asks it instead of `classifyHeart`. The
+   * experimental anatomy of the app (decision 352) and the offline engines set it.
    */
   heartClassifier?: HeartClassifier;
+  /** The same heart for the GPU port (decision 353): its pass A samples the volume instead of the analytic heart. */
+  heartVolumeGpu?: HeartVolumeGpu;
 }
 export type { HeartClassifier };
+
+/**
+ * A heart read from a label volume, as the GPU port samples it (decision 353). The port compiles a variant of pass A with
+ * `glsl` (which defines `classifyVolumeHeart`), uploads the volume once per `key`, binds its textures from `firstUnit`
+ * and sets each frame's motion from the scene's pose. Built with the volume's code, outside the WebGL2 chunk.
+ */
+export interface HeartVolumeGpu {
+  readonly key: string;
+  readonly glsl: string;
+  upload(gl: WebGL2RenderingContext): void;
+  bind(gl: WebGL2RenderingContext, prog: WebGLProgram, firstUnit: number): void;
+  frame(gl: WebGL2RenderingContext, prog: WebGLProgram, pose: HeartPose): void;
+}
 
 /**
  * RendererBackend contract (spec 0.7, 30): produces raw polar frames for a beam/scene. Implemented
