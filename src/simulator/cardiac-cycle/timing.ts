@@ -2,7 +2,7 @@ import type { PhysiologyConfig, RhythmConfig } from '@/cases/schema';
 
 /**
  * Cardiac cycle timing model. Phase 0 = mitral closure, the mechanical end-diastole; the ECG's QRS onset falls
- * ELECTROMECHANICAL_DELAY_S before it (decision 348). All times in seconds within one beat.
+ * ELECTROMECHANICAL_DELAY_S before it (decision 349). All times in seconds within one beat.
  * Ejection time follows an empirical linear HR dependence (LVET ≈ 0.413 − 0.0017·HR s, clamped),
  * documented in docs/DECISIONS.md as an approximation.
  */
@@ -32,7 +32,7 @@ export interface CycleTimings {
  * aortic valve opened at 60 ms and the whole of systole ran early against the ECG.
  */
 export function preEjectionPeriodS(heartRateBpm: number, contractility = 1): number {
-  // a weaker ventricle takes longer to raise its pressure to the aortic one (decision 348): PEP/LVET, 0.35 ± 0.04 in
+  // a weaker ventricle takes longer to raise its pressure to the aortic one (decision 349): PEP/LVET, 0.35 ± 0.04 in
   // health, passes 0.44 with left ventricular dysfunction (Weissler and Garrard); the factor brings the heart failure
   // case (contractility 0.45) to 0.55
   const weaker = Math.min(1.8, Math.max(0.8, 2 - contractility));
@@ -40,7 +40,7 @@ export function preEjectionPeriodS(heartRateBpm: number, contractility = 1): num
 }
 
 /**
- * QRS onset to mitral closure (s), the electromechanical delay that opens the pre-ejection period (decision 348). Phase 0
+ * QRS onset to mitral closure (s), the electromechanical delay that opens the pre-ejection period (decision 349). Phase 0
  * of the cycle is the mitral closure — the end of the A wave, where the end-diastolic frames are taken — and the ECG
  * draws its QRS this much earlier, so Weissler's pre-ejection period still runs from the QRS onset while the isovolumic
  * contraction, from mitral closure to aortic opening, is what is left of it: 55 ms at 65 bpm. Counted from phase 0 as if
@@ -58,7 +58,7 @@ export const SYSTOLIC_CLOSURE_S = 0.03;
  * Where the QRS onset falls before phase 0 (s). With an A wave, phase 0 is its end, the mitral closure: the whole
  * electromechanical delay. Without one (atrial fibrillation) the leaflets close over the first SYSTOLIC_CLOSURE_S of
  * systole, and phase 0 is where they start: the QRS falls that much less before it, so the mitral valve closes at the
- * same delay after the QRS onset in both rhythms (decision 348).
+ * same delay after the QRS onset in both rhythms (decision 349).
  */
 export function qrsBeforePhase0S(hasAWave: boolean): number {
   return hasAWave ? ELECTROMECHANICAL_DELAY_S : ELECTROMECHANICAL_DELAY_S - SYSTOLIC_CLOSURE_S;

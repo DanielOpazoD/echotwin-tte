@@ -626,7 +626,7 @@ describe('the timing of systole and of the right-sided valves', () => {
       const k = loadCaseById(input.id);
       const hr = k.rhythm.heartRateBpm;
       const t = buildBeatTables(60 / hr, k.physiology, k.rhythm, k.hemodynamics).timings;
-      // from the QRS onset, which falls the electromechanical delay before phase 0 (decision 348)
+      // from the QRS onset, which falls the electromechanical delay before phase 0 (decision 349)
       const pep = (t.ejectionStartS + qrsBeforePhase0S(t.hasAWave)) * 1000;
       const lvet = (t.ejectionEndS - t.ejectionStartS) * 1000;
       if (k.physiology.contractility === 1) {
@@ -643,7 +643,7 @@ describe('the timing of systole and of the right-sided valves', () => {
     }
   });
 
-  it('leaves the healthy heart 40–70 ms of isovolumic contraction and a Tei index of 0.34–0.44 (decision 348)', async () => {
+  it('leaves the healthy heart 40–70 ms of isovolumic contraction and a Tei index of 0.34–0.44 (decision 349)', async () => {
     const { loadCaseById } = await import('@/cases');
     const k = loadCaseById('normal-excellent-window');
     const t = buildBeatTables(

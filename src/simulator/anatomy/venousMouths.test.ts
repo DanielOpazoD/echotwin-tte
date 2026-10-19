@@ -98,7 +98,7 @@ describe('the pulmonary veins and the appendage open into the left atrium (decis
  * fail: once it holds, the entry is stale.
  */
 const KNOWN_RA_IN_VEIN: Record<string, string> = {
-  // decision 348: with systole 20 ms earlier against the beat, the atrial fibrillation's end-systole falls on phase 0.5
+  // decision 349: with systole 20 ms earlier against the beat, the atrial fibrillation's end-systole falls on phase 0.5
   'af-diastolic':
     'the right inferior vein grazes the right atrium at end-systole: 1 of 480 samples of its first 2 cm at phase 0.5 (326 ms), none at 0.48 or 0.52',
   'hfref-severe-mr':

@@ -4,7 +4,7 @@ import { hash3 } from '@/core/random';
 
 /**
  * Synthetic educational ECG (spec 24): sum of Gaussians anchored at the QRS onset, `qrsBeforePhase0S` before phase 0
- * (the mitral closure, decision 348); a wave that falls before phase 0 is drawn at the end of the beat too.
+ * (the mitral closure, decision 349); a wave that falls before phase 0 is drawn at the end of the beat too.
  * Not diagnostic. In AF: no P wave, fibrillatory baseline, irregular RR from the clock.
  */
 function gauss(t: number, mu: number, sigma: number, amp: number): number {
