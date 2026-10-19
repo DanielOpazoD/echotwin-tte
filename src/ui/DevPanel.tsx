@@ -2,12 +2,25 @@ import { useHudStore, useSimStore } from '@/app/store';
 import { useShallow } from 'zustand/shallow';
 import { modePolicy } from '@/app/modePolicy';
 import { formatClinical } from '@/clinical/reference-values';
-import { RENDERER_BACKEND_CHOICES, type RendererBackendChoice } from '@/simulator/core/protocol';
+import {
+  ANATOMY_CHOICES,
+  RENDERER_BACKEND_CHOICES,
+  type AnatomyChoice,
+  type RendererBackendChoice,
+} from '@/simulator/core/protocol';
 
 const BACKEND_TITLES: Record<RendererBackendChoice, string> = {
   atlas: 'Caché de pose idéntica sobre la GPU (o la CPU si no hay WebGL2)',
   procedural: 'Trazador de referencia en CPU',
   webgl2: 'Trazador en GPU (WebGL2); vuelve al procedimental si no está disponible',
+};
+
+const ANATOMY_LABELS: Record<AnatomyChoice, [string, string]> = {
+  analytic: ['analítica', 'El corazón del modelo analítico (por omisión)'],
+  rodero: [
+    'Rodero (experimental)',
+    'El corazón medio de Rodero et al. 2021 (TC, CC BY 4.0) movido por el ciclo del caso, en el trazador CPU',
+  ],
 };
 
 /** Developer panel (spec 15.4, 45). Never rendered in exam mode. */
@@ -18,6 +31,8 @@ export function DevPanel() {
       probe: st.probe,
       rendererBackend: st.rendererBackend,
       setBackend: st.setBackend,
+      anatomy: st.anatomy,
+      setAnatomy: st.setAnatomy,
       truth: st.truth,
       ui: st.ui,
     })),
@@ -125,6 +140,19 @@ export function DevPanel() {
             data-tip={BACKEND_TITLES[b]}
           >
             {b}
+          </button>
+        ))}
+      </div>
+      <h4>Anatomía</h4>
+      <div className="row">
+        {ANATOMY_CHOICES.map((a) => (
+          <button
+            key={a}
+            className={s.anatomy === a ? 'active' : ''}
+            onClick={() => s.setAnatomy(a)}
+            data-tip={ANATOMY_LABELS[a][1]}
+          >
+            {ANATOMY_LABELS[a][0]}
           </button>
         ))}
       </div>

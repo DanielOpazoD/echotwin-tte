@@ -1,0 +1,43 @@
+{
+ "source": "Rodero C, Strocchi M, Marciniak M, et al. Linking statistical shape models and simulated function in the healthy adult human heart. PLoS Comput Biol 2021;17:e1008851. Mean shape: Zenodo 4593739, average.vtk.",
+ "license": "CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Derived: voxelised and reduced (tools/offline/anatomy2/rodero-voxelize.ts 0.5, rodero-asset.ts 2), labels of src/simulator/anatomy/volumeHeart.ts.",
+ "units": "mm, mesh (CT, LPS) coordinates",
+ "voxelMm": 1,
+ "origin": [
+  -74.90449523925781,
+  -62.416385650634766,
+  -59.68150329589844
+ ],
+ "dims": [
+  141,
+  120,
+  137
+ ],
+ "landmarks": {
+  "mitral": [
+   3.135700246989399,
+   21.163490210771375,
+   12.585854272520852
+  ],
+  "tricuspid": [
+   -31.991053343691966,
+   -5.562962152520388,
+   -3.240647636052529
+  ],
+  "aortic": [
+   -8.627143904512621,
+   0.9672959050237396,
+   25.98744903306159
+  ],
+  "pulmonary": [
+   2.9316250144601206,
+   -25.415218196587546,
+   41.05842776116466
+  ],
+  "apex": [
+   46.38111877441406,
+   -35.052974700927734,
+   -43.45431137084961
+  ]
+ }
+}

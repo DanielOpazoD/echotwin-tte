@@ -85,6 +85,10 @@ referencia del banco y una mirada, motores `cole` y `rodero-cole`. Los fantomas 
 lateral, SNR de Rayleigh, quiste); con el corazón móvil el banco da 9 brechas mejores, 4 peores y 7 iguales. Siguiente:
 llevar anatomía móvil e imagen al GPU, o el Doppler (fase 4).
 
+En la app (decisión 352): el panel Dev elige la anatomía, analítica o Rodero (experimental, volumen de 1 mm en
+`public/anatomy`, trazador CPU a 3–5 cuadros por segundo). Siguen el GLSL del corazón de volumen y la imagen por
+convolución en el GPU.
+
 ## Cómo seguir
 
 1. `git switch main && git pull`; los worktrees temporales viven en `$TMPDIR/wt-*` y se borran al

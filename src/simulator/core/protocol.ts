@@ -16,6 +16,12 @@ import type { StructuredEchoTruth } from '@/simulator/hemodynamics/groundTruth';
  */
 export const RENDERER_BACKEND_CHOICES = ['atlas', 'procedural', 'webgl2'] as const;
 export type RendererBackendChoice = (typeof RENDERER_BACKEND_CHOICES)[number];
+/**
+ * The heart the frames draw (decision 352): the analytic model, or the experimental mean heart of Rodero et al. 2021
+ * moved by the case's cycle (decision 350), formed by the CPU tracer while the GPU port does not read it.
+ */
+export const ANATOMY_CHOICES = ['analytic', 'rodero'] as const;
+export type AnatomyChoice = (typeof ANATOMY_CHOICES)[number];
 
 export type QualityTier = 'low' | 'medium' | 'high';
 /**
@@ -42,6 +48,8 @@ export interface SimInput {
   quality: QualityChoice;
   display: { width: number; height: number };
   rendererBackend: RendererBackendChoice;
+  /** The heart the frames draw; the analytic one when absent. */
+  anatomy?: AnatomyChoice;
   /** Artifact laboratory: live overrides of the case artifacts (0..1 each); null = as defined by the case. */
   artifactOverrides: {
     sideLobe: number;
