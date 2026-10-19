@@ -52,8 +52,10 @@ const BUDGETS = [
 ];
 // 1992 kB at decision 270; decisions 271-273 (the gastric fundus, the aortic pulse, the heart against the posterior
 // column) added 9.4 kB, most of it twice or three times over: the anatomy and the cycle are bundled in the simulation
-// worker, the mesh worker and the WebGL2 port alike
-const TOTAL_JS_BUDGET = 2060 * KB;
+// worker, the mesh worker and the WebGL2 port alike. Decision 352 adds the experimental anatomy's volume heart as a chunk
+// fetched only when it is chosen (15 kB, once for the worker and once for the core that runs without one): 2063.2 kB,
+// raised to 2100 kB.
+const TOTAL_JS_BUDGET = 2100 * KB;
 
 let files;
 try {

@@ -20,6 +20,7 @@ export const USED_BY_LABEL: Readonly<Record<string, string>> = {
   reporting: 'informe',
   'right-heart': 'corazón derecho',
   'segment-catalog': 'catálogo de segmentos',
+  'experimental-anatomy': 'anatomía experimental',
   'segment-catalog (LV 18, strain: future)':
     'catálogo de segmentos (VI de 18 segmentos; strain pendiente)',
   simpson: 'método de Simpson',

@@ -21,6 +21,7 @@ import {
   DEFAULT_QUALITY,
   type QualityChoice,
   type RendererBackendChoice,
+  type AnatomyChoice,
   type SimOutput,
 } from '@/simulator/core/protocol';
 import type { StructuredEchoTruth } from '@/simulator/hemodynamics/groundTruth';
@@ -129,6 +130,8 @@ export interface SimStore {
   gateDepthCm: number;
   quality: QualityChoice;
   rendererBackend: RendererBackendChoice;
+  /** The heart the frames draw (decision 352): the analytic model or the experimental Rodero heart. */
+  anatomy: AnatomyChoice;
   mode: ProductMode;
   targetViewId: string | null;
   ui: UiPrefs;
@@ -224,6 +227,7 @@ export interface SimStore {
   setCursor: (theta: number, depth?: number) => void;
   setQuality: (q: QualityChoice) => void;
   setBackend: (b: RendererBackendChoice) => void;
+  setAnatomy: (a: AnatomyChoice) => void;
   /** `examCaseId` fixes the case an exam starts on; without it the exam draws one at random (`modePolicy.assignsCase`). */
   setMode: (m: ProductMode, examCaseId?: string) => void;
   setTargetView: (id: string | null) => void;
@@ -426,6 +430,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
   gateDepthCm: 9,
   quality: DEFAULT_QUALITY,
   rendererBackend: 'atlas',
+  anatomy: 'analytic',
   mode: 'sandbox',
   targetViewId: null,
   ui: {
@@ -546,6 +551,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
     ),
   setQuality: (q) => set({ quality: q }),
   setBackend: (b) => set({ rendererBackend: b }),
+  setAnatomy: (a) => set({ anatomy: a }),
   setMode: (m, examCaseId) =>
     set((s) => {
       const policy = modePolicy(m);
@@ -687,6 +693,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
       gateDepthCm: i.gateDepthCm,
       quality: i.quality,
       rendererBackend: i.rendererBackend,
+      anatomy: i.anatomy ?? 'analytic',
       // a frozen cine cannot be restored: the frame is replayed live at the report's probe and console
       frozen: false,
       cineOffset: 0,

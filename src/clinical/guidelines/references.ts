@@ -165,6 +165,19 @@ export const GUIDELINE_REFERENCES: GuidelineReference[] = [
     verification: 'verified-online',
     notes: 'Segment names and SNOMED CT codes of catalog.ts.',
   },
+  {
+    id: 'rodero-ssm-2021',
+    society: 'Rodero et al., PLoS Comput Biol 2021;17:e1008851',
+    title:
+      'Linking statistical shape models and simulated function in the healthy adult human heart (mean four-chamber shape, CC BY 4.0)',
+    year: 2021,
+    url: 'https://zenodo.org/records/4593739',
+    accessedAt: '2026-10-19',
+    usedBy: ['experimental-anatomy'],
+    verification: 'verified-online',
+    notes:
+      'The mean shape of 20 healthy hearts by CT, shipped voxelised at 1 mm (public/anatomy, decision 352) as the experimental anatomy. Licence CC BY 4.0.',
+  },
 ];
 
 export function getReference(id: string): GuidelineReference {

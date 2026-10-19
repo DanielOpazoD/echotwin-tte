@@ -97,6 +97,9 @@ import type {
   StripInfo,
 } from './protocol';
 import { resolveQualityTier } from './quality';
+import type { AssetFetcher } from '@/simulator/anatomy/roderoAsset';
+import type * as RoderoHeartModule from '@/simulator/anatomy/roderoHeart';
+import type { LabelVolume, VolumeHeart } from '@/simulator/anatomy/volumeHeart';
 import { MMODE_TRACE_SHARE } from './mmodeStrip';
 import { StripEngine, type StripCtx } from './stripEngine';
 
@@ -130,6 +133,17 @@ export class SimulatorCore {
     thorax: ThoraxModel;
   }>();
   private procedural = new ProceduralSliceRenderer();
+  /**
+   * The experimental anatomy (decision 352): the shipped Rodero volume, loaded once on demand, and the volume heart bound
+   * to the current heart model with its end-diastolic pose. While it is chosen the CPU tracer forms the image: the GPU
+   * port does not read a scene's heart classifier.
+   */
+  private readonly fetchAsset: AssetFetcher;
+  private roderoLib: typeof RoderoHeartModule | null = null;
+  private roderoVolume: LabelVolume | null = null;
+  private roderoLoad: Promise<void> | null = null;
+  private roderoFailure: string | null = null;
+  private roderoBound: { heart: HeartModel; vh: VolumeHeart; endDiastole: HeartPose } | null = null;
   /** The CPU tracer of review mode's point explanation (decision 340), made on first use. */
   private explainTracer: ProceduralSliceRenderer | null = null;
   private atlas: AtlasRenderer;
@@ -206,8 +220,9 @@ export class SimulatorCore {
   /** Render budget of the current frame (ms): 0.6 of the simulated frame interval. */
   private frameBudgetMs = 25;
 
-  constructor(caseDef: CaseDefinition, input: SimInput) {
+  constructor(caseDef: CaseDefinition, input: SimInput, options: SimulatorCoreOptions = {}) {
     this.caseDef = caseDef;
+    this.fetchAsset = options.fetchAsset ?? fetchFromAppBase;
     this.input = constrainAcquisition(input);
     this.acquisitionModality = input.modality;
     const models = buildCaseModels(caseDef, input.patient);
@@ -234,8 +249,11 @@ export class SimulatorCore {
     this.rememberBeat();
   }
 
-  private pickBackend(kind: SimInput['rendererBackend']): RendererBackend {
-    if (kind === 'procedural') return this.procedural;
+  private pickBackend(
+    kind: SimInput['rendererBackend'],
+    anatomy: SimInput['anatomy'] = this.input.anatomy,
+  ): RendererBackend {
+    if (kind === 'procedural' || anatomy === 'rodero') return this.procedural;
     if (kind === 'webgl2') return this.gpu ?? this.procedural;
     return this.atlas;
   }
@@ -383,8 +401,11 @@ export class SimulatorCore {
       this.patientKey = key;
       this.modelVersion++;
     }
-    if (input.rendererBackend !== this.input.rendererBackend) {
-      this.backend = this.pickBackend(input.rendererBackend);
+    const anatomyChanged = (input.anatomy ?? 'analytic') !== (this.input.anatomy ?? 'analytic');
+    if (input.rendererBackend !== this.input.rendererBackend || anatomyChanged) {
+      // an input without the field is the analytic heart: passing undefined would fall back to the current choice
+      this.backend = this.pickBackend(input.rendererBackend, input.anatomy ?? 'analytic');
+      if (anatomyChanged) this.atlas.invalidate();
     }
     if (JSON.stringify(input.artifactOverrides) !== JSON.stringify(this.input.artifactOverrides))
       this.applyArtifactOverrides(input.artifactOverrides);
@@ -543,12 +564,62 @@ export class SimulatorCore {
 
   private scene(phase: number): Scene {
     const state = cycleStateAt(this.tables, phase, this.flow.flowPeaks);
+    const heartPose = computeHeartPose(this.heart, state);
+    const rodero = this.roderoHeart();
     return {
       heart: this.heart,
-      heartPose: computeHeartPose(this.heart, state),
+      heartPose,
       thorax: this.thorax,
       physics: this.physics(),
+      ...(rodero
+        ? {
+            heartClassifier: rodero.vh.classifier({
+              apparatus: heartPose,
+              motion: { pose: heartPose, endDiastole: rodero.endDiastole },
+            }),
+          }
+        : {}),
     };
+  }
+
+  /**
+   * The Rodero volume heart bound to the current heart model, when the experimental anatomy is chosen and its volume has
+   * arrived; starts loading it the first time it is asked for. Null otherwise (the analytic heart draws meanwhile).
+   */
+  private roderoHeart(): { vh: VolumeHeart; endDiastole: HeartPose } | null {
+    if (this.input.anatomy !== 'rodero') return null;
+    if (!this.roderoLoad)
+      this.roderoLoad = import('@/simulator/anatomy/roderoHeart')
+        .then(async (lib) => {
+          this.roderoVolume = await lib.loadRoderoVolume(this.fetchAsset);
+          this.roderoLib = lib;
+        })
+        .catch((e: unknown) => {
+          this.roderoFailure = e instanceof Error ? e.message : String(e);
+        });
+    if (!this.roderoLib || !this.roderoVolume) return null;
+    if (this.roderoBound?.heart !== this.heart) {
+      const endDiastole = computeHeartPose(this.heart, cycleStateAt(this.tables, 0));
+      this.roderoBound = {
+        heart: this.heart,
+        vh: this.roderoLib.volumeHeart(this.roderoVolume, this.heart, endDiastole),
+        endDiastole,
+      };
+    }
+    return this.roderoBound;
+  }
+
+  /** Resolves when the experimental anatomy's volume has arrived or failed (tests and tools). */
+  async roderoReady(): Promise<void> {
+    this.roderoHeart();
+    await this.roderoLoad;
+  }
+
+  /** What heart the frames draw, for the Dev panel. */
+  private anatomyStatus(): string {
+    if (this.input.anatomy !== 'rodero') return 'analítica';
+    if (this.roderoFailure) return `Rodero: error (${this.roderoFailure})`;
+    return this.roderoLib && this.roderoVolume ? 'Rodero (CPU)' : 'Rodero (cargando…)';
   }
 
   private renderFrame(beam: BeamFrame, spec: PolarFrameSpec): void {
@@ -1038,6 +1109,7 @@ export class SimulatorCore {
       stats: {
         ...this.backend.stats(),
         backend: this.backend.id,
+        anatomy: this.anatomyStatus(),
         gpu: this.gpuReason,
         tier: this.tier,
         lines: spec.lines,
@@ -1116,3 +1188,15 @@ export class SimulatorCore {
     );
   }
 }
+
+/** Options of a simulator core: how it fetches the app's assets (decision 352). */
+export interface SimulatorCoreOptions {
+  fetchAsset?: AssetFetcher;
+}
+
+/** The app's assets, fetched under its base URL (the worker's and the page's). */
+const fetchFromAppBase: AssetFetcher = async (path) => {
+  const r = await fetch(`${import.meta.env.BASE_URL}${path}`);
+  if (!r.ok) throw new Error(`${path}: HTTP ${r.status}`);
+  return r.arrayBuffer();
+};

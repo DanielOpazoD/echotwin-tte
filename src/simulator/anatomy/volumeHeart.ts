@@ -2,7 +2,7 @@
  * A heart read from a label volume (decision 346), for the CPU tracer's `Scene.heartClassifier`: the mean heart of Rodero
  * et al. 2021 voxelised by `tools/offline/anatomy2/rodero-voxelize.ts` (the data stay outside the repository), placed in the model's heart frame by the anatomical frame both share
  * (`atlasFrame.ts`: origin the mitral centre, z to the LV apex, x from the tricuspid centre to the mitral one, y toward the
- * aortic valve) and scaled so that its LV length is the model's. Static: the end-diastolic shape of the CT, no motion.
+ * aortic valve) and scaled so that its LV length is the model's. The end-diastolic shape of the CT, moved by the case's cycle when asked (decision 350).
  *
  * What the mesh does not have is added the way the analytic heart draws it: the epicardial fat that fills the grooves
  * (the heart's silhouette closed with a ball of EPI_CLOSING_MM), the pericardium PERICARDIUM_CM outside it, and on a miss
