@@ -144,8 +144,9 @@ describe('volume heart (decision 346)', () => {
   it('gives the distance to the nearest interface and its normal in the heart frame', () => {
     // the lateral wall runs over voxels 77–84: 3.5 mm from the centre of voxel 81 to the epicardium
     expect(sampleAt([64.5, 81.5, 60.5]).q.sdf).toBeCloseTo(-3.5 * k, 2);
-    // on the lateral endocardium, the normal of the inner ellipsoid there carried into the heart frame, within 5°
-    const m: [number, number, number] = [64.5, 77.5, 60.5];
+    // on the septal endocardium (clear of the baked papillary muscles), the normal of the inner ellipsoid there carried
+    // into the heart frame, within 5°
+    const m: [number, number, number] = [64.5, 34.5, 60.5];
     const { q } = sampleAt(m);
     expect(q.sdf).toBeCloseTo(-0.5 * k, 3);
     const g = [(m[0] - C[0]!) / 22 ** 2, (m[1] - C[1]!) / 22 ** 2, (m[2] - C[2]!) / 38 ** 2];
@@ -156,28 +157,46 @@ describe('volume heart (decision 346)', () => {
     expect(cos).toBeGreaterThan(Math.cos((5 * Math.PI) / 180));
   });
 
-  it('draws the analytic valve apparatus only in cavity blood', () => {
-    // a point of the analytic LV papillary muscle at end diastole
+  it('bakes the papillary muscles into the cavities and draws the analytic leaflets of the pose asked for', () => {
+    // a point inside the analytic LV papillary muscle at end diastole (its six neighbours 1 mm away inside too), and one
+    // of the closed mitral leaflets
     const s = makeSample();
+    const isPap = (x: number, y: number, z: number) =>
+      classifyHeart(heart, ed, x + ed.swingX, y, z, s) && s.structure === Structure.PapillaryMuscle;
     let p: [number, number, number] | null = null;
     for (let z = 3; z <= 7 && !p; z += 0.1)
       for (let x = -3; x <= 3 && !p; x += 0.1)
         for (let y = -3; y <= 3 && !p; y += 0.1)
           if (
-            classifyHeart(heart, ed, x + ed.swingX, y, z, s) &&
-            s.structure === Structure.PapillaryMuscle
+            isPap(x, y, z) &&
+            [-0.1, 0.1].every((d) => isPap(x + d, y, z) && isPap(x, y + d, z) && isPap(x, y, z + d))
           )
             p = [x, y, z];
     expect(p).not.toBeNull();
-    const at = (labels: number, pose?: typeof ed) => {
+    let leaf: [number, number, number] | null = null;
+    for (let z = -0.5; z <= 1.5 && !leaf; z += 0.05)
+      for (let y = -2; y <= 1 && !leaf; y += 0.05)
+        if (
+          classifyHeart(heart, ed, 0.2 + ed.swingX, y, z, s) &&
+          (s.structure === Structure.MitralAnterior || s.structure === Structure.MitralPosterior)
+        )
+          leaf = [0.2, y, z];
+    expect(leaf).not.toBeNull();
+    const vol31 = volumeHeart(synthetic(31), heart, ed);
+    const at = (pt: [number, number, number], v = vol31, pose?: typeof ed) => {
       const q = makeSample();
-      volumeHeart(synthetic(labels), heart, ed).classifier({ apparatus: pose })(...p!, q);
+      v.classifier({ apparatus: pose })(...pt, q);
       return q.structure;
     };
-    expect(at(31, ed)).toBe(Structure.PapillaryMuscle);
-    expect(at(31)).toBe(Structure.LvCavity);
-    // in the wall of the volume the volume's wall stands
-    expect(at(1, ed)).not.toBe(Structure.PapillaryMuscle);
+    // the papillary muscle is the volume's own, with or without a pose
+    expect(at(p!, vol31, ed)).toBe(Structure.PapillaryMuscle);
+    expect(at(p!)).toBe(Structure.PapillaryMuscle);
+    // the leaflet only with the pose, and only in cavity blood: in the wall of the volume its wall stands
+    expect([Structure.MitralAnterior, Structure.MitralPosterior]).toContain(at(leaf!, vol31, ed));
+    expect(at(leaf!)).toBe(Structure.LvCavity);
+    const vol1 = volumeHeart(synthetic(1), heart, ed);
+    expect(at(p!, vol1, ed)).not.toBe(Structure.PapillaryMuscle);
+    expect(at(leaf!, vol1, ed)).not.toBe(Structure.MitralAnterior);
   });
 
   it('is what the scene classifier asks for the heart when the scene carries it', () => {
