@@ -243,7 +243,13 @@ export interface SimStore {
   setCycleInfo: (marks: PhaseMarks, lvLengthCm: number) => void;
   recordViewScore: (viewId: string, score: number) => void;
   /** Start moving the probe to a predefined view (disabled in exam mode). */
-  startPresetView: (viewId: string) => void;
+  startPresetView: (viewId: string, opts?: { instant?: boolean }) => void;
+  /**
+   * Free practice opens on the canonical parasternal long axis (decision 343): when a case has loaded in sandbox mode and
+   * the probe is still at START_PROBE, it goes there at once, as the PLAX preset (it does not count as acquired by hand).
+   * Guided practice and the exam keep the imperfect pose the learner starts from.
+   */
+  openOnStartView: () => void;
   /** Advance the preset animation; called from the animation loop. */
   tickPresetAnimation: (nowMs: number) => void;
   finishExam: () => void;
@@ -383,7 +389,13 @@ function savePrefs(ui: UiPrefs): void {
   }
 }
 
-/** A deliberately imperfect starting pose near the parasternal window (never a canonical view). */
+/** The view free practice opens on (decision 343). */
+export const START_VIEW_ID = 'plax';
+
+/**
+ * A deliberately imperfect starting pose near the parasternal window (never a canonical view): where guided practice and
+ * the exam start, so the learner acquires the view (decision 235). Free practice moves on to START_VIEW_ID (decision 343).
+ */
 export const START_PROBE: ProbeControl = {
   u: 3.4,
   v: 0.4,
@@ -736,7 +748,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
     }),
   redoImpression: () =>
     set((s) => (s.mode === 'exam' ? s : { impressionSelection: [], impressionChecked: false })),
-  startPresetView: (viewId) => {
+  startPresetView: (viewId, opts) => {
     if (get().mode === 'exam') return;
     // from now on this view's score is the preset's, not the learner's (decision 174)
     if (!get().presetViews.includes(viewId))
@@ -747,6 +759,8 @@ export const useSimStore = create<SimStore>((set, get) => ({
         // the pose arrives asynchronously: a session started or a preset cancelled meanwhile does not get it, even if it
         // went back to practice by then
         if (token !== presetToken || s.mode === 'exam') return s;
+        if (opts?.instant)
+          return { probe: to, presetAnim: null, targetViewId: viewId, frozen: false };
         const from = { ...s.probe };
         return {
           presetAnim: {
@@ -848,6 +862,15 @@ export const useSimStore = create<SimStore>((set, get) => ({
   setNavigatorReady: (ready) => set({ navigatorReady: ready }),
   setFpsUi: (f) => set({ fpsUi: f }),
   resetProbe: () => set({ probe: { ...START_PROBE }, presetAnim: null }),
+  openOnStartView: () => {
+    const s = get();
+    if (s.mode !== 'sandbox' || s.presetAnim || s.targetViewId) return;
+    const p = s.probe;
+    const atStart = (Object.keys(START_PROBE) as (keyof ProbeControl)[]).every(
+      (k) => p[k] === START_PROBE[k],
+    );
+    if (atStart) s.startPresetView(START_VIEW_ID, { instant: true });
+  },
   loadCase: (id) =>
     set((s) => {
       const progress = addEvent(s.progress, { t: Date.now(), kind: 'case', caseId: id });

@@ -229,6 +229,47 @@ describe('useSimStore', () => {
     }
   });
 
+  it('free practice opens on the canonical PLAX; guided practice, the exam and a moved probe do not (decision 343)', async () => {
+    const store = await freshStore();
+    const { START_PROBE, START_VIEW_ID } = await import('./store');
+    const { frameBus } = await import('./frameBus');
+    const plax = {
+      ...START_PROBE,
+      u: 3.2,
+      v: 1.4,
+      rotationDeg: 1.75,
+      tiltDeg: 9.25,
+      rockDeg: -11.75,
+    };
+    const ask = vi
+      .spyOn(frameBus, 'request')
+      .mockResolvedValue({ kind: 'canonicalControl', control: plax });
+    const settle = () => new Promise((r) => setTimeout(r, 0));
+    expect(START_VIEW_ID).toBe('plax');
+    // sandbox, probe untouched: straight to the canonical pose, no animation, counted as the preset
+    expect(store.getState().mode).toBe('sandbox');
+    store.getState().openOnStartView();
+    await settle();
+    expect(ask).toHaveBeenCalledWith({ kind: 'canonicalControl', viewId: 'plax' });
+    expect(store.getState().probe).toEqual(plax);
+    expect(store.getState().presetAnim).toBeNull();
+    expect(store.getState().presetViews).toContain('plax');
+    // a probe the learner (or a loaded report) already moved stays where it is
+    store.getState().loadCase('normal-excellent-window');
+    store.getState().setProbe({ u: 5 });
+    store.getState().openOnStartView();
+    await settle();
+    expect(store.getState().probe.u).toBe(5);
+    // guided practice and the exam keep the imperfect pose
+    for (const mode of ['guided', 'exam'] as const) {
+      store.getState().setMode(mode);
+      store.getState().loadCase('normal-excellent-window');
+      store.getState().openOnStartView();
+      await settle();
+      expect(store.getState().probe, mode).toEqual(START_PROBE);
+    }
+  });
+
   it('loading a case and starting an exam reset the same session (decision 235)', async () => {
     const store = await freshStore();
     const dirty = () => {
