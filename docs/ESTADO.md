@@ -1,4 +1,4 @@
-# Estado del proyecto — 16 de octubre de 2026
+# Estado del proyecto — 18 de octubre de 2026
 
 Resumen para quien retome EchoTwin TTE sin la conversación anterior. Complementa `docs/MISION.md`
 (qué se busca), `docs/DECISIONS.md` (por qué se hizo cada cosa) y `docs/LIMITATIONS.md` (qué queda
@@ -6,7 +6,7 @@ mal, con cifra). El método de trabajo está en `.claude/skills/fidelity-method/
 
 ## Qué funciona
 
-- `main` contiene las decisiones 1–332. Las últimas: 326 (hojas de revisión clínica por vista),
+- `main` contiene las decisiones 1–343 (333–343, del 16 al 18 de octubre: pericardio, cresta supraventricular, septo y pulmón del PSAX-AV, vena pulmonar, limpieza de la PR 173, interfaz, modo revisión con identificación y lápiz, AI apoyada en la raíz, panel de segmentos estable y apertura en el PLAX canónico). Las últimas: 326 (hojas de revisión clínica por vista),
   327 (aurículas planas sobre el septo, fosa por la derecha), 328 (base ancha de la aurícula
   izquierda sobre todo el anillo; cortina aortomitral como lámina), 329 (clips de revisión: cine de
   un ciclo y barridos de sonda, GIF/MP4), 330 (la pared posterior de la AI apoyada en la aorta
@@ -63,6 +63,13 @@ mal, con cifra). El método de trabajo está en `.claude/skills/fidelity-method/
   menores (orejuela izquierda pequeña, cava superior en el A4C, pared auricular junto a los
   anillos, inclinación del eje corto mitral), textura frente a CAMUS, y un segmentador entrenado
   con ecos reales como observador independiente.
+
+## Rumbo desde el 2026-10-18
+
+El método cambió: en vez de parchar el modelo analítico pieza a pieza, la anatomía, la imagen y el Doppler se
+reconstruyen sobre bases verificables, juzgadas por un banco de realismo (prueba ciega con expertos, métricas frente a
+EchoNet y CAMUS, fantomas frente a Field II). El plan, lo medido y las fuentes están en `docs/RECONSTRUCCION.md`. Las
+correcciones del modelo actual quedan para lo que estorbe la enseñanza mientras tanto.
 
 ## Cómo seguir
 
