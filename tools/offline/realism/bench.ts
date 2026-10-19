@@ -58,6 +58,7 @@ import {
   writePngGrey,
 } from './formats';
 import { exportTuring } from './turingExport';
+import { syntheticTruth } from './syntheticTruth';
 import { aggregate, reportMd, type Results } from './report';
 
 /**
@@ -382,6 +383,17 @@ async function main(o: Options): Promise<void> {
   const camus = camusDir
     ? camusSummary(assertOutsideRepo(camusDir, 'CAMUS_DIR'), o.camusLimit)
     : null;
+  const truthDir =
+    process.env['SYNTHETIC_MOTION_DIR'] ??
+    (existsSync(join(homedir(), 'datos/CREATIS-sinteticos'))
+      ? join(homedir(), 'datos/CREATIS-sinteticos')
+      : null);
+  log(
+    `   movimiento verdadero ${truthDir ? `(${truthDir})` : '(sin SYNTHETIC_MOTION_DIR: se omite)'}…`,
+  );
+  const truth = truthDir
+    ? syntheticTruth(assertOutsideRepo(truthDir, 'SYNTHETIC_MOTION_DIR'))
+    : null;
   const echonetDir = process.env['ECHONET_DIR'] ?? null;
   log(`   EchoNet ${echonetDir ? `(${echonetDir})` : '(sin ECHONET_DIR: se omite)'}…`);
   const echonet = echonetDir
@@ -413,6 +425,7 @@ async function main(o: Options): Promise<void> {
     cines,
     camus,
     echonet,
+    truth,
     turing,
     graded,
     sources: { camus: camusDir !== null, echonet: echonetDir !== null },

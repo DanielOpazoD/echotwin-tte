@@ -1,14 +1,14 @@
 {
  "engine": "actual",
- "commit": "dff1b85",
- "generatedAt": "2026-10-19T05:42:39.548Z",
+ "commit": "2722356",
+ "generatedAt": "2026-10-19T07:34:51.017Z",
  "gaps": [
   {
    "id": "movimiento.gls-seguido",
    "metric": "GLS por seguimiento de speckle (A4C, caso normal)",
-   "sim": -10.334694525092512,
+   "sim": -10.949317995113235,
    "ref": -20,
-   "score": 3.832652737453744
+   "score": 3.5253410024433824
   },
   {
    "id": "fisica.snr-speckle",
@@ -58,6 +58,13 @@
    "sim": 0.22636639225972388,
    "ref": 0.953151903009803,
    "score": 0.8914251347218036
+  },
+  {
+   "id": "movimiento.rastreabilidad",
+   "metric": "fracción del acortamiento que el rastreador lee en el simulador (A4C normal)",
+   "sim": 0.5489927293992761,
+   "ref": 0.6644068802766656,
+   "score": 0.8550976898812158
   },
   {
    "id": "fisica.quiste.9cm",
@@ -139,7 +146,7 @@
   {
    "id": "movimiento.gls-modelo",
    "metric": "GLS del contorno del modelo, 2 mm dentro de la pared (A4C, caso normal)",
-   "sim": -19.91954516084788,
+   "sim": -19.944377054126562,
    "ref": -20,
    "score": 0
   }

@@ -17,6 +17,8 @@ import {
   windowedSnr,
 } from '@/clinical/realism/speckleStats';
 import {
+  FULL_RES_TRACKING,
+  fullResOptions,
   matchBlock,
   offsetPolyline,
   peakStrain,
@@ -165,16 +167,19 @@ export function strain(cine: Cine): StrainResult {
   const insidePx = 2 / cine.mmPerPx;
   const start = resamplePolyline(
     offsetPolyline(endocardialContour(cine.frames[0]!.structure), insidePx),
-    40,
+    FULL_RES_TRACKING.points,
   );
-  const halfKernel = Math.round(2.5 / cine.mmPerPx);
-  // the annulus moves at up to ~10 cm/s, 2 mm per frame at 50 Hz: search that and two pixels more
-  const search = Math.ceil(100 / cine.fps / cine.mmPerPx) + 2;
+  // the tracker validated on a sequence of known motion (decision 349)
   const frames = cine.frames.map(grey);
-  const tr = trackPoints([...frames, frames[0]!], start, { halfKernel, search });
+  const tr = trackPoints([...frames, frames[0]!], start, fullResOptions(cine.mmPerPx));
   const tracked = tr.positions.slice(0, frames.length).map((p) => polylineLength(p));
   const model = cine.frames.map((f) =>
-    polylineLength(resamplePolyline(offsetPolyline(endocardialContour(f.structure), insidePx), 40)),
+    polylineLength(
+      resamplePolyline(
+        offsetPolyline(endocardialContour(f.structure), insidePx),
+        FULL_RES_TRACKING.points,
+      ),
+    ),
   );
   const endo = cine.frames.map((f) => polylineLength(endocardialContour(f.structure)));
   const last = tr.positions[tr.positions.length - 1]!;

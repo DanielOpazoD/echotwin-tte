@@ -14,6 +14,7 @@ import type { Comparison } from '@/clinical/realism/verdict';
 import type { CineResult } from './bench';
 import type { CamusSummary, EchonetSummary } from './clinicalData';
 import type { PhantomResults } from './phantoms';
+import type { TruthSummary } from './syntheticTruth';
 import type { TuringExport } from './turingExport';
 
 /** ASE/EACVI 2015 (Lang et al.): normal biplane LV EF, men 52–72 %, women 54–74 %; the bench uses the union. */
@@ -85,6 +86,8 @@ export interface Results {
   tracking: { caseId: string; traced: number; tracked: number; ratio: number; meanPeak: number }[];
   camus: CamusSummary | null;
   echonet: EchonetSummary | null;
+  /** The tracker on synthetic sequences of known motion (decision 349). */
+  truth: TruthSummary | null;
   turing: TuringExport | null;
   graded: (TuringScore & { reader: string; echoReader: boolean })[] | null;
   gaps: Gap[];
@@ -100,6 +103,7 @@ export function aggregate(input: {
   cines: CineResult[];
   camus: CamusSummary | null;
   echonet: EchonetSummary | null;
+  truth: TruthSummary | null;
   turing: TuringExport | null;
   graded: Results['graded'];
   sources: Results['sources'];
@@ -354,6 +358,20 @@ export function aggregate(input: {
       unit: '%',
     });
   }
+  // the same tracker on a sequence of known motion and on the simulator: how much of the true shortening each lets it read
+  if (input.truth && sN && input.truth.layers.length) {
+    const simRatio = sN.tracked / sN.modelMidwall;
+    gaps.push({
+      id: 'movimiento.rastreabilidad',
+      area: 'movimiento',
+      metric: 'fracción del acortamiento que el rastreador lee en el simulador (A4C normal)',
+      sim: simRatio,
+      ref: input.truth.ratio.median,
+      refLabel: `la misma fracción con movimiento verdadero (CREATIS), mediana [${fmt(input.truth.ratio.p25)}–${fmt(input.truth.ratio.p75)}]`,
+      score: ratioScore(simRatio, input.truth.ratio.median),
+      unit: '',
+    });
+  }
   const tN = tracking.find((x) => x.caseId === normal);
   if (echonet?.tracking && tN)
     gaps.push({
@@ -410,6 +428,7 @@ export function aggregate(input: {
     tracking,
     camus,
     echonet,
+    truth: input.truth,
     turing: input.turing,
     graded: input.graded,
     gaps,
@@ -649,6 +668,23 @@ export function reportMd(r: Results): string {
   }
   L.push(
     '',
+    '### Rastreador frente al movimiento verdadero',
+    '',
+    r.truth?.layers.length
+      ? `El rastreador del banco (bloques de 2,5 mm, mediana de ±2 vecinos, 36 puntos) sobre ${r.truth.sequences} secuencia(s) sintética(s) de CREATIS (Evain et al. 2022), cuyo speckle sigue a la malla que la generó: de telediástole a telesístole lee ${q(r.truth.ratio, 2)} del acortamiento verdadero de las capas internas de la pared, con un error de ${q(r.truth.errorMm, 1)} mm en la posición final. En el simulador el mismo rastreador lee ${r.strain[0] ? fmt(r.strain[0].tracked / r.strain[0].modelMidwall) : '—'} del acortamiento del contorno del modelo: si las dos fracciones coinciden, el speckle del simulador sigue a su tejido como el de una simulación lagrangiana.`
+      : 'Sin secuencias de movimiento verdadero (`SYNTHETIC_MOTION_DIR`): el rastreador no se ha validado contra un movimiento conocido.',
+    '',
+    ...(r.truth?.layers.length
+      ? [
+          '| secuencia | capa | verdadero (%) | rastreado (%) | fracción | error (mm) |',
+          '|---|---:|---:|---:|---:|---:|',
+          ...r.truth.layers.map(
+            (l) =>
+              `| ${l.file} | ${l.layer} | ${fmt(l.trueStrain, 1)} | ${fmt(l.trackedStrain, 1)} | ${fmt(l.ratio)} | ${fmt(l.errorMm, 1)} |`,
+          ),
+          '',
+        ]
+      : []),
     '### Rastreo de los trazados',
     '',
     'El contorno endocárdico de telediástole, 2 px dentro de la pared y en 13 puntos, llevado cuadro a cuadro hasta telesístole con bloques de 7 px y la mediana de los desplazamientos vecinos, frente al mismo contorno trazado en telesístole. En EchoNet el contorno sale de los trazados de los expertos (los extremos de las cuerdas de los discos); en el simulador, del mapa de estructuras, y el cine se reduce al formato de EchoNet (112 px) con el mismo recorte. Una razón de 1 es un rastreador que sigue la pared como la sigue el trazado.',
