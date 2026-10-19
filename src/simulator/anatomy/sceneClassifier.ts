@@ -3,7 +3,13 @@ import { classifyThorax, descAortaScale, isAnteriorLung } from '@/simulator/anat
 import { Structure, Tissue, type TissueSample } from '@/simulator/anatomy/tissue';
 import type { HeartModel, HeartPose } from './heartModel';
 import type { ThoraxModel } from './thoraxModel';
-import type { HeartClassifier } from '@/simulator/renderer/types';
+
+/**
+ * Classifies a heart-frame point (cm) into `q` and returns whether it lies in the heart. On a miss it leaves in `q.sdf` the
+ * distance to the outside of the pericardial sac, which the thorax needs to wrap the lungs around the heart, as
+ * `classifyHeart` does.
+ */
+export type HeartClassifier = (hx: number, hy: number, hz: number, q: TissueSample) => boolean;
 
 /** Same precedence for imaging and Doppler propagation: anterior lung, heart, surrounding thorax. */
 export function sceneClassifier(scene: {

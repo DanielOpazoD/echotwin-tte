@@ -1,7 +1,7 @@
 import type { BeamFrame } from '@/simulator/probe/pose';
 import type { HeartModel, HeartPose } from '@/simulator/anatomy/heartModel';
 import type { ThoraxModel } from '@/simulator/anatomy/thoraxModel';
-import type { TissueSample } from '@/simulator/anatomy/tissue';
+import type { HeartClassifier } from '@/simulator/anatomy/sceneClassifier';
 import type { ConsoleState } from './postprocess/consolePipeline';
 
 export type ImagingModality = '2d' | 'm-mode' | 'cmm' | 'color' | 'pw' | 'cw' | 'tdi';
@@ -117,13 +117,7 @@ export interface Scene {
    */
   heartClassifier?: HeartClassifier;
 }
-
-/**
- * Classifies a heart-frame point (cm) into `q` and returns whether it lies in the heart. On a miss it leaves in `q.sdf` the
- * distance to the outside of the pericardial sac, which the thorax needs to wrap the lungs around the heart, as
- * `classifyHeart` does.
- */
-export type HeartClassifier = (hx: number, hy: number, hz: number, q: TissueSample) => boolean;
+export type { HeartClassifier };
 
 /**
  * RendererBackend contract (spec 0.7, 30): produces raw polar frames for a beam/scene. Implemented
