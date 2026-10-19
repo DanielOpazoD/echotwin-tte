@@ -49,6 +49,12 @@ referencia cambió (CAMUS leído con menos pacientes, como hace `--quick`) queda
 para probar que el banco corre, no para juzgar. Cuando un cambio se acepta, `--save-baseline
 tools/offline/realism/baseline.json` mueve la línea base, en la misma PR.
 
+El rastreador del GLS se mide contra los trazados de EchoNet (decisión 347): el contorno de telediástole de los expertos
+llevado hasta telesístole frente al trazado allí, y lo mismo en el simulador reducido a su formato; las dos razones
+dicen si el GLS seguido refleja el simulador o el rastreador. Un cambio de redacción del informe se aplica sin volver a
+renderizar: `npx tsx tools/offline/realism/bench.ts --report-only tools/offline/realism/out/results.json --report
+docs/validation/banco-realismo.md`.
+
 El informe y lo que mide, con las cifras de la última corrida: `docs/validation/banco-realismo.md`.
 
 ## Herramientas previstas y ausentes

@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 346 (última: 346).
+Decisiones: 347 (última: 347).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -354,3 +354,4 @@ Decisiones: 346 (última: 346).
 | [344](DECISIONS.md#L2562) | 2026-10-18 | Un banco de realismo independiente juzga cada cambio antes de refundar la anatomía o la imagen | vigente |
 | [345](DECISIONS.md#L2568) | 2026-10-18 | El banco de realismo da un veredicto sobre cada cambio y mide motores detrás de un interruptor | vigente |
 | [346](DECISIONS.md#L2574) | 2026-10-18 | Piloto de la fase 1: el corazón medio de Rodero entra al trazador CPU como volumen de etiquetas, detrás del interruptor del banco | vigente |
+| [347](DECISIONS.md#L2586) | 2026-10-18 | El rastreador del banco se mide sobre los trazados de EchoNet, y el GLS seguido bajo resulta suyo y no del simulador | vigente |
