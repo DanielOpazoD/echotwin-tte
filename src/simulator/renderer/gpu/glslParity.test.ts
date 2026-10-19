@@ -19,6 +19,7 @@ import {
 } from './glslImage';
 import { ACOUSTIC_GLSL_CONSTANTS } from '../acoustic/acoustics';
 import { GLSL_GENERATED } from './glslGenerated';
+import { GLSL_SCATTERERS } from './glslScatterers';
 
 /**
  * Drift guard for the acoustic image chain, which exists twice by design: CPU (procedural/sliceRenderer.ts,
@@ -36,6 +37,7 @@ const CPU_SOURCES = [
   'acoustic/psf.ts',
   'postprocess/consolePipeline.ts',
   'postprocess/colorMap.ts',
+  'acoustic/scatterers.ts',
 ].map(src);
 const GLSL_BODIES = [
   GLSL_PASS_A_MAIN,
@@ -48,6 +50,7 @@ const GLSL_BODIES = [
   GLSL_NOISE_LATERAL_FRAG,
   GLSL_CONSOLE_FRAG,
   GLSL_PRESENT_FRAG,
+  GLSL_SCATTERERS,
 ];
 
 function stripComments(code: string): string {
@@ -121,6 +124,9 @@ describe('acoustic chain: CPU ↔ GLSL parity mechanism', () => {
     );
     expect(renderer).toContain('#define VOLUME_HEART');
     declared.add('VOLUME_HEART');
+    // and with point scatterers in place of the lattice phasor (decision 354)
+    expect(renderer).toContain('#define SCATTER_FIELD');
+    declared.add('SCATTER_FIELD');
     const undeclared = new Set<string>();
     for (const body of [
       GLSL_PASS_A_MAIN,

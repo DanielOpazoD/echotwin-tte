@@ -42,8 +42,9 @@ const BUDGETS = [
   // the build strips the shaders' comments and indentation (decision 228), which leaves the budget 15 % above it
   // Since the test hook left production builds, the backend comparison no longer shares the port, and Rollup folds the
   // lazy core (simulatorCore, 80.5 kB) into this chunk: 204.1 kB, budgeted as the sum of the two former budgets (the
-  // E2E build still splits them, and is not budgeted)
-  [/^webgl2Renderer-.*\.js$/, (132 + 82) * KB],
+  // E2E build still splits them, and is not budgeted). Decision 354 (pass A's scatterer variant, the looks as a uniform,
+  // the core's switch of image formation) took it to 214.5 kB: raised by 2 kB
+  [/^webgl2Renderer-.*\.js$/, (132 + 82 + 2) * KB],
   [/^heartMesh\.worker-.*\.js$/, 220 * KB],
   [/^(ReportScreen|CurriculumScreen|ProgressScreen|ReferencesScreen)-.*\.js$/, 80 * KB],
   // Decision 287: bounded beat history and timestamp context add 1.2 kB to the lazy core (80.5 kB).
@@ -54,8 +55,9 @@ const BUDGETS = [
 // column) added 9.4 kB, most of it twice or three times over: the anatomy and the cycle are bundled in the simulation
 // worker, the mesh worker and the WebGL2 port alike. Decision 352 adds the experimental anatomy's volume heart as a chunk
 // fetched only when it is chosen (15 kB, once for the worker and once for the core that runs without one): 2063.2 kB,
-// raised to 2100 kB.
-const TOTAL_JS_BUDGET = 2100 * KB;
+// raised to 2100 kB. Decision 354 adds the experimental image formation the same way (8 kB, twice): 2110.1 kB, raised to
+// 2120 kB.
+const TOTAL_JS_BUDGET = 2120 * KB;
 
 let files;
 try {

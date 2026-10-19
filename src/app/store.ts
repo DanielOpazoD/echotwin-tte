@@ -22,6 +22,7 @@ import {
   type QualityChoice,
   type RendererBackendChoice,
   type AnatomyChoice,
+  type ImageFormationChoice,
   type SimOutput,
 } from '@/simulator/core/protocol';
 import type { StructuredEchoTruth } from '@/simulator/hemodynamics/groundTruth';
@@ -132,6 +133,8 @@ export interface SimStore {
   rendererBackend: RendererBackendChoice;
   /** The heart the frames draw (decision 352): the analytic model or the experimental Rodero heart. */
   anatomy: AnatomyChoice;
+  /** How the frames form the image (decision 354): the lattice phasor or the experimental convolution. */
+  imageFormation: ImageFormationChoice;
   mode: ProductMode;
   targetViewId: string | null;
   ui: UiPrefs;
@@ -228,6 +231,7 @@ export interface SimStore {
   setQuality: (q: QualityChoice) => void;
   setBackend: (b: RendererBackendChoice) => void;
   setAnatomy: (a: AnatomyChoice) => void;
+  setImageFormation: (f: ImageFormationChoice) => void;
   /** `examCaseId` fixes the case an exam starts on; without it the exam draws one at random (`modePolicy.assignsCase`). */
   setMode: (m: ProductMode, examCaseId?: string) => void;
   setTargetView: (id: string | null) => void;
@@ -431,6 +435,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
   quality: DEFAULT_QUALITY,
   rendererBackend: 'atlas',
   anatomy: 'analytic',
+  imageFormation: 'lattice',
   mode: 'sandbox',
   targetViewId: null,
   ui: {
@@ -552,6 +557,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
   setQuality: (q) => set({ quality: q }),
   setBackend: (b) => set({ rendererBackend: b }),
   setAnatomy: (a) => set({ anatomy: a }),
+  setImageFormation: (f) => set({ imageFormation: f }),
   setMode: (m, examCaseId) =>
     set((s) => {
       const policy = modePolicy(m);
@@ -694,6 +700,7 @@ export const useSimStore = create<SimStore>((set, get) => ({
       quality: i.quality,
       rendererBackend: i.rendererBackend,
       anatomy: i.anatomy ?? 'analytic',
+      imageFormation: i.imageFormation ?? 'lattice',
       // a frozen cine cannot be restored: the frame is replayed live at the report's probe and console
       frozen: false,
       cineOffset: 0,

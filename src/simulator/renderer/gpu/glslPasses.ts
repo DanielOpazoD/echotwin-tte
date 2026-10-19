@@ -123,6 +123,21 @@ void main() {
     sigma *= wc;
     specular *= wc;
   }
+#ifdef SCATTER_FIELD
+  // point scatterers of the sample's neighbourhood on the probe's axes in the material frame (decision 354), on the
+  // central plane only (the side planes give σ and the specular echo); one look, so the second stays empty. Flowing
+  // blood is a new realization in every frame, shifted along x as the lattice is (decision 163)
+  float zr = 0.0, zi = 0.0, zr1 = 0.0, zi1 = 0.0;
+  if (uElevK == 0.0) {
+    vec3 fa = inHeart ? vec3(dot(bF, ex), dot(bF, ey), dot(bF, ez)) : bF;
+    vec3 la = inHeart ? vec3(dot(bL, ex), dot(bL, ey), dot(bL, ez)) : bL;
+    vec3 sm = s.m;
+    if (s.tissue == T_BLOOD) sm.x += BLOOD_SHIFT / SCATTER_FREQ;
+    vec2 z = scatterPhasor(vec3(dot(sm, fa), dot(sm, la), dot(sm, nrm)), ct, sn, r, dr, r * (SECTOR / LINES), e * uScatElev);
+    zr = z.x;
+    zi = z.y;
+  }
+#else
   vec3 q = s.m * SCATTER_FREQ - (SCATTER_FREQ - 1.0 / (2.0 * e)) * dot(s.m, nrm) * nrm;
   // flowing blood is a new realization in every frame (decision 163)
   if (s.tissue == T_BLOOD) q.x += BLOOD_SHIFT;
@@ -132,6 +147,7 @@ void main() {
   vec3 q1 = q + LOOK_SHIFT_1;
   float zr1 = (lat(q1, 0) + lat(q * SCATTER_FREQ_RATIO + PHASOR_RE_B + LOOK_SHIFT_1, 1) - 1.0) * PHASOR_NORM;
   float zi1 = (lat(q1 + PHASOR_IM_A, 2) + lat(q * SCATTER_FREQ_RATIO + PHASOR_IM_B + LOOK_SHIFT_1, 0) - 1.0) * PHASOR_NORM;
+#endif
   // bright grains of the parenchyma (decision 145): the coefficient (0–1) of a sparse coherent component, the same in
   // every look, scaled by σ in pass B. Its lattice is anchored in tissue coordinates at the tissue's grain frequency;
   // across the plane its cell is the slice thickness where that is coarser, as for the scatterer phasor
@@ -428,6 +444,7 @@ export const GLSL_PASS_D_MAIN = /* glsl */ `
 uniform sampler2D uAx;
 uniform sampler2D uAx2;   // the second compounding look
 uniform sampler2D uPsf;
+uniform float uLooks;     // the looks averaged: COMPOUND_LOOKS, or the scene's image formation's (decision 354)
 layout(location = 0) out vec4 outAmp;   // amplitude, transmission, 0, 1
 
 void main() {
@@ -449,7 +466,7 @@ void main() {
   }
   // the looks are detected one by one and their envelopes averaged (compounding, decision 145)
   float env = sqrt(sr * sr + sm * sm) * ENVELOPE_NORM;
-  if (COMPOUND_LOOKS > 1.0) env = (env + sqrt(sr2 * sr2 + sm2 * sm2) * ENVELOPE_NORM) / COMPOUND_LOOKS;
+  if (uLooks > 1.0) env = (env + sqrt(sr2 * sr2 + sm2 * sm2) * ENVELOPE_NORM) / uLooks;
   outAmp = vec4(env, texelFetch(uAx, ivec2(si, li), 0).y, 0.0, 1.0);
 }
 `;

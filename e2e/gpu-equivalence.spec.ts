@@ -178,30 +178,43 @@ for (const [caseId, views, phases, tier, offsetV, position] of MATRIX) {
 }
 
 /**
- * The experimental Rodero heart (decisions 352 and 353): the GPU port's pass A over the volume's textures must
- * reproduce the CPU tracer over its classifier, motion included, with the bounds of the matrix: in mid-systole (the twist,
- * the base's descent and the closed leaflets at work), at the low tier. Each test binds the volume and compiles the
- * variant of pass A anew, minutes on SwiftShader. The volume heart labels no LV segments, so they are not compared.
+ * The experimental choices of the Dev panel, at the low tier and in mid-systole (the twist, the base's descent and the
+ * closed leaflets at work). The Rodero heart (decisions 352 and 353): the GPU port's pass A over the volume's textures
+ * must reproduce the CPU tracer over its classifier, motion included. The convolution image (decision 354): the GPU
+ * port's point scatterers, its kernels and its one look must reproduce the CPU tracer's, over the analytic heart and over
+ * Rodero's. Each test compiles its variant of pass A anew (and binds the volume), minutes on SwiftShader. The volume
+ * heart labels no LV segments, so they are not compared.
  */
-for (const viewId of ['a4c', 'plax'])
-  test(`Rodero heart: GPU equals CPU, ${viewId} in mid-systole`, async ({ page }) => {
+const EXPERIMENTAL: [string, 'analytic' | 'rodero', 'lattice' | 'cole'][] = [
+  ['a4c', 'rodero', 'lattice'],
+  ['plax', 'rodero', 'lattice'],
+  ['a4c', 'analytic', 'cole'],
+  ['plax', 'analytic', 'cole'],
+  ['a4c', 'rodero', 'cole'],
+];
+for (const [viewId, anatomy, image] of EXPERIMENTAL)
+  test(`${anatomy} heart, ${image} image: GPU equals CPU, ${viewId} in mid-systole`, async ({
+    page,
+  }) => {
     test.setTimeout(600_000);
     const phase = 0.35;
     const r = await page.evaluate(
-      ([v, p]) =>
+      ([v, p, a, i]) =>
         (
           window as unknown as {
             __echotwin: {
-              compareRoderoBackends: (
+              compareExperimentalBackends: (
                 view: string,
                 phase: number,
+                anatomy: string,
+                image: string,
                 caseId: string,
                 tier: string,
               ) => Promise<Comparison>;
             };
           }
-        ).__echotwin.compareRoderoBackends(v, p, 'normal-excellent-window', 'low'),
-      [viewId, phase] as const,
+        ).__echotwin.compareExperimentalBackends(v, p, a, i, 'normal-excellent-window', 'low'),
+      [viewId, phase, anatomy, image] as const,
     );
     expect(r.error, 'WebGL2 must be available in the test browser').toBeUndefined();
     expect(r.structureAgreement).toBeGreaterThan(0.995);
@@ -213,7 +226,7 @@ for (const viewId of ['a4c', 'plax'])
       .map(([name, v]) => ({ name, frac: v.mismatched / v.samples, ...v }))
       .sort((a, b) => b.frac - a.frac);
     console.info(
-      `Rodero ${viewId} ${phase}: structures ${(100 * r.structureAgreement).toFixed(2)}%, amplitude ${(100 * r.ampRelDiff).toFixed(2)}%, worst ${worst
+      `${anatomy}/${image} ${viewId} ${phase}: structures ${(100 * r.structureAgreement).toFixed(2)}%, amplitude ${(100 * r.ampRelDiff).toFixed(2)}%, worst ${worst
         .slice(0, 3)
         .map((w) => `${w.name} ${(100 * w.frac).toFixed(2)}% of ${w.samples}`)
         .join(', ')}`,

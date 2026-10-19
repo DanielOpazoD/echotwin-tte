@@ -18,10 +18,17 @@ export const RENDERER_BACKEND_CHOICES = ['atlas', 'procedural', 'webgl2'] as con
 export type RendererBackendChoice = (typeof RENDERER_BACKEND_CHOICES)[number];
 /**
  * The heart the frames draw (decision 352): the analytic model, or the experimental mean heart of Rodero et al. 2021
- * moved by the case's cycle (decision 350), formed by the CPU tracer while the GPU port does not read it.
+ * moved by the case's cycle (decision 350), read by the CPU tracer and the GPU port (decision 353).
  */
 export const ANATOMY_CHOICES = ['analytic', 'rodero'] as const;
 export type AnatomyChoice = (typeof ANATOMY_CHOICES)[number];
+/**
+ * How the frames form the image (decision 354): the lattice phasor in two looks (decisions 52 and 145), or the
+ * experimental convolution of point scatterers anchored in tissue with the kernels of a delay-and-sum array (decision
+ * 351), in the CPU tracer and the GPU port.
+ */
+export const IMAGE_FORMATION_CHOICES = ['lattice', 'cole'] as const;
+export type ImageFormationChoice = (typeof IMAGE_FORMATION_CHOICES)[number];
 
 export type QualityTier = 'low' | 'medium' | 'high';
 /**
@@ -50,6 +57,8 @@ export interface SimInput {
   rendererBackend: RendererBackendChoice;
   /** The heart the frames draw; the analytic one when absent. */
   anatomy?: AnatomyChoice;
+  /** How the frames form the image; the lattice when absent. */
+  imageFormation?: ImageFormationChoice;
   /** Artifact laboratory: live overrides of the case artifacts (0..1 each); null = as defined by the case. */
   artifactOverrides: {
     sideLobe: number;

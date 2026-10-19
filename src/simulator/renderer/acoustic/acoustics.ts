@@ -140,6 +140,8 @@ export const CALCIUM_OFFSET: readonly [number, number, number] = [3.3, 1.1, 9.2]
 /** Elevational slice half-width (cm) at depth r: base + slope · |r − elevation focus| (decisions 48 and 250). */
 export const SLICE_HALF_BASE_CM = 0.2;
 export const SLICE_HALF_SLOPE = 0.04;
+/** The slice's elevation profile as a Gaussian: its standard deviation over the slice's half-width (2 / FWHM in σ). */
+export const ELEVATION_SIGMA_PER_HALF_WIDTH = 2 / (2 * Math.sqrt(2 * Math.log(2)));
 /**
  * Compounding (decision 145): the frame is formed from COMPOUND_LOOKS independent speckle realizations — the same
  * scene, the same coherent echoes, a different scatterer phasor per look — and their envelopes are averaged after
@@ -423,7 +425,6 @@ export const ACOUSTIC_GLSL_CONSTANTS: Readonly<
   SCATTER_FREQ,
   SCATTER_FREQ_RATIO,
   PHASOR_NORM,
-  COMPOUND_LOOKS,
   LOOK_SHIFT_1: LOOK_SHIFT[1]!,
   GRAIN_GAIN,
   GRAIN_THRESHOLD,

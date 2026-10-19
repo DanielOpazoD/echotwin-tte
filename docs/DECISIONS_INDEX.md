@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 353 (última: 353).
+Decisiones: 354 (última: 354).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -361,3 +361,4 @@ Decisiones: 353 (última: 353).
 | [351](DECISIONS.md#L2653) | 2026-10-18 | Fase 3 de la reconstrucción: imagen por convolución de dispersores puntuales anclados al tejido con la PSF de la referencia del banco | vigente |
 | [352](DECISIONS.md#L2704) | 2026-10-18 | El corazón de Rodero entra en la app como anatomía experimental, con el trazador CPU mientras el GPU no lo lea | vigente |
 | [353](DECISIONS.md#L2718) | 2026-10-18 | El corazón de Rodero se dibuja en el GPU: su volumen y su movimiento en GLSL | vigente |
+| [354](DECISIONS.md#L2768) | 2026-10-18 | La imagen por convolución se forma en el GPU y entra en la app como imagen experimental | vigente |

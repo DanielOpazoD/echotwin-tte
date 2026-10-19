@@ -2764,3 +2764,48 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     - La paridad e2e.
 
     Siete mutaciones, siete fallos; el GLSL lo juzga la paridad.
+
+354. **La imagen por convolución se forma en el GPU y entra en la app como imagen experimental**: tercer paso de los tres (decisión 352). Los dispersores puntuales anclados al tejido con los núcleos de un array de 64 elementos (decisión 351), que sólo usaba el banco, se forman ahora en el trazador CPU y en el puerto WebGL2, con el corazón analítico o con el de Rodero.
+
+    **La formación de la imagen pasa a ser de la escena**: `Scene.imageFormation` (dispersores, núcleos y número de miradas) y `Scene.scatterGpu`, su lado GPU. El trazador CPU toma la de la escena en cada cuadro si la trae, y si no la suya; el banco sigue pasando la suya al construirlo.
+
+    **En el GPU**:
+
+    - **Variante del paso A** (`SCATTER_FIELD`), combinable con la del corazón de volumen: un programa por pareja de claves. Escribe el fasor de los dispersores del plano central; los planos laterales del grosor del corte siguen dando σ y el eco especular, como en la CPU.
+    - **El shader** (`gpu/glslScatterers.ts`) es el espejo de `scattererPhasor`: el mismo hash de 32 bits (los productos `uint` de GLSL ES 3.00 dan la vuelta módulo 2³² como `Math.imul`), los mismos cubos, pesos y normalización. La fase de la profundidad se reduce módulo 2π antes de sumar el desplazamiento de cada dispersor: en float32 quedan sólo milésimas de radián a 6000 rad.
+    - **Uniformes**: el número de onda y la semilla de cada cuadro, y las constantes (celda, alcance y perfil de elevación), desde el TypeScript (`scatterFieldGpu.ts`).
+    - **Una mirada**: el paso D promedia las miradas que dice un uniforme (`uLooks`), dos con la red y una con la convolución. `COMPOUND_LOOKS` deja de ser un `#define`. La tabla de la PSF se llena con los núcleos de la formación.
+    - **Carga diferida**: el GLSL, los núcleos del array y su modelo van en un trozo propio (`core/coleImage.ts`, 8 kB), fuera del de WebGL2 y del worker.
+
+    **En la app**: un botón «Imagen» en el panel Dev, red o convolución (experimental), que el núcleo trae la primera vez. El panel dice qué imagen forma. La caché de poses (atlas) se vacía al cambiar de imagen y al llegar el trozo; también al llegar el volumen de Rodero, que antes dejaba en la caché cuadros del corazón analítico mientras la sonda no se movía.
+
+    **Paridad CPU ↔ GPU** (`e2e/gpu-equivalence.spec.ts`, tres filas nuevas a mitad de la sístole, nivel bajo, SwiftShader; las dos de Rodero con la red siguen en 99,95 % y 0,08 %, y 100 % y 0,14 %):
+
+    | Anatomía | Vista | Estructuras iguales | Diferencia de amplitud |
+    |---|---|---|---|
+    | analítica | A4C | 100 % | 0,01 % |
+    | analítica | PLAX | 100 % | 0,00 % |
+    | Rodero | A4C | 99,95 % | 0,16 % |
+
+    **Coste, medido en la app** (Mac del proyecto, PLAX, calidad automática):
+
+    | Anatomía | Red, GPU | Convolución, GPU |
+    |---|---|---|
+    | analítica | 15 ms | 24 ms |
+    | Rodero | 25 ms | 27 ms |
+
+    Sin WebGL2 forma el trazador CPU: 523 ms por cuadro con la convolución frente a 124 con la red (nivel medio), demasiado para usarla en vivo. El trazador CPU con la red queda un 5,7 % sobre el árbol de la decisión 331 (límite 25 %).
+
+    **Paquetes**: el worker pasa a 359,2 kB (360). El trozo de WebGL2, que lleva también el núcleo diferido, a 214,5 kB: su presupuesto sube de 214 a 216 kB. El total, a 2110,1 kB con el trozo nuevo dos veces (para el worker y para el núcleo sin él): el presupuesto sube de 2100 a 2120 kB. El build quita ahora también los comentarios del GLSL del corazón de volumen y de los dispersores: el trozo de Rodero baja de 30 a 27,6 kB. La constante del perfil de elevación pasa a `acoustics.ts`: en `scatterers.ts` arrastraba ese módulo entero al worker y al trozo de WebGL2.
+
+    **Pruebas**:
+
+    - `scatterFieldGpu.test.ts`: uniformes del shader con el número de onda y la semilla del cuadro, núcleos y miradas de la formación, y las constantes del hash iguales en el mismo orden que las de la CPU.
+    - `coleFormation.test.ts`: el trazador forma cada cuadro con la formación de la escena y vuelve a la suya en el siguiente.
+    - `coleImage.test.ts` (lenta): el núcleo trae la convolución, forma otra imagen con la misma anatomía y vuelve a la red.
+    - `glslParity.test.ts`: el renderizador define la variante; el GLSL de los dispersores entra en la guarda de literales.
+    - La paridad e2e, con una mutación (promediar dos miradas en el GPU) que la rompe.
+
+    Diez mutaciones, diez fallos (nueve en las pruebas unitarias y una en la paridad e2e).
+
+    **Lo que sigue con la red**: el modo M y el Doppler, y el ruido del receptor, que no pasan por esta formación.
