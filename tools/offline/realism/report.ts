@@ -646,6 +646,17 @@ export function reportMd(r: Results): string {
         } |`,
       );
   } else if (r.turing) L.push('', 'Todavía sin respuestas corregidas (`--answers`).');
+  // the datasets' terms ask for their citation wherever results from them are shown
+  const sources: string[] = [];
+  if (r.sources.camus)
+    sources.push(
+      '- CAMUS: Leclerc et al., «Deep learning for segmentation using an open large-scale dataset in 2D echocardiography», IEEE TMI 38(9):2198–2210, 2019, doi:10.1109/TMI.2019.2900516.',
+    );
+  if (r.sources.echonet)
+    sources.push(
+      '- EchoNet-Dynamic: Ouyang et al., «Video-based AI for beat-to-beat assessment of cardiac function», Nature 580:252–256, 2020, doi:10.1038/s41586-020-2145-8; conjunto de datos doi:10.71718/yqp5-y078. Datos del Stanford Center for Artificial Intelligence in Medicine and Imaging (AIMI), bajo su acuerdo de uso para investigación, que no permite redistribuir partes de los datos: aquí sólo hay cifras agregadas.',
+    );
+  if (sources.length) L.push('', '## Fuentes de datos', '', ...sources);
   L.push('');
   return L.join('\n');
 }
