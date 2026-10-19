@@ -114,6 +114,13 @@ describe('acoustic chain: CPU ↔ GLSL parity mechanism', () => {
       declared.add(m[1]!);
     // GLSL keywords/builtins in caps that are not ours
     for (const k of ['PI', 'TWO_PI']) declared.add(k);
+    // the switch the renderer defines when it compiles pass A over a volume heart (decision 353)
+    const renderer = readFileSync(
+      join(process.cwd(), 'src/simulator/renderer/gpu/webgl2Renderer.ts'),
+      'utf8',
+    );
+    expect(renderer).toContain('#define VOLUME_HEART');
+    declared.add('VOLUME_HEART');
     const undeclared = new Set<string>();
     for (const body of [
       GLSL_PASS_A_MAIN,

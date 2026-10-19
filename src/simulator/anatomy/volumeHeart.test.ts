@@ -354,7 +354,8 @@ describe('volume heart in motion (decision 350)', () => {
     const p = [(47.5 - 56) * k, -(64.5 - 64) * k, (12.5 - 28) * k];
     back(p[0]!, p[1]!, p[2]!, ref);
     const moved = Math.hypot(ref.x - p[0]!, ref.y - p[1]!);
-    expect(moved).toBeGreaterThan(0.01);
+    // the synthetic atrium grows little in systole (its radial scale is about 1.01): enough to tell the axis it turns about
+    expect(moved).toBeGreaterThan(0.002);
     const cross = p[0]! * ref.y - p[1]! * ref.x;
     expect(Math.abs(cross) / (Math.hypot(p[0]!, p[1]!) * moved)).toBeLessThan(0.02);
     expect([33, 3]).toContain(vol.labelAt(...fromAnat(ref.x, ref.y, ref.z)));

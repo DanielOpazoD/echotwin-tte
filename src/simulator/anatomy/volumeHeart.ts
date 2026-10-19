@@ -80,6 +80,18 @@ export const LABELS: Record<number, [Tissue, Structure]> = {
 /** Reach (voxels) and width of the Gaussian that weighs the interface normal on the voxels that border an interface. */
 const NORMAL_REACH = 5;
 const NORMAL_SIGMA = 2.5;
+/** The neighbours the border normal sums, with their Gaussian weights: (dx, dy, dz, weight) in a row. */
+const NORMAL_OFFSETS = (() => {
+  const o: number[] = [];
+  for (let w = -NORMAL_REACH; w <= NORMAL_REACH; w++)
+    for (let u = -NORMAL_REACH; u <= NORMAL_REACH; u++)
+      for (let t = -NORMAL_REACH; t <= NORMAL_REACH; t++) {
+        const r2 = t * t + u * u + w * w;
+        if (r2 === 0 || r2 > NORMAL_REACH * NORMAL_REACH) continue;
+        o.push(t, u, w, Math.exp(-r2 / (2 * NORMAL_SIGMA * NORMAL_SIGMA)));
+      }
+  return Float64Array.from(o);
+})();
 /**
  * Rotation of the LV at end-systole (degrees, positive counterclockwise seen from the apex), at its base and its apex,
  * linear in between: Kocabay et al. 2014 (healthy adults by speckle tracking, base −6.9 ± 3.5°, apex +13.0 ± 6.5°).
@@ -222,18 +234,27 @@ export const ATRIAL_TISSUE = [
 ];
 /** Voxels of each atrium's cavity over which the radial scale that gives its volume is solved. */
 const ATRIAL_SAMPLES = 4000;
-/** Grid (cm) on which the analytic atria are counted. */
-const ATRIAL_GRID_CM = 0.25;
-const atrialCache = new WeakMap<HeartPose, { la: number; ra: number }>();
+/**
+ * Grid (cm) on which the analytic atria are counted, and the bins of the cycle over which a count is kept. Counted anew
+ * for every pose on a 2.5 mm grid, the curve took 200 ms of every frame of the app (decision 353): it depends only on the
+ * phase, and the ratio of two volumes on a 5 mm grid moves by about 1 %.
+ */
+const ATRIAL_GRID_CM = 0.5;
+export const ATRIAL_PHASE_BINS = 48;
+const atrialCache = new WeakMap<HeartModel, Map<number, { la: number; ra: number }>>();
 /**
  * Volumes (mL) of the analytic heart's left and right atrial cavities at `pose`, counted on a grid of ATRIAL_GRID_CM
- * around each atrium: the curves the volume's atria follow (decision 350).
+ * around each atrium: the curves the volume's atria follow (decision 350). Kept per heart and per bin of the cycle's
+ * phase: the first pose of a bin counts it.
  */
 export function analyticAtrialVolumes(
   heart: HeartModel,
   pose: HeartPose,
 ): { la: number; ra: number } {
-  const kept = atrialCache.get(pose);
+  const bin = Math.round(pose.state.phase * ATRIAL_PHASE_BINS) % ATRIAL_PHASE_BINS;
+  let bins = atrialCache.get(heart);
+  if (!bins) atrialCache.set(heart, (bins = new Map<number, { la: number; ra: number }>()));
+  const kept = bins.get(bin);
   if (kept) return kept;
   const A = heartAnchors(heart);
   const q = makeSample();
@@ -254,7 +275,7 @@ export function analyticAtrialVolumes(
     la: count(A.laCenter, A.laR, Structure.LaCavity),
     ra: count(A.raCenter, A.raR, Structure.RaCavity),
   };
-  atrialCache.set(pose, v);
+  bins.set(bin, v);
   return v;
 }
 
@@ -412,6 +433,8 @@ function volumeFields(h: LabelVolumeHeader, label: Uint8Array): Fields {
   return { h, label, dEpi, dIf };
 }
 
+/** Stride (voxels) of the coarse pass that finds where the baked apparatus lies. */
+const BAKE_STRIDE = 3;
 /** Structures of the analytic heart baked into the volume's cavities, with their labels. */
 const BAKED: Partial<Record<Structure, number>> = {
   [Structure.PapillaryMuscle]: 40,
@@ -435,25 +458,64 @@ function bakeApparatus(
   const label = Uint8Array.from(vol.labels);
   const [nx, ny, nz] = h.dims;
   const q = makeSample();
-  for (let kk = 0; kk < nz; kk++)
-    for (let j = 0; j < ny; j++)
-      for (let i = 0; i < nx; i++) {
-        const v = i + nx * (j + ny * kk);
-        if (!APPARATUS_HOSTS.has(label[v]!)) continue;
-        const m: V3 = [
-          h.origin[0] + (i + 0.5) * h.voxelMm - M.o[0],
-          h.origin[1] + (j + 0.5) * h.voxelMm - M.o[1],
-          h.origin[2] + (kk + 0.5) * h.voxelMm - M.o[2],
-        ];
-        const ax = dot(m, M.ex) * k,
-          ay = dot(m, M.ey) * k,
-          az = dot(m, M.ez) * k;
-        const hx = F.origin[0] + ax * F.ex[0] + ay * F.ey[0] + az * F.ez[0];
-        const hy = F.origin[1] + ax * F.ex[1] + ay * F.ey[1] + az * F.ez[1];
-        const hz = F.origin[2] + ax * F.ex[2] + ay * F.ey[2] + az * F.ez[2];
-        if (!classifyHeart(heart, ed, hx + ed.swingX, hy, hz, q)) continue;
-        const b = BAKED[q.structure];
-        if (b) label[v] = b;
+  /** The baked label of the analytic heart at voxel (i, j, kk), 0 for none. */
+  const bakedAt = (i: number, j: number, kk: number): number => {
+    const m: V3 = [
+      h.origin[0] + (i + 0.5) * h.voxelMm - M.o[0],
+      h.origin[1] + (j + 0.5) * h.voxelMm - M.o[1],
+      h.origin[2] + (kk + 0.5) * h.voxelMm - M.o[2],
+    ];
+    const ax = dot(m, M.ex) * k,
+      ay = dot(m, M.ey) * k,
+      az = dot(m, M.ez) * k;
+    const hx = F.origin[0] + ax * F.ex[0] + ay * F.ey[0] + az * F.ez[0];
+    const hy = F.origin[1] + ax * F.ex[1] + ay * F.ey[1] + az * F.ez[1];
+    const hz = F.origin[2] + ax * F.ex[2] + ay * F.ey[2] + az * F.ez[2];
+    if (!classifyHeart(heart, ed, hx + ed.swingX, hy, hz, q)) return 0;
+    return BAKED[q.structure] ?? 0;
+  };
+  // a coarse pass over every BAKE_STRIDE-th voxel finds the blocks the apparatus reaches; the voxels of those blocks and
+  // their neighbours are classified one by one (the papillary muscles and the band are some millimetres across)
+  const S = BAKE_STRIDE;
+  const bx = Math.ceil(nx / S),
+    by = Math.ceil(ny / S),
+    bz = Math.ceil(nz / S);
+  const hit = new Uint8Array(bx * by * bz);
+  for (let kk = 0; kk < nz; kk += S)
+    for (let j = 0; j < ny; j += S)
+      for (let i = 0; i < nx; i += S)
+        if (APPARATUS_HOSTS.has(label[i + nx * (j + ny * kk)]!) && bakedAt(i, j, kk))
+          hit[i / S + bx * (j / S + by * (kk / S))] = 1;
+  for (let c = 0; c < bz; c++)
+    for (let b = 0; b < by; b++)
+      for (let a = 0; a < bx; a++) {
+        let near = false;
+        for (let w = -1; w <= 1 && !near; w++)
+          for (let u = -1; u <= 1 && !near; u++)
+            for (let t = -1; t <= 1 && !near; t++) {
+              const A = a + t,
+                B = b + u,
+                C = c + w;
+              if (
+                A >= 0 &&
+                B >= 0 &&
+                C >= 0 &&
+                A < bx &&
+                B < by &&
+                C < bz &&
+                hit[A + bx * (B + by * C)]
+              )
+                near = true;
+            }
+        if (!near) continue;
+        for (let kk = c * S; kk < Math.min(nz, (c + 1) * S); kk++)
+          for (let j = b * S; j < Math.min(ny, (b + 1) * S); j++)
+            for (let i = a * S; i < Math.min(nx, (a + 1) * S); i++) {
+              const v = i + nx * (j + ny * kk);
+              if (!APPARATUS_HOSTS.has(label[v]!)) continue;
+              const l = bakedAt(i, j, kk);
+              if (l) label[v] = l;
+            }
       }
   return label;
 }
@@ -551,19 +613,27 @@ export function volumeHeart(
     let gx = 0,
       gy = 0,
       gz = 0;
-    for (let w = -NORMAL_REACH; w <= NORMAL_REACH; w++)
-      for (let u = -NORMAL_REACH; u <= NORMAL_REACH; u++)
-        for (let t = -NORMAL_REACH; t <= NORMAL_REACH; t++) {
-          const r2 = t * t + u * u + w * w;
-          if (r2 === 0 || r2 > NORMAL_REACH * NORMAL_REACH) continue;
-          const l = label[at(clampI(i + t, nx), clampI(j + u, ny), clampI(kk + w, nz))]!;
-          if (cls(l) === c) continue;
-          // the other tissue lies along +r: the outward normal points there
-          const wt = Math.exp(-r2 / (2 * NORMAL_SIGMA * NORMAL_SIGMA));
-          gx += wt * t;
-          gy += wt * u;
-          gz += wt * w;
-        }
+    const inner =
+      i >= NORMAL_REACH &&
+      j >= NORMAL_REACH &&
+      kk >= NORMAL_REACH &&
+      i < nx - NORMAL_REACH &&
+      j < ny - NORMAL_REACH &&
+      kk < nz - NORMAL_REACH;
+    for (let o = 0; o < NORMAL_OFFSETS.length; o += 4) {
+      const t = NORMAL_OFFSETS[o]!,
+        u = NORMAL_OFFSETS[o + 1]!,
+        w = NORMAL_OFFSETS[o + 2]!;
+      const l = inner
+        ? label[v + t + nx * (u + ny * w)]!
+        : label[at(clampI(i + t, nx), clampI(j + u, ny), clampI(kk + w, nz))]!;
+      if (cls(l) === c) continue;
+      // the other tissue lies along +r: the outward normal points there
+      const wt = NORMAL_OFFSETS[o + 3]!;
+      gx += wt * t;
+      gy += wt * u;
+      gz += wt * w;
+    }
     const n: V3 = [gx, gy, gz];
     borderNormals.set(v, n);
     return n;
@@ -808,6 +878,8 @@ export function volumeHeart(
     );
     return i < 0 || j < 0 || kk < 0 || i >= nx || j >= ny || kk >= nz ? -1 : label[at(i, j, kk)]!;
   };
+  // the atria's scales of each bin of the cycle, solved once (they depend on the phase alone, as their curve does)
+  const atrialScaleBins = new Map<number, number[]>();
   const motionParams = (pose: HeartPose, ed: HeartPose): MotionParams => {
     const sL = pose.zAnn - ed.zAnn;
     const sR = pose.tvZ - ed.tvZ;
@@ -820,16 +892,21 @@ export function volumeHeart(
     const vNow = analyticAtrialVolumes(heart, pose),
       vEd = analyticAtrialVolumes(heart, ed);
     const ratios = [vNow.la / vEd.la, vNow.ra / vEd.ra];
-    const atrialScales = atria.map((a2, i) => {
-      // the longitudinal step stretches the atrium above the annular plane by 1 + s/|roof| and compresses what of it lies
-      // below the plane (the right atrium reaches below the mitral centre) by 1 − s/L: its mean over the atrium's voxels
-      const sA = sL + (sR - sL) * smooth(RV_DESCENT_FROM_CM, RV_DESCENT_TO_CM, a2.cx);
-      const pts = atrialSamples[i]!;
-      let stretch = 0;
-      for (const [, z] of pts) stretch += z < 0 ? 1 + sA / -roof : 1 - sA / L;
-      stretch = pts.length ? stretch / pts.length : 1;
-      return atrialScaleFor(i, ratios[i]! / stretch);
-    });
+    const bin = Math.round(pose.state.phase * ATRIAL_PHASE_BINS) % ATRIAL_PHASE_BINS;
+    const keptScales = atrialScaleBins.get(bin);
+    const atrialScales =
+      keptScales ??
+      atria.map((a2, i) => {
+        // the longitudinal step stretches the atrium above the annular plane by 1 + s/|roof| and compresses what of it lies
+        // below the plane (the right atrium reaches below the mitral centre) by 1 − s/L: its mean over the atrium's voxels
+        const sA = sL + (sR - sL) * smooth(RV_DESCENT_FROM_CM, RV_DESCENT_TO_CM, a2.cx);
+        const pts = atrialSamples[i]!;
+        let stretch = 0;
+        for (const [, z] of pts) stretch += z < 0 ? 1 + sA / -roof : 1 - sA / L;
+        stretch = pts.length ? stretch / pts.length : 1;
+        return atrialScaleFor(i, ratios[i]! / stretch);
+      });
+    if (!keptScales) atrialScaleBins.set(bin, atrialScales);
     const rvRatio = pose.rvScale / ed.rvScale;
     return { sL, sR, lambda, alpha, twist, roof, atrialScales, rvRatio };
   };

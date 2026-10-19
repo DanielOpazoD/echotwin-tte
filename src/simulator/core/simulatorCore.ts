@@ -98,7 +98,7 @@ import type {
 } from './protocol';
 import { resolveQualityTier } from './quality';
 import type { AssetFetcher } from '@/simulator/anatomy/roderoAsset';
-import type * as RoderoHeartModule from '@/simulator/anatomy/roderoHeart';
+import type * as RoderoHeartModule from '@/simulator/core/roderoHeart';
 import type { LabelVolume, VolumeHeart } from '@/simulator/anatomy/volumeHeart';
 import type { HeartVolumeGpu } from '@/simulator/renderer/types';
 import { MMODE_TRACE_SHARE } from './mmodeStrip';
@@ -595,7 +595,7 @@ export class SimulatorCore {
   private roderoHeart(): { vh: VolumeHeart; gpu: HeartVolumeGpu; endDiastole: HeartPose } | null {
     if (this.input.anatomy !== 'rodero') return null;
     if (!this.roderoLoad)
-      this.roderoLoad = import('@/simulator/anatomy/roderoHeart')
+      this.roderoLoad = import('@/simulator/core/roderoHeart')
         .then(async (lib) => {
           this.roderoVolume = await lib.loadRoderoVolume(this.fetchAsset);
           this.roderoLib = lib;

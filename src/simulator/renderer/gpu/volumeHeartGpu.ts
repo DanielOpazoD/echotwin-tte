@@ -1,7 +1,7 @@
 /**
  * The bound volume heart for the GPU port (decision 353): uploads the volume, its fields and slice tables as textures,
  * sets the geometry, the label map and the constants as uniforms, and each frame's motion from the CPU's
- * `motionParams`. Lives with the volume's code (`anatomy/roderoHeart.ts`), outside the WebGL2 chunk.
+ * `motionParams`. Lives with the volume's code (`core/roderoHeart.ts`), outside the WebGL2 chunk.
  */
 import { PERICARDIUM_CM } from '@/simulator/anatomy/classify/pericardium';
 import type { HeartPose } from '@/simulator/anatomy/heartModel';
