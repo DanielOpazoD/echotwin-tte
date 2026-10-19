@@ -13,6 +13,7 @@ import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleMo
 import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
 import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
 import { buildColeKernels } from '../acoustic/colePsf';
+import { SCATTER_FIELD } from '../acoustic/scatterers';
 import { COMPOUND_LOOKS } from '../acoustic/acoustics';
 import {
   allocPolarFrame,
@@ -93,13 +94,13 @@ function myocardialSnr(f: PolarFrame, s: PolarFrameSpec): number {
 describe('image formation of the CPU tracer (decision 351)', () => {
   it('forms the app’s image by default: the lattice phasor in COMPOUND_LOOKS looks', () => {
     const d = render(),
-      l = render({ phasor: 'lattice', looks: COMPOUND_LOOKS });
+      l = render({ looks: COMPOUND_LOOKS });
     expect(Array.from(d.amplitude)).toEqual(Array.from(l.amplitude));
   });
 
   it('detects the looks it is asked for: one look is rougher than two, at the same mean level', () => {
-    const f1 = render({ phasor: 'lattice', looks: 1 }),
-      f2 = render({ phasor: 'lattice', looks: 2 });
+    const f1 = render({ looks: 1 }),
+      f2 = render({ looks: 2 });
     expect(myocardialSnr(f2, spec) / myocardialSnr(f1, spec)).toBeGreaterThan(1.15);
     // each look is detected and their envelopes averaged: the mean envelope does not depend on how many
     const meanWall = (f: PolarFrame) => {
@@ -122,9 +123,9 @@ describe('image formation of the CPU tracer (decision 351)', () => {
       calls++;
       return buildColeKernels(s, f, h);
     };
-    const scat = render({ phasor: 'scatterers', looks: 1, kernels });
+    const scat = render({ looks: 1, scatterers: SCATTER_FIELD, kernels });
     expect(calls).toBeGreaterThan(0);
-    const lat = render({ phasor: 'lattice', looks: 1, kernels });
+    const lat = render({ looks: 1, kernels });
     let diff = 0;
     for (let i = 0; i < scat.amplitude.length; i++)
       diff += Math.abs(scat.amplitude[i]! - lat.amplitude[i]!);

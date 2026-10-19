@@ -42,7 +42,6 @@ import {
   LATTICE_FORMATION,
   type ImageFormation,
 } from '@/simulator/renderer/procedural/sliceRenderer';
-import { scattererPhasor, wavenumberRadPerCm } from '@/simulator/renderer/acoustic/scatterers';
 import { sliceHalfWidthCm } from '@/simulator/renderer/acoustic/psf';
 import {
   convolveEnvelope,
@@ -123,7 +122,8 @@ function simFrame(
   const R = SCATTER_FREQ_RATIO;
   const re = new Float32Array(n * looks),
     im = new Float32Array(n * looks);
-  const kWave = wavenumberRadPerCm(settings.frequencyMHz, harmonics);
+  const field = fm.scatterers;
+  const kWave = field ? field.wavenumber(settings.frequencyMHz, harmonics) : 0;
   const dTheta = spec.sectorRad / spec.lines;
   const ph1 = { re: 0, im: 0 };
   for (let li = 0; li < spec.lines; li++) {
@@ -138,8 +138,8 @@ function simFrame(
         qy = z * SCATTER_FREQ,
         qz = 0;
       const idx = li * spec.samples + si;
-      if (fm.phasor === 'scatterers') {
-        scattererPhasor(
+      if (field) {
+        field.phasor(
           z,
           x,
           0,

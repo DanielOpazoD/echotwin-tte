@@ -10,6 +10,7 @@
  */
 import { loadVolumeHeart } from '../anatomy2/volumeHeart';
 import { buildColeKernels } from '@/simulator/renderer/acoustic/colePsf';
+import { SCATTER_FIELD } from '@/simulator/renderer/acoustic/scatterers';
 import type { ImageFormation } from '@/simulator/renderer/procedural/sliceRenderer';
 import { runPhantoms, type PhantomResults } from './phantoms';
 import { renderCine, type Cine } from './simCine';
@@ -18,7 +19,7 @@ import { renderCine, type Cine } from './simCine';
  * Phase 3 of the reconstruction (decision 351): the image as the convolution of point scatterers anchored in tissue with
  * the delay-and-sum PSF of the bench's reference array, detected in one look.
  */
-const COLE: ImageFormation = { phasor: 'scatterers', looks: 1, kernels: buildColeKernels };
+const COLE: ImageFormation = { looks: 1, scatterers: SCATTER_FIELD, kernels: buildColeKernels };
 
 /** The folder of the voxelised Rodero heart (tools/offline/anatomy2/rodero-voxelize.ts), outside the repository. */
 function anatomy2Dir(): string {

@@ -47,6 +47,12 @@ export interface Phasor {
   im: number;
 }
 
+/** What an image formation with point scatterers hands the tracer: the per-sample sum and the received wavenumber. */
+export interface ScatterField {
+  phasor: typeof scattererPhasor;
+  wavenumber: typeof wavenumberRadPerCm;
+}
+
 /**
  * The scatterer phasor of one sample. (u, v, w) are the sample's material position on the probe's axes (cm): forward,
  * lateral and normal at the centre line. The line runs at angle θ from the forward axis in the plane (cosT, sinT);
@@ -114,3 +120,9 @@ export function scattererPhasor(
   out.im = si * norm;
 }
 const SCATTER_CELL = SCATTERER_CELL_CM;
+
+/** The point scatterers of decision 351, for an `ImageFormation`. */
+export const SCATTER_FIELD: ScatterField = {
+  phasor: scattererPhasor,
+  wavenumber: wavenumberRadPerCm,
+};

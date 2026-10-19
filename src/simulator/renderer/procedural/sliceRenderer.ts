@@ -1,6 +1,6 @@
 import type { BeamFrame } from '@/simulator/probe/pose';
 import type { PolarFrame, PolarFrameSpec, RendererBackend, Scene } from '../types';
-import { scattererPhasor, wavenumberRadPerCm, type Phasor } from '../acoustic/scatterers';
+import type { Phasor, ScatterField } from '../acoustic/scatterers';
 import { sceneClassifier } from '@/simulator/anatomy/sceneClassifier';
 import {
   makeSample,
@@ -138,12 +138,16 @@ const [CIB_X, CIB_Y, CIB_Z] = CLUTTER_IM_B;
  * number of looks and the kernels they bring.
  */
 export interface ImageFormation {
-  phasor: 'lattice' | 'scatterers';
   looks: number;
+  /**
+   * Point scatterers anchored in tissue in place of the lattice phasor (decision 351). The engine brings them, so the
+   * app's worker does not carry their code.
+   */
+  scatterers?: ScatterField;
   /** PSF kernels for a frame geometry at the console's frequency and harmonic setting; the closed-form ones when absent. */
   kernels?: (spec: PolarFrameSpec, frequencyMHz: number, harmonics: boolean) => PsfKernels;
 }
-export const LATTICE_FORMATION: ImageFormation = { phasor: 'lattice', looks: COMPOUND_LOOKS };
+export const LATTICE_FORMATION: ImageFormation = { looks: COMPOUND_LOOKS };
 
 export class ProceduralSliceRenderer implements RendererBackend {
   readonly id = 'procedural' as const;
@@ -667,8 +671,10 @@ export class ProceduralSliceRenderer implements RendererBackend {
     // compounding looks of a frame (decision 145); an M-mode line has one
     const looks = line ? 1 : this.formation.looks;
     // point scatterers anchored in tissue (decision 351): the wavenumber of the received echo and the line spacing
-    const scat = !line && this.formation.phasor === 'scatterers';
-    const kWave = wavenumberRadPerCm(ctx.scene.physics.frequencyMHz, ctx.scene.physics.harmonics);
+    const field = line ? undefined : this.formation.scatterers;
+    const kWave = field
+      ? field.wavenumber(ctx.scene.physics.frequencyMHz, ctx.scene.physics.harmonics)
+      : 0;
     const dTheta = spec.sectorRad / spec.lines;
     const ph = this.phasor;
     const nFrame = spec.lines * samples;
@@ -984,62 +990,48 @@ export class ProceduralSliceRenderer implements RendererBackend {
         // an M-mode line scales its echoes by its own transmission (no lateral neighbours)
         re[idx] = sRe * transmission;
         im[idx] = sIm * transmission;
-      } else if (scat) {
-        // the scatterers of the sample's box, on the probe's axes in the material frame; flowing blood is a new
-        // realization in every frame, shifted along x as the lattice is (decision 163)
-        const fa = inHeart ? fwdH : beam.forward,
-          la = inHeart ? latH : beam.lateral,
-          na = inHeart ? nrmH : beam.normal;
-        const mx = s.mx + (tissue === Tissue.Blood ? ctx.bloodShift / SCATTER_FREQ : 0);
-        scattererPhasor(
-          mx * fa.x + s.my * fa.y + s.mz * fa.z,
-          mx * la.x + s.my * la.y + s.mz * la.z,
-          mx * na.x + s.my * na.y + s.mz * na.z,
-          ct,
-          sn,
-          r,
-          dr,
-          r * dTheta,
-          (2 * sliceHalfWidthCm(r)) / FWHM_PER_SIGMA,
-          kWave,
-          seed,
-          ph,
-        );
-        re[idx] = sigma * ph.re + specular + grain + ringDown;
-        im[idx] = sigma * ph.im;
-        if (cm > 0 && clutRe && clutIm) {
-          const sx = LOOK_SHIFT[0]![0],
-            sy = LOOK_SHIFT[0]![1],
-            sz = LOOK_SHIFT[0]![2];
-          clutRe[idx] =
-            cm *
-            (latticeNoise3(cx + CLUTTER_RE_A_X + sx, cy + sy, cz + sz, latA) +
-              latticeNoise3(cx * R + CRB_X + sx, cy + CRB_Y + sy, cz * R + sz, latB) -
-              1) *
-            PHASOR_NORM;
-          clutIm[idx] =
-            cm *
-            (latticeNoise3(cx + CIA_X + sx, cy + CIA_Y + sy, cz + CIA_Z + sz, latC) +
-              latticeNoise3(cx * R + CIB_X + sx, cy + CIB_Y + sy, cz * R + CIB_Z + sz, latA) -
-              1) *
-            PHASOR_NORM;
-        }
       } else {
         // a frame's echoes are scaled by the beam's transmission in the beam march
         for (let k = 0; k < looks; k++) {
           const sx = LOOK_SHIFT[k]![0],
             sy = LOOK_SHIFT[k]![1],
             sz = LOOK_SHIFT[k]![2];
-          const zr =
-            (latticeNoise3(qx + sx, qy + sy, qz + sz, latA) +
-              latticeNoise3(qx * R + PRB_X + sx, qy * R + PRB_Y + sy, qz * R + PRB_Z + sz, latB) -
-              1) *
-            PHASOR_NORM;
-          const zi =
-            (latticeNoise3(qx + PIA_X + sx, qy + PIA_Y + sy, qz + PIA_Z + sz, latC) +
-              latticeNoise3(qx * R + PIB_X + sx, qy * R + PIB_Y + sy, qz * R + PIB_Z + sz, latA) -
-              1) *
-            PHASOR_NORM;
+          let zr: number, zi: number;
+          if (field) {
+            // point scatterers of the sample's neighbourhood on the probe's axes in the material frame (decision 351);
+            // flowing blood is a new realization in every frame, shifted along x as the lattice is (decision 163)
+            const fa = inHeart ? fwdH : beam.forward,
+              la = inHeart ? latH : beam.lateral,
+              na = inHeart ? nrmH : beam.normal;
+            const mx = s.mx + (tissue === Tissue.Blood ? ctx.bloodShift / SCATTER_FREQ : 0);
+            field.phasor(
+              mx * fa.x + s.my * fa.y + s.mz * fa.z,
+              mx * la.x + s.my * la.y + s.mz * la.z,
+              mx * na.x + s.my * na.y + s.mz * na.z,
+              ct,
+              sn,
+              r,
+              dr,
+              r * dTheta,
+              (2 * sliceHalfWidthCm(r)) / FWHM_PER_SIGMA,
+              kWave,
+              seed,
+              ph,
+            );
+            zr = ph.re;
+            zi = ph.im;
+          } else {
+            zr =
+              (latticeNoise3(qx + sx, qy + sy, qz + sz, latA) +
+                latticeNoise3(qx * R + PRB_X + sx, qy * R + PRB_Y + sy, qz * R + PRB_Z + sz, latB) -
+                1) *
+              PHASOR_NORM;
+            zi =
+              (latticeNoise3(qx + PIA_X + sx, qy + PIA_Y + sy, qz + PIA_Z + sz, latC) +
+                latticeNoise3(qx * R + PIB_X + sx, qy * R + PIB_Y + sy, qz * R + PIB_Z + sz, latA) -
+                1) *
+              PHASOR_NORM;
+          }
           re[k * nFrame + idx] = sigma * zr + specular + grain + ringDown;
           im[k * nFrame + idx] = sigma * zi;
           if (cm > 0 && clutRe && clutIm) {

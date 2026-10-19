@@ -2684,7 +2684,7 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     - **`cole`**: mejoran 7, empeoran 4, iguales 9. Mejoran los fantomas, la desviación de la textura del miocardio (14,8 → 17,6; CAMUS 17,7–22,0), la fracción del acortamiento que lee el rastreador (0,55 → 0,75) y la razón rastreado/trazado en formato EchoNet. Empeoran la celda lateral, la resolución axial y la asimetría y la curtosis de la textura.
     - **`rodero-cole`**: mejoran 9, empeoran 4, iguales 7. Mejoran además la correlación de bloques y la FE de la imagen; empeoran la celda lateral, la resolución axial, la asimetría y el gris mediano del miocardio (109 → 115).
 
-    **Coste**: la formación por convolución cuesta unos 1,5 s por cuadro en el A4C, frente a 1 s. El modo de la app no cambia de coste: −0,0 % frente al árbol de referencia del presupuesto del trazador (decisión 332).
+    **Coste**: la formación por convolución cuesta unos 1,5 s por cuadro en el A4C, frente a 1 s. El modo de la app no cambia de coste: −0,0 % y −9,4 % en dos mediciones frente al árbol de referencia del presupuesto del trazador (decisión 332), la diferencia es el ruido de la máquina. El worker de simulación de la app pasa de 354,7 a 355,3 kB (el código de los dispersores lo traen los motores, no el worker; quedan las miradas y la rama del fasor en el bucle del trazador): su presupuesto sube de 355 a 360 kB, el total sin cambios.
 
     **Lo que no hace**:
 
