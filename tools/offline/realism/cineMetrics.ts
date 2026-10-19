@@ -18,6 +18,7 @@ import {
 } from '@/clinical/realism/speckleStats';
 import {
   matchBlock,
+  offsetPolyline,
   peakStrain,
   polylineLength,
   resamplePolyline,
@@ -143,29 +144,6 @@ export function endocardialContour(structure: Uint8Array): { x: number; y: numbe
   return [...smooth(left).reverse(), ...smooth(right)];
 }
 
-/** A contour moved `px` pixels outward along its normals (away from the centroid of its points). */
-export function offsetContour(
-  pts: { x: number; y: number }[],
-  px: number,
-): { x: number; y: number }[] {
-  const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length,
-    cy = pts.reduce((s, p) => s + p.y, 0) / pts.length;
-  return pts.map((p, i) => {
-    const a = pts[Math.max(0, i - 3)]!,
-      b = pts[Math.min(pts.length - 1, i + 3)]!;
-    let nx = b.y - a.y,
-      ny = -(b.x - a.x);
-    const L = Math.hypot(nx, ny) || 1;
-    nx /= L;
-    ny /= L;
-    if (nx * (p.x - cx) + ny * (p.y - cy) < 0) {
-      nx = -nx;
-      ny = -ny;
-    }
-    return { x: p.x + nx * px, y: p.y + ny * px };
-  });
-}
-
 export interface StrainResult {
   /** Peak (most negative) GLS (%) and the frame of the peak: tracked, the model's contour 2 mm inside the wall, endocardial. */
   tracked: number;
@@ -186,7 +164,7 @@ export interface StrainResult {
 export function strain(cine: Cine): StrainResult {
   const insidePx = 2 / cine.mmPerPx;
   const start = resamplePolyline(
-    offsetContour(endocardialContour(cine.frames[0]!.structure), insidePx),
+    offsetPolyline(endocardialContour(cine.frames[0]!.structure), insidePx),
     40,
   );
   const halfKernel = Math.round(2.5 / cine.mmPerPx);
@@ -196,7 +174,7 @@ export function strain(cine: Cine): StrainResult {
   const tr = trackPoints([...frames, frames[0]!], start, { halfKernel, search });
   const tracked = tr.positions.slice(0, frames.length).map((p) => polylineLength(p));
   const model = cine.frames.map((f) =>
-    polylineLength(resamplePolyline(offsetContour(endocardialContour(f.structure), insidePx), 40)),
+    polylineLength(resamplePolyline(offsetPolyline(endocardialContour(f.structure), insidePx), 40)),
   );
   const endo = cine.frames.map((f) => polylineLength(endocardialContour(f.structure)));
   const last = tr.positions[tr.positions.length - 1]!;

@@ -6,6 +6,7 @@
  *                      [--answers <folder of respuestas-*.json>] [--camus-limit N] [--echonet-videos 40]
  *                      [--report docs/validation/banco-realismo.md] [--quick]
  *                      [--engine actual] [--baseline <baseline.json> | --no-baseline] [--save-baseline <file>] [--strict]
+ *                      [--report-only <results.json>]
  *
  * 1. Phantoms of the image formation against the Field II–style reference (`phantoms.ts`).
  * 2. One cycle of each view and case through the app's CPU chain at 50 frames/s (`simCine.ts`), measured by
@@ -34,21 +35,30 @@ import { cpus, homedir } from 'node:os';
 import { join } from 'node:path';
 import type { ClipItem } from '@/clinical/realism/turing';
 import { gradeTuring, type AnswerSheet, type Trial } from '@/clinical/realism/turing';
-import { tissueDecorrelation } from '@/clinical/realism/speckleTracking';
+import { tissueDecorrelation, trackedVersusTraced } from '@/clinical/realism/speckleTracking';
 import { seededRandom } from '@/clinical/realism/turing';
 import { compareGaps, toBaseline, type Baseline } from '@/clinical/realism/verdict';
 import type { Cine } from './simCine';
 import { engineById, type CineVariant } from './engines';
-import { cineMetrics, type CineMetrics } from './cineMetrics';
+import { cineMetrics, endocardialContour, type CineMetrics } from './cineMetrics';
 import {
   assertOutsideRepo,
   camusSummary,
   ECHONET_DECORRELATION,
   echonetSummary,
 } from './clinicalData';
-import { hasFfmpeg, toEchonet, toTile, writeMp4, writePngGrey, type Grey } from './formats';
+import {
+  type Grey,
+  hasFfmpeg,
+  litBox,
+  toEchonet,
+  toEchonetPoint,
+  toTile,
+  writeMp4,
+  writePngGrey,
+} from './formats';
 import { exportTuring } from './turingExport';
-import { aggregate, reportMd } from './report';
+import { aggregate, reportMd, type Results } from './report';
 
 /**
  * The healthy heart first (Daniel, 2026-10-18): the normal case with an excellent window, the one compared with CAMUS
@@ -80,6 +90,11 @@ export interface CineResult {
   metrics: CineMetrics;
   /** Frame-to-frame correlation of the cine in EchoNet's format, by grey alone (as on EchoNet). */
   echonetDecorrelation: { peak: number; zeroShift: number; pairs: number };
+  /**
+   * In EchoNet's format, the end-diastolic endocardium of the structure map tracked to end-systole against the one the
+   * map draws there (`trackedVersusTraced`), as on EchoNet's tracings: four-chamber cines only.
+   */
+  echonetTracking: { traced: number; tracked: number; ratio: number; meanPeak: number } | null;
   clips: ClipItem[];
   seconds: number;
 }
@@ -152,6 +167,7 @@ function parseArgs(argv: string[]): Options {
     else if (a === '--no-baseline') o.baseline = null;
     else if (a === '--save-baseline') o.saveBaseline = next();
     else if (a === '--strict') o.strict = true;
+    else if (a === '--report-only') i++;
     else if (a === '--worker') o.worker = next();
     else throw new Error(`argumento desconocido ${a}`);
   }
@@ -236,17 +252,35 @@ function runJob(job: CineJob): CineResult | null {
   if (!cyc) return null;
   const metrics = cineMetrics(cyc);
   const W = Math.sqrt(cyc.frames[0]!.grey.length);
+  // one bounding square for the whole cine, as EchoNet crops a video once
+  const box = litBox(cyc.frames[0]!.grey, W, W);
   const small = cyc.frames.map((f) => {
-    const g = toEchonet(f.grey, W, W);
+    const g = toEchonet(f.grey, W, W, box);
     return { width: g.width, height: g.height, grey: Float32Array.from(g.data) };
   });
+  const esFrame = Math.min(cyc.frames.length - 1, Math.round(cyc.esPhase * cyc.rrS * cyc.fps));
+  const echonetTracking =
+    job.view === 'a4c'
+      ? trackedVersusTraced(
+          small.slice(0, esFrame + 1),
+          endocardialContour(cyc.frames[0]!.structure).map((p) => toEchonetPoint(p, box)),
+          endocardialContour(cyc.frames[esFrame]!.structure).map((p) => toEchonetPoint(p, box)),
+        )
+      : null;
   const echonetDecorrelation = tissueDecorrelation(small, {
     ...ECHONET_DECORRELATION,
     rand: seededRandom(343),
   });
   // a clip longer than a cycle repeats the cycle, as a loop of the scanner's cine memory
   const clips = writeSimClips(cyc, job);
-  return { job, metrics, echonetDecorrelation, clips, seconds: (performance.now() - t0) / 1000 };
+  return {
+    job,
+    metrics,
+    echonetDecorrelation,
+    echonetTracking,
+    clips,
+    seconds: (performance.now() - t0) / 1000,
+  };
 }
 
 async function runChild(jobs: CineJob[], k: number, out: string): Promise<CineResult[]> {
@@ -429,7 +463,13 @@ function gitCommit(): string {
 }
 
 const opts = parseArgs(process.argv.slice(2));
-if (opts.worker) {
+const reportOnly = process.argv.indexOf('--report-only');
+if (reportOnly >= 0) {
+  // the report again from a run's results.json, without rendering (a change of the report's wording)
+  const results = JSON.parse(readFileSync(process.argv[reportOnly + 1]!, 'utf8')) as Results;
+  const md = reportMd(results);
+  writeFileSync(opts.report ?? join(opts.out, 'informe.md'), md);
+} else if (opts.worker) {
   const jobs = JSON.parse(readFileSync(opts.worker, 'utf8')) as CineJob[];
   for (const job of jobs) {
     const r = runJob(job);

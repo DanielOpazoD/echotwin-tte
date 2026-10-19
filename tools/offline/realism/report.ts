@@ -81,6 +81,8 @@ export interface Results {
     medianGrey: number;
   }[];
   envelope: { caseId: string; view: string; snr: number; windowedSnr: number; kAlpha: number }[];
+  /** The traced contour tracked from end-diastole to end-systole in EchoNet's format, per case (four-chamber). */
+  tracking: { caseId: string; traced: number; tracked: number; ratio: number; meanPeak: number }[];
   camus: CamusSummary | null;
   echonet: EchonetSummary | null;
   turing: TuringExport | null;
@@ -171,6 +173,9 @@ export function aggregate(input: {
           medianGrey: c.metrics.texture![ph].medianGrey,
         }))
       : [],
+  );
+  const tracking: Results['tracking'] = def.flatMap((c) =>
+    c.echonetTracking ? [{ caseId: c.job.caseId, ...c.echonetTracking }] : [],
   );
   const envelope = def.map((c) => ({
     caseId: c.job.caseId,
@@ -336,7 +341,7 @@ export function aggregate(input: {
       score: rangeScore(sN.tracked, GLS_NORMAL.low, GLS_NORMAL.high),
       unit: '%',
       caveat:
-        'el rastreador del banco no regulariza y sólo está validado en una deformación sintética; hasta correrlo sobre vídeos reales (EchoNet) no se sabe qué parte es del simulador',
+        'el rastreador del banco recupera −20 % en una deformación sintética, pero en los vídeos de EchoNet recupera sólo una fracción del acortamiento que trazan los expertos, como en el simulador reducido a su formato (ver «Rastreo de los trazados»); validarlo a resolución completa pide clips con el movimiento verdadero',
     });
     gaps.push({
       id: 'movimiento.gls-modelo',
@@ -349,6 +354,18 @@ export function aggregate(input: {
       unit: '%',
     });
   }
+  const tN = tracking.find((x) => x.caseId === normal);
+  if (echonet?.tracking && tN)
+    gaps.push({
+      id: 'movimiento.rastreo-trazados-echonet',
+      area: 'movimiento',
+      metric: 'razón rastreado / trazado de TD a TS, formato EchoNet (A4C normal)',
+      sim: tN.ratio,
+      ref: echonet.tracking.ratio.median,
+      refLabel: `EchoNet, mediana [${fmt(echonet.tracking.ratio.p25)}–${fmt(echonet.tracking.ratio.p75)}]`,
+      score: Math.abs(iqrDistance(tN.ratio, echonet.tracking.ratio)),
+      unit: '',
+    });
   if (echonet?.decorrelation) {
     const d = decorrelation.find((x) => x.caseId === normal && x.view === 'a4c');
     if (d)
@@ -390,6 +407,7 @@ export function aggregate(input: {
     decorrelation,
     texture,
     envelope,
+    tracking,
     camus,
     echonet,
     turing: input.turing,
@@ -397,6 +415,8 @@ export function aggregate(input: {
     gaps,
   };
 }
+
+const capitalize = (t: string): string => t.charAt(0).toUpperCase() + t.slice(1);
 
 /** Spanish decimal comma; NaN and infinities as a dash. */
 export function fmt(v: number, digits = 2): string {
@@ -433,13 +453,25 @@ export function reportMd(r: Results): string {
     '| # | área | métrica | simulador | referencia | fuente de la referencia | puntuación |',
     '|---:|---|---|---:|---:|---|---:|',
   );
-  r.gaps.forEach((g, i) =>
-    L.push(
-      `| ${i + 1} | ${g.area} | ${g.metric}${g.caveat ? ' †' : ''} | ${fmt(g.sim)} ${g.unit} | ${fmt(g.ref)} ${g.unit} | ${g.refLabel} | ${fmt(g.score, 1)} |`,
-    ),
-  );
+  // a gap whose instrument is not validated is not ranked: its score may say more about the instrument
+  r.gaps
+    .filter((g) => !g.caveat)
+    .forEach((g, i) =>
+      L.push(
+        `| ${i + 1} | ${g.area} | ${g.metric} | ${fmt(g.sim)} ${g.unit} | ${fmt(g.ref)} ${g.unit} | ${g.refLabel} | ${fmt(g.score, 1)} |`,
+      ),
+    );
   const caveats = r.gaps.filter((g) => g.caveat);
-  if (caveats.length) L.push('', ...caveats.map((g) => `† ${g.metric}: ${g.caveat}.`));
+  if (caveats.length)
+    L.push(
+      '',
+      'Fuera del orden, porque el instrumento no está validado:',
+      '',
+      ...caveats.map(
+        (g) =>
+          `- ${g.metric}: ${fmt(g.sim)} ${g.unit} frente a ${fmt(g.ref)} ${g.unit} (${g.refLabel}; puntuación ${fmt(g.score, 1)}). ${capitalize(g.caveat ?? '')}.`,
+      ),
+    );
   if (r.comparison) {
     const c = r.comparison;
     const word = {
@@ -614,6 +646,30 @@ export function reportMd(r: Results): string {
       '',
       `EchoNet (${d.videos} vídeos con FE ≥ 55 %, ${q(d.fps, 0)} cuadros/s): pico ${q(d.peak, 2)}, mismo sitio ${q(d.zeroShift, 2)}.`,
     );
+  }
+  L.push(
+    '',
+    '### Rastreo de los trazados',
+    '',
+    'El contorno endocárdico de telediástole, 2 px dentro de la pared y en 13 puntos, llevado cuadro a cuadro hasta telesístole con bloques de 7 px y la mediana de los desplazamientos vecinos, frente al mismo contorno trazado en telesístole. En EchoNet el contorno sale de los trazados de los expertos (los extremos de las cuerdas de los discos); en el simulador, del mapa de estructuras, y el cine se reduce al formato de EchoNet (112 px) con el mismo recorte. Una razón de 1 es un rastreador que sigue la pared como la sigue el trazado.',
+    '',
+  );
+  if (r.echonet?.tracking) {
+    const t = r.echonet.tracking;
+    L.push(
+      `EchoNet (${t.videos} vídeos con FE ≥ 55 %): deformación trazada ${q(t.traced)} %, rastreada ${q(t.tracked)} %, razón ${q(t.ratio, 2)}.`,
+      '',
+    );
+  }
+  if (r.tracking.length) {
+    L.push(
+      '| caso | trazado (%) | rastreado (%) | razón | correlación media |',
+      '|---|---:|---:|---:|---:|',
+    );
+    for (const t of r.tracking)
+      L.push(
+        `| ${short(t.caseId)} | ${fmt(t.traced, 1)} | ${fmt(t.tracked, 1)} | ${fmt(t.ratio)} | ${fmt(t.meanPeak)} |`,
+      );
   }
   L.push('', '## 5. Prueba de Turing visual', '');
   if (r.turing) {

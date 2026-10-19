@@ -168,6 +168,18 @@ export function toEchonet(
   return { width: ECHONET_SIZE, height: ECHONET_SIZE, data: out };
 }
 
+/** Where a point of the source lands in `toEchonet`'s 112-px frame for the same box (pixel centres). */
+export function toEchonetPoint(
+  p: { x: number; y: number },
+  box: { x0: number; y0: number; x1: number; y1: number },
+): { x: number; y: number } {
+  const side = Math.max(box.x1 - box.x0 + 1, box.y1 - box.y0 + 1);
+  const cx = (box.x0 + box.x1) / 2,
+    cy = (box.y0 + box.y1) / 2;
+  const s = side / ECHONET_SIZE;
+  return { x: (p.x - (cx - side / 2)) / s - 0.5, y: (p.y - (cy - side / 2)) / s - 0.5 };
+}
+
 export function hasFfmpeg(): boolean {
   return spawnSync('ffmpeg', ['-version'], { stdio: 'ignore' }).status === 0;
 }
