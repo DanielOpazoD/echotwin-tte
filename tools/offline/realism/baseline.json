@@ -1,147 +1,147 @@
 {
- "engine": "actual",
- "commit": "dff1b85",
- "generatedAt": "2026-10-19T05:42:39.548Z",
- "gaps": [
-  {
-   "id": "movimiento.gls-seguido",
-   "metric": "GLS por seguimiento de speckle (A4C, caso normal)",
-   "sim": -10.334694525092512,
-   "ref": -20,
-   "score": 3.832652737453744
-  },
-  {
-   "id": "fisica.snr-speckle",
-   "metric": "SNR del speckle uniforme (envolvente mostrada, 2 miradas)",
-   "sim": 2.6698972904758356,
-   "ref": 1.9130583802711008,
-   "score": 1.4938222237502883
-  },
-  {
-   "id": "fisica.lateral.15cm",
-   "metric": "resolución lateral −6 dB a 15 cm",
-   "sim": 4.387835392003047,
-   "ref": 6.04687542124733,
-   "score": 1.437216755549383
-  },
-  {
-   "id": "clinica.textura.skewness",
-   "metric": "asimetría del gris residual del miocardio (A4C, TD)",
-   "sim": 0.18890647623910548,
-   "ref": 0.5305565822597564,
-   "score": 1.3888379567048605
-  },
-  {
-   "id": "clinica.textura.residualStd",
-   "metric": "desviación del gris residual del miocardio (A4C, TD)",
-   "sim": 14.814567641196886,
-   "ref": 19.640521379448494,
-   "score": 1.1376024191205192
-  },
-  {
-   "id": "fisica.lateral.9cm",
-   "metric": "resolución lateral −6 dB a 9 cm",
-   "sim": 2.8591023700708065,
-   "ref": 3.560227841161769,
-   "score": 0.9828508280916362
-  },
-  {
-   "id": "volumen.td-ts",
-   "metric": "telediástole → telesístole (caso normal)",
-   "sim": 407.49999999999994,
-   "ref": 336.283185840708,
-   "score": 0.8918961571056365
-  },
-  {
-   "id": "clinica.textura.excessKurtosis",
-   "metric": "curtosis del gris residual del miocardio (A4C, TD)",
-   "sim": 0.22636639225972388,
-   "ref": 0.953151903009803,
-   "score": 0.8914251347218036
-  },
-  {
-   "id": "fisica.quiste.9cm",
-   "metric": "contraste de un quiste anecoico de 8 mm a 9 cm",
-   "sim": -20.443595478344143,
-   "ref": -15.693354725553824,
-   "score": 0.7917067921317198
-  },
-  {
-   "id": "volumen.fe-imagen-modelo",
-   "metric": "FE de la imagen frente a la del modelo (caso normal)",
-   "sim": 66.1269307083247,
-   "ref": 62.50026067084723,
-   "score": 0.7253340074954948
-  },
-  {
-   "id": "movimiento.rastreo-trazados-echonet",
-   "metric": "razón rastreado / trazado de TD a TS, formato EchoNet (A4C normal)",
-   "sim": 0.4318008896540899,
-   "ref": 0.2767912647451713,
-   "score": 0.5233684103806143
-  },
-  {
-   "id": "fisica.axial.9cm",
-   "metric": "resolución axial −6 dB a 9 cm",
-   "sim": 0.6868733447965321,
-   "ref": 0.6372887802485506,
-   "score": 0.335779447455892
-  },
-  {
-   "id": "clinica.textura.medianGrey",
-   "metric": "gris mediano del miocardio (A4C, TD)",
-   "sim": 109,
-   "ref": 100,
-   "score": 0.32142857142857145
-  },
-  {
-   "id": "movimiento.decorrelacion-echonet",
-   "metric": "correlación de bloques entre cuadros, formato EchoNet (A4C normal)",
-   "sim": 0.8495057153717264,
-   "ref": 0.837165945011059,
-   "score": 0.23932689498561963
-  },
-  {
-   "id": "fisica.lateral.5cm",
-   "metric": "resolución lateral −6 dB a 5 cm",
-   "sim": 2.0610684195148856,
-   "ref": 2.1539650024571375,
-   "score": 0.19756713579684534
-  },
-  {
-   "id": "fisica.celda-lateral.9cm",
-   "metric": "celda de speckle lateral a 9 cm",
-   "sim": 2.790913038129785,
-   "ref": 2.8040889543965997,
-   "score": 0.02110702568470006
-  },
-  {
-   "id": "volumen.vtd",
-   "metric": "VTD biplano medido en la imagen (caso normal)",
-   "sim": 115.82189746259077,
-   "ref": 98,
-   "score": 0
-  },
-  {
-   "id": "volumen.vts",
-   "metric": "VTS biplano medido en la imagen (caso normal)",
-   "sim": 39.232431582436476,
-   "ref": 37.5,
-   "score": 0
-  },
-  {
-   "id": "volumen.fe",
-   "metric": "FE biplano medida en la imagen (caso normal)",
-   "sim": 66.1269307083247,
-   "ref": 63,
-   "score": 0
-  },
-  {
-   "id": "movimiento.gls-modelo",
-   "metric": "GLS del contorno del modelo, 2 mm dentro de la pared (A4C, caso normal)",
-   "sim": -19.91954516084788,
-   "ref": -20,
-   "score": 0
-  }
- ]
+  "engine": "actual",
+  "commit": "dff1b85",
+  "generatedAt": "2026-10-19T05:42:39.548Z",
+  "gaps": [
+    {
+      "id": "movimiento.gls-seguido",
+      "metric": "GLS por seguimiento de speckle (A4C, caso normal)",
+      "sim": -10.334694525092512,
+      "ref": -20,
+      "score": 3.832652737453744
+    },
+    {
+      "id": "fisica.snr-speckle",
+      "metric": "SNR del speckle uniforme (envolvente mostrada, 2 miradas)",
+      "sim": 2.6698972904758356,
+      "ref": 1.9130583802711008,
+      "score": 1.4938222237502883
+    },
+    {
+      "id": "fisica.lateral.15cm",
+      "metric": "resolución lateral −6 dB a 15 cm",
+      "sim": 4.387835392003047,
+      "ref": 6.04687542124733,
+      "score": 1.437216755549383
+    },
+    {
+      "id": "clinica.textura.skewness",
+      "metric": "asimetría del gris residual del miocardio (A4C, TD)",
+      "sim": 0.18890647623910548,
+      "ref": 0.5305565822597564,
+      "score": 1.3888379567048605
+    },
+    {
+      "id": "clinica.textura.residualStd",
+      "metric": "desviación del gris residual del miocardio (A4C, TD)",
+      "sim": 14.814567641196886,
+      "ref": 19.640521379448494,
+      "score": 1.1376024191205192
+    },
+    {
+      "id": "fisica.lateral.9cm",
+      "metric": "resolución lateral −6 dB a 9 cm",
+      "sim": 2.8591023700708065,
+      "ref": 3.560227841161769,
+      "score": 0.9828508280916362
+    },
+    {
+      "id": "volumen.td-ts",
+      "metric": "telediástole → telesístole (caso normal)",
+      "sim": 407.49999999999994,
+      "ref": 336.283185840708,
+      "score": 0.8918961571056365
+    },
+    {
+      "id": "clinica.textura.excessKurtosis",
+      "metric": "curtosis del gris residual del miocardio (A4C, TD)",
+      "sim": 0.22636639225972388,
+      "ref": 0.953151903009803,
+      "score": 0.8914251347218036
+    },
+    {
+      "id": "fisica.quiste.9cm",
+      "metric": "contraste de un quiste anecoico de 8 mm a 9 cm",
+      "sim": -20.443595478344143,
+      "ref": -15.693354725553824,
+      "score": 0.7917067921317198
+    },
+    {
+      "id": "volumen.fe-imagen-modelo",
+      "metric": "FE de la imagen frente a la del modelo (caso normal)",
+      "sim": 66.1269307083247,
+      "ref": 62.50026067084723,
+      "score": 0.7253340074954948
+    },
+    {
+      "id": "movimiento.rastreo-trazados-echonet",
+      "metric": "razón rastreado / trazado de TD a TS, formato EchoNet (A4C normal)",
+      "sim": 0.4318008896540899,
+      "ref": 0.2767912647451713,
+      "score": 0.5233684103806143
+    },
+    {
+      "id": "fisica.axial.9cm",
+      "metric": "resolución axial −6 dB a 9 cm",
+      "sim": 0.6868733447965321,
+      "ref": 0.6372887802485506,
+      "score": 0.335779447455892
+    },
+    {
+      "id": "clinica.textura.medianGrey",
+      "metric": "gris mediano del miocardio (A4C, TD)",
+      "sim": 109,
+      "ref": 100,
+      "score": 0.32142857142857145
+    },
+    {
+      "id": "movimiento.decorrelacion-echonet",
+      "metric": "correlación de bloques entre cuadros, formato EchoNet (A4C normal)",
+      "sim": 0.8495057153717264,
+      "ref": 0.837165945011059,
+      "score": 0.23932689498561963
+    },
+    {
+      "id": "fisica.lateral.5cm",
+      "metric": "resolución lateral −6 dB a 5 cm",
+      "sim": 2.0610684195148856,
+      "ref": 2.1539650024571375,
+      "score": 0.19756713579684534
+    },
+    {
+      "id": "fisica.celda-lateral.9cm",
+      "metric": "celda de speckle lateral a 9 cm",
+      "sim": 2.790913038129785,
+      "ref": 2.8040889543965997,
+      "score": 0.02110702568470006
+    },
+    {
+      "id": "volumen.vtd",
+      "metric": "VTD biplano medido en la imagen (caso normal)",
+      "sim": 115.82189746259077,
+      "ref": 98,
+      "score": 0
+    },
+    {
+      "id": "volumen.vts",
+      "metric": "VTS biplano medido en la imagen (caso normal)",
+      "sim": 39.232431582436476,
+      "ref": 37.5,
+      "score": 0
+    },
+    {
+      "id": "volumen.fe",
+      "metric": "FE biplano medida en la imagen (caso normal)",
+      "sim": 66.1269307083247,
+      "ref": 63,
+      "score": 0
+    },
+    {
+      "id": "movimiento.gls-modelo",
+      "metric": "GLS del contorno del modelo, 2 mm dentro de la pared (A4C, caso normal)",
+      "sim": -19.91954516084788,
+      "ref": -20,
+      "score": 0
+    }
+  ]
 }

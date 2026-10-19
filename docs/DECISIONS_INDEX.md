@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 348 (última: 348).
+Decisiones: 349 (última: 349).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -356,3 +356,4 @@ Decisiones: 348 (última: 348).
 | [346](DECISIONS.md#L2574) | 2026-10-18 | Piloto de la fase 1: el corazón medio de Rodero entra al trazador CPU como volumen de etiquetas, detrás del interruptor del banco | vigente |
 | [347](DECISIONS.md#L2586) | 2026-10-18 | El rastreador del banco se mide sobre los trazados de EchoNet, y el GLS seguido bajo resulta suyo y no del simulador | vigente |
 | [348](DECISIONS.md#L2592) | 2026-10-18 | El veredicto del banco deja fuera las brechas cuyo instrumento no está validado | vigente |
+| [349](DECISIONS.md#L2596) | 2026-10-18 | El rastreador del banco se valida contra un movimiento verdadero, y el speckle del simulador sigue a su tejido casi como el de una simulación lagrangiana | vigente |

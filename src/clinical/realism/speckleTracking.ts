@@ -365,3 +365,25 @@ export function trackedVersusTraced(
   const t = trackedStrain(frames, ed, o);
   return { traced, tracked: t.strain, ratio: t.strain / traced, meanPeak: t.meanPeak };
 }
+
+/**
+ * The bench's full-resolution tracker (decision 349), the same on the simulator's cines and on synthetic sequences whose
+ * true motion is known: 2.5 mm blocks, a search of 3 mm per frame, the median of ±2 neighbours' displacements, a
+ * contour of 36 points. On a CREATIS synthetic sequence (Evain et al. 2022) it recovers about 0.7 of the true
+ * shortening of the inner wall: what it reads on the simulator is compared with that, not with 1.
+ */
+export const FULL_RES_TRACKING = {
+  kernelMm: 2.5,
+  searchMmPerFrame: 3,
+  regularize: 2,
+  points: 36,
+} as const;
+
+/** Match options of FULL_RES_TRACKING at a pixel size. */
+export function fullResOptions(mmPerPx: number): MatchOptions {
+  return {
+    halfKernel: Math.round(FULL_RES_TRACKING.kernelMm / mmPerPx),
+    search: Math.ceil(FULL_RES_TRACKING.searchMmPerFrame / mmPerPx),
+    regularize: FULL_RES_TRACKING.regularize,
+  };
+}
