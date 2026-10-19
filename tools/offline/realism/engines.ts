@@ -8,8 +8,17 @@
  * each pixel with the ids of `anatomy/tissue.ts`, and the pre-console polar frame), and may run the image-formation
  * phantoms. A variant it does not model (`noclutter`) returns null and the bench leaves that measurement out.
  */
+import { loadVolumeHeart } from '../anatomy2/volumeHeart';
 import { runPhantoms, type PhantomResults } from './phantoms';
 import { renderCine, type Cine } from './simCine';
+
+/** The folder of the voxelised Rodero heart (tools/offline/anatomy2/rodero-voxelize.ts), outside the repository. */
+function anatomy2Dir(): string {
+  const dir = process.env['ANATOMY2_OUT'];
+  if (!dir)
+    throw new Error('el motor rodero-estatico necesita ANATOMY2_OUT (tools/offline/anatomy2)');
+  return dir;
+}
 
 export type CineVariant = 'default' | 'noclutter';
 
@@ -36,6 +45,23 @@ export const ENGINES: Readonly<Record<string, CineEngine>> = {
         fps,
         seed,
         physics: variant === 'noclutter' ? { clutterLevel: 0 } : undefined,
+      }),
+    phantoms: runPhantoms,
+  },
+  // phase 1 of the reconstruction (decision 346): the same tracer, thorax and console; the heart is the mean CT heart
+  // of Rodero et al. 2021, static at end diastole, with the analytic heart's valve apparatus at end diastole in its
+  // cavities. The image formation is the current one, so its phantoms are too.
+  'rodero-estatico': {
+    id: 'rodero-estatico',
+    label:
+      'corazón medio de Rodero 2021 (TC, telediástole, estático) con el aparato valvular analítico',
+    renderCine: (caseId, view, { fps, variant, seed }) =>
+      renderCine(caseId, view, {
+        fps,
+        seed,
+        physics: variant === 'noclutter' ? { clutterLevel: 0 } : undefined,
+        heartClassifier: (heart, _pose, endDiastole) =>
+          loadVolumeHeart(anatomy2Dir(), heart, endDiastole).classifier(endDiastole),
       }),
     phantoms: runPhantoms,
   },
