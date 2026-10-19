@@ -341,7 +341,7 @@ export function aggregate(input: {
       score: rangeScore(sN.tracked, GLS_NORMAL.low, GLS_NORMAL.high),
       unit: '%',
       caveat:
-        'el rastreador del banco recupera −20 % en una deformación sintética, pero en los vídeos de EchoNet (112 px) no recupera el acortamiento trazado por los expertos (ver «Rastreo de los trazados»): ese formato no sostiene el seguimiento de speckle, y validarlo pide clips a resolución completa',
+        'el rastreador del banco recupera −20 % en una deformación sintética, pero en los vídeos de EchoNet recupera sólo una fracción del acortamiento que trazan los expertos, como en el simulador reducido a su formato (ver «Rastreo de los trazados»); validarlo a resolución completa pide clips con el movimiento verdadero',
     });
     gaps.push({
       id: 'movimiento.gls-modelo',
@@ -416,6 +416,8 @@ export function aggregate(input: {
   };
 }
 
+const capitalize = (t: string): string => t.charAt(0).toUpperCase() + t.slice(1);
+
 /** Spanish decimal comma; NaN and infinities as a dash. */
 export function fmt(v: number, digits = 2): string {
   if (!Number.isFinite(v)) return v === Infinity ? '∞' : v === -Infinity ? '−∞' : '—';
@@ -451,13 +453,25 @@ export function reportMd(r: Results): string {
     '| # | área | métrica | simulador | referencia | fuente de la referencia | puntuación |',
     '|---:|---|---|---:|---:|---|---:|',
   );
-  r.gaps.forEach((g, i) =>
-    L.push(
-      `| ${i + 1} | ${g.area} | ${g.metric}${g.caveat ? ' †' : ''} | ${fmt(g.sim)} ${g.unit} | ${fmt(g.ref)} ${g.unit} | ${g.refLabel} | ${fmt(g.score, 1)} |`,
-    ),
-  );
+  // a gap whose instrument is not validated is not ranked: its score may say more about the instrument
+  r.gaps
+    .filter((g) => !g.caveat)
+    .forEach((g, i) =>
+      L.push(
+        `| ${i + 1} | ${g.area} | ${g.metric} | ${fmt(g.sim)} ${g.unit} | ${fmt(g.ref)} ${g.unit} | ${g.refLabel} | ${fmt(g.score, 1)} |`,
+      ),
+    );
   const caveats = r.gaps.filter((g) => g.caveat);
-  if (caveats.length) L.push('', ...caveats.map((g) => `† ${g.metric}: ${g.caveat}.`));
+  if (caveats.length)
+    L.push(
+      '',
+      'Fuera del orden, porque el instrumento no está validado:',
+      '',
+      ...caveats.map(
+        (g) =>
+          `- ${g.metric}: ${fmt(g.sim)} ${g.unit} frente a ${fmt(g.ref)} ${g.unit} (${g.refLabel}; puntuación ${fmt(g.score, 1)}). ${capitalize(g.caveat ?? '')}.`,
+      ),
+    );
   if (r.comparison) {
     const c = r.comparison;
     const word = {

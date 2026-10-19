@@ -6,6 +6,7 @@
  *                      [--answers <folder of respuestas-*.json>] [--camus-limit N] [--echonet-videos 40]
  *                      [--report docs/validation/banco-realismo.md] [--quick]
  *                      [--engine actual] [--baseline <baseline.json> | --no-baseline] [--save-baseline <file>] [--strict]
+ *                      [--report-only <results.json>]
  *
  * 1. Phantoms of the image formation against the Field II–style reference (`phantoms.ts`).
  * 2. One cycle of each view and case through the app's CPU chain at 50 frames/s (`simCine.ts`), measured by
@@ -57,7 +58,7 @@ import {
   writePngGrey,
 } from './formats';
 import { exportTuring } from './turingExport';
-import { aggregate, reportMd } from './report';
+import { aggregate, reportMd, type Results } from './report';
 
 /**
  * The healthy heart first (Daniel, 2026-10-18): the normal case with an excellent window, the one compared with CAMUS
@@ -166,6 +167,7 @@ function parseArgs(argv: string[]): Options {
     else if (a === '--no-baseline') o.baseline = null;
     else if (a === '--save-baseline') o.saveBaseline = next();
     else if (a === '--strict') o.strict = true;
+    else if (a === '--report-only') i++;
     else if (a === '--worker') o.worker = next();
     else throw new Error(`argumento desconocido ${a}`);
   }
@@ -461,7 +463,13 @@ function gitCommit(): string {
 }
 
 const opts = parseArgs(process.argv.slice(2));
-if (opts.worker) {
+const reportOnly = process.argv.indexOf('--report-only');
+if (reportOnly >= 0) {
+  // the report again from a run's results.json, without rendering (a change of the report's wording)
+  const results = JSON.parse(readFileSync(process.argv[reportOnly + 1]!, 'utf8')) as Results;
+  const md = reportMd(results);
+  writeFileSync(opts.report ?? join(opts.out, 'informe.md'), md);
+} else if (opts.worker) {
   const jobs = JSON.parse(readFileSync(opts.worker, 'utf8')) as CineJob[];
   for (const job of jobs) {
     const r = runJob(job);

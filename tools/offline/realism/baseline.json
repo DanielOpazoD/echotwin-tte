@@ -1,7 +1,7 @@
 {
   "engine": "actual",
-  "commit": "2b70a79",
-  "generatedAt": "2026-10-19T02:38:38.263Z",
+  "commit": "002ef95",
+  "generatedAt": "2026-10-19T05:31:49.654Z",
   "gaps": [
     {
       "id": "movimiento.gls-seguido",
@@ -74,6 +74,13 @@
       "score": 0.7253340074954948
     },
     {
+      "id": "movimiento.rastreo-trazados-echonet",
+      "metric": "razón rastreado / trazado de TD a TS, formato EchoNet (A4C normal)",
+      "sim": 0.4318008896540899,
+      "ref": 0.2767912647451713,
+      "score": 0.5233684103806143
+    },
+    {
       "id": "fisica.axial.9cm",
       "metric": "resolución axial −6 dB a 9 cm",
       "sim": 0.6868733447965321,
@@ -86,6 +93,13 @@
       "sim": 109,
       "ref": 100,
       "score": 0.32142857142857145
+    },
+    {
+      "id": "movimiento.decorrelacion-echonet",
+      "metric": "correlación de bloques entre cuadros, formato EchoNet (A4C normal)",
+      "sim": 0.8495057153717264,
+      "ref": 0.837165945011059,
+      "score": 0.23932689498561963
     },
     {
       "id": "fisica.lateral.5cm",
