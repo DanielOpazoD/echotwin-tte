@@ -40,6 +40,15 @@ Un solo comando que juzga si un cambio acerca el simulador a la ecografía real,
 
 La prueba de Turing: `index.html` en la carpeta de `--turing` (funciona desde el disco, sin servidor) muestra los clips uno a uno, mitad reales y mitad simulados en cada vista y formato, con nombres opacos; el lector dice real o simulado, su seguridad (1–3) y qué lo delató, y la página descarga `respuestas-<lector>-<semilla>.json`. La clave (`key.json`) queda en la carpeta y nunca viaja con la página. Corrección: `npx tsx tools/offline/realism/turing-grade.ts respuestas-*.json` (acierto con su cola binomial, AUC de la calificación de seis pasos, acierto por vista y delatores), o `npm run realism -- --turing <carpeta> --answers <carpeta de respuestas>` para que entre en el informe. Fuentes de clips reales: CAMUS (fotogramas TD/TS y, si están, las secuencias `*_half_sequence.nii.gz`), EchoNet (`ECHONET_DIR`, A4C en su formato de 112 px) y `REALISM_REAL_DIR/<vista>/` para PLAX y PSAX, que ningún conjunto público trae. Una vista sin contraparte real queda fuera de la sesión y el informe lo dice.
 
+Juzgar un cambio (decisión 345): el banco compara cada corrida con la línea base que el repositorio guarda
+(`tools/offline/realism/baseline.json`, el modelo actual en el commit que nombra), brecha por brecha en la escala común,
+y dice si el cambio acerca el simulador a la imagen clínica, lo aleja o las dos cosas; con `--strict` sale con error si
+alguna brecha empeora. Las fases de `docs/RECONSTRUCCION.md` se registran como motores en
+`tools/offline/realism/engines.ts` y se miden con `--engine <id>` contra la línea base del motor actual. Una brecha cuya
+referencia cambió (CAMUS leído con menos pacientes, como hace `--quick`) queda fuera del veredicto: `--quick` sirve
+para probar que el banco corre, no para juzgar. Cuando un cambio se acepta, `--save-baseline
+tools/offline/realism/baseline.json` mueve la línea base, en la misma PR.
+
 El informe y lo que mide, con las cifras de la última corrida: `docs/validation/banco-realismo.md`.
 
 ## Herramientas previstas y ausentes

@@ -10,6 +10,7 @@ import { NORMAL_RANGES } from '@/clinical/guidelines/normalRanges';
 import { biplaneMl, ejectionFraction } from '@/clinical/realism/lvVolume';
 import { iqrDistance, RAYLEIGH_SNR, type Quantiles } from '@/clinical/realism/speckleStats';
 import type { TuringScore } from '@/clinical/realism/turing';
+import type { Comparison } from '@/clinical/realism/verdict';
 import type { CineResult } from './bench';
 import type { CamusSummary, EchonetSummary } from './clinicalData';
 import type { PhantomResults } from './phantoms';
@@ -21,6 +22,8 @@ export const EF_NORMAL = { low: 52, high: 74 };
 export const GLS_NORMAL = { low: -22, high: -18 };
 
 export interface Gap {
+  /** Stable key the baseline comparison matches on. */
+  id: string;
   area: 'física' | 'imagen clínica' | 'volumen y tiempo' | 'movimiento' | 'Turing';
   metric: string;
   sim: number;
@@ -34,9 +37,13 @@ export interface Gap {
 
 export interface Results {
   generatedAt: string;
+  /** The engine measured (decision 345) and the commit of the tree it ran from. */
+  engine: { id: string; label: string; commit: string };
+  /** The verdict against a baseline, when the run had one. */
+  comparison?: Comparison & { baseline: { engine: string; commit: string; generatedAt: string } };
   wallSeconds: number;
   sources: { camus: boolean; echonet: boolean };
-  phantoms: PhantomResults;
+  phantoms: PhantomResults | null;
   volumes: {
     caseId: string;
     edvImage: number;
@@ -87,7 +94,7 @@ const rangeScore = (v: number, lo: number, hi: number): number =>
   v < lo ? (lo - v) / ((hi - lo) / 2) : v > hi ? (v - hi) / ((hi - lo) / 2) : 0;
 
 export function aggregate(input: {
-  phantoms: PhantomResults;
+  phantoms: PhantomResults | null;
   cines: CineResult[];
   camus: CamusSummary | null;
   echonet: EchonetSummary | null;
@@ -95,6 +102,7 @@ export function aggregate(input: {
   graded: Results['graded'];
   sources: Results['sources'];
   wallSeconds: number;
+  engine: Results['engine'];
 }): Results {
   const { cines, phantoms, camus, echonet } = input;
   const def = cines.filter((c) => c.job.variant === 'default');
@@ -172,59 +180,66 @@ export function aggregate(input: {
 
   // ---- gaps
   const gaps: Gap[] = [];
-  const at = (d: number) => phantoms.points.find((p) => p.depthCm === d)!;
-  for (const d of [5, 9, 15]) {
-    const p = at(d);
+  if (phantoms) {
+    const at = (d: number) => phantoms.points.find((p) => p.depthCm === d)!;
+    for (const d of [5, 9, 15]) {
+      const p = at(d);
+      gaps.push({
+        id: `fisica.lateral.${d}cm`,
+        area: 'física',
+        metric: `resolución lateral −6 dB a ${d} cm`,
+        sim: p.simLateralMeasuredMm,
+        ref: p.refLateralRectMm,
+        refLabel: `DAS tipo Field II sin apodizar (con Hanning ${fmt(p.refLateralHanningMm)} mm)`,
+        score: ratioScore(p.simLateralMeasuredMm, p.refLateralRectMm),
+        unit: 'mm',
+      });
+    }
+    const p9 = at(9);
     gaps.push({
+      id: 'fisica.axial.9cm',
       area: 'física',
-      metric: `resolución lateral −6 dB a ${d} cm`,
-      sim: p.simLateralMeasuredMm,
-      ref: p.refLateralRectMm,
-      refLabel: `DAS tipo Field II sin apodizar (con Hanning ${fmt(p.refLateralHanningMm)} mm)`,
-      score: ratioScore(p.simLateralMeasuredMm, p.refLateralRectMm),
+      metric: 'resolución axial −6 dB a 9 cm',
+      sim: p9.simAxialMeasuredMm,
+      ref: p9.refAxialMm,
+      refLabel: 'pulso de Field II (2 + 2 ciclos)',
+      score: ratioScore(p9.simAxialMeasuredMm, p9.refAxialMm),
+      unit: 'mm',
+    });
+    for (const c of phantoms.cysts.filter((c) => c.depthCm === 9)) {
+      gaps.push({
+        id: `fisica.quiste.${c.depthCm}cm`,
+        area: 'física',
+        metric: `contraste de un quiste anecoico de ${2 * c.radiusMm} mm a ${c.depthCm} cm`,
+        sim: c.sim.contrastDb,
+        ref: c.refRect.contrastDb,
+        refLabel: `DAS tipo Field II sin apodizar (con Hanning ${fmt(c.ref.contrastDb, 1)} dB)`,
+        score: Math.abs(c.sim.contrastDb - c.refRect.contrastDb) / 6,
+        unit: 'dB',
+      });
+    }
+    const s9 = phantoms.speckle.find((s) => s.depthCm === 9)!;
+    gaps.push({
+      id: 'fisica.snr-speckle',
+      area: 'física',
+      metric: 'SNR del speckle uniforme (envolvente mostrada, 2 miradas)',
+      sim: s9.simSnr,
+      ref: RAYLEIGH_SNR,
+      refLabel: 'Rayleigh (Burckhardt 1978) y la referencia',
+      score: ratioScore(s9.simSnr, RAYLEIGH_SNR),
+      unit: '',
+    });
+    gaps.push({
+      id: 'fisica.celda-lateral.9cm',
+      area: 'física',
+      metric: 'celda de speckle lateral a 9 cm',
+      sim: s9.simCellLateralMm,
+      ref: s9.refRectCellLateralMm,
+      refLabel: `DAS tipo Field II sin apodizar (con Hanning ${fmt(s9.refCellLateralMm)} mm)`,
+      score: ratioScore(s9.simCellLateralMm, s9.refRectCellLateralMm),
       unit: 'mm',
     });
   }
-  const p9 = at(9);
-  gaps.push({
-    area: 'física',
-    metric: 'resolución axial −6 dB a 9 cm',
-    sim: p9.simAxialMeasuredMm,
-    ref: p9.refAxialMm,
-    refLabel: 'pulso de Field II (2 + 2 ciclos)',
-    score: ratioScore(p9.simAxialMeasuredMm, p9.refAxialMm),
-    unit: 'mm',
-  });
-  for (const c of phantoms.cysts.filter((c) => c.depthCm === 9)) {
-    gaps.push({
-      area: 'física',
-      metric: `contraste de un quiste anecoico de ${2 * c.radiusMm} mm a ${c.depthCm} cm`,
-      sim: c.sim.contrastDb,
-      ref: c.refRect.contrastDb,
-      refLabel: `DAS tipo Field II sin apodizar (con Hanning ${fmt(c.ref.contrastDb, 1)} dB)`,
-      score: Math.abs(c.sim.contrastDb - c.refRect.contrastDb) / 6,
-      unit: 'dB',
-    });
-  }
-  const s9 = phantoms.speckle.find((s) => s.depthCm === 9)!;
-  gaps.push({
-    area: 'física',
-    metric: 'SNR del speckle uniforme (envolvente mostrada, 2 miradas)',
-    sim: s9.simSnr,
-    ref: RAYLEIGH_SNR,
-    refLabel: 'Rayleigh (Burckhardt 1978) y la referencia',
-    score: ratioScore(s9.simSnr, RAYLEIGH_SNR),
-    unit: '',
-  });
-  gaps.push({
-    area: 'física',
-    metric: 'celda de speckle lateral a 9 cm',
-    sim: s9.simCellLateralMm,
-    ref: s9.refRectCellLateralMm,
-    refLabel: `DAS tipo Field II sin apodizar (con Hanning ${fmt(s9.refCellLateralMm)} mm)`,
-    score: ratioScore(s9.simCellLateralMm, s9.refRectCellLateralMm),
-    unit: 'mm',
-  });
   const normal = 'normal-excellent-window';
   if (camus) {
     const t = texture.find((x) => x.caseId === normal && x.view === 'a4c' && x.phase === 'TD');
@@ -237,6 +252,7 @@ export function aggregate(input: {
       ] as const) {
         const q = camus.texture[k];
         gaps.push({
+          id: `clinica.textura.${k}`,
           area: 'imagen clínica',
           metric: label,
           sim: t[k],
@@ -249,6 +265,7 @@ export function aggregate(input: {
     const v = volumes.find((x) => x.caseId === normal);
     if (v)
       gaps.push({
+        id: 'volumen.td-ts',
         area: 'volumen y tiempo',
         metric: 'telediástole → telesístole (caso normal)',
         sim: v.edToEsMs,
@@ -265,6 +282,7 @@ export function aggregate(input: {
     const lo = (r: typeof edvR) => Math.min(r.male.low!, r.female.low!),
       hi = (r: typeof edvR) => Math.max(r.male.high!, r.female.high!);
     gaps.push({
+      id: 'volumen.vtd',
       area: 'volumen y tiempo',
       metric: 'VTD biplano medido en la imagen (caso normal)',
       sim: v.edvImage,
@@ -274,6 +292,7 @@ export function aggregate(input: {
       unit: 'mL',
     });
     gaps.push({
+      id: 'volumen.vts',
       area: 'volumen y tiempo',
       metric: 'VTS biplano medido en la imagen (caso normal)',
       sim: v.esvImage,
@@ -283,6 +302,7 @@ export function aggregate(input: {
       unit: 'mL',
     });
     gaps.push({
+      id: 'volumen.fe',
       area: 'volumen y tiempo',
       metric: 'FE biplano medida en la imagen (caso normal)',
       sim: v.efImage,
@@ -292,6 +312,7 @@ export function aggregate(input: {
       unit: '%',
     });
     gaps.push({
+      id: 'volumen.fe-imagen-modelo',
       area: 'volumen y tiempo',
       metric: 'FE de la imagen frente a la del modelo (caso normal)',
       sim: v.efImage,
@@ -304,6 +325,7 @@ export function aggregate(input: {
   const sN = strain.find((x) => x.caseId === normal);
   if (sN) {
     gaps.push({
+      id: 'movimiento.gls-seguido',
       area: 'movimiento',
       metric: 'GLS por seguimiento de speckle (A4C, caso normal)',
       sim: sN.tracked,
@@ -315,6 +337,7 @@ export function aggregate(input: {
         'el rastreador del banco no regulariza y sólo está validado en una deformación sintética; hasta correrlo sobre vídeos reales (EchoNet) no se sabe qué parte es del simulador',
     });
     gaps.push({
+      id: 'movimiento.gls-modelo',
       area: 'movimiento',
       metric: 'GLS del contorno del modelo, 2 mm dentro de la pared (A4C, caso normal)',
       sim: sN.modelMidwall,
@@ -328,6 +351,7 @@ export function aggregate(input: {
     const d = decorrelation.find((x) => x.caseId === normal && x.view === 'a4c');
     if (d)
       gaps.push({
+        id: 'movimiento.decorrelacion-echonet',
         area: 'movimiento',
         metric: 'correlación de bloques entre cuadros, formato EchoNet (A4C normal)',
         sim: d.echonetPeak,
@@ -342,6 +366,7 @@ export function aggregate(input: {
     const g = echo.length ? echo : input.graded;
     const auc = g.reduce((s, x) => s + x.auc, 0) / g.length;
     gaps.push({
+      id: 'turing.auc',
       area: 'Turing',
       metric: `AUC de los lectores${echo.length ? ' que leen ecos' : ''} (${g.length})`,
       sim: auc,
@@ -354,6 +379,7 @@ export function aggregate(input: {
   gaps.sort((a, b) => b.score - a.score);
   return {
     generatedAt: new Date().toISOString(),
+    engine: input.engine,
     wallSeconds: input.wallSeconds,
     sources: input.sources,
     phantoms,
@@ -395,6 +421,8 @@ export function reportMd(r: Results): string {
       `Fuentes clínicas: CAMUS ${r.sources.camus ? 'sí' : 'no'}, EchoNet-Dynamic ${r.sources.echonet ? 'sí' : 'no (falta ECHONET_DIR)'}. ` +
       'Sólo cifras agregadas: ninguna imagen clínica ni dato individual sale de las carpetas de origen.',
     '',
+    `Motor medido: \`${r.engine.id}\` (${r.engine.label}), en el commit \`${r.engine.commit}\`.`,
+    '',
     '## Brechas, de mayor a menor',
     '',
     'Una sola escala para ordenarlas: en física, |ln(sim/ref)|/ln 1,25 (1 = un 25 % de error) o |Δ dB|/6; contra una distribución clínica, la distancia a la mediana en anchos intercuartiles; contra un rango normal, la distancia fuera de él sobre su media anchura (0 dentro). Por encima de 1 la brecha es mayor que la tolerancia con que se ha calibrado el simulador hasta ahora.',
@@ -409,55 +437,85 @@ export function reportMd(r: Results): string {
   );
   const caveats = r.gaps.filter((g) => g.caveat);
   if (caveats.length) L.push('', ...caveats.map((g) => `† ${g.metric}: ${g.caveat}.`));
-  L.push(
-    '',
-    '## 1. Formación de imagen en fantomas',
-    '',
-    `Transductor de referencia: ${P.transducer.elements} elementos sobre ${P.transducer.apertureMm} mm (la apertura del simulador), ${P.transducer.f0MHz} MHz, foco de emisión a ${P.transducer.focusCm} cm, recepción dinámica con F/${P.transducer.rxFNumber}, pulso de los ejemplos de Field II (excitación de 2 ciclos por respuesta al impulso de 2 ciclos con ventana de Hanning, en emisión y recepción), elementos puntuales. El simulador corre sus propias etapas (fasores, compuesto de 2 miradas, ganancia de foco, PSF con lóbulos laterales, envolvente) en la rejilla polar del nivel alto, en fundamental para comparar con la referencia. No se encontró una cifra publicada de Field II para este transductor exacto (el ejemplo de matriz en fase de Field II usa otros parámetros), así que la referencia se calcula aquí con su mismo modelo lineal y su pulso, y se valida contra la teoría: 0,886 λF a −6 dB en el foco de una apertura rectangular y SNR 1,91 en speckle plenamente desarrollado (\`dasReference.test.ts\`). Una corrida de Field II de verdad queda pendiente. La apertura sin apodizar es la cota más estrecha que da una apertura de 14 mm; la de Hanning, la de los ejemplos de Field II y la habitual en un equipo.`,
-    '',
-    '### Blancos puntuales',
-    '',
-    '| profundidad (cm) | axial sim, fórmula / medida (mm) | axial ref (mm) | lateral sim, fórmula / medida (mm) | lateral ref rect / Hanning (mm) | lóbulo sim (dB) | lóbulo ref rect / Hanning (dB) | muestra / línea (mm) |',
-    '|---:|---:|---:|---:|---:|---:|---:|---:|',
-  );
-  for (const p of P.points)
+  if (r.comparison) {
+    const c = r.comparison;
+    const word = {
+      acerca: 'acerca',
+      aleja: 'aleja',
+      mixto: 'acerca en unas brechas y aleja en otras',
+      igual: 'no mueve',
+    }[c.verdict];
     L.push(
-      `| ${p.depthCm} | ${fmt(p.simAxialFormulaMm)} / ${fmt(p.simAxialMeasuredMm)} | ${fmt(p.refAxialMm)} | ${fmt(p.simLateralFormulaMm)} / ${fmt(p.simLateralMeasuredMm)} | ${fmt(p.refLateralRectMm)} / ${fmt(p.refLateralHanningMm)} | ${fmt(p.simSideLobeDb, 1)} | ${fmt(p.refSideLobeRectDb, 1)} / ${Number.isFinite(p.refSideLobeHanningDb) ? fmt(p.refSideLobeHanningDb, 1) : '< −60'} | ${fmt(p.sampleMm)} / ${fmt(p.lineMm)} |`,
+      '',
+      '## Veredicto frente a la línea base',
+      '',
+      `Línea base: motor \`${c.baseline.engine}\` en \`${c.baseline.commit}\` (${c.baseline.generatedAt.slice(0, 10)}). Una brecha mejora o empeora cuando su puntuación cambia al menos ${fmt(0.1, 1)}. **Este cambio ${word} el simulador de la imagen clínica**: mejoran ${c.improved}, empeoran ${c.worsened}, quedan iguales ${c.unchanged}.`,
+      '',
+      '| métrica | antes | ahora | puntuación antes → ahora | veredicto |',
+      '|---|---:|---:|---:|---|',
+      ...c.rows.map(
+        (x) =>
+          `| ${x.metric} | ${x.before === null ? '—' : fmt(x.before)} | ${x.after === null ? '—' : fmt(x.after)} | ${x.scoreBefore === null ? '—' : fmt(x.scoreBefore, 1)} → ${x.scoreAfter === null ? '—' : fmt(x.scoreAfter, 1)} | ${x.verdict} |`,
+      ),
     );
-  L.push(
-    '',
-    'Imagen armónica (la consola por omisión): el simulador estrecha el haz lateral por 0,8 a toda profundidad. El modelo de primer orden (fuente ∝ p², recibida al doble de la frecuencia de emisión) da estas razones respecto de la fundamental:',
-    '',
-    '| profundidad (cm) | simulador | emisión a f (recepción 2f) | emisión a f/2 (recepción f) |',
-    '|---:|---:|---:|---:|',
-  );
-  for (const h of P.harmonic)
+  }
+  if (P) {
     L.push(
-      `| ${h.depthCm} | ${fmt(h.simRatio)} | ${fmt(h.refRatioTxF)} | ${fmt(h.refRatioTxHalfF)} |`,
+      '',
+      '## 1. Formación de imagen en fantomas',
+      '',
+      `Transductor de referencia: ${P.transducer.elements} elementos sobre ${P.transducer.apertureMm} mm (la apertura del simulador), ${P.transducer.f0MHz} MHz, foco de emisión a ${P.transducer.focusCm} cm, recepción dinámica con F/${P.transducer.rxFNumber}, pulso de los ejemplos de Field II (excitación de 2 ciclos por respuesta al impulso de 2 ciclos con ventana de Hanning, en emisión y recepción), elementos puntuales. El simulador corre sus propias etapas (fasores, compuesto de 2 miradas, ganancia de foco, PSF con lóbulos laterales, envolvente) en la rejilla polar del nivel alto, en fundamental para comparar con la referencia. No se encontró una cifra publicada de Field II para este transductor exacto (el ejemplo de matriz en fase de Field II usa otros parámetros), así que la referencia se calcula aquí con su mismo modelo lineal y su pulso, y se valida contra la teoría: 0,886 λF a −6 dB en el foco de una apertura rectangular y SNR 1,91 en speckle plenamente desarrollado (\`dasReference.test.ts\`). Una corrida de Field II de verdad queda pendiente. La apertura sin apodizar es la cota más estrecha que da una apertura de 14 mm; la de Hanning, la de los ejemplos de Field II y la habitual en un equipo.`,
+      '',
+      '### Blancos puntuales',
+      '',
+      '| profundidad (cm) | axial sim, fórmula / medida (mm) | axial ref (mm) | lateral sim, fórmula / medida (mm) | lateral ref rect / Hanning (mm) | lóbulo sim (dB) | lóbulo ref rect / Hanning (dB) | muestra / línea (mm) |',
+      '|---:|---:|---:|---:|---:|---:|---:|---:|',
     );
-  L.push(
-    '',
-    '### Quiste anecoico en speckle uniforme',
-    '',
-    '| profundidad (cm) | diámetro (mm) | contraste sim / ref rect / ref Hanning (dB) | CNR sim / rect / Hanning | gCNR sim / rect / Hanning | gCNR sim en el gris mostrado |',
-    '|---:|---:|---:|---:|---:|---:|',
-  );
-  for (const c of P.cysts)
+    for (const p of P.points)
+      L.push(
+        `| ${p.depthCm} | ${fmt(p.simAxialFormulaMm)} / ${fmt(p.simAxialMeasuredMm)} | ${fmt(p.refAxialMm)} | ${fmt(p.simLateralFormulaMm)} / ${fmt(p.simLateralMeasuredMm)} | ${fmt(p.refLateralRectMm)} / ${fmt(p.refLateralHanningMm)} | ${fmt(p.simSideLobeDb, 1)} | ${fmt(p.refSideLobeRectDb, 1)} / ${Number.isFinite(p.refSideLobeHanningDb) ? fmt(p.refSideLobeHanningDb, 1) : '< −60'} | ${fmt(p.sampleMm)} / ${fmt(p.lineMm)} |`,
+      );
     L.push(
-      `| ${c.depthCm} | ${2 * c.radiusMm} | ${fmt(c.sim.contrastDb, 1)} / ${fmt(c.refRect.contrastDb, 1)} / ${fmt(c.ref.contrastDb, 1)} | ${fmt(c.sim.cnr)} / ${fmt(c.refRect.cnr)} / ${fmt(c.ref.cnr)} | ${fmt(c.sim.gcnr)} / ${fmt(c.refRect.gcnr)} / ${fmt(c.ref.gcnr)} | ${fmt(c.sim.gcnrDisplay)} |`,
+      '',
+      'Imagen armónica (la consola por omisión): el simulador estrecha el haz lateral por 0,8 a toda profundidad. El modelo de primer orden (fuente ∝ p², recibida al doble de la frecuencia de emisión) da estas razones respecto de la fundamental:',
+      '',
+      '| profundidad (cm) | simulador | emisión a f (recepción 2f) | emisión a f/2 (recepción f) |',
+      '|---:|---:|---:|---:|',
     );
-  L.push(
-    '',
-    '### Speckle uniforme',
-    '',
-    `SNR de la envolvente: ${fmt(RAYLEIGH_SNR)} para speckle plenamente desarrollado (Rayleigh). «Ventanas»: el estimador con que se lee el miocardio más abajo (5 líneas × 7 muestras), aplicado aquí al speckle uniforme como vara de medir.`,
-    '',
-    '| profundidad (cm) | SNR sim (2 miradas / 1 mirada / ventanas) | SNR ref | m de Nakagami sim (2 / 1) | m ref | α de K, 1 mirada | celda axial sim / ref (mm) | celda lateral sim / ref rect / ref Hanning (mm) |',
-    '|---:|---:|---:|---:|---:|---:|---:|---:|',
-  );
-  for (const s of P.speckle)
+    for (const h of P.harmonic)
+      L.push(
+        `| ${h.depthCm} | ${fmt(h.simRatio)} | ${fmt(h.refRatioTxF)} | ${fmt(h.refRatioTxHalfF)} |`,
+      );
     L.push(
-      `| ${s.depthCm} | ${fmt(s.simSnr)} / ${fmt(s.simSnrSingleLook)} / ${fmt(s.simWindowedSnr)} | ${fmt(s.refSnr)} | ${fmt(s.simM)} / ${fmt(s.simMSingleLook)} | ${fmt(s.refM)} | ${fmt(s.simKAlphaSingleLook, 0)} | ${fmt(s.simCellAxialMm)} / ${fmt(s.refCellAxialMm)} | ${fmt(s.simCellLateralMm)} / ${fmt(s.refRectCellLateralMm)} / ${fmt(s.refCellLateralMm)} |`,
+      '',
+      '### Quiste anecoico en speckle uniforme',
+      '',
+      '| profundidad (cm) | diámetro (mm) | contraste sim / ref rect / ref Hanning (dB) | CNR sim / rect / Hanning | gCNR sim / rect / Hanning | gCNR sim en el gris mostrado |',
+      '|---:|---:|---:|---:|---:|---:|',
+    );
+    for (const c of P.cysts)
+      L.push(
+        `| ${c.depthCm} | ${2 * c.radiusMm} | ${fmt(c.sim.contrastDb, 1)} / ${fmt(c.refRect.contrastDb, 1)} / ${fmt(c.ref.contrastDb, 1)} | ${fmt(c.sim.cnr)} / ${fmt(c.refRect.cnr)} / ${fmt(c.ref.cnr)} | ${fmt(c.sim.gcnr)} / ${fmt(c.refRect.gcnr)} / ${fmt(c.ref.gcnr)} | ${fmt(c.sim.gcnrDisplay)} |`,
+      );
+    L.push(
+      '',
+      '### Speckle uniforme',
+      '',
+      `SNR de la envolvente: ${fmt(RAYLEIGH_SNR)} para speckle plenamente desarrollado (Rayleigh). «Ventanas»: el estimador con que se lee el miocardio más abajo (5 líneas × 7 muestras), aplicado aquí al speckle uniforme como vara de medir.`,
+      '',
+      '| profundidad (cm) | SNR sim (2 miradas / 1 mirada / ventanas) | SNR ref | m de Nakagami sim (2 / 1) | m ref | α de K, 1 mirada | celda axial sim / ref (mm) | celda lateral sim / ref rect / ref Hanning (mm) |',
+      '|---:|---:|---:|---:|---:|---:|---:|---:|',
+    );
+    for (const s of P.speckle)
+      L.push(
+        `| ${s.depthCm} | ${fmt(s.simSnr)} / ${fmt(s.simSnrSingleLook)} / ${fmt(s.simWindowedSnr)} | ${fmt(s.refSnr)} | ${fmt(s.simM)} / ${fmt(s.simMSingleLook)} | ${fmt(s.refM)} | ${fmt(s.simKAlphaSingleLook, 0)} | ${fmt(s.simCellAxialMm)} / ${fmt(s.refCellAxialMm)} | ${fmt(s.simCellLateralMm)} / ${fmt(s.refRectCellLateralMm)} / ${fmt(s.refCellLateralMm)} |`,
+      );
+  } else
+    L.push(
+      '',
+      '## 1. Formación de imagen en fantomas',
+      '',
+      'El motor medido no trae fantomas propios: esta parte del banco no corrió.',
     );
   L.push(
     '',
