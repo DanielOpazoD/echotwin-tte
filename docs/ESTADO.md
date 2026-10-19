@@ -71,6 +71,10 @@ reconstruyen sobre bases verificables, juzgadas por un banco de realismo (prueba
 EchoNet y CAMUS, fantomas frente a Field II). El plan, lo medido y las fuentes están en `docs/RECONSTRUCCION.md`. Las
 correcciones del modelo actual quedan para lo que estorbe la enseñanza mientras tanto.
 
+Fase 1 en piloto (decisión 346): el corazón medio de Rodero, estático, entra al trazador CPU como volumen detrás del
+motor `rodero-estatico` del banco. Mejora la textura del miocardio y, sin movimiento, pierde todas las brechas de
+movimiento; la fase 2 es la siguiente.
+
 ## Cómo seguir
 
 1. `git switch main && git pull`; los worktrees temporales viven en `$TMPDIR/wt-*` y se borran al

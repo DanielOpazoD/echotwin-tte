@@ -7,7 +7,7 @@
  */
 import { loadCaseById } from '@/cases';
 import { buildCaseModels, REST_PATIENT } from '@/simulator/anatomy/caseModels';
-import { computeHeartPose } from '@/simulator/anatomy/heartModel';
+import { computeHeartPose, type HeartModel, type HeartPose } from '@/simulator/anatomy/heartModel';
 import { Structure } from '@/simulator/anatomy/tissue';
 import { cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
@@ -29,6 +29,7 @@ import {
   CALIBRATED_TIER,
   DEFAULT_ACQUISITION,
   polarSpecFor,
+  type HeartClassifier,
   type PolarFrame,
   type Scene,
 } from '@/simulator/renderer/types';
@@ -97,6 +98,15 @@ export function renderCine(
     /** Diagnostics: physics fields to override (e.g. no clutter) and the console's persistence. */
     physics?: Partial<Scene['physics']>;
     persistence?: number;
+    /**
+     * Another heart in place of the analytic one (decision 346), built for each frame from the case's heart, that frame's
+     * pose and the end-diastolic one.
+     */
+    heartClassifier?: (
+      heart: HeartModel,
+      pose: HeartPose,
+      endDiastole: HeartPose,
+    ) => HeartClassifier;
   } = {},
 ): Cine {
   const c = loadCaseById(caseId);
@@ -112,6 +122,7 @@ export function renderCine(
     1,
   );
   const n = Math.min(opts.maxFrames ?? Infinity, Math.max(2, Math.round(tables.rrS * fps)));
+  const endDiastole = computeHeartPose(heart, cycleStateAt(tables, 0));
   const mapping = computeSectorMapping(spec, CANVAS, CANVAS, false);
   const lut = buildScanLut(spec, mapping);
   const renderer = new ProceduralSliceRenderer();
@@ -123,14 +134,17 @@ export function renderCine(
   const frames: CineFrame[] = [];
   for (let k = -WARMUP; k < n; k++) {
     const phase = ((((k / fps) % tables.rrS) + tables.rrS) % tables.rrS) / tables.rrS;
+    const heartPose = computeHeartPose(heart, cycleStateAt(tables, phase));
+    const heartClassifier = opts.heartClassifier?.(heart, heartPose, endDiastole);
     const scene: Scene = {
       heart,
-      heartPose: computeHeartPose(heart, cycleStateAt(tables, phase)),
+      heartPose,
       thorax,
       physics: {
         ...scenePhysicsFor(c, settings, { seed: opts.seed ?? c.seed, bloodFrame: k + WARMUP }),
         ...opts.physics,
       },
+      ...(heartClassifier ? { heartClassifier } : {}),
     };
     const polar = allocPolarFrame(spec);
     renderer.render(scene, beam, spec, phase, polar);

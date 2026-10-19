@@ -1,6 +1,7 @@
 import type { BeamFrame } from '@/simulator/probe/pose';
 import type { HeartModel, HeartPose } from '@/simulator/anatomy/heartModel';
 import type { ThoraxModel } from '@/simulator/anatomy/thoraxModel';
+import type { HeartClassifier } from '@/simulator/anatomy/sceneClassifier';
 import type { ConsoleState } from './postprocess/consolePipeline';
 
 export type ImagingModality = '2d' | 'm-mode' | 'cmm' | 'color' | 'pw' | 'cw' | 'tdi';
@@ -110,7 +111,13 @@ export interface Scene {
   heartPose: HeartPose;
   thorax: ThoraxModel;
   physics: ScenePhysics;
+  /**
+   * A heart in place of the analytic one (decision 346): the CPU tracer asks it instead of `classifyHeart`. The app never
+   * sets it, and the GPU backend does not read it; offline engines measure other anatomies with it.
+   */
+  heartClassifier?: HeartClassifier;
 }
+export type { HeartClassifier };
 
 /**
  * RendererBackend contract (spec 0.7, 30): produces raw polar frames for a beam/scene. Implemented

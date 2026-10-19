@@ -65,13 +65,19 @@ function countLiterals(code: string, glsl: boolean, out: Map<string, number>): v
   }
 }
 
+/**
+ * Anatomy the GLSL classifier does not mirror: the heart read from a label volume (decision 346) is asked only by the CPU
+ * tracer through `Scene.heartClassifier`, for offline engines, and the GPU never reads it.
+ */
+const CPU_ONLY = new Set(['volumeHeart.ts']);
+
 function cpuClassifierSources(): string[] {
   const out: string[] = [];
   const walk = (dir: string) => {
     for (const name of readdirSync(dir)) {
       const p = join(dir, name);
       if (statSync(p).isDirectory()) walk(p);
-      else if (name.endsWith('.ts') && !name.endsWith('.test.ts'))
+      else if (name.endsWith('.ts') && !name.endsWith('.test.ts') && !CPU_ONLY.has(name))
         out.push(readFileSync(p, 'utf8'));
     }
   };
