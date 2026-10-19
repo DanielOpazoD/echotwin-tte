@@ -1,13 +1,14 @@
 import type { PhysiologyConfig, RhythmConfig } from '@/cases/schema';
 
 /**
- * Cardiac cycle timing model. Phase 0 = QRS onset. All times in seconds within one beat.
+ * Cardiac cycle timing model. Phase 0 = mitral closure, the mechanical end-diastole; the ECG's QRS onset falls
+ * ELECTROMECHANICAL_DELAY_S before it (decision 348). All times in seconds within one beat.
  * Ejection time follows an empirical linear HR dependence (LVET ≈ 0.413 − 0.0017·HR s, clamped),
  * documented in docs/DECISIONS.md as an approximation.
  */
 export interface CycleTimings {
   rrS: number;
-  ejectionStartS: number; // aortic valve opening: the pre-ejection period after QRS onset
+  ejectionStartS: number; // aortic valve opening: the pre-ejection period after QRS onset, less the electromechanical delay
   ejectionEndS: number; // aortic valve closure
   /** Pulmonary valve opening and closure (decision 162): before the aortic valve opens, after it closes. */
   pulmonaryOpenS: number;
@@ -30,8 +31,37 @@ export interface CycleTimings {
  * systole QS2 comes out at its own regression, 546 − 2.1·HR ms. It was a fixed 60 ms, 40–50 ms short at rest: the
  * aortic valve opened at 60 ms and the whole of systole ran early against the ECG.
  */
-export function preEjectionPeriodS(heartRateBpm: number): number {
-  return Math.min(0.13, Math.max(0.07, 0.131 - 0.0004 * heartRateBpm));
+export function preEjectionPeriodS(heartRateBpm: number, contractility = 1): number {
+  // a weaker ventricle takes longer to raise its pressure to the aortic one (decision 348): PEP/LVET, 0.35 ± 0.04 in
+  // health, passes 0.44 with left ventricular dysfunction (Weissler and Garrard); the factor brings the heart failure
+  // case (contractility 0.45) to 0.55
+  const weaker = Math.min(1.8, Math.max(0.8, 2 - contractility));
+  return Math.min(0.2, Math.max(0.07, (0.131 - 0.0004 * heartRateBpm) * weaker));
+}
+
+/**
+ * QRS onset to mitral closure (s), the electromechanical delay that opens the pre-ejection period (decision 348). Phase 0
+ * of the cycle is the mitral closure — the end of the A wave, where the end-diastolic frames are taken — and the ECG
+ * draws its QRS this much earlier, so Weissler's pre-ejection period still runs from the QRS onset while the isovolumic
+ * contraction, from mitral closure to aortic opening, is what is left of it: 55 ms at 65 bpm. Counted from phase 0 as if
+ * it were the QRS onset, the whole 105 ms had been isovolumic contraction: the healthy heart's Tei index read
+ * (105 + 75) / 303 = 0.59 against 0.39 ± 0.05 (Tei 1995), and end-diastole to end-systole 408 ms against 320 [300–360]
+ * in EchoNet-Dynamic's normal videos at the same heart rate (decision 347).
+ */
+export const ELECTROMECHANICAL_DELAY_S = 0.05;
+/** P-wave onset to the onset of atrial contraction (s): 90 ms, so the A wave ends at mitral closure with a 160 ms PR. */
+export const P_TO_ATRIAL_CONTRACTION_S = 0.09;
+/** Time (s) the leaflets take to close from diastasis at the onset of systole when no atrial contraction closes them first. */
+export const SYSTOLIC_CLOSURE_S = 0.03;
+
+/**
+ * Where the QRS onset falls before phase 0 (s). With an A wave, phase 0 is its end, the mitral closure: the whole
+ * electromechanical delay. Without one (atrial fibrillation) the leaflets close over the first SYSTOLIC_CLOSURE_S of
+ * systole, and phase 0 is where they start: the QRS falls that much less before it, so the mitral valve closes at the
+ * same delay after the QRS onset in both rhythms (decision 348).
+ */
+export function qrsBeforePhase0S(hasAWave: boolean): number {
+  return hasAWave ? ELECTROMECHANICAL_DELAY_S : ELECTROMECHANICAL_DELAY_S - SYSTOLIC_CLOSURE_S;
 }
 /**
  * Right-sided valve events against the left-sided ones (decision 162). The right ventricle contracts and relaxes
@@ -65,16 +95,19 @@ export function computeCycleTimings(
   ejectionRrS = rrS,
 ): CycleTimings {
   const et = Math.min(ejectionTimeS(60 / ejectionRrS, physiology.contractility), rrS * 0.55);
-  const ejectionStartS = preEjectionPeriodS(60 / rrS);
+  const hasAWave = rhythm.type !== 'atrial-fibrillation' && physiology.aPeakMps > 0;
+  const ejectionStartS =
+    preEjectionPeriodS(60 / rrS, physiology.contractility) - qrsBeforePhase0S(hasAWave);
   const ejectionEndS = ejectionStartS + et;
   const ivrt = physiology.ivrtMs / 1000;
   const mitralOpenS = Math.min(ejectionEndS + ivrt, rrS - 0.05);
   const eAccelS = Math.min(0.1, physiology.decelerationTimeMs / 2000);
   const eDecelS = physiology.decelerationTimeMs / 1000;
   const eEndS = Math.min(mitralOpenS + eAccelS + eDecelS, rrS);
-  const hasAWave = rhythm.type !== 'atrial-fibrillation' && physiology.aPeakMps > 0;
-  const pOnsetS = hasAWave ? rrS - PR_INTERVAL_S : Number.NaN;
-  const aStartS = hasAWave ? Math.max(mitralOpenS + 0.02, pOnsetS + 0.04) : Number.NaN;
+  const pOnsetS = hasAWave ? rrS - PR_INTERVAL_S - ELECTROMECHANICAL_DELAY_S : Number.NaN;
+  const aStartS = hasAWave
+    ? Math.max(mitralOpenS + 0.02, pOnsetS + P_TO_ATRIAL_CONTRACTION_S)
+    : Number.NaN;
   const aEndS = hasAWave ? Math.min(rrS - 0.01, aStartS + A_WAVE_DURATION_S) : Number.NaN;
   return {
     rrS,

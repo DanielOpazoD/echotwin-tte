@@ -1,5 +1,6 @@
 import type { PhysiologyConfig, RhythmConfig, HemodynamicConfig } from '@/cases/schema';
 import { tricuspidRegurgitation } from './rightHeartFlow';
+import { SYSTOLIC_CLOSURE_S } from './timing';
 import { measureFlowPeaks, type FlowPeaks } from './flowPeaks';
 import { lvotNarrowing, solveLvotObstruction } from './outflow';
 import {
@@ -794,9 +795,6 @@ export function aorticPressureFraction(tables: BeatTables, t: number): number {
  * Diagnostics 2023; 13:2412). An opening that followed the inflow alone closed the valve for 95 ms at 65 bpm (decision 100).
  */
 export const DIASTASIS_OPENING = 0.5;
-
-/** Time (s) the leaflets take to close from diastasis at the onset of systole when no atrial contraction closes them first. */
-const SYSTOLIC_CLOSURE_S = 0.03;
 
 /** Left atrial pressure (mmHg) under a regurgitant mitral valve: the 15 the model has always assumed, not a case value. */
 const MR_LA_PRESSURE_MMHG = 15;

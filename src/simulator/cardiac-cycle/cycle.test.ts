@@ -2,7 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { buildBeatTables, cycleStateAt, sampleTable, valveEventTimes } from './cycleModel';
 import { CardiacClock } from './clock';
 import { ecgSample } from './ecg';
-import { eWaveShape, TRICUSPID_LAG_S, TRICUSPID_LEAD_S } from './timing';
+import {
+  ELECTROMECHANICAL_DELAY_S,
+  eWaveShape,
+  PR_INTERVAL_S,
+  qrsBeforePhase0S,
+  TRICUSPID_LAG_S,
+  TRICUSPID_LEAD_S,
+} from './timing';
 import { normalExcellentCase } from '@/cases/normal-excellent';
 import { validateCase } from '@/cases/schema';
 
@@ -100,8 +107,10 @@ describe('AF has no organized A wave and RR irregularity', () => {
   });
   it('ECG in AF has no P wave energy near rr−PR while sinus does', () => {
     const rr = 0.92;
-    const sinus = ecgSample(rr - 0.12, rr, c.rhythm);
-    const afv = ecgSample(rr - 0.12, rr, af);
+    // the P wave peaks 40 ms after its onset, PR before the QRS, which falls the electromechanical delay before phase 0
+    const p = rr - ELECTROMECHANICAL_DELAY_S - PR_INTERVAL_S + 0.04;
+    const sinus = ecgSample(p, rr, c.rhythm);
+    const afv = ecgSample(p, rr, af);
     expect(sinus).toBeGreaterThan(0.1);
     expect(Math.abs(afv)).toBeLessThan(0.1);
   });
@@ -617,12 +626,41 @@ describe('the timing of systole and of the right-sided valves', () => {
       const k = loadCaseById(input.id);
       const hr = k.rhythm.heartRateBpm;
       const t = buildBeatTables(60 / hr, k.physiology, k.rhythm, k.hemodynamics).timings;
-      expect(t.ejectionStartS * 1000, input.id).toBeGreaterThanOrEqual(80);
-      expect(t.ejectionStartS * 1000, input.id).toBeLessThanOrEqual(110);
-      // Weissler's QS2 for men, 546 − 2.1·HR ms, where the case's contractility leaves the ejection time alone
-      if (k.physiology.contractility === 1)
-        expect(Math.abs(t.ejectionEndS * 1000 - (546 - 2.1 * hr)), input.id).toBeLessThan(15);
+      // from the QRS onset, which falls the electromechanical delay before phase 0 (decision 348)
+      const pep = (t.ejectionStartS + qrsBeforePhase0S(t.hasAWave)) * 1000;
+      const lvet = (t.ejectionEndS - t.ejectionStartS) * 1000;
+      if (k.physiology.contractility === 1) {
+        expect(pep, input.id).toBeGreaterThanOrEqual(80);
+        expect(pep, input.id).toBeLessThanOrEqual(110);
+        // Weissler's QS2 for men, 546 − 2.1·HR ms, where the case's contractility leaves the ejection time alone
+        expect(
+          Math.abs((t.ejectionEndS + qrsBeforePhase0S(t.hasAWave)) * 1000 - (546 - 2.1 * hr)),
+          input.id,
+        ).toBeLessThan(15);
+      } else
+        // a weak ventricle: PEP/LVET over the 0.44 of left ventricular dysfunction (0.35 ± 0.04 in health)
+        expect(pep / lvet, input.id).toBeGreaterThan(0.44);
     }
+  });
+
+  it('leaves the healthy heart 40–70 ms of isovolumic contraction and a Tei index of 0.34–0.44 (decision 348)', async () => {
+    const { loadCaseById } = await import('@/cases');
+    const k = loadCaseById('normal-excellent-window');
+    const t = buildBeatTables(
+      60 / k.rhythm.heartRateBpm,
+      k.physiology,
+      k.rhythm,
+      k.hemodynamics,
+    ).timings;
+    // the A wave ends at the mitral closure, phase 0
+    expect(t.rrS - t.aEndS).toBeLessThan(0.015);
+    const ivct = t.ejectionStartS * 1000;
+    expect(ivct).toBeGreaterThanOrEqual(40);
+    expect(ivct).toBeLessThanOrEqual(70);
+    const tei =
+      (t.ejectionStartS + t.mitralOpenS - t.ejectionEndS) / (t.ejectionEndS - t.ejectionStartS);
+    expect(tei).toBeGreaterThanOrEqual(0.34);
+    expect(tei).toBeLessThanOrEqual(0.44);
   });
 
   it('opens the pulmonary valve before the aortic one and closes it 20–40 ms after, and the tricuspid before and after the mitral, in every case', async () => {
