@@ -20,6 +20,7 @@
  * it, and nothing derived from an individual clinical image is written to --out.
  */
 import { spawn, spawnSync } from 'node:child_process';
+import { loadCaseById } from '@/cases';
 import { once } from 'node:events';
 import {
   existsSync,
@@ -49,7 +50,13 @@ import { hasFfmpeg, toEchonet, toTile, writeMp4, writePngGrey, type Grey } from 
 import { exportTuring } from './turingExport';
 import { aggregate, reportMd } from './report';
 
-export const DEFAULT_CASES = ['normal-excellent-window', 'hfref-severe-mr', 'hocm-sam'];
+/**
+ * The healthy heart first (Daniel, 2026-10-18): the normal case with an excellent window, the one compared with CAMUS
+ * Good, and with a difficult one. Pathologies are measured on request (`--cases`).
+ */
+export const DEFAULT_CASES = ['normal-excellent-window', 'normal-difficult-window'];
+/** Scatterer realizations of each simulated clip of the Turing test, so a sitting has enough clips of each kind. */
+export const TURING_REALIZATIONS = 4;
 export const DEFAULT_VIEWS = ['plax', 'psax-mv', 'a4c', 'a2c'];
 /** The bench's cine rate: CAMUS sequences (~48 Hz) and EchoNet videos (50 Hz) are acquired near it. */
 export const BENCH_FPS = 50;
@@ -61,6 +68,8 @@ export interface CineJob {
   caseId: string;
   view: string;
   variant: CineVariant;
+  /** 0: the case's own scatterers, measured; k > 0: another realization, only for the Turing clips. */
+  realization: number;
   /** Folder for the Turing clips of this cine (outside the repo), or null. */
   staging: string | null;
   clipSeconds: number;
@@ -157,13 +166,14 @@ function parseArgs(argv: string[]): Options {
 /** The simulator's Turing items of a cine: a clip on the tile canvas, stills at ED and ES (apical), an EchoNet clip (A4C). */
 function writeSimClips(cine: Cine, job: CineJob): ClipItem[] {
   if (!job.staging || job.variant !== 'default') return [];
-  const base = `sim-${job.caseId}-${job.view}`;
+  const base = `sim-${job.caseId}-${job.view}-r${job.realization}`;
   const grey = (k: number): Float32Array => cine.frames[k % cine.frames.length]!.grey;
   const W = Math.sqrt(cine.frames[0]!.grey.length);
   const mm: [number, number] = [cine.mmPerPx, cine.mmPerPx];
   const n = Math.max(2, Math.round(job.clipSeconds * cine.fps));
   const items: ClipItem[] = [];
-  const what = (s: string): string => `simulador ${job.caseId} ${job.view} ${s}`;
+  const what = (s: string): string =>
+    `simulador ${job.caseId} ${job.view} realización ${job.realization} ${s}`;
   if (hasFfmpeg()) {
     const tiles: Grey[] = Array.from({ length: n }, (_, k) => toTile(grey(k), W, W, mm));
     writeMp4(join(job.staging, `${base}.mp4`), tiles, cine.fps);
@@ -217,7 +227,12 @@ function writeSimClips(cine: Cine, job: CineJob): ClipItem[] {
 
 function runJob(job: CineJob): CineResult | null {
   const t0 = performance.now();
-  const cyc = engineById(job.engine).renderCine(job.caseId, job.view, BENCH_FPS, job.variant);
+  const seed = job.realization ? loadCaseById(job.caseId).seed + 1000 * job.realization : undefined;
+  const cyc = engineById(job.engine).renderCine(job.caseId, job.view, {
+    fps: BENCH_FPS,
+    variant: job.variant,
+    seed,
+  });
   if (!cyc) return null;
   const metrics = cineMetrics(cyc);
   const W = Math.sqrt(cyc.frames[0]!.grey.length);
@@ -292,15 +307,28 @@ async function main(o: Options): Promise<void> {
         caseId,
         view,
         variant: 'default',
+        realization: 0,
         staging,
         clipSeconds: o.clipSeconds,
       });
+      if (staging)
+        for (let k = 1; k < TURING_REALIZATIONS; k++)
+          jobs.push({
+            engine: engine.id,
+            caseId,
+            view,
+            variant: 'default',
+            realization: k,
+            staging,
+            clipSeconds: o.clipSeconds,
+          });
       if (view === 'a4c')
         jobs.push({
           engine: engine.id,
           caseId,
           view,
           variant: 'noclutter',
+          realization: 0,
           staging: null,
           clipSeconds: 0,
         });

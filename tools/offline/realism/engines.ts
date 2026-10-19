@@ -17,7 +17,12 @@ export interface CineEngine {
   id: string;
   /** What it is, for the report. */
   label: string;
-  renderCine(caseId: string, view: string, fps: number, variant: CineVariant): Cine | null;
+  /** `seed` picks the scatterer realization (the case's own when absent). */
+  renderCine(
+    caseId: string,
+    view: string,
+    o: { fps: number; variant: CineVariant; seed?: number },
+  ): Cine | null;
   /** The phantoms of its image formation, when it has its own. */
   phantoms?: () => PhantomResults;
 }
@@ -26,9 +31,10 @@ export const ENGINES: Readonly<Record<string, CineEngine>> = {
   actual: {
     id: 'actual',
     label: 'modelo analítico actual (trazador CPU, nivel calibrado)',
-    renderCine: (caseId, view, fps, variant) =>
+    renderCine: (caseId, view, { fps, variant, seed }) =>
       renderCine(caseId, view, {
         fps,
+        seed,
         physics: variant === 'noclutter' ? { clutterLevel: 0 } : undefined,
       }),
     phantoms: runPhantoms,

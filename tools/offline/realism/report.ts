@@ -104,7 +104,9 @@ export function aggregate(input: {
   wallSeconds: number;
   engine: Results['engine'];
 }): Results {
-  const { cines, phantoms, camus, echonet } = input;
+  const { phantoms, camus, echonet } = input;
+  // the other realizations only feed the Turing test
+  const cines = input.cines.filter((c) => c.job.realization === 0);
   const def = cines.filter((c) => c.job.variant === 'default');
   const find = (caseId: string, view: string, variant = 'default'): CineResult | undefined =>
     cines.find((c) => c.job.caseId === caseId && c.job.view === view && c.job.variant === variant);
@@ -407,6 +409,7 @@ const q = (x: Quantiles, d = 1): string =>
 const short = (id: string): string =>
   ({
     'normal-excellent-window': 'normal',
+    'normal-difficult-window': 'normal, ventana difícil',
     'hfref-severe-mr': 'ICFEr + IM',
     'hocm-sam': 'MCH obstructiva',
   })[id] ?? id;
