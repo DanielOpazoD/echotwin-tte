@@ -46,6 +46,15 @@ describe('compareGaps', () => {
       'igual',
     );
   });
+  it('leaves out a gap whose instrument the run marks as not validated', () => {
+    const c = compareGaps(
+      [g('a', 1), g('b', 3.8)],
+      [g('a', 1), { ...g('b', 4.5), caveat: 'rastreador' }],
+    );
+    expect(c.rows.find((r) => r.id === 'b')!.verdict).toBe('sin validar');
+    expect(c.verdict).toBe('igual');
+    expect(c.worsened).toBe(0);
+  });
   it('a baseline keeps only the gap fields', () => {
     const b = toBaseline('actual', 'abc', '2026-10-18', [
       { ...g('a', 1), extra: '/Users/x' } as GapScore,
