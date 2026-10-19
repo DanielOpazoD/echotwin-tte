@@ -1,5 +1,6 @@
 import type { BeamFrame } from '@/simulator/probe/pose';
 import type { PolarFrame, PolarFrameSpec, RendererBackend, Scene } from '../types';
+import { scattererPhasor, wavenumberRadPerCm, type Phasor } from '../acoustic/scatterers';
 import { sceneClassifier } from '@/simulator/anatomy/sceneClassifier';
 import {
   makeSample,
@@ -103,6 +104,8 @@ import {
 } from '../acoustic/acoustics';
 
 // lattice offsets as scalars: the inner loops read them per sample
+/** FWHM of a Gaussian over its standard deviation: the slice's elevation profile as a Gaussian of its thickness. */
+const FWHM_PER_SIGMA = 2 * Math.sqrt(2 * Math.log(2));
 const [PRB_X, PRB_Y, PRB_Z] = PHASOR_RE_B;
 const [PIA_X, PIA_Y, PIA_Z] = PHASOR_IM_A;
 const [PIB_X, PIB_Y, PIB_Z] = PHASOR_IM_B;
@@ -128,8 +131,24 @@ const [CIB_X, CIB_Y, CIB_Z] = CLUTTER_IM_B;
  * Output amplitude is linear and *pre-console*: gain/TGC/compression/persistence are applied later
  * so every console control remains causal on this same frame.
  */
+/**
+ * How the tracer forms the image from its per-sample echoes. The app's: the lattice phasor anchored in tissue (decision
+ * 52), detected in COMPOUND_LOOKS looks whose envelopes are averaged (decision 145), with the closed-form PSF of
+ * `acoustic/psf.ts`. Offline engines may ask instead for point scatterers anchored in tissue (decision 351), with the
+ * number of looks and the kernels they bring.
+ */
+export interface ImageFormation {
+  phasor: 'lattice' | 'scatterers';
+  looks: number;
+  /** PSF kernels for a frame geometry at the console's frequency and harmonic setting; the closed-form ones when absent. */
+  kernels?: (spec: PolarFrameSpec, frequencyMHz: number, harmonics: boolean) => PsfKernels;
+}
+export const LATTICE_FORMATION: ImageFormation = { phasor: 'lattice', looks: COMPOUND_LOOKS };
+
 export class ProceduralSliceRenderer implements RendererBackend {
   readonly id = 'procedural' as const;
+  constructor(private readonly formation: ImageFormation = LATTICE_FORMATION) {}
+  private phasor: Phasor = { re: 0, im: 0 };
   private sample = makeSample();
   private sample2 = makeSample();
   private lastMs = 0;
@@ -170,6 +189,8 @@ export class ProceduralSliceRenderer implements RendererBackend {
 
   /** PSF kernels for this frame geometry and probe settings (also uploaded by the GPU port). */
   kernels(scene: Scene, spec: PolarFrameSpec): PsfKernels {
+    if (this.formation.kernels)
+      return this.formation.kernels(spec, scene.physics.frequencyMHz, scene.physics.harmonics);
     const { frequencyMHz, harmonics } = scene.physics;
     const bw = scene.physics.beamWidth ?? 0;
     const lobes = sideLobeLevelDb(scene.physics.sideLobe);
@@ -187,17 +208,18 @@ export class ProceduralSliceRenderer implements RendererBackend {
   ): void {
     const t0 = performance.now();
     const n = spec.lines * spec.samples;
-    if (this.re.length !== n * COMPOUND_LOOKS) {
+    const looks = this.formation.looks;
+    if (this.re.length !== n * looks) {
       // one complex signal per compounding look (decision 145)
-      this.re = new Float32Array(n * COMPOUND_LOOKS);
-      this.im = new Float32Array(n * COMPOUND_LOOKS);
+      this.re = new Float32Array(n * looks);
+      this.im = new Float32Array(n * looks);
       this.tmpRe = new Float32Array(n);
       this.tmpIm = new Float32Array(n);
       this.tmpAmp = new Float32Array(n);
       this.atten = new Float32Array(n);
       this.prefix = new Float32Array((spec.lines + 1) * spec.samples);
-      this.clutRe = new Float32Array(n * COMPOUND_LOOKS);
-      this.clutIm = new Float32Array(n * COMPOUND_LOOKS);
+      this.clutRe = new Float32Array(n * looks);
+      this.clutIm = new Float32Array(n * looks);
       this.heartFlag = new Uint8Array(n);
     }
     this.clutRe.fill(0);
@@ -238,12 +260,12 @@ export class ProceduralSliceRenderer implements RendererBackend {
       ctx.contact,
       ctx.seed,
       this.prefix,
-      COMPOUND_LOOKS,
+      looks,
       { re: this.clutRe, im: this.clutIm, heart: this.heartFlag, fAtten: ctx.fAtten },
     );
     // the looks are detected one by one and their envelopes averaged (compounding, decision 145)
     out.amplitude.fill(0);
-    for (let k = 0; k < COMPOUND_LOOKS; k++) {
+    for (let k = 0; k < looks; k++) {
       formEnvelope(
         this.re.subarray(k * n, (k + 1) * n),
         this.im.subarray(k * n, (k + 1) * n),
@@ -256,7 +278,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
       );
       const amp = out.amplitude,
         ta = this.tmpAmp,
-        w = 1 / COMPOUND_LOOKS;
+        w = 1 / looks;
       for (let i = 0; i < n; i++) amp[i]! += ta[i]! * w;
     }
     this.lastMs = performance.now() - t0;
@@ -573,7 +595,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
       const rE = (e + 0.5) * dr;
       const coherence = pleuralCoherence(pleuralIncidenceCos(dEntry * dr, span * rE * dTheta));
       const base = li * samples;
-      this.pleuraEcho(ctx, li, base + e, rE, 1, coherence, COMPOUND_LOOKS, re, im);
+      this.pleuraEcho(ctx, li, base + e, rE, 1, coherence, this.formation.looks, re, im);
       // the line's transmission at the pleura: the beam march scales the lung's echoes by it
       const tE = Math.max(tr[base + e]!, TRANSMISSION_FLOOR);
       for (let si = e + 1; si < samples; si++)
@@ -585,7 +607,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
           rE,
           1,
           coherence,
-          COMPOUND_LOOKS,
+          this.formation.looks,
           re,
           im,
           tE,
@@ -643,7 +665,12 @@ export class ProceduralSliceRenderer implements RendererBackend {
     const nElev = spec.elevationSamples;
     const focus = spec.focusCm;
     // compounding looks of a frame (decision 145); an M-mode line has one
-    const looks = line ? 1 : COMPOUND_LOOKS;
+    const looks = line ? 1 : this.formation.looks;
+    // point scatterers anchored in tissue (decision 351): the wavenumber of the received echo and the line spacing
+    const scat = !line && this.formation.phasor === 'scatterers';
+    const kWave = wavenumberRadPerCm(ctx.scene.physics.frequencyMHz, ctx.scene.physics.harmonics);
+    const dTheta = spec.sectorRad / spec.lines;
+    const ph = this.phasor;
     const nFrame = spec.lines * samples;
     const ox = beam.origin.x,
       oy = beam.origin.y,
@@ -957,6 +984,46 @@ export class ProceduralSliceRenderer implements RendererBackend {
         // an M-mode line scales its echoes by its own transmission (no lateral neighbours)
         re[idx] = sRe * transmission;
         im[idx] = sIm * transmission;
+      } else if (scat) {
+        // the scatterers of the sample's box, on the probe's axes in the material frame; flowing blood is a new
+        // realization in every frame, shifted along x as the lattice is (decision 163)
+        const fa = inHeart ? fwdH : beam.forward,
+          la = inHeart ? latH : beam.lateral,
+          na = inHeart ? nrmH : beam.normal;
+        const mx = s.mx + (tissue === Tissue.Blood ? ctx.bloodShift / SCATTER_FREQ : 0);
+        scattererPhasor(
+          mx * fa.x + s.my * fa.y + s.mz * fa.z,
+          mx * la.x + s.my * la.y + s.mz * la.z,
+          mx * na.x + s.my * na.y + s.mz * na.z,
+          ct,
+          sn,
+          r,
+          dr,
+          r * dTheta,
+          (2 * sliceHalfWidthCm(r)) / FWHM_PER_SIGMA,
+          kWave,
+          seed,
+          ph,
+        );
+        re[idx] = sigma * ph.re + specular + grain + ringDown;
+        im[idx] = sigma * ph.im;
+        if (cm > 0 && clutRe && clutIm) {
+          const sx = LOOK_SHIFT[0]![0],
+            sy = LOOK_SHIFT[0]![1],
+            sz = LOOK_SHIFT[0]![2];
+          clutRe[idx] =
+            cm *
+            (latticeNoise3(cx + CLUTTER_RE_A_X + sx, cy + sy, cz + sz, latA) +
+              latticeNoise3(cx * R + CRB_X + sx, cy + CRB_Y + sy, cz * R + sz, latB) -
+              1) *
+            PHASOR_NORM;
+          clutIm[idx] =
+            cm *
+            (latticeNoise3(cx + CIA_X + sx, cy + CIA_Y + sy, cz + CIA_Z + sz, latC) +
+              latticeNoise3(cx * R + CIB_X + sx, cy + CIB_Y + sy, cz * R + CIB_Z + sz, latA) -
+              1) *
+            PHASOR_NORM;
+        }
       } else {
         // a frame's echoes are scaled by the beam's transmission in the beam march
         for (let k = 0; k < looks; k++) {

@@ -13,7 +13,10 @@ import { cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
 import { acquisitionFrameRate } from '@/simulator/renderer/frameRate';
 import { applyConsole, createConsoleState } from '@/simulator/renderer/postprocess/consolePipeline';
-import { ProceduralSliceRenderer } from '@/simulator/renderer/procedural/sliceRenderer';
+import {
+  ProceduralSliceRenderer,
+  type ImageFormation,
+} from '@/simulator/renderer/procedural/sliceRenderer';
 import {
   caseArtifactLevels,
   consoleArtifacts,
@@ -102,6 +105,8 @@ export function renderCine(
      * Another heart in place of the analytic one (decision 346), built for each frame from the case's heart, that frame's
      * pose and the end-diastolic one.
      */
+    /** Another image formation in place of the app's (decision 351). */
+    formation?: ImageFormation;
     heartClassifier?: (
       heart: HeartModel,
       pose: HeartPose,
@@ -125,7 +130,7 @@ export function renderCine(
   const endDiastole = computeHeartPose(heart, cycleStateAt(tables, 0));
   const mapping = computeSectorMapping(spec, CANVAS, CANVAS, false);
   const lut = buildScanLut(spec, mapping);
-  const renderer = new ProceduralSliceRenderer();
+  const renderer = new ProceduralSliceRenderer(opts.formation);
   const artifacts = consoleArtifacts(caseArtifactLevels(c));
   const state = createConsoleState(opts.seed ?? c.seed);
   const display = new Uint8ClampedArray(spec.lines * spec.samples);

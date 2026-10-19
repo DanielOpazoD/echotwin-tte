@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 350 (última: 350).
+Decisiones: 351 (última: 351).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -358,3 +358,4 @@ Decisiones: 350 (última: 350).
 | [348](DECISIONS.md#L2592) | 2026-10-18 | El veredicto del banco deja fuera las brechas cuyo instrumento no está validado | vigente |
 | [349](DECISIONS.md#L2596) | 2026-10-18 | El rastreador del banco se valida contra un movimiento verdadero, y el speckle del simulador sigue a su tejido casi como el de una simulación lagrangiana | vigente |
 | [350](DECISIONS.md#L2602) | 2026-10-18 | Fase 2 de la reconstrucción: el corazón de Rodero se mueve con el ciclo del caso, y el banco lo prefiere al modelo actual en siete brechas y lo da peor en una | vigente |
+| [351](DECISIONS.md#L2653) | 2026-10-18 | Fase 3 de la reconstrucción: imagen por convolución de dispersores puntuales anclados al tejido con la PSF de la referencia del banco | vigente |

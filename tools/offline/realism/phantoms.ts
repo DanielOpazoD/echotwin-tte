@@ -39,6 +39,12 @@ import {
 } from '@/simulator/renderer/types';
 import { applyConsole, createConsoleState } from '@/simulator/renderer/postprocess/consolePipeline';
 import {
+  LATTICE_FORMATION,
+  type ImageFormation,
+} from '@/simulator/renderer/procedural/sliceRenderer';
+import { scattererPhasor, wavenumberRadPerCm } from '@/simulator/renderer/acoustic/scatterers';
+import { sliceHalfWidthCm } from '@/simulator/renderer/acoustic/psf';
+import {
   convolveEnvelope,
   narrowbandLateral,
   pointResponse,
@@ -92,8 +98,21 @@ interface SimFrame {
 
 const SEED = 343;
 
-/** One phantom frame through the simulator's stages (see the header). */
-function simFrame(ph: Phantom, harmonics: boolean, seed = SEED): SimFrame {
+/** FWHM of a Gaussian over its standard deviation. */
+const FWHM_PER_SIGMA = 2 * Math.sqrt(2 * Math.log(2));
+
+/**
+ * One phantom frame through the simulator's stages (see the header), or through another image formation (decision
+ * 351): point scatterers on the plane's axes (forward along the central line, lateral across it) with their kernels and
+ * looks.
+ */
+function simFrame(
+  ph: Phantom,
+  harmonics: boolean,
+  seed = SEED,
+  fm: ImageFormation = LATTICE_FORMATION,
+): SimFrame {
+  const looks = fm.looks;
   const settings = { ...DEFAULT_ACQUISITION, harmonics };
   const spec = polarSpecFor(settings, 'high');
   const n = spec.lines * spec.samples;
@@ -102,8 +121,11 @@ function simFrame(ph: Phantom, harmonics: boolean, seed = SEED): SimFrame {
     latB = noiseLattice(seed ^ 0x2545f491),
     latC = noiseLattice(seed ^ 0x51);
   const R = SCATTER_FREQ_RATIO;
-  const re = new Float32Array(n * COMPOUND_LOOKS),
-    im = new Float32Array(n * COMPOUND_LOOKS);
+  const re = new Float32Array(n * looks),
+    im = new Float32Array(n * looks);
+  const kWave = wavenumberRadPerCm(settings.frequencyMHz, harmonics);
+  const dTheta = spec.sectorRad / spec.lines;
+  const ph1 = { re: 0, im: 0 };
   for (let li = 0; li < spec.lines; li++) {
     const theta = -spec.sectorRad / 2 + (spec.sectorRad * (li + 0.5)) / spec.lines;
     for (let si = 0; si < spec.samples; si++) {
@@ -116,6 +138,25 @@ function simFrame(ph: Phantom, harmonics: boolean, seed = SEED): SimFrame {
         qy = z * SCATTER_FREQ,
         qz = 0;
       const idx = li * spec.samples + si;
+      if (fm.phasor === 'scatterers') {
+        scattererPhasor(
+          z,
+          x,
+          0,
+          Math.cos(theta),
+          Math.sin(theta),
+          r,
+          dr,
+          r * dTheta,
+          (2 * sliceHalfWidthCm(r)) / FWHM_PER_SIGMA,
+          kWave,
+          seed,
+          ph1,
+        );
+        re[idx] = sigma * ph1.re;
+        im[idx] = sigma * ph1.im;
+        continue;
+      }
       for (let k = 0; k < COMPOUND_LOOKS; k++) {
         const [sx, sy, sz] = LOOK_SHIFT[k]!;
         const zr =
@@ -141,15 +182,17 @@ function simFrame(ph: Phantom, harmonics: boolean, seed = SEED): SimFrame {
     const si = Math.round(r / dr - 0.5);
     if (li < 0 || li >= spec.lines || si < 0 || si >= spec.samples) continue;
     const a = p.amplitude * focusingGain(r, spec.focusCm);
-    for (let k = 0; k < COMPOUND_LOOKS; k++) re[k * n + li * spec.samples + si]! += a;
+    for (let k = 0; k < looks; k++) re[k * n + li * spec.samples + si]! += a;
   }
-  const kernels = buildPsfKernels(spec, settings.frequencyMHz, harmonics, 0, sideLobeLevelDb(0));
+  const kernels = fm.kernels
+    ? fm.kernels(spec, settings.frequencyMHz, harmonics)
+    : buildPsfKernels(spec, settings.frequencyMHz, harmonics, 0, sideLobeLevelDb(0));
   const amplitude = new Float32Array(n),
     singleLook = new Float32Array(n),
     tmp = new Float32Array(n),
     tRe = new Float32Array(n),
     tIm = new Float32Array(n);
-  for (let k = 0; k < COMPOUND_LOOKS; k++) {
+  for (let k = 0; k < looks; k++) {
     formEnvelope(
       re.subarray(k * n, (k + 1) * n),
       im.subarray(k * n, (k + 1) * n),
@@ -161,7 +204,7 @@ function simFrame(ph: Phantom, harmonics: boolean, seed = SEED): SimFrame {
       tIm,
     );
     if (k === 0) singleLook.set(tmp);
-    for (let i = 0; i < n; i++) amplitude[i]! += tmp[i]! / COMPOUND_LOOKS;
+    for (let i = 0; i < n; i++) amplitude[i]! += tmp[i]! / looks;
   }
   return { spec, amplitude, singleLook };
 }
@@ -216,10 +259,15 @@ export interface PointRow {
 }
 
 /** Point targets on the central line at each depth: −6 dB widths and side lobes, fundamental imaging. */
-export function pointTargets(depthsCm: readonly number[]): PointRow[] {
+export function pointTargets(
+  depthsCm: readonly number[],
+  fm: ImageFormation = LATTICE_FORMATION,
+): PointRow[] {
   const f = simFrame(
     { sigma: () => 0, points: depthsCm.map((d) => ({ x: 0, z: d, amplitude: 1 })) },
     false,
+    SEED,
+    fm,
   );
   const { spec } = f;
   const dr = spec.depthCm / spec.samples;
@@ -366,7 +414,11 @@ function referenceImage(
 }
 
 /** Anechoic cysts of radius `radiusMm` at each depth in uniform speckle: contrast, CNR and gCNR, simulator and reference. */
-export function cysts(depthsCm: readonly number[], radiusMm = 4): CystRow[] {
+export function cysts(
+  depthsCm: readonly number[],
+  radiusMm = 4,
+  fm: ImageFormation = LATTICE_FORMATION,
+): CystRow[] {
   const a = radiusMm / 10;
   const f = simFrame(
     {
@@ -374,6 +426,8 @@ export function cysts(depthsCm: readonly number[], radiusMm = 4): CystRow[] {
       points: [],
     },
     false,
+    SEED,
+    fm,
   );
   const disp = displayed(f);
   return depthsCm.map((d, k) => {
@@ -472,9 +526,12 @@ const SPECKLE_SEEDS = [SEED, SEED + 1, SEED + 2, SEED + 3];
  * over SPECKLE_SEEDS for the simulator; the reference forms a 50 × 14 mm field per depth and keeps its part a kernel
  * away from the edges.
  */
-export function uniformSpeckle(depthsCm: readonly number[]): SpeckleRow[] {
+export function uniformSpeckle(
+  depthsCm: readonly number[],
+  fm: ImageFormation = LATTICE_FORMATION,
+): SpeckleRow[] {
   const frames = SPECKLE_SEEDS.map((seed) =>
-    simFrame({ sigma: () => 0.1, points: [] }, false, seed),
+    simFrame({ sigma: () => 0.1, points: [] }, false, seed, fm),
   );
   const { spec } = frames[0]!;
   const dr = spec.depthCm / spec.samples;
@@ -590,14 +647,14 @@ export interface PhantomResults {
   };
 }
 
-export function runPhantoms(): PhantomResults {
+export function runPhantoms(fm: ImageFormation = LATTICE_FORMATION): PhantomResults {
   const depths = [3, 5, 7, 9, 11, 13, 15];
   const p = referenceArray('hanning');
   return {
-    points: pointTargets(depths),
+    points: pointTargets(depths, fm),
     harmonic: harmonicLateral([5, 9, 13]),
-    cysts: cysts([5, 9, 13]),
-    speckle: uniformSpeckle([5, 9, 13]),
+    cysts: cysts([5, 9, 13], 4, fm),
+    speckle: uniformSpeckle([5, 9, 13], fm),
     transducer: {
       f0MHz: p.f0MHz,
       apertureMm: p.apertureMm,

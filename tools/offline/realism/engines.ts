@@ -9,8 +9,16 @@
  * phantoms. A variant it does not model (`noclutter`) returns null and the bench leaves that measurement out.
  */
 import { loadVolumeHeart } from '../anatomy2/volumeHeart';
+import { buildColeKernels } from '@/simulator/renderer/acoustic/colePsf';
+import type { ImageFormation } from '@/simulator/renderer/procedural/sliceRenderer';
 import { runPhantoms, type PhantomResults } from './phantoms';
 import { renderCine, type Cine } from './simCine';
+
+/**
+ * Phase 3 of the reconstruction (decision 351): the image as the convolution of point scatterers anchored in tissue with
+ * the delay-and-sum PSF of the bench's reference array, detected in one look.
+ */
+const COLE: ImageFormation = { phasor: 'scatterers', looks: 1, kernels: buildColeKernels };
 
 /** The folder of the voxelised Rodero heart (tools/offline/anatomy2/rodero-voxelize.ts), outside the repository. */
 function anatomy2Dir(): string {
@@ -84,6 +92,38 @@ export const ENGINES: Readonly<Record<string, CineEngine>> = {
           }),
       }),
     phantoms: runPhantoms,
+  },
+  // the current anatomy through the convolution image formation: what the image formation alone changes
+  cole: {
+    id: 'cole',
+    label:
+      'modelo analítico actual con imagen por convolución (dispersores puntuales, PSF de DAS, una mirada)',
+    renderCine: (caseId, view, { fps, variant, seed }) =>
+      renderCine(caseId, view, {
+        fps,
+        seed,
+        physics: variant === 'noclutter' ? { clutterLevel: 0 } : undefined,
+        formation: COLE,
+      }),
+    phantoms: () => runPhantoms(COLE),
+  },
+  // Rodero's moving heart through the convolution image formation (phases 2 and 3 together)
+  'rodero-cole': {
+    id: 'rodero-cole',
+    label: 'corazón de Rodero movido por el ciclo, con imagen por convolución',
+    renderCine: (caseId, view, { fps, variant, seed }) =>
+      renderCine(caseId, view, {
+        fps,
+        seed,
+        physics: variant === 'noclutter' ? { clutterLevel: 0 } : undefined,
+        formation: COLE,
+        heartClassifier: (heart, pose, endDiastole) =>
+          loadVolumeHeart(anatomy2Dir(), heart, endDiastole).classifier({
+            apparatus: pose,
+            motion: { pose, endDiastole },
+          }),
+      }),
+    phantoms: () => runPhantoms(COLE),
   },
 };
 

@@ -302,7 +302,7 @@ export function narrowbandLateral(
   harmonic: boolean,
   halfWidthMm = 8,
   stepMm = 0.02,
-): { xMm: Float64Array; env: Float64Array; widthMm: number } {
+): { xMm: Float64Array; env: Float64Array; signed: Float64Array; widthMm: number } {
   const xs = elementPositions(p);
   const c = SOUND_SPEED_MM_PER_US;
   const kt = (2 * Math.PI * txMHz) / c,
@@ -311,7 +311,9 @@ export function narrowbandLateral(
   const b = rxWeights(p, xs, depthMm);
   const n = Math.round((2 * halfWidthMm) / stepMm) + 1;
   const xMm = Float64Array.from({ length: n }, (_, k) => -halfWidthMm + k * stepMm);
-  const env = Float64Array.from(xMm, (x) => {
+  const pr = new Float64Array(n),
+    pi = new Float64Array(n);
+  const env = Float64Array.from(xMm, (x, ix) => {
     const theta = x / depthMm;
     const s = Math.sin(theta),
       co = Math.cos(theta);
@@ -331,10 +333,19 @@ export function narrowbandLateral(
       rr += b[i]! * Math.cos(phr);
       ri -= b[i]! * Math.sin(phr);
     }
+    // the complex pulse-echo field (T² for a harmonic source), for the sign of each lobe
+    const [ar, ai] = harmonic ? [tr * tr - ti * ti, 2 * tr * ti] : [tr, ti];
+    pr[ix] = ar * rr - ai * ri;
+    pi[ix] = ar * ri + ai * rr;
     const t = Math.hypot(tr, ti);
     return (harmonic ? t * t : t) * Math.hypot(rr, ri);
   });
-  return { xMm, env, widthMm: widthAtHalf(env, stepMm) };
+  // the profile with the sign of each lobe against the centre's phase: the alternating lobes of a real beam
+  const c0 = Math.floor(n / 2);
+  const signed = Float64Array.from(env, (e, ix) =>
+    pr[ix]! * pr[c0]! + pi[ix]! * pi[c0]! < 0 ? -e : e,
+  );
+  return { xMm, env, signed, widthMm: widthAtHalf(env, stepMm) };
 }
 
 export interface ComplexGrid {
