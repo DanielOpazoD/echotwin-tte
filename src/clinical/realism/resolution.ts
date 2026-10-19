@@ -1,5 +1,5 @@
 /**
- * Resolution and contrast figures of the phantom benchmarks (decision 343), as the ultrasound literature defines them so
+ * Resolution and contrast figures of the phantom benchmarks (decision 344), as the ultrasound literature defines them so
  * they compare with Field II results: the width of a point target's envelope at a level under its peak (−6 dB, the
  * amplitude FWHM), the contrast of a cyst in dB, its contrast-to-noise ratio and the generalized CNR (Rodriguez-Molares
  * et al., IEEE TUFFC 2020), which does not depend on the grey map.

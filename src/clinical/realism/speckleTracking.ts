@@ -1,5 +1,5 @@
 /**
- * A plain 2-D speckle tracker for the realism bench (decision 343): block matching by normalized cross-correlation
+ * A plain 2-D speckle tracker for the realism bench (decision 344): block matching by normalized cross-correlation
  * between consecutive frames, with a parabolic sub-pixel peak, points carried frame to frame along a contour, and the
  * global longitudinal strain of that contour as the change of its length from end-diastole. It is the method vendors
  * started from (Leitman et al., JASE 2004), without their regularization: the bench wants to know whether the

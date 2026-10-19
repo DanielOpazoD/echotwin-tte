@@ -96,7 +96,7 @@ importa esos módulos pero se mantiene ligero a propósito); `src/tests/testTier
 Herramientas de medición (`npm run measure -- <caso>`, `slice-map.ts`, `audit-views.ts`,
 `fidelity-bench.ts`, `structure-share.ts`, `render-views.ts`, `camus-compare.ts`, `blind-test.ts`), el banco de realismo
 (`npm run realism`: fantomas frente a una referencia tipo Field II, volúmenes, GLS y textura frente a CAMUS y EchoNet, y la
-prueba de Turing visual; decisión 343) y el runbook de goldens y renders: `docs/validation/README.md`
+prueba de Turing visual; decisión 344) y el runbook de goldens y renders: `docs/validation/README.md`
 y la sección «Herramientas» del método de fidelidad. Los scripts temporales van fuera del repositorio.
 
 Los E2E locales levantan su propio `vite preview` en el puerto 4190 (`E2E_PORT` lo cambia) y nunca reutilizan un

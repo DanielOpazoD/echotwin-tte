@@ -1,5 +1,5 @@
 /**
- * The clinical side of the realism bench (decision 343): CAMUS (Leclerc et al., IEEE TMI 2019) and EchoNet-Dynamic
+ * The clinical side of the realism bench (decision 344): CAMUS (Leclerc et al., IEEE TMI 2019) and EchoNet-Dynamic
  * (Ouyang et al., Nature 2020), read from folders outside the repository (CAMUS_DIR, ECHONET_DIR). Only aggregate
  * statistics leave these functions; the clips the Turing test needs are written to a folder the caller has already
  * checked lies outside the repository.

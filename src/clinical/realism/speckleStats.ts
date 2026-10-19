@@ -1,5 +1,5 @@
 /**
- * Speckle statistics of the realism bench (decision 343), the same code on the simulator and on clinical images.
+ * Speckle statistics of the realism bench (decision 344), the same code on the simulator and on clinical images.
  *
  * - On a linear envelope (the simulator before its console, a phantom): the point SNR mean/std, 1.91 for fully developed
  *   speckle (Rayleigh amplitude; Burckhardt 1978, Wagner et al. 1983).

@@ -1,5 +1,5 @@
 /**
- * Phantom benchmarks of the image formation in isolation (decision 343): point targets, an anechoic cyst and uniform
+ * Phantom benchmarks of the image formation in isolation (decision 344): point targets, an anechoic cyst and uniform
  * speckle, formed by the simulator's own stages and by the Field II–style delay-and-sum reference
  * (`src/clinical/realism/dasReference.ts`) for the same transducer, and measured with the same code.
  *

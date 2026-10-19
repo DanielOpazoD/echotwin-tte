@@ -38,6 +38,8 @@ export function useSimulation(
         useSimStore.getState().setTruth(truth, id);
         useSimStore.getState().setCycleInfo(phaseMarks, lvLengthCm);
         useSimStore.getState().setWorkerMode(client.mode);
+        // free practice opens on the canonical PLAX once the case's models exist (decision 343)
+        useSimStore.getState().openOnStartView();
       },
       onError: (m) => useSimStore.getState().setError(m),
     });

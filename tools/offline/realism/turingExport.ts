@@ -1,5 +1,5 @@
 /**
- * Assembles a sitting of the Turing test (decision 343) in a folder outside the repository: the clinical clips the user
+ * Assembles a sitting of the Turing test (decision 344) in a folder outside the repository: the clinical clips the user
  * has on disk and the simulator's (already written by the bench's workers into `<dir>/.staging`), balanced per view and
  * format by `buildTrial`, copied under opaque names (`clips/clip-007.mp4`), the reader's page (`index.html`) and the key
  * (`key.json`), which never travels with the page.

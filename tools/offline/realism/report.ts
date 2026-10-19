@@ -1,5 +1,5 @@
 /**
- * Aggregates of the realism bench and its Spanish report (decision 343). Every gap is scored on one scale so the largest
+ * Aggregates of the realism bench and its Spanish report (decision 344). Every gap is scored on one scale so the largest
  * can be ranked, with the rule written next to it in the report:
  *   - physics against the reference: |ln(sim / ref)| / ln 1.25 (1 = a 25 % error), or |Δ dB| / 6 for levels in dB;
  *   - a clinical distribution: |value − median| / IQR (1 = one interquartile width off the median);
@@ -391,7 +391,7 @@ export function reportMd(r: Results): string {
   L.push(
     '# Banco de realismo — informe',
     '',
-    `Generado por \`npm run realism\` (decisión 343) el ${r.generatedAt.slice(0, 16).replace('T', ' ')} UTC, en ${fmt(r.wallSeconds / 60, 1)} min. ` +
+    `Generado por \`npm run realism\` (decisión 344) el ${r.generatedAt.slice(0, 16).replace('T', ' ')} UTC, en ${fmt(r.wallSeconds / 60, 1)} min. ` +
       `Fuentes clínicas: CAMUS ${r.sources.camus ? 'sí' : 'no'}, EchoNet-Dynamic ${r.sources.echonet ? 'sí' : 'no (falta ECHONET_DIR)'}. ` +
       'Sólo cifras agregadas: ninguna imagen clínica ni dato individual sale de las carpetas de origen.',
     '',

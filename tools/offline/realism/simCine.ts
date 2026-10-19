@@ -1,5 +1,5 @@
 /**
- * One cardiac cycle of a canonical view through the app's CPU chain, for the realism bench (decision 343): the
+ * One cardiac cycle of a canonical view through the app's CPU chain, for the realism bench (decision 344): the
  * calibrated tier, the case's physics with the blood's scatterers advancing frame by frame, the console with its
  * persistence carried across frames (warmed on the end of the cycle), scan conversion to a square canvas, and the
  * structure under each pixel. Every metric of the bench that reads the simulator's clinical image (volumes, strain,

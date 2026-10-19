@@ -32,7 +32,7 @@ npm run check       # lint + typecheck + test + build
 ```
 `npm run test:e2e` arranca `vite preview` en 4173 sobre el último `dist/` (construye antes con `npm run build:e2e`, que instala el gancho de pruebas; regla 15 del método de fidelidad) y ejecuta las 46 pruebas de `e2e/` (`core-flow` 10, `gpu-equivalence` 26, `gpu-live` 4 sólo con GPU por hardware, `measurements` 4, `learning` 2; ~28 min); necesita `npx playwright install chromium`. `test-results/.last-run.json` guarda el resultado de la última ejecución local (hoy: `passed`).
 
-## 5. Banco de realismo (decisión 343)
+## 5. Banco de realismo (decisión 344)
 ```
 npm run realism -- [--turing <carpeta fuera del repo>] [--jobs 4] [--quick]
 ```

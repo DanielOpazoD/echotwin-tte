@@ -1,5 +1,5 @@
 /**
- * The blinded visual Turing test of the realism bench (decision 343): short clips of the simulator and of clinical
+ * The blinded visual Turing test of the realism bench (decision 344): short clips of the simulator and of clinical
  * studies, the same number of each per view, in random order under opaque numbers, with the key kept apart; a reader
  * says of each clip whether it is real or simulated, how sure (1–3) and what gave it away. It extends the still-frame
  * blind test of decision 146 (`blindTest.ts`) to clips, views and confidence.

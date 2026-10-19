@@ -1,5 +1,5 @@
 /**
- * The bench's measurements of one simulated cine (decision 343): LV discs per frame (apical views), the global
+ * The bench's measurements of one simulated cine (decision 344): LV discs per frame (apical views), the global
  * longitudinal strain of the four-chamber view by speckle tracking and from the model's own contour, the frame-to-frame
  * correlation of myocardial speckle, and the texture of the myocardium on the displayed grey and on the envelope.
  */

@@ -1,5 +1,5 @@
 /**
- * Myocardial texture samples of the realism bench (decision 343): the grey of the eroded myocardium with its local mean
+ * Myocardial texture samples of the realism bench (decision 344): the grey of the eroded myocardium with its local mean
  * removed (a box of ±`halfWindowMm`), the speckle-scale residual whose distribution shape the bench compares between
  * the simulator and CAMUS. Removing the local mean of a grey linear in dB removes the slow changes of echo level (fibre
  * angle, depth, gain) without touching the shape of log-compressed speckle.

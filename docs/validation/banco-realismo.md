@@ -1,4 +1,4 @@
-# Banco de realismo (decisión 343)
+# Banco de realismo (decisión 344)
 
 Este documento es el registro del banco que juzga si un cambio acerca el simulador a la ecografía real. Arriba, la
 lectura de la corrida; abajo, el informe tal como lo escribe `npm run realism` (procedimiento en
@@ -56,7 +56,7 @@ con dispersores lagrangianos mueve estas cifras.
 
 ## Informe generado
 
-Generado por `npm run realism` (decisión 343) el 2026-10-19 02:04 UTC, en 5,7 min. Fuentes clínicas: CAMUS sí, EchoNet-Dynamic no (falta ECHONET_DIR). Sólo cifras agregadas: ninguna imagen clínica ni dato individual sale de las carpetas de origen.
+Generado por `npm run realism` (decisión 344) el 2026-10-19 02:04 UTC, en 5,7 min. Fuentes clínicas: CAMUS sí, EchoNet-Dynamic no (falta ECHONET_DIR). Sólo cifras agregadas: ninguna imagen clínica ni dato individual sale de las carpetas de origen.
 
 ### Brechas, de mayor a menor
 

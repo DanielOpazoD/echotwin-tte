@@ -1,5 +1,5 @@
 /**
- * Presentation formats of the Turing test (decision 343): a clinical clip and a simulated one must reach the reader in
+ * Presentation formats of the Turing test (decision 344): a clinical clip and a simulated one must reach the reader in
  * the same geometry, or the frame gives the answer away.
  *   - `tile`: the sector resampled to 0.35 mm/px on a 480 × 560 canvas, apex at the top centre, as the still-frame blind
  *     test of decision 146 (CAMUS stills and sequences, and the simulator's views).
@@ -56,7 +56,7 @@ export function sectorApex(src: ArrayLike<number>, w: number, h: number): { x: n
 }
 
 /**
- * The sector every tile of the Turing test is cut to (decision 343): CAMUS sectors run from 11 to 20 cm deep and mostly
+ * The sector every tile of the Turing test is cut to (decision 344): CAMUS sectors run from 11 to 20 cm deep and mostly
  * ±37° wide, the simulator's 16 cm and ±40°, so a frame's outline would tell the source. Both are cut to this, and a
  * clinical image whose own sector does not cover it is left out.
  */

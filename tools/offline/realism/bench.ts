@@ -1,5 +1,5 @@
 /**
- * The realism bench (decision 343), one command:
+ * The realism bench (decision 344), one command:
  *
  *   npm run realism -- [--out dir] [--jobs N] [--cases a,b] [--views plax,psax-mv,a4c,a2c]
  *                      [--turing <folder outside the repo>] [--per-view 6] [--seed 1] [--clip-seconds 2]

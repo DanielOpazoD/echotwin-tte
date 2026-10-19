@@ -1,5 +1,5 @@
 /**
- * The reader's page of the Turing test (decision 343): one clip at a time, in the order of the sitting, without the
+ * The reader's page of the Turing test (decision 344): one clip at a time, in the order of the sitting, without the
  * key. For each clip the reader says real or simulated, how sure (1–3) and what gave it away; the answers are kept in
  * the browser as they go (localStorage, per sitting) and saved at the end as `respuestas-<lector>.json`, the file
  * `turing.ts --grade` scores. It works from file:// with no server.

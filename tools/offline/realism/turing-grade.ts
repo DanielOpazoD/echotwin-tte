@@ -1,5 +1,5 @@
 /**
- * Scores the answer sheets of a Turing sitting (decision 343) against its key:
+ * Scores the answer sheets of a Turing sitting (decision 344) against its key:
  *   npx tsx tools/offline/realism/turing-grade.ts <respuestas-*.json …> [--key <folder>/key.json]
  * The key defaults to key.json beside the first sheet. Prints, per reader, the accuracy with its binomial tail, the AUC
  * of the six-step rating, the share of simulated clips detected and of real ones accepted, accuracy by view and format,

@@ -1,5 +1,5 @@
 /**
- * The physics reference of the phantom benchmarks (decision 343): the pulse-echo response of a point scatterer seen by a
+ * The physics reference of the phantom benchmarks (decision 344): the pulse-echo response of a point scatterer seen by a
  * phased array with delay-and-sum beamforming, computed the way Field II does it (Jensen 1996; Jensen & Svendsen 1992)
  * except for the element size: point elements on a line, a fixed transmit focus, dynamic receive focusing with an
  * aperture that grows as F-number × depth, and the pulse of the Field II examples (a two-cycle sine excitation through a

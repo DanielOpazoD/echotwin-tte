@@ -1,5 +1,5 @@
 /**
- * LV volumes of the realism bench (decision 343), measured the same way on the simulator's apical images and on the
+ * LV volumes of the realism bench (decision 344), measured the same way on the simulator's apical images and on the
  * clinical ones: the method of discs on a cavity mask (CAMUS ground truth, or the simulator's structure map seen through
  * the same scan conversion), single plane or biplane, and the reading of EchoNet-Dynamic's tables.
  *
