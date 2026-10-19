@@ -185,6 +185,10 @@ export interface EchonetSummary {
 
 /** EchoNet-Dynamic aggregates; `videos` AVIs of normal EF are read for the decorrelation (0 skips it). */
 export function echonetSummary(dir: string, videos = 40): EchonetSummary {
+  if (!existsSync(join(dir, 'FileList.csv')))
+    throw new Error(
+      `ECHONET_DIR (${dir}) no tiene FileList.csv: apunta a la carpeta de EchoNet-Dynamic que contiene FileList.csv, VolumeTracings.csv y Videos/.`,
+    );
   const list = parseEchonetFileList(readFileSync(join(dir, 'FileList.csv'), 'utf8')).filter(
     (r) => Number.isFinite(r.ef) && r.edv > 0,
   );

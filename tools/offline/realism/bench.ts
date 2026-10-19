@@ -5,18 +5,22 @@
  *                      [--turing <folder outside the repo>] [--per-view 6] [--seed 1] [--clip-seconds 2]
  *                      [--answers <folder of respuestas-*.json>] [--camus-limit N] [--echonet-videos 40]
  *                      [--report docs/validation/banco-realismo.md] [--quick]
+ *                      [--engine actual] [--baseline <baseline.json> | --no-baseline] [--save-baseline <file>] [--strict]
  *
  * 1. Phantoms of the image formation against the Field II–style reference (`phantoms.ts`).
  * 2. One cycle of each view and case through the app's CPU chain at 50 frames/s (`simCine.ts`), measured by
  *    `cineMetrics.ts`; the four-chamber view once more without clutter, to attribute the strain it reads.
  * 3. CAMUS (CAMUS_DIR, or ~/datos/CAMUS/database_nifti when it exists) and EchoNet-Dynamic (ECHONET_DIR) aggregates.
  * 4. With --turing, a blinded sitting of the visual Turing test in that folder; with --answers, its graded sheets.
- * 5. results.json (aggregates only) and the Spanish report (informe.md, and --report).
+ * 5. results.json (aggregates only) and the Spanish report (informe.md, and --report). With a baseline (by default the
+ *    committed `baseline.json`, the current model), each gap is compared with it and the verdict printed: the change
+ *    brings the simulator closer, moves it away, or both (decision 345); --strict exits 1 when any gap worsens.
  *
  * Clinical data never enters the repository (decision 69): the clinical folders and the Turing folder must lie outside
  * it, and nothing derived from an individual clinical image is written to --out.
  */
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
+import { loadCaseById } from '@/cases';
 import { once } from 'node:events';
 import {
   existsSync,
@@ -32,9 +36,10 @@ import type { ClipItem } from '@/clinical/realism/turing';
 import { gradeTuring, type AnswerSheet, type Trial } from '@/clinical/realism/turing';
 import { tissueDecorrelation } from '@/clinical/realism/speckleTracking';
 import { seededRandom } from '@/clinical/realism/turing';
-import { renderCine, type Cine } from './simCine';
+import { compareGaps, toBaseline, type Baseline } from '@/clinical/realism/verdict';
+import type { Cine } from './simCine';
+import { engineById, type CineVariant } from './engines';
 import { cineMetrics, type CineMetrics } from './cineMetrics';
-import { runPhantoms } from './phantoms';
 import {
   assertOutsideRepo,
   camusSummary,
@@ -45,15 +50,26 @@ import { hasFfmpeg, toEchonet, toTile, writeMp4, writePngGrey, type Grey } from 
 import { exportTuring } from './turingExport';
 import { aggregate, reportMd } from './report';
 
-export const DEFAULT_CASES = ['normal-excellent-window', 'hfref-severe-mr', 'hocm-sam'];
+/**
+ * The healthy heart first (Daniel, 2026-10-18): the normal case with an excellent window, the one compared with CAMUS
+ * Good, and with a difficult one. Pathologies are measured on request (`--cases`).
+ */
+export const DEFAULT_CASES = ['normal-excellent-window', 'normal-difficult-window'];
+/** Scatterer realizations of each simulated clip of the Turing test, so a sitting has enough clips of each kind. */
+export const TURING_REALIZATIONS = 4;
 export const DEFAULT_VIEWS = ['plax', 'psax-mv', 'a4c', 'a2c'];
 /** The bench's cine rate: CAMUS sequences (~48 Hz) and EchoNet videos (50 Hz) are acquired near it. */
 export const BENCH_FPS = 50;
+/** The committed baseline: the current model at the commit it names (decision 345). */
+export const DEFAULT_BASELINE = 'tools/offline/realism/baseline.json';
 
 export interface CineJob {
+  engine: string;
   caseId: string;
   view: string;
-  variant: 'default' | 'noclutter';
+  variant: CineVariant;
+  /** 0: the case's own scatterers, measured; k > 0: another realization, only for the Turing clips. */
+  realization: number;
   /** Folder for the Turing clips of this cine (outside the repo), or null. */
   staging: string | null;
   clipSeconds: number;
@@ -82,6 +98,11 @@ interface Options {
   echonetVideos: number;
   report: string | null;
   quick: boolean;
+  engine: string;
+  /** Baseline to compare with (null: none). */
+  baseline: string | null;
+  saveBaseline: string | null;
+  strict: boolean;
   worker: string | null;
 }
 
@@ -100,6 +121,10 @@ function parseArgs(argv: string[]): Options {
     echonetVideos: 40,
     report: null,
     quick: false,
+    engine: 'actual',
+    baseline: existsSync(DEFAULT_BASELINE) ? DEFAULT_BASELINE : null,
+    saveBaseline: null,
+    strict: false,
     worker: null,
   };
   for (let i = 0; i < argv.length; i++) {
@@ -122,6 +147,11 @@ function parseArgs(argv: string[]): Options {
     else if (a === '--echonet-videos') o.echonetVideos = Number(next());
     else if (a === '--report') o.report = next();
     else if (a === '--quick') o.quick = true;
+    else if (a === '--engine') o.engine = next();
+    else if (a === '--baseline') o.baseline = next();
+    else if (a === '--no-baseline') o.baseline = null;
+    else if (a === '--save-baseline') o.saveBaseline = next();
+    else if (a === '--strict') o.strict = true;
     else if (a === '--worker') o.worker = next();
     else throw new Error(`argumento desconocido ${a}`);
   }
@@ -136,13 +166,14 @@ function parseArgs(argv: string[]): Options {
 /** The simulator's Turing items of a cine: a clip on the tile canvas, stills at ED and ES (apical), an EchoNet clip (A4C). */
 function writeSimClips(cine: Cine, job: CineJob): ClipItem[] {
   if (!job.staging || job.variant !== 'default') return [];
-  const base = `sim-${job.caseId}-${job.view}`;
+  const base = `sim-${job.caseId}-${job.view}-r${job.realization}`;
   const grey = (k: number): Float32Array => cine.frames[k % cine.frames.length]!.grey;
   const W = Math.sqrt(cine.frames[0]!.grey.length);
   const mm: [number, number] = [cine.mmPerPx, cine.mmPerPx];
   const n = Math.max(2, Math.round(job.clipSeconds * cine.fps));
   const items: ClipItem[] = [];
-  const what = (s: string): string => `simulador ${job.caseId} ${job.view} ${s}`;
+  const what = (s: string): string =>
+    `simulador ${job.caseId} ${job.view} realización ${job.realization} ${s}`;
   if (hasFfmpeg()) {
     const tiles: Grey[] = Array.from({ length: n }, (_, k) => toTile(grey(k), W, W, mm));
     writeMp4(join(job.staging, `${base}.mp4`), tiles, cine.fps);
@@ -194,12 +225,15 @@ function writeSimClips(cine: Cine, job: CineJob): ClipItem[] {
   return items;
 }
 
-function runJob(job: CineJob): CineResult {
+function runJob(job: CineJob): CineResult | null {
   const t0 = performance.now();
-  const cyc = renderCine(job.caseId, job.view, {
+  const seed = job.realization ? loadCaseById(job.caseId).seed + 1000 * job.realization : undefined;
+  const cyc = engineById(job.engine).renderCine(job.caseId, job.view, {
     fps: BENCH_FPS,
-    physics: job.variant === 'noclutter' ? { clutterLevel: 0 } : undefined,
+    variant: job.variant,
+    seed,
   });
+  if (!cyc) return null;
   const metrics = cineMetrics(cyc);
   const W = Math.sqrt(cyc.frames[0]!.grey.length);
   const small = cyc.frames.map((f) => {
@@ -260,15 +294,44 @@ async function main(o: Options): Promise<void> {
   const staging = turingDir ? join(turingDir, '.staging') : null;
   if (staging) mkdirSync(staging, { recursive: true });
 
-  log('1/5 fantomas…');
-  const phantoms = runPhantoms();
+  const engine = engineById(o.engine);
+  log(`motor: ${engine.id} (${engine.label})`);
+  log(`1/5 fantomas ${engine.phantoms ? '' : '(el motor no tiene los suyos: se omiten)'}…`);
+  const phantoms = engine.phantoms ? engine.phantoms() : null;
 
   const jobs: CineJob[] = [];
   for (const caseId of o.cases)
     for (const view of o.views) {
-      jobs.push({ caseId, view, variant: 'default', staging, clipSeconds: o.clipSeconds });
+      jobs.push({
+        engine: engine.id,
+        caseId,
+        view,
+        variant: 'default',
+        realization: 0,
+        staging,
+        clipSeconds: o.clipSeconds,
+      });
+      if (staging)
+        for (let k = 1; k < TURING_REALIZATIONS; k++)
+          jobs.push({
+            engine: engine.id,
+            caseId,
+            view,
+            variant: 'default',
+            realization: k,
+            staging,
+            clipSeconds: o.clipSeconds,
+          });
       if (view === 'a4c')
-        jobs.push({ caseId, view, variant: 'noclutter', staging: null, clipSeconds: 0 });
+        jobs.push({
+          engine: engine.id,
+          caseId,
+          view,
+          variant: 'noclutter',
+          realization: 0,
+          staging: null,
+          clipSeconds: 0,
+        });
     }
   log(`2/5 ${jobs.length} cines del simulador con ${Math.min(o.jobs, jobs.length)} proceso(s)…`);
   const n = Math.max(1, Math.min(o.jobs, jobs.length));
@@ -320,14 +383,49 @@ async function main(o: Options): Promise<void> {
     graded,
     sources: { camus: camusDir !== null, echonet: echonetDir !== null },
     wallSeconds: (performance.now() - t0) / 1000,
+    engine: { id: engine.id, label: engine.label, commit: gitCommit() },
   });
+  if (o.baseline) {
+    const base = JSON.parse(readFileSync(o.baseline, 'utf8')) as Baseline;
+    results.comparison = {
+      baseline: { engine: base.engine, commit: base.commit, generatedAt: base.generatedAt },
+      ...compareGaps(base.gaps, results.gaps),
+    };
+  }
   writeFileSync(join(o.out, 'results.json'), JSON.stringify(results, null, 1));
+  if (o.saveBaseline)
+    writeFileSync(
+      o.saveBaseline,
+      JSON.stringify(
+        toBaseline(engine.id, results.engine.commit, results.generatedAt, results.gaps),
+        null,
+        1,
+      ) + '\n',
+    );
   const md = reportMd(results);
   writeFileSync(join(o.out, 'informe.md'), md);
   if (o.report) writeFileSync(o.report, md);
   log(
     `listo en ${((performance.now() - t0) / 60000).toFixed(1)} min: ${join(o.out, 'informe.md')}${o.report ? ` y ${o.report}` : ''}`,
   );
+  const c = results.comparison;
+  if (c) {
+    log(
+      `frente a la línea base (${c.baseline.engine} @ ${c.baseline.commit}): ${c.verdict} — mejoran ${c.improved}, empeoran ${c.worsened}, iguales ${c.unchanged}`,
+    );
+    if (o.strict && c.worsened > 0) process.exitCode = 1;
+  }
+}
+
+/** The short hash of the commit measured, with a mark when the tree has uncommitted changes. */
+function gitCommit(): string {
+  const head = spawnSync('git', ['rev-parse', '--short', 'HEAD'], {
+    encoding: 'utf8',
+  }).stdout.trim();
+  const dirty = spawnSync('git', ['status', '--porcelain', '--untracked-files=no'], {
+    encoding: 'utf8',
+  }).stdout.trim();
+  return `${head || 'desconocido'}${dirty ? '+cambios' : ''}`;
 }
 
 const opts = parseArgs(process.argv.slice(2));
@@ -335,6 +433,10 @@ if (opts.worker) {
   const jobs = JSON.parse(readFileSync(opts.worker, 'utf8')) as CineJob[];
   for (const job of jobs) {
     const r = runJob(job);
+    if (!r) {
+      process.stdout.write(`${job.caseId} ${job.view} ${job.variant}: el motor no lo modela\n`);
+      continue;
+    }
     process.stdout.write(`${job.caseId} ${job.view} ${job.variant}: ${r.seconds.toFixed(0)} s\n`);
     process.stdout.write(`RESULT ${JSON.stringify(r)}\n`);
   }

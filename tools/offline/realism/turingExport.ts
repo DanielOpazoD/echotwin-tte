@@ -119,7 +119,9 @@ function echonetItems(o: TuringOptions, staging: string, rand: () => number): Cl
         .map((f) => f.replace(/\.avi$/i, ''));
   const pool = names.filter((n) => existsSync(join(videoDir, `${n}.avi`)));
   const items: ClipItem[] = [];
-  for (let k = 0; k < Math.min(3 * o.perView, pool.length); k++) {
+  // the count is fixed before the loop: each pick leaves the pool one shorter
+  const n = Math.min(3 * o.perView, pool.length);
+  for (let k = 0; k < n; k++) {
     const name = pool.splice(Math.floor(rand() * pool.length), 1)[0]!;
     const v = readVideoGrey(join(videoDir, `${name}.avi`));
     const frames = v.frames.slice(0, Math.max(2, Math.round(o.clipSeconds * v.fps)));
