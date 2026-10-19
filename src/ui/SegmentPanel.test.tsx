@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { segmentLayerOn, useHudStore, useSimStore } from '@/app/store';
 import type { SegmentCoverage } from '@/simulator/view-recognition/segmentCoverage';
 import { SegmentPanel } from './SegmentPanel';
@@ -113,5 +113,40 @@ describe('SegmentPanel', () => {
     const { container } = render(<SegmentPanel />);
     expect(container.textContent).toBe('');
     expect(segmentLayerOn(useSimStore.getState())).toBe(false);
+  });
+
+  it('holds its colours and lists in a window while the frames change with the beat (decision 342)', () => {
+    const frame = (t: number, shown: number[], partial: number[]) =>
+      useHudStore.setState({
+        hud: {
+          timeS: t,
+          rrS: 1,
+          view: {
+            segments: {
+              aha17: cov('LV_AHA17', 17, shown, partial),
+              lv16: cov('LV_16', 16, shown, partial),
+            },
+          },
+        } as never,
+      });
+    frame(0, [2, 4, 5, 8, 10], [9]);
+    render(<SegmentPanel />);
+    const legend = () => screen.getByText(/^evaluables/).textContent;
+    expect(legend()).toBe(' evaluables 2, 4, 5, 8, 10');
+    // the off-axis plane: within the beat the frames name other segments; the panel keeps the first frame
+    act(() => frame(0.3, [2, 3, 4, 8, 9], [5, 10]));
+    expect(legend()).toBe(' evaluables 2, 4, 5, 8, 10');
+    act(() => frame(0.6, [2, 3, 4, 8, 9], [5, 10]));
+    expect(legend()).toBe(' evaluables 2, 4, 5, 8, 10');
+    // the beat is in: what is evaluable over two thirds of it (3 and 9 in three frames of four, 5 and 10 in one)
+    act(() => frame(1.0, [2, 3, 4, 8, 9], [5, 10]));
+    expect(legend()).toBe(' evaluables 2, 3, 4, 8, 9');
+    expect(screen.getByText(/parciales/).textContent).toBe(' parciales 5, 10');
+    for (const t of [1.3, 1.6, 2.2]) act(() => frame(t, [2, 4, 5, 8, 10], [9]));
+    expect(legend()).toBe(' evaluables 2, 3, 4, 8, 9');
+    // another window starts again
+    act(() => useSimStore.getState().setProbe({ rotationDeg: 40 }));
+    act(() => frame(2.3, [2, 4, 5, 8, 10], [9]));
+    expect(legend()).toBe(' evaluables 2, 4, 5, 8, 10');
   });
 });
