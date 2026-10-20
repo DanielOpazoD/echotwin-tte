@@ -681,7 +681,7 @@ export function reportMd(r: Results): string {
   if (modelLost)
     L.push(
       '',
-      `Puntos del modelo cuyo tejido no se encontró en el plano: ${modelLost}. Su GLS cuenta su última posición.`,
+      `Puntos fuera de las líneas del modelo, en todos los casos: ${modelLost} (no estaban sobre el VI en telediástole, o su tejido se perdió en el plano). La longitud de cada línea cuenta sólo los demás.`,
     );
   L.push(
     '',

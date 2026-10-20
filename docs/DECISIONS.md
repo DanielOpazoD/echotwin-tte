@@ -3013,3 +3013,48 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     - `roderoAnatomy.test.ts` (lenta): el preset A4C del núcleo con Rodero cambia y el A2C no; de vuelta al analítico, el declarado.
 
     Cinco mutaciones, cinco fallos.
+361. **El GLS del modelo en el banco sigue al tejido por sus coordenadas materiales**: la decisión 360 dejó a juicio de Daniel una caída del GLS del modelo que resultó ser la fragilidad de la medida.
+
+    **Medido antes de cambiar** (caso normal, A4C):
+
+    - El banco medía el GLS del modelo sobre un contorno redibujado en cada cuadro, fila a fila, en el mapa de estructuras. Esa longitud cuenta la cuantización del píxel y los escalones del volumen de 1 mm de Rodero. Su GLS cambiaba varios puntos con el suavizado: Rodero en el plano de la cruz daba −0,4 % sin suavizar, −12,6 % con ±2 filas y −15,9 % con ±2 mm (tabla en la 360). La medida de la brecha (2 mm dentro de la pared, 36 puntos) saltaba entre −9,7 y −16,3 % con ±2, ±3 y ±4 filas.
+    - Además, un contorno euleriano no es el mismo tejido en telediástole y en telesístole.
+
+    **Cambio**:
+
+    - `materialStrain.ts` (nuevo, `src/clinical/realism`): `followMaterial` sigue puntos por las coordenadas materiales del campo de cada cuadro. Busca la posición del plano cuyas coordenadas se acercan más a las del punto en telediástole (Gauss–Newton con diferencias centrales, desde donde estaba el punto en el cuadro anterior). Si el tejido salió del plano, el punto queda donde el plano pasa más cerca. Un punto se pierde si el campo termina bajo él, o si su solución queda más lejos de lo que el cuadro permite: entre dos estructuras cuyas coordenadas no empalman, Gauss–Newton puede caer en otro tejido.
+    - `simCine.ts`: cada cuadro del cine lleva su campo material, la escena de ese cuadro clasificada en el punto del plano bajo el píxel. Coincide con el mapa de estructuras en el 96 % de los píxeles; los bordes son la diferencia.
+    - `cineMetrics.ts`: el GLS del modelo, a 2 mm dentro de la pared (la brecha) y en el endocardio, es el de esas dos líneas de tejido. Cada línea parte de los mismos 36 puntos que el rastreador, sobre el VI en telediástole. Se pierde un punto que se mueva más de 20 cm/s entre cuadros (las velocidades miocárdicas no pasan de 15 cm/s). La longitud sólo cuenta los puntos que conservan su tejido todo el ciclo, y el informe dice cuántos quedan fuera.
+
+    **Medido después** (GLS de pico del tejido, 2 mm / endocardio; el rastreador sobre el mismo cine; puntos fuera de las dos líneas):
+
+    | Plano, corazón | Tejido 2 mm | Tejido endocardio | Rastreado | Rastreado / tejido | Fuera |
+    |---|---|---|---|---|---|
+    | Declarado, analítico | −19,3 % | −19,0 % | −8,8 % | 0,46 | 5 |
+    | Cruz, analítico | −19,2 % | −19,0 % | −10,4 % | 0,54 | 7 |
+    | Declarado, Rodero | −15,3 % | −15,7 % | −11,0 % | 0,72 | 3 |
+    | Cruz, Rodero | −13,4 % | −15,2 % | −9,9 % | 0,74 | 0 |
+
+    - **El analítico**: su coordenada material es una homotecia, (x/rsc, y/rsc, (z−L)/lsc), con 0,842 y 0,668 en telesístole. Su tejido se acorta un 19 % en cualquier plano que contenga el eje. El rastreador lee la mitad: su speckle no viaja como el de una simulación lagrangiana, donde el mismo rastreador lee 0,66 (CREATIS).
+    - **Rodero**: el rastreador lee 0,72–0,74, lo que en CREATIS. Su speckle sigue a su tejido. Su tejido se acorta menos que el normal (−18 a −22 %). Por segmentos, a 2 mm en el plano declarado: septo basal −13 %, medio −15 %, apical −16 %, y pared lateral −15 a −16 %. En el ápex, el endocardio se acorta un 21 % y el tejido a 5 mm de él un 9 %. El mapa comprime por igual todo el espesor y la longitud del VI, y la incompresibilidad hace el resto. En un corazón sano el acortamiento baja del endocardio al epicardio (−23,1 / −20,0 / −17,6 %, Nagata et al., PLoS ONE 2017) sin que la pared media se quede tan corta.
+    - Girar el plano hasta la cruz le cuesta a Rodero 1,9 puntos a 2 mm y 0,5 en el endocardio; al analítico, nada. En el plano de la cruz, el septo basal de Rodero a 2 mm casi no se acorta (−2 %).
+
+    **El banco** (frente a la línea base regenerada; sólo cambian el GLS del modelo, −19,9 → −19,3 %, y la rastreabilidad, 0,55 → 0,57):
+
+    | Motor | Mejoran / empeoran / iguales | Tejido 2 mm / endocardio | Rastreado | Rastreado / tejido |
+    |---|---|---|---|---|
+    | actual (la línea base) | — | −19,3 / −19,0 % | −10,9 % | 0,57 |
+    | `cole` | 14 / 0 / 7 | −19,3 / −19,0 % | −14,1 % | 0,73 |
+    | `rodero-movil` | 4 / 3 / 14 | −13,4 / −15,2 % | −11,9 % | 0,88 |
+    | `rodero-cole` | 12 / 2 / 7 | −13,4 / −15,2 % | −12,6 % | 0,94 |
+
+    Con la medida nueva, los dos motores de Rodero empeoran el GLS del tejido (−19,3 → −13,4 %, puntuación 0 → 2,3) y la rastreabilidad (0,57 → 0,88–0,94 frente a 0,66 de CREATIS): su speckle sigue a un tejido que se acorta poco. Con el contorno, en la 360, `rodero-cole` daba −16,2 % y sólo empeoraba esa brecha. Es lo que corrige la decisión siguiente. La convolución sobre el analítico (`cole`) sube la razón de 0,57 a 0,73: su speckle se deja seguir mejor que el de la red.
+
+    **Pruebas** (`materialStrain.test.ts`, seis):
+
+    - Una línea en escalera de vóxeles bajo una contracción uniforme da el strain del tejido (−10 y −20 %). La misma línea redibujada sobre los vóxeles de la elipse contraída da otro.
+    - Puntos llevados por un acortamiento anisótropo con giro, y por el campo no lineal del corazón de volumen (r₀² = λr² + A).
+    - Tejido fuera del plano: el punto queda donde el plano pasa más cerca.
+    - Un punto que debería saltar más de lo permitido se pierde. Un punto cuyo tejido el campo pierde se cuenta una vez y se queda donde estaba.
+
+    Siete mutaciones, siete fallos: el signo del paso, una sola iteración, sin criterio de convergencia, el objetivo recalculado en cada cuadro (euleriano), sin radio de confianza, sin contar los perdidos, y los perdidos dentro de la línea. Una guarda que ninguna prueba atrapaba (el recorte de cada paso) se quitó: los campos de las dos anatomías son localmente invertibles, y un jacobiano degenerado ya pierde el punto.
