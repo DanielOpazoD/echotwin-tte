@@ -5,8 +5,10 @@
  * aortic valve) and scaled so that its LV length is the model's. The end-diastolic shape of the CT, moved by the case's cycle when asked (decision 350).
  *
  * What the mesh does not have is added the way the analytic heart draws it: the epicardial fat that fills the grooves
- * (the heart's silhouette closed with a ball of EPI_CLOSING_MM), the pericardium PERICARDIUM_CM outside it, and on a miss
- * the distance beyond the sac for the thorax. The CT has no leaflets, chords or papillary muscles: its atrioventricular
+ * (the heart's silhouette closed with a ball of EPI_CLOSING_MM, kept where it lies between an atrium and a ventricle or
+ * between the ventricles: decision 358), the pericardium PERICARDIUM_CM outside it, and on a miss the distance beyond the
+ * sac for the thorax. The atrial walls, which the segmentation draws thicker than CT measures them, keep ATRIAL_WALL_MM
+ * from their cavity. The CT has no leaflets, chords or papillary muscles: its atrioventricular
  * valve planes are flat discs, taken as blood, and the analytic heart's apparatus is drawn in the cavities (APPARATUS).
  * The semilunar planes are closed valve, as at end diastole. The vessels end where the CT segmentation cut them.
  */
@@ -125,6 +127,26 @@ export const TRICUSPID_ANNULUS_MM = 0.9;
 const ANNULUS_WALLS = new Set([1, 2, 3, 4, 5]);
 /** Fat filling the grooves: a label of its own in the runtime volume. */
 export const FAT = 254;
+/**
+ * The atrial walls keep ATRIAL_WALL_MM from their cavity, never less than two voxels so they stay closed (decision 358).
+ * The CT segmentation draws them 2.2 mm thick (LA, median by Euclidean distance) and the 1 mm reduction 2.65; in CT the
+ * LA wall measures a median 1.45 mm (septum 2.0, inferior posterior 1.1; IJC Heart Vasc 2021) and 1.6–1.8 by region in
+ * photon-counting CT. Kept to 2 mm from the cavity they read 1.6 mm (0.5 mm volume) and 1.7 mm (1 mm), the septum
+ * up to twice that from both cavities.
+ */
+export const ATRIAL_WALL_MM = 2;
+/** The atrial walls that are thinned (LA, RA), and the blood they line: the cavities and the inlets' caps. */
+const ATRIAL_WALLS = new Set([3, 4]);
+const ATRIAL_BLOOD = new Set([33, 34, 11, 12, 13, 14, 15, 16, 17]);
+/**
+ * Groove fat (decision 358): the closed silhouette's fill is fat only where it lies within GROOVE_REACH_MM of both an
+ * atrium and a ventricle (the atrioventricular grooves, where the circumflex and the right coronary run) or of both
+ * ventricles (the interventricular grooves). Elsewhere (between the atria and the veins, around the appendage, against
+ * the great vessels) the closing filled every gap narrower than its ball and drew angular slabs of fat on the atria.
+ */
+export const GROOVE_REACH_MM = 6;
+const GROOVE_ATRIAL = new Set([3, 4, 18, 37, 38]);
+const GROOVE_VENTRICULAR = new Set([1, 2]);
 
 /** Squared Euclidean distance transform along one line (Felzenszwalb & Huttenlocher 2012). */
 function edtLine(
@@ -157,7 +179,7 @@ function edtLine(
 }
 
 /** Distance (voxels) from every voxel to the nearest voxel where `feature` holds. */
-function edt(dims: V3, feature: (v: number) => boolean): Float32Array {
+export function edt(dims: V3, feature: (v: number) => boolean): Float32Array {
   const [nx, ny, nz] = dims;
   const out = new Float32Array(nx * ny * nz);
   const BIG = 1e20;
@@ -409,11 +431,34 @@ function volumeFields(h: LabelVolumeHeader, label: Uint8Array): Fields {
         }
     for (const [v, l] of rim) label[v] = l;
   }
-  // epicardial fat: the silhouette closed with a ball (dilate, then erode), less the heart itself
+  // the atrial walls thinned from outside to ATRIAL_WALL_MM from their cavity (decision 358)
+  {
+    const dCav = edt(dims, (v) => ATRIAL_BLOOD.has(label[v]!));
+    const keep = Math.max(ATRIAL_WALL_MM / vox, 2);
+    for (let v = 0; v < label.length; v++)
+      if (ATRIAL_WALLS.has(label[v]!) && dCav[v]! > keep) label[v] = 0;
+  }
+  // epicardial fat: the silhouette closed with a ball (dilate, then erode), less the heart itself, kept in the grooves
   const r = EPI_CLOSING_MM / vox;
   const dOut = edt(dims, (v) => label[v] !== 0);
   const dIn = edt(dims, (v) => dOut[v]! > r);
-  for (let v = 0; v < label.length; v++) if (label[v] === 0 && dIn[v]! > r) label[v] = FAT;
+  const reach = GROOVE_REACH_MM / vox;
+  const dAtrium = edt(dims, (v) => GROOVE_ATRIAL.has(label[v]!));
+  const dVentricle = edt(dims, (v) => GROOVE_VENTRICULAR.has(label[v]!));
+  const dLv = edt(dims, (v) => label[v] === 1);
+  const dRv = edt(dims, (v) => label[v] === 2);
+  const dLa = edt(dims, (v) => label[v] === 3);
+  const dRa = edt(dims, (v) => label[v] === 4);
+  for (let v = 0; v < label.length; v++)
+    if (
+      label[v] === 0 &&
+      dIn[v]! > r &&
+      ((dAtrium[v]! <= reach && dVentricle[v]! <= reach) ||
+        (dLv[v]! <= reach && dRv[v]! <= reach)) &&
+      // between both atria lies the septum, not a groove
+      !(dLa[v]! <= reach && dRa[v]! <= reach)
+    )
+      label[v] = FAT;
   // beyond the epicardium (heart or groove fat), in mm, for the pericardium and the thorax
   const dEpi = edt(dims, (v) => label[v] !== 0);
   for (let v = 0; v < dEpi.length; v++) dEpi[v] = dEpi[v]! * vox;
