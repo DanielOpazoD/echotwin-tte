@@ -2985,7 +2985,7 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
 
     - `rodero-cole`: mejoran 13, empeora 1, iguales 7. Empeora el GLS del contorno del modelo, de −18,3 a −16,2 % (rango −18 a −22).
     - `rodero-movil`: mejoran 5, empeoran 2, iguales 14. El rastreador vuelve a leer 0,73 del acortamiento (0,47–0,48 con el plano declarado desde la decisión 353, la regresión sin atribuir): el plano declarado cortaba la cruz, donde las aurículas y el septo basal se mueven a través del corte.
-    - El GLS del contorno baja porque el plano por la cruz muestra menos acortamiento del corazón de Rodero; con el plano declarado ya estaba en el borde. Lo más probable es que el movimiento cinemático de Rodero se quede corto en un cuatro cámaras bien tomado: es la próxima corrección si esta se acepta.
+    - El GLS del contorno baja porque el plano por la cruz muestra menos acortamiento del corazón de Rodero. Con la misma medida (contorno endocárdico de telediástole a telesístole, base en el anillo), el corazón analítico da −18,5 % en su plano; Rodero, −15,1 % en el declarado y −12,6 % en el de la cruz. Su movimiento cinemático acorta menos el VI que el analítico incluso en el plano de siempre, y el plano por la cruz lo deja ver: es la próxima corrección si esta se acepta.
 
     **Lo que no cambia**: el análisis de vista sigue juzgando el plano con la geometría del corazón analítico, así que puntúa el A4C de Rodero algo más bajo; es una de las dependencias por portar.
 
