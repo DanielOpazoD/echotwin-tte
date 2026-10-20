@@ -2809,3 +2809,44 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     Diez mutaciones, diez fallos (nueve en las pruebas unitarias y una en la paridad e2e).
 
     **Lo que sigue con la red**: el modo M y el Doppler, y el ruido del receptor, que no pasan por esta formación.
+
+355. **La celda del speckle de la referencia del banco sale de su núcleo, y la convolución resulta tener la de la física**: primera mejora del bloque de imagen de Rodero acordado con Daniel. La 351 dejó una discrepancia sin resolver: la imagen de referencia medía 2,83 mm de celda lateral a 9 cm (la celda: dos veces el desplazamiento al que la autocorrelación de la envolvente cae a ½), pero la autocorrelación de su propio núcleo daba 3,43. El banco juzgaba con esa cifra la red (2,79, casi exacta) y la convolución (3,32, «peor»).
+
+    **Medido antes de cambiar** (núcleo sin apodizar a 9 cm):
+
+    - La convolución del banco es correcta: con un núcleo gaussiano conocido la imagen sigue a la teoría a la tercera cifra, y con el de referencia también, siempre que el campo cubra todo el núcleo a lo largo del haz.
+    - Una sola realización del campo de referencia, la que el banco formaba, da cualquier celda entre 2,85 y 3,60 mm según la semilla.
+    - Restar a cada fila su propia media, con sólo unas quince celdas por fila, baja la celda un 4 % (3,12 frente a 3,24 con seis campos).
+    - La teoría que sirve de regla es la de la envolvente, no la de |μ|²: la autocovarianza normalizada de una envolvente de Rayleigh es (₂F₁(−½, −½; 1; |μ|²) − 1)/(4/π − 1), 0,474 cuando |μ|² = ½ (Monte Carlo con dos millones de pares, a la cuarta cifra). Con ella, el núcleo sin apodizar da 3,30 mm a 9 cm (3,43 era la anchura de |μ|²).
+    - Muestrear la autocorrelación cada línea en vez de cada 0,05 mm alarga la celda un 1,5–2 % en el nivel medio; el banco usa el alto, más fino.
+
+    **Cambio**:
+
+    - `speckleStats.ts`: `envelopeCorrelation`, `kernelSpeckleCell` (la celda que forma un núcleo, a través o a lo largo del haz) y `speckleCell` (la de una imagen, con la autocorrelación de todas sus series alrededor de una sola media).
+    - `phantoms.ts`: las celdas de la referencia, con y sin apodizar, salen de sus núcleos; las del simulador, de `speckleCell`. La imagen de referencia sigue formándose para la SNR y la m de Nakagami.
+
+    **Celdas laterales con la regla nueva** (simulador sobre cuatro campos):
+
+    | Profundidad | Referencia sin apodizar | Convolución | Red (la de la app) |
+    |---|---|---|---|
+    | 5 cm | 1,86 mm | 2,03 | 1,98 |
+    | 9 cm | 3,30 | 3,43 | 2,88 |
+    | 13 cm | 4,78 | 4,73 | 3,66 |
+
+    El veredicto se invierte: la convolución tiene la celda de su transductor (+4 % a 9 cm) y la red la tiene fina, un 13 % a 9 cm y un 23 % a 13 cm. A lo largo del haz, la convolución da 0,62 mm y la red 0,65, frente a 0,56 del núcleo con Hanning.
+
+    **Banco**: la línea base del modelo actual se regenera (`baseline.json`, en el commit de esta decisión); sólo cambia la celda lateral, de 2,79/2,80 (puntuación 0,02) a 2,88/3,30 (0,61), y las otras diecinueve brechas salen idénticas. Frente a ella:
+
+    | Motor | Mejoran | Empeoran | Iguales | En las decisiones 350 y 351 |
+    |---|---|---|---|---|
+    | `cole` | 8 | 3 | 9 | 7 / 4 / 9 |
+    | `rodero-movil` | 6 | 2 | 12 | 7 / 1 / 12 |
+    | `rodero-cole` | 10 | 3 | 7 | 9 / 4 / 7 |
+
+    - **Lo que queda peor con Rodero y la convolución**: la asimetría del gris residual del miocardio (0,08 frente a 0,53 en CAMUS Good), su gris mediano (115 frente a 100) y la resolución axial (0,57 mm frente a 0,64: el pulso verdadero muestreado cada 0,5 mm mide corto).
+    - **Rodero con la red** da la asimetría de CAMUS (0,55): la convolución la pierde con cualquier anatomía (`cole`, −0,11).
+    - **`rodero-movil` empeora ahora la fracción del acortamiento que lee el rastreador** (0,47 frente a 0,55 del modelo actual; en la 350, 0,58). Entre las dos corridas, la 353 horneó los papilares en el volumen y movió la curva auricular a la malla gruesa; queda por atribuir.
+
+    El informe del banco (`docs/validation/banco-realismo.md`) se rehace con la corrida nueva, y su lectura corrige la frase que decía que la celda de la red coincidía con la de la apertura sin apodizar.
+
+    **Pruebas** (`speckleStats.test.ts`): la correlación de la envolvente frente a Monte Carlo a |μ|² = ¼, ½ y 0,8; la celda de un núcleo gaussiano anisótropo en cada eje frente a la fórmula cerrada y frente a la imagen que forma; y series cortas cuya celda conjunta da la del núcleo, mientras restar la media de cada una baja la correlación. Seis mutaciones, seis fallos.

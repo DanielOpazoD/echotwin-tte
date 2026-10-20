@@ -1,7 +1,7 @@
 {
  "engine": "actual",
- "commit": "2722356",
- "generatedAt": "2026-10-19T07:34:51.017Z",
+ "commit": "faa698a",
+ "generatedAt": "2026-10-20T01:49:57.310Z",
  "gaps": [
   {
    "id": "movimiento.gls-seguido",
@@ -81,6 +81,13 @@
    "score": 0.7253340074954948
   },
   {
+   "id": "fisica.celda-lateral.9cm",
+   "metric": "celda de speckle lateral a 9 cm",
+   "sim": 2.8826439428176713,
+   "ref": 3.302743941409871,
+   "score": 0.6096779891432315
+  },
+  {
    "id": "movimiento.rastreo-trazados-echonet",
    "metric": "razón rastreado / trazado de TD a TS, formato EchoNet (A4C normal)",
    "sim": 0.4318008896540899,
@@ -114,13 +121,6 @@
    "sim": 2.0610684195148856,
    "ref": 2.1539650024571375,
    "score": 0.19756713579684534
-  },
-  {
-   "id": "fisica.celda-lateral.9cm",
-   "metric": "celda de speckle lateral a 9 cm",
-   "sim": 2.790913038129785,
-   "ref": 2.8040889543965997,
-   "score": 0.02110702568470006
   },
   {
    "id": "volumen.vtd",
