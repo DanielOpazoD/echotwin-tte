@@ -57,7 +57,9 @@ import {
   logMoments,
   nakagamiMFromLogSkew,
   RAYLEIGH_SNR,
+  kernelSpeckleCell,
   SNR_WINDOW,
+  speckleCell,
   windowedSnr,
 } from '@/clinical/realism/speckleStats';
 import { seededRandom } from '@/clinical/realism/turing';
@@ -374,6 +376,9 @@ function polarRegions(
 /** Support of the reference kernel (mm): beyond it the Hanning-apodized response is under −60 dB at every depth here. */
 const REF_KERNEL_HALF_X_MM = 8;
 const REF_KERNEL_HALF_Z_MM = 1.6;
+/** Grid of the reference images and kernels (mm), across and along the beam. */
+const REF_GRID_DX_MM = 0.2;
+const REF_GRID_DZ_MM = 0.05;
 
 /** A Field II–style scatterer field (random phase, unit amplitude, one per cell) times a mask, through the reference PSF. */
 function referenceImage(
@@ -384,8 +389,8 @@ function referenceImage(
   seed: number,
   apodization: ArrayParams['apodization'] = 'hanning',
 ): { env: Float64Array; nx: number; nz: number; dx: number; dz: number } {
-  const dx = 0.2,
-    dz = 0.05;
+  const dx = REF_GRID_DX_MM,
+    dz = REF_GRID_DZ_MM;
   const h = psf2d(
     referenceArray(apodization),
     depthCm * 10,
@@ -496,28 +501,6 @@ export interface SpeckleRow {
   refRectCellLateralMm: number;
 }
 
-/** Twice the lag where the normalized autocorrelation of a mean-removed series falls to ½ (linear interpolation). */
-function halfCorrelationWidth(series: readonly number[][], spacing: number): number {
-  const maxLag = 60;
-  const acf = new Float64Array(maxLag + 1);
-  for (const s of series) {
-    const m = s.reduce((a, b) => a + b, 0) / s.length;
-    const d = s.map((v) => v - m);
-    for (let lag = 0; lag <= maxLag && lag < d.length; lag++) {
-      let c = 0;
-      for (let i = 0; i + lag < d.length; i++) c += d[i]! * d[i + lag]!;
-      acf[lag]! += c / (d.length - lag);
-    }
-  }
-  for (let lag = 1; lag <= maxLag; lag++)
-    if (acf[lag]! / acf[0]! < 0.5) {
-      const a = acf[lag - 1]! / acf[0]!,
-        b = acf[lag]! / acf[0]!;
-      return 2 * (lag - 1 + (a - 0.5) / (a - b)) * spacing;
-    }
-  return NaN;
-}
-
 /** Scatterer realizations of the uniform-speckle phantom: a statistic of one region moves with its realization. */
 const SPECKLE_SEEDS = [SEED, SEED + 1, SEED + 2, SEED + 3];
 
@@ -573,35 +556,21 @@ export function uniformSpeckle(
     const mx = Math.round(REF_KERNEL_HALF_X_MM / ref.dx),
       mz = Math.round(REF_KERNEL_HALF_Z_MM / ref.dz);
     const core: number[] = [];
-    const refAx: number[][] = [],
-      refLat: number[][] = [];
-    for (let ix = mx; ix < ref.nx - mx; ix++) {
-      const col: number[] = [];
-      for (let iz = mz; iz < ref.nz - mz; iz++) {
-        core.push(ref.env[ix + iz * ref.nx]!);
-        col.push(ref.env[ix + iz * ref.nx]!);
-      }
-      refAx.push(col);
-    }
-    for (let iz = mz; iz < ref.nz - mz; iz += 4) {
-      const row: number[] = [];
-      for (let ix = mx; ix < ref.nx - mx; ix++) row.push(ref.env[ix + iz * ref.nx]!);
-      refLat.push(row);
-    }
-    const rect = referenceImage(
-      d,
-      () => 1,
-      25 + REF_KERNEL_HALF_X_MM,
-      2 + REF_KERNEL_HALF_Z_MM,
-      SEED + 200 + k,
-      'rect',
-    );
-    const rectLat: number[][] = [];
-    for (let iz = mz; iz < rect.nz - mz; iz += 4) {
-      const row: number[] = [];
-      for (let ix = mx; ix < rect.nx - mx; ix++) row.push(rect.env[ix + iz * rect.nx]!);
-      rectLat.push(row);
-    }
+    for (let ix = mx; ix < ref.nx - mx; ix++)
+      for (let iz = mz; iz < ref.nz - mz; iz++) core.push(ref.env[ix + iz * ref.nx]!);
+    // the reference's cells come from its kernels (decision 355): one realization of its field read 2.85–3.60 mm across
+    // at 9 cm for a cell of 3.30 mm
+    const kernel = (apodization: ArrayParams['apodization']) =>
+      psf2d(
+        referenceArray(apodization),
+        d * 10,
+        REF_KERNEL_HALF_X_MM,
+        REF_GRID_DX_MM,
+        REF_KERNEL_HALF_Z_MM,
+        REF_GRID_DZ_MM,
+      );
+    const hanning = kernel('hanning'),
+      rect = kernel('rect');
     return {
       depthCm: d,
       simSnr: envelopeSnr(sAll),
@@ -624,11 +593,11 @@ export function uniformSpeckle(
       simMSingleLook: nakagamiMFromLogSkew(logMoments(sOne).skewness),
       simKAlphaSingleLook: kAlphaFromEnvelope(sOne),
       refM: nakagamiMFromLogSkew(logMoments(core).skewness),
-      simCellAxialMm: halfCorrelationWidth(axialSeries, dr * 10),
-      simCellLateralMm: halfCorrelationWidth(lateralSeries, d * dTheta * 10),
-      refCellAxialMm: halfCorrelationWidth(refAx, ref.dz),
-      refCellLateralMm: halfCorrelationWidth(refLat, ref.dx),
-      refRectCellLateralMm: halfCorrelationWidth(rectLat, rect.dx),
+      simCellAxialMm: speckleCell(axialSeries, dr * 10),
+      simCellLateralMm: speckleCell(lateralSeries, d * dTheta * 10),
+      refCellAxialMm: kernelSpeckleCell(hanning, 'z'),
+      refCellLateralMm: kernelSpeckleCell(hanning, 'x'),
+      refRectCellLateralMm: kernelSpeckleCell(rect, 'x'),
     };
   });
 }

@@ -276,3 +276,109 @@ export function windowedSnr(
   snrs.sort((a, b) => a - b);
   return { median: snrs.length ? snrs[Math.floor(snrs.length / 2)]! : NaN, windows: snrs.length };
 }
+
+/**
+ * The speckle cell (decision 355): twice the lag at which the envelope's autocorrelation falls to ½, along or across the
+ * beam. A reference's comes from its kernel: for fully developed speckle the complex field's correlation coefficient at
+ * lag Δ is μ(Δ) = R_h(Δ) / R_h(0), with R_h the kernel's autocorrelation (summed over the other axis), and the envelope's
+ * normalized autocovariance is a function of |μ|² alone (Middleton; Wagner et al. 1983). An image's comes from its
+ * envelope, around one mean for all its series: the mean of each series, some fifteen cells long across a 5 cm band,
+ * pulled the cell down by 4 % at 9 cm; and one realization of a reference field read anywhere in 2.85–3.60 mm for
+ * a kernel whose cell is 3.30 mm.
+ */
+
+/**
+ * Normalized autocovariance of a Rayleigh envelope whose complex field has squared correlation coefficient `mu2`:
+ * (₂F₁(−½, −½; 1; |μ|²) − 1) / (4/π − 1), from E[A₁A₂] = (π/4)·σ²·₂F₁(−½, −½; 1; |μ|²). Slightly under |μ|² (0.474 at ½).
+ */
+export function envelopeCorrelation(mu2: number): number {
+  const x = Math.min(1, Math.max(0, mu2));
+  // ₂F₁(−½, −½; 1; x) = Σ ((−½)ₙ / n!)² xⁿ; at x = 1 it is 4/π, and the terms fall as n⁻³
+  let term = 1,
+    sum = 1;
+  for (let n = 0; n < 4000; n++) {
+    term *= ((n - 0.5) / (n + 1)) ** 2 * x;
+    sum += term;
+    if (Math.abs(term) < 1e-12) break;
+  }
+  return (sum - 1) / (4 / Math.PI - 1);
+}
+
+/** Twice the lag (in `spacing` units) at which a correlation curve sampled from lag 0 first falls under ½; NaN if never. */
+export function halfWidthAtHalf(curve: ArrayLike<number>, spacing: number): number {
+  for (let lag = 1; lag < curve.length; lag++)
+    if (curve[lag]! < 0.5) {
+      const a = curve[lag - 1]!,
+        b = curve[lag]!;
+      return 2 * (lag - 1 + (a - 0.5) / (a - b)) * spacing;
+    }
+  return NaN;
+}
+
+/** Normalized autocorrelation of a set of series of one stationary speckle, around their common mean, up to `maxLag`. */
+export function envelopeAutocorrelation(
+  series: readonly ArrayLike<number>[],
+  maxLag: number,
+): Float64Array {
+  let sum = 0,
+    n = 0;
+  for (const s of series)
+    for (let i = 0; i < s.length; i++) {
+      sum += s[i]!;
+      n++;
+    }
+  const mean = sum / n;
+  const c = new Float64Array(maxLag + 1),
+    count = new Float64Array(maxLag + 1);
+  for (const s of series)
+    for (let lag = 0; lag <= maxLag && lag < s.length; lag++)
+      for (let i = 0; i + lag < s.length; i++) {
+        c[lag]! += (s[i]! - mean) * (s[i + lag]! - mean);
+        count[lag]!++;
+      }
+  const c0 = c[0]! / count[0]!;
+  return Float64Array.from(c, (v, lag) => (count[lag]! > 0 ? v / count[lag]! / c0 : NaN));
+}
+
+/** The speckle cell of an image: the half width at ½ of its envelope's autocorrelation along the series. */
+export function speckleCell(
+  series: readonly ArrayLike<number>[],
+  spacing: number,
+  maxLag = 60,
+): number {
+  return halfWidthAtHalf(envelopeAutocorrelation(series, maxLag), spacing);
+}
+
+/** A complex kernel on a grid: columns across the beam (x), rows along it (z), row-major ix + iz·nx. */
+export interface ComplexKernel {
+  nx: number;
+  nz: number;
+  dxMm: number;
+  dzMm: number;
+  re: ArrayLike<number>;
+  im: ArrayLike<number>;
+}
+
+/** The envelope autocorrelation of fully developed speckle formed by a kernel, along x (across) or z (along the beam). */
+export function kernelEnvelopeCorrelation(h: ComplexKernel, axis: 'x' | 'z'): Float64Array {
+  const n = axis === 'x' ? h.nx : h.nz;
+  const r2 = (lag: number): number => {
+    let a = 0,
+      b = 0;
+    for (let iz = 0; iz + (axis === 'z' ? lag : 0) < h.nz; iz++)
+      for (let ix = 0; ix + (axis === 'x' ? lag : 0) < h.nx; ix++) {
+        const i = ix + iz * h.nx,
+          j = axis === 'x' ? i + lag : i + lag * h.nx;
+        a += h.re[i]! * h.re[j]! + h.im[i]! * h.im[j]!;
+        b += h.im[i]! * h.re[j]! - h.re[i]! * h.im[j]!;
+      }
+    return a * a + b * b;
+  };
+  const r0 = r2(0);
+  return Float64Array.from({ length: n }, (_, lag) => envelopeCorrelation(r2(lag) / r0));
+}
+
+/** The speckle cell (mm) of fully developed speckle formed by a kernel, along x or z. */
+export function kernelSpeckleCell(h: ComplexKernel, axis: 'x' | 'z'): number {
+  return halfWidthAtHalf(kernelEnvelopeCorrelation(h, axis), axis === 'x' ? h.dxMm : h.dzMm);
+}
