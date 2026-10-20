@@ -50,13 +50,15 @@ import {
   psf2d,
   type ArrayParams,
 } from '@/clinical/realism/dasReference';
-import { cnr, contrastDb, gcnr, widthAtLevel } from '@/clinical/realism/resolution';
+import { cnr, contrastDb, gcnr, onGrid, widthAtLevel } from '@/clinical/realism/resolution';
 import {
   envelopeSnr,
   kAlphaFromEnvelope,
   logMoments,
   nakagamiMFromLogSkew,
   RAYLEIGH_SNR,
+  halfWidthAtHalf,
+  kernelEnvelopeCorrelation,
   kernelSpeckleCell,
   SNR_WINDOW,
   speckleCell,
@@ -255,6 +257,9 @@ export interface PointRow {
   /** Reference (delay-and-sum, Field II pulse): rectangular and Hanning apodization. */
   refAxialMm: number;
   refLateralRectMm: number;
+  /** The rectangular reference on the simulator's grid with the point on a sample, as the simulator shows it (decision 355). */
+  refAxialGridMm: number;
+  refLateralRectGridMm: number;
   refLateralHanningMm: number;
   refSideLobeRectDb: number;
   refSideLobeHanningDb: number;
@@ -290,6 +295,9 @@ export function pointTargets(
     const rCm = (si + 0.5) * dr;
     const rect = pointResponse(referenceArray('rect'), d * 10, { halfWidthMm: 12 });
     const han = pointResponse(referenceArray('hanning'), d * 10, { halfWidthMm: 12 });
+    const peak = (v: Float64Array) => v.reduce((best, x, i) => (x > v[best]! ? i : best), 0);
+    const axialStepMm = rect.axial.rMm[1]! - rect.axial.rMm[0]!,
+      lateralStepMm = rect.lateral.xMm[1]! - rect.lateral.xMm[0]!;
     return {
       depthCm: d,
       simAxialFormulaMm: axialFwhmMm(DEFAULT_ACQUISITION.frequencyMHz, false),
@@ -306,6 +314,14 @@ export function pointTargets(
       lineMm: rCm * dTheta * 10,
       refAxialMm: rect.axialMm,
       refLateralRectMm: rect.lateralMm,
+      refAxialGridMm: widthAtLevel(
+        onGrid(rect.axial.env, axialStepMm, dr * 10, peak(rect.axial.env)),
+        dr * 10,
+      ),
+      refLateralRectGridMm: widthAtLevel(
+        onGrid(rect.lateral.env, lateralStepMm, rCm * dTheta * 10, peak(rect.lateral.env)),
+        rCm * dTheta * 10,
+      ),
       refLateralHanningMm: han.lateralMm,
       refSideLobeRectDb: peakSideLobeDb(rect.lateral.env),
       refSideLobeHanningDb: peakSideLobeDb(han.lateral.env),
@@ -496,6 +512,9 @@ export interface SpeckleRow {
   simCellAxialMm: number;
   simCellLateralMm: number;
   refCellAxialMm: number;
+  /** The reference's cells read on the simulator's grid (0.5 mm along the beam, one line across; decision 355). */
+  refCellAxialGridMm: number;
+  refRectCellLateralGridMm: number;
   refCellLateralMm: number;
   /** The lateral cell of the reference without apodization. */
   refRectCellLateralMm: number;
@@ -595,7 +614,15 @@ export function uniformSpeckle(
       refM: nakagamiMFromLogSkew(logMoments(core).skewness),
       simCellAxialMm: speckleCell(axialSeries, dr * 10),
       simCellLateralMm: speckleCell(lateralSeries, d * dTheta * 10),
-      refCellAxialMm: kernelSpeckleCell(hanning, 'z'),
+      refCellAxialMm: kernelSpeckleCell(rect, 'z'),
+      refCellAxialGridMm: halfWidthAtHalf(
+        onGrid(kernelEnvelopeCorrelation(rect, 'z'), REF_GRID_DZ_MM, dr * 10),
+        dr * 10,
+      ),
+      refRectCellLateralGridMm: halfWidthAtHalf(
+        onGrid(kernelEnvelopeCorrelation(rect, 'x'), REF_GRID_DX_MM, d * dTheta * 10),
+        d * dTheta * 10,
+      ),
       refCellLateralMm: kernelSpeckleCell(hanning, 'x'),
       refRectCellLateralMm: kernelSpeckleCell(rect, 'x'),
     };

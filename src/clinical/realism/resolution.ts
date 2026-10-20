@@ -38,6 +38,29 @@ export function widthAtLevel(profile: ArrayLike<number>, spacing: number, levelD
   return (right - left) * spacing;
 }
 
+/**
+ * A finely sampled curve read on a coarser grid, by linear interpolation: the values at `origin` + k·grid (in the units
+ * of `fineSpacing`) for every k that stays inside it, in order (decision 355). The simulator forms its image on a grid of
+ * 0.5 mm along the beam and one line across, and shows a point target on its nearest sample: the reference compares with
+ * it on that grid, with the point on a sample.
+ */
+export function onGrid(
+  curve: ArrayLike<number>,
+  fineSpacing: number,
+  gridSpacing: number,
+  origin = 0,
+): Float64Array {
+  const step = gridSpacing / fineSpacing;
+  const at = (x: number): number => {
+    const i = Math.floor(x),
+      f = x - i;
+    return i + 1 < curve.length ? curve[i]! * (1 - f) + curve[i + 1]! * f : curve[i]!;
+  };
+  const kMin = -Math.floor(origin / step + 1e-9),
+    kMax = Math.floor((curve.length - 1 - origin) / step + 1e-9);
+  return Float64Array.from({ length: kMax - kMin + 1 }, (_, j) => at(origin + (kMin + j) * step));
+}
+
 const mean = (v: ArrayLike<number>): number => {
   let s = 0;
   for (let i = 0; i < v.length; i++) s += v[i]!;

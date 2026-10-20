@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cnr, contrastDb, gcnr, widthAtLevel } from './resolution';
+import { cnr, contrastDb, gcnr, onGrid, widthAtLevel } from './resolution';
 import { RAYLEIGH_SNR } from './speckleStats';
 import { seededRandom } from './turing';
 
@@ -36,5 +36,37 @@ describe('cyst figures', () => {
   it('contrast in dB and gCNR of two equal distributions', () => {
     expect(contrastDb([0.1, 0.1], [1, 1])).toBeCloseTo(-20, 10);
     expect(gcnr(outside.slice(0, 25_000), outside.slice(25_000))).toBeLessThan(0.05);
+  });
+});
+
+describe('onGrid (decision 355)', () => {
+  it('reads a curve at the grid’s points around an origin, interpolating between its samples', () => {
+    // a line is read exactly at any point
+    const line = Array.from({ length: 101 }, (_, i) => 3 + 0.5 * i);
+    const g = onGrid(line, 0.02, 0.5, 40);
+    // origin 40, step 25 samples: 15, 40, 65, 90
+    expect(Array.from(g)).toEqual([10.5, 23, 35.5, 48]);
+    // a step that falls between samples
+    const h = onGrid(line, 0.1, 0.25, 0);
+    expect(h.length).toBe(41);
+    expect(h[1]).toBeCloseTo(3 + 0.5 * 2.5, 12);
+    expect(h[40]).toBeCloseTo(53, 12);
+    // the same spacing gives the curve back
+    expect(Array.from(onGrid(line, 1, 1, 7))).toEqual(line);
+  });
+
+  it('shows a point on a sample as the simulator’s grid does', () => {
+    // a Gaussian pulse of FWHM 0.636 mm, on a 0.5 mm grid with the point on a sample
+    const sigma = 0.636 / 2.3548,
+      step = 0.01;
+    const pulse = gaussian(sigma, step, 601);
+    expect(widthAtLevel(pulse, step)).toBeCloseTo(0.636, 2);
+    const onSamples = onGrid(pulse, step, 0.5, 300);
+    expect(onSamples[Math.floor(onSamples.length / 2)]).toBeCloseTo(1, 12);
+    // its neighbours at ±0.5 mm read v; the −6 dB crossing (L = 10^(−6/20)) falls 0.5·(1 − L)/(1 − v) from the peak
+    const v = Math.exp(-0.25 / (2 * sigma * sigma)),
+      level = Math.pow(10, -6 / 20);
+    expect(widthAtLevel(onSamples, 0.5)).toBeCloseTo((2 * 0.5 * (1 - level)) / (1 - v), 9);
+    expect(widthAtLevel(onSamples, 0.5)).toBeLessThan(0.636);
   });
 });
