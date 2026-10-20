@@ -10,6 +10,8 @@ import {
   ELEVATION_REACH_SIGMAS,
   SCATTER_FIELD,
   SCATTERER_CELL_CM,
+  STRONG_SCATTERER_FRACTION,
+  STRONG_SCATTERER_GAIN,
   wavenumberRadPerCm,
 } from '../acoustic/scatterers';
 import type { PsfKernels } from '../acoustic/psf';
@@ -48,7 +50,7 @@ describe('point scatterers on the GPU (decision 354)', () => {
     const gpu = scatterFieldGpu(formation, 'test');
     gpu.frame(gl, {}, { frequencyMHz: 2.5, harmonics: true, seed: -7 });
     const declared = [...GLSL_SCATTERERS.matchAll(/^uniform \w+ (\w+);/gm)].map((m) => m[1]!);
-    expect(declared.length).toBe(5);
+    expect(declared.length).toBe(7);
     expect(declared.filter((n) => !set.has(n))).toEqual([]);
     expect(set.get('uScatK')).toEqual([wavenumberRadPerCm(2.5, true)]);
     // the seed as the unsigned bits the CPU's hash mixes in
@@ -56,6 +58,9 @@ describe('point scatterers on the GPU (decision 354)', () => {
     expect(set.get('uScatCell')).toEqual([SCATTERER_CELL_CM]);
     expect(set.get('uScatReach')).toEqual([ELEVATION_REACH_SIGMAS]);
     expect(set.get('uScatElev')).toEqual([ELEVATION_SIGMA_PER_HALF_WIDTH]);
+    // parenchyma's strong scatterers (decision 356)
+    expect(set.get('uScatStrong')).toEqual([STRONG_SCATTERER_FRACTION]);
+    expect(set.get('uScatStrongGain')).toEqual([STRONG_SCATTERER_GAIN]);
   });
 
   it('brings the formation’s kernels and looks, and refuses a formation without scatterers', () => {

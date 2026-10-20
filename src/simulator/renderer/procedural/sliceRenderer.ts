@@ -1,6 +1,6 @@
 import type { BeamFrame } from '@/simulator/probe/pose';
 import type { ImageFormation, PolarFrame, PolarFrameSpec, RendererBackend, Scene } from '../types';
-import type { Phasor } from '../acoustic/scatterers';
+import { STRONG_SCATTERER_FRACTION, type Phasor } from '../acoustic/scatterers';
 import { sceneClassifier } from '@/simulator/anatomy/sceneClassifier';
 import {
   makeSample,
@@ -902,7 +902,10 @@ export class ProceduralSliceRenderer implements RendererBackend {
       // the march (`renderMmodeLine`), like its scatterers
       let grain = 0;
       const gf = props.grain;
-      if (tissue === Tissue.Myocardium || tissue === Tissue.Muscle || tissue === Tissue.Liver) {
+      const parenchyma =
+        tissue === Tissue.Myocardium || tissue === Tissue.Muscle || tissue === Tissue.Liver;
+      // point scatterers draw parenchyma's bright grains with their strong scatterers (decision 356)
+      if (parenchyma && !field) {
         if (line && lk) {
           line.grainScale[si] = sigma * GRAIN_GAIN * transmission * lk.smooth;
           line.grainCells[si] = gf;
@@ -1006,6 +1009,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
               sliceHalfWidthCm(r) * ELEVATION_SIGMA_PER_HALF_WIDTH,
               kWave,
               seed,
+              parenchyma ? STRONG_SCATTERER_FRACTION : 0,
               ph,
             );
             zr = ph.re;

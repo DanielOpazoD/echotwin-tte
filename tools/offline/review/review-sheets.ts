@@ -28,6 +28,7 @@ import {
   fill,
   H,
   renderPolar,
+  reviewChoiceLabel,
   type ReviewModel,
   shortCase,
   structureMap,
@@ -67,6 +68,7 @@ const index: string[] = [
   '# Hojas de revisión clínica',
   '',
   `Casos: ${models.map((m) => `${m.c.id} (TS en fase ${m.esPhase.toFixed(2)})`).join(', ')}.`,
+  ...(reviewChoiceLabel() ? [`Elección experimental del panel Dev: ${reviewChoiceLabel()}.`] : []),
   'Cada fila: eco y mapa de estructuras en telediástole (fase 0) y telesístole (menor volumen del VI), con la misma geometría',
   'de sector; el mapa sale del mismo fotograma polar que la imagen y se atenúa detrás de la pleura.',
   '',
@@ -122,7 +124,9 @@ function composeSheet(
   );
   rows.forEach(({ m, frames }, r) => {
     const top = HEADER + r * (HEADER + H + GAP);
-    const label = `${m.c.id}  ·  ${ascii(m.c.title)}  ·  TS EN FASE ${m.esPhase.toFixed(2)}`;
+    // the Dev panel's experimental choices, when the sheet draws them (decisions 352–354)
+    const choice = reviewChoiceLabel();
+    const label = `${m.c.id}  ·  ${ascii(m.c.title)}  ·  TS EN FASE ${m.esPhase.toFixed(2)}${choice ? `  ·  ${ascii(choice)}` : ''}`;
     drawText(rgba, width, height, GAP, top + 6, label.toUpperCase(), [255, 220, 120]);
     frames.forEach((f, k) => {
       blit(rgba, width, f.eco, GAP + 2 * k * (W + GAP), top + HEADER);

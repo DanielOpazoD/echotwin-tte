@@ -133,7 +133,9 @@ void main() {
     vec3 la = inHeart ? vec3(dot(bL, ex), dot(bL, ey), dot(bL, ez)) : bL;
     vec3 sm = s.m;
     if (s.tissue == T_BLOOD) sm.x += BLOOD_SHIFT / SCATTER_FREQ;
-    vec2 z = scatterPhasor(vec3(dot(sm, fa), dot(sm, la), dot(sm, nrm)), ct, sn, r, dr, r * (SECTOR / LINES), e * uScatElev);
+    // parenchyma holds strong scatterers too (decision 356)
+    bool parenchyma = s.tissue == T_MYO || s.tissue == T_MUSCLE || s.tissue == T_LIVER;
+    vec2 z = scatterPhasor(vec3(dot(sm, fa), dot(sm, la), dot(sm, nrm)), ct, sn, r, dr, r * (SECTOR / LINES), e * uScatElev, parenchyma ? uScatStrong : 0.0);
     zr = z.x;
     zi = z.y;
   }
@@ -152,6 +154,8 @@ void main() {
   // every look, scaled by σ in pass B. Its lattice is anchored in tissue coordinates at the tissue's grain frequency;
   // across the plane its cell is the slice thickness where that is coarser, as for the scatterer phasor
   float gcoef = 0.0;
+#ifndef SCATTER_FIELD
+  // point scatterers draw parenchyma's bright grains with their strong scatterers instead (decision 356)
   if (s.tissue == T_MYO || s.tissue == T_MUSCLE || s.tissue == T_LIVER) {
     float gf = props.w;
     vec3 gq = s.m * gf - (gf - min(gf, 1.0 / (2.0 * e))) * dot(s.m, nrm) * nrm + GRAIN_OFFSET;
@@ -159,6 +163,7 @@ void main() {
     // independent grain fields, as in the CPU renderer (grainCoef)
     gcoef = 0.25 * grainAbove(lat(gq, 0)) + 0.5 * grainAbove(lat(gq, 1)) + 0.25 * grainAbove(lat(gq, 2));
   }
+#endif
   float lungFlag = s.tissue == T_LUNG ? 1.0 : 0.0;
   // two-way amplitude loss integrated over the sample's length for every tissue, bone included (decision 89)
   float attenNp = ATTEN_NP_PER_DB * (props.z + calciumAttenDb(s.extra)) * F_ATTEN * dr;
