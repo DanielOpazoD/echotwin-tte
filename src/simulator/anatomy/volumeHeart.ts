@@ -447,11 +447,16 @@ function volumeFields(h: LabelVolumeHeader, label: Uint8Array): Fields {
   const dVentricle = edt(dims, (v) => GROOVE_VENTRICULAR.has(label[v]!));
   const dLv = edt(dims, (v) => label[v] === 1);
   const dRv = edt(dims, (v) => label[v] === 2);
+  const dLa = edt(dims, (v) => label[v] === 3);
+  const dRa = edt(dims, (v) => label[v] === 4);
   for (let v = 0; v < label.length; v++)
     if (
       label[v] === 0 &&
       dIn[v]! > r &&
-      ((dAtrium[v]! <= reach && dVentricle[v]! <= reach) || (dLv[v]! <= reach && dRv[v]! <= reach))
+      ((dAtrium[v]! <= reach && dVentricle[v]! <= reach) ||
+        (dLv[v]! <= reach && dRv[v]! <= reach)) &&
+      // between both atria lies the septum, not a groove
+      !(dLa[v]! <= reach && dRa[v]! <= reach)
     )
       label[v] = FAT;
   // beyond the epicardium (heart or groove fat), in mm, for the pericardium and the thorax

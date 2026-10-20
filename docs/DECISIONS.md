@@ -2918,3 +2918,27 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     **Lo que queda**: otras quince reglas de la hoja pintan un fondo literal sin fijar su color de texto (las cajas sobre la imagen, el tutorial, la tarea hecha del currículo, las notas de revisión). La mayoría se dibuja siempre sobre la imagen negra o da color a sus hijos; no se han revisado una a una.
 
     **Pruebas**: `DevPanel.test.tsx` (los tres primeros encabezados son Anatomía, Imagen y Backend; `aria-pressed` sigue la elección y el cambio) y `styles.test.ts` (el panel toma el fondo y el texto de tokens del tema, y su botón elegido se rellena con el acento). Seis mutaciones, seis fallos.
+
+358. **Las paredes auriculares de Rodero miden lo que en la TC, y su grasa epicárdica queda en los surcos**: primera marca de Daniel sobre las hojas de Rodero. Vio «grasa epicárdica de mal aspecto» alrededor de la aurícula izquierda en el cuatro cámaras: parches angulosos sobre la AI y una losa gris bajo el anillo mitral.
+
+    **Medido antes de cambiar** (volumen ligado al caso normal; grosor por distancia euclídea, la suma de las distancias a la cavidad y al exterior menos un vóxel, en el tercio medio de la pared):
+
+    - La pared de la AI mide 2,22 mm en el volumen de 0,5 mm de la segmentación y 2,65 en el de 1 mm que carga la app: la reducción conserva las paredes finas engrosándolas. La AD, 2,00 y 2,15. En TC la pared de la AI mide una mediana de 1,45 mm (septo 2,0, cara posteroinferior 1,1; IJC Heart & Vasculature 2021) y 1,6–1,8 mm por región en TC de fotones.
+    - La grasa, el cierre de la silueta con una bola de 4 mm, rellenaba cualquier hueco más estrecho que la bola: 9,1 mL, y la pared de la AI que tocaba grasa quedaba a una mediana de 26 mm del anillo mitral (el 33 % a menos de 2 cm), en el techo, entre las venas y alrededor de la orejuela. La grasa epicárdica se concentra en los surcos auriculoventricular e interventricular.
+
+    **Cambio** (`volumeHeart.ts`, al ligar el volumen, así que la app de 1 mm y el banco de 0,5 mm lo hacen igual):
+
+    - **Paredes auriculares**: la AI y la AD conservan `ATRIAL_WALL_MM` (2 mm) desde su cavidad o desde los casquetes de sus venas, y nunca menos de dos vóxeles, para que sigan cerradas; lo de fuera pasa a exterior. Miden 1,73 mm en el volumen de la app (p90 2,0) y 1,62 en el de 0,5 mm; el septo, hasta el doble, desde las dos cavidades. Ninguna sangre auricular toca el exterior.
+    - **Grasa de surco**: el relleno del cierre es grasa sólo a menos de `GROOVE_REACH_MM` (6 mm) de una aurícula y de un ventrículo a la vez (surcos auriculoventriculares) o de los dos ventrículos (interventriculares), y nunca a esa distancia de las dos aurículas a la vez (ahí está el septo, no un surco). El resto pasa a exterior: pericardio y tórax.
+    - Resultado: 5,3 mL de grasa; la pared de la AI que la toca queda a una mediana de 7,3 mm del anillo mitral, el 93 % a menos de 2 cm (el surco por donde corre la circunfleja). La superficie externa de la AI que toca grasa baja del 30 al 19 %.
+
+    **Lo que esto no arregla**: la masa gris bajo la bisagra septal mitral que Daniel marcó después. Entre la cavidad de la AD y la de la AI el cuatro cámaras de Rodero tiene 20,7 mm de tejido y espacio a 5 mm bajo los anillos y 17 mm a 10 mm (el analítico, 5–8 mm), con o sin esta grasa: el plano canónico, definido sobre el corazón analítico, corta a Rodero unos 4° por delante de su cruz. Lo trata la decisión siguiente.
+
+    **Paridad CPU ↔ GPU** de las filas de Rodero (las etiquetas cambian, el GLSL no): 99,97 % de estructuras y 0,07 % de amplitud en el A4C, 100 % y 0,14 % en el PLAX, 99,97 % y 0,13 % con la convolución.
+
+    **Pruebas**:
+
+    - `volumeHeart.test.ts` (lenta, sintético): el hueco de 2 mm entre la AI y la base del ventrículo y el que hay entre el VD y el VI son grasa; el surco tallado en la pared lateral sola, lejos de aurículas y VD, no; la pared de la AD, de hasta 3,6 vóxeles, queda en dos desde su cavidad, la de la AI entera, y ninguna sangre auricular toca el exterior.
+    - `roderoAtria.test.ts` (lenta, el volumen que carga la app ligado al caso normal): paredes de 1,4–2 mm, cerradas, la grasa junto a la AI en los 2 cm del anillo y ninguna entre las dos aurículas.
+
+    Siete mutaciones, siete fallos.

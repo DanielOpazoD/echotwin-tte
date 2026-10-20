@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 357 (última: 357).
+Decisiones: 358 (última: 358).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -365,3 +365,4 @@ Decisiones: 357 (última: 357).
 | [355](DECISIONS.md#L2813) | 2026-10-18 | El banco compara la referencia en la rejilla del simulador y saca sus celdas del núcleo, y la convolución resulta tener la resolución y el speckle de la física | vigente |
 | [356](DECISIONS.md#L2857) | 2026-10-18 | La convolución dibuja los granos brillantes del parénquima con una población escasa de dispersores fuertes | vigente |
 | [357](DECISIONS.md#L2910) | 2026-10-18 | El panel Dev muestra arriba la anatomía y la imagen, con el color del tema y el botón elegido relleno | vigente |
+| [358](DECISIONS.md#L2922) | 2026-10-18 | Las paredes auriculares de Rodero miden lo que en la TC, y su grasa epicárdica queda en los surcos | vigente |

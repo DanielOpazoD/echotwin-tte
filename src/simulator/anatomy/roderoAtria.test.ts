@@ -2,7 +2,7 @@
 /**
  * The shipped Rodero heart's atria as the app binds them (decision 358): walls 1.4–2 mm thick (CT 1.45, septum 2.0;
  * photon-counting CT 1.6–1.8 by region), closed, and the epicardial fat beside the left atrium in the atrioventricular
- * groove, not on its roof and around its veins.
+ * groove, not on its roof and around its veins nor between both atria.
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -12,7 +12,7 @@ import { cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { buildCaseModels, REST_PATIENT } from './caseModels';
 import { computeHeartPose } from './heartModel';
 import { loadRoderoVolume } from './roderoAsset';
-import { edt, FAT, volumeHeart } from './volumeHeart';
+import { edt, FAT, GROOVE_REACH_MM, volumeHeart } from './volumeHeart';
 
 const fromPublic = (path: string): Promise<ArrayBuffer> => {
   const b = readFileSync(join(process.cwd(), 'public', path));
@@ -66,5 +66,15 @@ describe('the bound Rodero atria (decision 358)', async () => {
     expect(d.length).toBeGreaterThan(100);
     // within 2 cm of the mitral annulus: 91 % (33 % when the closing filled every gap)
     expect(d.filter((x) => x <= 20).length / d.length).toBeGreaterThan(0.8);
+  });
+
+  it('leaves no fat between both atria, where the septum is', () => {
+    const reach = GROOVE_REACH_MM / vox;
+    const dLa = edt(g.dims, (v) => L[v] === 3);
+    const dRa = edt(g.dims, (v) => L[v] === 4);
+    let between = 0;
+    for (let v = 0; v < L.length; v++)
+      if (L[v] === FAT && dLa[v]! <= reach && dRa[v]! <= reach) between++;
+    expect(between).toBe(0);
   });
 });
