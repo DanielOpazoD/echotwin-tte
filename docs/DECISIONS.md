@@ -3090,7 +3090,7 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
       | Cruz | −13,4 → −15,4 % | −15,2 → −17,7 % |
 
     - Por segmentos, a 2 mm en el plano declarado: septo −15,8 / −17,4 / −16,5 % (basal, medio, apical) y pared lateral −16,0 / −18,7 / −18,7 %. En el endocardio crece de la base al ápex (septo −11,9, −17,1, −24,0 %), como en los estudios por capas en sanos.
-    - En el plano de la cruz, el septo basal a 2 mm sigue casi sin acortarse (−4,5 %, cuando a 0,5 mm da −12,0 % y a 5 mm −18,8 %). Es una línea que pasa por la unión del septo con la cruz; queda para mirarla aparte.
+    - En el plano de la cruz, el septo basal a 2 mm sigue casi sin acortarse (−4,5 %, cuando a 0,5 mm da −12,0 % y a 5 mm −18,8 %). Lo hace un solo tramo, el primero, en la bisagra septal. Su punto de la base se desplaza 3 mm hacia el VD mientras los vecinos entran, y ese tramo se alarga un 63 %; los cinco tramos siguientes se acortan −17 a −20 %. Es el movimiento de la bisagra septal (el descenso pasa allí del anillo mitral al tricuspídeo, con el giro de la base) y queda para una decisión propia.
     - En las hojas de revisión (A4C, telesístole), el casquete se ve algo más grueso. La base y las paredes no cambian.
 
     **El banco** (frente a la línea base de la 361):
