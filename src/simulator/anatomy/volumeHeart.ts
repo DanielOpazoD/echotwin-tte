@@ -188,6 +188,11 @@ export const SEPTUM_GAP_MM = 16;
 const SEPTUM_FACING_COS = -0.8;
 const LA_BLOOD = new Set([33, 11, 12, 13, 14, 15]);
 const RA_BLOOD = new Set([34, 16, 17]);
+/** Sectors around the LV's long axis over which the mitral hinge's height is taken, and the tolerance beyond it (mm). */
+const HINGE_SECTORS = 36;
+const HINGE_TOLERANCE_MM = 0.5;
+/** How far (mm) from the sheet of LV myocardium past the hinge the gap and the atrial wall beside it join the atrium. */
+const JUNCTION_REACH_MM = 5;
 /** The walls that fill what is left of a gap inside the heart: the four chambers' myocardium and the aortic wall. */
 const INNER_WALLS = [1, 2, 3, 4, 5];
 /** How far (mm, mesh scale) from the atrioventricular planes the interatrial septum counts as the crux (decision 360). */
@@ -520,6 +525,70 @@ function volumeFields(h: LabelVolumeHeader, label: Uint8Array): Fields {
     const apply = (changes: [number, number][]): void => {
       for (const [v, l] of changes) label[v] = l;
     };
+    // the atrioventricular junction on the left (decision 364): the LV wall ends at the mitral hinge of its azimuth, as the
+    // analytic heart's does since decision 327. The mean mesh carries the LV's basal septum 10–15 mm past the hinge on
+    // the atrial side, and a plane that grazes that junction drew a grey mass inside the left atrium. The left atrium
+    // takes that tissue down to the hinge plane: its cavity, and its own wall ATRIAL_WALL_MM against what is not its own
+    {
+      const Mf = meshFrame(h);
+      const toAnat = (v: number): V3 => {
+        const i = v % nx,
+          j = Math.floor(v / nx) % ny,
+          kk = Math.floor(v / (nx * ny));
+        const m: V3 = [
+          h.origin[0] + (i + 0.5) * vox - Mf.o[0],
+          h.origin[1] + (j + 0.5) * vox - Mf.o[1],
+          h.origin[2] + (kk + 0.5) * vox - Mf.o[2],
+        ];
+        return [dot(m, Mf.ex), dot(m, Mf.ey), dot(m, Mf.ez)];
+      };
+      const sector = (a: V3): number =>
+        Math.floor(((Math.atan2(a[1], a[0]) + Math.PI) / (2 * Math.PI)) * HINGE_SECTORS) %
+        HINGE_SECTORS;
+      // the hinge height per azimuth: the most atrial voxel of the mitral annulus
+      const hinge = new Array<number>(HINGE_SECTORS).fill(Infinity);
+      for (let v = 0; v < label.length; v++)
+        if (label[v] === 37) {
+          const a = toAnat(v);
+          const t = sector(a);
+          hinge[t] = Math.min(hinge[t]!, a[2]);
+        }
+      const aboveHinge = (v: number): boolean => {
+        const a = toAnat(v);
+        return a[2] <= hinge[sector(a)]! - HINGE_TOLERANCE_MM;
+      };
+      // the left atrium's own: its blood, wall, inlets, the annulus and the mitral plane
+      const own = new Set([33, 3, 7, 37, 11, 12, 13, 14, 15, 18, 19, 20, 21, 22]);
+      // twice: the atrium that took a sheet reaches further, to the sheet's continuation
+      for (let pass = 0; pass < 2; pass++) {
+        const dL = edt(dims, (v) => LA_BLOOD.has(label[v]!));
+        const dR = edt(dims, (v) => RA_BLOOD.has(label[v]!));
+        // the sheet of LV myocardium past the hinge on the left atrium's side
+        const sheet = new Uint8Array(label.length);
+        for (let v = sz; v < label.length - sz; v++)
+          if (label[v] === 1 && dL[v]! <= reach && dL[v]! <= dR[v]! && aboveHinge(v)) sheet[v] = 1;
+        // with it, the gap and the left atrial wall beside it (the mesh's groove fat crept into the junction): one region
+        const dSheet = edt(dims, (v) => sheet[v] === 1);
+        const taken: number[] = [];
+        for (let v = sz; v < label.length - sz; v++) {
+          const l = label[v]!;
+          if (sheet[v]) taken.push(v);
+          else if (
+            (l === 0 || l === 3) &&
+            dSheet[v]! * vox <= JUNCTION_REACH_MM &&
+            dL[v]! <= reach &&
+            dL[v]! <= dR[v]! &&
+            aboveHinge(v)
+          )
+            taken.push(v);
+        }
+        // the region becomes cavity except ATRIAL_WALL_MM against anything else
+        const isTaken = new Uint8Array(label.length);
+        for (const v of taken) isTaken[v] = 1;
+        const dForeign = edt(dims, (v) => !own.has(label[v]!) && !isTaken[v]);
+        for (const v of taken) label[v] = dForeign[v]! * vox <= ATRIAL_WALL_MM ? 3 : 33;
+      }
+    }
     // the interatrial septum: SEPTUM_MM of atrial wall on the surface midway, the rest to the nearer cavity
     {
       const dL = edt(dims, (v) => LA_BLOOD.has(label[v]!));
