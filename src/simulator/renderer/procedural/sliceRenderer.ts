@@ -1,6 +1,6 @@
 import type { BeamFrame } from '@/simulator/probe/pose';
 import type { ImageFormation, PolarFrame, PolarFrameSpec, RendererBackend, Scene } from '../types';
-import { STRONG_SCATTERER_FRACTION, type Phasor } from '../acoustic/scatterers';
+import type { Phasor } from '../acoustic/scatterers';
 import { sceneClassifier } from '@/simulator/anatomy/sceneClassifier';
 import {
   makeSample,
@@ -102,6 +102,7 @@ import {
   SPECULAR_WINDOW_MIN,
   TRANSMISSION_FLOOR,
   ELEVATION_SIGMA_PER_HALF_WIDTH,
+  STRONG_SCATTERER_FRACTION,
 } from '../acoustic/acoustics';
 
 // lattice offsets as scalars: the inner loops read them per sample

@@ -24,19 +24,14 @@
  *
  * No store, no DOM; the CPU tracer calls it per sample when its image formation asks for scatterers.
  */
+import { STRONG_SCATTERER_FRACTION, STRONG_SCATTERER_GAIN } from './acoustics';
+
+export { STRONG_SCATTERER_FRACTION, STRONG_SCATTERER_GAIN };
 
 /** Edge of the material cube that holds one scatterer (cm): 0.5 mm. */
 export const SCATTERER_CELL_CM = 0.05;
 /** How far across the plane the slice's elevation profile is summed, in its standard deviations. */
 export const ELEVATION_REACH_SIGMAS = 2.5;
-/**
- * The strong scatterers of parenchyma (decision 356): the fraction of the cubes that hold one, and its amplitude over a
- * weak scatterer's. Fitted on the four-chamber view of the normal case against CAMUS Good over six realizations: with
- * the moving Rodero heart the residual grey of the myocardium reads skewness 0.54, excess kurtosis 1.31, std 19.8 and a
- * median of 105 (CAMUS 0.53, 0.95, 19.6 and 100); with the analytic heart 0.38, 0.95, 19.4 and 101.
- */
-export const STRONG_SCATTERER_FRACTION = 0.002;
-export const STRONG_SCATTERER_GAIN = 22;
 /** Speed of sound (cm/µs): the phase of a scatterer at depth r is −2kr with k = 2πf/c. */
 export const SOUND_SPEED_CM_PER_US = 0.154;
 
