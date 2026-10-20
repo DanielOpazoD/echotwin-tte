@@ -19,6 +19,7 @@ import {
   RAYLEIGH_LOG_SKEW,
   RAYLEIGH_LOG_STD_DB,
   RAYLEIGH_SNR,
+  realizationStats,
   windowedSnr,
 } from './speckleStats';
 import { seededRandom } from './turing';
@@ -252,5 +253,22 @@ describe('speckle cell (decision 355)', () => {
     const biased = envelopeAutocorrelation(perSeries, 20);
     const pooled = envelopeAutocorrelation(series, 20);
     expect(biased[6]!).toBeLessThan(pooled[6]! - 0.03);
+  });
+});
+
+describe('realizationStats (decision 359)', () => {
+  it('gives each field’s mean and sample standard deviation over the realizations', () => {
+    const r = realizationStats(
+      [
+        { a: 1, b: 10 },
+        { a: 3, b: 10 },
+        { a: 5, b: 10 },
+      ],
+      ['a', 'b'],
+    );
+    expect(r.a.mean).toBe(3);
+    expect(r.a.sd).toBeCloseTo(2, 12);
+    expect(r.b).toEqual({ mean: 10, sd: 0 });
+    expect(realizationStats([{ a: 7 }], ['a']).a).toEqual({ mean: 7, sd: 0 });
   });
 });

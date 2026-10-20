@@ -2945,6 +2945,26 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
 
     Siete mutaciones, siete fallos.
 
+359. **La textura del miocardio en el banco es la media de seis realizaciones de los dispersores**: la decisión 356 midió que, con dispersores fuertes escasos, una sola realización mueve la asimetría del gris residual ±0,1–0,15, tanto como algunos cambios que el banco juzga. El banco tomaba la textura del primer fotograma de la realización del caso, y con ella `rodero-cole` «empeoraba» la curtosis (2,13) cuando la media de seis realizaciones daba 1,31.
+
+    **Cambio**:
+
+    - `bench.ts`: en el cine por defecto del cuatro cámaras, además de la realización del caso, otras cinco (`TEXTURE_REALIZATIONS` = 6, semillas del caso más 7919·k, distintas de las de la prueba de Turing) de las que sólo se forma el fotograma de telediástole (con su calentamiento de la consola). Los motores aceptan `maxFrames`.
+    - `report.ts`: las brechas de textura (asimetría, curtosis, desviación y gris mediano del miocardio, A4C, TD) son la media; la tabla de textura dice cuántas realizaciones y la desviación estándar de la asimetría.
+    - `speckleStats.ts`: `realizationStats`, la media y la desviación estándar de unos campos sobre realizaciones.
+
+    **Banco**: la línea base del modelo actual se regenera; sólo cambian las cuatro brechas de textura (asimetría 0,19 → 0,24, curtosis 0,23 → 0,32, desviación 14,8 → 14,9, gris 109 → 110). Frente a ella, media (desviación estándar de la asimetría):
+
+    | Motor | Asimetría | Curtosis | Desviación | Gris | Mejoran / empeoran / iguales |
+    |---|---|---|---|---|---|
+    | actual | 0,24 (0,06) | 0,32 | 14,9 | 110 | — |
+    | `cole` | 0,50 (0,12) | 1,02 | 18,8 | 102 | 14 / 0 / 7 |
+    | `rodero-movil` | 0,39 (0,11) | 0,66 | 15,5 | 114 | 6 / 2 / 13 |
+    | `rodero-cole` | 0,56 (0,16) | 1,31 | 19,1 | 105 | 15 / 0 / 6 |
+
+    CAMUS Good: 0,53 [0,42–0,67], 0,95 [0,61–1,42], 19,6 [17,7–22,0] y 100 [87–115]. `rodero-cole` deja de empeorar ninguna brecha: la curtosis de la 356 era la realización del caso.
+
+    **Pruebas** (`speckleStats.test.ts`): la media y la desviación estándar de cada campo, y la de una sola realización. Dos mutaciones, dos fallos.
 360. **El cuatro cámaras de Rodero gira sobre el eje del VI hasta su propia cruz** (en borrador: equilibrio para que Daniel lo juzgue): segunda marca de Daniel, una masa gris dentro de la AI bajo la bisagra septal mitral.
 
     **Medido antes de cambiar** (caso normal, telediástole):

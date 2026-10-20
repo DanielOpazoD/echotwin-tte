@@ -33,11 +33,14 @@ export interface CineEngine {
   id: string;
   /** What it is, for the report. */
   label: string;
-  /** `seed` picks the scatterer realization (the case's own when absent). */
+  /**
+   * `seed` picks the scatterer realization (the case's own when absent); `maxFrames` cuts the cine short (the texture's
+   * other realizations need only the end-diastolic frame, decision 359).
+   */
   renderCine(
     caseId: string,
     view: string,
-    o: { fps: number; variant: CineVariant; seed?: number },
+    o: { fps: number; variant: CineVariant; seed?: number; maxFrames?: number },
   ): Cine | null;
   /** The phantoms of its image formation, when it has its own. */
   phantoms?: () => PhantomResults;
@@ -47,10 +50,11 @@ export const ENGINES: Readonly<Record<string, CineEngine>> = {
   actual: {
     id: 'actual',
     label: 'modelo analítico actual (trazador CPU, nivel calibrado)',
-    renderCine: (caseId, view, { fps, variant, seed }) =>
+    renderCine: (caseId, view, { fps, variant, seed, maxFrames }) =>
       renderCine(caseId, view, {
         fps,
         seed,
+        maxFrames,
         physics: variant === 'noclutter' ? { clutterLevel: 0 } : undefined,
       }),
     phantoms: runPhantoms,
@@ -62,10 +66,11 @@ export const ENGINES: Readonly<Record<string, CineEngine>> = {
     id: 'rodero-estatico',
     label:
       'corazón medio de Rodero 2021 (TC, telediástole, estático) con el aparato valvular analítico',
-    renderCine: (caseId, view, { fps, variant, seed }) =>
+    renderCine: (caseId, view, { fps, variant, seed, maxFrames }) =>
       renderCine(caseId, view, {
         fps,
         seed,
+        maxFrames,
         physics: variant === 'noclutter' ? { clutterLevel: 0 } : undefined,
         crux: (heart, endDiastole) => {
           const c = loadVolumeHeart(anatomy2Dir(), heart, endDiastole).crux();
@@ -83,10 +88,11 @@ export const ENGINES: Readonly<Record<string, CineEngine>> = {
   'rodero-movil': {
     id: 'rodero-movil',
     label: 'corazón medio de Rodero 2021 movido por el ciclo del caso (cinemático, con torsión)',
-    renderCine: (caseId, view, { fps, variant, seed }) =>
+    renderCine: (caseId, view, { fps, variant, seed, maxFrames }) =>
       renderCine(caseId, view, {
         fps,
         seed,
+        maxFrames,
         physics: variant === 'noclutter' ? { clutterLevel: 0 } : undefined,
         crux: (heart, endDiastole) => {
           const c = loadVolumeHeart(anatomy2Dir(), heart, endDiastole).crux();
@@ -105,10 +111,11 @@ export const ENGINES: Readonly<Record<string, CineEngine>> = {
     id: 'cole',
     label:
       'modelo analítico actual con imagen por convolución (dispersores puntuales, PSF de DAS, una mirada)',
-    renderCine: (caseId, view, { fps, variant, seed }) =>
+    renderCine: (caseId, view, { fps, variant, seed, maxFrames }) =>
       renderCine(caseId, view, {
         fps,
         seed,
+        maxFrames,
         physics: variant === 'noclutter' ? { clutterLevel: 0 } : undefined,
         formation: COLE,
       }),
@@ -118,10 +125,11 @@ export const ENGINES: Readonly<Record<string, CineEngine>> = {
   'rodero-cole': {
     id: 'rodero-cole',
     label: 'corazón de Rodero movido por el ciclo, con imagen por convolución',
-    renderCine: (caseId, view, { fps, variant, seed }) =>
+    renderCine: (caseId, view, { fps, variant, seed, maxFrames }) =>
       renderCine(caseId, view, {
         fps,
         seed,
+        maxFrames,
         physics: variant === 'noclutter' ? { clutterLevel: 0 } : undefined,
         formation: COLE,
         crux: (heart, endDiastole) => {

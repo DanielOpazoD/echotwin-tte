@@ -40,7 +40,14 @@ import { seededRandom } from '@/clinical/realism/turing';
 import { compareGaps, toBaseline, type Baseline } from '@/clinical/realism/verdict';
 import type { Cine } from './simCine';
 import { engineById, type CineVariant } from './engines';
-import { cineMetrics, endocardialContour, type CineMetrics } from './cineMetrics';
+import {
+  cineMetrics,
+  endocardialContour,
+  regionImage,
+  textureStats,
+  type CineMetrics,
+  type TextureStats,
+} from './cineMetrics';
 import {
   assertOutsideRepo,
   camusSummary,
@@ -96,6 +103,11 @@ export interface CineResult {
    * map draws there (`trackedVersusTraced`), as on EchoNet's tracings: four-chamber cines only.
    */
   echonetTracking: { traced: number; tracked: number; ratio: number; meanPeak: number } | null;
+  /**
+   * The end-diastolic myocardial texture of TEXTURE_REALIZATIONS realizations of the scatterers, the case's own first
+   * (decision 359): four-chamber cines of the default variant only.
+   */
+  textureEd: TextureStats[] | null;
   clips: ClipItem[];
   seconds: number;
 }
@@ -242,6 +254,12 @@ function writeSimClips(cine: Cine, job: CineJob): ClipItem[] {
   return items;
 }
 
+/**
+ * Realizations of the scatterers over which the myocardial texture is averaged (decision 359): with sparse strong
+ * scatterers one realization moved the skewness by ±0.1–0.15, as much as some changes the bench judges.
+ */
+export const TEXTURE_REALIZATIONS = 6;
+
 function runJob(job: CineJob): CineResult | null {
   const t0 = performance.now();
   const seed = job.realization ? loadCaseById(job.caseId).seed + 1000 * job.realization : undefined;
@@ -272,6 +290,21 @@ function runJob(job: CineJob): CineResult | null {
     ...ECHONET_DECORRELATION,
     rand: seededRandom(343),
   });
+  // the texture over other realizations of the scatterers: their end-diastolic frame alone (decision 359)
+  let textureEd: TextureStats[] | null = null;
+  if (job.view === 'a4c' && job.variant === 'default' && job.realization === 0 && metrics.texture) {
+    textureEd = [metrics.texture.ed];
+    const caseSeed = loadCaseById(job.caseId).seed;
+    for (let k = 1; k < TEXTURE_REALIZATIONS; k++) {
+      const one = engineById(job.engine).renderCine(job.caseId, job.view, {
+        fps: BENCH_FPS,
+        variant: job.variant,
+        seed: caseSeed + 7919 * k,
+        maxFrames: 1,
+      });
+      if (one) textureEd.push(textureStats(regionImage(one, one.frames[0]!)));
+    }
+  }
   // a clip longer than a cycle repeats the cycle, as a loop of the scanner's cine memory
   const clips = writeSimClips(cyc, job);
   return {
@@ -279,6 +312,7 @@ function runJob(job: CineJob): CineResult | null {
     metrics,
     echonetDecorrelation,
     echonetTracking,
+    textureEd,
     clips,
     seconds: (performance.now() - t0) / 1000,
   };
