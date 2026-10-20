@@ -1,4 +1,4 @@
-# Banco de realismo (decisiones 344, 345, 347, 348, 349, 355, 359 y 361)
+# Banco de realismo (decisiones 344, 345, 347, 348, 349, 355, 359, 361 y 362)
 
 Este documento es el registro del banco que juzga si un cambio acerca el simulador a la ecografía real. Arriba, la
 lectura de la corrida; abajo, el informe tal como lo escribe `npm run realism` (procedimiento en
@@ -45,9 +45,10 @@ apicales de cuatro cámaras).
      pared; en el simulador lee 0,57 del acortamiento de su tejido. La diferencia (0,7 de la tolerancia) es compatible
      con la capa fija del clutter de la pared torácica, que en el tabique medio frena el movimiento longitudinal del
      speckle; y la coordenada material del corazón analítico es una homotecia que no sigue al engrosamiento de su pared.
-   - **El tejido del corazón de Rodero se acorta poco** (decisión 361): −13,4 % en su cuatro cámaras por la cruz, frente
-     a −19,3 % del analítico. Su speckle lo sigue (el rastreador lee 0,88–0,94 de él); lo que falta es movimiento: su
-     mapa comprime por igual toda la longitud del VI, también el casquete apical, que en un corazón real se engrosa. En la ventana difícil el rastreador no sigue nada: su textura está dominada por el clutter, como en una
+   - **El tejido del corazón de Rodero se acortaba poco** (decisión 361): −13,4 % en su cuatro cámaras por la cruz,
+     frente a −19,3 % del analítico, porque su mapa comprimía por igual toda la longitud del VI, también el casquete
+     apical. Desde la decisión 362 el casquete se engrosa como la pared que lo rodea: −16,5 % (−19,2 % en el endocardio),
+     y con la imagen por convolución el rastreador lee 0,76 de él, dentro de lo que lee en CREATIS. En la ventana difícil el rastreador no sigue nada: su textura está dominada por el clutter, como en una
      ventana difícil real.
 4. **La sístole dura de más, y ya se sabe por qué.** De telediástole a telesístole el simulador tarda 407 ms; CAMUS,
    336 [299–379], y los vídeos normales de EchoNet a la misma frecuencia (65 lpm, estimada por la periodicidad de cada

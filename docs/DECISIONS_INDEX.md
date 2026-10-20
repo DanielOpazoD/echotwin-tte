@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 361 (última: 361).
+Decisiones: 362 (última: 362).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -369,3 +369,4 @@ Decisiones: 361 (última: 361).
 | [359](DECISIONS.md#L2948) | 2026-10-18 | La textura del miocardio en el banco es la media de seis realizaciones de los dispersores | vigente |
 | [360](DECISIONS.md#L2968) | 2026-10-18 | El cuatro cámaras de Rodero gira sobre el eje del VI hasta su propia cruz | vigente |
 | [361](DECISIONS.md#L3016) | 2026-10-18 | El GLS del modelo en el banco sigue al tejido por sus coordenadas materiales | vigente |
+| [362](DECISIONS.md#L3061) | 2026-10-18 | El casquete apical de Rodero se engrosa en sístole como la pared que lo rodea | vigente |
