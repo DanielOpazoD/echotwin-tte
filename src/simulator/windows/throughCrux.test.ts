@@ -1,52 +1,43 @@
 /**
- * A preset turned through a heart's own crux (decision 359): the tilt that puts a point in the image plane, and only the
- * four-chamber view turned.
+ * The four-chamber preset turned through a heart's own crux (decision 359): about the LV's long axis, so the plane holds
+ * both, and only that view.
  */
 import { describe, expect, it } from 'vitest';
 import { loadCaseById } from '@/cases';
-import { dot, sub } from '@/core/vec3';
+import { dot, sub, v3, type Vec3 } from '@/core/vec3';
+import { anchorsCached } from '@/simulator/anatomy/anchors';
 import { buildCaseModels, REST_PATIENT } from '@/simulator/anatomy/caseModels';
 import { heartToTorso } from '@/simulator/anatomy/heartFrame';
-import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
-import {
-  canonicalControl,
-  controlThroughCrux,
-  getViewTarget,
-  THROUGH_POINT_TILT_DEG,
-  tiltThroughPoint,
-} from './viewTargets';
+import { beamFrameFromPose, poseFromControl, type ProbeControl } from '@/simulator/probe/pose';
+import { canonicalControl, controlThroughCrux, CRUX_PLANE_CM, getViewTarget } from './viewTargets';
 
 const { heart, thorax } = buildCaseModels(loadCaseById('normal-excellent-window'), REST_PATIENT);
-const a4c = canonicalControl(getViewTarget('a4c'), heart, thorax);
-const planeDistance = (c: typeof a4c, p: { x: number; y: number; z: number }) => {
+/** Distance (cm) of a heart-frame point from a control's image plane. */
+const off = (c: ProbeControl, pH: Vec3) => {
   const b = beamFrameFromPose(poseFromControl(thorax, c), 1);
-  return dot(sub(p, b.origin), b.normal);
+  return Math.abs(dot(sub(heartToTorso(heart.frame, pH), b.origin), b.normal));
 };
+const apex = v3(0, 0, heart.lv.lengthCm);
+const mv = anchorsCached(heart).mvCenter;
+const base = v3(mv.x * 0.5, mv.y * 0.5, mv.z);
 
-describe('a preset through a point (decision 359)', () => {
-  it('turns the tilt until the plane holds the point', () => {
-    // a point 0.6 cm off the four-chamber plane, 10 cm down the beam
-    const b = beamFrameFromPose(poseFromControl(thorax, a4c), 1);
-    const p = {
-      x: b.origin.x + 10 * b.forward.x + 0.6 * b.normal.x,
-      y: b.origin.y + 10 * b.forward.y + 0.6 * b.normal.y,
-      z: b.origin.z + 10 * b.forward.z + 0.6 * b.normal.z,
-    };
-    expect(Math.abs(planeDistance(a4c, p))).toBeCloseTo(0.6, 6);
-    const t = tiltThroughPoint(a4c, thorax, p);
-    expect(Math.abs(planeDistance(t, p))).toBeLessThan(0.03);
-    expect(Math.abs(t.tiltDeg - a4c.tiltDeg)).toBeGreaterThan(1);
-    expect(Math.abs(t.tiltDeg - a4c.tiltDeg)).toBeLessThanOrEqual(THROUGH_POINT_TILT_DEG);
-    // only the tilt moves
-    expect({ ...t, tiltDeg: 0 }).toEqual({ ...a4c, tiltDeg: 0 });
+describe('the four-chamber preset through a crux (decision 359)', () => {
+  // a crux 1.6 cm septal and 1.2 cm behind the mitral centre's level, as the Rodero heart's
+  const crux = v3(-1.8, -1.2, -0.4);
+  const declared = canonicalControl(getViewTarget('a4c'), heart, thorax);
+  const turned = controlThroughCrux(getViewTarget('a4c'), heart, thorax, crux);
+
+  it('holds the crux, and the LV axis still', () => {
+    expect(off(declared, crux)).toBeGreaterThan(0.3);
+    expect(off(turned, crux)).toBeLessThanOrEqual(CRUX_PLANE_CM);
+    expect(off(turned, apex)).toBeLessThan(0.15);
+    expect(off(turned, base)).toBeLessThan(0.15);
   });
 
   it('turns the four-chamber view only, and only when the heart brings a crux', () => {
-    const crux = { x: -1.8, y: -1.2, z: -0.4 };
-    const turned = controlThroughCrux(getViewTarget('a4c'), a4c, heart, thorax, crux);
-    expect(Math.abs(planeDistance(turned, heartToTorso(heart.frame, crux)))).toBeLessThan(0.03);
-    expect(controlThroughCrux(getViewTarget('a4c'), a4c, heart, thorax, null)).toBe(a4c);
-    const a2c = canonicalControl(getViewTarget('a2c'), heart, thorax);
-    expect(controlThroughCrux(getViewTarget('a2c'), a2c, heart, thorax, crux)).toBe(a2c);
+    expect(controlThroughCrux(getViewTarget('a4c'), heart, thorax, null)).toEqual(declared);
+    expect(controlThroughCrux(getViewTarget('a2c'), heart, thorax, crux)).toEqual(
+      canonicalControl(getViewTarget('a2c'), heart, thorax),
+    );
   });
 });

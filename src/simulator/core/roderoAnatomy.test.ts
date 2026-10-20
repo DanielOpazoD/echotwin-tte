@@ -36,14 +36,15 @@ describe('experimental Rodero anatomy in the core (decision 352)', () => {
       for (let i = 0; i < rodero.structure.length; i++)
         if (rodero.structure[i] !== analytic.structure[i]) differ++;
       expect(differ / rodero.structure.length).toBeGreaterThan(0.05);
-      // its four-chamber preset passes through its own crux, a few degrees behind the analytic plane (decision 359)
+      // its four-chamber preset is turned about the LV's axis through its own crux (decision 359)
       const preset = (viewId: string) => {
         const r = core.request({ kind: 'canonicalControl', viewId });
         return r && r.kind === 'canonicalControl' ? r.control : null;
       };
-      const turn = preset('a4c')!.tiltDeg - probe.tiltDeg;
-      expect(turn).toBeLessThan(-1);
-      expect(turn).toBeGreaterThan(-12);
+      const turned = preset('a4c')!;
+      expect(
+        Math.abs(turned.rotationDeg - probe.rotationDeg) + Math.abs(turned.tiltDeg - probe.tiltDeg),
+      ).toBeGreaterThan(1);
       const a2c = canonicalControl(getViewTarget('a2c'), core.models.heart, core.models.thorax);
       expect(preset('a2c')).toEqual(a2c);
       core.setInput({ ...input, probe });

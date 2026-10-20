@@ -38,7 +38,6 @@ import {
   type Scene,
 } from '@/simulator/renderer/types';
 import {
-  canonicalControl,
   controlThroughCrux,
   getViewTarget,
 } from '@/simulator/windows/viewTargets';
@@ -134,13 +133,7 @@ export function renderCine(
   const beam = beamFrameFromPose(
     poseFromControl(
       thorax,
-      controlThroughCrux(
-        target,
-        canonicalControl(target, heart, thorax),
-        heart,
-        thorax,
-        opts.crux?.(heart, endDiastole) ?? null,
-      ),
+      controlThroughCrux(target, heart, thorax, opts.crux?.(heart, endDiastole) ?? null),
     ),
     1,
   );

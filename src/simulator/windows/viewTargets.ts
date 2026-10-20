@@ -812,45 +812,50 @@ export function canonicalPlane(
   return { target, right, down, normal: n };
 }
 
-/** How far (degrees) `tiltThroughPoint` turns a control's tilt. */
-export const THROUGH_POINT_TILT_DEG = 12;
-
-/**
- * The control with its tilt turned so the image plane passes through a torso point (decision 359), within
- * ±THROUGH_POINT_TILT_DEG: the four-chamber view of a heart whose crux the plane declared on the analytic heart misses.
- */
-export function tiltThroughPoint(
-  control: ProbeControl,
-  thorax: ThoraxModel,
-  p: Vec3,
-): ProbeControl {
-  let best = control,
-    bestD = Infinity;
-  for (let t = -THROUGH_POINT_TILT_DEG; t <= THROUGH_POINT_TILT_DEG; t += 0.25) {
-    const c = { ...control, tiltDeg: control.tiltDeg + t };
-    const b = beamFrameFromPose(poseFromControl(thorax, c), 1);
-    const d = Math.abs(dot(sub(p, b.origin), b.normal));
-    if (d < bestD) {
-      bestD = d;
-      best = c;
-    }
-  }
-  return best;
-}
+/** How close (cm) the four-chamber plane must come to a heart's own crux (decision 359). */
+export const CRUX_PLANE_CM = 0.25;
 
 /**
  * A view's preset for a heart that brings its own crux (decision 359): the four-chamber plane, declared on the analytic
- * heart, turned through it; every other view as it is. The Rodero heart's crux lies about 4° behind the declared plane,
- * which cut it in front of the septum, through the base of the ventricular septum and the space behind the root: 17–21 mm
- * between the atria under the annuli, where the analytic heart has 5–8.
+ * heart through both atrioventricular valve centres, turned about the LV's long axis by the least angle (in 1° steps,
+ * within ±30°) that brings it within CRUX_PLANE_CM of the crux, so that it keeps the axis (no off-axis cut) and passes
+ * between the atria at their septum; every other view as declared. The clinical four-chamber view is taken through the
+ * crux, which in a real heart lies behind the line between the valve centres. The Rodero heart's lay 7.7 mm off the
+ * declared plane, which cut it in front of the septum (18.5 mm between the atria at the crux).
  */
 export function controlThroughCrux(
   view: ViewTarget,
-  control: ProbeControl,
   heart: HeartModel,
   thorax: ThoraxModel,
   crux: Vec3 | null,
 ): ProbeControl {
-  if (!crux || view.id !== 'a4c') return control;
-  return tiltThroughPoint(control, thorax, heartToTorso(heart.frame, crux));
+  const declared = canonicalControl(view, heart, thorax);
+  if (!crux || view.id !== 'a4c') return declared;
+  // the LV's long axis in the heart frame, as `apicalAxis` draws it, and two directions across it
+  const apex = v3(0, 0, heart.lv.lengthCm);
+  const mv = anchorsCached(heart).mvCenter;
+  const dir = normalize(
+    sub(v3(mv.x * APICAL_AXIS_BASE_SHARE, mv.y * APICAL_AXIS_BASE_SHARE, mv.z), apex),
+  );
+  const r0 = normalize(sub(view.planeRight, scale(dir, dot(view.planeRight, dir))));
+  const r1 = cross(dir, r0);
+  const cruxT = heartToTorso(heart.frame, crux);
+  const offPlane = (c: ProbeControl): number => {
+    const b = beamFrameFromPose(poseFromControl(thorax, c), 1);
+    return Math.abs(dot(sub(cruxT, b.origin), b.normal));
+  };
+  let best = declared,
+    bestOff = offPlane(declared);
+  for (let deg = 1; deg <= 30 && bestOff > CRUX_PLANE_CM; deg++)
+    for (const sign of [-1, 1]) {
+      const a = (sign * deg * Math.PI) / 180;
+      const right = add(scale(r0, Math.cos(a)), scale(r1, Math.sin(a)));
+      const c = canonicalControl({ ...view, planeRight: right }, heart, thorax);
+      const o = offPlane(c);
+      if (o < bestOff) {
+        bestOff = o;
+        best = c;
+      }
+    }
+  return best;
 }

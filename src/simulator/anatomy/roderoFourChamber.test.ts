@@ -84,8 +84,8 @@ describe('the Rodero four-chamber plane (decision 359)', async () => {
   it('turns the four-chamber plane through it, and the atria meet at a septum', () => {
     const view = getViewTarget('a4c');
     const declared = canonicalControl(view, heart, thorax);
-    const turned = controlThroughCrux(view, declared, heart, thorax, crux);
-    // at the crux's depth: 18.5 mm declared, 6.25 turned (0.5 cm deeper, 9.0 and 6.5)
+    const turned = controlThroughCrux(view, heart, thorax, crux);
+    // at the crux's depth: 18.5 mm declared, 7.0 turned (0.5 cm deeper, 9.0 and 6.75)
     expect(septumBelowCrux(declared, 0)).toBeGreaterThan(15);
     expect(septumBelowCrux(turned, 0)).toBeLessThan(8);
   });

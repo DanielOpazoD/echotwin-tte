@@ -38,7 +38,6 @@ import {
 } from '@/simulator/renderer/scanConvert';
 import { structureLabel } from '@/app/review';
 import {
-  canonicalControl,
   controlThroughCrux,
   type ViewTarget,
 } from '@/simulator/windows/viewTargets';
@@ -211,13 +210,7 @@ function boundRoderoOf(m: ReviewModel): { vh: VolumeHeart; endDiastole: HeartPos
 /** A view's preset as the app sets it: for the Rodero heart, the four-chamber plane through its crux (decision 359). */
 export function reviewControl(view: ViewTarget, m: ReviewModel): ProbeControl {
   const c = boundRoderoOf(m)?.vh.crux();
-  return controlThroughCrux(
-    view,
-    canonicalControl(view, m.heart, m.thorax),
-    m.heart,
-    m.thorax,
-    c ? { x: c[0], y: c[1], z: c[2] } : null,
-  );
+  return controlThroughCrux(view, m.heart, m.thorax, c ? { x: c[0], y: c[1], z: c[2] } : null);
 }
 
 /** One polar frame of a case at a phase, from a beam, through the CPU tracer at high quality. */

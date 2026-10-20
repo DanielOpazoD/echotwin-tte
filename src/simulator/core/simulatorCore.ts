@@ -69,11 +69,7 @@ import {
   type BeamFrame,
 } from '@/simulator/probe/pose';
 import { v3 } from '@/core/vec3';
-import {
-  canonicalControl,
-  controlThroughCrux,
-  getViewTarget,
-} from '@/simulator/windows/viewTargets';
+import { controlThroughCrux, getViewTarget } from '@/simulator/windows/viewTargets';
 import { probePointAt, probeTorsoPointAt } from './probePoint';
 import { explainPointAt } from './explainPoint';
 import { analyzeView, type ViewAnalysis } from '@/simulator/view-recognition/viewQuality';
@@ -992,13 +988,7 @@ export class SimulatorCore {
       const c = rodero?.vh.crux();
       return {
         kind: 'canonicalControl',
-        control: controlThroughCrux(
-          view,
-          canonicalControl(view, this.heart, this.thorax),
-          this.heart,
-          this.thorax,
-          c ? v3(c[0], c[1], c[2]) : null,
-        ),
+        control: controlThroughCrux(view, this.heart, this.thorax, c ? v3(c[0], c[1], c[2]) : null),
       };
     }
     if (

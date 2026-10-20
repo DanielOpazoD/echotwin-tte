@@ -2942,3 +2942,28 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     - `roderoAtria.test.ts` (lenta, el volumen que carga la app ligado al caso normal): paredes de 1,4–2 mm, cerradas, la grasa junto a la AI en los 2 cm del anillo y ninguna entre las dos aurículas.
 
     Siete mutaciones, siete fallos.
+
+359. **El cuatro cámaras de Rodero pasa por su propia cruz**: segunda marca de Daniel, una masa gris dentro de la AI bajo la bisagra septal mitral.
+
+    **Medido antes de cambiar** (caso normal, telediástole):
+
+    - En un disco de 6 mm de radio 9 mm bajo esa bisagra, el 82 % de las muestras son cavidad de la AI y aun así su sangre devuelve 3,2 veces la media de la AI (7,4 en telesístole); en el corazón analítico, 0,4–0,5. Con un solo plano de elevación baja a 2,0 y 4,0: la mitad del brillo la trae el grosor del corte, que en telesístole toca pared septal del VI (14 %), grasa (12 %) y pared auricular (9 %).
+    - Entre la cavidad de la AD y la de la AI, a la altura de la cruz, el plano canónico atraviesa 18,5 mm de septo basal del VI, grasa y espacio pericárdico (26 mm medio centímetro más arriba); el analítico, 5–8 mm, y un tabique interauricular mide unos 3–4. No es la grasa: la decisión 358 la quita de ahí y la anchura no cambia. Las dos aurículas de Rodero no se tocan en ese plano.
+    - Inclinando el plano, el mínimo cae 4° hacia posterior: el plano declarado sobre el corazón analítico (que pasa por la cruz de ese corazón) corta a Rodero por delante de la suya, hacia el tracto de salida.
+
+    **Cambio**:
+
+    - `volumeHeart.ts`: `crux()`, el centro del tabique interauricular (pared auricular a menos de 5 mm de las dos cavidades) a menos de 10 mm de los planos auriculoventriculares, en el marco del corazón.
+    - `viewTargets.ts`: `tiltThroughPoint` (la inclinación de un control, en ±12°, que pone un punto en el plano de imagen) y `controlThroughCrux` (el preset A4C de un corazón con cruz propia, girado por ella; las demás vistas, igual).
+    - El núcleo da ese preset cuando la anatomía es Rodero; el banco (los motores de Rodero) y las hojas y clips de revisión, también, para medir lo que la app muestra.
+    - En el caso normal el preset pasa de 28° a 24° de inclinación. A la altura de la cruz quedan 6,25 mm entre las aurículas (18,5 antes); 0,5 cm más abajo, 6,5 (9,0).
+
+    **Lo que no cambia**: el análisis de vista sigue juzgando el plano con la geometría del corazón analítico, así que puntúa el A4C de Rodero algo más bajo; es una de las dependencias por portar.
+
+    **Pruebas**:
+
+    - `throughCrux.test.ts`: un punto a 0,6 cm del plano queda a menos de 0,3 mm tras girar sólo la inclinación; sólo el A4C se gira, y sólo si hay cruz.
+    - `roderoFourChamber.test.ts` (lenta, el volumen que carga la app): la cruz está entre las dos aurículas; con el plano declarado hay más de 15 mm entre ellas a su altura, con el girado menos de 8.
+    - `roderoAnatomy.test.ts` (lenta): el preset A4C del núcleo con Rodero gira entre 1° y 12° y el A2C no; de vuelta al analítico, el declarado.
+
+    Cinco mutaciones, cinco fallos.
