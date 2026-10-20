@@ -98,8 +98,11 @@ mejor, 1 peor (la curtosis de su realización), 6 igual. Las hojas de revisión 
 (menú de deslizadores → Panel Dev). Decisión 358: las paredes auriculares de Rodero
 miden 1,7 mm (la TC, 1,45–1,8) y su grasa epicárdica queda en los surcos auriculoventriculares e interventriculares.
 Decisión 359: la textura del banco es la media de seis
-realizaciones; `rodero-cole` 15 mejor, 0 peor, 6 igual. Siguiente: el cuatro cámaras de Rodero por su propia cruz (360,
-en borrador para Daniel), y la revisión de Daniel con las hojas.
+realizaciones; `rodero-cole` 15 mejor, 0 peor, 6 igual. Decisión 360: el cuatro cámaras de Rodero gira 15° sobre el
+eje del VI hasta su propia cruz (la masa gris bajo la bisagra septal mitral era el septo basal y la grasa entre dos
+aurículas que no se tocaban en el plano declarado); la caída del GLS del modelo que traía resultó ser la fragilidad de
+esa medida, que cuenta los escalones del contorno. Siguiente: el GLS del modelo sobre puntos materiales, y la revisión
+de Daniel con las hojas.
 
 ## Cómo seguir
 

@@ -72,6 +72,10 @@ export const ENGINES: Readonly<Record<string, CineEngine>> = {
         seed,
         maxFrames,
         physics: variant === 'noclutter' ? { clutterLevel: 0 } : undefined,
+        crux: (heart, endDiastole) => {
+          const c = loadVolumeHeart(anatomy2Dir(), heart, endDiastole).crux();
+          return { x: c[0], y: c[1], z: c[2] };
+        },
         heartClassifier: (heart, _pose, endDiastole) =>
           loadVolumeHeart(anatomy2Dir(), heart, endDiastole).classifier({ apparatus: endDiastole }),
       }),
@@ -90,6 +94,10 @@ export const ENGINES: Readonly<Record<string, CineEngine>> = {
         seed,
         maxFrames,
         physics: variant === 'noclutter' ? { clutterLevel: 0 } : undefined,
+        crux: (heart, endDiastole) => {
+          const c = loadVolumeHeart(anatomy2Dir(), heart, endDiastole).crux();
+          return { x: c[0], y: c[1], z: c[2] };
+        },
         heartClassifier: (heart, pose, endDiastole) =>
           loadVolumeHeart(anatomy2Dir(), heart, endDiastole).classifier({
             apparatus: pose,
@@ -124,6 +132,10 @@ export const ENGINES: Readonly<Record<string, CineEngine>> = {
         maxFrames,
         physics: variant === 'noclutter' ? { clutterLevel: 0 } : undefined,
         formation: COLE,
+        crux: (heart, endDiastole) => {
+          const c = loadVolumeHeart(anatomy2Dir(), heart, endDiastole).crux();
+          return { x: c[0], y: c[1], z: c[2] };
+        },
         heartClassifier: (heart, pose, endDiastole) =>
           loadVolumeHeart(anatomy2Dir(), heart, endDiastole).classifier({
             apparatus: pose,

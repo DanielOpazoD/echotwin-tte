@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 359 (última: 359).
+Decisiones: 360 (última: 360).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -367,3 +367,4 @@ Decisiones: 359 (última: 359).
 | [357](DECISIONS.md#L2910) | 2026-10-18 | El panel Dev muestra arriba la anatomía y la imagen, con el color del tema y el botón elegido relleno | vigente |
 | [358](DECISIONS.md#L2922) | 2026-10-18 | Las paredes auriculares de Rodero miden lo que en la TC, y su grasa epicárdica queda en los surcos | vigente |
 | [359](DECISIONS.md#L2948) | 2026-10-18 | La textura del miocardio en el banco es la media de seis realizaciones de los dispersores | vigente |
+| [360](DECISIONS.md#L2968) | 2026-10-18 | El cuatro cámaras de Rodero gira sobre el eje del VI hasta su propia cruz | vigente |

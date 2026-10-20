@@ -37,6 +37,8 @@ import {
   scanConvertLut,
 } from '@/simulator/renderer/scanConvert';
 import { structureLabel } from '@/app/review';
+import { controlThroughCrux, type ViewTarget } from '@/simulator/windows/viewTargets';
+import type { ProbeControl } from '@/simulator/probe/pose';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadRoderoVolume } from '@/simulator/anatomy/roderoAsset';
@@ -190,6 +192,24 @@ const roderoVolume =
     : null;
 const boundRodero = new WeakMap<ReviewModel, { vh: VolumeHeart; endDiastole: HeartPose }>();
 
+/** The bound Rodero heart of a case, when the review draws it. */
+function boundRoderoOf(m: ReviewModel): { vh: VolumeHeart; endDiastole: HeartPose } | null {
+  if (!roderoVolume) return null;
+  let b = boundRodero.get(m);
+  if (!b) {
+    const endDiastole = computeHeartPose(m.heart, cycleStateAt(m.tables, 0));
+    b = { vh: volumeHeart(roderoVolume, m.heart, endDiastole), endDiastole };
+    boundRodero.set(m, b);
+  }
+  return b;
+}
+
+/** A view's preset as the app sets it: for the Rodero heart, the four-chamber plane through its crux (decision 360). */
+export function reviewControl(view: ViewTarget, m: ReviewModel): ProbeControl {
+  const c = boundRoderoOf(m)?.vh.crux();
+  return controlThroughCrux(view, m.heart, m.thorax, c ? { x: c[0], y: c[1], z: c[2] } : null);
+}
+
 /** One polar frame of a case at a phase, from a beam, through the CPU tracer at high quality. */
 export function renderPolar(
   renderer: ProceduralSliceRenderer,
@@ -204,13 +224,8 @@ export function renderPolar(
     thorax: m.thorax,
     physics: scenePhysicsFor(m.c, settings),
   };
-  if (roderoVolume) {
-    let b = boundRodero.get(m);
-    if (!b) {
-      const endDiastole = computeHeartPose(m.heart, cycleStateAt(m.tables, 0));
-      b = { vh: volumeHeart(roderoVolume, m.heart, endDiastole), endDiastole };
-      boundRodero.set(m, b);
-    }
+  const b = boundRoderoOf(m);
+  if (b) {
     scene.heartClassifier = b.vh.classifier({
       apparatus: heartPose,
       motion: { pose: heartPose, endDiastole: b.endDiastole },

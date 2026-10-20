@@ -68,7 +68,8 @@ import {
   poseFromControl,
   type BeamFrame,
 } from '@/simulator/probe/pose';
-import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
+import { v3 } from '@/core/vec3';
+import { controlThroughCrux, getViewTarget } from '@/simulator/windows/viewTargets';
 import { probePointAt, probeTorsoPointAt } from './probePoint';
 import { explainPointAt } from './explainPoint';
 import { analyzeView, type ViewAnalysis } from '@/simulator/view-recognition/viewQuality';
@@ -980,11 +981,16 @@ export class SimulatorCore {
         ),
       };
     }
-    if (req.kind === 'canonicalControl')
+    if (req.kind === 'canonicalControl') {
+      const view = getViewTarget(req.viewId);
+      // the Rodero heart's four-chamber plane passes through its own crux (decision 360)
+      const rodero = this.input.anatomy === 'rodero' ? this.roderoHeart() : null;
+      const c = rodero?.vh.crux();
       return {
         kind: 'canonicalControl',
-        control: canonicalControl(getViewTarget(req.viewId), this.heart, this.thorax),
+        control: controlThroughCrux(view, this.heart, this.thorax, c ? v3(c[0], c[1], c[2]) : null),
       };
+    }
     if (
       this.input.frozen &&
       this.displayedFrame &&
