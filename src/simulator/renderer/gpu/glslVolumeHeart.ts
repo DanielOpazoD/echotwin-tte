@@ -22,7 +22,7 @@ uniform vec3 uVolMO, uVolMX, uVolMY, uVolMZ;
 uniform float uVolFar;
 uniform vec3 uVolFO, uVolFX, uVolFY, uVolFZ;
 uniform float uVolK, uVolL, uVolHand;
-uniform vec2 uVolApicalRamp;        // where the apical ramp starts and the cavity ends (cm)
+uniform vec2 uVolApicalRamp;        // where the stretch's ramp starts (the cavity's tip) and ends (the apex), cm
 uniform int uVolNSlices, uVolSectors;
 uniform float uVolSliceCm;
 uniform vec4 uVolAtria[2];          // cx, cy, reach, present
@@ -89,7 +89,7 @@ vec2 volAtrialBack(int ai, float px, float py, float zr) {
   float sc = 1.0 + (uVolAtrialScale[ai] - 1.0) * w;
   return vec2(a.x + (px - a.x) / sc, a.y + (py - a.y) / sc);
 }
-/** The longitudinal stretch at reference height zr: the cavity's, a ramp, the apical cap's (decision 362). */
+/** The longitudinal stretch at reference height zr: the cavity's, then the apical cap's ramp (decision 362). */
 float volStretchAt(float zr) {
   float zR = uVolApicalRamp.x, zT = uVolApicalRamp.y;
   return zr <= zR ? uVolLambda : zr >= zT ? uVolCapLambda : uVolLambda + (uVolCapLambda - uVolLambda) * (zr - zR) / (zT - zR);
