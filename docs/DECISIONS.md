@@ -2932,7 +2932,7 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     - **Grasa de surco**: el relleno del cierre es grasa sólo a menos de `GROOVE_REACH_MM` (6 mm) de una aurícula y de un ventrículo a la vez (surcos auriculoventriculares) o de los dos ventrículos (interventriculares), y nunca a esa distancia de las dos aurículas a la vez (ahí está el septo, no un surco). El resto pasa a exterior: pericardio y tórax.
     - Resultado: 5,3 mL de grasa; la pared de la AI que la toca queda a una mediana de 7,3 mm del anillo mitral, el 93 % a menos de 2 cm (el surco por donde corre la circunfleja). La superficie externa de la AI que toca grasa baja del 30 al 19 %.
 
-    **Lo que esto no arregla**: la masa gris bajo la bisagra septal mitral que Daniel marcó después. Entre la cavidad de la AD y la de la AI el cuatro cámaras de Rodero tiene 20,7 mm de tejido y espacio a 5 mm bajo los anillos y 17 mm a 10 mm (el analítico, 5–8 mm), con o sin esta grasa: el plano canónico, definido sobre el corazón analítico, corta a Rodero unos 4° por delante de su cruz. Lo trata la decisión siguiente.
+    **Lo que esto no arregla**: la masa gris bajo la bisagra septal mitral que Daniel marcó después. Entre la cavidad de la AD y la de la AI el cuatro cámaras de Rodero tiene 20,7 mm de tejido y espacio a 5 mm bajo los anillos y 17 mm a 10 mm (el analítico, 5–8 mm), con o sin esta grasa: el plano canónico, definido sobre el corazón analítico, corta a Rodero por delante de su cruz. Lo trata la decisión 360.
 
     **Paridad CPU ↔ GPU** de las filas de Rodero (las etiquetas cambian, el GLSL no): 99,97 % de estructuras y 0,07 % de amplitud en el A4C, 100 % y 0,14 % en el PLAX, 99,97 % y 0,13 % con la convolución.
 
@@ -2943,27 +2943,34 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
 
     Siete mutaciones, siete fallos.
 
-360. **El cuatro cámaras de Rodero pasa por su propia cruz**: segunda marca de Daniel, una masa gris dentro de la AI bajo la bisagra septal mitral.
+360. **El cuatro cámaras de Rodero gira sobre el eje del VI hasta su propia cruz** (en borrador: equilibrio para que Daniel lo juzgue): segunda marca de Daniel, una masa gris dentro de la AI bajo la bisagra septal mitral.
 
     **Medido antes de cambiar** (caso normal, telediástole):
 
     - En un disco de 6 mm de radio 9 mm bajo esa bisagra, el 82 % de las muestras son cavidad de la AI y aun así su sangre devuelve 3,2 veces la media de la AI (7,4 en telesístole); en el corazón analítico, 0,4–0,5. Con un solo plano de elevación baja a 2,0 y 4,0: la mitad del brillo la trae el grosor del corte, que en telesístole toca pared septal del VI (14 %), grasa (12 %) y pared auricular (9 %).
     - Entre la cavidad de la AD y la de la AI, a la altura de la cruz, el plano canónico atraviesa 18,5 mm de septo basal del VI, grasa y espacio pericárdico (26 mm medio centímetro más arriba); el analítico, 5–8 mm, y un tabique interauricular mide unos 3–4. No es la grasa: la decisión 358 la quita de ahí y la anchura no cambia. Las dos aurículas de Rodero no se tocan en ese plano.
-    - Inclinando el plano, el mínimo cae 4° hacia posterior: el plano declarado sobre el corazón analítico (que pasa por la cruz de ese corazón) corta a Rodero por delante de la suya, hacia el tracto de salida.
+    - El cuatro cámaras declarado pasa por el eje del VI y por los centros de las dos válvulas auriculoventriculares, y por la cruz del corazón analítico; la de Rodero queda 7,7 mm detrás. En el corazón real la cruz cae detrás de la línea entre los centros valvulares, y el cuatro cámaras clínico se toma por ella.
+    - Dos maneras de llevar el plano a la cruz. Inclinar la sonda 4° hacia posterior junta las aurículas (6,25 mm) pero saca el centro mitral 0,7 cm del plano: el VI queda cortado fuera de su eje y el GLS del contorno endocárdico, de telediástole a telesístole, baja de −15,1 a −11,1 %. Girar el plano sobre el eje del VI lo conserva: hacen falta 15° para que la cruz quede a menos de 2,5 mm del plano (antes el tabique no baja de 8 mm), con el VI igual (33,6 cm²), el VD de 20,4 a 10,2 cm² (normal 10–24), la AD de 15,0 a 10,3 y la AI de 19,1 a 20,9.
 
     **Cambio**:
 
     - `volumeHeart.ts`: `crux()`, el centro del tabique interauricular (pared auricular a menos de 5 mm de las dos cavidades) a menos de 10 mm de los planos auriculoventriculares, en el marco del corazón.
-    - `viewTargets.ts`: `tiltThroughPoint` (la inclinación de un control, en ±12°, que pone un punto en el plano de imagen) y `controlThroughCrux` (el preset A4C de un corazón con cruz propia, girado por ella; las demás vistas, igual).
+    - `viewTargets.ts`: `controlThroughCrux`, el preset A4C de un corazón con cruz propia girado sobre el eje del VI por el menor ángulo (en pasos de 1°, hasta 30°) que lo deja a menos de `CRUX_PLANE_CM` (0,25 cm) de ella; las demás vistas, como estaban.
     - El núcleo da ese preset cuando la anatomía es Rodero; el banco (los motores de Rodero) y las hojas y clips de revisión, también, para medir lo que la app muestra.
-    - En el caso normal el preset pasa de 28° a 24° de inclinación. A la altura de la cruz quedan 6,25 mm entre las aurículas (18,5 antes); 0,5 cm más abajo, 6,5 (9,0).
+    - En el caso normal el plano gira 15° sobre el eje. A la altura de la cruz quedan 7,7 mm entre las aurículas (18,5 antes); en las hojas, la AI es una cámara limpia con el tabique como línea fina hasta la cruz y sin la masa.
+
+    **El equilibrio** (banco frente a la línea base de la 355):
+
+    - `rodero-cole`: mejoran 13, empeora 1, iguales 7. Empeora el GLS del contorno del modelo, de −18,3 a −16,2 % (rango −18 a −22).
+    - `rodero-movil`: mejoran 5, empeoran 2, iguales 14. El rastreador vuelve a leer 0,73 del acortamiento (0,47–0,48 con el plano declarado desde la decisión 353, la regresión sin atribuir): el plano declarado cortaba la cruz, donde las aurículas y el septo basal se mueven a través del corte.
+    - El GLS del contorno baja porque el plano por la cruz muestra menos acortamiento del corazón de Rodero; con el plano declarado ya estaba en el borde. Lo más probable es que el movimiento cinemático de Rodero se quede corto en un cuatro cámaras bien tomado: es la próxima corrección si esta se acepta.
 
     **Lo que no cambia**: el análisis de vista sigue juzgando el plano con la geometría del corazón analítico, así que puntúa el A4C de Rodero algo más bajo; es una de las dependencias por portar.
 
     **Pruebas**:
 
-    - `throughCrux.test.ts`: un punto a 0,6 cm del plano queda a menos de 0,3 mm tras girar sólo la inclinación; sólo el A4C se gira, y sólo si hay cruz.
+    - `throughCrux.test.ts`: el plano girado contiene la cruz (a menos de `CRUX_PLANE_CM`) y sigue conteniendo el eje del VI; sólo el A4C se gira, y sólo si hay cruz.
     - `roderoFourChamber.test.ts` (lenta, el volumen que carga la app): la cruz está entre las dos aurículas; con el plano declarado hay más de 15 mm entre ellas a su altura, con el girado menos de 8.
-    - `roderoAnatomy.test.ts` (lenta): el preset A4C del núcleo con Rodero gira entre 1° y 12° y el A2C no; de vuelta al analítico, el declarado.
+    - `roderoAnatomy.test.ts` (lenta): el preset A4C del núcleo con Rodero cambia y el A2C no; de vuelta al analítico, el declarado.
 
     Cinco mutaciones, cinco fallos.
