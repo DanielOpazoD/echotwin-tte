@@ -343,9 +343,9 @@ describe('volume heart in motion (decision 350)', () => {
     // the cap's myocardium (the tissue whose end-diastolic height lies beyond the cavity's tip) keeps its volume
     const o = F.frame;
     const refZ = (q: { mx: number; my: number; mz: number }): number =>
-      (q.mx - o.origin[0]!) * o.ez[0]! +
-      (q.my - o.origin[1]!) * o.ez[1]! +
-      (q.mz - o.origin[2]!) * o.ez[2]!;
+      (q.mx - o.origin[0]) * o.ez[0] +
+      (q.my - o.origin[1]) * o.ez[1] +
+      (q.mz - o.origin[2]) * o.ez[2];
     const capVolume = (pose: typeof ed): number => {
       const cls = vol.classifier({ motion: { pose, endDiastole: ed } });
       const q = makeSample();
