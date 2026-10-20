@@ -3058,48 +3058,52 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     - Un punto que debería saltar más de lo permitido se pierde. Un punto cuyo tejido el campo pierde se cuenta una vez y se queda donde estaba.
 
     Siete mutaciones, siete fallos: el signo del paso, una sola iteración, sin criterio de convergencia, el objetivo recalculado en cada cuadro (euleriano), sin radio de confianza, sin contar los perdidos, y los perdidos dentro de la línea. Una guarda que ninguna prueba atrapaba (el recorte de cada paso) se quitó: los campos de las dos anatomías son localmente invertibles, y un jacobiano degenerado ya pierde el punto.
-362. **El casquete apical de Rodero se engrosa en sístole como la pared que lo rodea**: la decisión 361 mostró que el tejido de Rodero se acorta poco (−15,3 % a 2 mm de la pared en el plano declarado, −13,4 % en el de la cruz; normal −18 a −22 %).
+362. **El casquete apical de Rodero se engrosa en sístole como la pared que lo precede**: la decisión 361 mostró que el tejido de Rodero se acorta poco (−15,3 % a 2 mm de la pared en el plano declarado, −13,4 % en el de la cruz; normal −18 a −22 %).
 
     **Medido antes de cambiar** (caso normal, telesístole):
 
     - El mapa de movimiento (decisión 350) comprime por igual toda la longitud del VI, desde la base que desciende (13,5 mm) hasta el ápex epicárdico (λ = 0,853), también el casquete apical. Sobre el eje, el casquete va de la punta de la cavidad (8,62 cm del centro mitral) al ápex (9,16 cm), 5,4 mm. Se adelgaza un 15 %, y la punta de la cavidad se aleja 0,4 mm de la base.
-    - La pared de alrededor engrosa por la incompresibilidad: ×1,40 a 7,25 cm, ×1,32 a 8 cm. En un corazón real el casquete también engrosa, y la punta endocárdica se acerca a la base.
+    - La pared que lo precede engrosa por la incompresibilidad: ×1,40 a 7,25 cm, ×1,32 a 8 cm. En un corazón real el casquete también engrosa, y la punta endocárdica se acerca a la base.
     - Por segmentos, a 2 mm de la pared en el plano declarado: septo basal −13 %, medio −15 %, apical −16 %; pared lateral −15 a −16 %. Con una compresión uniforme, ningún segmento pasa del acortamiento de la longitud del VI (λ − 1 = −14,7 %).
 
     **Cambio** (`volumeHeart.ts`, y lo mismo en el GLSL del paso A, `glslVolumeHeart.ts`):
 
     - La cavidad termina donde su radio endocárdico medio cae a 1 mm (`CAVITY_TIP_CM`).
-    - En el último centímetro antes de esa punta (`APICAL_RAMP_CM`), el estiramiento longitudinal pasa linealmente del de la cavidad al del casquete.
-    - El casquete se estira lo que engrosa la pared al comienzo de la rampa: la media de los sectores, con el vaciado del caso y el estiramiento de la cavidad, resuelta en cuatro iteraciones.
-    - La cavidad toma el resto del descenso de la base, de modo que el ápex epicárdico sigue fijo.
-    - La incompresibilidad radial de cada corte usa el estiramiento de su altura. El volumen de la cavidad no depende de cómo se reparte el estiramiento, sólo del vaciado: la curva de volumen del caso no cambia.
-    - El mapa inverso es lineal en la cavidad y en el casquete, y en la rampa es la raíz de una cuadrática (`apicalStretchInverse`). Se toma en la forma que sigue exacta cuando los dos estiramientos se igualan: cerca de telediástole difieren en 10⁻⁷, y la forma habitual perdía en precisión simple (el GPU) la mitad de las cifras.
-    - El GPU recibe la rampa con la geometría del volumen y el estiramiento del casquete con el movimiento de cada cuadro.
+    - Hasta esa punta, el estiramiento longitudinal es el de la cavidad: sus paredes se siguen acortando.
+    - Más allá, hasta el ápex epicárdico, el estiramiento crece linealmente. Su media en el casquete es el engrosamiento de la pared 1 cm antes de la punta (`CAP_WALL_CM`: la media de los sectores, con el vaciado del caso y el estiramiento de la cavidad, resuelta en cuatro iteraciones).
+    - La cavidad toma el resto del descenso de la base, de modo que el ápex epicárdico sigue fijo. El estiramiento de la cavidad se calcula con el descenso de cada punto: el septo y el lado del VD descienden hacia el anillo tricuspídeo. La incompresibilidad radial de cada corte usa el estiramiento de su altura y de su descenso; antes usaba el del VI para todos (un 8 % de desajuste en el septo).
+    - El volumen de la cavidad no depende de cómo se reparte el estiramiento, sólo del vaciado, así que la curva de volumen del caso no cambia.
+    - El mapa inverso es lineal en la cavidad y, en el casquete, la raíz de una cuadrática (`apicalStretchInverse`). Se toma en la forma que sigue exacta cuando los dos estiramientos se igualan: cerca de telediástole difieren en 10⁻⁷, y la forma habitual perdía en precisión simple (el GPU) la mitad de las cifras.
+    - El GPU recibe la rampa (punta y ápex) con la geometría del volumen y el estiramiento en el ápex con el movimiento de cada cuadro. Ya no necesita el estiramiento del VI.
+    - Una primera versión ponía la rampa en el centímetro anterior a la punta. Ganaba algo más de GLS global (−16,5 % en el plano de la cruz), pero estiraba a lo largo del eje la pared lateral del ápex. Sus segmentos apicales a 2 mm se acortaban menos que antes (−14 y −11 %), y el lateral apical endocárdico quedaba en −14 %.
 
     **Medido después**:
 
-    - Caso normal: el estiramiento de la cavidad pasa de 0,853 a 0,787 y el casquete engrosa ×1,41. La cavidad queda en 52,5 mL en telesístole (52,3 antes; el caso, 45 de 120). Sobre el eje, la punta de la cavidad se acerca 3,1 mm a la base, y el ápex epicárdico se mueve menos de 0,7 mm.
-    - ICFEr con IM severa: el casquete engrosa ×1,11 y la punta se acerca 0,9 mm; la cavidad queda en 0,78 de la telediastólica (el caso, 0,76).
-    - El GLS del tejido (medida de la 361):
+    - Caso normal: el estiramiento de la cavidad pasa de 0,853 a 0,825, y el casquete engrosa de media ×1,38 (1,93 en el ápex). La cavidad queda en 52,5 mL en telesístole (52,3 antes; el caso, 45 de 120). Sobre el eje, la punta de la cavidad se acerca 1,6 mm a la base. El ápex epicárdico se retira 1,2 mm sobre el eje z del corazón, que pasa a 3–5 mm del eje de Rodero, por donde la cúpula se estrecha.
+    - El VD, que comparte el descenso, queda en 75,1 mL en telesístole (79,4 antes, de 153,6): 0,49 de la telediastólica frente a 0,52. El analítico da 0,34.
+    - ICFEr con IM severa: el casquete engrosa ×1,11 de media y la punta se acerca 0,5 mm. La cavidad queda en 0,78 de la telediastólica (el caso, 0,76; igual que antes).
+    - El GLS del tejido en telesístole (medida de la 361):
 
-      | Plano | 2 mm | Endocardio | Rastreado |
-      |---|---|---|---|
-      | Declarado | −15,3 → −18,7 % | −15,7 → −19,8 % | −11,0 → −10,5 % |
-      | Cruz | −13,4 → −16,5 % | −15,2 → −19,2 % | −9,9 → −10,0 % |
+      | Plano | 2 mm | Endocardio |
+      |---|---|---|
+      | Declarado | −15,3 → −17,5 % | −15,7 → −17,7 % |
+      | Cruz | −13,4 → −15,4 % | −15,2 → −17,7 % |
 
-    - En esa medida, con una sola realización, el rastreador apenas cambia. Sobre los cines de Rodero ya se quedaba en −10 a −11 % con el tejido a −15 %, y derivaba +5,6 % en un ciclo. En el banco, con sus semillas, sí lee más en `rodero-movil` y lo mismo en `rodero-cole` (tabla abajo). Lo que el rastreador no lee es del speckle de esos cines, no del corazón.
-    - En las hojas de revisión (A4C, telesístole), el casquete es más grueso y la cavidad empieza más abajo. La base y el resto del VI no cambian.
+    - Por segmentos, a 2 mm en el plano declarado: septo −15,8 / −17,4 / −16,5 % (basal, medio, apical) y pared lateral −16,0 / −18,7 / −18,7 %. En el endocardio crece de la base al ápex (septo −11,9, −17,1, −24,0 %), como en los estudios por capas en sanos.
+    - En el plano de la cruz, el septo basal a 2 mm sigue casi sin acortarse (−4,5 %, cuando a 0,5 mm da −12,0 % y a 5 mm −18,8 %). Es una línea que pasa por la unión del septo con la cruz; queda para mirarla aparte.
+    - En las hojas de revisión (A4C, telesístole), el casquete se ve algo más grueso. La base y las paredes no cambian.
 
     **El banco** (frente a la línea base de la 361):
 
-    | Motor | Mejoran / empeoran / iguales (361 → 362) | Tejido 2 mm | Rastreado | Rastreado / tejido |
+    | Motor | Mejoran / empeoran / iguales (361 → 362) | Tejido 2 mm / endocardio | Rastreado | Rastreado / tejido |
     |---|---|---|---|---|
-    | `rodero-movil` | 4 / 3 / 14 → 5 / 3 / 13 | −13,4 → −16,5 % | −11,9 → −13,9 % | 0,88 → 0,84 |
-    | `rodero-cole` | 12 / 2 / 7 → 12 / 1 / 8 | −13,4 → −16,5 % | −12,6 → −12,6 % | 0,94 → 0,76 |
+    | `rodero-movil` | 4 / 3 / 14 → 4 / 3 / 14 | −13,4 → −15,4 % / −15,2 → −17,6 % | −11,9 → −12,1 % | 0,88 → 0,78 |
+    | `rodero-cole` | 12 / 2 / 7 → 12 / 2 / 7 | −13,4 → −15,4 % / −15,2 → −17,6 % | −12,6 → −13,2 % | 0,94 → 0,86 |
 
-    - El GLS del tejido sigue por debajo del rango normal en el plano de la cruz (puntuación 2,3 → 0,7). La línea base (el analítico, −19,3 %) es mejor, así que la brecha sigue figurando como «empeora».
-    - La rastreabilidad de `rodero-cole` (0,76) queda dentro de la de CREATIS (0,66 [0,62–0,81]) y deja de empeorar.
-    - En el endocardio, el tejido de Rodero se acorta −19,2 % en el plano de la cruz.
+    - Los recuentos no cambian, pero las dos brechas de movimiento que la 361 había destapado se acercan:
+      - el GLS del tejido, de 2,3 a 1,3 de puntuación; sigue bajo el rango normal y bajo la línea base (el analítico, −19,3 %);
+      - la rastreabilidad, de 1,5 a 1,1; 0,86 frente a 0,66 [0,62–0,81] de CREATIS.
+    - La primera versión (la rampa antes de la punta) daba −16,5 % y una rastreabilidad de 0,76, a costa de los segmentos apicales.
 
     **Lo que no se mide aquí**: el censo de coherencia corre sobre el corazón analítico, que este cambio no toca.
 
@@ -3107,9 +3111,20 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
 
     **Pruebas** (`volumeHeart.test.ts`, el corazón sintético):
 
-    - El casquete engrosa más de ×1,2, lo que dice su estiramiento (±0,1). La punta de la cavidad se acerca más de 2 mm a la base, y el ápex no se mueve más de 0,5 mm.
-    - La inversa del estiramiento vuelve al punto de partida en la cavidad, la rampa y el casquete, también con los dos estiramientos iguales.
-    - El epicardio no tiene escalón: la razón entre su radio en telesístole y en telediástole no salta más de 0,12 entre alturas a 1 mm. Los vóxeles la hacen saltar hasta 0,07; un escalón entre los dos estiramientos, 0,15.
-    - `volumeHeartGpu.test.ts`: el GPU recibe el estiramiento del casquete de la CPU.
+    - El estiramiento medio del casquete pasa de 1,2. Sobre el eje, el casquete engrosa lo que dice la rampa en su punto medio (±0,05; medido, 0,04), la punta de la cavidad se acerca a la base más de 1 mm y el ápex no se mueve más de 0,5 mm.
+    - El miocardio del casquete (el tejido cuya altura en telediástole queda más allá de la punta) conserva su volumen (±5 %).
+    - El extremo del VI no se mueve, tampoco donde la base desciende hacia el anillo tricuspídeo.
+    - La inversa del estiramiento vuelve al punto de partida en la cavidad, la rampa y más allá, también con los dos estiramientos iguales.
+    - El epicardio no tiene escalón: la razón entre su radio en telesístole y en telediástole no salta más de 0,12 entre alturas a 1 mm. Los vóxeles la hacen saltar hasta 0,07.
+    - `volumeHeartGpu.test.ts`: el GPU recibe de la CPU el estiramiento del ápex y la rampa.
 
-    Cinco mutaciones, cinco fallos: rampa nula, casquete sin engrosar, la raíz en su forma habitual, el mapa longitudinal lineal de antes y el radial con el estiramiento de la cavidad. La equivalencia GPU = CPU del corazón de Rodero en mesosístole (e2e) cubre el GLSL.
+    Siete mutaciones, siete fallos:
+    - un escalón en lugar de la rampa;
+    - el casquete sin engrosar;
+    - el casquete comprimido como antes;
+    - la raíz en su forma habitual;
+    - el mapa longitudinal lineal de antes;
+    - el radial con el estiramiento de la cavidad;
+    - el estiramiento de la cavidad del descenso del VI para todos los puntos.
+
+    La equivalencia GPU = CPU del corazón de Rodero en mesosístole (e2e) cubre el GLSL. Una revisión adversarial de la primera versión confirmó que el GLSL calcula lo mismo que la CPU (diferencia máxima 0 en 68 223 puntos; 2,4·10⁻⁶ cm en precisión simple). Sus huecos de cobertura (el extremo del VI con otro descenso, la rampa en el GPU) y el desajuste del radial en el septo se corrigen aquí.

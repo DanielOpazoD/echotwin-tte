@@ -103,10 +103,10 @@ eje del VI hasta su propia cruz (la masa gris bajo la bisagra septal mitral era 
 aurículas que no se tocaban en el plano declarado); la caída del GLS del modelo que traía resultó ser la fragilidad de
 esa medida, que cuenta los escalones del contorno. Decisión 361: el GLS del modelo en el banco es el de su tejido,
 seguido por las coordenadas materiales que anclan el speckle (analítico −19,3 %; Rodero −13,4 % en su cuatro cámaras, y
-su speckle lo sigue). Decisión 362: el casquete apical de Rodero se engrosa en sístole como la pared que lo rodea, y la
-punta de la cavidad se acerca 3 mm a la base; su tejido se acorta −18,7 % en el plano declarado y −16,5 % en el de la
-cruz (−19,2 % en el endocardio). En el banco, `rodero-cole` da 12 mejor, 1 peor (el GLS del tejido, aún bajo la línea
-base) y 8 igual, y su rastreabilidad (0,76) cae dentro de la de CREATIS. Siguiente: la revisión de Daniel con las hojas.
+su speckle lo sigue). Decisión 362: el casquete apical de Rodero se engrosa en sístole como la pared que lo precede,
+y la punta de la cavidad se acerca a la base; su tejido se acorta −15,4 % en el cuatro cámaras por la cruz (−17,6 % en
+el endocardio), aún bajo el rango normal. En el plano de la cruz, el septo basal a 2 mm de la pared casi no se acorta:
+queda por mirar. Siguiente: la revisión de Daniel con las hojas.
 
 ## Cómo seguir
 
