@@ -2853,3 +2853,56 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     El informe del banco (`docs/validation/banco-realismo.md`) se rehace con la corrida nueva, y su lectura corrige la frase que decía que la celda de la red coincidía con la de la apertura sin apodizar.
 
     **Pruebas** (`speckleStats.test.ts`): la correlación de la envolvente frente a Monte Carlo a |μ|² = ¼, ½ y 0,8; la celda de un núcleo gaussiano anisótropo en cada eje frente a la fórmula cerrada y frente a la imagen que forma; y series cortas cuya celda conjunta da la del núcleo, mientras restar la media de cada una baja la correlación. Y en `resolution.test.ts`: `onGrid` lee una recta exacta en cualquier rejilla, y un pulso gaussiano con el punto en una muestra mide lo que da la cuenta a mano. Diez mutaciones, diez fallos.
+
+356. **La convolución dibuja los granos brillantes del parénquima con una población escasa de dispersores fuertes**: segunda mejora del bloque de imagen de Rodero. Con la regla de la 355, la convolución tenía la resolución y el speckle de la física, pero no la textura del miocardio de CAMUS. El gris residual del miocardio en el A4C de telediástole era simétrico, cuando el de CAMUS tiene la cola de puntos brillantes aislados. Un speckle de una población, comprimido en log, da asimetría negativa o nula con cualquier anatomía. Los granos de red de la decisión 145, que la red usa para eso, quedaban tapados por el speckle de una sola mirada.
+
+    **Medido antes de cambiar** (A4C del caso normal, seis realizaciones de los dispersores, asimetría ± desviación entre realizaciones; CAMUS Good: asimetría 0,53 [0,42–0,67], desviación 19,6 [17,7–22,0], curtosis 0,95 [0,61–1,42], gris mediano 100 [87–115]):
+
+    | Convolución con Rodero | Asimetría | Desviación | Curtosis | Gris mediano |
+    |---|---|---|---|---|
+    | Como en la 351 | 0,05 ± 0,05 | 18,1 | 0,18 | 115 |
+    | Dos miradas compuestas | 0,24 | 13,7 | 0,29 | 117 |
+    | 2 % de dispersores ×4, con los granos | 0,08 | 17,6 | — | 116 |
+    | 0,2 % ×16, con los granos | 0,31 ± 0,09 | 19,4 | 0,60 | 112 |
+    | 0,2 % ×16, sin los granos | 0,33 ± 0,11 | 18,9 | 0,89 | 108 |
+    | 0,15 % ×25, sin los granos | 0,55 ± 0,08 | 19,7 | 1,39 | 105 |
+    | **0,2 % ×22, sin los granos** | **0,54 ± 0,11** | **19,8** | **1,31** | **105** |
+
+    - Dos miradas suben la asimetría a costa de la desviación, que se aleja de CAMUS: cambian una brecha por otra.
+    - Una población fuerte densa (2 %, cuatro veces la amplitud) no cambia nada: suma unos cuantos por celda y sigue siendo gaussiana. Hace falta que sea escasa, del orden de uno por cada 60 mm³, para que cada uno dibuje su propio punto brillante.
+    - Sin los granos de red el gris mediano baja hacia el de CAMUS: los dispersores fuertes los sustituyen, no se suman a ellos.
+    - En una sola realización la asimetría varía ±0,1–0,15: con unos 160 dispersores fuertes en el miocardio de un corte, su sitio cuenta.
+
+    **Cambio**:
+
+    - `scatterers.ts`: el fasor recibe la fracción de cubos con un dispersor fuerte (`STRONG_SCATTERER_FRACTION`, 0,002, en el parénquima; 0 en el resto) y los amplifica `STRONG_SCATTERER_GAIN` (22). Sigue con potencia media unidad: la normalización lleva E[g²] = 1 − p + p·A². Llevan algo menos de la mitad de la potencia (49 %). Es el modelo clásico de dos poblaciones del tejido: láminas de fibras, paredes de vasos, tejido conjuntivo. Sus dos números se ajustan a CAMUS y se declaran como ajuste. Las constantes viven en `acoustics.ts`, para no llevar el código de los dispersores al worker.
+    - El trazador CPU pide la población fuerte para el miocardio, el músculo y el hígado (donde la red pone sus granos) y, con dispersores, deja de pintar los granos de red.
+    - El GPU, lo mismo: dos uniformes nuevos (`uScatStrong`, `uScatStrongGain`), el mismo canal del hash, y la variante `SCATTER_FIELD` del paso A no calcula los granos.
+    - Las hojas de revisión (`review-sheets.ts`, `reviewFrame.ts`) dibujan el corazón de Rodero y la convolución con `REVIEW_ANATOMY=rodero` y `REVIEW_IMAGE=cole`, con el volumen que la app carga.
+
+    **Con el corazón analítico** (seis realizaciones): asimetría −0,03 → 0,38, curtosis 0,10 → 0,95, desviación 18,3 → 19,4, gris mediano 110 → 101.
+
+    **Banco** frente a la línea base de la 355:
+
+    | Motor | Mejoran | Empeoran | Iguales | En la 355 |
+    |---|---|---|---|---|
+    | `cole` | 14 | 0 | 7 | 10 / 2 / 9 |
+    | `rodero-cole` | 14 | 1 | 6 | 12 / 2 / 7 |
+
+    - **`cole` acerca el simulador en todo lo que cambia**, la primera vez que un motor no empeora ninguna brecha: asimetría 0,36, curtosis 0,98, desviación 18,5 y gris mediano 101; el rastreador lee 0,70 del acortamiento (0,75 en la 355).
+    - **`rodero-cole`** empeora sólo la curtosis (2,13). El banco mide la realización de la semilla del caso, que es la más alta de las seis: asimetría 0,74 y curtosis 2,13 frente a 0,54 y 1,31 de media. Las otras métricas de la textura mejoran: desviación 19,4 y gris mediano 106.
+
+    **Paridad CPU ↔ GPU**: amplitud 0,01 % (A4C) y 0,00 % (PLAX) con el corazón analítico, 0,14 % con Rodero; sin la población fuerte en el GPU, 4,96 %.
+
+    **Paquetes**: el worker 359,4 kB (360), el trozo de WebGL2 214,6 kB (216), el total 2110,6 kB (2120).
+
+    **Pruebas**:
+
+    - `scatterers.test.ts`: con la población fuerte, la potencia media sigue en 1 y el contraste E[I²]/E[I]² pasa de 2 (Rayleigh) a más de 2,5.
+    - `coleFormation.test.ts` (lenta): el trazador pide la fracción fuerte para el parénquima y ninguna para el resto; con un campo de dispersores mudo, la pared del VI queda oscura salvo sus interfaces (sin granos de red).
+    - `scatterFieldGpu.test.ts`: los uniformes nuevos.
+    - La paridad e2e.
+
+    Siete mutaciones unitarias y una en la paridad, ocho fallos.
+
+    **Lo que sigue**: el banco juzga la textura sobre una sola realización, y con dispersores escasos eso basta para mover la asimetría ±0,15; una brecha con varias realizaciones la haría robusta.
