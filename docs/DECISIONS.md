@@ -3128,3 +3128,46 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     - el estiramiento de la cavidad del descenso del VI para todos los puntos.
 
     La equivalencia GPU = CPU del corazón de Rodero en mesosístole (e2e) cubre el GLSL. Una revisión adversarial de la primera versión confirmó que el GLSL calcula lo mismo que la CPU (diferencia máxima 0 en 68 223 puntos; 2,4·10⁻⁶ cm en precisión simple). Sus huecos de cobertura (el extremo del VI con otro descenso, la rampa en el GPU) y el desajuste del radial en el septo se corrigen aquí.
+363. **El paso radial de Rodero conserva la pared con el estiramiento del VI**: corrección de la 362, tras una revisión adversarial de su versión final que llegó con la PR ya fusionada.
+
+    **Medido**:
+
+    - La 362 dio a cada punto, en el paso radial, el estiramiento de la cavidad de su propio descenso. Localmente es exacto: el área del corte por su altura se conserva con un error de 10⁻⁹. Pero el descenso cambia de un lado a otro del septo, hacia el del anillo tricuspídeo, y entonces el mapa tiene una cizalla que esa regla no recoge.
+    - El volumen de la pared del VI en telesístole crece:
+      - con el volumen real (malla de 0,8 mm): un 2,6 % en el caso normal y un 3,9 % en la ICFEr, frente a 1,6 y 1,5 % antes de la 362;
+      - en el corazón sintético de las pruebas: 1,024, frente a 1,009 con el estiramiento del VI y un límite de 1,03.
+    - Hasta la 362 el paso radial usaba el estiramiento del VI. La revisión lo había señalado como un desajuste del 8 % en el septo, y la 362 lo cambió sin medir la pared.
+
+    **Cambio**: el paso radial vuelve al estiramiento del VI, el de la cavidad para el descenso del anillo mitral. El mapa longitudinal sigue con el descenso de cada punto, que es lo que mantiene fijo el extremo del VI. En el GLSL es `volCavityLambda(sL)`, sin uniforme nuevo.
+
+    **Medido después** (caso normal):
+
+    - La pared crece un 1,5 % en telesístole, y un 1,3 % en la ICFEr.
+    - El GLS del tejido no cambia: −17,5 % a 2 mm en el plano declarado y −15,5 % en el de la cruz, en telesístole.
+    - El VD en telesístole pasa de 75,1 a 75,5 mL; la cavidad del VI, 52,5 mL.
+
+    **El ápex, el otro punto de la revisión**: en telesístole la cúpula apical se estrecha. El radio equivalente del VI (pared y cavidad) en telesístole sobre el de telediástole vale:
+
+    | Distancia al ápex | Normal, 362 | Normal, antes de la 362 | ICFEr, 362 |
+    |---|---|---|---|
+    | 10 mm | 1,00 | 1,08 | 1,00 |
+    | 5 mm | 0,74 | 1,16 | 0,94 |
+    | 2,5 mm | 0,56 | 1,18 | 0,84 |
+    | 1,5 mm | 0,52 | 1,20 | 0,80 |
+
+    - Antes de la 362 la cúpula se hinchaba, porque el casquete adelgazado se ensanchaba. Ahora se estrecha, porque el casquete engrosado conserva su volumen.
+    - En milímetros, los lados de la cúpula entran 2–3 mm, donde su radio es de 4 a 12 mm. El ápex epicárdico real apenas se mueve.
+    - Una rampa más corta (el primer 20–40 % del casquete, y luego un estiramiento constante) estrecha menos la punta: 0,62–0,66 a 1,5 mm. Pero lleva el codo de la pendiente a donde el radio epicárdico es de unos 12 mm: 0,75 en 1,6 mm de altura, un desplazamiento mayor y más visible. Por eso la rampa sigue ocupando todo el casquete.
+    - Que la cúpula se vea bien es juicio clínico, en las hojas de revisión (A4C, telesístole).
+    - Sobre el eje, el casquete engrosa ×1,19 (de 5,35 a 6,35 mm). La punta de la cavidad sobre el eje queda 1,3 mm antes de la punta media que fija la rampa. Los ×1,38 de la 362 son la media del tejido más allá de esa punta.
+
+    **El banco** (frente a la línea base de la 361):
+
+    | Motor | Mejoran / empeoran / iguales (362 → 363) | Tejido 2 mm | Rastreado | Rastreado / tejido |
+    |---|---|---|---|---|
+    | `rodero-movil` | 4 / 3 / 14 → 5 / 3 / 13 | −15,4 → −15,5 % | −12,1 → −13,2 % | 0,78 → 0,85 |
+    | `rodero-cole` | 12 / 2 / 7 → 13 / 2 / 6 | −15,4 → −15,5 % | −13,2 → −13,2 % | 0,86 → 0,85 |
+
+    Las brechas anatómicas no cambian. Las que cambian son las del rastreador, que se mueven con cambios pequeños: en formato EchoNet, la razón rastreado / trazado de `rodero-cole` pasa de 0,14 a 0,18 (mejora) y la de `rodero-movil` de 0,51 a 0,36 (mejora); la rastreabilidad de `rodero-movil`, de 0,78 a 0,85 (empeora).
+
+    **Pruebas**: el límite de conservación de la pared en `volumeHeart.test.ts` baja de 3 a 1,5 %. En el sintético la pared queda en 1,009; con el estiramiento de cada punto, 1,024, y la prueba falla (una mutación, un fallo). La prueba de que el epicardio no tiene escalón sigue parando 6 mm antes del ápex: en los últimos milímetros la razón de radios cambia deprisa porque el radio es pequeño, no por un escalón.
