@@ -1,4 +1,4 @@
-# Banco de realismo (decisiones 344, 345, 347, 348, 349, 355 y 359)
+# Banco de realismo (decisiones 344, 345, 347, 348, 349, 355, 359 y 361)
 
 Este documento es el registro del banco que juzga si un cambio acerca el simulador a la ecografía real. Arriba, la
 lectura de la corrida; abajo, el informe tal como lo escribe `npm run realism` (procedimiento en
@@ -31,7 +31,9 @@ apicales de cuatro cámaras).
 3. **El movimiento del corazón sano se parece al real en lo que el banco puede medir.**
    - El acortamiento del contorno endocárdico, medido igual que sobre los trazados de los expertos y en el formato de
      EchoNet, es −18,9 % en el simulador frente a −18,5 % [−23,6 a −12,7] en los 40 vídeos normales de EchoNet; el GLS
-     del contorno del modelo, −19,9 %, dentro de −18 a −22.
+     del tejido del modelo, −19,3 %, dentro de −18 a −22. Desde la decisión 361 ese GLS es el del tejido, seguido por sus
+     coordenadas materiales, y no el de un contorno redibujado en cada cuadro, que contaba los escalones del píxel y del
+     volumen (−19,9 % en el analítico; en el corazón de Rodero saltaba de −10 a −16 % según el suavizado).
    - El speckle se renueva entre cuadros como en EchoNet: correlación de bloques de 0,85 frente a 0,84 [0,81–0,87] en el
      mejor desplazamiento, y 0,81 frente a 0,81 [0,78–0,85] en el mismo sitio.
    - **El GLS seguido bajo no es una prueba contra el simulador.** El mismo rastreador, llevado sobre los vídeos de
@@ -40,9 +42,12 @@ apicales de cuatro cámaras).
    - **Con movimiento verdadero, el speckle del simulador sigue a su tejido casi como el de una simulación lagrangiana.**
      En una secuencia sintética de CREATIS (Evain et al. 2022), cuyo speckle se mueve con la malla que la generó, el
      rastreador del banco (ahora regularizado) lee 0,66 [0,62–0,81] del acortamiento verdadero de las capas internas de la
-     pared; en el simulador lee 0,55 del acortamiento de su contorno. La diferencia (0,8 de la tolerancia) es compatible
+     pared; en el simulador lee 0,57 del acortamiento de su tejido. La diferencia (0,7 de la tolerancia) es compatible
      con la capa fija del clutter de la pared torácica, que en el tabique medio frena el movimiento longitudinal del
-     speckle. En la ventana difícil el rastreador no sigue nada: su textura está dominada por el clutter, como en una
+     speckle; y la coordenada material del corazón analítico es una homotecia que no sigue al engrosamiento de su pared.
+   - **El tejido del corazón de Rodero se acorta poco** (decisión 361): −13,4 % en su cuatro cámaras por la cruz, frente
+     a −19,3 % del analítico. Su speckle lo sigue (el rastreador lee 0,88–0,94 de él); lo que falta es movimiento: su
+     mapa comprime por igual toda la longitud del VI, también el casquete apical, que en un corazón real se engrosa. En la ventana difícil el rastreador no sigue nada: su textura está dominada por el clutter, como en una
      ventana difícil real.
 4. **La sístole dura de más, y ya se sabe por qué.** De telediástole a telesístole el simulador tarda 407 ms; CAMUS,
    336 [299–379], y los vídeos normales de EchoNet a la misma frecuencia (65 lpm, estimada por la periodicidad de cada
@@ -75,9 +80,9 @@ documentar que la PSF es un ajuste a CAMUS.
 
 ## Informe generado
 
-Generado por `npm run realism` (decisión 344) el 2026-10-20 08:11 UTC, en 6,1 min. Fuentes clínicas: CAMUS sí, EchoNet-Dynamic sí. Sólo cifras agregadas: ninguna imagen clínica ni dato individual sale de las carpetas de origen.
+Generado por `npm run realism` (decisión 344) el 2026-10-20 09:40 UTC, en 6,3 min. Fuentes clínicas: CAMUS sí, EchoNet-Dynamic sí. Sólo cifras agregadas: ninguna imagen clínica ni dato individual sale de las carpetas de origen.
 
-Motor medido: `actual` (modelo analítico actual (trazador CPU, nivel calibrado)), en el commit `a22d8c5`.
+Motor medido: `actual` (modelo analítico actual (trazador CPU, nivel calibrado)), en el commit `372a61f`.
 
 ### Brechas, de mayor a menor
 
@@ -92,10 +97,10 @@ Una sola escala para ordenarlas: en física, |ln(sim/ref)|/ln 1,25 (1 = un 25 % 
 | 5 | física | resolución lateral −6 dB a 9 cm | 2,86 mm | 3,58 mm | DAS tipo Field II sin apodizar, en las líneas del simulador (fina 3,56 mm; con Hanning 5,79) | 1,0 |
 | 6 | volumen y tiempo | telediástole → telesístole (caso normal) | 407,50 ms | 336,28 ms | CAMUS, mediana [299–379] | 0,9 |
 | 7 | física | resolución axial −6 dB a 9 cm | 0,69 mm | 0,57 mm | pulso de Field II (2 + 2 ciclos) en las muestras del simulador, con el punto en una (fino 0,64 mm) | 0,9 |
-| 8 | movimiento | fracción del acortamiento que el rastreador lee en el simulador (A4C normal) | 0,55  | 0,66  | la misma fracción con movimiento verdadero (CREATIS), mediana [0,62–0,81] | 0,9 |
-| 9 | física | contraste de un quiste anecoico de 8 mm a 9 cm | −20,44 dB | −15,69 dB | DAS tipo Field II sin apodizar (con Hanning −9,8 dB) | 0,8 |
-| 10 | imagen clínica | curtosis del gris residual del miocardio (A4C, TD) | 0,32  | 0,95  | CAMUS Good, mediana [0,61–1,42] | 0,8 |
-| 11 | volumen y tiempo | FE de la imagen frente a la del modelo (caso normal) | 66,13 % | 62,50 % | el volumen del modelo (tablas del latido) | 0,7 |
+| 8 | física | contraste de un quiste anecoico de 8 mm a 9 cm | −20,44 dB | −15,69 dB | DAS tipo Field II sin apodizar (con Hanning −9,8 dB) | 0,8 |
+| 9 | imagen clínica | curtosis del gris residual del miocardio (A4C, TD) | 0,32  | 0,95  | CAMUS Good, mediana [0,61–1,42] | 0,8 |
+| 10 | volumen y tiempo | FE de la imagen frente a la del modelo (caso normal) | 66,13 % | 62,50 % | el volumen del modelo (tablas del latido) | 0,7 |
+| 11 | movimiento | fracción del acortamiento que el rastreador lee en el simulador (A4C normal) | 0,57  | 0,66  | la misma fracción con movimiento verdadero (CREATIS), mediana [0,62–0,81] | 0,7 |
 | 12 | física | celda de speckle lateral a 9 cm | 2,88 mm | 3,33 mm | DAS tipo Field II sin apodizar, en las líneas del simulador (fina 3,30 mm; con Hanning 5,53) | 0,6 |
 | 13 | física | celda de speckle axial a 9 cm | 0,65 mm | 0,57 mm | DAS tipo Field II en las muestras del simulador (fina 0,56 mm) | 0,6 |
 | 14 | movimiento | razón rastreado / trazado de TD a TS, formato EchoNet (A4C normal) | 0,43  | 0,28  | EchoNet, mediana [0,11–0,41] | 0,5 |
@@ -105,7 +110,7 @@ Una sola escala para ordenarlas: en física, |ln(sim/ref)|/ln 1,25 (1 = un 25 % 
 | 18 | volumen y tiempo | VTD biplano medido en la imagen (caso normal) | 115,82 mL | 98,00 mL | ASE/EACVI 2015, 46–150 mL | 0,0 |
 | 19 | volumen y tiempo | VTS biplano medido en la imagen (caso normal) | 39,23 mL | 37,50 mL | ASE/EACVI 2015, 14–61 mL | 0,0 |
 | 20 | volumen y tiempo | FE biplano medida en la imagen (caso normal) | 66,13 % | 63,00 % | ASE/EACVI 2015, 52–74 % | 0,0 |
-| 21 | movimiento | GLS del contorno del modelo, 2 mm dentro de la pared (A4C, caso normal) | −19,94 % | −20,00 % | normal −18 a −22 % | 0,0 |
+| 21 | movimiento | GLS del tejido del modelo, 2 mm dentro de la pared (A4C, caso normal) | −19,26 % | −20,00 % | normal −18 a −22 % | 0,0 |
 
 Fuera del orden, porque el instrumento no está validado:
 
@@ -115,7 +120,7 @@ Fuera del orden, porque el instrumento no está validado:
 
 Transductor de referencia: 64 elementos sobre 14 mm (la apertura del simulador), 2.5 MHz, foco de emisión a 9 cm, recepción dinámica con F/1, pulso de los ejemplos de Field II (excitación de 2 ciclos por respuesta al impulso de 2 ciclos con ventana de Hanning, en emisión y recepción), elementos puntuales. El simulador corre sus propias etapas (fasores, compuesto de 2 miradas, ganancia de foco, PSF con lóbulos laterales, envolvente) en la rejilla polar del nivel alto, en fundamental para comparar con la referencia. No se encontró una cifra publicada de Field II para este transductor exacto (el ejemplo de matriz en fase de Field II usa otros parámetros), así que la referencia se calcula aquí con su mismo modelo lineal y su pulso, y se valida contra la teoría: 0,886 λF a −6 dB en el foco de una apertura rectangular y SNR 1,91 en speckle plenamente desarrollado (`dasReference.test.ts`). Una corrida de Field II de verdad queda pendiente. La apertura sin apodizar es la cota más estrecha que da una apertura de 14 mm; la de Hanning, la de los ejemplos de Field II y la habitual en un equipo.
 
-#### Blancos puntuales
+### Blancos puntuales
 
 | profundidad (cm) | axial sim, fórmula / medida (mm) | axial ref, fina / en la rejilla (mm) | lateral sim, fórmula / medida (mm) | lateral ref rect, fina / en la rejilla, y Hanning (mm) | lóbulo sim (dB) | lóbulo ref rect / Hanning (dB) | muestra / línea (mm) |
 |---:|---:|---:|---:|---:|---:|---:|---:|
@@ -135,7 +140,7 @@ Imagen armónica (la consola por omisión): el simulador estrecha el haz lateral
 | 9 | 0,80 | 0,58 | 1,15 |
 | 13 | 0,80 | 0,58 | 1,15 |
 
-#### Quiste anecoico en speckle uniforme
+### Quiste anecoico en speckle uniforme
 
 | profundidad (cm) | diámetro (mm) | contraste sim / ref rect / ref Hanning (dB) | CNR sim / rect / Hanning | gCNR sim / rect / Hanning | gCNR sim en el gris mostrado |
 |---:|---:|---:|---:|---:|---:|
@@ -143,14 +148,14 @@ Imagen armónica (la consola por omisión): el simulador estrecha el haz lateral
 | 9 | 8 | −20,4 / −15,7 / −9,8 | 2,54 / 1,46 / 1,15 | 0,97 / 0,79 / 0,65 | 0,97 |
 | 13 | 8 | −16,8 / −10,8 / −7,2 | 2,25 / 1,30 / 1,07 | 0,98 / 0,68 / 0,61 | 0,98 |
 
-#### Speckle uniforme
+### Speckle uniforme
 
 SNR de la envolvente: 1,91 para speckle plenamente desarrollado (Rayleigh). «Ventanas»: el estimador con que se lee el miocardio más abajo (5 líneas × 7 muestras), aplicado aquí al speckle uniforme como vara de medir.
 
 | profundidad (cm) | SNR sim (2 miradas / 1 mirada / ventanas) | SNR ref | m de Nakagami sim (2 / 1) | m ref | α de K, 1 mirada | celda axial sim / ref fina / ref en la rejilla (mm) | celda lateral sim / ref rect fina / en la rejilla / ref Hanning (mm) |
 |---:|---:|---:|---:|---:|---:|---:|---:|
 | 5 | 2,64 / 1,90 / 2,91 | 1,94 | 2,40 / 1,06 | 0,90 | 70 | 0,69 / 0,57 / 0,57 | 1,98 / 1,86 / 1,88 / 3,15 |
-| 9 | 2,67 / 1,92 / 3,05 | 1,80 | 2,30 / 1,03 | 1,26 | — | 0,65 / 0,56 / 0,57 | 2,88 / 3,30 / 3,33 / 5,53 |
+| 9 | 2,67 / 1,92 / 3,05 | 1,80 | 2,30 / 1,03 | 1,26 | ∞ | 0,65 / 0,56 / 0,57 | 2,88 / 3,30 / 3,33 / 5,53 |
 | 13 | 2,51 / 1,84 / 3,02 | 1,98 | 3,28 / 1,14 | 0,94 | 14 | 0,77 / 0,56 / 0,57 | 3,66 / 4,78 / 4,82 / 7,81 |
 
 ### 2. Imagen clínica: textura del miocardio frente a CAMUS
@@ -198,12 +203,14 @@ EchoNet-Dynamic (10030 vídeos): FE 59,2 [51,6–64,0] %, VTD 82 [62–108] mL, 
 
 ### 4. Movimiento: deformación longitudinal global y decorrelación
 
-GLS del A4C: una línea 2 mm dentro de la pared desde el endocardio telediastólico, 40 puntos llevados cuadro a cuadro por correlación de bloques de 5 mm (sin regularizar), y la misma línea construida en cada cuadro sobre el mapa de estructuras del modelo. «Sin clutter»: el mismo cine sin la reverberación de la pared torácica ni la neblina de las cavidades. La deriva es lo que los puntos no vuelven a su sitio tras un ciclo.
+GLS del A4C: una línea 2 mm dentro de la pared desde el endocardio telediastólico, 36 puntos llevados cuadro a cuadro por correlación de bloques de 5 mm con la mediana de ±2 vecinos, y el del modelo: el tejido que había bajo esos puntos, y bajo el endocardio telediastólico, seguido en cada cuadro por sus coordenadas materiales (decisión 361). «Sin clutter»: el mismo cine sin la reverberación de la pared torácica ni la neblina de las cavidades. La deriva es lo que los puntos no vuelven a su sitio tras un ciclo.
 
 | caso | GLS seguido (%) | GLS seguido sin clutter (%) | GLS del modelo, 2 mm / endocardio (%) | deriva con / sin clutter (mm) |
 |---|---:|---:|---:|---:|
-| normal | −10,9 | −8,2 | −19,9 / −19,9 | 3,3 / 3,2 |
-| normal, ventana difícil | −1,1 | −2,1 | −24,0 / −23,9 | 2,5 / 3,5 |
+| normal | −10,9 | −8,2 | −19,3 / −19,0 | 3,3 / 3,2 |
+| normal, ventana difícil | −1,1 | −2,1 | −20,5 / −20,4 | 2,5 / 3,5 |
+
+Puntos fuera de las líneas del modelo, en todos los casos: 21 (no estaban sobre el VI en telediástole, o su tejido se perdió en el plano). La longitud de cada línea cuenta sólo los demás.
 
 Correlación de bloques de miocardio entre cuadros consecutivos a 50 cuadros/s: en el mejor desplazamiento (lo que el speckle se parece a sí mismo tras moverse) y en el mismo sitio. «EchoNet»: el cine reducido al formato de EchoNet (112 px) y los bloques elegidos sólo por su gris, como en los vídeos clínicos.
 
@@ -220,9 +227,9 @@ Correlación de bloques de miocardio entre cuadros consecutivos a 50 cuadros/s: 
 
 EchoNet (40 vídeos con FE ≥ 55 %, 50 [50–50] cuadros/s): pico 0,84 [0,81–0,87], mismo sitio 0,81 [0,78–0,85].
 
-#### Rastreador frente al movimiento verdadero
+### Rastreador frente al movimiento verdadero
 
-El rastreador del banco (bloques de 2,5 mm, mediana de ±2 vecinos, 36 puntos) sobre 1 secuencia(s) sintética(s) de CREATIS (Evain et al. 2022), cuyo speckle sigue a la malla que la generó: de telediástole a telesístole lee 0,66 [0,62–0,81] del acortamiento verdadero de las capas internas de la pared, con un error de 1,8 [1,5–2,2] mm en la posición final. En el simulador el mismo rastreador lee 0,55 del acortamiento del contorno del modelo: si las dos fracciones coinciden, el speckle del simulador sigue a su tejido como el de una simulación lagrangiana.
+El rastreador del banco (bloques de 2,5 mm, mediana de ±2 vecinos, 36 puntos) sobre 1 secuencia(s) sintética(s) de CREATIS (Evain et al. 2022), cuyo speckle sigue a la malla que la generó: de telediástole a telesístole lee 0,66 [0,62–0,81] del acortamiento verdadero de las capas internas de la pared, con un error de 1,8 [1,5–2,2] mm en la posición final. En el simulador el mismo rastreador lee 0,57 del acortamiento del contorno del modelo: si las dos fracciones coinciden, el speckle del simulador sigue a su tejido como el de una simulación lagrangiana.
 
 | secuencia | capa | verdadero (%) | rastreado (%) | fracción | error (mm) |
 |---|---:|---:|---:|---:|---:|
@@ -230,7 +237,7 @@ El rastreador del banco (bloques de 2,5 mm, mediana de ±2 vecinos, 36 puntos) s
 | patient050.mat | 1 | −20,0 | −16,2 | 0,81 | 1,5 |
 | patient050.mat | 2 | −17,4 | −11,6 | 0,66 | 1,8 |
 
-#### Rastreo de los trazados
+### Rastreo de los trazados
 
 El contorno endocárdico de telediástole, 2 px dentro de la pared y en 13 puntos, llevado cuadro a cuadro hasta telesístole con bloques de 7 px y la mediana de los desplazamientos vecinos, frente al mismo contorno trazado en telesístole. En EchoNet el contorno sale de los trazados de los expertos (los extremos de las cuerdas de los discos); en el simulador, del mapa de estructuras, y el cine se reduce al formato de EchoNet (112 px) con el mismo recorte. Una razón de 1 es un rastreador que sigue la pared como la sigue el trazado.
 

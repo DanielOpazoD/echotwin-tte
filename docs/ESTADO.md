@@ -101,8 +101,10 @@ Decisión 359: la textura del banco es la media de seis
 realizaciones; `rodero-cole` 15 mejor, 0 peor, 6 igual. Decisión 360: el cuatro cámaras de Rodero gira 15° sobre el
 eje del VI hasta su propia cruz (la masa gris bajo la bisagra septal mitral era el septo basal y la grasa entre dos
 aurículas que no se tocaban en el plano declarado); la caída del GLS del modelo que traía resultó ser la fragilidad de
-esa medida, que cuenta los escalones del contorno. Siguiente: el GLS del modelo sobre puntos materiales, y la revisión
-de Daniel con las hojas.
+esa medida, que cuenta los escalones del contorno. Decisión 361: el GLS del modelo en el banco es el de su tejido,
+seguido por las coordenadas materiales que anclan el speckle (analítico −19,3 %; Rodero −13,4 % en su cuatro cámaras, y
+su speckle lo sigue). Siguiente: que el casquete apical de Rodero se engrose en sístole (decisión 362), y la revisión de
+Daniel con las hojas.
 
 ## Cómo seguir
 
