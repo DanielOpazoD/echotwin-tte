@@ -8,7 +8,12 @@
 import { homedir } from 'node:os';
 import { NORMAL_RANGES } from '@/clinical/guidelines/normalRanges';
 import { biplaneMl, ejectionFraction } from '@/clinical/realism/lvVolume';
-import { iqrDistance, RAYLEIGH_SNR, type Quantiles } from '@/clinical/realism/speckleStats';
+import {
+  iqrDistance,
+  RAYLEIGH_SNR,
+  realizationStats,
+  type Quantiles,
+} from '@/clinical/realism/speckleStats';
 import type { TuringScore } from '@/clinical/realism/turing';
 import type { Comparison } from '@/clinical/realism/verdict';
 import type { CineResult } from './bench';
@@ -80,6 +85,9 @@ export interface Results {
     excessKurtosis: number;
     residualStd: number;
     medianGrey: number;
+    /** End diastole of the four-chamber view: the mean over this many realizations, and the skewness's spread (decision 359). */
+    realizations?: number;
+    skewnessSd?: number;
   }[];
   envelope: { caseId: string; view: string; snr: number; windowedSnr: number; kAlpha: number }[];
   /** The traced contour tracked from end-diastole to end-systole in EchoNet's format, per case (four-chamber). */
@@ -167,15 +175,24 @@ export function aggregate(input: {
   }));
   const texture: Results['texture'] = def.flatMap((c) =>
     c.metrics.texture
-      ? (['ed', 'es'] as const).map((ph) => ({
-          caseId: c.job.caseId,
-          view: c.job.view,
-          phase: ph === 'ed' ? ('TD' as const) : ('TS' as const),
-          skewness: c.metrics.texture![ph].skewness,
-          excessKurtosis: c.metrics.texture![ph].excessKurtosis,
-          residualStd: c.metrics.texture![ph].residualStd,
-          medianGrey: c.metrics.texture![ph].medianGrey,
-        }))
+      ? (['ed', 'es'] as const).map((ph) => {
+          const t = c.metrics.texture![ph];
+          // end diastole of the four-chamber view: the mean over the realizations of the scatterers (decision 359)
+          const many = ph === 'ed' && c.textureEd && c.textureEd.length > 1 ? c.textureEd : null;
+          const m = many
+            ? realizationStats(many, ['skewness', 'excessKurtosis', 'residualStd', 'medianGrey'])
+            : null;
+          return {
+            caseId: c.job.caseId,
+            view: c.job.view,
+            phase: ph === 'ed' ? ('TD' as const) : ('TS' as const),
+            skewness: m ? m.skewness.mean : t.skewness,
+            excessKurtosis: m ? m.excessKurtosis.mean : t.excessKurtosis,
+            residualStd: m ? m.residualStd.mean : t.residualStd,
+            medianGrey: m ? m.medianGrey.mean : t.medianGrey,
+            ...(many ? { realizations: many.length, skewnessSd: m!.skewness.sd } : {}),
+          };
+        })
       : [],
   );
   const tracking: Results['tracking'] = def.flatMap((c) =>
@@ -596,12 +613,12 @@ export function reportMd(r: Results): string {
     );
   }
   L.push(
-    '| caso | vista | fase | asimetría | curtosis | desviación | gris mediano |',
-    '|---|---|---|---:|---:|---:|---:|',
+    '| caso | vista | fase | asimetría | curtosis | desviación | gris mediano | realizaciones (DE de la asimetría) |',
+    '|---|---|---|---:|---:|---:|---:|---|',
   );
   for (const t of r.texture)
     L.push(
-      `| ${short(t.caseId)} | ${t.view} | ${t.phase} | ${fmt(t.skewness)} | ${fmt(t.excessKurtosis)} | ${fmt(t.residualStd, 1)} | ${fmt(t.medianGrey, 0)} |`,
+      `| ${short(t.caseId)} | ${t.view} | ${t.phase} | ${fmt(t.skewness)} | ${fmt(t.excessKurtosis)} | ${fmt(t.residualStd, 1)} | ${fmt(t.medianGrey, 0)} | ${t.realizations ? `${t.realizations} (${fmt(t.skewnessSd ?? NaN)})` : '1'} |`,
     );
   L.push(
     '',

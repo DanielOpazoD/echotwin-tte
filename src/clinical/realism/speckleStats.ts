@@ -382,3 +382,22 @@ export function kernelEnvelopeCorrelation(h: ComplexKernel, axis: 'x' | 'z'): Fl
 export function kernelSpeckleCell(h: ComplexKernel, axis: 'x' | 'z'): number {
   return halfWidthAtHalf(kernelEnvelopeCorrelation(h, axis), axis === 'x' ? h.dxMm : h.dzMm);
 }
+
+/**
+ * The mean and the standard deviation (n − 1) of some numeric fields over several realizations (decision 359): the
+ * bench's myocardial texture, which one realization of sparse strong scatterers moved by ±0.1–0.15 in skewness.
+ */
+export function realizationStats<K extends string>(
+  rows: readonly Record<K, number>[],
+  keys: readonly K[],
+): Record<K, { mean: number; sd: number }> {
+  const out = {} as Record<K, { mean: number; sd: number }>;
+  for (const k of keys) {
+    const v = rows.map((r) => r[k]);
+    const mean = v.reduce((a, b) => a + b, 0) / v.length;
+    const sd =
+      v.length > 1 ? Math.sqrt(v.reduce((a, b) => a + (b - mean) ** 2, 0) / (v.length - 1)) : 0;
+    out[k] = { mean, sd };
+  }
+  return out;
+}

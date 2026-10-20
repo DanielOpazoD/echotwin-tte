@@ -1,7 +1,7 @@
 {
  "engine": "actual",
- "commit": "ad264a0",
- "generatedAt": "2026-10-20T03:08:24.896Z",
+ "commit": "a22d8c5",
+ "generatedAt": "2026-10-20T08:11:54.611Z",
  "gaps": [
   {
    "id": "movimiento.gls-seguido",
@@ -27,16 +27,16 @@
   {
    "id": "clinica.textura.skewness",
    "metric": "asimetría del gris residual del miocardio (A4C, TD)",
-   "sim": 0.18890647623910548,
+   "sim": 0.23931774108980827,
    "ref": 0.5305565822597564,
-   "score": 1.3888379567048605
+   "score": 1.1839116978324993
   },
   {
    "id": "clinica.textura.residualStd",
    "metric": "desviación del gris residual del miocardio (A4C, TD)",
-   "sim": 14.814567641196886,
+   "sim": 14.918572946483607,
    "ref": 19.640521379448494,
-   "score": 1.1376024191205192
+   "score": 1.1130856721078537
   },
   {
    "id": "fisica.lateral.9cm",
@@ -51,13 +51,6 @@
    "sim": 407.49999999999994,
    "ref": 336.283185840708,
    "score": 0.8918961571056365
-  },
-  {
-   "id": "clinica.textura.excessKurtosis",
-   "metric": "curtosis del gris residual del miocardio (A4C, TD)",
-   "sim": 0.22636639225972388,
-   "ref": 0.953151903009803,
-   "score": 0.8914251347218036
   },
   {
    "id": "fisica.axial.9cm",
@@ -79,6 +72,13 @@
    "sim": -20.443595478344143,
    "ref": -15.693354725553824,
    "score": 0.7917067921317198
+  },
+  {
+   "id": "clinica.textura.excessKurtosis",
+   "metric": "curtosis del gris residual del miocardio (A4C, TD)",
+   "sim": 0.31903706251216835,
+   "ref": 0.953151903009803,
+   "score": 0.777761662496981
   },
   {
    "id": "volumen.fe-imagen-modelo",
@@ -111,9 +111,9 @@
   {
    "id": "clinica.textura.medianGrey",
    "metric": "gris mediano del miocardio (A4C, TD)",
-   "sim": 109,
+   "sim": 110.33333333333333,
    "ref": 100,
-   "score": 0.32142857142857145
+   "score": 0.3690476190476189
   },
   {
    "id": "movimiento.decorrelacion-echonet",
