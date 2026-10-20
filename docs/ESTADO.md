@@ -95,7 +95,9 @@ igual. Decisión 356: la convolución dibuja los granos del parénquima
 con dispersores fuertes escasos (0,2 %, ×22); `cole` acerca en 14 brechas sin empeorar ninguna y `rodero-cole` da 14
 mejor, 1 peor (la curtosis de su realización), 6 igual. Las hojas de revisión dibujan Rodero y la convolución
 (`REVIEW_ANATOMY`, `REVIEW_IMAGE`). Desde la decisión 357 la anatomía y la imagen están arriba en el panel Dev
-(menú de deslizadores → Panel Dev). Siguiente: la revisión de Daniel con esas hojas.
+(menú de deslizadores → Panel Dev). Decisión 358: las paredes auriculares de Rodero
+miden 1,7 mm (la TC, 1,45–1,8) y su grasa epicárdica queda en los surcos auriculoventriculares e interventriculares.
+Siguiente: el cuatro cámaras de Rodero por su propia cruz (359), y la revisión de Daniel con las hojas.
 
 ## Cómo seguir
 
