@@ -115,6 +115,7 @@ describe('volume heart on the GPU (decision 353)', async () => {
       ['uVolSL', m.sL],
       ['uVolSR', m.sR],
       ['uVolLambda', m.lambda],
+      ['uVolCapLambda', m.capLambda],
       ['uVolAlpha', m.alpha],
       ['uVolTwist', m.twist],
       ['uVolRoof', m.roof],

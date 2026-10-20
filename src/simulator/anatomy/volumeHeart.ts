@@ -111,6 +111,35 @@ export const LV_BAND_CM: readonly [number, number] = [-1, 0];
 export const ATRIAL_BAND_CM: readonly [number, number] = [0.5, -0.5];
 /** Distances (over the RV's slice radius) over which the RV free wall's inward motion fades out. */
 export const RV_REACH: readonly [number, number] = [1.6, 2.4];
+/**
+ * The apical cap (decision 362): the cavity ends where its mean endocardial radius falls to CAVITY_TIP_CM, and over the
+ * APICAL_RAMP_CM before that the LV's longitudinal stretch turns from the cavity's to the cap's, which thickens as the
+ * wall around it does.
+ */
+export const CAVITY_TIP_CM = 0.1;
+export const APICAL_RAMP_CM = 1;
+/**
+ * Where, along the LV (cm from the mitral centre at end diastole), lies the tissue that is now u cm apical of the
+ * descended base (decision 362), when the longitudinal stretch is lc up to zRamp, la beyond zTip and linear in between:
+ * the inverse of the stretch's integral. In the ramp it is the root of a quadratic, taken in the form that stays exact as
+ * la and lc meet (the GPU, in single precision, lost half the digits of the other near end diastole).
+ */
+export function apicalStretchInverse(
+  u: number,
+  lc: number,
+  la: number,
+  zRamp: number,
+  zTip: number,
+): number {
+  const w = zTip - zRamp,
+    u1 = lc * zRamp,
+    u2 = u1 + ((lc + la) * w) / 2;
+  if (u <= u1) return u / lc;
+  if (u >= u2) return zTip + (u - u2) / la;
+  const a = (la - lc) / (2 * w),
+    c = u1 - u;
+  return zRamp + (-2 * c) / (lc + Math.sqrt(lc * lc - 4 * a * c));
+}
 /** Share of the LV length beyond which the LV wall is the apex. */
 export const APEX_SHARE = 0.85;
 /** Septal → lateral coordinate (cm) over which the base's descent goes from MAPSE (LV side) to TAPSE (RV free wall). */
@@ -338,6 +367,8 @@ export interface VolumeGpuData {
   hand: number;
   /** Per atrium (left, right): axis centre x, y (cm), reach (cm), 1 when the volume has it. */
   atria: number[];
+  /** Where the apical ramp starts and where the cavity ends (cm, decision 362). */
+  apicalRamp: [number, number];
 }
 /** Columns of a slice in `VolumeGpuData.slices`: LV cx, cy, RV cx, cy, radius, then 36 endocardial and 36 epicardial radii. */
 export const GPU_SLICE_COLUMNS = 5 + 2 * SECTORS;
@@ -351,6 +382,8 @@ export interface MotionParams {
   sL: number;
   sR: number;
   lambda: number;
+  /** The apical cap's longitudinal stretch (decision 362): the cap thickens as the wall at the ramp's start does. */
+  capLambda: number;
   alpha: number;
   twist: number;
   roof: number;
@@ -855,6 +888,39 @@ export function volumeHeart(
     rEpi: smoothTable(rawEpi),
   };
   const rvR = Float64Array.from(rvArea, (a) => Math.sqrt(a / Math.PI));
+  // the cavity's tip and the start of the apical ramp (decision 362)
+  const meanRow = (t: Float64Array, si: number): number => {
+    let acc = 0;
+    for (let ti = 0; ti < SECTORS; ti++) acc += t[si * SECTORS + ti]!;
+    return acc / SECTORS;
+  };
+  let zTip = L - SLICE_CM;
+  for (let si = 1; si < nSlices; si++) {
+    const m0 = meanRow(lvSlices.rEndo, si - 1),
+      m1 = meanRow(lvSlices.rEndo, si);
+    if (m0 >= CAVITY_TIP_CM && m1 < CAVITY_TIP_CM) {
+      zTip = Math.min(L - SLICE_CM, (si - 1 + (m0 - CAVITY_TIP_CM) / (m0 - m1)) * SLICE_CM);
+      break;
+    }
+  }
+  const zRamp = Math.max(0.5 * zTip, zTip - APICAL_RAMP_CM);
+  const rampW = zTip - zRamp;
+  /** The cavity's longitudinal stretch for a base descent s0 and the cap's stretch: the LV's end stays at L. */
+  const cavityLambda = (s0: number, la: number): number =>
+    (L - s0 - la * (rampW / 2 + (L - zTip))) / (zRamp + rampW / 2);
+  /** The wall's thickening at height z under the cavity's stretch lc and emptied fraction alpha, mean of the sectors. */
+  const wallThickening = (z: number, lc: number, alpha: number): number => {
+    const si = Math.min(nSlices - 1, Math.max(0, Math.round(z / SLICE_CM)));
+    let acc = 0;
+    for (let ti = 0; ti < SECTORS; ti++) {
+      const re = lvSlices.rEndo[si * SECTORS + ti]!,
+        rp = lvSlices.rEpi[si * SECTORS + ti]!;
+      const endo = re * Math.sqrt((1 - alpha) / lc),
+        epi = Math.sqrt(Math.max(0, rp * rp - alpha * re * re) / lc);
+      acc += rp > re ? (epi - endo) / (rp - re) : 1;
+    }
+    return acc / SECTORS;
+  };
   const slice = (z: number, t: Float64Array): number => {
     const f = Math.min(nSlices - 1, Math.max(0, z / SLICE_CM));
     const i0 = Math.floor(f),
@@ -937,8 +1003,14 @@ export function volumeHeart(
   const motionParams = (pose: HeartPose, ed: HeartPose): MotionParams => {
     const sL = pose.zAnn - ed.zAnn;
     const sR = pose.tvZ - ed.tvZ;
-    const lambda = 1 - sL / L;
     const alpha = Math.max(0, 1 - pose.state.lvVolumeMl / pose.state.edvMl);
+    // the apical cap thickens as the wall at the ramp's start does, and the cavity takes the rest of the base's descent
+    let lambda = 1 - sL / L,
+      capLambda = 1;
+    for (let it = 0; it < 4; it++) {
+      capLambda = wallThickening(zRamp, lambda, alpha);
+      lambda = cavityLambda(sL, capLambda);
+    }
     const twist = pose.state.contraction * hand * (Math.PI / 180);
     const roof = Math.min(-0.5, zRoof);
     // each atrium follows the volume curve of the analytic atrium: the volume's longitudinal step already stretches it
@@ -962,18 +1034,28 @@ export function volumeHeart(
       });
     if (!keptScales) atrialScaleBins.set(bin, atrialScales);
     const rvRatio = pose.rvScale / ed.rvScale;
-    return { sL, sR, lambda, alpha, twist, roof, atrialScales, rvRatio };
+    return { sL, sR, lambda, capLambda, alpha, twist, roof, atrialScales, rvRatio };
   };
   const backward = (
     mp: MotionParams,
   ): ((x: number, y: number, z: number, out: ReferencePoint) => void) => {
-    const { sL, sR, lambda, alpha, twist, roof, atrialScales, rvRatio } = mp;
+    const { sL, sR, lambda, capLambda, alpha, twist, roof, atrialScales, rvRatio } = mp;
+    /** The longitudinal stretch at reference height zr (decision 362): the cavity's, a ramp, the cap's. */
+    const stretchAt = (zr: number): number =>
+      zr <= zRamp
+        ? lambda
+        : zr >= zTip
+          ? capLambda
+          : lambda + ((capLambda - lambda) * (zr - zRamp)) / rampW;
+    /** Where a point now at height z (between the base, descended by s0, and L) lay. */
+    const longBack = (z: number, s0: number): number =>
+      apicalStretchInverse(z - s0, cavityLambda(s0, capLambda), capLambda, zRamp, zTip);
     return (x, y, z, out) => {
       // the LV's radial motion and twist, in the cross-section, toward the slice's centre
       // (the longitudinal step leaves x and y alone, so the slice is found by undoing it first)
       const s0 = sL + (sR - sL) * smooth(RV_DESCENT_FROM_CM, RV_DESCENT_TO_CM, x);
-      const zr =
-        z >= L || z <= roof ? z : z >= s0 ? (z - s0) / (1 - s0 / L) : (z - s0) / (1 + s0 / -roof);
+      const zr = z >= L || z <= roof ? z : z >= s0 ? longBack(z, s0) : (z - s0) / (1 + s0 / -roof);
+      const lz = stretchAt(zr);
       let px = x,
         py = y,
         rot = 0,
@@ -990,11 +1072,11 @@ export function volumeHeart(
         const re = sector(zr, th0, lvSlices.rEndo),
           rp = sector(zr, th0, lvSlices.rEpi);
         const A = alpha * re * re;
-        const rEpiNow = Math.sqrt(Math.max(0, rp * rp - A) / lambda);
+        const rEpiNow = Math.sqrt(Math.max(0, rp * rp - A) / lz);
         lvReach = 1 - smooth(rEpiNow, rEpiNow + LV_FADE_CM, rNow);
         const w = wz * lvReach;
         if (w > 0) {
-          const r = rNow + (Math.sqrt(lambda * rNow * rNow + A) - rNow) * w;
+          const r = rNow + (Math.sqrt(lz * rNow * rNow + A) - rNow) * w;
           const zeta = Math.min(1, Math.max(0, zr / L));
           rot = -twist * (TWIST_BASE_DEG + (TWIST_APEX_DEG - TWIST_BASE_DEG) * zeta) * w;
           const th = Math.atan2(dy, dx) + rot;
@@ -1218,6 +1300,7 @@ export function volumeHeart(
       lvLength: L,
       hand,
       atria: atria.flatMap((a2) => [a2.cx, a2.cy, a2.r, a2.n ? 1 : 0]),
+      apicalRamp: [zRamp, zTip],
     };
     return gpuData;
   };
