@@ -358,6 +358,12 @@ describe('volume heart in motion (decision 350)', () => {
       return n * hh ** 3;
     };
     expect(Math.abs(capVolume(es) / capVolume(ed) - 1)).toBeLessThan(0.05);
+    // the LV's end stays put wherever the base descends, the septum and the RV side toward the tricuspid's descent too
+    const backEs = vol.toReference(es, ed);
+    for (const x of [1, 0, -2.5, -3.5]) {
+      backEs(x, 0.2, F.lvLength - 1e-4, ref);
+      expect(ref.z, `x ${x}`).toBeCloseTo(F.lvLength, 3);
+    }
     // the identity at end diastole holds through the ramp too, where the map is the root of a quadratic
     const back = vol.toReference(ed, ed);
     for (let z = 6; z < F.lvLength; z += 0.25) {

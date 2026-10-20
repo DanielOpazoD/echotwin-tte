@@ -1042,19 +1042,23 @@ export function volumeHeart(
   const backward = (
     mp: MotionParams,
   ): ((x: number, y: number, z: number, out: ReferencePoint) => void) => {
-    const { sL, sR, lambda, capLambda, alpha, twist, roof, atrialScales, rvRatio } = mp;
-    /** The longitudinal stretch at reference height zr (decision 362): the cavity's, then the cap's ramp to the apex. */
-    const stretchAt = (zr: number): number =>
-      zr <= zTip ? lambda : lambda + (capLambda - lambda) * Math.min(1, (zr - zTip) / capCm);
-    /** Where a point now at height z (between the base, descended by s0, and L) lay. */
-    const longBack = (z: number, s0: number): number =>
-      apicalStretchInverse(z - s0, cavityLambda(s0, capLambda), capLambda, zTip, L);
+    const { sL, sR, capLambda, alpha, twist, roof, atrialScales, rvRatio } = mp;
+    /** The longitudinal stretch at reference height zr (decision 362): the cavity's lc, then the cap's ramp to the apex. */
+    const stretchAt = (zr: number, lc: number): number =>
+      zr <= zTip ? lc : lc + (capLambda - lc) * Math.min(1, (zr - zTip) / capCm);
     return (x, y, z, out) => {
       // the LV's radial motion and twist, in the cross-section, toward the slice's centre
       // (the longitudinal step leaves x and y alone, so the slice is found by undoing it first)
       const s0 = sL + (sR - sL) * smooth(RV_DESCENT_FROM_CM, RV_DESCENT_TO_CM, x);
-      const zr = z >= L || z <= roof ? z : z >= s0 ? longBack(z, s0) : (z - s0) / (1 + s0 / -roof);
-      const lz = stretchAt(zr);
+      // the cavity's stretch where the base descends by s0 (the septum and the RV side descend toward the tricuspid's)
+      const lc = cavityLambda(s0, capLambda);
+      const zr =
+        z >= L || z <= roof
+          ? z
+          : z >= s0
+            ? apicalStretchInverse(z - s0, lc, capLambda, zTip, L)
+            : (z - s0) / (1 + s0 / -roof);
+      const lz = stretchAt(zr, lc);
       let px = x,
         py = y,
         rot = 0,

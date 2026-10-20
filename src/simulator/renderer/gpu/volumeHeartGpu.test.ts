@@ -114,7 +114,6 @@ describe('volume heart on the GPU (decision 353)', async () => {
     for (const [name, v] of [
       ['uVolSL', m.sL],
       ['uVolSR', m.sR],
-      ['uVolLambda', m.lambda],
       ['uVolCapLambda', m.capLambda],
       ['uVolAlpha', m.alpha],
       ['uVolTwist', m.twist],
@@ -123,6 +122,9 @@ describe('volume heart on the GPU (decision 353)', async () => {
     ] as const)
       expect(set.get(name), name).toEqual([v]);
     expect(set.get('uVolAtrialScale')).toEqual(m.atrialScales);
+    // the apical cap's ramp, from the cavity's tip to the apex (decision 362)
+    expect(set.get('uVolApicalRamp')).toEqual(vh.gpu().apicalRamp);
+    expect(vh.gpu().apicalRamp[1]).toBe(vh.gpu().lvLength);
     expect(set.get('uVolMotion')).toEqual([1]);
   });
 });
