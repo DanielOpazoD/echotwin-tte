@@ -131,6 +131,7 @@ export function volumeHeartGpu(vh: VolumeHeart, endDiastole: HeartPose): HeartVo
       gl.uniform3fv(u(gl, prog, 'uVolFZ'), d.frame.ez);
       gl.uniform1f(u(gl, prog, 'uVolK'), d.k);
       gl.uniform1f(u(gl, prog, 'uVolL'), d.lvLength);
+      gl.uniform2f(u(gl, prog, 'uVolApicalRamp'), d.apicalRamp[0], d.apicalRamp[1]);
       gl.uniform1f(u(gl, prog, 'uVolHand'), d.hand);
       gl.uniform1i(u(gl, prog, 'uVolNSlices'), d.nSlices);
       gl.uniform1i(u(gl, prog, 'uVolSectors'), SECTORS);
@@ -165,7 +166,7 @@ export function volumeHeartGpu(vh: VolumeHeart, endDiastole: HeartPose): HeartVo
       gl.uniform1i(u(gl, prog, 'uVolApparatus'), 1);
       gl.uniform1f(u(gl, prog, 'uVolSL'), m.sL);
       gl.uniform1f(u(gl, prog, 'uVolSR'), m.sR);
-      gl.uniform1f(u(gl, prog, 'uVolLambda'), m.lambda);
+      gl.uniform1f(u(gl, prog, 'uVolCapLambda'), m.capLambda);
       gl.uniform1f(u(gl, prog, 'uVolAlpha'), m.alpha);
       gl.uniform1f(u(gl, prog, 'uVolTwist'), m.twist);
       gl.uniform1f(u(gl, prog, 'uVolRoof'), m.roof);

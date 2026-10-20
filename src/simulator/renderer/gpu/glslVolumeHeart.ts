@@ -22,6 +22,7 @@ uniform vec3 uVolMO, uVolMX, uVolMY, uVolMZ;
 uniform float uVolFar;
 uniform vec3 uVolFO, uVolFX, uVolFY, uVolFZ;
 uniform float uVolK, uVolL, uVolHand;
+uniform vec2 uVolApicalRamp;        // where the stretch's ramp starts (the cavity's tip) and ends (the apex), cm
 uniform int uVolNSlices, uVolSectors;
 uniform float uVolSliceCm;
 uniform vec4 uVolAtria[2];          // cx, cy, reach, present
@@ -32,7 +33,7 @@ uniform vec4 uVolBand;              // LV taper above the annulus (−1, 0), atr
 // the frame's motion
 uniform int uVolMotion;
 uniform int uVolApparatus;
-uniform float uVolSL, uVolSR, uVolLambda, uVolAlpha, uVolTwist, uVolRoof, uVolRvRatio;
+uniform float uVolSL, uVolSR, uVolCapLambda, uVolAlpha, uVolTwist, uVolRoof, uVolRvRatio;
 uniform vec2 uVolAtrialScale;
 
 bool volHas(uvec2 set, int l) {
@@ -88,11 +89,32 @@ vec2 volAtrialBack(int ai, float px, float py, float zr) {
   float sc = 1.0 + (uVolAtrialScale[ai] - 1.0) * w;
   return vec2(a.x + (px - a.x) / sc, a.y + (py - a.y) / sc);
 }
+/** The cavity's longitudinal stretch for a base descent s0: the LV's end stays at L (decision 362). */
+float volCavityLambda(float s0) {
+  float zR = uVolApicalRamp.x, zT = uVolApicalRamp.y, w = zT - zR;
+  return (uVolL - s0 - uVolCapLambda * (0.5 * w + (uVolL - zT))) / (zR + 0.5 * w);
+}
+/** The longitudinal stretch at reference height zr: the cavity's lc, then the apical cap's ramp (decision 362). */
+float volStretchAt(float zr, float lc) {
+  float zR = uVolApicalRamp.x, zT = uVolApicalRamp.y;
+  return zr <= zR ? lc : zr >= zT ? uVolCapLambda : lc + (uVolCapLambda - lc) * (zr - zR) / (zT - zR);
+}
+/** Where a point now at height z (between the base, descended by s0, and L) lay: the inverse of the stretch's integral. */
+float volLongBack(float z, float s0, float lc) {
+  float zR = uVolApicalRamp.x, zT = uVolApicalRamp.y, w = zT - zR, la = uVolCapLambda;
+  float u = z - s0, u1 = lc * zR, u2 = u1 + 0.5 * (lc + la) * w;
+  if (u <= u1) return u / lc;
+  if (u >= u2) return zT + (u - u2) / la;
+  float a = (la - lc) / (2.0 * w), c = u1 - u;
+  return zR - 2.0 * c / (lc + sqrt(lc * lc - 4.0 * a * c));
+}
 /** Where the tissue now at anatomical point (x, y, z) (cm) lay at end diastole; the twist that carried it in .w. */
 vec4 volBackward(float x, float y, float z) {
   float sL = uVolSL, sR = uVolSR, L = uVolL, roof = uVolRoof;
   float s0 = sL + (sR - sL) * volSmooth(uVolRvShape.x, uVolRvShape.y, x);
-  float zr = z >= L || z <= roof ? z : z >= s0 ? (z - s0) / (1.0 - s0 / L) : (z - s0) / (1.0 + s0 / -roof);
+  float lc = volCavityLambda(s0);
+  float zr = z >= L || z <= roof ? z : z >= s0 ? volLongBack(z, s0, lc) : (z - s0) / (1.0 + s0 / -roof);
+  float lz = volStretchAt(zr, lc);
   float px = x, py = y, rot = 0.0, lvReach = 0.0;
   float wz = volSmooth(uVolBand.x, uVolBand.y, zr);
   if (wz > 0.0) {
@@ -102,11 +124,11 @@ vec4 volBackward(float x, float y, float z) {
     float th0 = atan(dy, dx);
     float re = volSector(zr, th0, 5), rp = volSector(zr, th0, 5 + uVolSectors);
     float A = uVolAlpha * re * re;
-    float rEpiNow = sqrt(max(0.0, rp * rp - A) / uVolLambda);
+    float rEpiNow = sqrt(max(0.0, rp * rp - A) / lz);
     lvReach = 1.0 - volSmooth(rEpiNow, rEpiNow + uVolTwistProfile.z, rNow);
     float w = wz * lvReach;
     if (w > 0.0) {
-      float r = rNow + (sqrt(uVolLambda * rNow * rNow + A) - rNow) * w;
+      float r = rNow + (sqrt(lz * rNow * rNow + A) - rNow) * w;
       float zeta = clamp(zr / L, 0.0, 1.0);
       rot = -uVolTwist * (uVolTwistProfile.x + (uVolTwistProfile.y - uVolTwistProfile.x) * zeta) * w;
       float th = atan(dy, dx) + rot;

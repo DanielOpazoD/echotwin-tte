@@ -17,6 +17,7 @@ import { sceneClassifier } from './sceneClassifier';
 import { makeSample, Structure, Tissue } from './tissue';
 import {
   analyticAtrialVolumes,
+  apicalStretchInverse,
   TWIST_APEX_DEG,
   TWIST_BASE_DEG,
   volumeHeart,
@@ -310,6 +311,106 @@ describe('volume heart in motion (decision 350)', () => {
     expect(ref.z).toBeCloseTo(0, 6);
     back(0, 0, F.lvLength, ref);
     expect(ref.z).toBeCloseTo(F.lvLength, 6);
+  });
+
+  it('thickens the apical cap as the wall before it, and brings the cavity’s tip toward the base (decision 362)', () => {
+    const m = vol.motionParams(es, ed);
+    // the cap's mean stretch: the ramp from the cavity's stretch at its tip to the apex's
+    const capStretch = (m.lambda + m.capLambda) / 2;
+    expect(capStretch).toBeGreaterThan(1.2);
+    // along the long axis, through the apex: where the cavity ends and where the wall ends
+    const along = (pose: typeof ed) => {
+      const cls = vol.classifier({ motion: { pose, endDiastole: ed } });
+      const q = makeSample();
+      let tip = 0,
+        epi = 0;
+      for (let z = 5; z < F.lvLength + 0.5; z += 0.005) {
+        if (!cls(...fromAnat(0, 0, z), q)) continue;
+        if (q.structure === Structure.LvCavity) tip = z;
+        else if (LV_WALL.has(q.structure)) epi = z;
+      }
+      return { tip, epi };
+    };
+    const a = along(ed),
+      b = along(es);
+    expect(a.tip - b.tip).toBeGreaterThan(0.1);
+    // the cap along the axis thickens by the ramp's stretch at its middle (the axis reaches past the mean tip)
+    const [z0, z1] = vol.gpu().apicalRamp;
+    const mid = (a.tip + a.epi) / 2;
+    const expected = m.lambda + ((m.capLambda - m.lambda) * (mid - z0)) / (z1 - z0);
+    expect(Math.abs((b.epi - b.tip) / (a.epi - a.tip) - expected)).toBeLessThan(0.05);
+    expect(Math.abs(b.epi - a.epi)).toBeLessThan(0.05);
+    // the cap's myocardium (the tissue whose end-diastolic height lies beyond the cavity's tip) keeps its volume
+    const o = F.frame;
+    const refZ = (q: { mx: number; my: number; mz: number }): number =>
+      (q.mx - o.origin[0]) * o.ez[0] +
+      (q.my - o.origin[1]) * o.ez[1] +
+      (q.mz - o.origin[2]) * o.ez[2];
+    const capVolume = (pose: typeof ed): number => {
+      const cls = vol.classifier({ motion: { pose, endDiastole: ed } });
+      const q = makeSample();
+      let n = 0;
+      const hh = 0.05;
+      for (let x = -3; x <= 3; x += hh)
+        for (let y = -3; y <= 3; y += hh)
+          for (let z = z0 - 0.6; z <= F.lvLength + 0.3; z += hh)
+            if (cls(...fromAnat(x, y, z), q) && LV_WALL.has(q.structure) && refZ(q) >= z0) n++;
+      return n * hh ** 3;
+    };
+    expect(Math.abs(capVolume(es) / capVolume(ed) - 1)).toBeLessThan(0.05);
+    // the LV's end stays put wherever the base descends, the septum and the RV side toward the tricuspid's descent too
+    const backEs = vol.toReference(es, ed);
+    for (const x of [1, 0, -2.5, -3.5]) {
+      backEs(x, 0.2, F.lvLength - 1e-4, ref);
+      expect(ref.z, `x ${x}`).toBeCloseTo(F.lvLength, 3);
+    }
+    // the identity at end diastole holds through the ramp too, where the map is the root of a quadratic
+    const back = vol.toReference(ed, ed);
+    for (let z = 6; z < F.lvLength; z += 0.25) {
+      back(0.4, 0.3, z, ref);
+      expect(ref.z).toBeCloseTo(z, 6);
+    }
+  });
+
+  it('inverts the stretch of the cavity, the ramp and the cap, exactly when the two stretches meet (decision 362)', () => {
+    const forward = (t: number, lc: number, la: number, z1: number, z2: number): number =>
+      t <= z1
+        ? lc * t
+        : t >= z2
+          ? lc * z1 + ((lc + la) * (z2 - z1)) / 2 + la * (t - z2)
+          : lc * z1 + lc * (t - z1) + ((la - lc) * (t - z1) ** 2) / (2 * (z2 - z1));
+    for (const [lc, la] of [
+      [0.79, 1.41],
+      [1, 1],
+      [0.93, 0.93],
+    ] as const)
+      for (let t = 0; t <= 9; t += 0.1)
+        expect(apicalStretchInverse(forward(t, lc, la, 7.5, 8.5), lc, la, 7.5, 8.5)).toBeCloseTo(
+          t,
+          9,
+        );
+  });
+
+  it('ramps the stretch through the cap, without a step in the epicardium (decision 362)', () => {
+    // the epicardium's radius at end systole over its radius at end diastole, height by height: the 1 mm voxels make it
+    // jump by up to 0.07 between heights 1 mm apart; a step from the cavity's stretch to the cap's would drop it by a quarter
+    /** The epicardium's distance from the axis toward the lateral wall at height z (cm). */
+    const epiRadius = (cls: ReturnType<typeof vol.classifier>, z: number): number => {
+      const q = makeSample();
+      let r0 = 0;
+      for (let r = 0; r < 4; r += 0.005)
+        if (cls(...fromAnat(r, 0, z), q) && LV_WALL.has(q.structure)) r0 = r;
+      return r0;
+    };
+    const c0 = vol.classifier({ motion: { pose: ed, endDiastole: ed } }),
+      c1 = vol.classifier({ motion: { pose: es, endDiastole: ed } });
+    let prev = NaN;
+    for (let z = 6; z <= F.lvLength - 0.6; z += 0.1) {
+      const ratio = epiRadius(c1, z) / epiRadius(c0, z);
+      if (Number.isFinite(prev))
+        expect(Math.abs(ratio - prev), `z ${z.toFixed(1)}`).toBeLessThan(0.12);
+      prev = ratio;
+    }
   });
 
   it('twists the base clockwise and the apex counterclockwise seen from the apex (Kocabay 2014)', () => {
