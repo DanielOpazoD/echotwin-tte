@@ -97,7 +97,9 @@ mejor, 1 peor (la curtosis de su realización), 6 igual. Las hojas de revisión 
 (`REVIEW_ANATOMY`, `REVIEW_IMAGE`). Desde la decisión 357 la anatomía y la imagen están arriba en el panel Dev
 (menú de deslizadores → Panel Dev). Decisión 358: las paredes auriculares de Rodero
 miden 1,7 mm (la TC, 1,45–1,8) y su grasa epicárdica queda en los surcos auriculoventriculares e interventriculares.
-Siguiente: el cuatro cámaras de Rodero por su propia cruz (359), y la revisión de Daniel con las hojas.
+Decisión 359: la textura del banco es la media de seis
+realizaciones; `rodero-cole` 15 mejor, 0 peor, 6 igual. Siguiente: el cuatro cámaras de Rodero por su propia cruz (360,
+en borrador para Daniel), y la revisión de Daniel con las hojas.
 
 ## Cómo seguir
 
