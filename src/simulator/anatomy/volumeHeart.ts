@@ -1042,7 +1042,7 @@ export function volumeHeart(
   const backward = (
     mp: MotionParams,
   ): ((x: number, y: number, z: number, out: ReferencePoint) => void) => {
-    const { sL, sR, capLambda, alpha, twist, roof, atrialScales, rvRatio } = mp;
+    const { sL, sR, lambda, capLambda, alpha, twist, roof, atrialScales, rvRatio } = mp;
     /** The longitudinal stretch at reference height zr (decision 362): the cavity's lc, then the cap's ramp to the apex. */
     const stretchAt = (zr: number, lc: number): number =>
       zr <= zTip ? lc : lc + (capLambda - lc) * Math.min(1, (zr - zTip) / capCm);
@@ -1058,7 +1058,10 @@ export function volumeHeart(
           : z >= s0
             ? apicalStretchInverse(z - s0, lc, capLambda, zTip, L)
             : (z - s0) / (1 + s0 / -roof);
-      const lz = stretchAt(zr, lc);
+      // the radial step keeps the cross-section's area times its height with the LV's stretch (the base's descent at the
+      // mitral annulus). With the descent of each point the map shears where the descent turns toward the tricuspid's,
+      // and the wall grew 2.6 % instead of 1.5 % by end systole (decision 363)
+      const lz = stretchAt(zr, lambda);
       let px = x,
         py = y,
         rot = 0,

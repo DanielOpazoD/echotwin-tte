@@ -114,7 +114,7 @@ vec4 volBackward(float x, float y, float z) {
   float s0 = sL + (sR - sL) * volSmooth(uVolRvShape.x, uVolRvShape.y, x);
   float lc = volCavityLambda(s0);
   float zr = z >= L || z <= roof ? z : z >= s0 ? volLongBack(z, s0, lc) : (z - s0) / (1.0 + s0 / -roof);
-  float lz = volStretchAt(zr, lc);
+  float lz = volStretchAt(zr, volCavityLambda(sL)); // the LV's stretch: the radial step's area times height (decision 363)
   float px = x, py = y, rot = 0.0, lvReach = 0.0;
   float wz = volSmooth(uVolBand.x, uVolBand.y, zr);
   if (wz > 0.0) {

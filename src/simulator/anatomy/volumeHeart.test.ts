@@ -297,7 +297,8 @@ describe('volume heart in motion (decision 350)', () => {
 
   it('keeps the myocardium incompressible and empties the cavity with the case’s volume curve', () => {
     expect(v1.wall / v0.wall).toBeCloseTo(1, 1);
-    expect(Math.abs(v1.wall / v0.wall - 1)).toBeLessThan(0.03);
+    // 1.009 (1.024 when the radial step took each point's own stretch, decision 363)
+    expect(Math.abs(v1.wall / v0.wall - 1)).toBeLessThan(0.015);
     const target = es.state.lvVolumeMl / es.state.edvMl;
     expect(Math.abs(v1.cav / v0.cav - target)).toBeLessThan(0.05);
   });
