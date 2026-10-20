@@ -66,6 +66,7 @@ export interface Results {
     trackedNoClutter: number;
     modelMidwall: number;
     modelEndocardial: number;
+    modelLost: number;
     driftMm: number;
     driftMmNoClutter: number;
   }[];
@@ -161,6 +162,7 @@ export function aggregate(input: {
       trackedNoClutter: n?.tracked ?? NaN,
       modelMidwall: s.modelMidwall,
       modelEndocardial: s.modelEndocardial,
+      modelLost: s.modelLost,
       driftMm: s.driftMm,
       driftMmNoClutter: n?.driftMm ?? NaN,
     });
@@ -377,7 +379,7 @@ export function aggregate(input: {
     gaps.push({
       id: 'movimiento.gls-modelo',
       area: 'movimiento',
-      metric: 'GLS del contorno del modelo, 2 mm dentro de la pared (A4C, caso normal)',
+      metric: 'GLS del tejido del modelo, 2 mm dentro de la pared (A4C, caso normal)',
       sim: sN.modelMidwall,
       ref: -20,
       refLabel: 'normal −18 a −22 %',
@@ -666,7 +668,7 @@ export function reportMd(r: Results): string {
   L.push(
     '## 4. Movimiento: deformación longitudinal global y decorrelación',
     '',
-    'GLS del A4C: una línea 2 mm dentro de la pared desde el endocardio telediastólico, 40 puntos llevados cuadro a cuadro por correlación de bloques de 5 mm (sin regularizar), y la misma línea construida en cada cuadro sobre el mapa de estructuras del modelo. «Sin clutter»: el mismo cine sin la reverberación de la pared torácica ni la neblina de las cavidades. La deriva es lo que los puntos no vuelven a su sitio tras un ciclo.',
+    'GLS del A4C: una línea 2 mm dentro de la pared desde el endocardio telediastólico, 36 puntos llevados cuadro a cuadro por correlación de bloques de 5 mm con la mediana de ±2 vecinos, y el del modelo: el tejido que había bajo esos puntos, y bajo el endocardio telediastólico, seguido en cada cuadro por sus coordenadas materiales (decisión 361). «Sin clutter»: el mismo cine sin la reverberación de la pared torácica ni la neblina de las cavidades. La deriva es lo que los puntos no vuelven a su sitio tras un ciclo.',
     '',
     '| caso | GLS seguido (%) | GLS seguido sin clutter (%) | GLS del modelo, 2 mm / endocardio (%) | deriva con / sin clutter (mm) |',
     '|---|---:|---:|---:|---:|',
@@ -674,6 +676,12 @@ export function reportMd(r: Results): string {
   for (const s of r.strain)
     L.push(
       `| ${short(s.caseId)} | ${fmt(s.tracked, 1)} | ${fmt(s.trackedNoClutter, 1)} | ${fmt(s.modelMidwall, 1)} / ${fmt(s.modelEndocardial, 1)} | ${fmt(s.driftMm, 1)} / ${fmt(s.driftMmNoClutter, 1)} |`,
+    );
+  const modelLost = r.strain.reduce((a, s) => a + (s.modelLost ?? 0), 0);
+  if (modelLost)
+    L.push(
+      '',
+      `Puntos fuera de las líneas del modelo, en todos los casos: ${modelLost} (no estaban sobre el VI en telediástole, o su tejido se perdió en el plano). La longitud de cada línea cuenta sólo los demás.`,
     );
   L.push(
     '',
