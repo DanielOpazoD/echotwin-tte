@@ -2934,6 +2934,8 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
 
     **Lo que esto no arregla**: la masa gris bajo la bisagra septal mitral que Daniel marcó después. Entre la cavidad de la AD y la de la AI el cuatro cámaras de Rodero tiene 20,7 mm de tejido y espacio a 5 mm bajo los anillos y 17 mm a 10 mm (el analítico, 5–8 mm), con o sin esta grasa: el plano canónico, definido sobre el corazón analítico, corta a Rodero unos 4° por delante de su cruz. Lo trata la decisión siguiente.
 
+    **Banco**: no cambia ninguna brecha; `rodero-cole` sigue en 14 mejor, 1 peor, 6 igual y `rodero-movil` en 6, 2 y 13 (este, medido antes de excluir el espacio entre las aurículas). Las métricas del banco miran el miocardio del VI, las cavidades y el movimiento, no las paredes auriculares.
+
     **Paridad CPU ↔ GPU** de las filas de Rodero (las etiquetas cambian, el GLSL no): 99,97 % de estructuras y 0,07 % de amplitud en el A4C, 100 % y 0,14 % en el PLAX, 99,97 % y 0,13 % con la convolución.
 
     **Pruebas**:
