@@ -147,6 +147,34 @@ describe('the bound Rodero atria (decision 358)', async () => {
     expect(rightSide * mL).toBeGreaterThan(0.4);
   });
 
+  it('rests each atrium on the aortic root, with no gap between them (decision 364)', () => {
+    const steps = [1, nx, nx * ny];
+    const facing = (a: Float32Array, b: Float32Array, v: number): boolean => {
+      const ga = steps.map((s) => a[v + s]! - a[v - s]!),
+        gb = steps.map((s) => b[v + s]! - b[v - s]!);
+      const n = Math.hypot(...ga) * Math.hypot(...gb);
+      return n > 0 && (ga[0]! * gb[0]! + ga[1]! * gb[1]! + ga[2]! * gb[2]!) / n < -0.8;
+    };
+    const dAo = edt(g.dims, (v) => L[v] === 5);
+    for (const [name, blood, wall] of [
+      ['LA', [33, 11, 12, 13, 14, 15], 3],
+      ['RA', [34, 16, 17], 4],
+    ] as const) {
+      const dA = edt(g.dims, (v) => (blood as readonly number[]).includes(L[v]!));
+      let gap = 0,
+        onRoot = 0;
+      for (let v = nx * ny; v < L.length - nx * ny; v++) {
+        if (dA[v]! > 8 / vox || dAo[v]! > 8 / vox || !facing(dA, dAo, v)) continue;
+        if (L[v] === 0) gap++;
+        if (L[v] === wall && dAo[v]! <= 1.5) onRoot++;
+      }
+      // the mesh left 664 and 1257 empty voxels facing between each atrium and the aortic wall, with 476 and 312 voxels
+      // of atrial wall touching it; now 128 and 63, and 779 and 1237
+      expect(gap, name).toBeLessThan(250);
+      expect(onRoot, name).toBeGreaterThan(600);
+    }
+  });
+
   it('leaves no fat between both atria: inside the heart there is no fat (decisions 358, 364)', () => {
     const reach = GROOVE_REACH_MM / vox;
     const dLa = edt(g.dims, (v) => L[v] === 3);

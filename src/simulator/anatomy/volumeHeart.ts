@@ -555,14 +555,6 @@ function volumeFields(h: LabelVolumeHeader, label: Uint8Array): Fields {
           const t = sector(a);
           hinge[t] = Math.min(hinge[t]!, a[2]);
         }
-      // a sector the annulus's voxels skip takes its neighbours' hinge
-      for (let round = 0; round < HINGE_SECTORS && hinge.some((z) => !Number.isFinite(z)); round++)
-        for (let t = 0; t < HINGE_SECTORS; t++)
-          if (!Number.isFinite(hinge[t]!))
-            hinge[t] = Math.min(
-              hinge[(t + 1) % HINGE_SECTORS]!,
-              hinge[(t + HINGE_SECTORS - 1) % HINGE_SECTORS]!,
-            );
       const aboveHinge = (v: number): boolean => {
         const a = toAnat(v);
         const hz = hinge[sector(a)]!;
