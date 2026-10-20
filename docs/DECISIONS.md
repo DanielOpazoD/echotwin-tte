@@ -2810,7 +2810,7 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
 
     **Lo que sigue con la red**: el modo M y el Doppler, y el ruido del receptor, que no pasan por esta formación.
 
-355. **La celda del speckle de la referencia del banco sale de su núcleo, y la convolución resulta tener la de la física**: primera mejora del bloque de imagen de Rodero acordado con Daniel. La 351 dejó una discrepancia sin resolver: la imagen de referencia medía 2,83 mm de celda lateral a 9 cm (la celda: dos veces el desplazamiento al que la autocorrelación de la envolvente cae a ½), pero la autocorrelación de su propio núcleo daba 3,43. El banco juzgaba con esa cifra la red (2,79, casi exacta) y la convolución (3,32, «peor»).
+355. **El banco compara la referencia en la rejilla del simulador y saca sus celdas del núcleo, y la convolución resulta tener la resolución y el speckle de la física**: primera mejora del bloque de imagen de Rodero acordado con Daniel. La 351 dejó una discrepancia sin resolver: la imagen de referencia medía 2,83 mm de celda lateral a 9 cm (la celda: dos veces el desplazamiento al que la autocorrelación de la envolvente cae a ½), pero la autocorrelación de su propio núcleo daba 3,43. El banco juzgaba con esa cifra la red (2,79, casi exacta) y la convolución (3,32, «peor»).
 
     **Medido antes de cambiar** (núcleo sin apodizar a 9 cm):
 
@@ -2818,35 +2818,38 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     - Una sola realización del campo de referencia, la que el banco formaba, da cualquier celda entre 2,85 y 3,60 mm según la semilla.
     - Restar a cada fila su propia media, con sólo unas quince celdas por fila, baja la celda un 4 % (3,12 frente a 3,24 con seis campos).
     - La teoría que sirve de regla es la de la envolvente, no la de |μ|²: la autocovarianza normalizada de una envolvente de Rayleigh es (₂F₁(−½, −½; 1; |μ|²) − 1)/(4/π − 1), 0,474 cuando |μ|² = ½ (Monte Carlo con dos millones de pares, a la cuarta cifra). Con ella, el núcleo sin apodizar da 3,30 mm a 9 cm (3,43 era la anchura de |μ|²).
-    - Muestrear la autocorrelación cada línea en vez de cada 0,05 mm alarga la celda un 1,5–2 % en el nivel medio; el banco usa el alto, más fino.
+    - Muestrear la autocorrelación cada línea en vez de cada 0,05 mm alarga la celda un 1 % en el nivel alto que usa el banco.
+    - **La resolución axial tenía el mismo defecto**: el simulador forma la imagen cada 0,5 mm a lo largo del haz y pone el blanco puntual en su muestra más cercana, y el banco lo comparaba con el pulso de referencia leído cada 0,02 mm (0,64 mm). Leído en las muestras del simulador con el punto en una, el mismo pulso mide 0,567 mm, lo mismo que la convolución con el punto en cualquier posición (0,567); la red, 0,687. La convolución «empeoraba» la resolución axial por esto. A lo largo del haz, en cambio, la celda del speckle de la convolución sí es más larga que la del pulso en la misma rejilla (0,62 frente a 0,57 mm): el peso lineal que reparte cada dispersor entre dos muestras la alarga. Es el límite de una rejilla de 0,5 mm, y queda a la vista en una brecha nueva.
 
     **Cambio**:
 
     - `speckleStats.ts`: `envelopeCorrelation`, `kernelSpeckleCell` (la celda que forma un núcleo, a través o a lo largo del haz) y `speckleCell` (la de una imagen, con la autocorrelación de todas sus series alrededor de una sola media).
-    - `phantoms.ts`: las celdas de la referencia, con y sin apodizar, salen de sus núcleos; las del simulador, de `speckleCell`. La imagen de referencia sigue formándose para la SNR y la m de Nakagami.
+    - `resolution.ts`: `onGrid`, una curva fina leída en una rejilla más gruesa.
+    - `phantoms.ts`: las celdas de la referencia, con y sin apodizar, salen de sus núcleos; las del simulador, de `speckleCell`. La imagen de referencia sigue formándose para la SNR y la m de Nakagami. Cada cifra de la referencia se da fina y en la rejilla del simulador (sus muestras a lo largo del haz, sus líneas a través), con el blanco puntual sobre una muestra.
+    - `report.ts`: las brechas de resolución y de celda puntúan con la referencia en la rejilla, y entra la celda axial a 9 cm.
 
     **Celdas laterales con la regla nueva** (simulador sobre cuatro campos):
 
-    | Profundidad | Referencia sin apodizar | Convolución | Red (la de la app) |
+    | Profundidad | Referencia sin apodizar, fina / en las líneas | Convolución | Red (la de la app) |
     |---|---|---|---|
-    | 5 cm | 1,86 mm | 2,03 | 1,98 |
-    | 9 cm | 3,30 | 3,43 | 2,88 |
-    | 13 cm | 4,78 | 4,73 | 3,66 |
+    | 5 cm | 1,86 / 1,88 mm | 2,03 | 1,98 |
+    | 9 cm | 3,30 / 3,33 | 3,43 | 2,88 |
+    | 13 cm | 4,78 / 4,82 | 4,73 | 3,66 |
 
-    El veredicto se invierte: la convolución tiene la celda de su transductor (+4 % a 9 cm) y la red la tiene fina, un 13 % a 9 cm y un 23 % a 13 cm. A lo largo del haz, la convolución da 0,62 mm y la red 0,65, frente a 0,56 del núcleo con Hanning.
+    El veredicto se invierte: la convolución tiene la celda de su transductor (+3 % a 9 cm) y la red la tiene fina, un 13 % a 9 cm y un 24 % a 13 cm.
 
-    **Banco**: la línea base del modelo actual se regenera (`baseline.json`, en el commit de esta decisión); sólo cambia la celda lateral, de 2,79/2,80 (puntuación 0,02) a 2,88/3,30 (0,61), y las otras diecinueve brechas salen idénticas. Frente a ella:
+    **Banco**: la línea base del modelo actual se regenera (`baseline.json`, en el commit de esta decisión). Del simulador sólo cambia la celda lateral (2,79 → 2,88 mm); cambian las referencias de la resolución axial (0,64 → 0,57), de la lateral (+0,7–1 %) y de la celda lateral (2,80 → 3,33), y entra la celda axial (0,65 frente a 0,57). La red puntúa ahora 0,86 en la resolución axial y 0,64 en cada celda. Frente a la línea base nueva, con 21 brechas:
 
-    | Motor | Mejoran | Empeoran | Iguales | En las decisiones 350 y 351 |
+    | Motor | Mejoran | Empeoran | Iguales | En las decisiones 350 y 351, con 20 |
     |---|---|---|---|---|
-    | `cole` | 8 | 3 | 9 | 7 / 4 / 9 |
-    | `rodero-movil` | 6 | 2 | 12 | 7 / 1 / 12 |
-    | `rodero-cole` | 10 | 3 | 7 | 9 / 4 / 7 |
+    | `cole` | 10 | 2 | 9 | 7 / 4 / 9 |
+    | `rodero-movil` | 6 | 2 | 13 | 7 / 1 / 12 |
+    | `rodero-cole` | 12 | 2 | 7 | 9 / 4 / 7 |
 
-    - **Lo que queda peor con Rodero y la convolución**: la asimetría del gris residual del miocardio (0,08 frente a 0,53 en CAMUS Good), su gris mediano (115 frente a 100) y la resolución axial (0,57 mm frente a 0,64: el pulso verdadero muestreado cada 0,5 mm mide corto).
+    - **Lo que queda peor con Rodero y la convolución**: la asimetría del gris residual del miocardio (0,08 frente a 0,53 en CAMUS Good) y su gris mediano (115 frente a 100, dentro del rango intercuartil de CAMUS, 87–115). Todas las brechas físicas mejoran o quedan iguales.
     - **Rodero con la red** da la asimetría de CAMUS (0,55): la convolución la pierde con cualquier anatomía (`cole`, −0,11).
     - **`rodero-movil` empeora ahora la fracción del acortamiento que lee el rastreador** (0,47 frente a 0,55 del modelo actual; en la 350, 0,58). Entre las dos corridas, la 353 horneó los papilares en el volumen y movió la curva auricular a la malla gruesa; queda por atribuir.
 
     El informe del banco (`docs/validation/banco-realismo.md`) se rehace con la corrida nueva, y su lectura corrige la frase que decía que la celda de la red coincidía con la de la apertura sin apodizar.
 
-    **Pruebas** (`speckleStats.test.ts`): la correlación de la envolvente frente a Monte Carlo a |μ|² = ¼, ½ y 0,8; la celda de un núcleo gaussiano anisótropo en cada eje frente a la fórmula cerrada y frente a la imagen que forma; y series cortas cuya celda conjunta da la del núcleo, mientras restar la media de cada una baja la correlación. Seis mutaciones, seis fallos.
+    **Pruebas** (`speckleStats.test.ts`): la correlación de la envolvente frente a Monte Carlo a |μ|² = ¼, ½ y 0,8; la celda de un núcleo gaussiano anisótropo en cada eje frente a la fórmula cerrada y frente a la imagen que forma; y series cortas cuya celda conjunta da la del núcleo, mientras restar la media de cada una baja la correlación. Y en `resolution.test.ts`: `onGrid` lee una recta exacta en cualquier rejilla, y un pulso gaussiano con el punto en una muestra mide lo que da la cuenta a mano. Diez mutaciones, diez fallos.

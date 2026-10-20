@@ -1,7 +1,7 @@
 {
  "engine": "actual",
- "commit": "faa698a",
- "generatedAt": "2026-10-20T01:49:57.310Z",
+ "commit": "ad264a0",
+ "generatedAt": "2026-10-20T03:08:24.896Z",
  "gaps": [
   {
    "id": "movimiento.gls-seguido",
@@ -21,8 +21,8 @@
    "id": "fisica.lateral.15cm",
    "metric": "resolución lateral −6 dB a 15 cm",
    "sim": 4.387835392003047,
-   "ref": 6.04687542124733,
-   "score": 1.437216755549383
+   "ref": 6.093063277762585,
+   "score": 1.4713171234746525
   },
   {
    "id": "clinica.textura.skewness",
@@ -42,8 +42,8 @@
    "id": "fisica.lateral.9cm",
    "metric": "resolución lateral −6 dB a 9 cm",
    "sim": 2.8591023700708065,
-   "ref": 3.560227841161769,
-   "score": 0.9828508280916362
+   "ref": 3.584414805745327,
+   "score": 1.013193105264804
   },
   {
    "id": "volumen.td-ts",
@@ -58,6 +58,13 @@
    "sim": 0.22636639225972388,
    "ref": 0.953151903009803,
    "score": 0.8914251347218036
+  },
+  {
+   "id": "fisica.axial.9cm",
+   "metric": "resolución axial −6 dB a 9 cm",
+   "sim": 0.6868733447965321,
+   "ref": 0.5671946165799016,
+   "score": 0.8579563707550706
   },
   {
    "id": "movimiento.rastreabilidad",
@@ -84,8 +91,15 @@
    "id": "fisica.celda-lateral.9cm",
    "metric": "celda de speckle lateral a 9 cm",
    "sim": 2.8826439428176713,
-   "ref": 3.302743941409871,
-   "score": 0.6096779891432315
+   "ref": 3.328574927842984,
+   "score": 0.6445911308687777
+  },
+  {
+   "id": "fisica.celda-axial.9cm",
+   "metric": "celda de speckle axial a 9 cm",
+   "sim": 0.6521220352489876,
+   "ref": 0.5656883275133087,
+   "score": 0.6372061651373823
   },
   {
    "id": "movimiento.rastreo-trazados-echonet",
@@ -93,13 +107,6 @@
    "sim": 0.4318008896540899,
    "ref": 0.2767912647451713,
    "score": 0.5233684103806143
-  },
-  {
-   "id": "fisica.axial.9cm",
-   "metric": "resolución axial −6 dB a 9 cm",
-   "sim": 0.6868733447965321,
-   "ref": 0.6372887802485506,
-   "score": 0.335779447455892
   },
   {
    "id": "clinica.textura.medianGrey",
@@ -119,8 +126,8 @@
    "id": "fisica.lateral.5cm",
    "metric": "resolución lateral −6 dB a 5 cm",
    "sim": 2.0610684195148856,
-   "ref": 2.1539650024571375,
-   "score": 0.19756713579684534
+   "ref": 2.1697628344813236,
+   "score": 0.2303152827502973
   },
   {
    "id": "volumen.vtd",
