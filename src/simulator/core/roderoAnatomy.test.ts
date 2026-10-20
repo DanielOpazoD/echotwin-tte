@@ -36,7 +36,7 @@ describe('experimental Rodero anatomy in the core (decision 352)', () => {
       for (let i = 0; i < rodero.structure.length; i++)
         if (rodero.structure[i] !== analytic.structure[i]) differ++;
       expect(differ / rodero.structure.length).toBeGreaterThan(0.05);
-      // its four-chamber preset is turned about the LV's axis through its own crux (decision 359)
+      // its four-chamber preset is turned about the LV's axis through its own crux (decision 360)
       const preset = (viewId: string) => {
         const r = core.request({ kind: 'canonicalControl', viewId });
         return r && r.kind === 'canonicalControl' ? r.control : null;

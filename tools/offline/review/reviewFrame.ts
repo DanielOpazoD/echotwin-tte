@@ -207,7 +207,7 @@ function boundRoderoOf(m: ReviewModel): { vh: VolumeHeart; endDiastole: HeartPos
   return b;
 }
 
-/** A view's preset as the app sets it: for the Rodero heart, the four-chamber plane through its crux (decision 359). */
+/** A view's preset as the app sets it: for the Rodero heart, the four-chamber plane through its crux (decision 360). */
 export function reviewControl(view: ViewTarget, m: ReviewModel): ProbeControl {
   const c = boundRoderoOf(m)?.vh.crux();
   return controlThroughCrux(view, m.heart, m.thorax, c ? { x: c[0], y: c[1], z: c[2] } : null);

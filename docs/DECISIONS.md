@@ -2943,7 +2943,7 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
 
     Siete mutaciones, siete fallos.
 
-359. **El cuatro cámaras de Rodero pasa por su propia cruz**: segunda marca de Daniel, una masa gris dentro de la AI bajo la bisagra septal mitral.
+360. **El cuatro cámaras de Rodero pasa por su propia cruz**: segunda marca de Daniel, una masa gris dentro de la AI bajo la bisagra septal mitral.
 
     **Medido antes de cambiar** (caso normal, telediástole):
 

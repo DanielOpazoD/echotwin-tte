@@ -1,5 +1,5 @@
 /**
- * The four-chamber preset turned through a heart's own crux (decision 359): about the LV's long axis, so the plane holds
+ * The four-chamber preset turned through a heart's own crux (decision 360): about the LV's long axis, so the plane holds
  * both, and only that view.
  */
 import { describe, expect, it } from 'vitest';
@@ -21,7 +21,7 @@ const apex = v3(0, 0, heart.lv.lengthCm);
 const mv = anchorsCached(heart).mvCenter;
 const base = v3(mv.x * 0.5, mv.y * 0.5, mv.z);
 
-describe('the four-chamber preset through a crux (decision 359)', () => {
+describe('the four-chamber preset through a crux (decision 360)', () => {
   // a crux 1.6 cm septal and 1.2 cm behind the mitral centre's level, as the Rodero heart's
   const crux = v3(-1.8, -1.2, -0.4);
   const declared = canonicalControl(getViewTarget('a4c'), heart, thorax);

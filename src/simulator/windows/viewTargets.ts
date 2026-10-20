@@ -812,11 +812,11 @@ export function canonicalPlane(
   return { target, right, down, normal: n };
 }
 
-/** How close (cm) the four-chamber plane must come to a heart's own crux (decision 359). */
+/** How close (cm) the four-chamber plane must come to a heart's own crux (decision 360). */
 export const CRUX_PLANE_CM = 0.25;
 
 /**
- * A view's preset for a heart that brings its own crux (decision 359): the four-chamber plane, declared on the analytic
+ * A view's preset for a heart that brings its own crux (decision 360): the four-chamber plane, declared on the analytic
  * heart through both atrioventricular valve centres, turned about the LV's long axis by the least angle (in 1° steps,
  * within ±30°) that brings it within CRUX_PLANE_CM of the crux, so that it keeps the axis (no off-axis cut) and passes
  * between the atria at their septum; every other view as declared. The clinical four-chamber view is taken through the

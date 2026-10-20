@@ -116,7 +116,7 @@ export function renderCine(
       pose: HeartPose,
       endDiastole: HeartPose,
     ) => HeartClassifier;
-    /** That heart's crux (heart frame, cm), through which its four-chamber plane passes, as the app does (decision 359). */
+    /** That heart's crux (heart frame, cm), through which its four-chamber plane passes, as the app does (decision 360). */
     crux?: (heart: HeartModel, endDiastole: HeartPose) => Vec3;
   } = {},
 ): Cine {

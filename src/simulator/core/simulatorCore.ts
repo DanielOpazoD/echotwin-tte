@@ -983,7 +983,7 @@ export class SimulatorCore {
     }
     if (req.kind === 'canonicalControl') {
       const view = getViewTarget(req.viewId);
-      // the Rodero heart's four-chamber plane passes through its own crux (decision 359)
+      // the Rodero heart's four-chamber plane passes through its own crux (decision 360)
       const rodero = this.input.anatomy === 'rodero' ? this.roderoHeart() : null;
       const c = rodero?.vh.crux();
       return {

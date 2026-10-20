@@ -1,6 +1,6 @@
 // @tier slow
 /**
- * The Rodero heart's four-chamber plane (decision 359): declared on the analytic heart, it cut the CT heart in front of
+ * The Rodero heart's four-chamber plane (decision 360): declared on the analytic heart, it cut the CT heart in front of
  * its crux, with 17–21 mm of ventricular septum and pericardial space between the atria under the annuli where an
  * interatrial septum stands; turned through the volume's own crux, the atria meet at a septum.
  */
@@ -29,7 +29,7 @@ const fromPublic = (path: string): Promise<ArrayBuffer> => {
   return Promise.resolve(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength));
 };
 
-describe('the Rodero four-chamber plane (decision 359)', async () => {
+describe('the Rodero four-chamber plane (decision 360)', async () => {
   const { heart, thorax, tables } = buildCaseModels(
     loadCaseById('normal-excellent-window'),
     REST_PATIENT,

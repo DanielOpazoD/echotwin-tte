@@ -145,7 +145,7 @@ const ATRIAL_BLOOD = new Set([33, 34, 11, 12, 13, 14, 15, 16, 17]);
  * the great vessels) the closing filled every gap narrower than its ball and drew angular slabs of fat on the atria.
  */
 export const GROOVE_REACH_MM = 6;
-/** How far (mm, mesh scale) from the atrioventricular planes the interatrial septum counts as the crux (decision 359). */
+/** How far (mm, mesh scale) from the atrioventricular planes the interatrial septum counts as the crux (decision 360). */
 export const CRUX_REACH_MM = 10;
 /** The interatrial septum: atrial wall within SEPTUM_REACH_MM of both atrial cavities. */
 const SEPTUM_REACH_MM = 5;
@@ -391,7 +391,7 @@ export interface VolumeHeart {
   /** cm of the model per mm of the mesh. */
   cmPerMm: number;
   /**
-   * The crux (decision 359): where the interatrial septum meets the atrioventricular junction at end diastole, in the
+   * The crux (decision 360): where the interatrial septum meets the atrioventricular junction at end diastole, in the
    * heart frame (cm); computed on first request. The four-chamber plane of this heart passes through it.
    */
   crux(): [number, number, number];
