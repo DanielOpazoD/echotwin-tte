@@ -37,10 +37,7 @@ import {
   scanConvertLut,
 } from '@/simulator/renderer/scanConvert';
 import { structureLabel } from '@/app/review';
-import {
-  controlThroughCrux,
-  type ViewTarget,
-} from '@/simulator/windows/viewTargets';
+import { controlThroughCrux, type ViewTarget } from '@/simulator/windows/viewTargets';
 import type { ProbeControl } from '@/simulator/probe/pose';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';

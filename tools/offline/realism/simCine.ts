@@ -37,10 +37,7 @@ import {
   type PolarFrame,
   type Scene,
 } from '@/simulator/renderer/types';
-import {
-  controlThroughCrux,
-  getViewTarget,
-} from '@/simulator/windows/viewTargets';
+import { controlThroughCrux, getViewTarget } from '@/simulator/windows/viewTargets';
 import { LABEL } from '@/clinical/regionStats';
 
 /** Canvas of the bench's clinical frames (px), the size `presentApical` measures CAMUS against. */

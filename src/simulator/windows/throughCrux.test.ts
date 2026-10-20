@@ -1,3 +1,4 @@
+// @tier slow
 /**
  * The four-chamber preset turned through a heart's own crux (decision 360): about the LV's long axis, so the plane holds
  * both, and only that view.
