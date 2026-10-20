@@ -3107,7 +3107,7 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
 
     **Lo que no se mide aquí**: el censo de coherencia corre sobre el corazón analítico, que este cambio no toca.
 
-    **Paquetes**: el trozo diferido del corazón de volumen pasa de 28,7 a 30,4 kB (dos copias). El total queda en 2117,6 de 2120 kB.
+    **Paquetes**: el trozo diferido del corazón de volumen pasa de 28,7 a 30,5 kB (dos copias). El total queda en 2117,9 de 2120 kB.
 
     **Pruebas** (`volumeHeart.test.ts`, el corazón sintético):
 
