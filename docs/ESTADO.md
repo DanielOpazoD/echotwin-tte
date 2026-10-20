@@ -106,7 +106,9 @@ seguido por las coordenadas materiales que anclan el speckle (analítico −19,3
 su speckle lo sigue). Decisión 362: el casquete apical de Rodero se engrosa en sístole como la pared que lo precede,
 y la punta de la cavidad se acerca a la base; su tejido se acorta −15,4 % en el cuatro cámaras por la cruz (−17,6 % en
 el endocardio), aún bajo el rango normal. En el plano de la cruz, la bisagra septal se desplaza 3 mm hacia el VD en
-sístole y alarga el primer tramo del septo basal: queda por mirar. Siguiente: la revisión de Daniel con las hojas.
+sístole y alarga el primer tramo del septo basal: queda por mirar. Decisión 363: el paso radial vuelve al estiramiento
+del VI (con el de cada punto, la pared crecía un 2,6 % en sístole; ahora un 1,5 %); en sístole la cúpula apical se
+estrecha 2–3 mm, a juzgar en las hojas. Siguiente: la revisión de Daniel con las hojas.
 
 ## Cómo seguir
 
