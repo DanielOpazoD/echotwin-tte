@@ -56,7 +56,7 @@ const AX: [number, number, number][] = [
 const inside = (x: number, y: number, z: number, rx: number, rz: number): boolean =>
   ((x - C[0]!) / rx) ** 2 + ((y - C[1]!) / rx) ** 2 + ((z - C[2]!) / rz) ** 2 <= 1;
 
-function synthetic(fill?: number): LabelVolume {
+function synthetic(fill?: number, raApartMm = 0, mitralPlaneK = 0): LabelVolume {
   const [nx, ny, nz] = DIMS;
   const labels = new Uint8Array(nx * ny * nz);
   for (let k = 0; k < nz; k++)
@@ -68,7 +68,9 @@ function synthetic(fill?: number): LabelVolume {
           continue;
         }
         const [x, y, z] = [i + 0.5, j + 0.5, k + 0.5];
-        if (inside(x, y, z, 22, 38)) labels[v] = 31;
+        // with a mitral plane, the cavity above it is wall: the mesh's cap of myocardium past the hinge
+        if (inside(x, y, z, 22, 38))
+          labels[v] = !mitralPlaneK || k > mitralPlaneK ? 31 : k === mitralPlaneK ? 7 : 1;
         else if (inside(x, y, z, 30, 46)) labels[v] = 1;
         // a box of RV on the septal side (−y in the mesh), walled, and a round left atrium above the annulus
         if (j >= 8 && j <= 23 && i >= 52 && i <= 76 && k >= 38 && k <= 102)
@@ -76,7 +78,7 @@ function synthetic(fill?: number): LabelVolume {
         const dla = Math.hypot(x - 64, y - 56, z - 12);
         if (dla <= 11) labels[v] = dla <= 9 ? 33 : 3;
         // a wide right atrium beside it, on the septal side: by distance over reach it would claim the left's septal side
-        const dra = Math.hypot((x - 64) / 24, (y - 36) / 8, (z - 10) / 9);
+        const dra = Math.hypot((x - 64) / 24, (y - 36 + raApartMm) / 8, (z - 10) / 9);
         if (dra <= 1) labels[v] = dra <= 0.85 ? 34 : 4;
         // the groove: 3 mm wide, 3 mm deep, in the lateral wall at mid-ventricle
         if (j >= 83 && j <= 85 && i >= 63 && i <= 65 && k >= 64 && k <= 80) labels[v] = 0;
@@ -152,6 +154,59 @@ describe('volume heart (decision 346)', () => {
     for (let v = 0; v < g.labels.length; v++)
       if (g.labels[v] === 33 || g.labels[v] === 34)
         for (const s of [1, -1, nx, -nx, nx * ny, -nx * ny]) if (g.labels[v + s] === 0) open++;
+    expect(open).toBe(0);
+  });
+
+  it('builds one interatrial septum between atria the mesh leaves apart (decision 364)', () => {
+    // the right atrium 5 mm further from the left: 9 mm between their cavities, a 6 mm gap between their walls
+    const apart = volumeHeart(synthetic(undefined, 5), heart, ed).gpu();
+    const [nx, ny] = apart.dims;
+    const at = (i: number, j: number, k: number): number => apart.labels[i + nx * (j + ny * k)]!;
+    // along y through both cavities, at the height of the left atrium's centre: 4 mm of wall between them, no gap
+    const line = Array.from({ length: 30 }, (_, d) => at(64, 25 + d, 12));
+    const between = line.slice(line.lastIndexOf(34) + 1, line.indexOf(33));
+    expect(between.length).toBeGreaterThanOrEqual(3);
+    expect(between.length).toBeLessThanOrEqual(5);
+    expect(between.every((l) => l === 3 || l === 4)).toBe(true);
+    // the cavities took the gap, not the outside: closed, and their far sides where they were (left atrium to 65, the
+    // right from 24)
+    let open = 0,
+      laFar = 0,
+      raFar = 99;
+    for (let v = 0; v < apart.labels.length; v++) {
+      const l = apart.labels[v]!;
+      if (l !== 33 && l !== 34) continue;
+      for (const s of [1, -1, nx, -nx, nx * ny, -nx * ny]) if (apart.labels[v + s] === 0) open++;
+      const j = Math.floor(v / nx) % ny;
+      if (l === 33) laFar = Math.max(laFar, j);
+      else raFar = Math.min(raFar, j);
+    }
+    expect(open).toBe(0);
+    expect(laFar).toBeLessThanOrEqual(65);
+    expect(raFar).toBeGreaterThanOrEqual(24);
+  });
+
+  it('ends the LV wall at the mitral hinge: the left atrium comes down to the valve plane (decision 364)', () => {
+    // the mitral plane across the cavity (k = 36, where it is 8 mm wide): the wall's cap above it (k 26–35) and the gap
+    // between it and the left atrial wall (k 23–25) are what the mean mesh carries past the hinge
+    const j = volumeHeart(synthetic(undefined, 0, 36), heart, ed).gpu();
+    const [nx, ny] = j.dims;
+    const at = (i: number, jj: number, k: number): number => j.labels[i + nx * (jj + ny * k)]!;
+    const axis = Array.from({ length: 16 }, (_, d) => at(64, 56, 22 + d)); // k 22 … 37
+    // from the atrial cavity to the plane: atrium (cavity or wall) all the way, no gap and no LV myocardium
+    expect(
+      axis.slice(0, 14).every((l) => l === 33 || l === 3),
+      axis.join(' '),
+    ).toBe(true);
+    expect(axis.slice(0, 14).filter((l) => l === 33).length).toBeGreaterThanOrEqual(9);
+    expect([7, 37]).toContain(axis[14]); // the plane, annulus where the cap touched it
+    expect(axis[15]).toBe(31);
+    // the ventricle's wall below the hinge is untouched, and no atrial blood reaches the outside
+    expect(at(90, 56, 60)).toBe(1);
+    let open = 0;
+    for (let v = 0; v < j.labels.length; v++)
+      if (j.labels[v] === 33)
+        for (const s of [1, -1, nx, -nx, nx * ny, -nx * ny]) if (j.labels[v + s] === 0) open++;
     expect(open).toBe(0);
   });
 

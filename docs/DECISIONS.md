@@ -3171,3 +3171,64 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     Las brechas anatómicas no cambian. Las que cambian son las del rastreador, que se mueven con cambios pequeños: en formato EchoNet, la razón rastreado / trazado de `rodero-cole` pasa de 0,14 a 0,18 (mejora) y la de `rodero-movil` de 0,51 a 0,36 (mejora); la rastreabilidad de `rodero-movil`, de 0,78 a 0,85 (empeora).
 
     **Pruebas**: el límite de conservación de la pared en `volumeHeart.test.ts` baja de 3 a 1,5 %. En el sintético la pared queda en 1,009; con el estiramiento de cada punto, 1,024, y la prueba falla (una mutación, un fallo). La prueba de que el epicardio no tiene escalón sigue parando 6 mm antes del ápex: en los últimos milímetros la razón de radios cambia deprisa porque el radio es pequeño, no por un escalón.
+364. **Dentro del corazón de Rodero no hay huecos, grasa ni pericardio: tabique interauricular único, aurículas apoyadas en la raíz y la AI hasta la bisagra mitral**: Daniel preguntó si, volviendo al plano anterior a la 360, seguiría viendo la masa gris. Sí: la 360 sólo había cambiado el plano. «Ese tejido no es normal… espero imágenes con coherencia interna, el todo unido por sus partes»; y después: «el corazón en sus estructuras internas, tabiques auriculares, ventriculares, etc., no debiera tener pericardio ni grasa por definición».
+
+    **Qué era, etiqueta por etiqueta** (volumen como lo enlaza la app, telediástole; mapas en `tools/offline/review/out/tabique-rodero-etiquetas.png` y `masa-giro15.png`):
+
+    - **El tabique.** La malla media no tiene tabique interauricular: tiene la pared de la AD (~1,5 mm) y la de la AI (~2 mm) separadas por un hueco vacío, que el muestreador pintaba como pericardio dentro del corazón. Entre las dos aurículas (a menos de 8 mm de las dos cavidades) hay 12,0 mL que no son cavidad: 59 % de hueco, 18 % de pared de la AI, 17 % de pared de la AD, 3 % de miocardio del VI y 2 % de pared aórtica. Sobre la superficie media, las cavidades quedan a 9,0 mm de mediana (6,1–14,4; máximo 15,9); donde se enfrentan de verdad, a 6,3 mm (p90 7,6). Un tabique mide 3–5 mm, y la fosa oval 1–2.
+    - **La unión auriculoventricular izquierda.** La malla lleva el septo basal del VI 10–15 mm más allá de la bisagra mitral por el lado auricular: 3,9 mL de miocardio del VI por encima de la bisagra de su acimut, 3,3 en el lado de la AI. Entre esa lámina y la pared de la AI había hueco, que la 358 rellenaba de grasa del surco. Un plano que roza esa unión (el cuatro cámaras girado +15°) atravesaba cavidad de la AI con el doble de brillo, septo del VI, pared de la AI en rasante y grasa: la masa gris que Daniel marcó, que no se había corregido.
+    - **Las aurículas contra la raíz aórtica.** Huecos de 1,9 mL (AD) y 1,0 mL (AI) entre cada aurícula y la pared aórtica, también pintados como pericardio.
+    - En el plano por la cruz todo eso medía 5–7 mm y parecía una línea. En el plano anterior sumaba 18,5 mm.
+
+    **Cambio** (`volumeHeart.ts`, al enlazar el volumen, después de adelgazar las paredes de la 358; el GPU muestrea las mismas etiquetas):
+
+    1. **La unión auriculoventricular izquierda.** La pared del VI termina en la bisagra mitral de su acimut, como la del corazón analítico desde la 327. La bisagra se toma del anillo fibroso (`MITRAL_ANNULUS_MM`), por sectores de 10° alrededor del eje del VI; un sector sin anillo toma la de sus vecinos. La lámina de miocardio del VI por encima de la bisagra en el lado de la AI, el hueco y la pared de la AI a menos de 5 mm de ella forman una región que pasa a la AI: cavidad, salvo 2 mm de pared contra lo que no es suyo (su sangre, su pared, sus venas, el anillo, el plano mitral y la cavidad del VI bajo él, con la que sólo se toca a través del plano). Va por pasadas, porque cada una alcanza 8 mm desde la sangre de la AI y la lámina mide más: tres en la malla media. El lado de cada voxel (AI o AD) se decide con las cavidades de la malla, antes de la primera pasada: en el lado de la AD, el septo basal del VI mira a la aurícula por encima de la bisagra tricuspídea y se queda. Es el septo auriculoventricular.
+    2. **El tabique interauricular.** Donde las dos aurículas se enfrentan (cada una a menos de 8 mm del punto, y sus campos de distancia crecen en sentidos opuestos, coseno < −0,8), queda un tabique de 4 mm (`SEPTUM_MM`) sobre la superficie media: dos paredes de 2 mm adosadas. El resto de lo que había entre ellas pasa a la cavidad más cercana.
+    3. **Las aurículas contra la raíz aórtica.** Donde una aurícula mira a la pared aórtica, su cavidad toma el hueco y deja su pared de 2 mm apoyada en la raíz: la continuidad mitroaórtica, el torus aorticus de la AD.
+    4. **El cierre.** Donde una cavidad que ocupó un hueco llega al exterior, la cierra su propia pared.
+    5. **Lo que queda.** Los huecos interiores que sobreviven entre las dos aurículas (los bordes del tabique, la cruz) los rellena la pared más cercana: nunca grasa ni pericardio. La grasa de los surcos sigue excluida de entre las aurículas (358).
+
+    **Medido después**:
+
+    - Miocardio del VI por encima de la bisagra mitral: en el lado de la AI, de 3,29 a 0,21 mL; en el de la AD, 0,65 → 0,71 mL (el septo AV).
+    - Donde las aurículas se enfrentan, las cavidades quedan a 4,9 mm (p90 5,3): el tabique más medio vóxel a cada lado.
+    - Huecos a menos de 6 mm de dos cámaras: de 9,2 a 4,2 mL. Entre la AD y la AI quedan 1,2 mL, fuera del cierre del corazón (el surco interauricular, epicárdico); donde las aurículas se enfrentan, 11 vóxeles (2402 antes). Entre la AI y el VI, ninguno (0,22 antes). Los 2,5 mL restantes están entre las grandes arterias y el VD o la AD, fuera de lo que este cambio toca.
+    - La AI pasa de 64,3 a 73,1 mL y su pared de 15,3 a 20,0 mL; la AD de 80,0 a 81,9 y su pared de 17,9 a 19,6. La AI crece porque baja hasta el plano valvular.
+    - La cruz se desplaza 3,7 mm (la unión auriculoventricular cambió de sitio); el preset del A4C no cambia (giro 109,8°, inclinación 31,3°).
+    - **La masa a +15°** (caja de 1,7 cm² bajo la bisagra septal; sangre de la AI lejos de la pared: 77 de gris): de 135 a 111. Lo que queda debajo es cavidad de la AI (68 %) con su pared cortada en rasante (18 %) y el grosor del corte; no queda miocardio del VI ni grasa.
+    - **En los planos vecinos** (`tools/offline/review/out/union-av-vecinos.png`): giros de −30° a +30° e inclinaciones de ±15°, en telediástole y telesístole, antes y después. Donde el mapa decía «grasa» o «pericardio» entre la AD, la AI y el VI, ahora dice pared de la AI o tabique. Lo que sigue siendo «pericardio» está fuera del corazón.
+
+    **Lo que queda**: huecos entre las grandes arterias y el VD o la AD (2,5 mL), fuera de las cuatro cámaras. Y la pared de la AI en rasante sigue dibujándose brillante en un corte tangencial: es física del haz, no anatomía.
+
+    **Paquetes**: el trozo diferido del corazón de volumen pasa de 30,5 a 33,2 kB (dos copias); el total, de 2117,9 a 2123,0 kB, y su presupuesto de 2120 a 2130 kB.
+
+    **El banco** (frente a la línea base de la 361):
+
+    | Motor | Mejoran / empeoran / iguales (363 → 364) | Tejido 2 mm / endocardio | Rastreado | Rastreado / tejido |
+    |---|---|---|---|---|
+    | `rodero-movil` | 5 / 3 / 13 → 7 / 1 / 13 | −15,5 → −17,4 % / −17,6 → −18,5 % | −13,2 → −12,9 % | 0,85 → 0,74 |
+    | `rodero-cole` | 13 / 2 / 6 → 13 / 1 / 7 | −15,5 → −17,4 % / −17,6 → −18,5 % | −13,2 → −12,5 % | 0,85 → 0,71 |
+
+    - El GLS del tejido sube porque la base de la línea del banco está en el anillo, y la AI ahora llega hasta él: la línea ya no empieza en miocardio del VI colgado por encima de la bisagra. Queda a 0,3 de puntuación del rango normal (−18 a −22).
+    - La rastreabilidad (0,71–0,74) cae dentro de la de CREATIS (0,66 [0,62–0,81]) y deja de empeorar.
+
+    **Pruebas**:
+
+    - `roderoAtria.test.ts`, con el volumen que carga la app:
+      - Donde las aurículas se enfrentan, la distancia entre cavidades tiene una mediana bajo `SEPTUM_MM` + 1,5 y un p90 bajo `SEPTUM_MM` + 2; quedan menos de 300 vóxeles de hueco; la pared de la AD no pasa de 20 mL (20,2 si las aurículas se unieran donde las dos quedan cerca y no sólo donde se enfrentan).
+      - Por encima de la bisagra mitral queda menos de 0,4 mL de miocardio del VI en el lado de la AI (3,29 en la malla; 0,56 con una sola pasada) y más de 0,4 en el de la AD (el septo AV).
+      - No hay grasa entre las dos aurículas (la prueba de la 358, que sigue en pie).
+    - `volumeHeart.test.ts`, en el corazón sintético:
+      - Con la AD 5 mm más lejos de la AI (9 mm entre cavidades), entre ellas quedan 3–5 vóxeles de pared y ningún hueco, las aurículas cerradas y sus lados alejados donde estaban.
+      - Con un plano mitral a 8 mm por debajo de la cúpula del VI (la cúpula pasa a ser lámina de miocardio por encima del plano, y entre ella y la AI hay 3 mm de hueco), del fondo de la AI al plano todo es aurícula: cavidad en al menos 9 de los 14 vóxeles del eje, sin hueco ni miocardio del VI; el plano y la cavidad del VI bajo él siguen en su sitio, la pared del VI bajo la bisagra también, y la AI queda cerrada.
+
+    - `roderoAtria.test.ts`, además: entre cada aurícula y la pared aórtica, donde se enfrentan, quedan menos de 250 vóxeles de hueco (664 y 1257 en la malla) y más de 600 de pared auricular tocando la raíz (476 y 312).
+
+    Trece mutaciones, trece fallos:
+    - sin tabique, un tabique de 8 mm, el criterio de «enfrentadas» relajado;
+    - grasa entre las aurículas permitida;
+    - sin unión auriculoventricular, el hueco de la unión sin tomar, una sola pasada, el lado decidido por la cavidad que crece, la toma también por debajo de la bisagra, sin pared contra lo ajeno;
+    - las aurículas sin apoyar en la raíz;
+    - los restos interiores sin pared.
+
+    Un relleno de los sectores sin voxel de anillo, que ninguna prueba necesitaba (la malla y el sintético los tienen todos), se quitó.

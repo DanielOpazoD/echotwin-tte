@@ -1,4 +1,4 @@
-# Banco de realismo (decisiones 344, 345, 347, 348, 349, 355, 359, 361 y 362)
+# Banco de realismo (decisiones 344, 345, 347, 348, 349, 355, 359, 361, 362 y 364)
 
 Este documento es el registro del banco que juzga si un cambio acerca el simulador a la ecografía real. Arriba, la
 lectura de la corrida; abajo, el informe tal como lo escribe `npm run realism` (procedimiento en
@@ -47,8 +47,9 @@ apicales de cuatro cámaras).
      speckle; y la coordenada material del corazón analítico es una homotecia que no sigue al engrosamiento de su pared.
    - **El tejido del corazón de Rodero se acortaba poco** (decisión 361): −13,4 % en su cuatro cámaras por la cruz,
      frente a −19,3 % del analítico, porque su mapa comprimía por igual toda la longitud del VI, también el casquete
-     apical. Desde la decisión 362 el casquete se engrosa como la pared que lo precede: −15,4 % (−17,6 % en el
-     endocardio), y con la imagen por convolución el rastreador lee 0,86 de él (0,66 [0,62–0,81] en CREATIS). En la ventana difícil el rastreador no sigue nada: su textura está dominada por el clutter, como en una
+     apical. Desde la decisión 362 el casquete se engrosa como la pared que lo precede, y desde la 364 la aurícula
+     izquierda baja hasta el plano valvular, donde la línea del banco tiene su base: −17,4 % (−18,5 % en el
+     endocardio), y con la imagen por convolución el rastreador lee 0,71 de él (0,66 [0,62–0,81] en CREATIS). En la ventana difícil el rastreador no sigue nada: su textura está dominada por el clutter, como en una
      ventana difícil real.
 4. **La sístole dura de más, y ya se sabe por qué.** De telediástole a telesístole el simulador tarda 407 ms; CAMUS,
    336 [299–379], y los vídeos normales de EchoNet a la misma frecuencia (65 lpm, estimada por la periodicidad de cada

@@ -174,6 +174,29 @@ const ATRIAL_BLOOD = new Set([33, 34, 11, 12, 13, 14, 15, 16, 17]);
  * the great vessels) the closing filled every gap narrower than its ball and drew angular slabs of fat on the atria.
  */
 export const GROOVE_REACH_MM = 6;
+/**
+ * The interatrial septum (decision 364). The mean mesh has none: the right and left atrial walls run side by side with an
+ * empty gap between them, which the sampler drew as pericardium inside the heart; the two cavities lay a median 9 mm
+ * apart (6–14) where a septum measures 3–5. Where the two atria face each other (each within SEPTUM_GAP_MM / 2 of the
+ * point, their distance fields growing in opposite directions), the septum is SEPTUM_MM of atrial wall on the surface
+ * midway between the cavities, two walls of SEPTUM_MM / 2 back to back, and the rest of what lay between them (their
+ * walls and the gap) belongs to the nearer cavity.
+ */
+export const SEPTUM_MM = 4;
+export const SEPTUM_GAP_MM = 16;
+/** How opposite (cosine) the directions to the two cavities must be for a point to lie between them, not beside both. */
+const SEPTUM_FACING_COS = -0.8;
+const LA_BLOOD = new Set([33, 11, 12, 13, 14, 15]);
+const RA_BLOOD = new Set([34, 16, 17]);
+/** Sectors around the LV's long axis over which the mitral hinge's height is taken, and the tolerance beyond it (mm). */
+const HINGE_SECTORS = 36;
+const HINGE_TOLERANCE_MM = 0.5;
+/** How far (mm) from the sheet of LV myocardium past the hinge the gap and the atrial wall beside it join the atrium. */
+const JUNCTION_REACH_MM = 5;
+/** Passes of the junction's take, each reaching SEPTUM_GAP_MM / 2 beyond the atrium's blood (three on the mean mesh). */
+const JUNCTION_PASSES = 6;
+/** The walls that fill what is left of a gap inside the heart: the four chambers' myocardium and the aortic wall. */
+const INNER_WALLS = [1, 2, 3, 4, 5];
 /** How far (mm, mesh scale) from the atrioventricular planes the interatrial septum counts as the crux (decision 360). */
 export const CRUX_REACH_MM = 10;
 /** The interatrial septum: atrial wall within SEPTUM_REACH_MM of both atrial cavities. */
@@ -482,6 +505,157 @@ function volumeFields(h: LabelVolumeHeader, label: Uint8Array): Fields {
     const keep = Math.max(ATRIAL_WALL_MM / vox, 2);
     for (let v = 0; v < label.length; v++)
       if (ATRIAL_WALLS.has(label[v]!) && dCav[v]! > keep) label[v] = 0;
+  }
+  // the heart's inner walls (decision 364): no gap, fat or pericardium inside the heart. One septum midway between the two
+  // atrial cavities where they face each other; each atrium resting on the aortic root where it faces it; the cavities
+  // closed against the outside; what is left of the gap between both atria filled with the nearest wall
+  {
+    const [sx, sy, sz] = [1, nx, nx * ny];
+    const faces6 = [sx, -sx, sy, -sy, sz, -sz];
+    /** Whether two distance fields grow in opposite directions at v (central differences): v lies between their sets. */
+    const facing = (a: Float32Array, b: Float32Array, v: number): boolean => {
+      const ax = a[v + sx]! - a[v - sx]!,
+        ay = a[v + sy]! - a[v - sy]!,
+        az = a[v + sz]! - a[v - sz]!,
+        bx = b[v + sx]! - b[v - sx]!,
+        by = b[v + sy]! - b[v - sy]!,
+        bz = b[v + sz]! - b[v - sz]!;
+      const n = Math.hypot(ax, ay, az) * Math.hypot(bx, by, bz);
+      return n > 0 && (ax * bx + ay * by + az * bz) / n < SEPTUM_FACING_COS;
+    };
+    const reach = SEPTUM_GAP_MM / 2 / vox;
+    const apply = (changes: [number, number][]): void => {
+      for (const [v, l] of changes) label[v] = l;
+    };
+    // the atrioventricular junction on the left (decision 364): the LV wall ends at the mitral hinge of its azimuth, as the
+    // analytic heart's does since decision 327. The mean mesh carries the LV's basal septum 10–15 mm past the hinge on
+    // the atrial side, and a plane that grazes that junction drew a grey mass inside the left atrium. The left atrium
+    // takes that tissue down to the hinge plane: its cavity, and its own wall ATRIAL_WALL_MM against what is not its own
+    {
+      const Mf = meshFrame(h);
+      const toAnat = (v: number): V3 => {
+        const i = v % nx,
+          j = Math.floor(v / nx) % ny,
+          kk = Math.floor(v / (nx * ny));
+        const m: V3 = [
+          h.origin[0] + (i + 0.5) * vox - Mf.o[0],
+          h.origin[1] + (j + 0.5) * vox - Mf.o[1],
+          h.origin[2] + (kk + 0.5) * vox - Mf.o[2],
+        ];
+        return [dot(m, Mf.ex), dot(m, Mf.ey), dot(m, Mf.ez)];
+      };
+      const sector = (a: V3): number =>
+        Math.floor(((Math.atan2(a[1], a[0]) + Math.PI) / (2 * Math.PI)) * HINGE_SECTORS) %
+        HINGE_SECTORS;
+      // the hinge height per azimuth: the most atrial voxel of the mitral annulus
+      const hinge = new Array<number>(HINGE_SECTORS).fill(Infinity);
+      for (let v = 0; v < label.length; v++)
+        if (label[v] === 37) {
+          const a = toAnat(v);
+          const t = sector(a);
+          hinge[t] = Math.min(hinge[t]!, a[2]);
+        }
+      const aboveHinge = (v: number): boolean => {
+        const a = toAnat(v);
+        const hz = hinge[sector(a)]!;
+        return Number.isFinite(hz) && a[2] <= hz - HINGE_TOLERANCE_MM;
+      };
+      // the left atrium's own, and what it opens onto: its blood, wall and inlets, the annulus, the mitral plane and the
+      // LV cavity below it (the orifice; the taken tissue lies above the hinge, so they meet only across the valve plane)
+      const own = new Set([33, 3, 7, 31, 37, 11, 12, 13, 14, 15, 18, 19, 20, 21, 22]);
+      // which atrium a voxel is nearer is settled by the mesh's cavities, before any take: on the right atrium's side the
+      // LV's basal septum faces the atrium above the tricuspid hinge (the atrioventricular septum), and it stays
+      const dL0 = edt(dims, (v) => LA_BLOOD.has(label[v]!));
+      const dR0 = edt(dims, (v) => RA_BLOOD.has(label[v]!));
+      const leftSide = (v: number): boolean => dL0[v]! <= dR0[v]!;
+      // pass after pass: the atrium that took a sheet reaches further, to the sheet's continuation
+      for (let pass = 0; pass < JUNCTION_PASSES; pass++) {
+        const dL = edt(dims, (v) => LA_BLOOD.has(label[v]!));
+        // the sheet of LV myocardium past the hinge on the left atrium's side
+        const sheet = new Uint8Array(label.length);
+        for (let v = sz; v < label.length - sz; v++)
+          if (label[v] === 1 && dL[v]! <= reach && leftSide(v) && aboveHinge(v)) sheet[v] = 1;
+        // with it, the gap and the left atrial wall beside it (the mesh's groove fat crept into the junction): one region
+        const dSheet = edt(dims, (v) => sheet[v] === 1);
+        const taken: number[] = [];
+        for (let v = sz; v < label.length - sz; v++) {
+          const l = label[v]!;
+          if (sheet[v]) taken.push(v);
+          else if (
+            (l === 0 || l === 3) &&
+            dSheet[v]! * vox <= JUNCTION_REACH_MM &&
+            dL[v]! <= reach &&
+            leftSide(v) &&
+            aboveHinge(v)
+          )
+            taken.push(v);
+        }
+        // the region becomes cavity except ATRIAL_WALL_MM against anything else
+        const isTaken = new Uint8Array(label.length);
+        for (const v of taken) isTaken[v] = 1;
+        const dForeign = edt(dims, (v) => !own.has(label[v]!) && !isTaken[v]);
+        for (const v of taken) label[v] = dForeign[v]! * vox <= ATRIAL_WALL_MM ? 3 : 33;
+        if (!taken.some((v) => sheet[v])) break;
+      }
+    }
+    // the interatrial septum: SEPTUM_MM of atrial wall on the surface midway, the rest to the nearer cavity
+    {
+      const dL = edt(dims, (v) => LA_BLOOD.has(label[v]!));
+      const dR = edt(dims, (v) => RA_BLOOD.has(label[v]!));
+      const changes: [number, number][] = [];
+      for (let v = sz; v < label.length - sz; v++) {
+        const l = label[v]!;
+        if (l !== 0 && !ATRIAL_WALLS.has(l)) continue;
+        if (dL[v]! > reach || dR[v]! > reach || !facing(dL, dR, v)) continue;
+        const d = (dL[v]! - dR[v]!) * vox;
+        changes.push([v, Math.abs(d) <= SEPTUM_MM ? (d <= 0 ? 3 : 4) : d < 0 ? 33 : 34]);
+      }
+      apply(changes);
+    }
+    // each atrium against the aortic root: where it faces the aortic wall, its cavity takes the gap and leaves its own wall
+    // ATRIAL_WALL_MM thick resting on the aortic wall (the aortomitral continuity, the right atrium's torus aorticus)
+    {
+      const dL = edt(dims, (v) => LA_BLOOD.has(label[v]!));
+      const dR = edt(dims, (v) => RA_BLOOD.has(label[v]!));
+      const dAo = edt(dims, (v) => label[v] === 5);
+      const changes: [number, number][] = [];
+      for (let v = sz; v < label.length - sz; v++) {
+        const l = label[v]!;
+        if ((l !== 0 && !ATRIAL_WALLS.has(l)) || dAo[v]! > reach) continue;
+        const left = dL[v]! <= dR[v]!;
+        const dA = left ? dL : dR;
+        if (dA[v]! > reach || !facing(dA, dAo, v)) continue;
+        changes.push([v, dAo[v]! * vox <= ATRIAL_WALL_MM ? (left ? 3 : 4) : left ? 33 : 34]);
+      }
+      apply(changes);
+    }
+    // where a cavity that took a gap reaches the outside, its own wall closes it
+    {
+      const changes: [number, number][] = [];
+      for (let v = sz; v < label.length - sz; v++) {
+        const l = label[v]!;
+        if ((l === 33 || l === 34) && faces6.some((st) => label[v + st] === 0))
+          changes.push([v, l === 33 ? 3 : 4]);
+      }
+      apply(changes);
+    }
+    // what is left of the gap between both atria inside the heart (the septum's edges, the crux): the nearest wall
+    {
+      const dL = edt(dims, (v) => LA_BLOOD.has(label[v]!));
+      const dR = edt(dims, (v) => RA_BLOOD.has(label[v]!));
+      const r0 = EPI_CLOSING_MM / vox;
+      const out0 = edt(dims, (v) => label[v] !== 0);
+      const inside = edt(dims, (v) => out0[v]! > r0);
+      const walls = INNER_WALLS.map((w) => edt(dims, (v) => label[v] === w));
+      const changes: [number, number][] = [];
+      for (let v = sz; v < label.length - sz; v++) {
+        if (label[v] !== 0 || dL[v]! > reach || dR[v]! > reach || inside[v]! <= r0) continue;
+        let best = 0;
+        for (let w = 1; w < walls.length; w++) if (walls[w]![v]! < walls[best]![v]!) best = w;
+        changes.push([v, INNER_WALLS[best]!]);
+      }
+      apply(changes);
+    }
   }
   // epicardial fat: the silhouette closed with a ball (dilate, then erode), less the heart itself, kept in the grooves
   const r = EPI_CLOSING_MM / vox;
