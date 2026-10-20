@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  envelopeAutocorrelation,
+  envelopeCorrelation,
   envelopeSnr,
   impliedDynamicRangeDb,
+  kernelSpeckleCell,
+  speckleCell,
   iqrDistance,
   kAlphaFromEnvelope,
   logMoments,
@@ -104,5 +108,149 @@ describe('summaries', () => {
     expect(iqrDistance(6, { p25: 2, median: 3, p75: 4 })).toBe(1.5);
     expect(pearson([1, 2, 3], [2, 4, 6])).toBeCloseTo(1, 12);
     expect(pearson([1, 2, 3], [3, 2, 1])).toBeCloseTo(-1, 12);
+  });
+});
+
+describe('speckle cell (decision 355)', () => {
+  /** A unit complex Gaussian. */
+  const cgauss = (): [number, number] => {
+    const g = Math.sqrt(exp1());
+    const ph = 2 * Math.PI * rand();
+    return [g * Math.cos(ph), g * Math.sin(ph)];
+  };
+
+  it('maps the field’s correlation to the envelope’s as Monte Carlo does', () => {
+    expect(envelopeCorrelation(0)).toBeCloseTo(0, 12);
+    expect(envelopeCorrelation(1)).toBeCloseTo(1, 4);
+    for (const mu2 of [0.25, 0.5, 0.8]) {
+      // two envelopes whose fields have |μ|² = mu2
+      const mu = Math.sqrt(mu2),
+        n = 1_000_000;
+      const a = new Float64Array(n),
+        b = new Float64Array(n);
+      for (let i = 0; i < n; i++) {
+        const [x, y] = cgauss(),
+          [u, v] = cgauss();
+        a[i] = Math.hypot(x, y);
+        b[i] = Math.hypot(mu * x + Math.sqrt(1 - mu2) * u, mu * y + Math.sqrt(1 - mu2) * v);
+      }
+      expect(pearson(a, b)).toBeCloseTo(envelopeCorrelation(mu2), 2);
+    }
+    // slightly under |μ|²
+    expect(envelopeCorrelation(0.5)).toBeCloseTo(0.474, 3);
+    expect(envelopeCorrelation(0.5)).toBeLessThan(0.5);
+  });
+
+  // an anisotropic complex kernel: Gaussian amplitude, σ 3 cells across and 1.5 along, with a phase ramp along
+  const kx = 25,
+    kz = 13,
+    kernel = {
+      nx: kx,
+      nz: kz,
+      dxMm: 0.2,
+      dzMm: 0.05,
+      re: new Float64Array(kx * kz),
+      im: new Float64Array(kx * kz),
+    };
+  for (let iz = 0; iz < kz; iz++)
+    for (let ix = 0; ix < kx; ix++) {
+      const x = ix - 12,
+        z = iz - 6,
+        amp = Math.exp(-(x * x) / 18 - (z * z) / 4.5);
+      kernel.re[ix + iz * kx] = amp * Math.cos(1.3 * z);
+      kernel.im[ix + iz * kx] = amp * Math.sin(1.3 * z);
+    }
+  /** Envelope of a white complex field through the kernel, as rows (across) and columns (along). */
+  const image = () => {
+    const nx = 400,
+      nz = 120;
+    const fr = new Float64Array(nx * nz),
+      fi = new Float64Array(nx * nz);
+    for (let i = 0; i < nx * nz; i++) [fr[i], fi[i]] = cgauss();
+    const env = new Float64Array(nx * nz);
+    for (let z = 6; z < nz - 6; z++)
+      for (let x = 12; x < nx - 12; x++) {
+        let sr = 0,
+          si = 0;
+        for (let iz = 0; iz < kz; iz++)
+          for (let ix = 0; ix < kx; ix++) {
+            const j = x - (ix - 12) + (z - (iz - 6)) * nx,
+              k = ix + iz * kx;
+            sr += fr[j]! * kernel.re[k]! - fi[j]! * kernel.im[k]!;
+            si += fr[j]! * kernel.im[k]! + fi[j]! * kernel.re[k]!;
+          }
+        env[x + z * nx] = Math.hypot(sr, si);
+      }
+    const rows: number[][] = [],
+      cols: number[][] = [];
+    for (let z = 6; z < nz - 6; z += 3)
+      rows.push(Array.from(env.subarray(12 + z * nx, nx - 12 + z * nx)));
+    for (let x = 12; x < nx - 12; x += 5) {
+      const c: number[] = [];
+      for (let z = 6; z < nz - 6; z++) c.push(env[x + z * nx]!);
+      cols.push(c);
+    }
+    return { rows, cols };
+  };
+
+  it('reads a kernel’s cell along each axis from the kernel alone', () => {
+    // a Gaussian amplitude of σ s gives |μ(Δ)|² = exp(−Δ²/(2s²))
+    const theory = (s: number, spacing: number) => {
+      let lo = 0,
+        hi = 10 * s;
+      for (let k = 0; k < 60; k++) {
+        const m = (lo + hi) / 2;
+        if (envelopeCorrelation(Math.exp(-(m * m) / (2 * s * s))) > 0.5) lo = m;
+        else hi = m;
+      }
+      return 2 * lo * spacing;
+    };
+    expect(kernelSpeckleCell(kernel, 'x')).toBeCloseTo(theory(3, 0.2), 1);
+    expect(kernelSpeckleCell(kernel, 'z')).toBeCloseTo(theory(1.5, 0.05), 2);
+    // and the image the kernel forms reads the same cells
+    const { rows, cols } = image();
+    expect(speckleCell(rows, 0.2) / kernelSpeckleCell(kernel, 'x')).toBeCloseTo(1, 1);
+    expect(speckleCell(cols, 0.05) / kernelSpeckleCell(kernel, 'z')).toBeCloseTo(1, 1);
+  });
+
+  it('pools short series around one mean: the mean of each pulled the cell down', () => {
+    // 600 series of 40 samples, each some six cells long
+    const series: number[][] = [];
+    for (let k = 0; k < 600; k++) {
+      const n = 40 + 24;
+      const f = Array.from({ length: n }, cgauss);
+      const row: number[] = [];
+      for (let i = 12; i < n - 12; i++) {
+        let sr = 0,
+          si = 0;
+        for (let j = -12; j <= 12; j++) {
+          const w = Math.exp(-(j * j) / 18);
+          sr += f[i + j]![0] * w;
+          si += f[i + j]![1] * w;
+        }
+        row.push(Math.hypot(sr, si));
+      }
+      series.push(row);
+    }
+    const truth = kernelSpeckleCell(
+      {
+        nx: 25,
+        nz: 1,
+        dxMm: 1,
+        dzMm: 1,
+        re: Float64Array.from({ length: 25 }, (_, j) => Math.exp(-((j - 12) ** 2) / 18)),
+        im: new Float64Array(25),
+      },
+      'x',
+    );
+    expect(speckleCell(series, 1) / truth).toBeCloseTo(1, 1);
+    // what each series' own mean gives
+    const perSeries = series.map((s) => {
+      const m = s.reduce((a, b) => a + b, 0) / s.length;
+      return s.map((v) => v - m);
+    });
+    const biased = envelopeAutocorrelation(perSeries, 20);
+    const pooled = envelopeAutocorrelation(series, 20);
+    expect(biased[6]!).toBeLessThan(pooled[6]! - 0.03);
   });
 });

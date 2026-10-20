@@ -200,9 +200,9 @@ export function aggregate(input: {
         area: 'física',
         metric: `resolución lateral −6 dB a ${d} cm`,
         sim: p.simLateralMeasuredMm,
-        ref: p.refLateralRectMm,
-        refLabel: `DAS tipo Field II sin apodizar (con Hanning ${fmt(p.refLateralHanningMm)} mm)`,
-        score: ratioScore(p.simLateralMeasuredMm, p.refLateralRectMm),
+        ref: p.refLateralRectGridMm,
+        refLabel: `DAS tipo Field II sin apodizar, en las líneas del simulador (fina ${fmt(p.refLateralRectMm)} mm; con Hanning ${fmt(p.refLateralHanningMm)})`,
+        score: ratioScore(p.simLateralMeasuredMm, p.refLateralRectGridMm),
         unit: 'mm',
       });
     }
@@ -212,9 +212,9 @@ export function aggregate(input: {
       area: 'física',
       metric: 'resolución axial −6 dB a 9 cm',
       sim: p9.simAxialMeasuredMm,
-      ref: p9.refAxialMm,
-      refLabel: 'pulso de Field II (2 + 2 ciclos)',
-      score: ratioScore(p9.simAxialMeasuredMm, p9.refAxialMm),
+      ref: p9.refAxialGridMm,
+      refLabel: `pulso de Field II (2 + 2 ciclos) en las muestras del simulador, con el punto en una (fino ${fmt(p9.refAxialMm)} mm)`,
+      score: ratioScore(p9.simAxialMeasuredMm, p9.refAxialGridMm),
       unit: 'mm',
     });
     for (const c of phantoms.cysts.filter((c) => c.depthCm === 9)) {
@@ -245,9 +245,19 @@ export function aggregate(input: {
       area: 'física',
       metric: 'celda de speckle lateral a 9 cm',
       sim: s9.simCellLateralMm,
-      ref: s9.refRectCellLateralMm,
-      refLabel: `DAS tipo Field II sin apodizar (con Hanning ${fmt(s9.refCellLateralMm)} mm)`,
-      score: ratioScore(s9.simCellLateralMm, s9.refRectCellLateralMm),
+      ref: s9.refRectCellLateralGridMm,
+      refLabel: `DAS tipo Field II sin apodizar, en las líneas del simulador (fina ${fmt(s9.refRectCellLateralMm)} mm; con Hanning ${fmt(s9.refCellLateralMm)})`,
+      score: ratioScore(s9.simCellLateralMm, s9.refRectCellLateralGridMm),
+      unit: 'mm',
+    });
+    gaps.push({
+      id: 'fisica.celda-axial.9cm',
+      area: 'física',
+      metric: 'celda de speckle axial a 9 cm',
+      sim: s9.simCellAxialMm,
+      ref: s9.refCellAxialGridMm,
+      refLabel: `DAS tipo Field II en las muestras del simulador (fina ${fmt(s9.refCellAxialMm)} mm)`,
+      score: ratioScore(s9.simCellAxialMm, s9.refCellAxialGridMm),
       unit: 'mm',
     });
   }
@@ -522,12 +532,12 @@ export function reportMd(r: Results): string {
       '',
       '### Blancos puntuales',
       '',
-      '| profundidad (cm) | axial sim, fórmula / medida (mm) | axial ref (mm) | lateral sim, fórmula / medida (mm) | lateral ref rect / Hanning (mm) | lóbulo sim (dB) | lóbulo ref rect / Hanning (dB) | muestra / línea (mm) |',
+      '| profundidad (cm) | axial sim, fórmula / medida (mm) | axial ref, fina / en la rejilla (mm) | lateral sim, fórmula / medida (mm) | lateral ref rect, fina / en la rejilla, y Hanning (mm) | lóbulo sim (dB) | lóbulo ref rect / Hanning (dB) | muestra / línea (mm) |',
       '|---:|---:|---:|---:|---:|---:|---:|---:|',
     );
     for (const p of P.points)
       L.push(
-        `| ${p.depthCm} | ${fmt(p.simAxialFormulaMm)} / ${fmt(p.simAxialMeasuredMm)} | ${fmt(p.refAxialMm)} | ${fmt(p.simLateralFormulaMm)} / ${fmt(p.simLateralMeasuredMm)} | ${fmt(p.refLateralRectMm)} / ${fmt(p.refLateralHanningMm)} | ${fmt(p.simSideLobeDb, 1)} | ${fmt(p.refSideLobeRectDb, 1)} / ${Number.isFinite(p.refSideLobeHanningDb) ? fmt(p.refSideLobeHanningDb, 1) : '< −60'} | ${fmt(p.sampleMm)} / ${fmt(p.lineMm)} |`,
+        `| ${p.depthCm} | ${fmt(p.simAxialFormulaMm)} / ${fmt(p.simAxialMeasuredMm)} | ${fmt(p.refAxialMm)} / ${fmt(p.refAxialGridMm)} | ${fmt(p.simLateralFormulaMm)} / ${fmt(p.simLateralMeasuredMm)} | ${fmt(p.refLateralRectMm)} / ${fmt(p.refLateralRectGridMm)} / ${fmt(p.refLateralHanningMm)} | ${fmt(p.simSideLobeDb, 1)} | ${fmt(p.refSideLobeRectDb, 1)} / ${Number.isFinite(p.refSideLobeHanningDb) ? fmt(p.refSideLobeHanningDb, 1) : '< −60'} | ${fmt(p.sampleMm)} / ${fmt(p.lineMm)} |`,
       );
     L.push(
       '',
@@ -557,12 +567,12 @@ export function reportMd(r: Results): string {
       '',
       `SNR de la envolvente: ${fmt(RAYLEIGH_SNR)} para speckle plenamente desarrollado (Rayleigh). «Ventanas»: el estimador con que se lee el miocardio más abajo (5 líneas × 7 muestras), aplicado aquí al speckle uniforme como vara de medir.`,
       '',
-      '| profundidad (cm) | SNR sim (2 miradas / 1 mirada / ventanas) | SNR ref | m de Nakagami sim (2 / 1) | m ref | α de K, 1 mirada | celda axial sim / ref (mm) | celda lateral sim / ref rect / ref Hanning (mm) |',
+      '| profundidad (cm) | SNR sim (2 miradas / 1 mirada / ventanas) | SNR ref | m de Nakagami sim (2 / 1) | m ref | α de K, 1 mirada | celda axial sim / ref fina / ref en la rejilla (mm) | celda lateral sim / ref rect fina / en la rejilla / ref Hanning (mm) |',
       '|---:|---:|---:|---:|---:|---:|---:|---:|',
     );
     for (const s of P.speckle)
       L.push(
-        `| ${s.depthCm} | ${fmt(s.simSnr)} / ${fmt(s.simSnrSingleLook)} / ${fmt(s.simWindowedSnr)} | ${fmt(s.refSnr)} | ${fmt(s.simM)} / ${fmt(s.simMSingleLook)} | ${fmt(s.refM)} | ${fmt(s.simKAlphaSingleLook, 0)} | ${fmt(s.simCellAxialMm)} / ${fmt(s.refCellAxialMm)} | ${fmt(s.simCellLateralMm)} / ${fmt(s.refRectCellLateralMm)} / ${fmt(s.refCellLateralMm)} |`,
+        `| ${s.depthCm} | ${fmt(s.simSnr)} / ${fmt(s.simSnrSingleLook)} / ${fmt(s.simWindowedSnr)} | ${fmt(s.refSnr)} | ${fmt(s.simM)} / ${fmt(s.simMSingleLook)} | ${fmt(s.refM)} | ${fmt(s.simKAlphaSingleLook, 0)} | ${fmt(s.simCellAxialMm)} / ${fmt(s.refCellAxialMm)} / ${fmt(s.refCellAxialGridMm)} | ${fmt(s.simCellLateralMm)} / ${fmt(s.refRectCellLateralMm)} / ${fmt(s.refRectCellLateralGridMm)} / ${fmt(s.refCellLateralMm)} |`,
       );
   } else
     L.push(
