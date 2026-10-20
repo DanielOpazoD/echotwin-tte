@@ -9,7 +9,8 @@ import type { Vec3 } from '@/core/vec3';
 import { loadCaseById } from '@/cases';
 import { buildCaseModels, REST_PATIENT } from '@/simulator/anatomy/caseModels';
 import { computeHeartPose, type HeartModel, type HeartPose } from '@/simulator/anatomy/heartModel';
-import { Structure } from '@/simulator/anatomy/tissue';
+import { sceneClassifier } from '@/simulator/anatomy/sceneClassifier';
+import { makeSample, Structure } from '@/simulator/anatomy/tissue';
 import { cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
 import { acquisitionFrameRate } from '@/simulator/renderer/frameRate';
@@ -39,6 +40,7 @@ import {
 } from '@/simulator/renderer/types';
 import { controlThroughCrux, getViewTarget } from '@/simulator/windows/viewTargets';
 import { LABEL } from '@/clinical/regionStats';
+import type { MaterialField } from '@/clinical/realism/materialStrain';
 
 /** Canvas of the bench's clinical frames (px), the size `presentApical` measures CAMUS against. */
 export const CANVAS = 640;
@@ -61,6 +63,8 @@ export interface CineFrame {
   structure: Uint8Array;
   /** The pre-console linear envelope and structure of the polar frame. */
   polar: PolarFrame;
+  /** The material coordinates of the tissue under a canvas point, in this frame's scene (decision 361). */
+  material: MaterialField;
 }
 
 export interface Cine {
@@ -170,7 +174,25 @@ export function renderCine(
       grey[p] = rgba[p * 4]!;
       if (lut.idx[p]! >= 0) structure[p] = polar.structure[lut.li[p]! * N + lut.si[p]!]!;
     }
-    frames.push({ phase, grey, structure, polar });
+    // the canvas point in the beam's plane (scan conversion: lateral to the right, depth down from the apex), classified
+    const classify = sceneClassifier(scene);
+    const q = makeSample();
+    const material: MaterialField = (x, y) => {
+      const u = (x - mapping.apexX) / mapping.pxPerCm,
+        v = (y - mapping.apexY) / mapping.pxPerCm;
+      const o = beam.origin,
+        fw = beam.forward,
+        lt = beam.lateral;
+      return classify(
+        o.x + v * fw.x + u * lt.x,
+        o.y + v * fw.y + u * lt.y,
+        o.z + v * fw.z + u * lt.z,
+        q,
+      )
+        ? [q.mx, q.my, q.mz]
+        : null;
+    };
+    frames.push({ phase, grey, structure, polar, material });
   }
   const vol = tables.lvVolumeMl;
   return {

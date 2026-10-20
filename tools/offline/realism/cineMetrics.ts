@@ -27,6 +27,7 @@ import {
   trackPoints,
   type GreyFrame,
 } from '@/clinical/realism/speckleTracking';
+import { followMaterial } from '@/clinical/realism/materialStrain';
 import { seededRandom } from '@/clinical/realism/turing';
 import { CANVAS, labelMask, LV_WALLS, type Cine, type CineFrame } from './simCine';
 
@@ -147,12 +148,17 @@ export function endocardialContour(structure: Uint8Array): { x: number; y: numbe
 }
 
 export interface StrainResult {
-  /** Peak (most negative) GLS (%) and the frame of the peak: tracked, the model's contour 2 mm inside the wall, endocardial. */
+  /**
+   * Peak (most negative) GLS (%) and the frame of the peak: tracked, and the model's own, the tissue under the same line
+   * 2 mm inside the wall and under the end-diastolic endocardium (decision 361).
+   */
   tracked: number;
   trackedFrame: number;
   modelMidwall: number;
   modelEndocardial: number;
   modelFrame: number;
+  /** Points left out of the model's two lines: not on the LV at end diastole, or whose tissue was lost. */
+  modelLost: number;
   /** Mean distance (mm) between the tracked points after a whole cycle and where they started: the tracker's drift. */
   driftMm: number;
   points: number;
@@ -160,6 +166,37 @@ export interface StrainResult {
   /** Strain curves over the cycle (%), tracked and model mid-wall. */
   trackedCurve: number[];
   modelCurve: number[];
+}
+
+/**
+ * The fastest the bench lets a point of tissue move (mm/s): myocardial velocities stay under 15 cm/s (tissue Doppler s′
+ * and e′), so a point found further than this allows from where it was in the frame before has landed on other tissue.
+ */
+const MATERIAL_MAX_SPEED_MM_S = 200;
+
+/**
+ * Lengths over the cine (px) of a line of the model's tissue (decision 361): the start points on the LV at end diastole
+ * (cavity or wall), each followed by its material coordinates, and the line through those whose tissue was found in
+ * every frame; `left` counts the points left out.
+ */
+function modelLine(
+  cine: Cine,
+  line: readonly { x: number; y: number }[],
+): { lengths: number[]; left: number } {
+  const ed = cine.frames[0]!.structure;
+  const onLv = line.filter((p) => {
+    const st = ed[Math.round(p.x) + Math.round(p.y) * CANVAS]!;
+    return st === Structure.LvCavity || LV_WALLS.has(st);
+  });
+  const f = followMaterial(
+    cine.frames.map((fr) => fr.material),
+    onLv,
+    MATERIAL_MAX_SPEED_MM_S / cine.fps / cine.mmPerPx,
+  );
+  return {
+    lengths: f.positions.map((p) => polylineLength(p.filter((_, i) => f.kept[i]))),
+    left: line.length - f.kept.filter(Boolean).length,
+  };
 }
 
 /** GLS of a four-chamber cine. The tracked line starts 2 mm inside the wall from the end-diastolic endocardium. */
@@ -173,15 +210,16 @@ export function strain(cine: Cine): StrainResult {
   const frames = cine.frames.map(grey);
   const tr = trackPoints([...frames, frames[0]!], start, fullResOptions(cine.mmPerPx));
   const tracked = tr.positions.slice(0, frames.length).map((p) => polylineLength(p));
-  const model = cine.frames.map((f) =>
-    polylineLength(
-      resamplePolyline(
-        offsetPolyline(endocardialContour(f.structure), insidePx),
-        FULL_RES_TRACKING.points,
-      ),
-    ),
+  // the model's own strain (decision 361): the tissue under the tracked line's start points, and under the end-diastolic
+  // endocardium, followed by its material coordinates. A contour redrawn on each frame's structure map counted its pixel
+  // and voxel steps as length: its strain changed by several points with how much it was smoothed
+  const mid = modelLine(cine, start);
+  const endoLine = modelLine(
+    cine,
+    resamplePolyline(endocardialContour(cine.frames[0]!.structure), FULL_RES_TRACKING.points),
   );
-  const endo = cine.frames.map((f) => polylineLength(endocardialContour(f.structure)));
+  const model = mid.lengths;
+  const endo = endoLine.lengths;
   const last = tr.positions[tr.positions.length - 1]!;
   const drift =
     last.reduce((s, p, k) => s + Math.hypot(p.x - start[k]!.x, p.y - start[k]!.y), 0) / last.length;
@@ -193,6 +231,7 @@ export function strain(cine: Cine): StrainResult {
     modelMidwall: pm.strain,
     modelEndocardial: peakStrain(endo).strain,
     modelFrame: pm.frame,
+    modelLost: mid.left + endoLine.left,
     driftMm: drift * cine.mmPerPx,
     points: start.length,
     lost: tr.lost,
