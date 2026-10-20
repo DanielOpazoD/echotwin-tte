@@ -3204,7 +3204,13 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
 
     **El banco** (frente a la línea base de la 361):
 
-    BANCO_364
+    | Motor | Mejoran / empeoran / iguales (363 → 364) | Tejido 2 mm / endocardio | Rastreado | Rastreado / tejido |
+    |---|---|---|---|---|
+    | `rodero-movil` | 5 / 3 / 13 → 7 / 1 / 13 | −15,5 → −17,4 % / −17,6 → −18,5 % | −13,2 → −12,9 % | 0,85 → 0,74 |
+    | `rodero-cole` | 13 / 2 / 6 → 13 / 1 / 7 | −15,5 → −17,4 % / −17,6 → −18,5 % | −13,2 → −12,5 % | 0,85 → 0,71 |
+
+    - El GLS del tejido sube porque la base de la línea del banco está en el anillo, y la AI ahora llega hasta él: la línea ya no empieza en miocardio del VI colgado por encima de la bisagra. Queda a 0,3 de puntuación del rango normal (−18 a −22).
+    - La rastreabilidad (0,71–0,74) cae dentro de la de CREATIS (0,66 [0,62–0,81]) y deja de empeorar.
 
     **Pruebas**:
 
@@ -3216,4 +3222,13 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
       - Con la AD 5 mm más lejos de la AI (9 mm entre cavidades), entre ellas quedan 3–5 vóxeles de pared y ningún hueco, las aurículas cerradas y sus lados alejados donde estaban.
       - Con un plano mitral a 8 mm por debajo de la cúpula del VI (la cúpula pasa a ser lámina de miocardio por encima del plano, y entre ella y la AI hay 3 mm de hueco), del fondo de la AI al plano todo es aurícula: cavidad en al menos 9 de los 14 vóxeles del eje, sin hueco ni miocardio del VI; el plano y la cavidad del VI bajo él siguen en su sitio, la pared del VI bajo la bisagra también, y la AI queda cerrada.
 
-    MUTACIONES_364
+    - `roderoAtria.test.ts`, además: entre cada aurícula y la pared aórtica, donde se enfrentan, quedan menos de 250 vóxeles de hueco (664 y 1257 en la malla) y más de 600 de pared auricular tocando la raíz (476 y 312).
+
+    Trece mutaciones, trece fallos:
+    - sin tabique, un tabique de 8 mm, el criterio de «enfrentadas» relajado;
+    - grasa entre las aurículas permitida;
+    - sin unión auriculoventricular, el hueco de la unión sin tomar, una sola pasada, el lado decidido por la cavidad que crece, la toma también por debajo de la bisagra, sin pared contra lo ajeno;
+    - las aurículas sin apoyar en la raíz;
+    - los restos interiores sin pared.
+
+    Un relleno de los sectores sin voxel de anillo, que ninguna prueba necesitaba (la malla y el sintético los tienen todos), se quitó.
