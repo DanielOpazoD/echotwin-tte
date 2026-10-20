@@ -2906,3 +2906,15 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     Siete mutaciones unitarias y una en la paridad, ocho fallos.
 
     **Lo que sigue**: el banco juzga la textura sobre una sola realización, y con dispersores escasos eso basta para mover la asimetría ±0,15; una brecha con varias realizaciones la haría robusta.
+
+357. **El panel Dev muestra arriba la anatomía y la imagen, con el color del tema y el botón elegido relleno**: Daniel no encontraba cómo activar el corazón de Rodero. Los selectores estaban al final del panel, debajo de una tabla de una treintena de cifras de ejecución, y el panel tenía un fondo oscuro fijo (`rgba(10, 14, 20, 0.92)`) bajo el texto oscuro del tema claro. Todo se leía oscuro sobre oscuro. Medido en la app, el botón elegido, con su tinte azul del 9 % sobre ese fondo, se veía más apagado que los demás: blanco el no elegido y casi negro el elegido.
+
+    **Cambio**:
+
+    - `DevPanel.tsx`: el orden pasa a ser Anatomía, Imagen, Backend, la tabla de ejecución y la verdad de terreno. Cada botón de elección lleva `aria-pressed`.
+    - `styles.css`: el panel toma la superficie, el texto y el borde del tema (`--panel`, `--text`, `--border`), así que se lee en el tema claro y en el de sala. Su botón elegido se rellena con el acento y texto blanco, como un botón primario, en lugar del tinte que usan las listas largas de la app.
+    - Medido en la app: fondo del panel (244, 245, 247) con texto (22, 25, 29); botón elegido (37, 99, 168) con texto blanco, no elegido blanco con texto oscuro.
+
+    **Lo que queda**: otras quince reglas de la hoja pintan un fondo literal sin fijar su color de texto (las cajas sobre la imagen, el tutorial, la tarea hecha del currículo, las notas de revisión). La mayoría se dibuja siempre sobre la imagen negra o da color a sus hijos; no se han revisado una a una.
+
+    **Pruebas**: `DevPanel.test.tsx` (los tres primeros encabezados son Anatomía, Imagen y Backend; `aria-pressed` sigue la elección y el cambio) y `styles.test.ts` (el panel toma el fondo y el texto de tokens del tema, y su botón elegido se rellena con el acento). Seis mutaciones, seis fallos.

@@ -1552,9 +1552,13 @@ select:hover {
   width: 300px;
   max-height: 80%;
   overflow: auto;
-  background: rgba(10, 14, 20, 0.92);
+  /* the theme's surface and text (decision 357): a fixed dark surface under the light theme's dark text read dark on
+     dark, and its chosen buttons, tinted on a transparent blue, read dimmer than the others */
+  background: var(--panel);
+  color: var(--text);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
+  box-shadow: var(--shadow-1);
   padding: 8px;
   font-family: var(--mono);
   font-size: var(--fs-sm);
@@ -1571,7 +1575,13 @@ select:hover {
 }
 .dev td {
   padding: 1px 4px;
-  border-bottom: 1px solid #1c2330;
+  border-bottom: 1px solid var(--border);
+}
+/* a choice of the panel reads as chosen at a glance: filled as a primary button, not just tinted (decision 357) */
+.dev button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
 }
 .error {
   position: absolute;
