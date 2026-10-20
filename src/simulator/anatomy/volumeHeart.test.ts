@@ -1,7 +1,8 @@
 // @tier slow
 /**
  * A heart read from a label volume (decision 346), on a synthetic one: an ellipsoidal ventricle (wall 8 mm, 90 mm from
- * the mitral centre to the apex, as the CT mean heart) with a 3 mm groove cut into its lateral surface. The clinical
+ * the mitral centre to the apex, as the CT mean heart) with a 3 mm groove cut into its lateral surface, a left atrium
+ * 2 mm above its base and a right atrium whose wall is thicker than the atrial walls keep (decision 358). The clinical
  * volume stays outside the repository; this checks what the sampler does with any volume: the alignment by the anatomical
  * frame, the LV wall's sectors, the groove fat, the pericardium and the distance beyond the sac, the interface distance
  * and normal, and the analytic valve apparatus drawn only in the cavities.
@@ -122,12 +123,35 @@ describe('volume heart (decision 346)', () => {
     }
   });
 
-  it('fills the groove with epicardial fat and wraps the heart in the pericardium', () => {
-    expect(sampleAt([64.5, 84.5, 72.5]).q.structure).toBe(Structure.EpicardialFat);
+  it('fills the atrioventricular groove with epicardial fat and wraps the heart in the pericardium', () => {
+    // the 2 mm gap between the left atrium and the ventricle's base: a groove between an atrium and a ventricle
+    expect(sampleAt([64.5, 56.5, 24.5]).q.structure).toBe(Structure.EpicardialFat);
+    // and the 2 mm gap between the right ventricle's wall and the left's: an interventricular groove
+    expect(sampleAt([64.5, 24.5, 72.5]).q.structure).toBe(Structure.EpicardialFat);
+    // the groove cut in the lateral wall alone, far from the atria and the right ventricle, holds no fat (decision 358)
+    expect(sampleAt([64.5, 84.5, 72.5]).q.structure).not.toBe(Structure.EpicardialFat);
     // the first voxel beyond the lateral epicardium lies 1 mm out, 0.10 cm in the model: inside the 0.12 cm sac
     const sac = sampleAt([64.5, 85.5, 60.5]);
     expect(sac.hit).toBe(true);
     expect(sac.q.structure).toBe(Structure.Pericardium);
+  });
+
+  it('thins the atrial walls to two voxels from their cavity, and keeps them closed (decision 358)', () => {
+    // the right atrium's wall runs 0.85–1 of its 24 mm semi-axis along x, voxels 84–87 beyond the cavity's last (83):
+    // the two nearest it stay, the outer ones are peeled
+    expect(sampleAt([85.5, 36.5, 10.5]).q.structure).toBe(Structure.RaWall);
+    expect(sampleAt([86.5, 36.5, 10.5]).q.structure).not.toBe(Structure.RaWall);
+    expect(sampleAt([87.5, 36.5, 10.5]).q.structure).not.toBe(Structure.RaWall);
+    // the left atrium's wall, 2 voxels, stays whole
+    expect(sampleAt([64.5, 66.5, 12.5]).q.structure).toBe(Structure.LaWall);
+    // no atrial blood touches the outside
+    const g = vol.gpu();
+    const [nx, ny] = g.dims;
+    let open = 0;
+    for (let v = 0; v < g.labels.length; v++)
+      if (g.labels[v] === 33 || g.labels[v] === 34)
+        for (const s of [1, -1, nx, -nx, nx * ny, -nx * ny]) if (g.labels[v + s] === 0) open++;
+    expect(open).toBe(0);
   });
 
   it('leaves on a miss the distance beyond the sac, growing outward and past the grid', () => {
