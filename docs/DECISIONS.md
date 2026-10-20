@@ -2989,6 +2989,8 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
 
     **Lo que no cambia**: el análisis de vista sigue juzgando el plano con la geometría del corazón analítico, así que puntúa el A4C de Rodero algo más bajo; es una de las dependencias por portar.
 
+    **Paquetes**: el worker de simulación pasa a 360,0 kB por `controlThroughCrux`, que el núcleo necesita para el preset: su presupuesto sube de 360 a 365 kB, el total sin cambios (2114,1 de 2120 kB).
+
     **Pruebas**:
 
     - `throughCrux.test.ts`: el plano girado contiene la cruz (a menos de `CRUX_PLANE_CM`) y sigue conteniendo el eje del VI; sólo el A4C se gira, y sólo si hay cruz.
