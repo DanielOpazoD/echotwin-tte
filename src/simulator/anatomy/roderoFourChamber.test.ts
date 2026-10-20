@@ -85,8 +85,10 @@ describe('the Rodero four-chamber plane (decision 360)', async () => {
     const view = getViewTarget('a4c');
     const declared = canonicalControl(view, heart, thorax);
     const turned = controlThroughCrux(view, heart, thorax, crux);
-    // at the crux's depth: 18.5 mm declared, 7.0 turned (0.5 cm deeper, 9.0 and 6.75)
-    expect(septumBelowCrux(declared, 0)).toBeGreaterThan(15);
+    // at the crux's depth: 7.5 mm declared and under 8 turned. Until decision 364 the declared plane cut 18.5 mm between
+    // the atria (the mesh's two walls and the gap between them, and the LV's basal septum past the mitral hinge); the
+    // turn through the crux is kept because the clinical four-chamber plane passes through it
+    expect(septumBelowCrux(declared, 0)).toBeLessThan(10);
     expect(septumBelowCrux(turned, 0)).toBeLessThan(8);
   });
 });

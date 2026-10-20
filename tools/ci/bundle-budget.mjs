@@ -58,8 +58,9 @@ const BUDGETS = [
 // worker, the mesh worker and the WebGL2 port alike. Decision 352 adds the experimental anatomy's volume heart as a chunk
 // fetched only when it is chosen (15 kB, once for the worker and once for the core that runs without one): 2063.2 kB,
 // raised to 2100 kB. Decision 354 adds the experimental image formation the same way (8 kB, twice): 2110.1 kB, raised to
-// 2120 kB.
-const TOTAL_JS_BUDGET = 2120 * KB;
+// 2120 kB. Decision 364 (the interatrial septum, the atria on the aortic root and the left atrioventricular junction
+// built when the volume heart is bound) adds 2.7 kB to that chunk, twice: 2123.0 kB, raised to 2130 kB.
+const TOTAL_JS_BUDGET = 2130 * KB;
 
 let files;
 try {

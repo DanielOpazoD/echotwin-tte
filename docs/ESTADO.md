@@ -108,7 +108,14 @@ y la punta de la cavidad se acerca a la base; su tejido se acorta −15,4 % en e
 el endocardio), aún bajo el rango normal. En el plano de la cruz, la bisagra septal se desplaza 3 mm hacia el VD en
 sístole y alarga el primer tramo del septo basal: queda por mirar. Decisión 363: el paso radial vuelve al estiramiento
 del VI (con el de cada punto, la pared crecía un 2,6 % en sístole; ahora un 1,5 %); en sístole la cúpula apical se
-estrecha 2–3 mm, a juzgar en las hojas. Siguiente: la revisión de Daniel con las hojas.
+estrecha 2–3 mm, a juzgar en las hojas. Decisión 364: dentro del corazón de Rodero no queda hueco, grasa ni pericardio. La malla media no tenía tabique
+interauricular (dos paredes con un hueco pintado como pericardio, 9 mm entre cavidades: ahora un tabique único de 4 mm),
+llevaba el septo basal del VI 10–15 mm más allá de la bisagra mitral por el lado de la AI (ahora la AI baja hasta el
+plano valvular, y el septo auriculoventricular junto a la AD se conserva) y dejaba huecos entre las aurículas y la raíz
+aórtica (ahora las aurículas se apoyan en ella). La masa gris bajo la bisagra septal a +15° de giro pasa de 135 a 111 de
+gris: lo que queda es la pared de la AI cortada en rasante. Regla de Daniel para todo lo que siga: una estructura visible
+tiene que poder nombrarse como anatomía en cualquier plano, y en los tabiques y uniones interiores no hay grasa ni
+pericardio. Siguiente: la revisión de Daniel con las hojas.
 
 ## Cómo seguir
 

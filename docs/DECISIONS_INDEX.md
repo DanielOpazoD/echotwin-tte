@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 363 (última: 363).
+Decisiones: 364 (última: 364).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -371,3 +371,4 @@ Decisiones: 363 (última: 363).
 | [361](DECISIONS.md#L3016) | 2026-10-18 | El GLS del modelo en el banco sigue al tejido por sus coordenadas materiales | vigente |
 | [362](DECISIONS.md#L3061) | 2026-10-18 | El casquete apical de Rodero se engrosa en sístole como la pared que lo precede | vigente |
 | [363](DECISIONS.md#L3131) | 2026-10-18 | El paso radial de Rodero conserva la pared con el estiramiento del VI | vigente |
+| [364](DECISIONS.md#L3174) | 2026-10-18 | Dentro del corazón de Rodero no hay huecos, grasa ni pericardio: tabique interauricular único, aurículas apoyadas en la raíz y la AI hasta la bisagra mitral | vigente |
