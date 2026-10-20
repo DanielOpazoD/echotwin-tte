@@ -99,6 +99,7 @@ import type {
 import { resolveQualityTier } from './quality';
 import type { AssetFetcher } from '@/simulator/anatomy/roderoAsset';
 import type * as RoderoHeartModule from '@/simulator/core/roderoHeart';
+import type * as ColeImageModule from '@/simulator/core/coleImage';
 import type { LabelVolume, VolumeHeart } from '@/simulator/anatomy/volumeHeart';
 import type { HeartVolumeGpu } from '@/simulator/renderer/types';
 import { MMODE_TRACE_SHARE } from './mmodeStrip';
@@ -143,6 +144,10 @@ export class SimulatorCore {
   private roderoVolume: LabelVolume | null = null;
   private roderoLoad: Promise<void> | null = null;
   private roderoFailure: string | null = null;
+  /** The experimental image formation (decision 354), loaded once on demand. */
+  private coleLib: typeof ColeImageModule | null = null;
+  private coleLoad: Promise<void> | null = null;
+  private coleFailure: string | null = null;
   private roderoBound: {
     heart: HeartModel;
     vh: VolumeHeart;
@@ -412,6 +417,9 @@ export class SimulatorCore {
       this.backend = this.pickBackend(input.rendererBackend, input.anatomy ?? 'analytic');
       if (anatomyChanged) this.atlas.invalidate();
     }
+    // the atlas' frames were formed with the other image formation (decision 354)
+    if ((input.imageFormation ?? 'lattice') !== (this.input.imageFormation ?? 'lattice'))
+      this.atlas.invalidate();
     if (JSON.stringify(input.artifactOverrides) !== JSON.stringify(this.input.artifactOverrides))
       this.applyArtifactOverrides(input.artifactOverrides);
     if (!input.frozen && input.modality !== this.acquisitionModality) {
@@ -571,11 +579,13 @@ export class SimulatorCore {
     const state = cycleStateAt(this.tables, phase, this.flow.flowPeaks);
     const heartPose = computeHeartPose(this.heart, state);
     const rodero = this.roderoHeart();
+    const cole = this.coleImage();
     return {
       heart: this.heart,
       heartPose,
       thorax: this.thorax,
       physics: this.physics(),
+      ...(cole ? { imageFormation: cole.COLE_FORMATION, scatterGpu: cole.COLE_GPU } : {}),
       ...(rodero
         ? {
             heartClassifier: rodero.vh.classifier({
@@ -599,6 +609,8 @@ export class SimulatorCore {
         .then(async (lib) => {
           this.roderoVolume = await lib.loadRoderoVolume(this.fetchAsset);
           this.roderoLib = lib;
+          // the atlas kept the analytic heart's frames while the volume was on its way
+          this.atlas.invalidate();
         })
         .catch((e: unknown) => {
           this.roderoFailure = e instanceof Error ? e.message : String(e);
@@ -615,6 +627,38 @@ export class SimulatorCore {
       };
     }
     return this.roderoBound;
+  }
+
+  /**
+   * The convolution image formation, when the experimental image is chosen and its chunk has arrived; starts loading it
+   * the first time it is asked for. Null otherwise (the lattice image forms meanwhile).
+   */
+  private coleImage(): typeof ColeImageModule | null {
+    if (this.input.imageFormation !== 'cole') return null;
+    if (!this.coleLoad)
+      this.coleLoad = import('@/simulator/core/coleImage')
+        .then((lib) => {
+          this.coleLib = lib;
+          // the atlas kept the lattice image's frames while the chunk was on its way
+          this.atlas.invalidate();
+        })
+        .catch((e: unknown) => {
+          this.coleFailure = e instanceof Error ? e.message : String(e);
+        });
+    return this.coleLib;
+  }
+
+  /** Resolves when the experimental image formation has arrived or failed (tests and tools). */
+  async coleReady(): Promise<void> {
+    this.coleImage();
+    await this.coleLoad;
+  }
+
+  /** How the frames form the image, for the Dev panel. */
+  private imageFormationStatus(): string {
+    if (this.input.imageFormation !== 'cole') return 'red';
+    if (this.coleFailure) return `convolución: error (${this.coleFailure})`;
+    return this.coleLib ? 'convolución' : 'convolución (cargando…)';
   }
 
   /** Resolves when the experimental anatomy's volume has arrived or failed (tests and tools). */
@@ -1119,6 +1163,7 @@ export class SimulatorCore {
         ...this.backend.stats(),
         backend: this.backend.id,
         anatomy: this.anatomyStatus(),
+        imagen: this.imageFormationStatus(),
         gpu: this.gpuReason,
         tier: this.tier,
         lines: spec.lines,

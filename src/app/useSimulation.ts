@@ -102,6 +102,7 @@ export function buildInput(display: { width: number; height: number }): SimInput
     display,
     rendererBackend: s.rendererBackend,
     anatomy: s.anatomy,
+    imageFormation: s.imageFormation,
     artifactOverrides: s.artifactLab,
   };
 }

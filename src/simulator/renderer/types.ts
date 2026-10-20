@@ -2,6 +2,8 @@ import type { BeamFrame } from '@/simulator/probe/pose';
 import type { HeartModel, HeartPose } from '@/simulator/anatomy/heartModel';
 import type { ThoraxModel } from '@/simulator/anatomy/thoraxModel';
 import type { HeartClassifier } from '@/simulator/anatomy/sceneClassifier';
+import type { PsfKernels } from './acoustic/psf';
+import type { ScatterField } from './acoustic/scatterers';
 import type { ConsoleState } from './postprocess/consolePipeline';
 
 export type ImagingModality = '2d' | 'm-mode' | 'cmm' | 'color' | 'pw' | 'cw' | 'tdi';
@@ -118,6 +120,43 @@ export interface Scene {
   heartClassifier?: HeartClassifier;
   /** The same heart for the GPU port (decision 353): its pass A samples the volume instead of the analytic heart. */
   heartVolumeGpu?: HeartVolumeGpu;
+  /** An image formation in place of the tracer's own (decision 354): the CPU tracer's. */
+  imageFormation?: ImageFormation;
+  /** The same formation for the GPU port (decision 354): point scatterers in pass A, its kernels, one look. */
+  scatterGpu?: ScatterFieldGpu;
+}
+
+/**
+ * How the tracer forms the image from its per-sample echoes. The app's: the lattice phasor anchored in tissue (decision
+ * 52), detected in COMPOUND_LOOKS looks whose envelopes are averaged (decision 145), with the closed-form PSF of
+ * `acoustic/psf.ts`. Offline engines and the experimental image of the app may bring instead point scatterers anchored
+ * in tissue (decision 351), with the number of looks and the kernels they bring.
+ */
+export interface ImageFormation {
+  looks: number;
+  /** Point scatterers anchored in tissue in place of the lattice phasor; the engine brings their code. */
+  scatterers?: ScatterField;
+  /** PSF kernels for a frame geometry at the console's frequency and harmonic setting; the closed-form ones when absent. */
+  kernels?: (spec: PolarFrameSpec, frequencyMHz: number, harmonics: boolean) => PsfKernels;
+}
+
+/**
+ * Point scatterers anchored in tissue as the GPU port forms them (decision 354): pass A compiled with `glsl` (which
+ * defines `scatterPhasor`) writes their phasor into both looks, so the averaged envelope is the one look's, and the
+ * port's PSF table is the formation's kernels. Built with the formation's code, outside the WebGL2 chunk.
+ */
+export interface ScatterFieldGpu {
+  readonly key: string;
+  readonly glsl: string;
+  /** The looks whose envelopes are averaged: the second look of the port is left out with one. */
+  readonly looks: number;
+  kernels(spec: PolarFrameSpec, frequencyMHz: number, harmonics: boolean): PsfKernels;
+  /** Set the frame's wavenumber, seed and the scatterers' constants on pass A, in use. */
+  frame(
+    gl: WebGL2RenderingContext,
+    prog: WebGLProgram,
+    physics: { frequencyMHz: number; harmonics: boolean; seed: number },
+  ): void;
 }
 export type { HeartClassifier };
 

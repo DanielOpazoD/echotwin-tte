@@ -20,7 +20,7 @@ function glslStrip(): Plugin {
     enforce: 'pre',
     transform(code, id) {
       if (
-        !/[\\/]src[\\/]simulator[\\/]renderer[\\/]gpu[\\/]glsl(Common|Heart|Thorax|Passes|Image|Generated)\.ts$/.test(
+        !/[\\/]src[\\/]simulator[\\/]renderer[\\/]gpu[\\/]glsl(Common|Heart|Thorax|Passes|Image|Generated|VolumeHeart|Scatterers)\.ts$/.test(
           id,
         )
       )

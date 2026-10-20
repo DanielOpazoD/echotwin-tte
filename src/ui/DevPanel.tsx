@@ -4,8 +4,10 @@ import { modePolicy } from '@/app/modePolicy';
 import { formatClinical } from '@/clinical/reference-values';
 import {
   ANATOMY_CHOICES,
+  IMAGE_FORMATION_CHOICES,
   RENDERER_BACKEND_CHOICES,
   type AnatomyChoice,
+  type ImageFormationChoice,
   type RendererBackendChoice,
 } from '@/simulator/core/protocol';
 
@@ -19,7 +21,15 @@ const ANATOMY_LABELS: Record<AnatomyChoice, [string, string]> = {
   analytic: ['analítica', 'El corazón del modelo analítico (por omisión)'],
   rodero: [
     'Rodero (experimental)',
-    'El corazón medio de Rodero et al. 2021 (TC, CC BY 4.0) movido por el ciclo del caso, en el trazador CPU',
+    'El corazón medio de Rodero et al. 2021 (TC, CC BY 4.0) movido por el ciclo del caso, en la CPU y en la GPU',
+  ],
+};
+
+const IMAGE_FORMATION_LABELS: Record<ImageFormationChoice, [string, string]> = {
+  lattice: ['red', 'Fasor de red anclado al tejido en dos miradas promediadas (por omisión)'],
+  cole: [
+    'convolución (experimental)',
+    'Dispersores puntuales anclados al tejido con los núcleos de un array de 64 elementos, en una mirada',
   ],
 };
 
@@ -33,6 +43,8 @@ export function DevPanel() {
       setBackend: st.setBackend,
       anatomy: st.anatomy,
       setAnatomy: st.setAnatomy,
+      imageFormation: st.imageFormation,
+      setImageFormation: st.setImageFormation,
       truth: st.truth,
       ui: st.ui,
     })),
@@ -153,6 +165,19 @@ export function DevPanel() {
             data-tip={ANATOMY_LABELS[a][1]}
           >
             {ANATOMY_LABELS[a][0]}
+          </button>
+        ))}
+      </div>
+      <h4>Imagen</h4>
+      <div className="row">
+        {IMAGE_FORMATION_CHOICES.map((f) => (
+          <button
+            key={f}
+            className={s.imageFormation === f ? 'active' : ''}
+            onClick={() => s.setImageFormation(f)}
+            data-tip={IMAGE_FORMATION_LABELS[f][1]}
+          >
+            {IMAGE_FORMATION_LABELS[f][0]}
           </button>
         ))}
       </div>

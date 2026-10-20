@@ -33,6 +33,7 @@ import {
   sideLobeLevelDb,
   type PsfKernels,
 } from '../acoustic/psf';
+import { COMPOUND_LOOKS } from '../acoustic/acoustics';
 import {
   GLSL_CONSOLE_FRAG,
   GLSL_NOISE_AXIAL_FRAG,
@@ -123,7 +124,9 @@ export class Webgl2Renderer implements RendererBackend {
   private gl: WebGL2RenderingContext;
   private progA: WebGLProgram;
   /** Pass A over a heart read from a label volume (decision 353): one variant per bound volume, compiled on first use. */
-  private volumePassA = new Map<string, WebGLProgram>();
+  /** Pass A over a volume heart or with point scatterers (decisions 353 and 354), by the scene's keys. */
+  private passAVariants = new Map<string, WebGLProgram>();
+  private uLooksD: WebGLUniformLocation | null;
   private common = '';
   private progB: WebGLProgram;
   private progL: WebGLProgram;
@@ -285,6 +288,7 @@ export class Webgl2Renderer implements RendererBackend {
     gl.uniform1i(gl.getUniformLocation(this.progD, 'uAx'), 2);
     gl.uniform1i(gl.getUniformLocation(this.progD, 'uPsf'), 3);
     gl.uniform1i(gl.getUniformLocation(this.progD, 'uAx2'), 4);
+    this.uLooksD = gl.getUniformLocation(this.progD, 'uLooks');
     gl.useProgram(this.progConsole);
     gl.uniform1i(this.uc.uEnv, 2);
     gl.uniform1i(this.uc.uIds, 3);
@@ -325,7 +329,7 @@ export class Webgl2Renderer implements RendererBackend {
     this.disposed = true;
     const gl = this.gl;
     for (const p of [
-      ...this.volumePassA.values(),
+      ...this.passAVariants.values(),
       this.progA,
       this.progL,
       this.progP,
@@ -465,6 +469,15 @@ export class Webgl2Renderer implements RendererBackend {
   /** Upload the PSF kernel table: row 0 axial taps, row 1 + sample lateral taps, centred on MAX_LATERAL_RADIUS; radius in .g of the centre. */
   private ensurePsf(scene: Scene, spec: PolarFrameSpec): void {
     const { frequencyMHz, harmonics } = scene.physics;
+    // an image formation's own kernels (decision 354)
+    const sg = scene.scatterGpu;
+    if (sg) {
+      const k = sg.kernels(spec, frequencyMHz, harmonics);
+      if (this.psfKeyUploaded === k.key) return;
+      this.uploadKernels(this.psfTex, k, spec);
+      this.psfKeyUploaded = k.key;
+      return;
+    }
     const bw = scene.physics.beamWidth ?? 0;
     const lobes = sideLobeLevelDb(scene.physics.sideLobe);
     const key = psfKey(spec, frequencyMHz, harmonics, bw, lobes);
@@ -587,21 +600,27 @@ export class Webgl2Renderer implements RendererBackend {
     gl.uniform1i(gl.getUniformLocation(prog, 'uNoise'), 1);
   }
 
-  /** The pass A program of a scene: the analytic heart's, or the variant over the scene's volume heart (decision 353). */
+  /**
+   * The pass A program of a scene: the analytic heart's with the lattice phasor, or the variant over the scene's volume
+   * heart (decision 353), with its point scatterers (decision 354), or both.
+   */
   private passAFor(scene: Scene): WebGLProgram {
     const hv = scene.heartVolumeGpu;
-    if (!hv) return this.progA;
-    let prog = this.volumePassA.get(hv.key);
+    const sg = scene.scatterGpu;
+    if (!hv && !sg) return this.progA;
+    const key = `${hv?.key ?? 'analytic'}|${sg?.key ?? 'lattice'}`;
+    let prog = this.passAVariants.get(key);
     if (!prog) {
       const gl = this.gl;
+      const defines = `${hv ? '#define VOLUME_HEART\n' : ''}${sg ? '#define SCATTER_FIELD\n' : ''}`;
       prog = buildProgram(
         gl,
         GLSL_VERT,
-        `${this.common}#define VOLUME_HEART\n${GLSL_HEART}${GLSL_THORAX}${hv.glsl}${GLSL_PASS_A_MAIN}`,
+        `${this.common}${defines}${GLSL_HEART}${GLSL_THORAX}${hv?.glsl ?? ''}${sg?.glsl ?? ''}${GLSL_PASS_A_MAIN}`,
       );
       this.initPassA(prog);
-      hv.upload(gl);
-      this.volumePassA.set(hv.key, prog);
+      hv?.upload(gl);
+      this.passAVariants.set(key, prog);
     }
     return prog;
   }
@@ -633,6 +652,7 @@ export class Webgl2Renderer implements RendererBackend {
       scene.heartVolumeGpu.bind(gl, progA, 2);
       scene.heartVolumeGpu.frame(gl, progA, scene.heartPose);
     }
+    scene.scatterGpu?.frame(gl, progA, scene.physics);
     if (spec.elevationSamples > 1) {
       gl.uniform1f(uElevK, -1);
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbS0);
@@ -678,6 +698,7 @@ export class Webgl2Renderer implements RendererBackend {
     // pass D: lateral PSF and envelope, the looks averaged
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbD);
     gl.useProgram(this.progD);
+    gl.uniform1f(this.uLooksD, scene.scatterGpu?.looks ?? COMPOUND_LOOKS);
     bindAt(2, this.texC0);
     bindAt(3, this.psfTex);
     bindAt(4, this.texC1);

@@ -33,6 +33,7 @@ import {
   type ProbeControl,
 } from '@/simulator/probe/pose';
 import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
+import type { AnatomyChoice, ImageFormationChoice } from '@/simulator/core/protocol';
 
 export interface BackendComparison {
   error?: string;
@@ -141,13 +142,16 @@ export function compareBackends(
 }
 
 /**
- * The same comparison with the experimental Rodero heart (decisions 352 and 353): the shipped volume fetched under the
- * app's base, bound to the case's heart, and the frame formed by the CPU tracer over its classifier and by the GPU port
- * over its textures.
+ * The same comparison with the experimental choices of the Dev panel: the Rodero heart (decisions 352 and 353), the
+ * shipped volume fetched under the app's base, bound to the case's heart, read by the CPU tracer over its classifier and
+ * by the GPU port over its textures; and the convolution image (decision 354), point scatterers and the DAS kernels in
+ * one look, formed by the CPU tracer and by the GPU port's variant of pass A.
  */
-export async function compareRoderoBackends(
+export async function compareExperimentalBackends(
   viewId: string,
   phase: number,
+  anatomy: AnatomyChoice,
+  image: ImageFormationChoice,
   caseId = 'normal-excellent-window',
   tier: Tier = 'medium',
 ): Promise<BackendComparison> {
@@ -161,24 +165,31 @@ export async function compareRoderoBackends(
     undefined,
     REST_PATIENT,
   );
-  const lib = await import('@/simulator/core/roderoHeart');
-  const vol = await lib.loadRoderoVolume(async (path) => {
-    const r = await fetch(`${import.meta.env.BASE_URL}${path}`);
-    if (!r.ok) throw new Error(`${path}: HTTP ${r.status}`);
-    return r.arrayBuffer();
-  });
-  const c = loadCaseById(caseId);
-  const ed = computeHeartPose(heart, cycleStateAt(buildCaseModels(c, REST_PATIENT).tables, 0));
-  const vh = lib.volumeHeart(vol, heart, ed);
-  const withVolume: Scene = {
-    ...scene,
-    heartClassifier: vh.classifier({
-      apparatus: scene.heartPose,
-      motion: { pose: scene.heartPose, endDiastole: ed },
-    }),
-    heartVolumeGpu: lib.volumeHeartGpu(vh, ed),
-  };
-  return compareFrames(heart, beam, spec, withVolume, phase);
+  let s: Scene = scene;
+  if (anatomy === 'rodero') {
+    const lib = await import('@/simulator/core/roderoHeart');
+    const vol = await lib.loadRoderoVolume(async (path) => {
+      const r = await fetch(`${import.meta.env.BASE_URL}${path}`);
+      if (!r.ok) throw new Error(`${path}: HTTP ${r.status}`);
+      return r.arrayBuffer();
+    });
+    const c = loadCaseById(caseId);
+    const ed = computeHeartPose(heart, cycleStateAt(buildCaseModels(c, REST_PATIENT).tables, 0));
+    const vh = lib.volumeHeart(vol, heart, ed);
+    s = {
+      ...s,
+      heartClassifier: vh.classifier({
+        apparatus: scene.heartPose,
+        motion: { pose: scene.heartPose, endDiastole: ed },
+      }),
+      heartVolumeGpu: lib.volumeHeartGpu(vh, ed),
+    };
+  }
+  if (image === 'cole') {
+    const lib = await import('@/simulator/core/coleImage');
+    s = { ...s, imageFormation: lib.COLE_FORMATION, scatterGpu: lib.COLE_GPU };
+  }
+  return compareFrames(heart, beam, spec, s, phase);
 }
 
 /** CPU and GPU frames of one scene, compared sample by sample. */

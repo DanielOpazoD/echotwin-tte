@@ -133,4 +133,16 @@ describe('image formation of the CPU tracer (decision 351)', () => {
     // the same anatomy either way
     expect(Array.from(scat.structure)).toEqual(Array.from(lat.structure));
   });
+
+  it('forms each frame with the scene’s formation when it brings one (decision 354)', () => {
+    const cole: ImageFormation = { looks: 1, scatterers: SCATTER_FIELD, kernels: buildColeKernels };
+    const tracer = new ProceduralSliceRenderer();
+    const withCole = allocPolarFrame(spec);
+    tracer.render({ ...scene, imageFormation: cole }, beam, spec, 0, withCole);
+    expect(Array.from(withCole.amplitude)).toEqual(Array.from(render(cole).amplitude));
+    // and its own again on the next frame without one
+    const own = allocPolarFrame(spec);
+    tracer.render(scene, beam, spec, 0, own);
+    expect(Array.from(own.amplitude)).toEqual(Array.from(render().amplitude));
+  });
 });
