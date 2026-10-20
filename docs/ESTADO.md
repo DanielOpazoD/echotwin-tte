@@ -94,7 +94,8 @@ finas. Frente a la línea base nueva, `rodero-cole` da 12 mejor, 2 peor (asimetr
 igual. Decisión 356: la convolución dibuja los granos del parénquima
 con dispersores fuertes escasos (0,2 %, ×22); `cole` acerca en 14 brechas sin empeorar ninguna y `rodero-cole` da 14
 mejor, 1 peor (la curtosis de su realización), 6 igual. Las hojas de revisión dibujan Rodero y la convolución
-(`REVIEW_ANATOMY`, `REVIEW_IMAGE`). Siguiente: la revisión de Daniel con esas hojas.
+(`REVIEW_ANATOMY`, `REVIEW_IMAGE`). Desde la decisión 357 la anatomía y la imagen están arriba en el panel Dev
+(menú de deslizadores → Panel Dev). Siguiente: la revisión de Daniel con esas hojas.
 
 ## Cómo seguir
 

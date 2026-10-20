@@ -99,4 +99,25 @@ describe('the stylesheet is one system (decision 339)', () => {
     }
     expect(off).toEqual([]);
   });
+
+  it('paints the Dev panel with the theme’s surface and text (decision 357)', () => {
+    // a fixed dark surface under the light theme's dark text read dark on dark
+    const dev = rules.find((r) => r.selector.trim() === '.dev')!;
+    const decl = (prop: string) => {
+      let v = '';
+      dev.walkDecls(prop, (d) => {
+        v = d.value;
+      });
+      return v;
+    };
+    expect(decl('background')).toMatch(/^var\(--/);
+    expect(decl('color')).toMatch(/^var\(--/);
+    // and its chosen buttons are filled with the accent, as a primary button
+    const chosen = rules.find((r) => r.selector.trim() === '.dev button.active');
+    let fill = '';
+    chosen?.walkDecls('background', (d) => {
+      fill = d.value;
+    });
+    expect(fill).toBe('var(--accent)');
+  });
 });

@@ -131,36 +131,14 @@ export function DevPanel() {
     : [];
   return (
     <div className="dev" role="region" aria-label="Panel de desarrollador">
-      <h4>Runtime</h4>
-      <table>
-        <tbody>
-          {rows.map(([k, v]) => (
-            <tr key={k}>
-              <td>{k}</td>
-              <td>{v}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <h4>Backend</h4>
-      <div className="row">
-        {RENDERER_BACKEND_CHOICES.map((b) => (
-          <button
-            key={b}
-            className={s.rendererBackend === b ? 'active' : ''}
-            onClick={() => s.setBackend(b)}
-            data-tip={BACKEND_TITLES[b]}
-          >
-            {b}
-          </button>
-        ))}
-      </div>
+      {/* the experimental choices first, where they are seen without scrolling (decision 357) */}
       <h4>Anatomía</h4>
       <div className="row">
         {ANATOMY_CHOICES.map((a) => (
           <button
             key={a}
             className={s.anatomy === a ? 'active' : ''}
+            aria-pressed={s.anatomy === a}
             onClick={() => s.setAnatomy(a)}
             data-tip={ANATOMY_LABELS[a][1]}
           >
@@ -174,6 +152,7 @@ export function DevPanel() {
           <button
             key={f}
             className={s.imageFormation === f ? 'active' : ''}
+            aria-pressed={s.imageFormation === f}
             onClick={() => s.setImageFormation(f)}
             data-tip={IMAGE_FORMATION_LABELS[f][1]}
           >
@@ -181,6 +160,31 @@ export function DevPanel() {
           </button>
         ))}
       </div>
+      <h4>Backend</h4>
+      <div className="row">
+        {RENDERER_BACKEND_CHOICES.map((b) => (
+          <button
+            key={b}
+            className={s.rendererBackend === b ? 'active' : ''}
+            aria-pressed={s.rendererBackend === b}
+            onClick={() => s.setBackend(b)}
+            data-tip={BACKEND_TITLES[b]}
+          >
+            {b}
+          </button>
+        ))}
+      </div>
+      <h4>Runtime</h4>
+      <table>
+        <tbody>
+          {rows.map(([k, v]) => (
+            <tr key={k}>
+              <td>{k}</td>
+              <td>{v}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
       <h4>Verdad de terreno (modelo)</h4>
       <table>
         <tbody>
