@@ -2965,7 +2965,7 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     CAMUS Good: 0,53 [0,42–0,67], 0,95 [0,61–1,42], 19,6 [17,7–22,0] y 100 [87–115]. `rodero-cole` deja de empeorar ninguna brecha: la curtosis de la 356 era la realización del caso.
 
     **Pruebas** (`speckleStats.test.ts`): la media y la desviación estándar de cada campo, y la de una sola realización. Dos mutaciones, dos fallos.
-360. **El cuatro cámaras de Rodero gira sobre el eje del VI hasta su propia cruz** (en borrador: equilibrio para que Daniel lo juzgue): segunda marca de Daniel, una masa gris dentro de la AI bajo la bisagra septal mitral.
+360. **El cuatro cámaras de Rodero gira sobre el eje del VI hasta su propia cruz**: segunda marca de Daniel, una masa gris dentro de la AI bajo la bisagra septal mitral.
 
     **Medido antes de cambiar** (caso normal, telediástole):
 
@@ -2981,11 +2981,26 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     - El núcleo da ese preset cuando la anatomía es Rodero; el banco (los motores de Rodero) y las hojas y clips de revisión, también, para medir lo que la app muestra.
     - En el caso normal el plano gira 15° sobre el eje. A la altura de la cruz quedan 7,7 mm entre las aurículas (18,5 antes); en las hojas, la AI es una cámara limpia con el tabique como línea fina hasta la cruz y sin la masa.
 
-    **El equilibrio** (banco frente a la línea base de la 355):
+    **El banco** (frente a la línea base de la 355):
 
     - `rodero-cole`: mejoran 13, empeora 1, iguales 7. Empeora el GLS del contorno del modelo, de −18,3 a −16,2 % (rango −18 a −22).
     - `rodero-movil`: mejoran 5, empeoran 2, iguales 14. El rastreador vuelve a leer 0,73 del acortamiento (0,47–0,48 con el plano declarado desde la decisión 353, la regresión sin atribuir): el plano declarado cortaba la cruz, donde las aurículas y el septo basal se mueven a través del corte.
-    - El GLS del contorno baja porque el plano por la cruz muestra menos acortamiento del corazón de Rodero. Con la misma medida (contorno endocárdico de telediástole a telesístole, base en el anillo), el corazón analítico da −18,5 % en su plano; Rodero, −15,1 % en el declarado y −12,6 % en el de la cruz. No es el acortamiento longitudinal: en el plano declarado la longitud del VI baja un 15,1 % en el analítico y un 14,4 % en Rodero, con 13,2 y 13,1 mm de recorrido del anillo mitral. Es el radial: el contorno del analítico se acorta más que su longitud porque la cavidad se estrecha, y el de Rodero apenas más que la suya. El movimiento radial de Rodero es la próxima corrección si esta se acepta.
+    - La caída del GLS no es un coste del corazón de Rodero. Primero se escribió aquí que era su movimiento radial; medido después, no lo es:
+      - En 3D, el septo y la pared lateral de Rodero entran lo mismo en telesístole: 8,1 mm a un cuarto de la base y 7,2–7,3 mm a media altura. En el plano, sus anchuras bajan un 32–36 %, y las del analítico un 33–34 %. La cavidad pasa de 127 a 52 mL, una fracción de eyección del 59 % frente al 63 % del caso.
+      - Es sobre todo la medida. El contorno del banco va fila a fila y cuenta como longitud la cuantización del píxel y los escalones del volumen de 1 mm. Con el contorno endocárdico de telediástole a telesístole, el GLS depende del suavizado:
+
+        | Plano, corazón | Sin suavizar | ±2 filas (banco) | ±6 filas (2 mm) | ±15 filas |
+        |---|---|---|---|---|
+        | Declarado, analítico | −16,8 % | −18,5 % | −19,6 % | −20,4 % |
+        | Declarado, Rodero | −7,8 % | −15,1 % | −17,2 % | −17,9 % |
+        | Cruz, analítico | −18,3 % | −16,6 % | −17,9 % | −19,6 % |
+        | Cruz, Rodero | −0,4 % | −12,6 % | −15,9 % | −17,0 % |
+
+        La medida que entra en la brecha (`modelMidwall`: el contorno 2 mm dentro de la pared, remuestreado a 36 puntos) salta aún más. En el plano de la cruz, Rodero da −9,7, −16,3 y −14,2 % con ±2, ±3 y ±4 filas, y el analítico −13,8, −13,5 y −14,3 %.
+      - Con ±2 mm, el plano de la cruz le cuesta a Rodero 1,3 puntos (−17,2 → −15,9 %) y al analítico, girado igual, 1,7 (−19,6 → −17,9 %). Es el plano, no el corazón.
+      - Lo que queda entre los dos corazones (unos 2,4 puntos) es la forma del septo en el plano. El del analítico es convexo en telediástole y se endereza en telesístole: su lado del contorno se acorta un 21,6 %. El de Rodero es recto en las dos fases: su lado se acorta un 14,4 %, lo mismo que la longitud del VI. Los lados laterales se acortan igual en los dos (15,3 y 15,5 %).
+      - En ninguno de los dos la punta de la cavidad se acerca a la base. En Rodero se aleja 0,7 mm: el mapa comprime por igual todo el tejido entre la base y el ápex epicárdico, también el casquete apical, que en un corazón real se engrosa.
+    - Medir el GLS del modelo sobre puntos materiales queda para una decisión propia: las dos anatomías dan en cada muestra las coordenadas materiales que anclan el speckle. La 360 sale del borrador porque el equilibrio que se dejó a juicio de Daniel resultó ser la fragilidad de esa medida.
 
     **Lo que no cambia**: el análisis de vista sigue juzgando el plano con la geometría del corazón analítico, así que puntúa el A4C de Rodero algo más bajo; es una de las dependencias por portar.
 
