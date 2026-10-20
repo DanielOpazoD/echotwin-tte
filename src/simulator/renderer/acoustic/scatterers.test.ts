@@ -8,6 +8,8 @@ import {
   ELEVATION_REACH_SIGMAS,
   SCATTERER_CELL_CM,
   scattererPhasor,
+  STRONG_SCATTERER_FRACTION,
+  STRONG_SCATTERER_GAIN,
   wavenumberRadPerCm,
   type Phasor,
 } from './scatterers';
@@ -18,9 +20,18 @@ const DR = 0.05,
   SIGMA_E = 0.17,
   SEED = 7;
 /** The phasor of a sample at material position (u, v, w), on a line along the forward axis at depth r. */
-function at(u: number, v: number, w: number, r = 9, cosT = 1, sinT = 0, sigmaE = SIGMA_E): Phasor {
+function at(
+  u: number,
+  v: number,
+  w: number,
+  r = 9,
+  cosT = 1,
+  sinT = 0,
+  sigmaE = SIGMA_E,
+  strong = 0,
+): Phasor {
   const p = { re: 0, im: 0 };
-  scattererPhasor(u, v, w, cosT, sinT, r, DR, WIDTH, sigmaE, K, SEED, p);
+  scattererPhasor(u, v, w, cosT, sinT, r, DR, WIDTH, sigmaE, K, SEED, strong, p);
   return p;
 }
 /** Sample positions far enough apart to hold different scatterers. */
@@ -115,5 +126,36 @@ describe('point scatterers anchored in tissue (decision 351)', () => {
   it('receives harmonic echoes at twice the wavenumber', () => {
     expect(wavenumberRadPerCm(2.5, true)).toBeCloseTo(2 * K, 9);
     expect(K).toBeCloseTo((2 * Math.PI * 2.5) / 0.154, 9);
+  });
+
+  it('adds parenchyma’s strong scatterers at the same mean power, with the heavier tail of a sparse population (decision 356)', () => {
+    // twice as many samples: the strong ones are sparse
+    const many = Array.from({ length: 6000 }, (_, i) => [
+      (i % 60) * 0.37 + 0.011,
+      Math.floor(i / 60) * 0.41 + 0.007,
+      0.003,
+    ]);
+    const intensity = (strong: number) =>
+      many.map(([u, v, w]) => {
+        const p = at(u!, v!, w!, 9, 1, 0, SIGMA_E, strong);
+        return p.re * p.re + p.im * p.im;
+      });
+    const stats = (I: number[]) => {
+      const m = I.reduce((s, x) => s + x, 0) / I.length;
+      return { mean: m, contrast: I.reduce((s, x) => s + x * x, 0) / I.length / (m * m) };
+    };
+    const one = stats(intensity(0)),
+      two = stats(intensity(STRONG_SCATTERER_FRACTION));
+    expect(two.mean).toBeGreaterThan(0.85);
+    expect(two.mean).toBeLessThan(1.15);
+    // E[I²]/E[I]²: 2 for a Rayleigh envelope; a few strong scatterers per resolution cell raise it
+    expect(one.contrast).toBeCloseTo(2, 0);
+    expect(two.contrast).toBeGreaterThan(one.contrast + 0.5);
+    // they hold about half of the power: p·A² / (1 − p + p·A²)
+    const share =
+      (STRONG_SCATTERER_FRACTION * STRONG_SCATTERER_GAIN ** 2) /
+      (1 - STRONG_SCATTERER_FRACTION + STRONG_SCATTERER_FRACTION * STRONG_SCATTERER_GAIN ** 2);
+    expect(share).toBeGreaterThan(0.4);
+    expect(share).toBeLessThan(0.6);
   });
 });

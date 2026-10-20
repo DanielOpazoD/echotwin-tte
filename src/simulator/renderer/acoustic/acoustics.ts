@@ -140,6 +140,14 @@ export const CALCIUM_OFFSET: readonly [number, number, number] = [3.3, 1.1, 9.2]
 /** Elevational slice half-width (cm) at depth r: base + slope · |r − elevation focus| (decisions 48 and 250). */
 export const SLICE_HALF_BASE_CM = 0.2;
 export const SLICE_HALF_SLOPE = 0.04;
+/**
+ * The strong scatterers of parenchyma (decision 356): the fraction of the cubes that hold one, and its amplitude over a
+ * weak scatterer's. Fitted on the four-chamber view of the normal case against CAMUS Good over six realizations: with
+ * the moving Rodero heart the residual grey of the myocardium reads skewness 0.54, excess kurtosis 1.31, std 19.8 and a
+ * median of 105 (CAMUS 0.53, 0.95, 19.6 and 100); with the analytic heart 0.38, 0.95, 19.4 and 101.
+ */
+export const STRONG_SCATTERER_FRACTION = 0.002;
+export const STRONG_SCATTERER_GAIN = 22;
 /** The slice's elevation profile as a Gaussian: its standard deviation over the slice's half-width (2 / FWHM in σ). */
 export const ELEVATION_SIGMA_PER_HALF_WIDTH = 2 / (2 * Math.sqrt(2 * Math.log(2)));
 /**

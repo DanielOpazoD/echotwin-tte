@@ -4,7 +4,12 @@
  * with the formation's code (`core/coleImage.ts`), outside the WebGL2 chunk.
  */
 import { ELEVATION_SIGMA_PER_HALF_WIDTH } from '../acoustic/acoustics';
-import { ELEVATION_REACH_SIGMAS, SCATTERER_CELL_CM } from '../acoustic/scatterers';
+import {
+  ELEVATION_REACH_SIGMAS,
+  SCATTERER_CELL_CM,
+  STRONG_SCATTERER_FRACTION,
+  STRONG_SCATTERER_GAIN,
+} from '../acoustic/scatterers';
 import type { ImageFormation, ScatterFieldGpu } from '../types';
 import { GLSL_SCATTERERS } from './glslScatterers';
 
@@ -34,6 +39,8 @@ export function scatterFieldGpu(formation: ImageFormation, key: string): Scatter
       gl.uniform1f(u(gl, prog, 'uScatCell'), SCATTERER_CELL_CM);
       gl.uniform1f(u(gl, prog, 'uScatReach'), ELEVATION_REACH_SIGMAS);
       gl.uniform1f(u(gl, prog, 'uScatElev'), ELEVATION_SIGMA_PER_HALF_WIDTH);
+      gl.uniform1f(u(gl, prog, 'uScatStrong'), STRONG_SCATTERER_FRACTION);
+      gl.uniform1f(u(gl, prog, 'uScatStrongGain'), STRONG_SCATTERER_GAIN);
     },
   };
 }

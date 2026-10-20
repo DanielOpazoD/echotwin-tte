@@ -155,6 +155,8 @@ function simFrame(
           (2 * sliceHalfWidthCm(r)) / FWHM_PER_SIGMA,
           kWave,
           seed,
+          // a phantom is uniform tissue without parenchyma's strong scatterers (decision 356)
+          0,
           ph1,
         );
         re[idx] = sigma * ph1.re;

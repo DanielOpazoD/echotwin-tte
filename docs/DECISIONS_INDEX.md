@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 355 (última: 355).
+Decisiones: 356 (última: 356).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -363,3 +363,4 @@ Decisiones: 355 (última: 355).
 | [353](DECISIONS.md#L2718) | 2026-10-18 | El corazón de Rodero se dibuja en el GPU: su volumen y su movimiento en GLSL | vigente |
 | [354](DECISIONS.md#L2768) | 2026-10-18 | La imagen por convolución se forma en el GPU y entra en la app como imagen experimental | vigente |
 | [355](DECISIONS.md#L2813) | 2026-10-18 | El banco compara la referencia en la rejilla del simulador y saca sus celdas del núcleo, y la convolución resulta tener la resolución y el speckle de la física | vigente |
+| [356](DECISIONS.md#L2857) | 2026-10-18 | La convolución dibuja los granos brillantes del parénquima con una población escasa de dispersores fuertes | vigente |

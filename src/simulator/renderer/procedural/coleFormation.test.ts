@@ -13,7 +13,11 @@ import { buildBeatTables, cycleStateAt } from '@/simulator/cardiac-cycle/cycleMo
 import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
 import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
 import { buildColeKernels } from '../acoustic/colePsf';
-import { SCATTER_FIELD } from '../acoustic/scatterers';
+import {
+  SCATTER_FIELD,
+  STRONG_SCATTERER_FRACTION,
+  type ScatterField,
+} from '../acoustic/scatterers';
 import { COMPOUND_LOOKS } from '../acoustic/acoustics';
 import {
   allocPolarFrame,
@@ -144,5 +148,32 @@ describe('image formation of the CPU tracer (decision 351)', () => {
     const own = allocPolarFrame(spec);
     tracer.render(scene, beam, spec, 0, own);
     expect(Array.from(own.amplitude)).toEqual(Array.from(render().amplitude));
+  });
+
+  it('asks for parenchyma’s strong scatterers, and draws its grains with them alone (decision 356)', () => {
+    // a scatter field that records the fraction of strong scatterers it is asked for and echoes nothing
+    const asked = new Set<number>();
+    const silent: ScatterField = {
+      wavenumber: SCATTER_FIELD.wavenumber,
+      phasor: (...a: Parameters<ScatterField['phasor']>) => {
+        asked.add(a[11]);
+        a[12].re = 0;
+        a[12].im = 0;
+      },
+    };
+    const quiet = render({ looks: 1, scatterers: silent, kernels: buildColeKernels });
+    // the myocardium and the other parenchyma take the strong ones, blood and the rest none
+    expect([...asked].sort()).toEqual([0, STRONG_SCATTERER_FRACTION]);
+    // without the scatterers' echo the LV wall is dark but for its interfaces: the lattice's bright grains are not drawn
+    const wall = (f: PolarFrame, q: number) => {
+      const v: number[] = [];
+      for (let i = 0; i < f.amplitude.length; i++)
+        if (f.tissue[i] === Tissue.Myocardium && isLvWall(f.structure[i]!)) v.push(f.amplitude[i]!);
+      v.sort((x, y) => x - y);
+      return v[Math.floor(v.length * q)]!;
+    };
+    const lattice = render({ looks: 1, kernels: buildColeKernels });
+    expect(wall(quiet, 0.5)).toBeLessThan(0.1 * wall(lattice, 0.5));
+    expect(wall(quiet, 0.9)).toBeLessThan(0.1 * wall(lattice, 0.9));
   });
 });

@@ -16,8 +16,17 @@
  * left the envelope's pattern in place, and speckle tracking read 0.12 of the shortening in the moving heart. The sum
  * is scaled to unit mean power, as the lattice phasor is.
  *
+ * Parenchyma holds two populations (decision 356): the dense weak scatterers and a sparse one of strong scatterers
+ * (STRONG_SCATTERER_FRACTION of the cubes, STRONG_SCATTERER_GAIN times the amplitude), the fibre sheets, vessel walls and
+ * connective tissue of the classic two-population model of tissue. They carry about half of its echo power and draw the
+ * bright isolated grains of a real myocardium; with one population the residual grey of the myocardium was symmetric
+ * (log skewness 0.05, CAMUS Good 0.53) whatever the anatomy.
+ *
  * No store, no DOM; the CPU tracer calls it per sample when its image formation asks for scatterers.
  */
+import { STRONG_SCATTERER_FRACTION, STRONG_SCATTERER_GAIN } from './acoustics';
+
+export { STRONG_SCATTERER_FRACTION, STRONG_SCATTERER_GAIN };
 
 /** Edge of the material cube that holds one scatterer (cm): 0.5 mm. */
 export const SCATTERER_CELL_CM = 0.05;
@@ -57,7 +66,8 @@ export interface ScatterField {
  * The scatterer phasor of one sample. (u, v, w) are the sample's material position on the probe's axes (cm): forward,
  * lateral and normal at the centre line. The line runs at angle θ from the forward axis in the plane (cosT, sinT);
  * `rCm` is the sample's depth, `drCm` its spacing along the line, `widthCm` the line spacing across it at that depth and
- * `elevSigmaCm` the standard deviation of the slice's elevation profile. `k` is the wavenumber (rad/cm).
+ * `elevSigmaCm` the standard deviation of the slice's elevation profile. `k` is the wavenumber (rad/cm). `strong` is the
+ * fraction of cubes that hold a strong scatterer: STRONG_SCATTERER_FRACTION in parenchyma, 0 elsewhere.
  */
 export function scattererPhasor(
   u: number,
@@ -71,6 +81,7 @@ export function scattererPhasor(
   elevSigmaCm: number,
   k: number,
   seed: number,
+  strong: number,
   out: Phasor,
 ): void {
   const c = SCATTER_CELL;
@@ -100,11 +111,13 @@ export function scattererPhasor(
         const dl = -pu * sinT + pv * cosT;
         if (dl <= -halfL || dl >= halfL || Math.abs(pw) > reachE) continue;
         // a zero-mean, unit-variance amplitude: the sum of four uniforms (variance 1/3), centred and scaled by √3
-        const g =
+        let g =
           ((hash(i, j, kk, 3, seed) + hash(i, j, kk, 4, seed)) * U32 +
             (hash(i, j, kk, 5, seed) + hash(i, j, kk, 6, seed)) * U32 -
             2) *
           SQRT3;
+        // a strong scatterer of parenchyma (decision 356)
+        if (strong > 0 && hash(i, j, kk, 7, seed) * U32 < strong) g *= STRONG_SCATTERER_GAIN;
         // linear weights to the neighbouring samples and lines, the elevation profile across the plane
         const a =
           g * (1 - Math.abs(da) / halfA) * (1 - Math.abs(dl) / halfL) * Math.exp(-pw * pw * inv2s2);
@@ -114,7 +127,10 @@ export function scattererPhasor(
       }
   // unit mean power: the expected Σ a² is the density times ∫ (1 − |x|/Δ)² dx = 2Δ/3 along and across, times
   // ∫ exp(−e²/σ²) de = √π σ across the plane
-  const n = ((2 / 3) * drCm * (2 / 3) * widthCm * Math.sqrt(Math.PI) * elevSigmaCm) / (c * c * c);
+  // the strong scatterers' share of it: E[g²] = 1 − p + p·A²
+  const n =
+    (((2 / 3) * drCm * (2 / 3) * widthCm * Math.sqrt(Math.PI) * elevSigmaCm) / (c * c * c)) *
+    (1 - strong + strong * STRONG_SCATTERER_GAIN * STRONG_SCATTERER_GAIN);
   const norm = n > 0 ? 1 / Math.sqrt(n) : 0;
   out.re = sr * norm;
   out.im = si * norm;

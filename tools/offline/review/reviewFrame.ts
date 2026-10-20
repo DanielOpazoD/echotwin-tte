@@ -37,6 +37,18 @@ import {
   scanConvertLut,
 } from '@/simulator/renderer/scanConvert';
 import { structureLabel } from '@/app/review';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { loadRoderoVolume } from '@/simulator/anatomy/roderoAsset';
+import { volumeHeart, type VolumeHeart } from '@/simulator/anatomy/volumeHeart';
+import type { HeartPose } from '@/simulator/anatomy/heartModel';
+import { COLE_FORMATION } from '@/simulator/core/coleImage';
+import {
+  ANATOMY_CHOICES,
+  IMAGE_FORMATION_CHOICES,
+  type AnatomyChoice,
+  type ImageFormationChoice,
+} from '@/simulator/core/protocol';
 import type { CaseDefinition } from '@/cases/schema';
 
 /** The four cases of the clinical review, in the order of the rows. */
@@ -145,6 +157,39 @@ export function buildReviewModels(caseIds: string[]): ReviewModel[] {
   });
 }
 
+/**
+ * The Dev panel's experimental choices for the review tools (decisions 352–354), from REVIEW_ANATOMY (analytic,
+ * rodero) and REVIEW_IMAGE (lattice, cole): the shipped Rodero volume that the app loads, moved by each case's cycle, and
+ * the convolution image formation.
+ */
+export const REVIEW_CHOICE = {
+  anatomy: (process.env['REVIEW_ANATOMY'] ?? 'analytic') as AnatomyChoice,
+  image: (process.env['REVIEW_IMAGE'] ?? 'lattice') as ImageFormationChoice,
+};
+if (!ANATOMY_CHOICES.includes(REVIEW_CHOICE.anatomy))
+  throw new Error(`REVIEW_ANATOMY: ${REVIEW_CHOICE.anatomy} (${ANATOMY_CHOICES.join(', ')})`);
+if (!IMAGE_FORMATION_CHOICES.includes(REVIEW_CHOICE.image))
+  throw new Error(`REVIEW_IMAGE: ${REVIEW_CHOICE.image} (${IMAGE_FORMATION_CHOICES.join(', ')})`);
+
+/** The choices as the sheets name them, empty for the app's defaults. */
+export function reviewChoiceLabel(): string {
+  return [
+    REVIEW_CHOICE.anatomy === 'rodero' ? 'corazón de Rodero' : '',
+    REVIEW_CHOICE.image === 'cole' ? 'imagen por convolución' : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
+const roderoVolume =
+  REVIEW_CHOICE.anatomy === 'rodero'
+    ? await loadRoderoVolume((path) => {
+        const b = readFileSync(join(process.cwd(), 'public', path));
+        return Promise.resolve(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength));
+      })
+    : null;
+const boundRodero = new WeakMap<ReviewModel, { vh: VolumeHeart; endDiastole: HeartPose }>();
+
 /** One polar frame of a case at a phase, from a beam, through the CPU tracer at high quality. */
 export function renderPolar(
   renderer: ProceduralSliceRenderer,
@@ -152,12 +197,26 @@ export function renderPolar(
   beam: BeamFrame,
   phase: number,
 ): PolarFrame {
+  const heartPose = computeHeartPose(m.heart, cycleStateAt(m.tables, phase));
   const scene: Scene = {
     heart: m.heart,
-    heartPose: computeHeartPose(m.heart, cycleStateAt(m.tables, phase)),
+    heartPose,
     thorax: m.thorax,
     physics: scenePhysicsFor(m.c, settings),
   };
+  if (roderoVolume) {
+    let b = boundRodero.get(m);
+    if (!b) {
+      const endDiastole = computeHeartPose(m.heart, cycleStateAt(m.tables, 0));
+      b = { vh: volumeHeart(roderoVolume, m.heart, endDiastole), endDiastole };
+      boundRodero.set(m, b);
+    }
+    scene.heartClassifier = b.vh.classifier({
+      apparatus: heartPose,
+      motion: { pose: heartPose, endDiastole: b.endDiastole },
+    });
+  }
+  if (REVIEW_CHOICE.image === 'cole') scene.imageFormation = COLE_FORMATION;
   const frame = allocPolarFrame(spec);
   renderer.render(scene, beam, spec, phase, frame);
   return frame;

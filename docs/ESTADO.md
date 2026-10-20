@@ -91,7 +91,10 @@ panel elige también la imagen, red o convolución (experimental), en la CPU y e
 analítico, 27 con Rodero; 523 ms en la CPU). Decisión 355: el banco compara la referencia en la rejilla del
 simulador y saca sus celdas del núcleo; la convolución tiene la resolución y la celda de la física y la red las tiene
 finas. Frente a la línea base nueva, `rodero-cole` da 12 mejor, 2 peor (asimetría y gris mediano del miocardio), 7
-igual. Siguiente: la textura de la convolución frente a CAMUS, y las hojas de revisión con Rodero.
+igual. Decisión 356: la convolución dibuja los granos del parénquima
+con dispersores fuertes escasos (0,2 %, ×22); `cole` acerca en 14 brechas sin empeorar ninguna y `rodero-cole` da 14
+mejor, 1 peor (la curtosis de su realización), 6 igual. Las hojas de revisión dibujan Rodero y la convolución
+(`REVIEW_ANATOMY`, `REVIEW_IMAGE`). Siguiente: la revisión de Daniel con esas hojas.
 
 ## Cómo seguir
 

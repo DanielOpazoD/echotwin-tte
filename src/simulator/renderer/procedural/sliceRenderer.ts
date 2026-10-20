@@ -102,6 +102,7 @@ import {
   SPECULAR_WINDOW_MIN,
   TRANSMISSION_FLOOR,
   ELEVATION_SIGMA_PER_HALF_WIDTH,
+  STRONG_SCATTERER_FRACTION,
 } from '../acoustic/acoustics';
 
 // lattice offsets as scalars: the inner loops read them per sample
@@ -902,7 +903,10 @@ export class ProceduralSliceRenderer implements RendererBackend {
       // the march (`renderMmodeLine`), like its scatterers
       let grain = 0;
       const gf = props.grain;
-      if (tissue === Tissue.Myocardium || tissue === Tissue.Muscle || tissue === Tissue.Liver) {
+      const parenchyma =
+        tissue === Tissue.Myocardium || tissue === Tissue.Muscle || tissue === Tissue.Liver;
+      // point scatterers draw parenchyma's bright grains with their strong scatterers (decision 356)
+      if (parenchyma && !field) {
         if (line && lk) {
           line.grainScale[si] = sigma * GRAIN_GAIN * transmission * lk.smooth;
           line.grainCells[si] = gf;
@@ -1006,6 +1010,7 @@ export class ProceduralSliceRenderer implements RendererBackend {
               sliceHalfWidthCm(r) * ELEVATION_SIGMA_PER_HALF_WIDTH,
               kWave,
               seed,
+              parenchyma ? STRONG_SCATTERER_FRACTION : 0,
               ph,
             );
             zr = ph.re;
