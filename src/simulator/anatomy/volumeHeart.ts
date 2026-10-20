@@ -174,6 +174,20 @@ const ATRIAL_BLOOD = new Set([33, 34, 11, 12, 13, 14, 15, 16, 17]);
  * the great vessels) the closing filled every gap narrower than its ball and drew angular slabs of fat on the atria.
  */
 export const GROOVE_REACH_MM = 6;
+/**
+ * The interatrial septum (decision 364). The mean mesh has none: the right and left atrial walls run side by side with an
+ * empty gap between them, which the sampler drew as pericardium inside the heart; the two cavities lay a median 9 mm
+ * apart (6–14) where a septum measures 3–5. Where the two atria face each other (each within SEPTUM_GAP_MM / 2 of the
+ * point, their distance fields growing in opposite directions), the septum is SEPTUM_MM of atrial wall on the surface
+ * midway between the cavities, two walls of SEPTUM_MM / 2 back to back, and the rest of what lay between them (their
+ * walls and the gap) belongs to the nearer cavity.
+ */
+export const SEPTUM_MM = 4;
+export const SEPTUM_GAP_MM = 16;
+/** How opposite (cosine) the directions to the two cavities must be for a point to lie between them, not beside both. */
+const SEPTUM_FACING_COS = -0.8;
+const LA_BLOOD = new Set([33, 11, 12, 13, 14, 15]);
+const RA_BLOOD = new Set([34, 16, 17]);
 /** How far (mm, mesh scale) from the atrioventricular planes the interatrial septum counts as the crux (decision 360). */
 export const CRUX_REACH_MM = 10;
 /** The interatrial septum: atrial wall within SEPTUM_REACH_MM of both atrial cavities. */
@@ -483,6 +497,43 @@ function volumeFields(h: LabelVolumeHeader, label: Uint8Array): Fields {
     for (let v = 0; v < label.length; v++)
       if (ATRIAL_WALLS.has(label[v]!) && dCav[v]! > keep) label[v] = 0;
   }
+  // the interatrial septum (decision 364): one septum midway between the two atrial cavities where they face each other,
+  // the rest of their walls and of the mesh's gap between them given to the nearer cavity
+  {
+    const dL = edt(dims, (v) => LA_BLOOD.has(label[v]!));
+    const dR = edt(dims, (v) => RA_BLOOD.has(label[v]!));
+    const reach = SEPTUM_GAP_MM / 2 / vox;
+    const [sx, sy, sz] = [1, nx, nx * ny];
+    const facing = (v: number): boolean => {
+      // central differences of the two distance fields: between the cavities they grow in opposite directions
+      const g = (d: Float32Array, s: number): number => d[v + s]! - d[v - s]!;
+      const lx = g(dL, sx),
+        ly = g(dL, sy),
+        lz = g(dL, sz),
+        rx = g(dR, sx),
+        ry = g(dR, sy),
+        rz = g(dR, sz);
+      const n = Math.hypot(lx, ly, lz) * Math.hypot(rx, ry, rz);
+      return n > 0 && (lx * rx + ly * ry + lz * rz) / n < SEPTUM_FACING_COS;
+    };
+    const changes: [number, number][] = [];
+    for (let v = sz; v < label.length - sz; v++) {
+      const l = label[v]!;
+      if (l !== 0 && !ATRIAL_WALLS.has(l)) continue;
+      if (dL[v]! > reach || dR[v]! > reach || !facing(v)) continue;
+      const s = (dL[v]! - dR[v]!) * vox;
+      changes.push([v, Math.abs(s) <= SEPTUM_MM ? (s <= 0 ? 3 : 4) : s < 0 ? 33 : 34]);
+    }
+    for (const [v, l] of changes) label[v] = l;
+    // where the septum's edge reaches the outside, the cavity that took the gap is closed by its own wall
+    const closing: number[] = [];
+    for (let v = sz; v < label.length - sz; v++) {
+      const l = label[v]!;
+      if (l !== 33 && l !== 34) continue;
+      if ([sx, -sx, sy, -sy, sz, -sz].some((st) => label[v + st] === 0)) closing.push(v);
+    }
+    for (const v of closing) label[v] = label[v] === 33 ? 3 : 4;
+  }
   // epicardial fat: the silhouette closed with a ball (dilate, then erode), less the heart itself, kept in the grooves
   const r = EPI_CLOSING_MM / vox;
   const dOut = edt(dims, (v) => label[v] !== 0);
@@ -492,16 +543,12 @@ function volumeFields(h: LabelVolumeHeader, label: Uint8Array): Fields {
   const dVentricle = edt(dims, (v) => GROOVE_VENTRICULAR.has(label[v]!));
   const dLv = edt(dims, (v) => label[v] === 1);
   const dRv = edt(dims, (v) => label[v] === 2);
-  const dLa = edt(dims, (v) => label[v] === 3);
-  const dRa = edt(dims, (v) => label[v] === 4);
   for (let v = 0; v < label.length; v++)
     if (
       label[v] === 0 &&
       dIn[v]! > r &&
       ((dAtrium[v]! <= reach && dVentricle[v]! <= reach) ||
-        (dLv[v]! <= reach && dRv[v]! <= reach)) &&
-      // between both atria lies the septum, not a groove
-      !(dLa[v]! <= reach && dRa[v]! <= reach)
+        (dLv[v]! <= reach && dRv[v]! <= reach))
     )
       label[v] = FAT;
   // beyond the epicardium (heart or groove fat), in mm, for the pericardium and the thorax

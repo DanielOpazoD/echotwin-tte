@@ -56,7 +56,7 @@ const AX: [number, number, number][] = [
 const inside = (x: number, y: number, z: number, rx: number, rz: number): boolean =>
   ((x - C[0]!) / rx) ** 2 + ((y - C[1]!) / rx) ** 2 + ((z - C[2]!) / rz) ** 2 <= 1;
 
-function synthetic(fill?: number): LabelVolume {
+function synthetic(fill?: number, raApartMm = 0): LabelVolume {
   const [nx, ny, nz] = DIMS;
   const labels = new Uint8Array(nx * ny * nz);
   for (let k = 0; k < nz; k++)
@@ -76,7 +76,7 @@ function synthetic(fill?: number): LabelVolume {
         const dla = Math.hypot(x - 64, y - 56, z - 12);
         if (dla <= 11) labels[v] = dla <= 9 ? 33 : 3;
         // a wide right atrium beside it, on the septal side: by distance over reach it would claim the left's septal side
-        const dra = Math.hypot((x - 64) / 24, (y - 36) / 8, (z - 10) / 9);
+        const dra = Math.hypot((x - 64) / 24, (y - 36 + raApartMm) / 8, (z - 10) / 9);
         if (dra <= 1) labels[v] = dra <= 0.85 ? 34 : 4;
         // the groove: 3 mm wide, 3 mm deep, in the lateral wall at mid-ventricle
         if (j >= 83 && j <= 85 && i >= 63 && i <= 65 && k >= 64 && k <= 80) labels[v] = 0;
@@ -153,6 +153,35 @@ describe('volume heart (decision 346)', () => {
       if (g.labels[v] === 33 || g.labels[v] === 34)
         for (const s of [1, -1, nx, -nx, nx * ny, -nx * ny]) if (g.labels[v + s] === 0) open++;
     expect(open).toBe(0);
+  });
+
+  it('builds one interatrial septum between atria the mesh leaves apart (decision 364)', () => {
+    // the right atrium 5 mm further from the left: 9 mm between their cavities, a 6 mm gap between their walls
+    const apart = volumeHeart(synthetic(undefined, 5), heart, ed).gpu();
+    const [nx, ny] = apart.dims;
+    const at = (i: number, j: number, k: number): number => apart.labels[i + nx * (j + ny * k)]!;
+    // along y through both cavities, at the height of the left atrium's centre: 4 mm of wall between them, no gap
+    const line = Array.from({ length: 30 }, (_, d) => at(64, 25 + d, 12));
+    const between = line.slice(line.lastIndexOf(34) + 1, line.indexOf(33));
+    expect(between.length).toBeGreaterThanOrEqual(3);
+    expect(between.length).toBeLessThanOrEqual(5);
+    expect(between.every((l) => l === 3 || l === 4)).toBe(true);
+    // the cavities took the gap, not the outside: closed, and their far sides where they were (left atrium to 65, the
+    // right from 24)
+    let open = 0,
+      laFar = 0,
+      raFar = 99;
+    for (let v = 0; v < apart.labels.length; v++) {
+      const l = apart.labels[v]!;
+      if (l !== 33 && l !== 34) continue;
+      for (const s of [1, -1, nx, -nx, nx * ny, -nx * ny]) if (apart.labels[v + s] === 0) open++;
+      const j = Math.floor(v / nx) % ny;
+      if (l === 33) laFar = Math.max(laFar, j);
+      else raFar = Math.min(raFar, j);
+    }
+    expect(open).toBe(0);
+    expect(laFar).toBeLessThanOrEqual(65);
+    expect(raFar).toBeGreaterThanOrEqual(24);
   });
 
   it('leaves on a miss the distance beyond the sac, growing outward and past the grid', () => {

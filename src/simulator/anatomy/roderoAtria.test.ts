@@ -2,7 +2,8 @@
 /**
  * The shipped Rodero heart's atria as the app binds them (decision 358): walls 1.4–2 mm thick (CT 1.45, septum 2.0;
  * photon-counting CT 1.6–1.8 by region), closed, and the epicardial fat beside the left atrium in the atrioventricular
- * groove, not on its roof and around its veins nor between both atria.
+ * groove, not on its roof and around its veins. Since decision 364, one interatrial septum where the atria face each
+ * other, and between them fat only beside a ventricle (the crux's pyramidal space).
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -12,7 +13,7 @@ import { cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { buildCaseModels, REST_PATIENT } from './caseModels';
 import { computeHeartPose } from './heartModel';
 import { loadRoderoVolume } from './roderoAsset';
-import { edt, FAT, GROOVE_REACH_MM, volumeHeart } from './volumeHeart';
+import { edt, FAT, GROOVE_REACH_MM, SEPTUM_MM, volumeHeart } from './volumeHeart';
 
 const fromPublic = (path: string): Promise<ArrayBuffer> => {
   const b = readFileSync(join(process.cwd(), 'public', path));
@@ -68,13 +69,59 @@ describe('the bound Rodero atria (decision 358)', async () => {
     expect(d.filter((x) => x <= 20).length / d.length).toBeGreaterThan(0.8);
   });
 
-  it('leaves no fat between both atria, where the septum is', () => {
+  it('builds one interatrial septum where the atria face each other (decision 364)', () => {
+    // on the surface midway between the two cavities, where the directions to them are opposite: the cavities' distance
+    const LA = new Set([33, 11, 12, 13, 14, 15]),
+      RA = new Set([34, 16, 17]);
+    const dL = edt(g.dims, (v) => LA.has(L[v]!));
+    const dR = edt(g.dims, (v) => RA.has(L[v]!));
+    const steps = [1, nx, nx * ny];
+    const facing = (v: number): boolean => {
+      const a = steps.map((s) => dL[v + s]! - dL[v - s]!),
+        b = steps.map((s) => dR[v + s]! - dR[v - s]!);
+      const n = Math.hypot(...a) * Math.hypot(...b);
+      return n > 0 && (a[0]! * b[0]! + a[1]! * b[1]! + a[2]! * b[2]!) / n < -0.8;
+    };
+    const span: number[] = [];
+    let gap = 0;
+    for (let v = nx * ny; v < L.length - nx * ny; v++) {
+      if (LA.has(L[v]!) || RA.has(L[v]!) || dL[v]! > 8 / vox || dR[v]! > 8 / vox || !facing(v))
+        continue;
+      if (Math.abs(dL[v]! - dR[v]!) <= 0.5) span.push((dL[v]! + dR[v]!) * vox);
+      if (L[v] === 0) gap++;
+    }
+    span.sort((a, b) => a - b);
+    // the septum plus half a voxel to each cavity: median 4.9 mm, 90th percentile 5.3 (6.3 and 7.6 with the mesh's two
+    // walls and the gap between them, which reached 10 mm here and 16 where the atria do not quite face each other)
+    expect(span[span.length >> 1]!).toBeLessThan(SEPTUM_MM + 1.5);
+    expect(span[Math.floor(0.9 * (span.length - 1))]!).toBeLessThan(SEPTUM_MM + 2);
+    // what is left of the gap where they face each other: 128 voxels at the septum's edges (2402 before)
+    expect(gap).toBeLessThan(300);
+    // the septum joins the atria only where they face each other: their walls 16.0 and 18.6 mL (15.3 and 17.9 with the
+    // gap; 17.7 and 20.2 if they were joined wherever both lie near)
+    const mL = (vox * g.k) ** 3; // one voxel, cm³ of the model
+    const wall = (l: number): number => L.reduce((n, x) => n + (x === l ? 1 : 0), 0) * mL;
+    expect(wall(3)).toBeLessThan(17);
+    expect(wall(4)).toBeLessThan(19.5);
+  });
+
+  it('leaves the fat between both atria beside a ventricle: the crux’s pyramidal space (decisions 358, 364)', () => {
     const reach = GROOVE_REACH_MM / vox;
     const dLa = edt(g.dims, (v) => L[v] === 3);
     const dRa = edt(g.dims, (v) => L[v] === 4);
-    let between = 0;
+    const dVentricle = edt(g.dims, (v) => L[v] === 1 || L[v] === 2);
+    const dAv = edt(g.dims, (v) => [7, 8, 37, 38].includes(L[v]!));
+    let between = 0,
+      apart = 0,
+      atCrux = 0;
     for (let v = 0; v < L.length; v++)
-      if (L[v] === FAT && dLa[v]! <= reach && dRa[v]! <= reach) between++;
-    expect(between).toBe(0);
+      if (L[v] === FAT && dLa[v]! <= reach && dRa[v]! <= reach) {
+        between++;
+        if (dVentricle[v]! > reach) apart++;
+        if (dAv[v]! * vox <= 10) atCrux++;
+      }
+    expect(between).toBeGreaterThan(0);
+    expect(apart).toBe(0);
+    expect(atCrux).toBeGreaterThan(0);
   });
 });
