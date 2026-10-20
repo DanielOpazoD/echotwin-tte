@@ -811,3 +811,46 @@ export function canonicalPlane(
   );
   return { target, right, down, normal: n };
 }
+
+/** How far (degrees) `tiltThroughPoint` turns a control's tilt. */
+export const THROUGH_POINT_TILT_DEG = 12;
+
+/**
+ * The control with its tilt turned so the image plane passes through a torso point (decision 359), within
+ * ±THROUGH_POINT_TILT_DEG: the four-chamber view of a heart whose crux the plane declared on the analytic heart misses.
+ */
+export function tiltThroughPoint(
+  control: ProbeControl,
+  thorax: ThoraxModel,
+  p: Vec3,
+): ProbeControl {
+  let best = control,
+    bestD = Infinity;
+  for (let t = -THROUGH_POINT_TILT_DEG; t <= THROUGH_POINT_TILT_DEG; t += 0.25) {
+    const c = { ...control, tiltDeg: control.tiltDeg + t };
+    const b = beamFrameFromPose(poseFromControl(thorax, c), 1);
+    const d = Math.abs(dot(sub(p, b.origin), b.normal));
+    if (d < bestD) {
+      bestD = d;
+      best = c;
+    }
+  }
+  return best;
+}
+
+/**
+ * A view's preset for a heart that brings its own crux (decision 359): the four-chamber plane, declared on the analytic
+ * heart, turned through it; every other view as it is. The Rodero heart's crux lies about 4° behind the declared plane,
+ * which cut it in front of the septum, through the base of the ventricular septum and the space behind the root: 17–21 mm
+ * between the atria under the annuli, where the analytic heart has 5–8.
+ */
+export function controlThroughCrux(
+  view: ViewTarget,
+  control: ProbeControl,
+  heart: HeartModel,
+  thorax: ThoraxModel,
+  crux: Vec3 | null,
+): ProbeControl {
+  if (!crux || view.id !== 'a4c') return control;
+  return tiltThroughPoint(control, thorax, heartToTorso(heart.frame, crux));
+}

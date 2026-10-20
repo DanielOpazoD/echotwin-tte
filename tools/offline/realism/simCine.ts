@@ -5,6 +5,7 @@
  * structure under each pixel. Every metric of the bench that reads the simulator's clinical image (volumes, strain,
  * decorrelation, speckle statistics) and the clips of the Turing test read these frames.
  */
+import type { Vec3 } from '@/core/vec3';
 import { loadCaseById } from '@/cases';
 import { buildCaseModels, REST_PATIENT } from '@/simulator/anatomy/caseModels';
 import { computeHeartPose, type HeartModel, type HeartPose } from '@/simulator/anatomy/heartModel';
@@ -36,7 +37,11 @@ import {
   type PolarFrame,
   type Scene,
 } from '@/simulator/renderer/types';
-import { canonicalControl, getViewTarget } from '@/simulator/windows/viewTargets';
+import {
+  canonicalControl,
+  controlThroughCrux,
+  getViewTarget,
+} from '@/simulator/windows/viewTargets';
 import { LABEL } from '@/clinical/regionStats';
 
 /** Canvas of the bench's clinical frames (px), the size `presentApical` measures CAMUS against. */
@@ -112,6 +117,8 @@ export function renderCine(
       pose: HeartPose,
       endDiastole: HeartPose,
     ) => HeartClassifier;
+    /** That heart's crux (heart frame, cm), through which its four-chamber plane passes, as the app does (decision 359). */
+    crux?: (heart: HeartModel, endDiastole: HeartPose) => Vec3;
   } = {},
 ): Cine {
   const c = loadCaseById(caseId);
@@ -122,12 +129,22 @@ export function renderCine(
   };
   const spec = polarSpecFor(settings, CALIBRATED_TIER);
   const fps = opts.fps ?? Math.min(90, acquisitionFrameRate(settings, undefined, false));
+  const endDiastole = computeHeartPose(heart, cycleStateAt(tables, 0));
+  const target = getViewTarget(view);
   const beam = beamFrameFromPose(
-    poseFromControl(thorax, canonicalControl(getViewTarget(view), heart, thorax)),
+    poseFromControl(
+      thorax,
+      controlThroughCrux(
+        target,
+        canonicalControl(target, heart, thorax),
+        heart,
+        thorax,
+        opts.crux?.(heart, endDiastole) ?? null,
+      ),
+    ),
     1,
   );
   const n = Math.min(opts.maxFrames ?? Infinity, Math.max(2, Math.round(tables.rrS * fps)));
-  const endDiastole = computeHeartPose(heart, cycleStateAt(tables, 0));
   const mapping = computeSectorMapping(spec, CANVAS, CANVAS, false);
   const lut = buildScanLut(spec, mapping);
   const renderer = new ProceduralSliceRenderer(opts.formation);

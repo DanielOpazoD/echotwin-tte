@@ -145,6 +145,10 @@ const ATRIAL_BLOOD = new Set([33, 34, 11, 12, 13, 14, 15, 16, 17]);
  * the great vessels) the closing filled every gap narrower than its ball and drew angular slabs of fat on the atria.
  */
 export const GROOVE_REACH_MM = 6;
+/** How far (mm, mesh scale) from the atrioventricular planes the interatrial septum counts as the crux (decision 359). */
+export const CRUX_REACH_MM = 10;
+/** The interatrial septum: atrial wall within SEPTUM_REACH_MM of both atrial cavities. */
+const SEPTUM_REACH_MM = 5;
 const GROOVE_ATRIAL = new Set([3, 4, 18, 37, 38]);
 const GROOVE_VENTRICULAR = new Set([1, 2]);
 
@@ -386,6 +390,11 @@ export interface VolumeHeart {
   labelAt(hx: number, hy: number, hz: number): number;
   /** cm of the model per mm of the mesh. */
   cmPerMm: number;
+  /**
+   * The crux (decision 359): where the interatrial septum meets the atrioventricular junction at end diastole, in the
+   * heart frame (cm); computed on first request. The four-chamber plane of this heart passes through it.
+   */
+  crux(): [number, number, number];
 }
 
 interface Fields {
@@ -1212,5 +1221,47 @@ export function volumeHeart(
     };
     return gpuData;
   };
-  return { classifier, toReference, motionParams, gpu, lvSlices, labelAt, cmPerMm: k };
+  let cruxPoint: [number, number, number] | null = null;
+  const crux = (): [number, number, number] => {
+    if (cruxPoint) return cruxPoint;
+    // the interatrial septum (atrial wall near both atrial cavities) within CRUX_REACH_MM of the atrioventricular planes
+    const dAv = edt(
+      h.dims,
+      (v) => label[v] === 7 || label[v] === 8 || label[v] === 37 || label[v] === 38,
+    );
+    const dLa = edt(h.dims, (v) => label[v] === 33);
+    const dRa = edt(h.dims, (v) => label[v] === 34);
+    const reach = CRUX_REACH_MM / vox,
+      septum = SEPTUM_REACH_MM / vox;
+    let n = 0;
+    const a: V3 = [0, 0, 0];
+    for (let kk = 0; kk < nz; kk++)
+      for (let j = 0; j < ny; j++)
+        for (let i = 0; i < nx; i++) {
+          const v = at(i, j, kk);
+          if (
+            !ATRIAL_WALLS.has(label[v]!) ||
+            dAv[v]! > reach ||
+            dLa[v]! > septum ||
+            dRa[v]! > septum
+          )
+            continue;
+          const m: V3 = [
+            h.origin[0] + (i + 0.5) * vox - M.o[0],
+            h.origin[1] + (j + 0.5) * vox - M.o[1],
+            h.origin[2] + (kk + 0.5) * vox - M.o[2],
+          ];
+          a[0] += dot(m, M.ex) * k;
+          a[1] += dot(m, M.ey) * k;
+          a[2] += dot(m, M.ez) * k;
+          n++;
+        }
+    if (!n) throw new Error('volume heart: no interatrial septum near the atrioventricular planes');
+    const c: V3 = [a[0] / n, a[1] / n, a[2] / n];
+    cruxPoint = [0, 1, 2].map(
+      (q) => F.origin[q]! + c[0] * F.ex[q]! + c[1] * F.ey[q]! + c[2] * F.ez[q]!,
+    ) as [number, number, number];
+    return cruxPoint;
+  };
+  return { classifier, toReference, motionParams, gpu, lvSlices, labelAt, cmPerMm: k, crux };
 }

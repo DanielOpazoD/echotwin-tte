@@ -23,7 +23,7 @@ import { STRUCTURE_RGB, TISSUE_RGB, type Rgb } from '@/simulator/anatomy/structu
 import { ProceduralSliceRenderer } from '@/simulator/renderer/procedural/sliceRenderer';
 import type { PolarFrame } from '@/simulator/renderer/types';
 import { beamFrameFromPose, poseFromControl, type ProbeControl } from '@/simulator/probe/pose';
-import { canonicalControl, VIEW_TARGETS } from '@/simulator/windows/viewTargets';
+import { VIEW_TARGETS } from '@/simulator/windows/viewTargets';
 import { viewLabel } from '@/simulator/windows/viewLabels';
 import { buildPalette, delaysFor, encodeGif, type GifPalette } from './gif';
 import {
@@ -38,6 +38,7 @@ import {
   H,
   putPixel,
   renderPolar,
+  reviewControl,
   type ReviewModel,
   shortCase,
   structureMap,
@@ -227,7 +228,7 @@ async function renderClip(
 ): Promise<ClipResult> {
   const view = VIEW_TARGETS.find((v) => v.id === job.view);
   if (!view) throw new Error(`unknown view ${job.view}`);
-  const base = canonicalControl(view, m.heart, m.thorax);
+  const base = reviewControl(view, m);
   const title = `${ascii(viewLabel(job.view)).toUpperCase()} · ${shortCase(job.caseId).toUpperCase()}`;
   const fps = job.kind === 'cine' ? opts.fps : SWEEP_FPS;
   const plan: PlannedFrame[] =

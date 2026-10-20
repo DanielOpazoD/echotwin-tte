@@ -14,7 +14,7 @@ import { encodePng } from '../render/png';
 import { Structure } from '@/simulator/anatomy/tissue';
 import { ProceduralSliceRenderer } from '@/simulator/renderer/procedural/sliceRenderer';
 import { beamFrameFromPose, poseFromControl } from '@/simulator/probe/pose';
-import { canonicalControl, VIEW_TARGETS } from '@/simulator/windows/viewTargets';
+import { VIEW_TARGETS } from '@/simulator/windows/viewTargets';
 import { viewLabel } from '@/simulator/windows/viewLabels';
 import { structureLabel } from '@/app/review';
 import {
@@ -28,6 +28,7 @@ import {
   fill,
   H,
   renderPolar,
+  reviewControl,
   reviewChoiceLabel,
   type ReviewModel,
   shortCase,
@@ -78,7 +79,7 @@ for (const id of viewIds) {
   if (!view) throw new Error(`unknown view ${id}`);
   const t0 = performance.now();
   const rows: Row[] = models.map((m) => {
-    const ctrl = canonicalControl(view, m.heart, m.thorax);
+    const ctrl = reviewControl(view, m);
     const beam = beamFrameFromPose(poseFromControl(m.thorax, ctrl), 1);
     const frames: Frame[] = (
       [
