@@ -36,6 +36,7 @@ import {
   echoImage,
   fill,
   H,
+  nudged,
   putPixel,
   renderPolar,
   reviewControl,
@@ -322,13 +323,6 @@ function sweepPath(move: SweepMove): { tilt: number; rot: number }[] {
   ramp(-A, 0);
   hold(0);
   return out;
-}
-
-/** The canonical control moved by a tilt and a rotation, within the app's limits (`clampProbe` in the store). */
-function nudged(base: ProbeControl, tilt: number, rot: number): ProbeControl {
-  const rotationDeg = ((((base.rotationDeg + rot + 180) % 360) + 360) % 360) - 180;
-  const tiltDeg = Math.max(-70, Math.min(70, base.tiltDeg + tilt));
-  return { ...base, rotationDeg, tiltDeg };
 }
 
 function signed(deg: number): string {

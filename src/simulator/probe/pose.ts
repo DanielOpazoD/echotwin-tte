@@ -20,6 +20,17 @@ export interface ProbeControl {
   pressure: number; // 0..1
 }
 
+/** A control moved by a tilt and a rotation (degrees), within the app's limits (`clampProbe` in the store). */
+export function nudgedControl(
+  base: ProbeControl,
+  tiltDeg: number,
+  rotationDeg: number,
+): ProbeControl {
+  const rotation = ((((base.rotationDeg + rotationDeg + 180) % 360) + 360) % 360) - 180;
+  const tilt = Math.max(-70, Math.min(70, base.tiltDeg + tiltDeg));
+  return { ...base, rotationDeg: rotation, tiltDeg: tilt };
+}
+
 export interface ProbePose {
   position: Vec3; // torso frame, on (or slightly into) the skin
   orientation: Quat; // local basis: right = marker/lateral (screen right), up = elevation normal, forward = beam

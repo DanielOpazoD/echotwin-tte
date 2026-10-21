@@ -233,6 +233,8 @@ Cada prueba del modelo que tolera una desviación la declara en un conjunto `KNO
 | `KNOWN_BLOOD_CONTACTS` | `tests/coherence/coherenceCensus.test.ts` | 6 | `Ivc|RvCavity`, `PulmonaryVein|RaCavity`, `LaCavity|Lvot`, `CoronarySinus|Ivc`, `PulmonaryVein|Svc`, `AorticRoot|LaCavity` |
 | `KNOWN_GREY_INVERSIONS` | `tests/coherence/coherenceCensus.test.ts` | 27 | `normal-excellent-window a4c @0`, `normal-excellent-window a2c @0`, `normal-difficult-window psax-mv @0`, `hfref-severe-mr a2c @0`, `hfref-severe-mr a2c @0.35`, `hfref-severe-mr a4c @0.35`, `inferior-rwma a4c @0`, `inferior-rwma a4c @0.35`, `inferior-rwma a2c @0`, `inferior-rwma a2c @0.35`, `aortic-stenosis-moderate a4c @0`, `aortic-stenosis-moderate a2c @0`, `aortic-stenosis-severe a4c @0`, `aortic-stenosis-severe a2c @0`, `aortic-stenosis-severe a2c @0.35`, `hocm-sam a4c @0`, `hocm-sam a2c @0`, `mvp-primary-mr a4c @0`, `mvp-primary-mr a4c @0.35`, `mvp-primary-mr a2c @0`, `pulmonary-hypertension-rv a2c @0`, `af-diastolic a2c @0`, `af-diastolic a2c @0.35`, `artifact-challenge a2c @0`, `artifact-challenge a2c @0.35`, `artifact-challenge psax-mv @0`, `artifact-challenge psax-mv @0.35` |
 | `KNOWN_STRAIGHT_BORDERS` | `tests/coherence/coherenceCensus.test.ts` | 12 | `a2c LaCavity`, `a2c LvCavity`, `a4c LaCavity`, `a4c LvCavity`, `a4c RaCavity`, `a4c RvCavity`, `plax LaCavity`, `plax LvCavity`, `plax RvCavity`, `psax-mv LvCavity`, `psax-mv LaCavity`, `psax-mv RvCavity` |
+| `KNOWN_VOLUME_CENSUS` | `tests/coherence/volumeCensus.test.ts` | 31 | `rodero AI|RAo hueco`, `rodero AI|RAo grasa`, `rodero AD|RAo hueco`, `rodero AD|RAo grasa`, `rodero VD|TP hueco`, `rodero VD|TP grasa`, `rodero AI|VP hueco`, `rodero AD|VCS hueco`, `rodero AD|VCI hueco`, `rodero VD sobre bisagra AD`, `rodero sangre AorticRoot|PulmonaryArtery`, `analytic AI|AD hueco`, `analytic AI|AD grasa`, `analytic AI|AD tabique`, `analytic AD|VD hueco`, `analytic AI|RAo hueco`, `analytic AI|RAo grasa`, `analytic AD|RAo hueco`, `analytic AD|RAo grasa`, `analytic VD|TP hueco`, `analytic VD|TP grasa`, `analytic AI|VP hueco`, `analytic AI|VP grasa`, `analytic AD|VCS hueco`, `analytic AD|VCS grasa`, `analytic AD|VCI hueco`, `analytic AD|VCI grasa`, `analytic AD|SC hueco`, `analytic AD|SC grasa`, `analytic VD sobre bisagra AD`, `analytic sangre PulmonaryVein|RaCavity` |
+| `KNOWN_SUSPICIONS` | `tests/coherence/planeSuspicions.test.ts` | 9 | `a2c 0 TD lista blanca PulmonaryArtery`, `psax-mv 0 TD lista blanca Ivc`, `psax-mv 0 TS lista blanca Ivc`, `psax-mv 0 TS lista blanca LaCavity`, `psax-mv 0 TS lista blanca LaWall`, `psax-mv 0 TS lista blanca RaCavity`, `psax-mv 0 TS lista blanca PulmonaryVein`, `psax-mv 0 TS lista blanca Lvot`, `psax-mv 0 TS lista blanca InteratrialSeptum` |
 | `KNOWN_LA_ROOF_EXCESS` | `simulator/renderer/atrialSurroundings.test.ts` | 7 | `normal-excellent-window a4c ES roofWall`, `normal-excellent-window a4c ES roofBeyond`, `normal-excellent-window a2c ES roofWall`, `normal-excellent-window a2c ES roofBeyond`, `pulmonary-hypertension-rv a4c ES roofWall`, `pulmonary-hypertension-rv a2c ES roofWall`, `pulmonary-hypertension-rv a2c ES roofBeyond` |
 | `KNOWN_LOW_TISSUE_BLOOD_DB` | `simulator/renderer/acoustic/imageFormation.test.ts` | 1 | `plax lv walls` |
 | `KNOWN_JUNCTION_FAT` | `simulator/windows/interatrialRoot.test.ts` | 3 | `normal-difficult-window ES`, `pulmonary-hypertension-rv ES`, `pericardial-effusion-tamponade ES` |
@@ -363,3 +365,30 @@ unos 3–4 grises. Quedan declaradas con el mismo límite y tolerancia ±3; no s
 haber corregido el balance de campo cercano ni el volumen parcial de paredes brillantes.
 La mejora demostrada aquí es la eliminación del patrón grueso artificial, no una mejora
 universal de todas las estadísticas de imagen.
+
+### Censo por pares del corazón de volumen y hoja de sospechas (decisión 365)
+
+El censo por pares (`volumeCensus.test.ts`, `tools/offline/review/volume-heart-census.ts`) lee el corazón de Rodero
+enlazado al caso normal y el analítico rasterizado a 1 mm, y mide lo que hay entre cada par de vecinos (AI–AD, AI–VI,
+AD–VD, VI–VD, cada aurícula con la raíz, VD–tronco, cada vena con su aurícula). Lo que hoy queda fuera de los umbrales de
+Daniel (tabique interauricular 3–5 mm, interventricular 8–12, pared libre del VI 8–11, auricular 1,5–2,5; dentro del
+corazón ningún hueco, grasa ni pericardio) está en `KNOWN_VOLUME_CENSUS`, con su cifra:
+
+- **Rodero.** Huecos del cierre entre cada aurícula y la raíz aórtica (0,47 y 0,39 mL), entre el VD y el tronco pulmonar
+  (0,31) y entre el extremo cortado de cada vena y su aurícula (0,05–0,43): son los 2,5 mL que la 364 dejó fuera de las
+  cuatro cámaras, y el muestreador los pinta de pericardio. La pared del VD de la malla media sube 1–4 mm sobre el borde
+  tricuspídeo en todo el anillo, junto a la AD (2,15 mL; la lámina del VI subía 10–15 mm antes de la 364). Los extremos
+  cortados de la raíz y del tronco se tocan luz con luz sobre las válvulas (0,09 cm²).
+- **Analítico.** Su tabique interauricular mide 5,5 mm (`IAS_MUSCULAR_CM`; 6,0 en la rejilla de 1 mm) donde la anatomía
+  da 3–5. Su pared del VD sube hasta 8,6 mm sobre la bisagra tricuspídea junto a la AD (1,93 mL): la misma deuda que la
+  327 saldó en el VI. Hay pericardio (leído como hueco) y grasa a menos de 6 mm de dos cavidades en todas las uniones
+  (aurículas, aurícula–raíz, VD–tronco, cada vena y el seno coronario con su aurícula): el modelo analítico dibuja grasa
+  y saco entre estructuras que en el corazón real se apoyan una en otra. Una vena pulmonar derecha toca la sangre de la
+  AD (0,07 cm²; `KNOWN_BLOOD_CONTACTS`).
+
+La hoja de sospechas (`hoja-sospechas.md`, que `review-sheets.ts` escribe para el primer caso) no es una prueba: lista
+candidatos mecánicos (brillo donde el mapa dice sangre, islas, estructuras que aparecen a 5°, etiquetas fuera de la lista
+blanca de la 325, espesores a través fuera de rango) para que Daniel confirme, descarte o nombre. Sólo la lista blanca es
+invariante en la prueba (`planeSuspicions.test.ts`); lo descartado va a `KNOWN_SUSPICIONS`, que hoy recoge los intrusos
+de los planos canónicos que `KNOWN_VIEW_INTRUDERS` ya declara (el tronco pulmonar del A2C y las aurículas detrás de la
+base del PSAX mitral).

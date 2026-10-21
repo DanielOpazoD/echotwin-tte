@@ -482,7 +482,9 @@ function volumeFields(h: LabelVolumeHeader, label: Uint8Array): Fields {
         for (let i = 0; i < nx; i++) {
           const l = label[at(i, j, k)]!;
           if (l !== 7 && l !== 8) continue;
-          const reach = (l === 7 ? MITRAL_ANNULUS_MM : TRICUSPID_ANNULUS_MM) / vox;
+          // at least the face neighbours: a plane voxel beside a wall voxel touches it whatever the voxel size (the
+          // tricuspid rim, 0.9 mm, was empty on the 1 mm volume until decision 365)
+          const reach = Math.max((l === 7 ? MITRAL_ANNULUS_MM : TRICUSPID_ANNULUS_MM) / vox, 1);
           const n = Math.ceil(reach);
           let near = false;
           for (let w = -n; w <= n && !near; w++)

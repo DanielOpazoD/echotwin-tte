@@ -12,7 +12,7 @@ import { makeSample, Tissue } from '@/simulator/anatomy/tissue';
 import { cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { STRUCTURE_NAME } from './structureNames';
 
-const TISSUE_SHORT: Record<number, string> = {
+export const TISSUE_SHORT: Record<number, string> = {
   [Tissue.Blood]: 'blood',
   [Tissue.Myocardium]: 'myo',
   [Tissue.VesselWall]: 'wall',

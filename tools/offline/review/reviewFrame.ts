@@ -38,7 +38,7 @@ import {
 } from '@/simulator/renderer/scanConvert';
 import { structureLabel } from '@/app/review';
 import { controlThroughCrux, type ViewTarget } from '@/simulator/windows/viewTargets';
-import type { ProbeControl } from '@/simulator/probe/pose';
+import { nudgedControl, type ProbeControl } from '@/simulator/probe/pose';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadRoderoVolume } from '@/simulator/anatomy/roderoAsset';
@@ -134,7 +134,9 @@ export const settings = { ...DEFAULT_ACQUISITION };
 export const spec = polarSpecFor(settings, 'high');
 export const mapping = computeSectorMapping(spec, W, H, false);
 export const lut = buildScanLut(spec, mapping);
-const OUTSIDE = 255; // sentinel of the structure grid outside the sector
+/** Sentinel of the structure grid outside the sector. */
+export const OUTSIDE_SECTOR = 255;
+const OUTSIDE = OUTSIDE_SECTOR;
 
 /** A case of the review with its models, as the app builds them. */
 export interface ReviewModel {
@@ -145,6 +147,9 @@ export interface ReviewModel {
   /** End-systole as a phase of the cycle: the least LV volume. */
   esPhase: number;
 }
+
+/** The canonical control moved by a tilt and a rotation (`nudgedControl`). */
+export const nudged = nudgedControl;
 
 /** The app's chain (with the diaphragm fitted under the heart, decision 229), as render-views.ts. */
 export function buildReviewModels(caseIds: string[]): ReviewModel[] {
@@ -257,6 +262,9 @@ export function echoImage(
 
 export interface StructureMap {
   map: Uint8ClampedArray;
+  /** The structure of each pixel of the sector (OUTSIDE_SECTOR beyond it), and 1 where the pixel lies behind the pleura. */
+  grid: Uint8Array;
+  behind: Uint8Array;
   /** Share of the sector's pixels in front of the pleura, per structure. */
   visible: Map<Structure, number>;
   /** Share of the sector's pixels behind the pleura, per structure. */
@@ -311,7 +319,7 @@ export function structureMap(frame: PolarFrame): StructureMap {
   drawLabels(map, grid, behind, visibleCount, hiddenCount, inSector);
   const share = (m: Map<Structure, number>) =>
     new Map([...m].map(([s, n]) => [s, n / inSector] as const));
-  return { map, visible: share(visibleCount), hidden: share(hiddenCount) };
+  return { map, grid, behind, visible: share(visibleCount), hidden: share(hiddenCount) };
 }
 
 /** Depth ticks along the sector's left edge: one per centimetre, longer every five. */

@@ -5,8 +5,9 @@
  * (`frame.structure` through the scan LUT, as `clinicalImage.ts` reads it), so both share the sector geometry pixel
  * for pixel; what a line meets behind the pleura is dimmed on the map, because the image shows reverberation there.
  *   npx tsx tools/offline/review/review-sheets.ts [outDir] [viewIds,comma] [caseIds,comma]
- * Writes <outDir>/<view>.png (the sheet), <outDir>/<view>.md (the census of each frame) and <outDir>/index.md.
- * The render, the map and the text are shared with the review clips (`reviewFrame.ts`).
+ * Writes <outDir>/<view>.png (the sheet), <outDir>/<view>.md (the census of each frame) and <outDir>/index.md, and, for
+ * the first case, <outDir>/hoja-sospechas.md with its crops (`suspicionSheet.ts`, decision 365; REVIEW_SUSPICIONS=0 skips
+ * it). The render, the map and the text are shared with the review clips (`reviewFrame.ts`).
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -35,6 +36,12 @@ import {
   structureMap,
   W,
 } from './reviewFrame';
+import {
+  readKnownSuspicions,
+  viewSuspicions,
+  writeSuspicionSheet,
+  type SheetSuspicion,
+} from './suspicionSheet';
 
 const GAP = 6;
 const HEADER = 26;
@@ -100,6 +107,29 @@ for (const id of viewIds) {
   writeFileSync(join(outDir, `${id}.md`), censusSheet(id, rows).join('\n') + '\n');
   index.push(`- [${viewLabel(id)}](${id}.md) — ![${id}](${id}.png)`);
   process.stdout.write(`${png}  ${((performance.now() - t0) / 1000).toFixed(1)} s\n`);
+}
+if (process.env['REVIEW_SUSPICIONS'] !== '0') {
+  // the suspicion sheet of the first case: its canonical views and their neighbours (decision 365)
+  const t0 = performance.now();
+  const found: SheetSuspicion[] = [];
+  for (const id of viewIds) {
+    const view = VIEW_TARGETS.find((v) => v.id === id)!;
+    found.push(...viewSuspicions(renderer, models[0]!, view));
+    process.stdout.write(
+      `sospechas ${id}: ${found.length} hasta ahora, ${((performance.now() - t0) / 1000).toFixed(0)} s\n`,
+    );
+  }
+  writeSuspicionSheet(
+    outDir,
+    models[0]!,
+    found,
+    readKnownSuspicions(),
+    (performance.now() - t0) / 1000,
+  );
+  index.push(
+    '',
+    `- [Hoja de sospechas](hoja-sospechas.md) del caso ${models[0]!.c.id}: ${found.length} candidatos.`,
+  );
 }
 writeFileSync(join(outDir, 'index.md'), index.join('\n') + '\n');
 process.stdout.write(`escrito en ${outDir}\n`);
