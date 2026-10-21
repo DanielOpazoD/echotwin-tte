@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 365 (última: 365).
+Decisiones: 366 (última: 366).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -373,3 +373,4 @@ Decisiones: 365 (última: 365).
 | [363](DECISIONS.md#L3131) | 2026-10-18 | El paso radial de Rodero conserva la pared con el estiramiento del VI | vigente |
 | [364](DECISIONS.md#L3174) | 2026-10-18 | Dentro del corazón de Rodero no hay huecos, grasa ni pericardio: tabique interauricular único, aurículas apoyadas en la raíz y la AI hasta la bisagra mitral | vigente |
 | [365](DECISIONS.md#L3238) | 2026-10-20 | Censo por pares del corazón de volumen y hoja de sospechas en las hojas de revisión | vigente |
+| [366](DECISIONS.md#L3268) | 2026-10-21 | La pared lateral de la aurícula izquierda nace de un estante sobre el surco y sube desde la bisagra | vigente |

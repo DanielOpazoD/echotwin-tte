@@ -62,9 +62,7 @@ function biplane(caseId: string, depthCm: number) {
  * tolerance is stale; one that falls 0.03 below its fraction fails.
  */
 const KNOWN_BIPLANE_SHORTFALL: Record<string, number> = {
-  'normal-excellent-window': 0.79,
   'hfref-severe-mr': 0.8,
-  'pulmonary-hypertension-rv': 0.78,
   'pericardial-effusion-tamponade': 0.67,
 };
 

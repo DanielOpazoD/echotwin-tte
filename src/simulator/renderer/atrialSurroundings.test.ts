@@ -25,13 +25,24 @@ const VIEWS = [
  */
 const KNOWN_LA_ROOF_EXCESS: Record<string, number> = {
   'normal-excellent-window a4c ES roofWall': 0.15,
-  'normal-excellent-window a4c ES roofBeyond': 0.09,
-  'normal-excellent-window a2c ES roofWall': 0.42,
+  // decision 366: the volume fit pays the lateral wall with 3–4 % of the body's scale, and the roof sits lower in the band
+  'normal-excellent-window a4c ES roofBeyond': 0.19,
+  'normal-excellent-window a2c ES roofWall': 0.3,
   // 0.15 until decision 335, whose atrium meets its septal face beside the root
-  'normal-excellent-window a2c ES roofBeyond': 0.2,
-  'pulmonary-hypertension-rv a4c ES roofWall': 0.08,
+  'normal-excellent-window a2c ES roofBeyond': 0.29,
+  'pulmonary-hypertension-rv a4c ES roofWall': 0.14,
   'pulmonary-hypertension-rv a2c ES roofWall': 0.41,
-  'pulmonary-hypertension-rv a2c ES roofBeyond': 0.07,
+  'pulmonary-hypertension-rv a2c ES roofBeyond': 0.15,
+};
+
+/**
+ * Side walls under the CAMUS 10th percentile, with the figure: since decision 366 the lateral wall of the left atrium stands
+ * on the lateral hinge, running along the beam from the shelf over the groove, and in the pulmonary hypertension's
+ * four-chamber view at end-diastole it reads 1.07 myocardial medians against a 10th percentile of 1.16 (a wall along the beam
+ * returns little; before the decision the beam crossed the wedge of the flared base obliquely).
+ */
+const KNOWN_LA_SIDE_WALL_LOW: Record<string, number> = {
+  'pulmonary-hypertension-rv a4c ED': 1.07,
 };
 
 const TOLERANCE = 0.05;
@@ -82,8 +93,23 @@ describe('outside the left atrium, against CAMUS Good', () => {
   it('keeps the side walls, which run along the beam, inside the CAMUS 10th–90th percentiles', () => {
     for (const m of measured) {
       const q = ref(m).sideWall;
+      const declared = KNOWN_LA_SIDE_WALL_LOW[m.key];
+      if (declared !== undefined) {
+        // declared under the 10th percentile: not lower, and stale once back inside
+        expect(m.v.sideWall, `${m.key} sideWall, declared ${declared}`).toBeGreaterThanOrEqual(
+          declared - TOLERANCE,
+        );
+        expect(m.v.sideWall, `${m.key} sideWall is back inside: drop the entry`).toBeLessThan(
+          q.p10,
+        );
+        continue;
+      }
       expect(m.v.sideWall, `${m.key} sideWall`).toBeGreaterThanOrEqual(q.p10);
       expect(m.v.sideWall, `${m.key} sideWall`).toBeLessThanOrEqual(q.p90);
     }
+    expect(
+      Object.keys(KNOWN_LA_SIDE_WALL_LOW).filter((k) => !measured.some((m) => m.key === k)),
+      'entries of KNOWN_LA_SIDE_WALL_LOW for no measured view',
+    ).toEqual([]);
   });
 });

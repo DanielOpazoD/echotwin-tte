@@ -119,7 +119,10 @@ pericardio. Decisión 365: un censo por pares del corazón de volumen (distancia
 huecos, grasa, miocardio sobre las bisagras, paredes, sangre contra sangre; `KNOWN_VOLUME_CENSUS` con 31 cifras de Rodero y
 del analítico, y el anillo tricuspídeo de Rodero, que estaba vacío) y una hoja de sospechas en las hojas de revisión
 (`hoja-sospechas.md`: brillo en sangre, islas, apariciones a 5°, lista blanca, espesores, con recorte y cifra) para que
-los candidatos a defecto le lleguen a Daniel sin buscarlos. Siguiente: su revisión de la hoja de sospechas del normal.
+los candidatos a defecto le lleguen a Daniel sin buscarlos. Decisión 366: la pared lateral de la AI analítica
+sube desde un estante sobre el surco, 5 mm por fuera de la bisagra lateral, y continúa el borde del VI; antes la base se
+abocinaba hasta +7 mm y daba un paso de 9–18 mm hacia un cuerpo 6–13 mm dentro del anillo (el vértice que marcó Daniel).
+Siguiente: el mismo cierre en la aurícula derecha, junto al VD; y la revisión de Daniel de la hoja de sospechas.
 
 ## Cómo seguir
 

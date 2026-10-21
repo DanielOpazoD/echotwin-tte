@@ -43,6 +43,8 @@ export const KNOWN_SETS: readonly {
   { file: 'src/simulator/windows/interatrialCrux.test.ts', name: 'KNOWN_INTERATRIAL_TISSUE' },
   { file: 'src/simulator/windows/interatrialCrux.test.ts', name: 'KNOWN_FOSSA' },
   { file: 'src/simulator/windows/interatrialCrux.test.ts', name: 'KNOWN_UNDER_SEPTAL_HINGE' },
+  { file: 'src/simulator/windows/interatrialCrux.test.ts', name: 'KNOWN_THIN_SEPTUM' },
+  { file: 'src/simulator/renderer/atrialSurroundings.test.ts', name: 'KNOWN_LA_SIDE_WALL_LOW' },
   { file: 'src/tests/coherence/coherenceCensus.test.ts', name: 'KNOWN_BLOOD_CONTACTS' },
   {
     file: 'src/tests/coherence/coherenceCensus.test.ts',

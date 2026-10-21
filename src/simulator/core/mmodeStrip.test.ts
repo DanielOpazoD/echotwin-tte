@@ -363,7 +363,10 @@ describe('M-mode strip through the simulator (decision 84)', () => {
   // contraction (x / (1 − 0.3·s) in heartModel.ts), so across the beam they slide ~0.8 mm in 2 % of the cycle while the wall
   // moves along it; its speckle decorrelates instead of travelling (docs/LIMITATIONS.md). The test fails when one of these
   // follows its structure, so a stale entry is noticed.
-  const KNOWN_TEXTURE_LIMITATIONS = new Set<number>([Structure.RvWall]);
+  // Since decision 366 the line at the aortic valve grazes the left atrial wall behind the root over 8 mm instead of 15 (the
+  // volume fit pays the atrium's lateral wall with 3 % of the body's scale): 4 runs of 2 mm pass the filters in 60 phases,
+  // under the 5 the median needs, so the wall's texture is not measured there.
+  const KNOWN_TEXTURE_LIMITATIONS = new Set<number>([Structure.RvWall, Structure.LaWall]);
 
   it('the speckle of each heart structure travels with it along the beam, also where its material coordinates stand still, and blood speckle is new in every pulse', () => {
     const renderer = new ProceduralSliceRenderer();
@@ -522,12 +525,7 @@ describe('M-mode strip through the simulator (decision 84)', () => {
       const median = [...e].sort((a, b) => a - b)[e.length >> 1]!;
       if (median <= 0.25) followed.add(id);
     }
-    for (const id of [
-      Structure.LvWallSeptal,
-      Structure.LvWallInferior,
-      Structure.LaWall,
-      Structure.AorticRoot,
-    ])
+    for (const id of [Structure.LvWallSeptal, Structure.LvWallInferior, Structure.AorticRoot])
       expect(followed.has(id), `structure ${id} texture follows it`).toBe(true);
     for (const id of KNOWN_TEXTURE_LIMITATIONS)
       expect(followed.has(id), `known limitation ${id} is stale`).toBe(false);

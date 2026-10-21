@@ -97,6 +97,11 @@ describe('coherence census: the bloods touch only through the orifices, and noth
 const KNOWN_GREY_INVERSIONS: Record<string, string[]> = {
   'normal-excellent-window a4c @0': ['LaWall>Pericardium'],
   'normal-excellent-window a2c @0': ['LaWall>Pericardium'],
+  // decision 366: the lateral wall of the left atrium runs along the beam from the shelf over the groove, and in these
+  // planes it reads over the pericardium as the roof does in the others
+  'normal-excellent-window a4c @0.35': ['LaWall>Pericardium'],
+  'normal-difficult-window plax @0.35': ['LaWall>Pericardium'],
+  'pulmonary-hypertension-rv a4c @0': ['LaWall>Pericardium'],
   'normal-difficult-window psax-mv @0': ['LvWallLateral>Pericardium'],
   'hfref-severe-mr a2c @0': ['LaWall>Pericardium'],
   'hfref-severe-mr a2c @0.35': ['LaWall>Pericardium'],

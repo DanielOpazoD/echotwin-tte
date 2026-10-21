@@ -57,7 +57,12 @@ export const TARGETS: GenTarget[] = [
     functions: [
       'iasThickness',
       'laMedialFaceOffset',
+      // laBaseShelf before laBaseSdf: GLSL needs a function declared before its call
+      'laBaseShelf',
       'laBaseSdf',
+      'laBaseLateralShare',
+      'laLateralWallSdf',
+      'laLateralWallBlend',
       'laFootprintScale',
       'laRootHold',
     ],

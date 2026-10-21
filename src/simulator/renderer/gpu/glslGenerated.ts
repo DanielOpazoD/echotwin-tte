@@ -254,14 +254,38 @@ float laMedialFaceOffset(float gap, float flatCm) {
   float t = min(1.0, max(0.0, (gap - flatCm) / LA_SEPTAL_TAPER_CM));
   return gap * t * t * (3.0 - 2.0 * t);
 }
+// src/simulator/anatomy/laGeometry.ts: laBaseShelf
+float laBaseShelf(float dz) {
+  return (LA_BASE_SHELF_CM * min(1.0, max(0.0, (dz - LA_BASE_SHELF_RISE_CM) / (LA_BASE_SHELF_FULL_CM - LA_BASE_SHELF_RISE_CM))));
+}
 // src/simulator/anatomy/laGeometry.ts: laBaseSdf
-float laBaseSdf(float x, float laX, float xFace, float cornerOff, float z, float zRef, float zHinge, float dCrossRef, float dCrossEq, float rootClearBase, float outlineSdf) {
+float laBaseSdf(float x, float laX, float xFace, float cornerOff, float z, float zRef, float zHinge, float dCrossRef, float dCrossEq, float rootClearBase, float outlineSdf, float lateralShare) {
   float dz = zHinge - z;
   float shared = max(max(max(xFace + cornerOff - x, zRef - z), -dz), rootClearBase);
   float t = min(1.0, max(0.0, dz / (zHinge - zRef)));
   float bound = (dCrossEq - LA_BASE_SECTION_SLACK_CM) * (1.0 - t) + dCrossRef * t;
-  float flare = LA_BASE_FLARE * dz;
+  float flare = max(LA_BASE_FLARE * dz, laBaseShelf(dz) * lateralShare);
   return min(max(max(shared, dCrossRef), x - laX), max(max(shared, bound), outlineSdf - flare));
+}
+// src/simulator/anatomy/laGeometry.ts: laBaseLateralShare
+float laBaseLateralShare(float dx, float dy) {
+  float c = dx / max(0.000001, sqrt(dx * dx + dy * dy));
+  float t = min(1.0, max(0.0, (c - LA_SHELF_COS_FROM) / (LA_SHELF_COS_FULL - LA_SHELF_COS_FROM)));
+  return t * t * (3.0 - 2.0 * t);
+}
+// src/simulator/anatomy/laGeometry.ts: laLateralWallSdf
+float laLateralWallSdf(float x, float y, float h, float w, float laX, float xLat, float yArc) {
+  float t = min(1.0, max(0.0, (w - LA_LATERAL_WALL_HOLD) / (LA_LATERAL_WALL_TOP - LA_LATERAL_WALL_HOLD)));
+  float xWall = xLat + (laX - xLat) * t * t * (3.0 - 2.0 * t);
+  float r = LA_LATERAL_WALL_ROUND_CM;
+  float qx = x - xWall + r;
+  float qy = abs(y - yArc) - LA_LATERAL_WALL_HALF_AP_CM + r;
+  float dXY = sqrt(max(qx, 0.0) * max(qx, 0.0) + max(qy, 0.0) * max(qy, 0.0)) + min(max(qx, qy), 0.0) - r;
+  return max(max(dXY, LA_BASE_SHELF_RISE_CM - h), laX - x);
+}
+// src/simulator/anatomy/laGeometry.ts: laLateralWallBlend
+float laLateralWallBlend(float h) {
+  return max(LA_LATERAL_WALL_BLEND_MIN_CM, LA_LATERAL_WALL_BLEND_CM * min(1.0, max(0.0, (h - LA_BASE_SHELF_RISE_CM) / LA_LATERAL_WALL_BLEND_CM)));
 }
 // src/simulator/anatomy/laGeometry.ts: laFootprintScale
 float laFootprintScale(float bo) {
@@ -382,4 +406,4 @@ float sliceHalfWidthCm(float rCm) {
 `;
 
 /** Shader constants the generated functions read (must be #defines or constants of the including shader). */
-export const GLSL_GENERATED_FREE_IDENTIFIERS: readonly string[] = ["ATTEN_NP_PER_DB","CALCIUM_ATTEN_DB","CALCIUM_ATTEN_THRESHOLD","CORD_CM","DESC_AORTA_MAX_OUTER_R","DESC_AORTA_R","DESC_AORTA_SLEEVE","DESC_AORTA_SLEEVE_REACH","DESC_AORTA_WALL","DESC_AORTA_X","DESC_AORTA_Z","ELEVATION_FOCUS_CM","FOCUS_HALF_APERTURE_MM","FOCUS_HALF_ELEVATION_MM","FOCUS_WAIST_ELEVATION_MM","FOCUS_WAIST_LATERAL_MM","LA_BASE_FLARE","LA_BASE_SECTION_SLACK_CM","LA_ROOT_HOLD_FAR_CM","LA_ROOT_HOLD_NEAR_CM","LA_ROOT_HOLD_SEPTAL_CM","LA_ROOT_HOLD_T_FADE_CM","LA_ROOT_HOLD_T_MAX_CM","LA_SEPTAL_TAPER_CM","LV_NECK_ZETA","MEMBRANE_CM","MYO_ANISO_FLOOR","MYO_HELIX_ENDO_DEG","MYO_HELIX_EPI_DEG","OBLIQUE_SINUS_EFFUSION_CM","OBLIQUE_SINUS_TAPER_CM","POSTERIOR_MEDIASTINUM_Z","REVERB_DECAY","REVERB_DIFFUSE","REVERB_DIFFUSE_DECAY_CM","REVERB_GAIN","REVERB_PERIOD_MIN_CM","REVERB_WIDTH_CM","RV_BODY_RADIAL_CONTRACTION","RV_HINGE_CM","RV_HINGE_FADE_RAD","RV_HINGE_PLATEAU_CM","RV_INFLOW_REACH_CM","SEPTAL_CREST_AZ","SEPTAL_CREST_HALF_WIDTH","SEPTAL_CREST_Z_CM","SLICE_HALF_BASE_CM","SLICE_HALF_SLOPE","SOFT_TISSUE_ATTEN_DB","SPINE_R","TV_SYSTOLIC_SHORTENING"];
+export const GLSL_GENERATED_FREE_IDENTIFIERS: readonly string[] = ["ATTEN_NP_PER_DB","CALCIUM_ATTEN_DB","CALCIUM_ATTEN_THRESHOLD","CORD_CM","DESC_AORTA_MAX_OUTER_R","DESC_AORTA_R","DESC_AORTA_SLEEVE","DESC_AORTA_SLEEVE_REACH","DESC_AORTA_WALL","DESC_AORTA_X","DESC_AORTA_Z","ELEVATION_FOCUS_CM","FOCUS_HALF_APERTURE_MM","FOCUS_HALF_ELEVATION_MM","FOCUS_WAIST_ELEVATION_MM","FOCUS_WAIST_LATERAL_MM","LA_BASE_FLARE","LA_BASE_SECTION_SLACK_CM","LA_BASE_SHELF_CM","LA_BASE_SHELF_FULL_CM","LA_BASE_SHELF_RISE_CM","LA_LATERAL_WALL_BLEND_CM","LA_LATERAL_WALL_BLEND_MIN_CM","LA_LATERAL_WALL_HALF_AP_CM","LA_LATERAL_WALL_HOLD","LA_LATERAL_WALL_ROUND_CM","LA_LATERAL_WALL_TOP","LA_ROOT_HOLD_FAR_CM","LA_ROOT_HOLD_NEAR_CM","LA_ROOT_HOLD_SEPTAL_CM","LA_ROOT_HOLD_T_FADE_CM","LA_ROOT_HOLD_T_MAX_CM","LA_SEPTAL_TAPER_CM","LA_SHELF_COS_FROM","LA_SHELF_COS_FULL","LV_NECK_ZETA","MEMBRANE_CM","MYO_ANISO_FLOOR","MYO_HELIX_ENDO_DEG","MYO_HELIX_EPI_DEG","OBLIQUE_SINUS_EFFUSION_CM","OBLIQUE_SINUS_TAPER_CM","POSTERIOR_MEDIASTINUM_Z","REVERB_DECAY","REVERB_DIFFUSE","REVERB_DIFFUSE_DECAY_CM","REVERB_GAIN","REVERB_PERIOD_MIN_CM","REVERB_WIDTH_CM","RV_BODY_RADIAL_CONTRACTION","RV_HINGE_CM","RV_HINGE_FADE_RAD","RV_HINGE_PLATEAU_CM","RV_INFLOW_REACH_CM","SEPTAL_CREST_AZ","SEPTAL_CREST_HALF_WIDTH","SEPTAL_CREST_Z_CM","SLICE_HALF_BASE_CM","SLICE_HALF_SLOPE","SOFT_TISSUE_ATTEN_DB","SPINE_R","TV_SYSTOLIC_SHORTENING"];
