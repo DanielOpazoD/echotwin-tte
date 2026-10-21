@@ -3283,4 +3283,6 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
 
     **Pruebas**: `laLateralWall.test.ts` (12 casos × 2 fases sobre el plano dibujado: a 8 mm la cavidad está ≥ 3 mm fuera de la bisagra; ningún paso hacia dentro mayor de 5 mm por 2 mm hasta 20 mm; nunca más de 1 mm dentro de la bisagra de 6 a 20 mm; a 2 mm, dentro de 4 mm del anillo o aún subiendo). Ocho mutaciones, ocho fallos: sin pared, pared sobre la bisagra, pared que vuelve al cuerpo a 10 mm, pared dentro de la mezcla con el prisma, mezcla sin rampa, pared desde la bisagra, franja detrás del plano y sin estante. Goldens del PLAX, A4C y A2C actualizados tras revisar las hojas.
 
+    **Paquetes**: el trozo del WebGL2 pasa de 214,5 a 216,7 kB (presupuesto de 216 a 218) y el total de 2123,0 a 2129,1 kB (de 2130 a 2140).
+
     **Lo que no resuelve**: la pared es local. Con el A4C girado −15° se sostiene igual; inclinado −7°, el plano roza el borde de la franja y queda una muesca de 4,8 mm a 14 mm de altura. Y la aurícula derecha tiene el mismo cierre en el A4C. La pared libre del VD sigue 1 cm por debajo de la bisagra tricuspídea junto a la AD (el censo de la 365 lo midió: 1,93 mL, hasta 8,6 mm), y la AD, un elipsoide que acaba en punta en el anillo, entra respecto de ella con grasa en el rincón. Es la decisión siguiente.
