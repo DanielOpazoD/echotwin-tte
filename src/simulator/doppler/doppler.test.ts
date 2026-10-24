@@ -1093,11 +1093,9 @@ describe('right ventricular tissue Doppler reads the tricuspid annulus of the ca
     // The ASE site: free wall myocardium just apical of the lateral tricuspid annulus, from the view made for it. Its
     // B-mode hinge descends with TAPSE and moves toward the septum as the annulus shortens about its septal edge; tissue
     // Doppler used to leave the second motion out and read 0.81-0.84 of S′ (decision 253).
-    // [S′ read / case S′] where the case reads apart: the swinging heart of tamponade carries the annulus through the gate
-    const KNOWN_RATIOS: ReadonlyMap<string, number> = new Map([
-      // Exact column times (decision 286): measured 0.811 → 0.841, one velocity bin; still below the normal bound.
-      ['pericardial-effusion-tamponade', 0.84],
-    ]);
+    // The swinging heart of tamponade carries the annulus through the gate: it read 0.84 of S′ while the right atrial wall
+    // that takes the annulus's place in the gate moved with the left ventricle's septum, and 0.90 since that wall moves
+    // with the ring (decision 367).
     const results: string[] = [];
     for (const { id } of CASE_INPUTS) {
       const k = loadCaseById(id);
@@ -1143,10 +1141,10 @@ describe('right ventricular tissue Doppler reads the tricuspid annulus of the ca
           );
       }
       const ratio = (sPrime * 100) / k.physiology.sPrimeTricuspidCmps;
-      const known = KNOWN_RATIOS.get(id);
-      const text = `${id}: S′ ${(sPrime * 100).toFixed(1)} cm/s for ${k.physiology.sPrimeTricuspidCmps} (${ratio.toFixed(2)})`;
-      if (known === undefined ? !(ratio >= 0.9 && ratio <= 1.1) : Math.abs(ratio - known) > 0.05)
-        results.push(known === undefined ? text : `${text}, declared ${known}`);
+      if (!(ratio >= 0.9 && ratio <= 1.1))
+        results.push(
+          `${id}: S′ ${(sPrime * 100).toFixed(1)} cm/s for ${k.physiology.sPrimeTricuspidCmps} (${ratio.toFixed(2)})`,
+        );
     }
     expect(results).toEqual([]);
   });

@@ -109,7 +109,9 @@ export const pulmonaryHypertensionRvCase: CaseDefinitionInput = {
     'rv-wall',
     'rv-plax',
     'ravi',
-    // the transverse axis came inside its range when the atria met the septum flat (decision 327)
+    // the dilated atrium is wide too: 4.48 cm at mid-level since its lateral wall rises from the 4.4 cm annulus's lateral
+    // hinge (decision 367); it came inside its range when the atria met the septum flat (decision 327), 4.40 before 367
+    'ra-transverse',
     // the long axis (5.46 cm) stays inside its range: the dilated atrium widens more than it lengthens here
     // (docs/LIMITATIONS.md, decision 219)
     'tv-annulus',

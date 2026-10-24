@@ -237,8 +237,9 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // across the beam were thin bright ridges, and the end-systolic ridge deficit grows (1.42 → 1.67 four-chamber,
   // 1.38 → 1.58 two-chamber); the two-chamber correlation 1 mm along the beam comes closer (0.46/0.52 → 0.24) and
   // the four-chamber ones at 1 mm (end-diastole) and 4 mm (end-systole) inside; the end-systolic four-chamber texture 8
-  // mm across the beam and the end-diastolic two-chamber one 4 mm along it step just outside
-  ['4CH-ES:tangentialCorr8', -0.1],
+  // mm across the beam and the end-diastolic two-chamber one 4 mm along it step just outside (the four-chamber one
+  // −0.15 since decision 367, with the right atrium's lateral wall and its sac; −0.1 before)
+  ['4CH-ES:tangentialCorr8', -0.15],
   ['2CH-ED:radialCorr4', 0.24],
   // Decision 296: diffuse clutter loses coarse image-plane modulation; small residual texture/edge deficits. At decision
   // 312 the four-chamber end-diastolic edge came inside, the two-chamber end-systolic local std too, and the two-chamber
@@ -278,7 +279,9 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['2CH-ES:gradientP50', 0.76],
   // decision 317: with the shorter pulse the thin bright interfaces stand out more (0.71, 0.61, 0.96 and 0.53 widths
   // out before): the next target, with the lateral tail
-  ['4CH-ED:ridgeFraction', 1.71],
+  // decision 367: the right atrium's lateral wall rising from the tricuspid hinge draws one more interface along the
+  // beam at end-diastole (1.71 before)
+  ['4CH-ED:ridgeFraction', 1.86],
   ['4CH-ES:ridgeFraction', 1.67],
   // decision 321: the coronary sinus in the inferior atrioventricular groove adds its wall's specular line (1.6 before)
   ['2CH-ED:ridgeFraction', 2.35],

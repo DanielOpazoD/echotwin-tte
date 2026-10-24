@@ -20,7 +20,7 @@ import type { CaseDefinition } from '@/cases/schema';
 import { smoothstep } from '@/core/vec3';
 import { Structure } from '@/simulator/anatomy/tissue';
 import { lvotRadiusAt } from '@/simulator/anatomy/aorticValve';
-import { atrialScale } from '@/simulator/anatomy/classify/atria';
+import { atrialScale, RA_ROOF_DESCENT_SHARE } from '@/simulator/anatomy/classify/atria';
 import { PV_RADIUS, PV_REACH, pulmonaryVeinSegment } from '@/simulator/anatomy/pulmonaryVeins';
 
 /** Scratch for the pulmonary vein being sampled (no allocation per sample). */
@@ -916,6 +916,9 @@ export function sampleRegurgitantJets(
   }
 }
 
+/** The right atrial vestibule (cm above the tricuspid annulus): the smooth muscle the ring carries whole (decision 367). */
+export const RA_VESTIBULE_CM = 1.5;
+
 /** Structures of the right ventricle, whose tissue moves with the tricuspid annulus. */
 const RV_TISSUE = new Set<number>([
   Structure.RvWall,
@@ -940,6 +943,30 @@ export function sampleTissueVelocity(
   z: number,
   structure = -1,
 ): { vx: number; vy: number; vz: number } {
+  if (structure === Structure.RaWall) {
+    // the right atrial free wall hangs from the tricuspid annulus (decision 367): its vestibule moves with the ring, and
+    // above it the wall moves less, by RA_ROOF_DESCENT_SHARE of the ring at the roof, as the B-mode draws it (decision
+    // 149). Toward the septum it keeps the left ventricle's septal motion, with the septal annulus beside it. It all took
+    // that motion, and once the free wall ended at its hinge the tissue Doppler gate at the lateral tricuspid annulus,
+    // which the annulus leaves in systole, read 0.84 of the case's S′.
+    const A = heartAnchors(heart);
+    const free = Math.min(1, Math.max(0, (A.tvCenter.x + 0.5 * A.tvR - x) / A.tvR));
+    if (free > 0) {
+      const annulusZ =
+        A.tvCenter.z + heart.physiology.tapseCm * sampleTable(tables.rvLongitudinal, phase);
+      const above = Math.min(
+        1,
+        Math.max(0, (annulusZ - RA_VESTIBULE_CM - z) / (2 * A.raR.z - RA_VESTIBULE_CM)),
+      );
+      const vRing =
+        (heart.physiology.tapseCm *
+          sampleTable(tables.rvLongitudinalVelocity, phase) *
+          (1 - (1 - RA_ROOF_DESCENT_SHARE) * above)) /
+        100;
+      const vSeptal = free < 1 ? sampleTissueVelocity(heart, tables, phase, x, y, z).vz : 0;
+      return { vx: 0, vy: 0, vz: free * vRing + (1 - free) * vSeptal };
+    }
+  }
   if (RV_TISSUE.has(structure)) {
     // the right ventricle moves with its own annular table and TAPSE (decision 106), from the tricuspid annulus to its apex
     const A = heartAnchors(heart);

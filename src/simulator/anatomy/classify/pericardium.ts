@@ -69,7 +69,7 @@ export function effusionAt(eff: number, dLa: number, dRest: number): number {
 
 /** Pericardium & effusion: the outer envelope of all epicardial surfaces. True when the point is in the sac. */
 export function classifyPericardium(c: ClassifyCtx): boolean {
-  const { m, hp, A, x, y, z, out, dEllR, wallT, nx0, ny0, nz0, rvSdf, raSleeve } = c;
+  const { m, hp, A, x, y, z, out, dEllR, wallT, nx0, ny0, nz0, rvSdf, raSleeve, raBody } = c;
   // the epicardium is the outer face of the wall shell; the sac keeps the septum's full thickness where its crest narrows
   // (decision 223), so no hole opens between the root, the crest and the atrium
   const dLvEpi = dEllR - wallT - c.crestLoss;
@@ -83,6 +83,7 @@ export function classifyPericardium(c: ClassifyCtx): boolean {
   const dRaEpi = Math.min(
     sdEllipsoid(x, y, z, ra.x, ra.y, ra.z, rar.x + 0.22, rar.y + 0.22, rar.z + 0.22),
     raSleeve + 0.22, // the lengthened atrium over the vacated base (decision 133)
+    raBody - 0.22, // the outer face of its body's wall, with the lateral wall over the tricuspid hinge (decision 367)
     c.raaEpi, // and its appendage (decision 323)
   );
   // The sac around the outflow tract and the trunk stays where the pericardium is anchored (sternopericardial ligaments in
