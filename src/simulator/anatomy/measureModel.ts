@@ -26,6 +26,7 @@ import {
   type CtDistribution,
 } from '@/clinical/reference-values/ctMediastinum';
 import { measureMediastinum } from './mediastinum';
+import { IAS_FOSSA_DESCENT_SHARE, IAS_FOSSA_EDGE_TO } from './laGeometry';
 import { bsaMosteller } from '@/clinical/formulas';
 
 /**
@@ -335,18 +336,36 @@ export function measureModel(
   })();
   const raTr = runAt(esPose, [Structure.RaCavity], [A.raCenter.x, A.raCenter.y, raMidZ], 0);
   const raLong = runAt(esPose, [Structure.RaCavity], [A.raCenter.x, A.raCenter.y, A.raCenter.z], 2);
-  // interatrial septum: thinnest run along x found on a small grid behind the annulus (its position depends on the atrial sizes)
+  // interatrial septum: its thickness where the two atria face each other across it, on the muscular septum (decision
+  // 369): along x at the points of a grid behind the annulus where the line meets right atrial blood, then the septum,
+  // then left atrial blood, each within 1.5 cm, leaving out the fossa and its edge. The median of nine fixed points read
+  // the 7 mm limbus where it ran, and where the atria are small the veins and the pericardium beside the septum.
   const iasT = ((): number => {
-    const xc = (A.laCenter.x - A.laR.x + A.raCenter.x + A.raR.x) / 2;
     const runs: number[] = [];
-    for (const yy of [-2.2, -1.6, -1.0])
-      for (const zz of [-3.0, -2.2, -1.4]) {
-        const t = runAt(edPose, [Structure.InteratrialSeptum], [xc, yy, zz], 0, 1.5);
-        if (t > 0) runs.push(t);
+    const zF = A.fossaZ + IAS_FOSSA_DESCENT_SHARE * edPose.zAnn;
+    for (let yy = -2.6; yy <= 0.6; yy += 0.4)
+      for (let zz = -3.4; zz <= -0.6; zz += 0.4) {
+        if (Math.hypot((yy - A.fossaY) / 0.6, (zz - zF) / 0.7) < IAS_FOSSA_EDGE_TO) continue;
+        let ra = NaN,
+          x0 = NaN,
+          x1 = NaN,
+          la = NaN;
+        for (let x = A.iasX - 1.5; x <= A.iasX + 1.5; x += 0.02) {
+          if (!classifyHeart(heart, edPose, x + edPose.swingX, yy, zz, s)) continue;
+          if (s.structure === Structure.RaCavity && Number.isNaN(x0)) ra = x;
+          else if (s.structure === Structure.InteratrialSeptum && !Number.isNaN(ra)) {
+            if (Number.isNaN(x0)) x0 = x;
+            x1 = x;
+          } else if (s.structure === Structure.LaCavity && !Number.isNaN(x0)) {
+            la = x;
+            break;
+          }
+        }
+        if (!Number.isNaN(la)) runs.push(x1 - x0 + 0.02);
       }
     if (!runs.length) return 0;
     runs.sort((a, b) => a - b);
-    return runs[Math.floor(runs.length / 2)]!; // median: tangential grazes and bridging bulges cancel out
+    return runs[Math.floor(runs.length / 2)]!;
   })();
   const ax = A.avAxis,
     e1 = A.avE1;
