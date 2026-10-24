@@ -25,9 +25,6 @@ const KNOWN_VIEW_INTRUDERS: Record<string, string> = {
     'the plane leans into the atria behind the base: the junction of the inferior vena cava with the right atrium, 8-10 cm deep at the left edge (decision 164)',
   'psax-mv/RaCavity': 'the same lean: the right atrium behind the base',
   'psax-mv/RaWall': 'the same lean: the right atrial wall',
-  'psax-mv/LaCavity': 'the same lean: the left atrium behind the base',
-  'psax-mv/LaWall': 'the same lean: the left atrial wall',
-  'psax-mv/PulmonaryVein': 'the same lean: a right pulmonary vein beside the atria',
   'a2c/PulmonaryArtery':
     'the plane clips the pulmonary trunk beside the appendage, 12-14 cm deep (decisions 72 and 83)',
   'a2c/Ivc': 'the swinging heart of the tamponade brings the inferior vena cava into the plane',

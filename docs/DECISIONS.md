@@ -3311,3 +3311,41 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     **Paquetes y coste**: el trozo del WebGL2 pasa de 216,7 a 217,9 kB (presupuesto 218, sin tocar) y el total de 2129,1 a 2132,6 kB (2140). El trazador CPU, 7,5 % por encima del árbol de la decisión 331 en esta máquina (límite 25 %; la 366 midió −4,1 %, con el ruido de una máquina cargada).
 
     **Lo que no resuelve**: la pared es local, en la franja de ±8 mm alrededor del cuatro cámaras, como la de la 366. La envoltura epicárdica de la AD sigue siendo un elipsoide fijo más el cuerpo de la AD con su pared lateral: no es la superficie de la aurícula del momento.
+
+368. **El eje corto mitral corta las puntas de los velos desde el espacio superior y conserva todo el anillo del VI a lo largo del ciclo**: en el PSAX mitral del caso normal, Daniel vio que «la pared inferolateral desaparece en sístole, dando paso a la aurícula izquierda, cuando debiera verse todas las paredes del VI, no perdiendo el eje».
+
+    **Medido antes**: el preajuste se toma desde el espacio del PLAX (u 2,2, v 1,4–1,7), 24–28° fuera del eje corto (decisión 164), y apunta a `MITRAL_SHORT_AXIS_CM` = 1,4 cm del anillo de telediástole. Ese 1,4 es casi lo que el anillo baja en sístole (1,33 cm en la pared inferolateral del normal, de 0,12 a 1,45 cm), y la oblicuidad pone el lado inferolateral del plano a 0,1–1,2 cm del anillo. Resultado: desde la mesosístole hasta la diástole precoz, la AI ocupa el 28–57 % del anillo del VI en los doce casos. En el normal, la región que marcó Daniel pasa de un 83 % de pared inferolateral en telediástole a un 79 % de cavidad de la AI entre 0,4 y 0,5. La pared inferolateral basal faltaba como referencia en diez casos, y la AI penalizaba la vista en cuatro.
+
+    **Cambio** (`heartFrame.ts`, `viewTargets.ts`, `anchors.ts`, `viewDefinitions.ts`):
+
+    1. El nivel del eje corto mitral pasa a 2,0 cm del anillo de telediástole, donde se abren las puntas de los velos; sigue en el tercio basal (23 % de los 8,6 cm del VI normal). Las referencias basales de la 164 lo siguen.
+    2. El preajuste sube al espacio superior en las mismas condiciones que el de grandes vasos (decisión 133): cuando el pulmón tapa como mucho el 30 % de los rayos al objetivo. Se queda a `PSAX_MV_UPPER_MIN_U_CM` (2,6 cm) de la línea media: en el borde esternal (2,2), los rayos mediales cruzaban el cartílago costal y el esternón, y el VD basal y el septo caían en su sombra en nueve casos.
+    3. La vista pide las puntas de los velos (`mv-tips`, a la altura del nivel) en lugar del cuerpo de la válvula (`mv`, a 0,7 cm del anillo), que ningún eje corto a ese nivel alcanza.
+
+    **Probado y descartado**: bajar a 2,2 cm sin subir de espacio cierra el anillo en nueve casos. Pero, con 20–24° de oblicuidad, el lado anterior del plano llega al nivel medio: el corte muestra los segmentos 7–9 y pierde el 2. Subir de espacio a 2,2 cm deja casi sin valva la ICFEr (48 muestras en toda la diástole). Subir a 1,8 cm devuelve la AI en la diástole precoz (el anillo del normal, al 56 %). Subir pegado al esternón deja el VD y el septo en sombra.
+
+    **Medido después**:
+    - Diez casos suben a (2,6; 4,2–4,3), a 11–14° del eje corto. La ventana difícil y el de artefactos no pueden subir: el pulmón tapa más del 30 % de los rayos.
+    - El anillo del VI queda cerrado por su propia pared en todas las fases en siete casos, y al 97 % en el normal (dos rayos dan en la pared auricular en la diástole precoz).
+    - Los velos cruzan el plano en diástole en los doce casos (106–303 muestras como máximo) y no aparece ningún papilar.
+    - En el normal, el corte enseña exactamente los segmentos 1–6.
+    - El preajuste puntúa 80–100 (antes 83–94; el normal, 91–99) y ve la pared inferolateral basal donde faltaba.
+    - Fuera del corte: la AI baja del 4,5 % al 1,1 % del sector como máximo (sólo en los casos que no suben) y las venas pulmonares del 0,66 % al 0,09 %.
+
+    **Lo que cuesta, declarado con su cifra**:
+    - La cava inferior, ya declarada desde la 63 (`psax-mv/inferior vena cava`), sube en los casos que suben de espacio: el fondo del plano se inclina hacia su unión con la AD. Pasa al 3,5–5,6 % del sector, desde el 1,9–3,9 %, y al 7,0 % en el taponamiento, desde el 4,3 %.
+    - En telesístole, desde el espacio superior, el campo cercano cruza el infundíbulo bajo la pulmonar y el origen del tronco (0,75 % del sector cada uno, a 5,5 cm). En el fondo aparece la pared de la AD (0,9 %). Van en la hoja de sospechas para que Daniel los nombre o los descarte.
+    - El VD basal no se ve como referencia en seis casos y el septo inferoseptal basal en siete.
+    - `KNOWN_OPEN_RING`:
+      - Los dos casos que no suben se quedan con el anillo abierto: 69 % en la ventana difícil y 85 % en el de artefactos.
+      - El prolapso toca el anillo mitral en la diástole precoz: 85 %.
+      - El IAM inferior: 63 %. Su pared basal acinética se separa 4 mm de la cavidad en sístole y queda grasa entre las dos, sea cual sea el plano. Es un defecto aparte.
+    - `KNOWN_UNORDERED_RINGS`: en los dos casos que no suben, el corte pierde el segmento 2 y llega al nivel medio por delante (1, 3–9).
+    - Grises: la pared lateral sobre el pericardio en telesístole en esos dos casos (86,2 y 97,5 frente a 78,7 y 94,4).
+    - La sangre del PSAX mitral se lee más oscura y más heterogénea (media 55 frente a 66; heterogeneidad 0,23–0,27 frente a 0,18–0,20 en las tres calidades). En telediástole, a este nivel, veinte muestras de cuerdas tendinosas cruzan el plano y su eco parcial pasa la erosión de 4 mm de `bloodTexture.test.ts`. La prueba, que ya apartaba los ecos de pared y válvula, aparta ahora también la vecindad de cuerdas, velos y papilares (±4 líneas, ±8 mm): 0,22–0,23. El resto del aumento es la sangre más oscura, con el mismo moteado (desviación 12).
+
+    Salen de las listas la AI, su pared y la vena pulmonar como intrusos, la AI, las venas y el tabique interauricular de la hoja de sospechas, el segmento 8 del PSAX mitral, el borde recto de la AI en el eje corto y cinco inversiones de gris.
+
+    **Pruebas**: `psaxMitralRing.test.ts` (12 casos, 11 fases sobre el plano canónico): el anillo del VI cerrado por su propia pared en ≥ 95 % de los rayos en todas las fases, los velos cruzando el plano en diástole (≥ 50 muestras) y ningún papilar. La prueba de contenido mira los velos del PSAX mitral también en la diástole precoz (0,6), y la de calidad de vista pide `mv-tips` y `rv-basal` en el normal. Cuatro mutaciones, cuatro fallos: nivel a 1,4 (anillo al 39 % a 0,55), sin subir de espacio (`segmentCoverage`: el corte pierde el 2 y llega al 7–9), subida en el borde esternal (`viewQuality`: el septo basal en sombra) y la vista pidiendo el cuerpo de la válvula (`viewLandmarks`: a 1,30 cm del plano, alcance 1,11). No toca el clasificador: ni el trazador ni el sombreador cambian.
+
+    **Lo que no resuelve**: la unión de la cava inferior con la AD queda a la altura de la mitral en el marco del corazón, y por eso la cava aparece en el eje corto. La pared basal acinética del IAM inferior se separa de su cavidad en sístole.

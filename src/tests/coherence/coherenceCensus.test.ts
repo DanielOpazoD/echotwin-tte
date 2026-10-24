@@ -103,9 +103,12 @@ const KNOWN_GREY_INVERSIONS: Record<string, string[]> = {
   'normal-difficult-window plax @0.35': ['LaWall>Pericardium'],
   'pulmonary-hypertension-rv a4c @0': ['LaWall>Pericardium'],
   'normal-difficult-window psax-mv @0': ['LvWallLateral>Pericardium'],
-  // decision 367: the sac over the right atrium's lateral wall adds 92 far-field samples of pericardium to this plane, which
-  // reads 84.4 (92.5 before) against the atrial wall's 87.6 and the anterior wall's 84.8
-  'normal-difficult-window psax-mv @0.35': ['LaWall>Pericardium', 'LvWallAnterior>Pericardium'],
+  // decision 368: at the leaflet tips the plane no longer cuts the atrial wall; the lateral and anterior walls read 86.2
+  // and 80.2 against the pericardium's 78.7 at end-systole (the sac over the right atrium's lateral wall since 367)
+  'normal-difficult-window psax-mv @0.35': [
+    'LvWallLateral>Pericardium',
+    'LvWallAnterior>Pericardium',
+  ],
   'hfref-severe-mr a2c @0': ['LaWall>Pericardium'],
   'hfref-severe-mr a2c @0.35': ['LaWall>Pericardium'],
   'inferior-rwma a4c @0': ['LaWall>Pericardium'],
@@ -136,14 +139,9 @@ const KNOWN_GREY_INVERSIONS: Record<string, string[]> = {
     'LvApex>Pericardium',
     'LvWallSeptal>Pericardium',
   ],
-  'artifact-challenge psax-mv @0': ['LvCavity>=LvWallAnterior'],
-  // decision 367: the sac takes in the right atrium's lateral wall and its pericardium on this plane reads 95.7 (97.3 on
-  // 530 samples before, 588 now) against the anterior wall's 96.0
-  'artifact-challenge psax-mv @0.35': [
-    'LvCavity>=LvWallSeptal',
-    'LvCavity>=LvWallInferior',
-    'LvWallAnterior>Pericardium',
-  ],
+  // decision 368: at the leaflet tips the cavity no longer reads over its walls (73.6 against 83.9-97.5); the lateral
+  // wall, 97.5, reads over the pericardium's 94.4 at end-systole
+  'artifact-challenge psax-mv @0.35': ['LvWallLateral>Pericardium'],
 };
 /**
  * The longest straight run (cm) of each cavity's border, per view, over the cases and phases: a border that lies within
@@ -162,7 +160,6 @@ const KNOWN_STRAIGHT_BORDERS: Record<string, number> = {
   'plax LvCavity': 5.3,
   'plax RvCavity': 4.1,
   'psax-mv LvCavity': 0.8,
-  'psax-mv LaCavity': 0.8,
   'psax-mv RvCavity': 6.5,
 };
 

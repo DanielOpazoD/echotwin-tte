@@ -472,7 +472,8 @@ export function heartLandmarks(m: HeartModel): Landmark[] {
       p: v3(a * 0.5, -b * 0.87, L * 0.45),
       radius: 0.9,
     },
-    // the basal walls and the RV inflow the mitral short axis cuts; the mid-level ones lie 1.6-2.5 cm toward the apex
+    // the basal walls and the RV inflow the mitral short axis cuts; the mid-level ones lie 0.8-1.7 cm toward the apex
+    // (1.6-2.5 at the 1.4 cm level before decision 368)
     {
       id: 'ivs-inferoseptal-basal',
       label: 'Septum inferoseptal basal',
@@ -486,6 +487,14 @@ export function heartLandmarks(m: HeartModel): Landmark[] {
       radius: 0.9,
     },
     { id: 'rv-basal', label: 'Ventrículo derecho (basal)', p: v3(rvc.x, -0.35, zB), radius: 1.3 },
+    // the leaflet tips at the same level, where they open in diastole (decision 368): the valve's own landmark sits in its
+    // body, 0.7 cm from the annulus, which the mitral short axis no longer reaches
+    {
+      id: 'mv-tips',
+      label: 'Velos mitrales (puntas)',
+      p: v3(A.mvCenter.x, A.mvCenter.y, zB),
+      radius: 1.2,
+    },
     {
       id: 'wall-anterolateral',
       label: 'Pared anterolateral',

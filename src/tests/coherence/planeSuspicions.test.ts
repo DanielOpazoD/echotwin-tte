@@ -54,19 +54,22 @@ const KNOWN_SUSPICIONS: Record<string, string> = {
     'el plano se inclina hacia las aurículas detrás de la base: la desembocadura de la cava inferior, 8–10 cm, borde izquierdo (decisión 164; KNOWN_VIEW_INTRUDERS)',
   'psax-mv 0 TS lista blanca Ivc':
     'la misma inclinación en telesístole (decisión 164; KNOWN_VIEW_INTRUDERS)',
-  'psax-mv 0 TS lista blanca LaCavity':
-    'la misma inclinación: la aurícula izquierda detrás de la base (KNOWN_VIEW_INTRUDERS)',
   'psax-mv 0 TS lista blanca LaWall':
     'la misma inclinación: la pared de la aurícula izquierda (KNOWN_VIEW_INTRUDERS)',
   'psax-mv 0 TS lista blanca RaCavity':
     'la misma inclinación: la aurícula derecha detrás de la base (KNOWN_VIEW_INTRUDERS)',
-  'psax-mv 0 TS lista blanca PulmonaryVein':
-    'la misma inclinación: una vena pulmonar derecha junto a las aurículas (KNOWN_VIEW_INTRUDERS)',
+  // decision 368: from the space above, at end-systole, the near field crosses the subpulmonary infundibulum and the
+  // trunk's origin (0,75 % each, 5,5 cm deep, 1,5–1,8 cm from the centre line) and the far field the right atrial wall
+  // behind the base (0,9 %, 9,7 cm, 4,4 cm to the left): for Daniel to name or dismiss
+  'psax-mv 0 TS lista blanca Rvot':
+    'desde el espacio superior, en telesístole, el campo cercano cruza el infundíbulo bajo la pulmonar, 0,75 % del sector a 5,5 cm (decisión 368)',
+  'psax-mv 0 TS lista blanca PulmonaryArtery':
+    'el mismo campo cercano cruza el origen del tronco pulmonar, 0,75 % del sector a 5,5 cm (decisión 368)',
+  'psax-mv 0 TS lista blanca RaWall':
+    'la pared de la aurícula derecha detrás de la base, 0,9 % del sector a 9,7 cm, borde izquierdo (decisión 368; KNOWN_VIEW_INTRUDERS)',
   // found by this census, not dismissed: a debt with its figure until Daniel names it or a decision moves the plane
   'psax-mv 0 TS lista blanca Lvot':
     'el tracto de salida del VI entra en el plano mitral en telesístole, 0,6 % del sector bajo la raíz; la prueba de intrusos mira la fase 0,30 y no lo alcanza',
-  'psax-mv 0 TS lista blanca InteratrialSeptum':
-    'la misma inclinación: el tabique entre las aurículas, 0,3 % del sector en telesístole (la prueba de intrusos mira la fase 0,30 y no lo alcanza)',
 };
 
 /** A blank sector of W × H at `pxPerCm`, all in front of the pleura, apex at the top middle. */

@@ -174,10 +174,10 @@ export function buildViewTargets(): ViewTarget[] {
       planeDown: R(v3(0.5, -0.866, 0)),
       target: v3(0, -0.2, MITRAL_SHORT_AXIS_CM),
       skin: { u: 2.6, v: 1.6 },
-      // the basal walls and RV this level cuts (decision 164); the mid-level ones lie 1.6-2.5 cm toward the apex, beyond
-      // the reach of any mitral short axis
+      // the basal walls and RV this level cuts (decision 164); the mid-level ones lie 0.8-1.7 cm toward the apex (1.6-2.5
+      // at the 1.4 cm level before decision 368), beyond the reach of any mitral short axis
       requiredLandmarks: [
-        { landmarkId: 'mv', weight: 1.5, required: true },
+        { landmarkId: 'mv-tips', weight: 1.5, required: true },
         { landmarkId: 'rv-basal', weight: 0.8, required: true },
         { landmarkId: 'ivs-inferoseptal-basal', weight: 0.8, required: false },
         { landmarkId: 'wall-inferolateral-basal', weight: 0.8, required: false },

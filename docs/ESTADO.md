@@ -124,11 +124,13 @@ sube desde un estante sobre el surco, 5 mm por fuera de la bisagra lateral, y co
 abocinaba hasta +7 mm y daba un paso de 9–18 mm hacia un cuerpo 6–13 mm dentro del anillo (el vértice que marcó Daniel).
 Decisión 367: la pared libre del VD termina en su bisagra tricuspídea y la pared lateral de la AD sube desde ella
 (antes, la pared del VD seguía 4–8 mm por encima del anillo y la AD daba un paso de 9 mm hacia el tabique, con su sangre
-contra la grasa). La pared de la AD se mueve con el anillo tricuspídeo en el Doppler tisular. Siguiente, según la revisión
-de Daniel del 24 de octubre: el PSAX mitral pierde la pared inferolateral en sístole (la pose canónica queda 25° oblicua al
-eje del VI); el tabique interauricular del PSAX aórtico es fijo y de grosor desigual; las venas pulmonares se ven
+contra la grasa). La pared de la AD se mueve con el anillo tricuspídeo en el Doppler tisular. Decisión 368: el PSAX mitral corta las puntas de los velos (2,0 cm) desde el espacio
+superior cuando el pulmón lo permite, a 11–14° del eje corto; conserva todo el anillo del VI en el ciclo (antes la AI se
+llevaba el 28–57 % desde la mesosístole). Siguiente, según la revisión de Daniel del 24 de octubre: el tabique interauricular del PSAX aórtico es fijo y de grosor desigual; las venas pulmonares se ven
 demasiado y demasiado gruesas en el PSAX aórtico y en el A4C; y después, la región «fuera del modelo» detrás de la AI en el
-A4C, la grasa epicárdica del subcostal, la pared de la AI en el A5C y la costilla del A5C.
+A4C, la grasa epicárdica del subcostal, la pared de la AI en el A5C y la costilla del A5C. Encontrados al medir la 368: la
+pared basal acinética del IAM inferior se separa 4 mm de su cavidad en sístole con grasa entre las dos, y la unión de la
+cava inferior con la AD queda a la altura de la mitral (la cava entra en el eje corto mitral).
 
 ## Cómo seguir
 

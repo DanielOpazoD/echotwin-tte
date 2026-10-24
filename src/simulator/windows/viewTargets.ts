@@ -673,15 +673,22 @@ export function canonicalControl(
     // accepting some obliquity, rather than climbing toward the 2nd space; never over the sternum
     const p = skinPointOnPlane(thorax, plane, preferred, 1.0);
     skin = { u: Math.max(2.2, p.u), v: p.v };
-    if (view.id === 'psax-av') {
-      // The great-vessel level is the exception: its plane is perpendicular to the root, which from the PLAX space cuts
+    // The mitral level climbs on the same terms (decision 368): from the PLAX space its plane stands 24-28° off the short
+    // axis and, aimed at the leaflet tips, cut the inferolateral wall at the annulus and the anterior one at mid level;
+    // from the space above it stands 11-15° off, PSAX_MV_UPPER_MIN_U_CM from the midline.
+    if (view.id === 'psax-av' || view.id === 'psax-mv') {
+      // The great-vessel level first: its plane is perpendicular to the root, which from the PLAX space cuts
       // the outflow tract 1.4 cm below the annulus (the section through the valve stands 12-14° off the axis there) and
       // from the space above cuts the coaptation (0.7-0.8 cm, 0.4-3° off). A sonographer climbs when the window allows:
       // above the cardiac notch the left lung covers more of the sector (24% of its rays in the normal cases, 47-65%
       // with lung over the outflow tract in the difficult-window, HFrEF and artifact cases), so the upper space is taken
       // only when it hides at most 30% of the rays to the target (decision 133).
       const up = skinPointOnPlane(thorax, plane, preferred, 3.0);
-      const high = snapToIntercostal(thorax, Math.max(2.2, up.u), up.v);
+      const high = snapToIntercostal(
+        thorax,
+        Math.max(view.id === 'psax-mv' ? PSAX_MV_UPPER_MIN_U_CM : 2.2, up.u),
+        up.v,
+      );
       const aim = (q: { u: number; v: number }): ProbeControl =>
         controlAimingAt(thorax, q.u, q.v, plane.target, plane.right, 0.6);
       if (lungOcclusion(thorax, aim(high), plane.target) <= 0.3) skin = high;
@@ -725,6 +732,13 @@ export function canonicalBeam(view: ViewTarget, heart: HeartModel, thorax: Thora
  * space below in the atrial fibrillation case, the instability decision 138 found at 8–10° with a pivot off the valve.
  */
 export const PSAX_AV_INFLOW_TILT_DEG = 12;
+
+/**
+ * How far from the midline (cm) the mitral short axis sits when it climbs (decision 368): at the sternal edge (2.2 cm) the
+ * medial rays crossed the costal cartilage and the sternum, and the basal right ventricle and septum fell in their
+ * shadow in nine cases; 4 mm out, two of those cases see all their landmarks, at 1-2° more obliquity.
+ */
+export const PSAX_MV_UPPER_MIN_U_CM = 2.6;
 
 /** Torso-frame plane basis for a view target (used by tests and the ghost overlay). */
 export function canonicalPlane(
