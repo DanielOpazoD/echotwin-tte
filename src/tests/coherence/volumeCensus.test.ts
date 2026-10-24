@@ -39,8 +39,9 @@ import {
  *
  * Analytic: its interatrial septum is IAS_MUSCULAR_CM = 5.5 mm thick (6.0 on the 1 mm grid; a septum measures 3–5);
  * pericardium (read as a gap) and groove fat lie within 6 mm of two cavities at every junction: the atria, the atria and
- * the root, the right ventricle and the trunk, each vein and the coronary sinus with its atrium; and a right pulmonary
- * vein touches the right atrium's blood (0.07 cm²; `KNOWN_BLOOD_CONTACTS`). Since its right ventricular wall ends at the
+ * the root, the right ventricle and the trunk, each vein and the coronary sinus with its atrium. A right pulmonary vein
+ * touched the right atrium's blood (0.07 cm²) until the septum thinned smoothly into the fossa (decision 369). Since its
+ * right ventricular wall ends at the
  * tricuspid hinge and the atrium's lateral wall rises from it (decision 367; the wall rose up to 8.6 mm past the hinge,
  * 1.93 mL, and reads 0.26 mL now, under the census's threshold), the groove fat by the inferior vena cava reads 0.73 mL
  * (0.47).
@@ -75,7 +76,6 @@ const KNOWN_VOLUME_CENSUS: Record<string, number> = {
   'analytic AD|VCI grasa': 0.73,
   'analytic AD|SC hueco': 0.1,
   'analytic AD|SC grasa': 0.49,
-  'analytic sangre PulmonaryVein|RaCavity': 0.07,
 };
 /** A declared figure may grow this much before the test fails: a quarter for volumes and areas, half a millimetre for thicknesses. */
 const allowed = (key: string, known: number): number =>

@@ -1,6 +1,8 @@
 import {
   IAS_LEFT_FACE_CM,
   iasThickness,
+  iasBow,
+  IAS_FOSSA_DESCENT_SHARE,
   LA_CORNER_ANTERIOR_MARGIN_CM,
   LA_CORNER_HEIGHT_CM,
   LA_BASE_BOUND_READ_CM,
@@ -451,10 +453,14 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   // the right atrium's own (decision 330)
   const boR = atrialScale(hp.laBooster, A.raReservoir, hp.state.contraction);
   atrialPoseCache(c, la, lr, bo, czL, rzL);
-  const xIas = A.iasX;
-  // interatrial septum: muscular septum ~0.55 cm with a thicker limbus around the thin fossa ovalis membrane. Its left
-  // face is flat (decision 327): the limbus stands and the fossa sinks on the right atrial side only.
-  const fo = Math.hypot((y - A.fossaY) / 0.6, (z - A.fossaZ) / 0.7);
+  // interatrial septum: muscular septum ~0.55 cm thinning to the fossa ovalis membrane. Its left face is flat (decision
+  // 327): the fossa sinks on the right atrial side only. The fossa follows the base down, and the septum bows toward the
+  // right atrium as the left fills (decision 369)
+  const fo = Math.hypot(
+    (y - A.fossaY) / 0.6,
+    (z - A.fossaZ - IAS_FOSSA_DESCENT_SHARE * zAnn) / 0.7,
+  );
+  const xIas = A.iasX - iasBow(fo, hp.state.contraction);
   const tIas = iasThickness(fo);
   const xFace = xIas + IAS_LEFT_FACE_CM;
   // LA: ellipsoid flattened against the septum (medial clip), against the oesophagus / descending aorta

@@ -523,8 +523,9 @@ describe('volume heart in motion (decision 350)', () => {
     expect(a1.la / a0.la).toBeGreaterThan(1.2);
     expect(Math.abs(v1.la / v0.la - a1.la / a0.la)).toBeLessThan(0.06);
     // the radial scale is solved on the cavity's voxels with the weights in place: on this wide atrium it overshoots by
-    // 0.10 (1.61 for 1.50)
-    expect(Math.abs(v1.ra / v0.ra - a1.ra / a0.ra)).toBeLessThan(0.12);
+    // 0.10 (1.61 for 1.50); and since decision 369 the analytic septum bows into the right atrium in systole while the
+    // mean mesh's does not, 0.126 in all (declared: the Rodero septum does not move with the pressures)
+    expect(Math.abs(v1.ra / v0.ra - a1.ra / a0.ra)).toBeLessThan(0.14);
   });
 
   it('scales the left atrium’s septal side about the left atrium, not about the wider right atrium beside it', () => {

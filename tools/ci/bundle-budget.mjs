@@ -35,8 +35,9 @@ const BUDGETS = [
   // raised to 355 kB, the total budget unchanged. Decision 351's image formation option (the looks and the scatterer
   // branch of the tracer, whose code the engines bring) took it to 355.3 kB: raised to 360 kB, the total unchanged.
   // Decision 360 (the four-chamber preset turned about the LV's axis to the Rodero heart's crux) took it to 360.0 kB:
-  // raised to 365 kB, the total unchanged.
-  [/^sim\.worker-.*\.js$/, 365 * KB],
+  // raised to 365 kB, the total unchanged. Decisions 367-369 (the right atrium's lateral wall, the free wall ending at its
+  // hinge, the septum's bow) took it to 365.1 kB: raised to 370 kB, the total unchanged.
+  [/^sim\.worker-.*\.js$/, 370 * KB],
   // the WebGL2 port and its shaders: shared by the simulation worker and the lazy backend comparison. 119.7 kB at
   // decision 151; the LV segment code in GLSL and its read-back (decision 152) took it to 121.0 kB; the mirrors of the
   // right atrium beside the root and the membranous septum, the open venae cavae, the septal tricuspid hinge and the
@@ -47,8 +48,10 @@ const BUDGETS = [
   // lazy core (simulatorCore, 80.5 kB) into this chunk: 204.1 kB, budgeted as the sum of the two former budgets (the
   // E2E build still splits them, and is not budgeted). Decision 354 (pass A's scatterer variant, the looks as a uniform,
   // the core's switch of image formation) took it to 214.5 kB: raised by 2 kB. Decision 366 (the left atrium's lateral
-  // wall and shelf, mirrored in GLSL) took it to 216.7 kB: raised by 2 kB more
-  [/^webgl2Renderer-.*\.js$/, (132 + 82 + 4) * KB],
+  // wall and shelf, mirrored in GLSL) took it to 216.7 kB: raised by 2 kB more. Decisions 367-369 (the right atrium's
+  // lateral wall and sac, the free wall ending at its hinge, the septum's bow and fossa, mirrored) took it to 218.6 kB:
+  // raised by 2 kB more
+  [/^webgl2Renderer-.*\.js$/, (132 + 82 + 6) * KB],
   [/^heartMesh\.worker-.*\.js$/, 220 * KB],
   [/^(ReportScreen|CurriculumScreen|ProgressScreen|ReferencesScreen)-.*\.js$/, 80 * KB],
   // Decision 287: bounded beat history and timestamp context add 1.2 kB to the lazy core (80.5 kB).

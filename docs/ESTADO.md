@@ -126,7 +126,9 @@ Decisión 367: la pared libre del VD termina en su bisagra tricuspídea y la par
 (antes, la pared del VD seguía 4–8 mm por encima del anillo y la AD daba un paso de 9 mm hacia el tabique, con su sangre
 contra la grasa). La pared de la AD se mueve con el anillo tricuspídeo en el Doppler tisular. Decisión 368: el PSAX mitral corta las puntas de los velos (2,0 cm) desde el espacio
 superior cuando el pulmón lo permite, a 11–14° del eje corto; conserva todo el anillo del VI en el ciclo (antes la AI se
-llevaba el 28–57 % desde la mesosístole). Siguiente, según la revisión de Daniel del 24 de octubre: el tabique interauricular del PSAX aórtico es fijo y de grosor desigual; las venas pulmonares se ven
+llevaba el 28–57 % desde la mesosístole). Decisión 369: el tabique interauricular pasa sin escalón de la membrana de la fosa al septo
+muscular (sin el limbo de 7 mm), la fosa sigue a la base y el tabique se abomba 2,5 mm hacia la AD en sístole. Siguiente,
+según la revisión de Daniel del 24 de octubre: las venas pulmonares se ven
 demasiado y demasiado gruesas en el PSAX aórtico y en el A4C; y después, la región «fuera del modelo» detrás de la AI en el
 A4C, la grasa epicárdica del subcostal, la pared de la AI en el A5C y la costilla del A5C. Encontrados al medir la 368: la
 pared basal acinética del IAM inferior se separa 4 mm de su cavidad en sístole con grasa entre las dos, y la unión de la
