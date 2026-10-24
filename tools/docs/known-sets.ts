@@ -68,6 +68,11 @@ export const KNOWN_SETS: readonly {
   { file: 'src/simulator/anatomy/valveAnatomy.test.ts', name: 'KNOWN_THICK_PARTITION' },
   { file: 'src/simulator/anatomy/leftAtrialBase.test.ts', name: 'KNOWN_VEIN_AT_HINGE' },
   { file: 'src/simulator/anatomy/raLateralWall.test.ts', name: 'KNOWN_RA_EDGE_INSIDE' },
+  {
+    file: 'src/simulator/view-recognition/segmentOrientation.test.ts',
+    name: 'KNOWN_UNORDERED_RINGS',
+  },
+  { file: 'src/simulator/windows/psaxMitralRing.test.ts', name: 'KNOWN_OPEN_RING' },
   { file: 'src/simulator/measurements/laVolume.test.ts', name: 'KNOWN_BIPLANE_SHORTFALL' },
   { file: 'src/simulator/anatomy/coronarySinus.test.ts', name: 'KNOWN_CS_OSTIUM' },
   { file: 'src/simulator/anatomy/atlasPositions.test.ts', name: 'KNOWN_ATLAS_POSITIONS' },

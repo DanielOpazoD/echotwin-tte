@@ -85,12 +85,12 @@ const REFERENCE: Record<string, number[]> = {
 
 /**
  * Segments outside the reference that the drawn plane shows well, measured (same entry of docs/LIMITATIONS.md): the
- * PLAX reaches the apical level of the inferolateral wall, and the basal short axis is oblique enough to cut the mid
- * anteroseptal wall. The A3C plane met the apex on the anterior side of the 13|14 boundary until decision 215.
+ * PLAX reaches the apical level of the inferolateral wall. The A3C plane met the apex on the anterior side of the 13|14
+ * boundary until decision 215, and the basal short axis cut the mid anteroseptal wall until decision 368, when it climbed
+ * to the space above.
  */
 const KNOWN_EXTRA_ASSESSABLE: Record<string, number[]> = {
   plax: [16],
-  'psax-mv': [8],
 };
 
 describe('LV segments of the drawn views', () => {

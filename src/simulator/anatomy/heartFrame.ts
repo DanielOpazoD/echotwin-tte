@@ -20,12 +20,15 @@ export interface HeartFrame {
 /** Aortic root axis in the heart frame: ~33° from the LV long axis toward anterior-septal (adults 25–35°). */
 export const AV_AXIS: Vec3 = normalize(v3(-0.15, 0.53, -0.85));
 /**
- * Level of the mitral short axis, in cm from the end-diastolic annulus toward the apex (decision 164): the leaflets open
- * across it in diastole, and it cuts the basal segments of the ventricle. The `psax-mv` view aims there and its basal
+ * Level of the mitral short axis, in cm from the end-diastolic annulus toward the apex (decision 164): the leaflet tips
+ * open across it in diastole, and it cuts the basal segments of the ventricle. The `psax-mv` view aims there and its basal
  * landmarks sit there. It lives here, with the other frame constants the view definitions read, so that importing it
- * does not pull the anatomy into the main bundle.
+ * does not pull the anatomy into the main bundle. 1.4 cm was the annulus's own systolic descent (1.3-1.5 cm), and the
+ * window's 24-28° of obliquity put the plane's inferolateral side 0.1-1.2 cm from it: from mid-systole to early diastole
+ * the left atrium took 28-57 % of the ventricle's ring in every case (decision 368). From the space above, which the view
+ * now takes when the lung allows, the plane stands 9-15° off, and at 2.0 cm it keeps the ring and the opening leaflets.
  */
-export const MITRAL_SHORT_AXIS_CM = 1.4;
+export const MITRAL_SHORT_AXIS_CM = 2.0;
 /**
  * How far basal to the annular plane the ventricular wall reaches (cm). 0.25 cm let the septal wall run 2.5 mm into the
  * atrium beyond the annulus; the oblique four-chamber cut showed it as a 9 mm wedge under the septal hinge of the mitral

@@ -9,9 +9,17 @@ import { baseInput } from './baseInput';
 
 /** Image acceptance, not a diagnostic threshold: normal blood must not acquire coarse bright islands.
  * Erode the label before measuring so real wall/valve partial-volume echoes do not count as blood texture.
- * The lower bounds also reject replacing the cavity with a black or constant painted region.
+ * The lower bounds also reject replacing the cavity with a black or constant painted region. The mitral apparatus is kept
+ * at the reach of its echo the same way.
  * This goes through the actual core, console and scan-converted output, at all three rendering tiers.
  */
+const VALVE_APPARATUS = new Set<number>([
+  Structure.Chordae,
+  Structure.MitralAnterior,
+  Structure.MitralPosterior,
+  Structure.PapillaryMuscle,
+]);
+
 describe('normal blood texture through the acquisition chain', () => {
   for (const quality of ['low', 'medium', 'high'] as const)
     it(`${quality}: blood stays weakly textured without a second coarse noise envelope`, () => {
@@ -42,6 +50,13 @@ describe('normal blood texture through the acquisition chain', () => {
                 for (const ds of [-k, 0, k])
                   if (out.structure[(li + dl) * N + si + ds] !== Structure.LvCavity) inside = false;
               if (!inside) continue;
+              // nor beside a chord, a leaflet or a papillary muscle, whose echo spreads past the erosion: at the leaflet
+              // tips (decision 368) twenty chordal samples cross the mitral short axis at end-diastole
+              let beside = false;
+              for (let dl = -4; dl <= 4 && !beside; dl++)
+                for (let ds = -2 * k; ds <= 2 * k && !beside; ds++)
+                  beside = VALVE_APPARATUS.has(out.structure[(li + dl) * N + si + ds]!);
+              if (beside) continue;
               const p = polarToPixel(
                 out.sector,
                 ((si + 0.5) * depthCm) / N,

@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 367 (última: 367).
+Decisiones: 368 (última: 368).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -375,3 +375,4 @@ Decisiones: 367 (última: 367).
 | [365](DECISIONS.md#L3238) | 2026-10-20 | Censo por pares del corazón de volumen y hoja de sospechas en las hojas de revisión | vigente |
 | [366](DECISIONS.md#L3268) | 2026-10-21 | La pared lateral de la aurícula izquierda nace de un estante sobre el surco y sube desde la bisagra | vigente |
 | [367](DECISIONS.md#L3292) | 2026-10-24 | La pared libre del VD termina en su bisagra tricuspídea y la pared lateral de la aurícula derecha sube desde ella | vigente |
+| [368](DECISIONS.md#L3315) | 2026-10-24 | El eje corto mitral corta las puntas de los velos desde el espacio superior y conserva todo el anillo del VI a lo largo del ciclo | vigente |
