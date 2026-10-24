@@ -22,7 +22,7 @@ Inter y JetBrains Mono **se incluyen en el bundle** (decisión 198): `src/main.t
 | react, react-dom | 19.3.0 | MIT | UI |
 | three | 0.186.0 | MIT | torso 3D |
 | zustand | 5.0.15 | MIT | estado |
-| zod | 4.6.1 | MIT | validación de casos |
+| zod | 4.6.7 | MIT | validación de casos |
 | vite, @vitejs/plugin-react | 7.3.6, 5.2.0 | MIT | build/dev |
 | vitest, @vitest/coverage-v8 | 4.1.11 | MIT | pruebas |
 | typescript | 5.9.3 | Apache-2.0 | tipos |
