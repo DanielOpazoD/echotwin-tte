@@ -48,8 +48,15 @@ export const PV_REACH = Math.max(
     Math.hypot(PV_COURSE[3 * i]!, PV_COURSE[3 * i + 1]!, PV_COURSE[3 * i + 2]!),
   ),
 );
-/** Lumen radius (cm); the wall adds 0.12 in the classifier. */
+/** Lumen radius (cm); the wall adds PV_WALL_CM in the classifier. */
 export const PV_RADIUS = 0.45;
+/**
+ * The veins' wall (cm, decision 370): thin, and near the ostia the left atrium's myocardial sleeve, so it scatters as
+ * myocardium (0.21 at most, with its anisotropy) rather than as an artery's wall (0.55). With 1.2 mm of arterial wall
+ * at 11-14 cm the beam filled the 9 mm lumen between two bright lines: the vein's blood read 108-138 of grey against the
+ * left atrium's 69-91 in the normal case's four-chamber and great-vessel views, a grey tube where a vein is hard to find.
+ */
+export const PV_WALL_CM = 0.07;
 
 /**
  * Ostium (o) and distal end (e) of vein `i` (0 right superior, 1 left superior, 2 right inferior, 3 left inferior),

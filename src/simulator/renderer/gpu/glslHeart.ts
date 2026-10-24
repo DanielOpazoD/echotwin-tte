@@ -47,6 +47,7 @@ import {
   PV_COURSE,
   PV_OSTIUM_AHEAD_CM,
   PV_RADIUS,
+  PV_WALL_CM,
   PV_RIGHT_T,
   PV_SUP_Z,
 } from '@/simulator/anatomy/pulmonaryVeins';
@@ -101,6 +102,7 @@ import {
   RA_MEMBRANOUS_R_CM,
   RA_MEMBRANOUS_TO,
   RA_RIGHT_VEIN_CLEARANCE_CM,
+  PV_SVC_CLEARANCE_CM,
   RAA_TIP_FROM_AV,
   RAA_BASE_R_CM,
   RAA_TIP_R_CM,
@@ -183,6 +185,7 @@ const float RA_MEMBRANOUS_TO_Y = ${f(RA_MEMBRANOUS_TO[1])};
 const float RA_MEMBRANOUS_TO_Z = ${f(RA_MEMBRANOUS_TO[2])};
 const float RA_MEMBRANOUS_R_CM = ${f(RA_MEMBRANOUS_R_CM)};
 const float RA_RIGHT_VEIN_CLEARANCE_CM = ${f(RA_RIGHT_VEIN_CLEARANCE_CM)};
+const float PV_SVC_CLEARANCE_CM = ${f(PV_SVC_CLEARANCE_CM)};
 const float RAA_TIP_FROM_AV_X = ${f(RAA_TIP_FROM_AV[0])};
 const float RAA_TIP_FROM_AV_Y = ${f(RAA_TIP_FROM_AV[1])};
 const float RAA_TIP_FROM_AV_Z = ${f(RAA_TIP_FROM_AV[2])};
@@ -220,6 +223,7 @@ const float PV_SUP_Z = ${f(PV_SUP_Z)};
 const float PV_INF_Z = ${f(PV_INF_Z)};
 const float PV_COURSE[12] = float[12](${PV_COURSE.map(f).join(', ')});
 const float PV_RADIUS = ${f(PV_RADIUS)};
+const float PV_WALL_CM = ${f(PV_WALL_CM)};
 const float RV_OUTFLOW_BLEND_CM = ${f(RV_OUTFLOW_BLEND_CM)};
 const float SKIRT_ABOVE_CM = ${f(SKIRT_ABOVE_CM)};
 const float TV_INFLOW_BULGE_CM = ${f(TV_INFLOW_BULGE_CM)};
@@ -1302,15 +1306,18 @@ bool classifyHeart(vec3 p0, out Sample s) {
         setSample(s, T_BLOOD, dPv, vec3(0.0, -1.0, 0.0), p, 0.0, S_PVEIN);
         return true;
       }
-      if (dPv < 0.12) {
-        setSample(s, T_VESSEL, -min(dPv, 0.12 - dPv), vec3(0.0, -1.0, 0.0), p, 0.0, S_PVEIN);
+      // decision 370: the wall scatters as the atrial wall it continues
+      if (dPv < PV_WALL_CM) {
+        setSample(s, T_MYO, -min(dPv, PV_WALL_CM - dPv), vec3(0.0, -1.0, 0.0), p, 0.0, S_PVEIN);
         return true;
       }
     }
     // venae cavae and hepatic vein
     {
-      if (dSvc < 0.0) { setSample(s, T_BLOOD, dSvc, vec3(0.0, 0.0, -1.0), p, 0.0, S_SVC); return true; }
-      if (dSvc < 0.12) { setSample(s, T_VESSEL, -min(dSvc, 0.12 - dSvc), vec3(0.0, 0.0, -1.0), p, 0.0, S_SVC); return true; }
+      // decision 370: the cava's lumen keeps clear of the right pulmonary veins' by both walls
+      float dSvcLumen = max(dSvc, PV_SVC_CLEARANCE_CM - rightVeinDistance(p, la, lr, bo, czL, rzL));
+      if (dSvcLumen < 0.0) { setSample(s, T_BLOOD, dSvcLumen, vec3(0.0, 0.0, -1.0), p, 0.0, S_SVC); return true; }
+      if (dSvcLumen < 0.12) { setSample(s, T_VESSEL, -min(dSvcLumen, 0.12 - dSvcLumen), vec3(0.0, 0.0, -1.0), p, 0.0, S_SVC); return true; }
       float dHv = sdCapsule(p, vec3(HV_AX, HV_AY, HV_AZ), vec3(HV_BX, HV_BY, HV_BZ), 0.4);
       if (dIvc < 0.0) { setSample(s, T_BLOOD, dIvc, vec3(0.0, 0.0, 1.0), p, 0.0, S_IVC); return true; }
       if (dIvc < 0.12 && dHv >= 0.0) { setSample(s, T_VESSEL, -min(dIvc, 0.12 - dIvc), vec3(0.0, 0.0, 1.0), p, 0.0, S_IVC); return true; }
