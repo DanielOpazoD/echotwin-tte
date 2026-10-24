@@ -122,7 +122,13 @@ del analítico, y el anillo tricuspídeo de Rodero, que estaba vacío) y una hoj
 los candidatos a defecto le lleguen a Daniel sin buscarlos. Decisión 366: la pared lateral de la AI analítica
 sube desde un estante sobre el surco, 5 mm por fuera de la bisagra lateral, y continúa el borde del VI; antes la base se
 abocinaba hasta +7 mm y daba un paso de 9–18 mm hacia un cuerpo 6–13 mm dentro del anillo (el vértice que marcó Daniel).
-Siguiente: el mismo cierre en la aurícula derecha, junto al VD; y la revisión de Daniel de la hoja de sospechas.
+Decisión 367: la pared libre del VD termina en su bisagra tricuspídea y la pared lateral de la AD sube desde ella
+(antes, la pared del VD seguía 4–8 mm por encima del anillo y la AD daba un paso de 9 mm hacia el tabique, con su sangre
+contra la grasa). La pared de la AD se mueve con el anillo tricuspídeo en el Doppler tisular. Siguiente, según la revisión
+de Daniel del 24 de octubre: el PSAX mitral pierde la pared inferolateral en sístole (la pose canónica queda 25° oblicua al
+eje del VI); el tabique interauricular del PSAX aórtico es fijo y de grosor desigual; las venas pulmonares se ven
+demasiado y demasiado gruesas en el PSAX aórtico y en el A4C; y después, la región «fuera del modelo» detrás de la AI en el
+A4C, la grasa epicárdica del subcostal, la pared de la AI en el A5C y la costilla del A5C.
 
 ## Cómo seguir
 

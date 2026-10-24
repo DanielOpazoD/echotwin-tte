@@ -76,6 +76,8 @@ export interface ClassifyCtx {
   rvSdf: Float64Array;
   /** Distance to the base the ventricle vacated as the annulus descended, atrium now (atria.ts, decision 133); 1e3 when none. */
   raSleeve: number;
+  /** Distance (cm) to the right atrium's body with its lateral wall (atria.ts, decision 367), for the sac; 1e3 when none. */
+  raBody: number;
   /** Distance (cm) to the right atrial appendage's epicardium, for the pericardial sac (decision 323). */
   raaEpi: number;
   /** Scratch of the sleeve's end-diastolic radii. */
@@ -120,6 +122,7 @@ export const ctx: ClassifyCtx = {
   lvNormal: new Float64Array(3),
   rvSdf: new Float64Array(3),
   raSleeve: 1e3,
+  raBody: 1e3,
   raaEpi: 1e3,
   sleeveRad: new Float64Array(4),
 };

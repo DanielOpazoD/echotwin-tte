@@ -233,9 +233,9 @@ Cada prueba del modelo que tolera una desviación la declara en un conjunto `KNO
 | `KNOWN_THIN_SEPTUM` | `simulator/windows/interatrialCrux.test.ts` | 1 | `aortic-stenosis-moderate @0` |
 | `KNOWN_LA_SIDE_WALL_LOW` | `simulator/renderer/atrialSurroundings.test.ts` | 1 | `pulmonary-hypertension-rv a4c ED` |
 | `KNOWN_BLOOD_CONTACTS` | `tests/coherence/coherenceCensus.test.ts` | 6 | `Ivc|RvCavity`, `PulmonaryVein|RaCavity`, `LaCavity|Lvot`, `CoronarySinus|Ivc`, `PulmonaryVein|Svc`, `AorticRoot|LaCavity` |
-| `KNOWN_GREY_INVERSIONS` | `tests/coherence/coherenceCensus.test.ts` | 30 | `normal-excellent-window a4c @0`, `normal-excellent-window a2c @0`, `normal-excellent-window a4c @0.35`, `normal-difficult-window plax @0.35`, `pulmonary-hypertension-rv a4c @0`, `normal-difficult-window psax-mv @0`, `hfref-severe-mr a2c @0`, `hfref-severe-mr a2c @0.35`, `hfref-severe-mr a4c @0.35`, `inferior-rwma a4c @0`, `inferior-rwma a4c @0.35`, `inferior-rwma a2c @0`, `inferior-rwma a2c @0.35`, `aortic-stenosis-moderate a4c @0`, `aortic-stenosis-moderate a2c @0`, `aortic-stenosis-severe a4c @0`, `aortic-stenosis-severe a2c @0`, `aortic-stenosis-severe a2c @0.35`, `hocm-sam a4c @0`, `hocm-sam a2c @0`, `mvp-primary-mr a4c @0`, `mvp-primary-mr a4c @0.35`, `mvp-primary-mr a2c @0`, `pulmonary-hypertension-rv a2c @0`, `af-diastolic a2c @0`, `af-diastolic a2c @0.35`, `artifact-challenge a2c @0`, `artifact-challenge a2c @0.35`, `artifact-challenge psax-mv @0`, `artifact-challenge psax-mv @0.35` |
+| `KNOWN_GREY_INVERSIONS` | `tests/coherence/coherenceCensus.test.ts` | 30 | `normal-excellent-window a4c @0`, `normal-excellent-window a2c @0`, `normal-excellent-window a4c @0.35`, `normal-difficult-window plax @0.35`, `pulmonary-hypertension-rv a4c @0`, `normal-difficult-window psax-mv @0`, `normal-difficult-window psax-mv @0.35`, `hfref-severe-mr a2c @0`, `hfref-severe-mr a2c @0.35`, `inferior-rwma a4c @0`, `inferior-rwma a4c @0.35`, `inferior-rwma a2c @0`, `inferior-rwma a2c @0.35`, `aortic-stenosis-moderate a4c @0`, `aortic-stenosis-moderate a2c @0`, `aortic-stenosis-severe a4c @0`, `aortic-stenosis-severe a2c @0`, `aortic-stenosis-severe a2c @0.35`, `hocm-sam a4c @0`, `hocm-sam a2c @0`, `mvp-primary-mr a4c @0`, `mvp-primary-mr a4c @0.35`, `mvp-primary-mr a2c @0`, `pulmonary-hypertension-rv a2c @0`, `af-diastolic a2c @0`, `af-diastolic a2c @0.35`, `artifact-challenge a2c @0`, `artifact-challenge a2c @0.35`, `artifact-challenge psax-mv @0`, `artifact-challenge psax-mv @0.35` |
 | `KNOWN_STRAIGHT_BORDERS` | `tests/coherence/coherenceCensus.test.ts` | 12 | `a2c LaCavity`, `a2c LvCavity`, `a4c LaCavity`, `a4c LvCavity`, `a4c RaCavity`, `a4c RvCavity`, `plax LaCavity`, `plax LvCavity`, `plax RvCavity`, `psax-mv LvCavity`, `psax-mv LaCavity`, `psax-mv RvCavity` |
-| `KNOWN_VOLUME_CENSUS` | `tests/coherence/volumeCensus.test.ts` | 31 | `rodero AI|RAo hueco`, `rodero AI|RAo grasa`, `rodero AD|RAo hueco`, `rodero AD|RAo grasa`, `rodero VD|TP hueco`, `rodero VD|TP grasa`, `rodero AI|VP hueco`, `rodero AD|VCS hueco`, `rodero AD|VCI hueco`, `rodero VD sobre bisagra AD`, `rodero sangre AorticRoot|PulmonaryArtery`, `analytic AI|AD hueco`, `analytic AI|AD grasa`, `analytic AI|AD tabique`, `analytic AD|VD hueco`, `analytic AI|RAo hueco`, `analytic AI|RAo grasa`, `analytic AD|RAo hueco`, `analytic AD|RAo grasa`, `analytic VD|TP hueco`, `analytic VD|TP grasa`, `analytic AI|VP hueco`, `analytic AI|VP grasa`, `analytic AD|VCS hueco`, `analytic AD|VCS grasa`, `analytic AD|VCI hueco`, `analytic AD|VCI grasa`, `analytic AD|SC hueco`, `analytic AD|SC grasa`, `analytic VD sobre bisagra AD`, `analytic sangre PulmonaryVein|RaCavity` |
+| `KNOWN_VOLUME_CENSUS` | `tests/coherence/volumeCensus.test.ts` | 30 | `rodero AI|RAo hueco`, `rodero AI|RAo grasa`, `rodero AD|RAo hueco`, `rodero AD|RAo grasa`, `rodero VD|TP hueco`, `rodero VD|TP grasa`, `rodero AI|VP hueco`, `rodero AD|VCS hueco`, `rodero AD|VCI hueco`, `rodero VD sobre bisagra AD`, `rodero sangre AorticRoot|PulmonaryArtery`, `analytic AI|AD hueco`, `analytic AI|AD grasa`, `analytic AI|AD tabique`, `analytic AD|VD hueco`, `analytic AI|RAo hueco`, `analytic AI|RAo grasa`, `analytic AD|RAo hueco`, `analytic AD|RAo grasa`, `analytic VD|TP hueco`, `analytic VD|TP grasa`, `analytic AI|VP hueco`, `analytic AI|VP grasa`, `analytic AD|VCS hueco`, `analytic AD|VCS grasa`, `analytic AD|VCI hueco`, `analytic AD|VCI grasa`, `analytic AD|SC hueco`, `analytic AD|SC grasa`, `analytic sangre PulmonaryVein|RaCavity` |
 | `KNOWN_SUSPICIONS` | `tests/coherence/planeSuspicions.test.ts` | 9 | `a2c 0 TD lista blanca PulmonaryArtery`, `psax-mv 0 TD lista blanca Ivc`, `psax-mv 0 TS lista blanca Ivc`, `psax-mv 0 TS lista blanca LaCavity`, `psax-mv 0 TS lista blanca LaWall`, `psax-mv 0 TS lista blanca RaCavity`, `psax-mv 0 TS lista blanca PulmonaryVein`, `psax-mv 0 TS lista blanca Lvot`, `psax-mv 0 TS lista blanca InteratrialSeptum` |
 | `KNOWN_LA_ROOF_EXCESS` | `simulator/renderer/atrialSurroundings.test.ts` | 7 | `normal-excellent-window a4c ES roofWall`, `normal-excellent-window a4c ES roofBeyond`, `normal-excellent-window a2c ES roofWall`, `normal-excellent-window a2c ES roofBeyond`, `pulmonary-hypertension-rv a4c ES roofWall`, `pulmonary-hypertension-rv a2c ES roofWall`, `pulmonary-hypertension-rv a2c ES roofBeyond` |
 | `KNOWN_LOW_TISSUE_BLOOD_DB` | `simulator/renderer/acoustic/imageFormation.test.ts` | 1 | `plax lv walls` |
@@ -245,6 +245,7 @@ Cada prueba del modelo que tolera una desviación la declara en un conjunto `KNO
 | `KNOWN_RA_IN_VEIN` | `simulator/anatomy/venousMouths.test.ts` | 1 | `hfref-severe-mr` |
 | `KNOWN_THICK_PARTITION` | `simulator/anatomy/valveAnatomy.test.ts` | 6 | `hfref-severe-mr@0.35@0.3`, `hfref-severe-mr@0.35@-0.2`, `mvp-primary-mr@0.35@-0.2`, `hfref-severe-mr@0@0.3`, `hocm-sam@0.35@0.3`, `artifact-challenge@0.35@0.3` |
 | `KNOWN_VEIN_AT_HINGE` | `simulator/anatomy/leftAtrialBase.test.ts` | 2 | `normal-difficult-window @0`, `pericardial-effusion-tamponade @0` |
+| `KNOWN_RA_EDGE_INSIDE` | `simulator/anatomy/raLateralWall.test.ts` | 1 | `normal-difficult-window @0` |
 | `KNOWN_BIPLANE_SHORTFALL` | `simulator/measurements/laVolume.test.ts` | 2 | `hfref-severe-mr`, `pericardial-effusion-tamponade` |
 | `KNOWN_CS_OSTIUM` | `simulator/anatomy/coronarySinus.test.ts` | 1 | `pericardial-effusion-tamponade` |
 | `KNOWN_ATLAS_POSITIONS` | `simulator/anatomy/atlasPositions.test.ts` | 12 | `normal-difficult-window:rightAtrium.y`, `rightVentricle.x`, `normal-excellent-window:leftAtrium.y`, `normal-excellent-window:leftAtrium.x`, `normal-difficult-window:leftAtrium.z`, `normal-excellent-window:leftAtrium.z`, `normal-excellent-window:pulmonaryValve.y`, `normal-difficult-window:leftAtrium.y`, `normal-difficult-window:aorticValve.x`, `normal-difficult-window:pulmonaryValve.x`, `normal-difficult-window:pulmonaryValve.y`, `normal-difficult-window:rightVentricle.y` |
@@ -386,6 +387,23 @@ se ve fuera de ese plano:
 La pared es local: con el A4C inclinado −7° el plano roza el borde de la franja y deja una muesca de 4,8 mm a 14 mm de
 altura. Queda 4–6 mm más fuera que la de Rodero entre 14 y 20 mm de altura. Ése es el precio de continuar en línea recta
 el borde del VI, que es lo que Daniel pidió.
+
+### Pared lateral de la aurícula derecha (decisión 367)
+
+La pared libre del VD termina en su bisagra tricuspídea, como la del VI en la mitral, y la pared lateral de la AD sube desde
+un estante 5 mm por fuera de esa bisagra hasta algo por debajo del ecuador de su cuerpo. Desde ahí vuelve al cuerpo, en una
+franja de ±8 mm alrededor del plano de cuatro cámaras. Lo que cuesta:
+
+- El transversal de la AD de la hipertensión pulmonar lee 4,48 cm frente a 4,4 (4,40 antes). Está declarado en el caso: su
+  anillo mide 4,4 cm y la aurícula, dilatada, es ancha también a media altura.
+- En la ventana difícil, en telediástole, el plano de cuatro cámaras sale de la franja a 14 mm de altura. Entre 14 y 18 mm el
+  borde queda 1,5 mm dentro de la bisagra (`KNOWN_RA_EDGE_INSIDE`).
+- La grasa del surco junto a la VCI sube a 0,73 mL en el censo por pares (0,47).
+- El índice de volumen de la AD sube 0,5–1,2 mL/m² y el transversal a media altura sube 0–0,2 cm, salvo en la hipertensión
+  pulmonar.
+
+La pared de la AD se mueve con el anillo tricuspídeo en el Doppler tisular: el vestíbulo entero y el techo a la mitad. No es
+una medida de la pared auricular, sino lo que la celda del anillo lee cuando el anillo la abandona en sístole.
 
 ### Censo por pares del corazón de volumen y hoja de sospechas (decisión 365)
 

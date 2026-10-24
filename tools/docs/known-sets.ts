@@ -67,6 +67,7 @@ export const KNOWN_SETS: readonly {
   { file: 'src/simulator/anatomy/venousMouths.test.ts', name: 'KNOWN_RA_IN_VEIN' },
   { file: 'src/simulator/anatomy/valveAnatomy.test.ts', name: 'KNOWN_THICK_PARTITION' },
   { file: 'src/simulator/anatomy/leftAtrialBase.test.ts', name: 'KNOWN_VEIN_AT_HINGE' },
+  { file: 'src/simulator/anatomy/raLateralWall.test.ts', name: 'KNOWN_RA_EDGE_INSIDE' },
   { file: 'src/simulator/measurements/laVolume.test.ts', name: 'KNOWN_BIPLANE_SHORTFALL' },
   { file: 'src/simulator/anatomy/coronarySinus.test.ts', name: 'KNOWN_CS_OSTIUM' },
   { file: 'src/simulator/anatomy/atlasPositions.test.ts', name: 'KNOWN_ATLAS_POSITIONS' },

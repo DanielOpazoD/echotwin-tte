@@ -168,11 +168,10 @@ export function laLateralWallSdf(
   laX: number,
   xLat: number,
   yArc: number,
+  hold: number,
+  top: number,
 ): number {
-  const t = Math.min(
-    1,
-    Math.max(0, (w - LA_LATERAL_WALL_HOLD) / (LA_LATERAL_WALL_TOP - LA_LATERAL_WALL_HOLD)),
-  );
+  const t = Math.min(1, Math.max(0, (w - hold) / (top - hold)));
   const xWall = xLat + (laX - xLat) * t * t * (3 - 2 * t);
   // the lateral face and the front and back faces, their corners rounded
   const r = LA_LATERAL_WALL_ROUND_CM;

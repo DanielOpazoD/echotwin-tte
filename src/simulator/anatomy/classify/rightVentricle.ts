@@ -3,6 +3,7 @@ import { sdCapsule, sdRoundCone, smin } from '../sdf';
 import { skirtOffsetAt } from '../valveSkirt';
 import { rvCrescent, rvInflowSdf } from '../rv';
 import { setSample, type ClassifyCtx } from './context';
+import { LV_WALL_BASAL_OVERHANG_CM } from '../heartFrame';
 
 /** RV free-wall thickness now: thickens with the contraction. */
 export function rvFreeWallNow(freeWallCm: number, contraction: number): number {
@@ -15,6 +16,15 @@ export function rvFreeWallNow(freeWallCm: number, contraction: number): number {
  * lumens, and in systole, when the body pulled in, a band of wall a centimetre thick between them in the long axis.
  */
 export const RV_OUTFLOW_BLEND_CM = 0.6;
+
+/**
+ * Where the free wall stops at the annulus plane (decision 367): from RV_HINGE_INNER_CM inside the tricuspid ring to
+ * RV_HINGE_REACH_CM outside it, over the hinge and the groove beside it, never under the infundibulum, which rises above
+ * the plane. Deeper inside the ring the crescent's wall still closes the atrium's floor where the atrium's body does not
+ * reach it: cut there too, the atrium of the HFrEF case opened onto epicardial fat 0.6 radii behind the ring's centre.
+ */
+export const RV_HINGE_INNER_CM = 0.5;
+export const RV_HINGE_REACH_CM = 1.5;
 
 /** Radial scale of the outflow tract and pulmonary root with the contraction. */
 export function rvOutflowScale(contraction: number): number {
@@ -219,6 +229,12 @@ export function classifyRightVentricle(c: ClassifyCtx): boolean {
     return true;
   }
   if (dCavRv < fw) {
+    // the free wall ends at its tricuspid hinge (decision 367), as the left ventricle's ends at its mitral one (decision
+    // 327): above the annulus, around the ring and clear of the outflow tract, the atrium and the groove take its place
+    const zHingeT = A.tvCenter.z + hp.tvZ + skirtOffsetAt(V.tv, x, y) - LV_WALL_BASAL_OVERHANG_CM;
+    const ring = Math.hypot(x - V.tv.cx, y - V.tv.cy) - V.tv.R;
+    if (z < zHingeT && dRvot >= fw && ring > -RV_HINGE_INNER_CM && ring < RV_HINGE_REACH_CM)
+      return false;
     const rr = Math.hypot(x, y) || 1;
     setSample(
       out,
