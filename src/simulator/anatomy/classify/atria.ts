@@ -4,7 +4,12 @@ import {
   LA_CORNER_ANTERIOR_MARGIN_CM,
   LA_CORNER_HEIGHT_CM,
   LA_BASE_BOUND_READ_CM,
+  laBaseLateralShare,
   laBaseSdf,
+  laLateralWallSdf,
+  LA_LATERAL_HINGE_CM,
+  LA_LATERAL_WALL_AHEAD_CM,
+  laLateralWallBlend,
   LA_CORNER_FLAT_CM,
   LA_FLOOR_Y_CM,
   laFootprintScale,
@@ -553,6 +558,7 @@ export function classifyAtria(c: ClassifyCtx): boolean {
     dCrossEq,
     rootClearBase,
     mitralOutlineSdf(x, y, mvA),
+    laBaseLateralShare(x - mvA.cx, y - mvA.cy),
   );
   // and over the fossa ovalis, wherever its section reaches, the atrium meets the septum (decision 319): the fossa's floor
   // is the one true septum, a membrane between the two atrial cavities; around it the rims are folds of the atrial walls
@@ -626,8 +632,21 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   const holdShare = atSinuses && rootOuter < LA_ROOT_NEAR_CM ? raReach : 1;
   const frontClear = Math.min(rootClearFaceLine, xFace + RA_LA_MIN_CM * holdShare - x);
   const faceKeep = rootClearFaceLine > 0 ? xFace - x : -1e3;
+  // the lateral wall stands on the lateral hinge (decision 366)
+  const dLatWall = laLateralWallSdf(
+    x,
+    y,
+    c.zHinge - z,
+    (czL - z) / rzL,
+    la.x,
+    mvA.cx + mvA.R + LA_LATERAL_HINGE_CM,
+    mvA.cy + LA_LATERAL_WALL_AHEAD_CM,
+  );
+  // (united after the body's blend with the posterior prism: inside that blend, the wall's distance near its floor swelled
+  // the dilated atria over the hinge)
+  const dBodyPost = smin(smin(dFreeLa, dPost, 0.6), dLatWall, laLateralWallBlend(c.zHinge - z));
   const dLaBody = Math.max(
-    Math.min(smin(dFreeLa, dPost, 0.6), dCorner, dFossaLa, dFlat),
+    Math.min(dBodyPost, dCorner, dFossaLa, dFlat),
     tPost,
     frontClear,
     faceKeep,
@@ -647,7 +666,7 @@ export function classifyAtria(c: ClassifyCtx): boolean {
     (rootClearFace < 0 &&
       sdEllipsoid(xIas, y, z, la.x, la.y, czL, lr.x * bo, lr.y * bo, rzL) < 0.45);
   const d = Math.max(
-    Math.min(smax(smin(dFreeLa, dPost, 0.6), xFace - x, 0.3), dCorner, dFossaLa, dFlat),
+    Math.min(smax(dBodyPost, xFace - x, 0.3), dCorner, dFossaLa, dFlat),
     tPost,
     frontClear,
     faceKeep,

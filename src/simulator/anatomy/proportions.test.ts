@@ -41,6 +41,10 @@ const KNOWN_MODEL_LIMITATIONS: ReadonlySet<string> = new Set([
   // stretches. Since decision 341 the front beside the aortic root does not empty either (it lies on the root): 0.7-2.0
   // points less, 35.3 % in the normal case, 26.7-36.4 % in all.
   'la-emptying',
+  // The left atrial transverse diameter of the tamponade, 3.32 cm against 3.4: it is measured on the row through the
+  // atrium's centre, 9 mm behind the four-chamber plane, and the volume fit pays the lateral wall of decision 366 (which
+  // stands on the lateral hinge in the four-chamber plane) with 3 % of the body's scale; 3.60 before.
+  'la-transverse',
   // 'av-tv-distance' was declared here while it read the distance between the aortic and tricuspid centres, 4.3-5.6 cm
   // against an approximate 3.0-4.5 with no source. What the anatomy fixes is the gap between the two hinge lines, which
   // the membranous septum spans: 0.26-1.14 cm in every case against its 9.0-11.4 mm (decision 306).

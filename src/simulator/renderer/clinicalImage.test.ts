@@ -232,13 +232,13 @@ const KNOWN_GEOMETRY_DEVIATIONS: ReadonlyMap<string, number> = new Map([
 const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // the left atrium held on the aortic root (decision 341) moves the two-chamber end-diastolic correlation 8 mm along
   // the beam from −0.013 to −0.017, just past the quartile's edge
-  ['2CH-ED:radialCorr8', -0.12],
+  ['2CH-ED:radialCorr8', -0.49],
   // decision 333: the pericardium's interface echo is collagen against fat (0.15, not 1.0): the white lines it drew
   // across the beam were thin bright ridges, and the end-systolic ridge deficit grows (1.42 → 1.67 four-chamber,
   // 1.38 → 1.58 two-chamber); the two-chamber correlation 1 mm along the beam comes closer (0.46/0.52 → 0.24) and
   // the four-chamber ones at 1 mm (end-diastole) and 4 mm (end-systole) inside; the end-systolic four-chamber texture 8
   // mm across the beam and the end-diastolic two-chamber one 4 mm along it step just outside
-  ['4CH-ES:tangentialCorr8', -0.27],
+  ['4CH-ES:tangentialCorr8', -0.1],
   ['2CH-ED:radialCorr4', 0.24],
   // Decision 296: diffuse clutter loses coarse image-plane modulation; small residual texture/edge deficits. At decision
   // 312 the four-chamber end-diastolic edge came inside, the two-chamber end-systolic local std too, and the two-chamber
@@ -286,11 +286,14 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // through the persistence a little smoother over the sector (local std)
   // decision 324: with the superior vena cava joining the top of the atrium, the end-systolic four-chamber texture at
   // 4 mm (−0.48 before); the end-diastolic one at 4 mm across the beam came inside
-  ['2CH-ED:radialCorr2', 0.38],
+  ['2CH-ED:radialCorr2', 0.6],
   // decision 321: with the coronary sinus at the inferior groove, the two-chamber end-diastolic texture at 8 mm (−0.11 before)
   ['2CH-ED:radialCorr1', 0.24],
   ['2CH-ES:radialCorr1', 0.24],
-  ['2CH-ED:tangentialCorr4', -0.42],
+  ['2CH-ED:tangentialCorr4', -0.65],
+  // decision 366: the lateral wall of the left atrium stands on the hinge, along the beam, and the two-chamber sector at
+  // end-diastole correlates less across the beam (2CH-ED radialCorr2, radialCorr8 and tangentialCorr4 moved with it)
+  ['2CH-ED:tangentialCorr2', -0.17],
   // grey levels: the 2-4 cm band brighter than clinical (the app's near-field clutter, decision 238, more so without the
   // window's chest-wall attenuation of decision 261; the 0-2 cm band came inside at 264), the four-chamber end-systolic
   // bright end dimmer
@@ -320,7 +323,6 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // end-diastolic one at 2 mm along and 4 mm across it come closer (−0.35 → −0.11, 0.61 → 0.38, −0.69 → −0.21), and the
   // four-chamber end-diastolic texture at 4 mm along and 8 mm across the beam, the end-systolic one at 1 mm across it
   // and the two-chamber end-diastolic one at 4 mm along it come inside
-  ['2CH-ES:radialCorr8', 0.13],
 ]);
 
 /**

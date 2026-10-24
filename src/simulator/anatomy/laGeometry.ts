@@ -87,8 +87,107 @@ export const LA_BASE_FLARE = 0.5;
  */
 export const LA_BASE_SECTION_SLACK_CM = 0.3;
 /**
+ * Over the lateral arc of the annulus the base is a shelf over the atrioventricular groove (decision 366): nothing up to
+ * LA_BASE_SHELF_RISE_CM above the hinge, LA_BASE_SHELF_CM beyond the annulus outline from LA_BASE_SHELF_FULL_CM up, where
+ * the lateral wall (`laLateralWallSdf`) rises from it. In the mean CT heart (Rodero et al. 2021) the cavity's lateral edge
+ * on the four-chamber plane lies inside the ring 2–4 mm above the hinge and 8–12 mm beyond it at 6–8 mm: the atrial floor
+ * reaches out over the top of the ventricular wall. The flare of decision 328 widened 27° from the hinge up to 12 mm and
+ * stepped 9–18 mm back to a body 6–13 mm medial of the lateral hinge: a wedge pointing laterally in the four-chamber view.
+ * The reach (the lateral wall's stand) is declared as an assumption.
+ */
+export const LA_BASE_SHELF_CM = 0.5;
+export const LA_BASE_SHELF_RISE_CM = 0.3;
+export const LA_BASE_SHELF_FULL_CM = 0.6;
+/** How far (cm) beyond the annulus outline the shelf reaches `dz` cm above the hinge. Shared with GLSL. */
+export function laBaseShelf(dz: number): number {
+  return (
+    LA_BASE_SHELF_CM *
+    Math.min(
+      1,
+      Math.max(0, (dz - LA_BASE_SHELF_RISE_CM) / (LA_BASE_SHELF_FULL_CM - LA_BASE_SHELF_RISE_CM)),
+    )
+  );
+}
+/**
+ * How much of the shelf a point of the base takes (0–1), from its direction (dx, dy) from the mitral centre in the hinge
+ * plane: all of it within LA_SHELF_COS_FULL of the lateral direction, none beyond LA_SHELF_COS_FROM, the flare of
+ * decision 328 elsewhere (around the septal corner and the curtain the base keeps its own rules). Shared with GLSL.
+ */
+export function laBaseLateralShare(dx: number, dy: number): number {
+  const c = dx / Math.max(1e-6, Math.sqrt(dx * dx + dy * dy));
+  const t = Math.min(
+    1,
+    Math.max(0, (c - LA_SHELF_COS_FROM) / (LA_SHELF_COS_FULL - LA_SHELF_COS_FROM)),
+  );
+  return t * t * (3 - 2 * t);
+}
+export const LA_SHELF_COS_FULL = 0.85;
+export const LA_SHELF_COS_FROM = 0.5;
+/**
+ * The lateral wall of the left atrium (decision 366): it stands LA_LATERAL_HINGE_CM beyond the lateral mitral hinge, over
+ * the lateral arc of the annulus (LA_LATERAL_WALL_HALF_AP_CM in front of and behind the hinge's depth), from the shelf up
+ * to the body's equator (LA_LATERAL_WALL_HOLD, a fraction of its half length above the centre), and eases back into the
+ * body by LA_LATERAL_WALL_TOP, where in the CT heart the wall curves medially toward the roof (26–30 mm above the hinge).
+ * Held to a height above the hinge instead, it reached the narrow roof at end-diastole, when the annulus stands high, and
+ * the atrial emptying fraction fell 4–7 points. Its corners in front and behind round with LA_LATERAL_WALL_ROUND_CM. The body,
+ * sized to its volume and centred on the septum, stands 6–13 mm medial of the lateral hinge; widening its whole lateral
+ * half to the hinge cost the volume fit 12–35 % of the body (a shorter atrium and fat between the atria under its roof).
+ */
+export const LA_LATERAL_HINGE_CM = 0.5;
+export const LA_LATERAL_WALL_HALF_AP_CM = 0.8;
+/** The band's centre lies this far (cm) in front of the lateral hinge's depth, where the four-chamber plane crosses the ring. */
+export const LA_LATERAL_WALL_AHEAD_CM = 0.2;
+export const LA_LATERAL_WALL_HOLD = 0;
+export const LA_LATERAL_WALL_TOP = 0.9;
+export const LA_LATERAL_WALL_ROUND_CM = 0.5;
+/**
+ * The blend of the lateral wall's fill with the body and its prism (cm), from nothing at the shelf's rise to whole
+ * LA_LATERAL_WALL_BLEND_CM higher: blended down to the floor, the union bulged the dilated atria 1–2.5 mm over the hinge
+ * under the shelf (HFrEF at mid-systole: 7.3 mm beyond the hinge 2 mm above it, 4.8 without the wall). Shared with GLSL.
+ */
+export const LA_LATERAL_WALL_BLEND_CM = 0.4;
+export function laLateralWallBlend(h: number): number {
+  // (never quite nothing: smin divides by its blend)
+  return Math.max(
+    LA_LATERAL_WALL_BLEND_MIN_CM,
+    LA_LATERAL_WALL_BLEND_CM *
+      Math.min(1, Math.max(0, (h - LA_BASE_SHELF_RISE_CM) / LA_LATERAL_WALL_BLEND_CM)),
+  );
+}
+export const LA_LATERAL_WALL_BLEND_MIN_CM = 0.0001;
+/**
+ * Signed distance to the lateral wall's fill at (x, y), `h` cm above the hinge at this azimuth and `w` (a fraction of the
+ * body's half length) above its centre: `xLat` is the wall's stand, `yArc` the depth of the lateral hinge, `laX` the body's
+ * centre. Shared with GLSL.
+ */
+export function laLateralWallSdf(
+  x: number,
+  y: number,
+  h: number,
+  w: number,
+  laX: number,
+  xLat: number,
+  yArc: number,
+): number {
+  const t = Math.min(
+    1,
+    Math.max(0, (w - LA_LATERAL_WALL_HOLD) / (LA_LATERAL_WALL_TOP - LA_LATERAL_WALL_HOLD)),
+  );
+  const xWall = xLat + (laX - xLat) * t * t * (3 - 2 * t);
+  // the lateral face and the front and back faces, their corners rounded
+  const r = LA_LATERAL_WALL_ROUND_CM;
+  const qx = x - xWall + r,
+    qy = Math.abs(y - yArc) - LA_LATERAL_WALL_HALF_AP_CM + r;
+  const dXY =
+    Math.sqrt(Math.max(qx, 0) * Math.max(qx, 0) + Math.max(qy, 0) * Math.max(qy, 0)) +
+    Math.min(Math.max(qx, qy), 0) -
+    r;
+  return Math.max(dXY, LA_BASE_SHELF_RISE_CM - h, laX - x);
+}
+/**
  * The base's signed distance: the septal corner (the medial half of the section at zRef, decisions 318 and 327) united
- * with the flared annulus outline (`outlineSdf` is the D-shaped outline's distance in the hinge plane). Both lie between
+ * with the flared annulus outline (`outlineSdf` is the D-shaped outline's distance in the hinge plane), a shelf over the
+ * lateral arc (`lateralShare`, decision 366). Both lie between
  * the hinge and zRef, behind the curtain (read at the face) and clear of the septal face by the corner's offset; the
  * corner is bounded by the body's section at zRef, the flare by its widest section (`dCrossEq`, at the equator): at zRef
  * the body's rounded posterior edge sits 2-3 mm inside its clip plane, and bounded by that section the flare left
@@ -106,6 +205,7 @@ export function laBaseSdf(
   dCrossEq: number,
   rootClearBase: number,
   outlineSdf: number,
+  lateralShare: number,
 ): number {
   const dz = zHinge - z;
   const shared = Math.max(xFace + cornerOff - x, zRef - z, -dz, rootClearBase);
@@ -113,7 +213,8 @@ export function laBaseSdf(
   // over, so no shoulder stands between them
   const t = Math.min(1, Math.max(0, dz / (zHinge - zRef)));
   const bound = (dCrossEq - LA_BASE_SECTION_SLACK_CM) * (1 - t) + dCrossRef * t;
-  const flare = LA_BASE_FLARE * dz;
+  // over the lateral arc the base is a shelf over the groove that the lateral wall rises from (decision 366)
+  const flare = Math.max(LA_BASE_FLARE * dz, laBaseShelf(dz) * lateralShare);
   return Math.min(
     Math.max(shared, dCrossRef, x - laX),
     Math.max(shared, bound, outlineSdf - flare),

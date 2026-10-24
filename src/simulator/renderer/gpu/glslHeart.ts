@@ -7,6 +7,8 @@ import {
   LA_POSTERIOR_RATIO,
   LA_SEPTAL_FLAT_CM,
   LA_TOUCH_CM,
+  LA_LATERAL_HINGE_CM,
+  LA_LATERAL_WALL_AHEAD_CM,
   RA_LA_MIN_CM,
 } from '@/simulator/anatomy/laGeometry';
 import { LV_WALL_BASAL_OVERHANG_CM } from '@/simulator/anatomy/heartFrame';
@@ -134,6 +136,8 @@ const float FOSSA_REACH = ${f(FOSSA_REACH)};
 const float IAS_LEFT_FACE_CM = ${f(IAS_LEFT_FACE_CM)};
 const float LA_SEPTAL_FLAT_CM = ${f(LA_SEPTAL_FLAT_CM)};
 const float LA_TOUCH_CM = ${f(LA_TOUCH_CM)};
+const float LA_LATERAL_HINGE_CM = ${f(LA_LATERAL_HINGE_CM)};
+const float LA_LATERAL_WALL_AHEAD_CM = ${f(LA_LATERAL_WALL_AHEAD_CM)};
 const float LA_CORNER_FLAT_CM = ${f(LA_CORNER_FLAT_CM)};
 const float LA_CORNER_ANTERIOR_MARGIN_CM = ${f(LA_CORNER_ANTERIOR_MARGIN_CM)};
 const float RA_LA_MIN_CM = ${f(RA_LA_MIN_CM)};
@@ -1098,7 +1102,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float rootClearFace = min(rootClearFaceLine, rootWall);
     float rootClearBase = min(rootClearBaseLine, rootWall);
     float dCrossEq = smax(smax(sdEllipsoid(vec3(la.x, y, czL), vec3(la.x, la.y, czL), vec3(lr.x, lr.y, rzL)), la.y - LA_POSTERIOR_RATIO * lr.y - y, 0.6), zTop + 0.15 * rzL - czL, 0.5);
-    float dCorner = laBaseSdf(x, la.x, xFace, cornerOff, z, zRef, zHingeA, dCrossRef, dCrossEq, rootClearBase, mvOutlineSdf(p.xy));
+    float dCorner = laBaseSdf(x, la.x, xFace, cornerOff, z, zRef, zHingeA, dCrossRef, dCrossEq, rootClearBase, mvOutlineSdf(p.xy), laBaseLateralShare(x - MVL_CX, y - MVL_CY));
     // and over the fossa ovalis it meets the septum (decision 319)
     // the fossa fill reads the body's full section (decision 330)
     float dCrossFull = smax(smax(sdEllipsoid(pc, vec3(la.x, la.y, czL), vec3(lr.x, lr.y, rzL)), la.y - LA_POSTERIOR_RATIO * lr.y - y, 0.6), zTop + 0.15 * rzL - z, 0.5);
@@ -1126,12 +1130,15 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float holdShare = atSinuses && rootOuter < LA_ROOT_NEAR_CM ? raReach : 1.0;
     float frontClear = min(rootClearFaceLine, xFace + RA_LA_MIN_CM * holdShare - x);
     float faceKeep = rootClearFaceLine > 0.0 ? xFace - x : -1e3;
-    float dLaBody = max(max(max(min(min(smin(dFreeLa, dPost, 0.6), dCorner), min(dFossaLa, dFlat)), tPost), frontClear), faceKeep);
+    // decision 366: the lateral wall stands on the lateral hinge
+    float dLatWall = laLateralWallSdf(x, y, zHinge - z, (czL - z) / rzL, la.x, MVL_CX + MVL_R + LA_LATERAL_HINGE_CM, MVL_CY + LA_LATERAL_WALL_AHEAD_CM);
+    float dBodyPost = smin(smin(dFreeLa, dPost, 0.6), dLatWall, laLateralWallBlend(zHinge - z));
+    float dLaBody = max(max(max(min(min(dBodyPost, dCorner), min(dFossaLa, dFlat)), tPost), frontClear), faceKeep);
     laEpi = min(laEpi, dLaBody - LA_WALL_CM);
     // negative where a fill leaves the atrium within LA_TOUCH_CM of the plane
     float laTouch = min(max(dCross, faceOff - LA_TOUCH_CM), min(max(max(max(dCrossRef, rootClearFace), cornerOff - LA_TOUCH_CM), max(zRef - z, z - zHingeA)), max(dCrossFull, (fo - FOSSA_REACH) * 0.6)));
     bool nearLa = laTouch < 0.0 || (rootClearFace < 0.0 && sdEllipsoid(vec3(xIas, y, z), vec3(la.x, la.y, czL), vec3(lr.x * bo, lr.y * bo, rzL)) < 0.45);
-    float d = max(max(max(min(min(min(smax(smin(dFreeLa, dPost, 0.6), xFace - x, 0.3), dCorner), dFossaLa), dFlat), tPost), frontClear), faceKeep);
+    float d = max(max(max(min(min(min(smax(dBodyPost, xFace - x, 0.3), dCorner), dFossaLa), dFlat), tPost), frontClear), faceKeep);
     // decision 335: and wherever the body with its fills comes within LA_TOUCH_CM of its face beside the point
     bool nearRoot = atSinuses && rootOuter < LA_ROOT_NEAR_CM;
     bool nearLaBody = nearLa || (nearRoot && x <= xFace && d < tIas + LA_TOUCH_CM);
