@@ -52,6 +52,8 @@ export const KNOWN_SETS: readonly {
     file: 'src/tests/coherence/coherenceCensus.test.ts',
     name: 'KNOWN_STRAIGHT_BORDERS',
   },
+  { file: 'src/tests/coherence/volumeCensus.test.ts', name: 'KNOWN_VOLUME_CENSUS' },
+  { file: 'src/tests/coherence/planeSuspicions.test.ts', name: 'KNOWN_SUSPICIONS' },
   { file: 'src/simulator/renderer/atrialSurroundings.test.ts', name: 'KNOWN_LA_ROOF_EXCESS' },
   {
     file: 'src/simulator/renderer/acoustic/imageFormation.test.ts',

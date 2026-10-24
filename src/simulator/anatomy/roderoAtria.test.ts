@@ -52,6 +52,14 @@ describe('the bound Rodero atria (decision 358)', async () => {
     }
   });
 
+  it('writes both fibrous annuli on the 1 mm volume (decision 365)', () => {
+    // the tricuspid rim, 0.9 mm from the walls, fell below one voxel and was empty (0 voxels; the mitral 411) until the
+    // reach was held to at least the face neighbours
+    const count = (l: number): number => L.reduce((n, x) => n + (x === l ? 1 : 0), 0);
+    expect(count(37)).toBeGreaterThan(300);
+    expect(count(38)).toBeGreaterThan(300);
+  });
+
   it('keeps them closed: no atrial blood touches the outside', () => {
     let open = 0;
     for (let v = 0; v < L.length; v++)

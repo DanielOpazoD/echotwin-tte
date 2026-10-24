@@ -115,7 +115,11 @@ plano valvular, y el septo auriculoventricular junto a la AD se conserva) y deja
 aórtica (ahora las aurículas se apoyan en ella). La masa gris bajo la bisagra septal a +15° de giro pasa de 135 a 111 de
 gris: lo que queda es la pared de la AI cortada en rasante. Regla de Daniel para todo lo que siga: una estructura visible
 tiene que poder nombrarse como anatomía en cualquier plano, y en los tabiques y uniones interiores no hay grasa ni
-pericardio. Siguiente: la revisión de Daniel con las hojas.
+pericardio. Decisión 365: un censo por pares del corazón de volumen (distancias entre cavidades donde se enfrentan,
+huecos, grasa, miocardio sobre las bisagras, paredes, sangre contra sangre; `KNOWN_VOLUME_CENSUS` con 31 cifras de Rodero y
+del analítico, y el anillo tricuspídeo de Rodero, que estaba vacío) y una hoja de sospechas en las hojas de revisión
+(`hoja-sospechas.md`: brillo en sangre, islas, apariciones a 5°, lista blanca, espesores, con recorte y cifra) para que
+los candidatos a defecto le lleguen a Daniel sin buscarlos. Siguiente: su revisión de la hoja de sospechas del normal.
 
 ## Cómo seguir
 

@@ -5,6 +5,7 @@ import { Structure, Tissue } from '@/simulator/anatomy/tissue';
 import { code, heartCensus, label } from './heartCensus';
 import { planeCensus } from './planeCensus';
 import { STRUCTURE_NAME } from './structureNames';
+import { ALLOWED_BLOOD, bloodPairKey as pairKey } from './allowedBlood';
 
 /**
  * The coherence census (decision 331): clean eyes over the whole model. It asks nothing in particular; it lists every
@@ -17,41 +18,6 @@ const PHASES = [0, 0.35];
 const VIEWS = ['a4c', 'a2c', 'plax', 'psax-mv'];
 
 const name = (st: number): string => STRUCTURE_NAME[st] ?? `#${st}`;
-const pairKey = (a: number, b: number): string => {
-  const [x, y] = name(a) < name(b) ? [a, b] : [b, a];
-  return `${name(x)}|${name(y)}`;
-};
-
-/**
- * Blood touches blood only where the heart is open: through the valves, between a chamber and its own outflow or its
- * vessels, and along the aorta and its branches.
- */
-const ALLOWED_BLOOD = new Set<string>(
-  (
-    [
-      [Structure.LvCavity, Structure.Lvot],
-      [Structure.LvCavity, Structure.LaCavity], // the mitral orifice
-      [Structure.LvCavity, Structure.AorticRoot], // the outflow where the tube begins at the valve
-      [Structure.Lvot, Structure.AorticRoot],
-      [Structure.AorticRoot, Structure.AscendingAorta],
-      [Structure.AscendingAorta, Structure.AorticArch],
-      [Structure.AorticArch, Structure.BrachiocephalicArtery],
-      [Structure.AorticArch, Structure.LeftCommonCarotid],
-      [Structure.AorticArch, Structure.LeftSubclavian],
-      [Structure.RvCavity, Structure.Rvot],
-      [Structure.RvCavity, Structure.RaCavity], // the tricuspid orifice
-      [Structure.RvCavity, Structure.PulmonaryArtery], // the outflow where the trunk begins at the valve
-      [Structure.Rvot, Structure.PulmonaryArtery],
-      [Structure.RaCavity, Structure.Svc],
-      [Structure.RaCavity, Structure.Ivc],
-      [Structure.RaCavity, Structure.CoronarySinus],
-      [Structure.RaCavity, Structure.RaAppendage],
-      [Structure.Ivc, Structure.HepaticVein],
-      [Structure.LaCavity, Structure.PulmonaryVein],
-      [Structure.LaCavity, Structure.LaAppendage],
-    ] as const
-  ).map(([a, b]) => pairKey(a, b)),
-);
 
 /**
  * Blood against blood where a wall belongs, with the largest area (cm²) any case shows at either phase: each entry is a
