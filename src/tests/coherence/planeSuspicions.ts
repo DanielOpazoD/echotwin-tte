@@ -90,6 +90,7 @@ export const ALLOWED_ISLANDS: Partial<Record<Structure, number>> = {
   [Structure.PulmonaryVein]: 4,
   [Structure.MitralAnnulus]: 2,
   [Structure.TricuspidAnnulus]: 2,
+  [Structure.AortomitralCurtain]: 2,
   [Structure.ModeratorBand]: 2,
   [Structure.Pericardium]: 4,
   [Structure.EpicardialFat]: 8,

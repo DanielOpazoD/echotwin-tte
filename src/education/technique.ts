@@ -394,6 +394,7 @@ export function structureName(id: number): string {
     [Structure.ModeratorBand]: 'banda moderadora',
     [Structure.LaAppendage]: 'orejuela izquierda',
     [Structure.RaAppendage]: 'orejuela derecha',
+    [Structure.AortomitralCurtain]: 'cortina aortomitral',
     [Structure.PulmonaryVein]: 'vena pulmonar',
     [Structure.CoronarySinus]: 'seno coronario',
     [Structure.Lung]: 'pulmón',
