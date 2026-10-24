@@ -38,7 +38,7 @@ import { setSample, type ClassifyCtx } from './context';
 import { AORTIC_ROOT_WALL_CM } from '../aorticValve';
 import { LA_WALL_CM, LAA_WALL_CM } from './pericardium';
 import { IVC_HEPATIC_SEGMENT_CM, type AnchorsCached } from '../anchors';
-import { PV_RADIUS, pulmonaryVeinSegment } from '../pulmonaryVeins';
+import { PV_RADIUS, PV_WALL_CM, pulmonaryVeinSegment } from '../pulmonaryVeins';
 
 /** Scratch for the pulmonary vein segment of the sample being classified (no allocation per sample). */
 const PV_SEG = new Float64Array(6);
@@ -206,10 +206,18 @@ export function leftAtrialMouthLumen(
 
 /**
  * Clearance (cm) the right atrial cavity keeps from the lumen of the right pulmonary veins (decision 320): the vein's wall
- * (0.12) and its own (0.22). The veins run behind the atrium into the interatrial groove; the dilated atrium of pulmonary
- * hypertension took up to 46 % of the right inferior vein's first 2 cm, its cavity and wall drawn across the lumen.
+ * (PV_WALL_CM since decision 370; 0.12 before) and its own (0.22). The veins run behind the atrium into the interatrial
+ * groove; the dilated atrium of pulmonary hypertension took up to 46 % of the right inferior vein's first 2 cm, its cavity
+ * and wall drawn across the lumen.
  */
-export const RA_RIGHT_VEIN_CLEARANCE_CM = 0.34;
+export const RA_RIGHT_VEIN_CLEARANCE_CM = PV_WALL_CM + 0.22;
+/**
+ * Clearance (cm) the superior vena cava's lumen keeps from the right pulmonary veins' (decision 370): its wall (0.12) and
+ * the vein's. The right superior vein passes behind the cava near its mouth; with the vein's wall thinned from 1.2 to
+ * 0.7 mm their lumina touched over 0.20-0.32 cm² in four cases at end-diastole (0.11 before). The cava yields, not the
+ * vein, whose first 2 cm stay vein (decision 320).
+ */
+export const PV_SVC_CLEARANCE_CM = PV_WALL_CM + 0.12;
 
 /** Distance to the lumen of the right pulmonary veins (decision 320), from the per-pose vein segments. */
 export function rightVeinDistance(c: ClassifyCtx, x: number, y: number, z: number): number {
@@ -1078,11 +1086,12 @@ export function classifyAtria(c: ClassifyCtx): boolean {
       setSample(out, Tissue.Blood, dPv, 0, -1, 0, x, y, z, 0, Structure.PulmonaryVein);
       return true;
     }
-    if (dPv < 0.12) {
+    // the wall scatters as the atrial wall it continues (decision 370)
+    if (dPv < PV_WALL_CM) {
       setSample(
         out,
-        Tissue.VesselWall,
-        -Math.min(dPv, 0.12 - dPv),
+        Tissue.Myocardium,
+        -Math.min(dPv, PV_WALL_CM - dPv),
         0,
         -1,
         0,
@@ -1098,15 +1107,17 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   // venae cavae: the superior enters the RA roof from above (torso superior), the inferior its floor from
   // below and behind through the liver, joined by a hepatic vein (subcostal views); the IVC narrows with the sniff
   {
-    if (dSvc < 0) {
-      setSample(out, Tissue.Blood, dSvc, 0, 0, -1, x, y, z, 0, Structure.Svc);
+    // the superior vena cava's lumen keeps clear of the right pulmonary veins' by both walls (decision 370)
+    const dSvcLumen = Math.max(dSvc, PV_SVC_CLEARANCE_CM - rightVeinDistance(c, x, y, z));
+    if (dSvcLumen < 0) {
+      setSample(out, Tissue.Blood, dSvcLumen, 0, 0, -1, x, y, z, 0, Structure.Svc);
       return true;
     }
-    if (dSvc < 0.12) {
+    if (dSvcLumen < 0.12) {
       setSample(
         out,
         Tissue.VesselWall,
-        -Math.min(dSvc, 0.12 - dSvc),
+        -Math.min(dSvcLumen, 0.12 - dSvcLumen),
         0,
         0,
         -1,

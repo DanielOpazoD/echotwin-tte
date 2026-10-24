@@ -22,7 +22,7 @@ const name = (st: number): string => STRUCTURE_NAME[st] ?? `#${st}`;
 /**
  * Blood against blood where a wall belongs, with the largest area (cm²) any case shows at either phase: each entry is a
  * defect the census found and no decision has corrected yet. The right ventricle's inflow runs into the inferior vena
- * cava; in the dilated heart the right atrium touches a right pulmonary vein (decision 330: `KNOWN_RA_IN_VEIN`); a pulmonary vein meets the superior vena cava behind the atria; the left atrium
+ * cava; in the dilated heart the right atrium touches a right pulmonary vein (decision 330: `KNOWN_RA_IN_VEIN`); the left atrium
  * reaches the root's lumen and the outflow tract at the curtain (decision 328: the orifice column against the LVOT). The
  * right atrium against the outflow tract in front of the root left with the supraventricular crest (decision 334).
  */
@@ -35,8 +35,6 @@ const KNOWN_BLOOD_CONTACTS: Record<string, number> = {
   'LaCavity|Lvot': 0.22,
   // the coronary sinus and the inferior vena cava meet lumen to lumen beside the Eustachian region instead of through the atrium
   'CoronarySinus|Ivc': 0.16,
-  // a right pulmonary vein touches the superior vena cava behind the atria (one to five faces)
-  'PulmonaryVein|Svc': 0.11,
   // not a contact: tissue thinner than the 1.5 mm grid falls between its points (decision 369). The fossa's membrane
   // (1.2 mm), bowed toward the right atrium at end-systole, and the 1.4 mm partition beside the root in moderate aortic
   // stenosis at end-diastole stand between the bloods, read every 0.1 mm; the grid caught them on the fixed plane before

@@ -3386,3 +3386,19 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
 
     **Paquetes y coste**: el trozo del WebGL2 pasa de 217,9 a 218,6 kB (presupuesto de 218 a 220) y el del worker de 364,2 a 365,1 kB (de 365 a 370); total 2134,9 de 2140 kB. Trazador CPU, 1,5 % sobre el árbol de la decisión 331.
 
+370. **La pared de las venas pulmonares es fina y dispersa como miocardio, no como una arteria**: Daniel, en el PSAX de grandes vasos y en el A4C: «habitualmente no se ven venas pulmonares en esta visión»; «parece exagerada la imagen de las venas pulmonares, que en la mayoría de los casos no se ven ni son de fácil ubicación, y el grosor de la vena también parece excesivo».
+
+    **Medido antes**: la luz de cada vena mide 0,9 cm de diámetro. Su pared, 1,2 mm de `VesselWall`, tiene la reflectividad de la pared arterial (0,55; el miocardio tiene 0,21). Las venas pulmonares miden 10–15 mm junto al ostio, así que el calibre no era lo excesivo. Lo era la nitidez: a 11–14 cm, el haz rellenaba la luz entre dos líneas brillantes, y la sangre de la vena se leía a 108–138 de gris frente a 69–91 en la AI (A4C y PSAX-AV del normal, telediástole y telesístole). Se veía un tubo gris donde una vena real cuesta encontrarla.
+
+    **Cambio** (`pulmonaryVeins.ts`, `classify/atria.ts`; espejo en `glslHeart.ts`): la pared de las venas es miocardio, como la manga miocárdica que la AI lleva al ostio, con la reflectividad y la anisotropía del miocardio, y mide `PV_WALL_CM` = 0,7 mm. La holgura que la AD deja respecto de las venas derechas (decisión 320) se deriva de ella: 0,29 cm, desde 0,34. Y la luz de la vena cava superior guarda respecto de la de las venas derechas su pared y la de la vena (`PV_SVC_CLEARANCE_CM`, 0,19 cm). Con la pared adelgazada, la vena superior derecha, que pasa por detrás de la cava cerca de su boca, tocaba su sangre en 0,20–0,32 cm² en cuatro casos en telediástole (0,11 antes, un defecto declarado desde la 331). Ahora no la toca en ninguno: cede la cava y los primeros 2 cm de la vena siguen siendo vena (decisión 320).
+
+    **Probado y descartado**: recortar la luz de la vena junto a la cava en lugar de la de la cava. Los primeros 2 cm de la vena superior derecha pasaban a ser cava (hasta 10 de sus 480 muestras en ocho fases del normal), que es lo que la decisión 320 prohíbe. Tratar la pared como las paredes auriculares, sin anisotropía. En una pared de 0,7 mm apenas cambia el gris (una mutación que la quitaba sobrevivía), y con anisotropía la vena queda algo más discreta.
+
+    **Medido después**: la sangre de la vena se lee a 119,9 y 95,9 en el A4C (antes 137,8 y 113,5) y a 88,9 y 86,4 en el PSAX-AV (antes 107,8 y 113,0), a 13–17 niveles de la AI en el eje corto. En las hojas, el anillo brillante de las venas por detrás de la AI desaparece y su luz se funde con el entorno. Las venas siguen en los planos donde la anatomía las pone (geometría de la decisión 143): lo que cambia es que ya no destacan.
+
+    **Pruebas**: `pulmonaryVeinWall.test.ts`. En los doce casos, a través de cada vena a mitad de su recorrido, la pared es miocardio y mide ≤ 0,8 mm. En el PSAX-AV del normal, en las dos fases, la sangre de la vena queda a ≤ 25 niveles de la de la AI (antes 32–44). Tres mutaciones, tres fallos: pared arterial (tejido 11), pared de 1,2 mm y cava sin holgura (el censo de coherencia vuelve a ver la sangre de la vena contra la de la cava, 0,13 cm²). Golden del A4C actualizado tras revisar las hojas.
+
+    **Lo que cuesta, declarado con su cifra**: en el sector del A4C en telesístole frente a CAMUS, la pared fina dibuja una línea donde la arterial dibujaba una banda, y la fracción de crestas sube de 1,67 a 1,85 anchos de cuartil (la textura sigue igual). Sale de las listas el contacto vena pulmonar–VCS del censo de coherencia.
+
+    **Paquetes y coste**: WebGL2 218,8 kB (presupuesto 220), worker 365,4 kB (370), total 2135,5 de 2140 kB. Trazador CPU, 5,2 % sobre el árbol de la decisión 331.
+

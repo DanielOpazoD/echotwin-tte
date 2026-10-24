@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 369 (última: 369).
+Decisiones: 370 (última: 370).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -377,3 +377,4 @@ Decisiones: 369 (última: 369).
 | [367](DECISIONS.md#L3292) | 2026-10-24 | La pared libre del VD termina en su bisagra tricuspídea y la pared lateral de la aurícula derecha sube desde ella | vigente |
 | [368](DECISIONS.md#L3315) | 2026-10-24 | El eje corto mitral corta las puntas de los velos desde el espacio superior y conserva todo el anillo del VI a lo largo del ciclo | vigente |
 | [369](DECISIONS.md#L3353) | 2026-10-24 | El tabique interauricular pasa sin escalón a la fosa, la fosa sigue a la base y el tabique se abomba hacia la aurícula derecha en sístole | vigente |
+| [370](DECISIONS.md#L3389) | 2026-10-24 | La pared de las venas pulmonares es fina y dispersa como miocardio, no como una arteria | vigente |
