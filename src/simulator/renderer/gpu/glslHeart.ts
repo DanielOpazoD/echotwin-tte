@@ -113,12 +113,19 @@ import {
   RA_SEPTAL_RELEASE_LA_CM,
   RA_SEPTAL_RELEASE_RAMP_CM,
   RA_ROOF_DESCENT_SHARE,
+  RA_LATERAL_HINGE_CM,
+  RA_LATERAL_WALL_HOLD,
+  RA_LATERAL_WALL_TOP,
   RA_SLEEVE_MARGIN_CM,
   RA_VESTIBULE_SEPTAL_COS,
   RA_VESTIBULE_SEPTAL_RAMP,
   RA_VESTIBULE_UNION_CM,
 } from '@/simulator/anatomy/classify/atria';
-import { RV_OUTFLOW_BLEND_CM } from '@/simulator/anatomy/classify/rightVentricle';
+import {
+  RV_HINGE_INNER_CM,
+  RV_HINGE_REACH_CM,
+  RV_OUTFLOW_BLEND_CM,
+} from '@/simulator/anatomy/classify/rightVentricle';
 
 const f = (v: number): string => (Number.isInteger(v) ? `${v}.0` : `${v}`);
 
@@ -154,6 +161,11 @@ const float AV_CROWN_EXPONENT = ${f(AV_CROWN_EXPONENT)};
 const float AV_OPEN_EDGE_FRACTION = ${f(AV_OPEN_EDGE_FRACTION)};
 const float AV_OPEN_WALL_GAP = ${f(AV_OPEN_WALL_GAP)};
 const float RA_ROOF_DESCENT_SHARE = ${f(RA_ROOF_DESCENT_SHARE)};
+const float RV_HINGE_INNER_CM = ${f(RV_HINGE_INNER_CM)};
+const float RV_HINGE_REACH_CM = ${f(RV_HINGE_REACH_CM)};
+const float RA_LATERAL_HINGE_CM = ${f(RA_LATERAL_HINGE_CM)};
+const float RA_LATERAL_WALL_HOLD = ${f(RA_LATERAL_WALL_HOLD)};
+const float RA_LATERAL_WALL_TOP = ${f(RA_LATERAL_WALL_TOP)};
 const float RA_SLEEVE_MARGIN_CM = ${f(RA_SLEEVE_MARGIN_CM)};
 const float RA_VESTIBULE_UNION_CM = ${f(RA_VESTIBULE_UNION_CM)};
 const float RA_VESTIBULE_SEPTAL_COS = ${f(RA_VESTIBULE_SEPTAL_COS)};
@@ -1040,6 +1052,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
 
   // the base the ventricle vacated as the annulus descended, atrium now (decision 133); read again by the pericardium
   float raSleeve = 1e3;
+  float raBody = 1e3;
   // the left atrium's epicardium, read by the pericardium (decision 273)
   float laEpi = 1e3;
   // decision 323
@@ -1131,7 +1144,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float frontClear = min(rootClearFaceLine, xFace + RA_LA_MIN_CM * holdShare - x);
     float faceKeep = rootClearFaceLine > 0.0 ? xFace - x : -1e3;
     // decision 366: the lateral wall stands on the lateral hinge
-    float dLatWall = laLateralWallSdf(x, y, zHinge - z, (czL - z) / rzL, la.x, MVL_CX + MVL_R + LA_LATERAL_HINGE_CM, MVL_CY + LA_LATERAL_WALL_AHEAD_CM);
+    float dLatWall = laLateralWallSdf(x, y, zHinge - z, (czL - z) / rzL, la.x, MVL_CX + MVL_R + LA_LATERAL_HINGE_CM, MVL_CY + LA_LATERAL_WALL_AHEAD_CM, LA_LATERAL_WALL_HOLD, LA_LATERAL_WALL_TOP);
     float dBodyPost = smin(smin(dFreeLa, dPost, 0.6), dLatWall, laLateralWallBlend(zHinge - z));
     float dLaBody = max(max(max(min(min(dBodyPost, dCorner), min(dFossaLa, dFlat)), tPost), frontClear), faceKeep);
     laEpi = min(laEpi, dLaBody - LA_WALL_CM);
@@ -1163,6 +1176,12 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float raC = raCollapseScale(RA_COLLAPSE);
     float dEllRa = sdEllipsoid(p, vec3(ra.x, ra.y, czR), vec3(rar.x * boR * raC, rar.y * boR * raC, rzR));
     float dFreeRa = smax(dEllRa, ra.y - 0.8 * rar.y * boR - y, 0.6);
+    // decision 367: the lateral wall rises from the lateral tricuspid hinge (the ring shortens about its septal edge)
+    float tvRNow = TV_R * (1.0 - tvShortening(CONTRACTION, RV_RADIAL_SCALE));
+    float tvLat = TV_CX + TV_R - 2.0 * tvRNow - RA_LATERAL_HINGE_CM;
+    float dLatR = max(laLateralWallSdf(-x, y, zBotR - z, (czR - z) / rzR, -ra.x, -tvLat, TV_CY, RA_LATERAL_WALL_HOLD, RA_LATERAL_WALL_TOP), czR - RA_LATERAL_WALL_TOP * rzR - z);
+    dFreeRa = smin(dFreeRa, dLatR, laLateralWallBlend(zBotR - z));
+    raBody = dFreeRa;
     // decision 218
     vec3 amFrom = ra + vec3(RA_ANTEROMEDIAL_FROM_X, RA_ANTEROMEDIAL_FROM_Y, RA_ANTEROMEDIAL_FROM_Z);
     vec3 amTo = vec3(AV_CX + RA_ANTEROMEDIAL_TO_X, AV_CY + RA_ANTEROMEDIAL_TO_Y, AV_CZ + zAnn * ROOT_EXCURSION + RA_ANTEROMEDIAL_TO_Z);
@@ -1368,7 +1387,11 @@ bool classifyHeart(vec3 p0, out Sample s) {
       setSample(s, T_BLOOD, dCavRv, vec3(x / rr, y / rr, 0.0), vec3(x / sc3, y / sc3, z), 0.0, dRvot < dRvU ? S_RVOT : ((dRv >= 0.0 && z <= zAnnulus) ? S_RA_CAV : S_RV_CAV));
       return true;
     }
-    if (dCavRv < fw) {
+    // decision 367: the free wall ends at its tricuspid hinge
+    float tvRH = TV_R * (1.0 - tvShortening(CONTRACTION, RV_RADIAL_SCALE));
+    float ringH = length(vec2(x - (TV_CX + TV_R - tvRH), y - TV_CY)) - tvRH;
+    bool aboveHinge = z < TV_CZ + TVZ + tvOffsetAt(p.xy) - LV_WALL_BASAL_OVERHANG_CM && dRvot >= fw && ringH > -RV_HINGE_INNER_CM && ringH < RV_HINGE_REACH_CM;
+    if (dCavRv < fw && !aboveHinge) {
       float rr = length(p.xy); if (rr == 0.0) rr = 1.0;
       setSample(s, T_MYO, -min(dCavRv, fw - dCavRv), vec3(x / rr, y / rr, 0.0), vec3(x / sc3, y / sc3, z), 0.0, S_RV_WALL);
       return true;
@@ -1381,7 +1404,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float fw = RV_FW;
     float dRvEpi = dRvU - fw;
     float dLaEpi = laEpi;
-    float dRaEpi = min(min(sdEllipsoid(p, ra, rar + 0.22), raSleeve + 0.22), raaEpi);
+    float dRaEpi = min(min(min(sdEllipsoid(p, ra, rar + 0.22), raSleeve + 0.22), raBody - 0.22), raaEpi);
     // the sac around the outflow tract and the trunk stays where the pericardium is anchored (decision 111)
     vec3 rvotA = vec3(RVOT_AX, RVOT_AY, RVOT_AZ);
     vec3 rvotB = vec3(RVOT_BX, RVOT_BY, RVOT_BZ);

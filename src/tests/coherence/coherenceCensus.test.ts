@@ -103,10 +103,11 @@ const KNOWN_GREY_INVERSIONS: Record<string, string[]> = {
   'normal-difficult-window plax @0.35': ['LaWall>Pericardium'],
   'pulmonary-hypertension-rv a4c @0': ['LaWall>Pericardium'],
   'normal-difficult-window psax-mv @0': ['LvWallLateral>Pericardium'],
+  // decision 367: the sac over the right atrium's lateral wall adds 92 far-field samples of pericardium to this plane, which
+  // reads 84.4 (92.5 before) against the atrial wall's 87.6 and the anterior wall's 84.8
+  'normal-difficult-window psax-mv @0.35': ['LaWall>Pericardium', 'LvWallAnterior>Pericardium'],
   'hfref-severe-mr a2c @0': ['LaWall>Pericardium'],
   'hfref-severe-mr a2c @0.35': ['LaWall>Pericardium'],
-  // decision 337: the vein's mouth moves 3-4 mm of wall out of the plane and the wall ties the pericardium (174.9 vs 174.7)
-  'hfref-severe-mr a4c @0.35': ['LaWall>Pericardium'],
   'inferior-rwma a4c @0': ['LaWall>Pericardium'],
   'inferior-rwma a4c @0.35': ['LaWall>Pericardium'],
   'inferior-rwma a2c @0': ['LaWall>Pericardium'],
@@ -136,7 +137,13 @@ const KNOWN_GREY_INVERSIONS: Record<string, string[]> = {
     'LvWallSeptal>Pericardium',
   ],
   'artifact-challenge psax-mv @0': ['LvCavity>=LvWallAnterior'],
-  'artifact-challenge psax-mv @0.35': ['LvCavity>=LvWallSeptal', 'LvCavity>=LvWallInferior'],
+  // decision 367: the sac takes in the right atrium's lateral wall and its pericardium on this plane reads 95.7 (97.3 on
+  // 530 samples before, 588 now) against the anterior wall's 96.0
+  'artifact-challenge psax-mv @0.35': [
+    'LvCavity>=LvWallSeptal',
+    'LvCavity>=LvWallInferior',
+    'LvWallAnterior>Pericardium',
+  ],
 };
 /**
  * The longest straight run (cm) of each cavity's border, per view, over the cases and phases: a border that lies within

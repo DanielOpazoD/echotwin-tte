@@ -16,8 +16,9 @@ const BUDGETS = [
   // ~205 kB were React's DOM renderer: the react chunk named `react-dom` but not `react-dom/client`, the module the app
   // imports, nor its scheduler (decision 245). 369 kB since then, 396.7 kB by decision 339. Decision 340 (review mode's
   // identification, echo sources and pencil: the region code, the overlay layers and the report lines) took it to
-  // 406.1 kB; raised to 410 kB.
-  [/^index-.*\.js$/, 410 * KB],
+  // 406.1 kB; raised to 410 kB. zod 4.6.7 (the security fix of PR 209) took it to 410.0 kB, at the limit, which the
+  // review code of decisions 367-370 crosses by bytes: raised to 412 kB, the total unchanged.
+  [/^index-.*\.js$/, 412 * KB],
   [/^three-.*\.js$/, 600 * KB], // three.js, loaded with the navigator
   [/^react-.*\.js$/, 230 * KB], // React and its DOM renderer: 216 kB at decision 245
   [/^TorsoView-.*\.js$/, 60 * KB],

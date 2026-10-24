@@ -7,6 +7,8 @@ import {
   laBaseLateralShare,
   laBaseSdf,
   laLateralWallSdf,
+  LA_LATERAL_WALL_HOLD,
+  LA_LATERAL_WALL_TOP,
   LA_LATERAL_HINGE_CM,
   LA_LATERAL_WALL_AHEAD_CM,
   laLateralWallBlend,
@@ -53,6 +55,18 @@ export function laWallOf(A: AnchorsCached): { nx: number; ny: number; nz: number
  * case) with a total emptying fraction of 38–43 % in sinus rhythm.
  */
 export const RA_ROOF_DESCENT_SHARE = 0.5;
+/**
+ * The right atrium's lateral wall (decision 367), the left atrium's of decision 366 on the tricuspid side: it stands
+ * RA_LATERAL_HINGE_CM beyond the lateral tricuspid hinge, over the top of the ventricle's free wall, from the shelf up to
+ * RA_LATERAL_WALL_HOLD (a fraction of the body's half length about its centre, below it) and eases back into the body
+ * by RA_LATERAL_WALL_TOP, above which it adds nothing. Before, the body stood 9 mm medial of the hinge 6-8 mm above it,
+ * and only the orifice column reached the ring. Held up to the equator, as on the left, the wall widened the atrium's
+ * mid-level transverse axis by up to 0.9 cm (4.80 cm in the HFrEF case, 4.46 in hypertrophic cardiomyopathy); eased back
+ * from there to the centre, the edge stepped 5-9 mm per 2 mm toward the septum 16-20 mm above the hinge.
+ */
+export const RA_LATERAL_HINGE_CM = 0.5;
+export const RA_LATERAL_WALL_HOLD = -0.3;
+export const RA_LATERAL_WALL_TOP = 0.9;
 /**
  * The base the right ventricle vacates in systole becomes atrium only over the tricuspid orifice and a vestibule of
  * this width around it (decision 149). Decision 133 gave the atrium the whole end-diastolic crescent between the
@@ -641,6 +655,8 @@ export function classifyAtria(c: ClassifyCtx): boolean {
     la.x,
     mvA.cx + mvA.R + LA_LATERAL_HINGE_CM,
     mvA.cy + LA_LATERAL_WALL_AHEAD_CM,
+    LA_LATERAL_WALL_HOLD,
+    LA_LATERAL_WALL_TOP,
   );
   // (united after the body's blend with the posterior prism: inside that blend, the wall's distance near its floor swelled
   // the dilated atria over the hinge)
@@ -728,6 +744,27 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   const raC = raCollapseScale(hp.raCollapse);
   const dEllRa = sdEllipsoid(x, y, z, ra.x, ra.y, czR, rr.x * boR * raC, rr.y * boR * raC, rzR);
   let dFreeRa = smax(dEllRa, ra.y - 0.8 * rr.y * boR - y, 0.6);
+  // the lateral wall rises from the lateral tricuspid hinge as the left atrium's does from the mitral one (decision 367)
+  {
+    const tvLat = V.tv.cx - V.tv.R - RA_LATERAL_HINGE_CM;
+    const hR = zBotR - z;
+    const dLatR = Math.max(
+      laLateralWallSdf(
+        -x,
+        y,
+        hR,
+        (czR - z) / rzR,
+        -ra.x,
+        -tvLat,
+        V.tv.cy,
+        RA_LATERAL_WALL_HOLD,
+        RA_LATERAL_WALL_TOP,
+      ),
+      czR - RA_LATERAL_WALL_TOP * rzR - z,
+    );
+    dFreeRa = smin(dFreeRa, dLatR, laLateralWallBlend(hR));
+    c.raBody = dFreeRa;
+  }
   // the anteromedial atrium beside the right side of the aortic root (decision 218)
   {
     const av = A.avCenter;

@@ -37,11 +37,13 @@ import {
  * (2.15 mL; the LV's sheet past the mitral hinge did 10–15 mm before decision 364); and the cut ends of the aortic root and
  * the pulmonary trunk touching lumen to lumen above the valves (0.09 cm²).
  *
- * Analytic: its interatrial septum is IAS_MUSCULAR_CM = 5.5 mm thick (6.0 on the 1 mm grid; a septum measures 3–5); its
- * right ventricular wall rises up to 8.6 mm past the tricuspid hinge beside the right atrium (1.93 mL); pericardium
- * (read as a gap) and groove fat lie within 6 mm of two cavities at every junction: the atria, the atria and the root,
- * the right ventricle and the trunk, each vein and the coronary sinus with its atrium; and a right pulmonary vein touches
- * the right atrium's blood (0.07 cm²; `KNOWN_BLOOD_CONTACTS`).
+ * Analytic: its interatrial septum is IAS_MUSCULAR_CM = 5.5 mm thick (6.0 on the 1 mm grid; a septum measures 3–5);
+ * pericardium (read as a gap) and groove fat lie within 6 mm of two cavities at every junction: the atria, the atria and
+ * the root, the right ventricle and the trunk, each vein and the coronary sinus with its atrium; and a right pulmonary
+ * vein touches the right atrium's blood (0.07 cm²; `KNOWN_BLOOD_CONTACTS`). Since its right ventricular wall ends at the
+ * tricuspid hinge and the atrium's lateral wall rises from it (decision 367; the wall rose up to 8.6 mm past the hinge,
+ * 1.93 mL, and reads 0.26 mL now, under the census's threshold), the groove fat by the inferior vena cava reads 0.73 mL
+ * (0.47).
  */
 const KNOWN_VOLUME_CENSUS: Record<string, number> = {
   'rodero AI|RAo hueco': 0.47,
@@ -70,10 +72,9 @@ const KNOWN_VOLUME_CENSUS: Record<string, number> = {
   'analytic AD|VCS hueco': 0.21,
   'analytic AD|VCS grasa': 0.59,
   'analytic AD|VCI hueco': 0.26,
-  'analytic AD|VCI grasa': 0.47,
+  'analytic AD|VCI grasa': 0.73,
   'analytic AD|SC hueco': 0.1,
   'analytic AD|SC grasa': 0.49,
-  'analytic VD sobre bisagra AD': 1.93,
   'analytic sangre PulmonaryVein|RaCavity': 0.07,
 };
 /** A declared figure may grow this much before the test fails: a quarter for volumes and areas, half a millimetre for thicknesses. */
