@@ -2,11 +2,38 @@ import { sdEllipsoid, smax } from './sdf';
 
 export const LA_POSTERIOR_RATIO = 0.72;
 
-/** Thickness (cm) of the muscular interatrial septum; the limbus and the fossa modulate it, shared with GLSL. */
+/** Thickness (cm) of the muscular interatrial septum; the fossa thins it, shared with GLSL. */
 export const IAS_MUSCULAR_CM = 0.55;
+/**
+ * The septum's thickness (cm) at `fo`, the distance from the fossa's centre in units of its half-axes (decision 369): the
+ * fossa's membrane, IAS_FOSSA_CM, out to IAS_FOSSA_EDGE_FROM, rising smoothly to the muscular septum by
+ * IAS_FOSSA_EDGE_TO. A limbus of 0.7 cm stood as a step between the two (0.12 inside 1, 0.7 to 1.3, 0.55 beyond), and the
+ * great-vessel short axis cut 1.2 mm of membrane and 7.3 mm of limbus 5 mm apart.
+ */
 export function iasThickness(fo: number): number {
-  return fo < 1 ? 0.12 : fo < 1.3 ? 0.7 : 0.55;
+  const t = Math.min(
+    1,
+    Math.max(0, (fo - IAS_FOSSA_EDGE_FROM) / (IAS_FOSSA_EDGE_TO - IAS_FOSSA_EDGE_FROM)),
+  );
+  return IAS_FOSSA_CM + (IAS_MUSCULAR_CM - IAS_FOSSA_CM) * t * t * (3 - 2 * t);
 }
+export const IAS_FOSSA_CM = 0.12;
+export const IAS_FOSSA_EDGE_FROM = 0.8;
+export const IAS_FOSSA_EDGE_TO = 1.4;
+/**
+ * How far (cm) the septum bows toward the right atrium at the fossa's centre (decision 369): with the ventricular
+ * contraction, as the left atrium fills and its pressure rises over the right's (the v wave), fading to nothing by
+ * IAS_BOW_REACH from the centre. A septum swings 2-5 mm a beat in healthy adults, and 10 mm or more is an aneurysm. It
+ * stood still.
+ */
+export const IAS_BOW_CM = 0.25;
+export const IAS_BOW_REACH = 1.8;
+export function iasBow(fo: number, contraction: number): number {
+  const t = Math.min(1, fo / IAS_BOW_REACH);
+  return IAS_BOW_CM * contraction * (1 - t * t * (3 - 2 * t));
+}
+/** Share of the mitral annulus's descent the fossa follows (decision 369), as the right atrial roof does (decision 149). */
+export const IAS_FOSSA_DESCENT_SHARE = 0.5;
 /**
  * The left face of the septum, cm to the left of the septal plane (decision 327): fixed, wherever the septum thins or
  * thickens. The slab was centred on the plane, so on the left the fossa's membrane sat 2.2 mm deeper than the muscular

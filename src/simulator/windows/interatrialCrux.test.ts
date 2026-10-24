@@ -4,7 +4,14 @@ import { CASE_INPUTS, loadCaseById } from '@/cases';
 import { SimulatorCore } from '@/simulator/core/simulatorCore';
 import { baseInput } from '@/simulator/core/baseInput';
 import { classifyHeart, computeHeartPose, heartAnchors } from '@/simulator/anatomy/heartModel';
-import { IAS_LEFT_FACE_CM, iasThickness } from '@/simulator/anatomy/laGeometry';
+import {
+  IAS_FOSSA_DESCENT_SHARE,
+  IAS_FOSSA_EDGE_FROM,
+  IAS_FOSSA_EDGE_TO,
+  IAS_LEFT_FACE_CM,
+  iasBow,
+  iasThickness,
+} from '@/simulator/anatomy/laGeometry';
 import { makeSample } from '@/simulator/anatomy/tissue';
 import { Structure } from '@/simulator/anatomy/tissue';
 import { CUT_MAP_LABELS } from '@/simulator/anatomy/structurePalette';
@@ -35,16 +42,14 @@ import {
  *
  * Declared: the difficult window and the artifact challenge, whose four-chamber plane passes behind the septum through
  * the interatrial groove (since decision 324 the superior vena cava no longer lies there), and the tamponade at end-diastole.
+ * Moderate aortic stenosis and the prolapse showed 1-3 mm of fat behind the membrane at mid-systole, where the right atrium
+ * tapered from the fossa's upper rim, until the fossa followed the base down (decision 369).
  */
 const KNOWN_INTERATRIAL_TISSUE: Record<string, string> = {
   'normal-difficult-window':
     'the plane passes behind the septum, through the interatrial groove: right atrial wall, fat and septum (19 mm)',
   'artifact-challenge':
     'the plane passes behind the septum, through the interatrial groove: right atrial wall, fat and septum (19-22 mm)',
-  'aortic-stenosis-moderate @0.35':
-    'at mid-systole the right atrium tapers from the upper rim of the fossa, 2.7-2.8 cm below the annulus: 1-3 mm of fat behind the membrane, 2.4-4.8 mm from blood to blood',
-  'mvp-primary-mr @0.35':
-    'at mid-systole the right atrium tapers from the upper rim of the fossa, 2.8 cm below the annulus: 1 mm of fat behind the membrane, 2.3 mm from blood to blood',
   'pericardial-effusion-tamponade @0':
     'at end-diastole the smallest atrium (42 mL) at its radial minimum (decision 330, 0.70) recedes from the septum at its roof: 2.4-2.6 cm above the annulus its wall and 1-2 cm of fat stand between the right atrial blood and its own (10-23 mm), and higher the plane finds no left atrial blood',
 };
@@ -282,11 +287,16 @@ describe('the left face of the septum is flat over the fossa (decision 327)', ()
       for (const phase of [0, 0.35]) {
         if (KNOWN_FOSSA[`${id} @${phase}`]) continue;
         const pose = computeHeartPose(heart, cycleStateAt(tables, phase));
-        const atFossa = firstLa(A.fossaY, A.fossaZ, pose);
-        const onMuscle = firstLa(A.fossaY, A.fossaZ + 1.0, pose);
+        // the fossa follows the base and the septum bows toward the right atrium (decision 369): its plane is the
+        // septum's own, read where it stands at this phase
+        const zF = A.fossaZ + IAS_FOSSA_DESCENT_SHARE * pose.zAnn;
+        const plane = (z: number) =>
+          A.iasX - iasBow(Math.abs(z - zF) / 0.7, pose.state.contraction);
+        const atFossa = firstLa(A.fossaY, zF, pose) - plane(zF);
+        const onMuscle = firstLa(A.fossaY, zF + 1.0, pose) - plane(zF + 1.0);
         if (!(Math.abs(atFossa - onMuscle) <= 0.021))
           problems.push(
-            `@${phase}: left atrial blood begins ${((atFossa - A.iasX) * 10).toFixed(1)} mm from the plane over the fossa and ${((onMuscle - A.iasX) * 10).toFixed(1)} mm over the muscular septum`,
+            `@${phase}: left atrial blood begins ${(atFossa * 10).toFixed(1)} mm from the septal plane over the fossa and ${(onMuscle * 10).toFixed(1)} mm over the muscular septum`,
           );
       }
       expect(problems).toEqual([]);
@@ -299,8 +309,9 @@ describe('the left face of the septum is flat over the fossa (decision 327)', ()
  * atrium to the plane the right atrium was let through the slab: in main, blood against blood over 0.1-0.34 cm² in five
  * cases and a septum thinned to 0.5-2 mm over 0.4-1.6 cm² in every case. On a 1.5 mm grid over the septal plane, at every
  * cell with left atrial blood within 3 mm of the plane and right atrial blood within 1.5 cm across it: at least 0.5 mm of
- * tissue from blood to blood, and, away from the rims of the fossa and the limbus where the thickness steps, no less than
- * the septum's nominal thickness there minus 0.6 mm.
+ * tissue from blood to blood, and, away from the fossa's edge where the membrane rises to the muscular septum, no less
+ * than the septum's nominal thickness there minus 0.6 mm. The septum is read where it stands at each phase: the fossa
+ * follows the base and the septum bows toward the right atrium (decision 369).
  */
 describe('the septum lies whole wherever the atria face each other (decision 327)', () => {
   const RIGHT = new Set<number>([Structure.RaCavity, Structure.RaAppendage]);
@@ -327,16 +338,19 @@ describe('the septum lies whole wherever the atria face each other (decision 327
       const { heart, tables } = new SimulatorCore(c, baseInput()).models;
       const A = heartAnchors(heart);
       const s = makeSample();
-      const xFace = A.iasX + IAS_LEFT_FACE_CM;
       const problems: string[] = [];
       for (const phase of [0, 0.35]) {
         const pose = computeHeartPose(heart, cycleStateAt(tables, phase));
+        // the fossa follows the base and the septum bows with it (decision 369)
+        const zF = A.fossaZ + IAS_FOSSA_DESCENT_SHARE * pose.zAnn;
         let cells = 0,
           holes = 0,
           thin = 0,
           minMm = 99;
         for (let z = -6; z <= 2; z += 0.15)
           for (let y = -4; y <= 3; y += 0.15) {
+            const fo = Math.hypot((y - A.fossaY) / 0.6, (z - zF) / 0.7);
+            const xFace = A.iasX - iasBow(fo, pose.state.contraction) + IAS_LEFT_FACE_CM;
             // the last left atrial blood, walking toward the right from 3 mm left of the plane
             let xLa = NaN;
             for (let dx = -0.3; dx <= 0.4; dx += 0.02) {
@@ -360,8 +374,8 @@ describe('the septum lies whole wherever the atria face each other (decision 327
             }
             if (!RIGHT.has(kind)) continue;
             cells++;
-            const fo = Math.hypot((y - A.fossaY) / 0.6, (z - A.fossaZ) / 0.7);
-            const onRim = Math.abs(fo - 1) <= 0.1 || Math.abs(fo - 1.3) <= 0.1;
+            // (where the membrane rises to the muscular septum the thickness changes faster than the grid resolves)
+            const onRim = fo >= IAS_FOSSA_EDGE_FROM - 0.1 && fo <= IAS_FOSSA_EDGE_TO + 0.1;
             if (t < 0.05) holes++;
             else if (!onRim && t < iasThickness(fo) - 0.06) {
               thin++;

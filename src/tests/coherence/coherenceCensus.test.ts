@@ -35,8 +35,12 @@ const KNOWN_BLOOD_CONTACTS: Record<string, number> = {
   'LaCavity|Lvot': 0.22,
   // the coronary sinus and the inferior vena cava meet lumen to lumen beside the Eustachian region instead of through the atrium
   'CoronarySinus|Ivc': 0.16,
-  // a right pulmonary vein touches the superior vena cava behind the atria (one or two faces)
-  'PulmonaryVein|Svc': 0.04,
+  // a right pulmonary vein touches the superior vena cava behind the atria (one to five faces)
+  'PulmonaryVein|Svc': 0.11,
+  // not a contact: tissue thinner than the 1.5 mm grid falls between its points (decision 369). The fossa's membrane
+  // (1.2 mm), bowed toward the right atrium at end-systole, and the 1.4 mm partition beside the root in moderate aortic
+  // stenosis at end-diastole stand between the bloods, read every 0.1 mm; the grid caught them on the fixed plane before
+  'LaCavity|RaCavity': 0.29,
   // the left atrium reaches the root lumen through its wall at the curtain (one face, mid-systole)
   'AorticRoot|LaCavity': 0.02,
 };
@@ -127,8 +131,6 @@ const KNOWN_GREY_INVERSIONS: Record<string, string[]> = {
   'mvp-primary-mr a2c @0': ['LaWall>Pericardium'],
   'pulmonary-hypertension-rv a2c @0': ['LaWall>Pericardium'],
   'af-diastolic a2c @0': ['LaWall>Pericardium'],
-  // decision 341: back at the tie it left in decision 337 (the wall and the pericardium within a grey level)
-  'af-diastolic a2c @0.35': ['LaWall>Pericardium'],
   'artifact-challenge a2c @0': [
     'LvCavity>=LvWallAnterior',
     'LvApex>Pericardium',
@@ -152,7 +154,9 @@ const KNOWN_GREY_INVERSIONS: Record<string, string[]> = {
 const KNOWN_STRAIGHT_BORDERS: Record<string, number> = {
   'a2c LaCavity': 1.8,
   'a2c LvCavity': 3.1,
-  'a4c LaCavity': 3.3,
+  // the septal face of the difficult window's left atrium, 3.2-3.3 cm straight at end-systole until the septum bowed
+  // (decision 369)
+  'a4c LaCavity': 2.3,
   'a4c LvCavity': 2.4,
   'a4c RaCavity': 1.1,
   'a4c RvCavity': 5.2,

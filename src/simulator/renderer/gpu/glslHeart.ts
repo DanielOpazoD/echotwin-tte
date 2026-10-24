@@ -1071,10 +1071,11 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float zBottom = zAnn + 0.25;
     czL = (zTop + zBottom) / 2.0;
     rzL = (zBottom - zTop) / 2.0;
-    float xIas = IAS_X;
-    float fo = length(vec2((y - FOSSA_Y) / 0.6, (z - FOSSA_Z) / 0.7));
+    // decision 369: the fossa follows the base down and the septum bows toward the right atrium as the left fills
+    float fo = length(vec2((y - FOSSA_Y) / 0.6, (z - FOSSA_Z - IAS_FOSSA_DESCENT_SHARE * zAnn) / 0.7));
+    float xIas = IAS_X - iasBow(fo, CONTRACTION);
     float tIas = iasThickness(fo);
-    // the septum's left face is flat; the limbus and the fossa shape its right side (decision 327)
+    // the septum's left face is flat; the fossa shapes its right side (decision 327)
     float xFace = xIas + IAS_LEFT_FACE_CM;
     // decision 341: beside the aortic root the body keeps its end-systolic size
     float rootOuter = rootRr - rootR - AORTIC_ROOT_WALL_CM;

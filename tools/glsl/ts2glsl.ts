@@ -56,6 +56,7 @@ export const TARGETS: GenTarget[] = [
     file: 'src/simulator/anatomy/laGeometry.ts',
     functions: [
       'iasThickness',
+      'iasBow',
       'laMedialFaceOffset',
       // laBaseShelf before laBaseSdf: GLSL needs a function declared before its call
       'laBaseShelf',

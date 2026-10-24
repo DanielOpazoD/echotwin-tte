@@ -254,7 +254,8 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // decision 270: the lung's diffuse reverberation now carries its path loss, so the outer sector of the end-systolic four-chamber view darkens
   ['4CH-ES:edgeRollOff', -0.12],
   // decision 264: with the chest-wall reverberation fading within 0.8 cm the near field comes inside and the two-chamber cavities darken
-  ['2CH-ES:ridgeFraction', 1.58],
+  // decision 369: the septum without its 7 mm limbus draws one bright interface fewer at end-systole (1.58 before)
+  ['2CH-ES:ridgeFraction', 1.43],
   // decision 263: the cavity reverberation no longer reinforced behind blood darkens the end-diastolic cavities
   // decision 262: with the LV's diaphragmatic face on the diaphragm, liver fills the two-chamber sector beyond the
   // inferior wall where lung reverberation was; at end-systole its texture and the outer sector move out

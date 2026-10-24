@@ -131,5 +131,8 @@ export const hfrefSevereMrCase: CaseDefinitionInput = {
     'la-emptying',
     'la-ao',
     'mv-annulus',
+    // the right atrium's mid-level line reaches the septum where the fossa's edge rises from the membrane: 4.52 cm since
+    // decision 369 (4.10 before, against the 7 mm limbus that stood there), with its volume normal (28.7 mL/m²)
+    'ra-transverse',
   ],
 };

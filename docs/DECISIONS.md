@@ -3349,3 +3349,40 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     **Pruebas**: `psaxMitralRing.test.ts` (12 casos, 11 fases sobre el plano canónico): el anillo del VI cerrado por su propia pared en ≥ 95 % de los rayos en todas las fases, los velos cruzando el plano en diástole (≥ 50 muestras) y ningún papilar. La prueba de contenido mira los velos del PSAX mitral también en la diástole precoz (0,6), y la de calidad de vista pide `mv-tips` y `rv-basal` en el normal. Cuatro mutaciones, cuatro fallos: nivel a 1,4 (anillo al 39 % a 0,55), sin subir de espacio (`segmentCoverage`: el corte pierde el 2 y llega al 7–9), subida en el borde esternal (`viewQuality`: el septo basal en sombra) y la vista pidiendo el cuerpo de la válvula (`viewLandmarks`: a 1,30 cm del plano, alcance 1,11). No toca el clasificador: ni el trazador ni el sombreador cambian.
 
     **Lo que no resuelve**: la unión de la cava inferior con la AD queda a la altura de la mitral en el marco del corazón, y por eso la cava aparece en el eje corto. La pared basal acinética del IAM inferior se separa de su cavidad en sístole.
+
+369. **El tabique interauricular pasa sin escalón a la fosa, la fosa sigue a la base y el tabique se abomba hacia la aurícula derecha en sístole**: en el PSAX de grandes vasos, Daniel marcó el tabique interauricular: «demasiado asimétrico en su grosor, además no se mueve, se ve como una estructura absolutamente fija, no debiera ser así».
+
+    **Medido antes**: en el plano de su informe, el tabique tenía el mismo grosor y la misma posición en las siete fases medidas. A lo largo del arco medía 5,8 mm (septo muscular), 7,3 mm (limbo) y 1,2 mm (membrana) en 1,1 cm. El grosor iba a saltos: 1,2 mm dentro de la fosa, 7 mm en un limbo y 5,5 mm fuera, con escalones de 5,8 mm en un milímetro. Además, el tabique era una lámina fija en x = −2,35 cm del marco del corazón con la fosa fija, mientras las aurículas se contraían a su alrededor.
+
+    **Cambio** (`laGeometry.ts`, `classify/atria.ts`; espejo en `glslHeart.ts`, `glslCommon.ts`; funciones compartidas por `ts2glsl`):
+
+    1. El grosor sube con un escalón suave desde la membrana (1,2 mm) en `fo` 0,8 hasta el septo muscular (5,5 mm) en `fo` 1,4. No hay limbo más grueso que el septo.
+    2. La fosa sigue la mitad del descenso del anillo mitral (`IAS_FOSSA_DESCENT_SHARE`), como el techo de la AD sigue la mitad del tricuspídeo (decisión 149).
+    3. El tabique se abomba hacia la AD con la contracción, cuando la AI se llena y su presión supera a la de la AD (onda v): 2,5 mm en el centro de la fosa, que se apagan a 1,8 semiejes (`iasBow`). En adultos sanos el tabique oscila 2–5 mm por latido; 10 mm o más es un aneurisma.
+
+    Las dos caras del tabique se mueven con él: la cara izquierda sigue plana respecto del tabique del momento (decisión 327).
+
+    **Medido después** (el plano del informe): en el centro de la fosa el tabique se desplaza 1,8 mm a lo largo del ciclo, y en su borde el grosor cambia con la fase (1,9–3,4 mm, antes 7,3 fijos). El septo muscular sigue en 5,8 mm. En el marco del corazón, en los doce casos, el tabique se acerca a la AD al menos 1,5 mm en el centro de la fosa de telediástole a telesístole, y la membrana baja hacia el ápex al menos un 35 % de lo que baja el anillo mitral. Grosor del tabique (`ias`), 0,52–0,54 cm en los doce casos.
+
+    **Lo que cuesta, declarado con su cifra**:
+    - El transversal de la AD de la ICFEr, 4,52 cm frente a 4,4 (4,10 antes), declarado en el caso. Su línea media llega al borde de la fosa, donde antes estaba el limbo; el volumen de la AD es normal (28,7 mL/m²). El de la hipertensión pulmonar, ya declarado, pasa de 4,48 a 4,86.
+    - La AD de Rodero, cuyo tabique no se mueve, se llena en sístole 0,126 más que la analítica (0,10 antes; tolerancia de 0,12 a 0,14).
+    - El censo de coherencia ve un contacto entre las sangres de las dos aurículas donde la rejilla de 1,5 mm no alcanza tejido más fino que ella (`LaCavity|RaCavity`, hasta 0,29 cm²). Son la membrana de la fosa abombada en telesístole y el tabique de 1,4 mm junto a la raíz en la estenosis moderada; leído cada 0,1 mm, el tejido está.
+    - El contacto vena pulmonar–VCS de la HTP gana una cara de rejilla: 0,11 cm², desde 0,09.
+
+    Mejoran o salen de las listas:
+    - En la estenosis moderada y en el prolapso desaparece la grasa detrás de la membrana en mesosístole (la AD se afinaba desde el borde superior de una fosa que no bajaba).
+    - Desaparecen el contacto vena pulmonar derecha–AD del censo por pares y una inversión de gris del A2C de la fibrilación auricular.
+    - El borde recto de la cara septal de la ventana difícil baja de 3,3 a 2,3 cm, y la fracción de crestas del A2C en telesístole de 1,58 a 1,43.
+    - La medida del grosor del tabique se toma ahora donde la línea pasa de la sangre de la AD al tabique y a la sangre de la AI, fuera de la fosa. La mediana de nueve puntos fijos leía el limbo donde lo había, y las venas y el pericardio donde las aurículas son pequeñas: 0,08 cm en el taponamiento con el tabique nuevo.
+
+    **Pruebas**: `interatrialSeptum.test.ts` (12 casos). Comprueba, a lo largo del tabique por la fosa:
+    - ningún escalón mayor de 2 mm por milímetro (antes 5,8);
+    - ningún punto de más de 6 mm;
+    - en el centro de la fosa, al menos 1,5 mm hacia la AD en sístole;
+    - la membrana baja al menos un 35 % del descenso del anillo.
+
+    Las pruebas del cruce interauricular leen la cara plana y el tabique entero sobre el tabique del momento. Cuatro mutaciones, cuatro fallos: sin abombamiento (se mueve 0,0 mm), el limbo escalonado de antes (salto de 2,0 a 4,3 mm en un milímetro), la fosa fija (−0,6 mm para un descenso del anillo de 13,5) y la medida antigua del grosor (seis casos fuera de 0,55 ± 0,06 cm).
+
+    **Paquetes y coste**: el trozo del WebGL2 pasa de 217,9 a 218,6 kB (presupuesto de 218 a 220) y el del worker de 364,2 a 365,1 kB (de 365 a 370); total 2134,9 de 2140 kB. Trazador CPU, 1,5 % sobre el árbol de la decisión 331.
+
