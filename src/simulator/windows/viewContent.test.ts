@@ -66,7 +66,13 @@ const never = (
   maxPercent = 0.05,
 ): Forbidden => ({ label, group: Array.isArray(group) ? group : [group as Structure], maxPercent });
 
-const EXPECTED: Record<string, { needs: Requirement[]; forbids?: Forbidden[] }> = {
+/** What a view must show and never show; `phases`, when the defaults (0 and 0.3) miss what defines it. */
+interface ViewSpec {
+  needs: Requirement[];
+  forbids?: Forbidden[];
+  phases?: number[];
+}
+const EXPECTED: Record<string, ViewSpec> = {
   plax: {
     needs: [
       need('LV cavity', Structure.LvCavity, 3),
@@ -97,6 +103,9 @@ const EXPECTED: Record<string, { needs: Requirement[]; forbids?: Forbidden[] }> 
     ],
   },
   'psax-mv': {
+    // the leaflet tips open across the mitral level in early diastole (decision 368): at end-diastole and mid-systole
+    // no leaflet crosses it in the normal case
+    phases: [0, 0.3, 0.6],
     needs: [
       need('LV cavity', Structure.LvCavity, 3),
       need('LV myocardium', LV_MYOCARDIUM, 2),
@@ -230,7 +239,7 @@ describe('standard views contain the structures they are meant to show', () => {
     it(`${view.id}: shows its structures and nothing impossible`, () => {
       // diastole and mid-systole: a structure may only be visible in one of them (a closed valve, a small
       // systolic cavity), so each requirement is satisfied if it holds in either phase
-      const frames = [0, 0.3].map((phase) =>
+      const frames = (spec.phases ?? [0, 0.3]).map((phase) =>
         viewStructureFractions(
           view,
           heart,

@@ -238,6 +238,17 @@ function shortAxisClock(f: Frame): {
   };
 }
 
+/**
+ * Short-axis rings that cannot be read in order, `case view` → the segments drawn: the difficult window and the artifact
+ * case cannot climb to the space above (the lung covers more than 30 % of its rays), and their mitral short axis, 24-25°
+ * off the axis, aimed at the leaflet tips (decision 368), reaches the mid level in front and loses the basal anteroseptal
+ * segment.
+ */
+const KNOWN_UNORDERED_RINGS: Record<string, string> = {
+  'normal-difficult-window psax-mv': '1 3 4 5 6 7 8 9',
+  'artifact-challenge psax-mv': '1 3 4 5 6 7 8 9',
+};
+
 describe('the LV segments on the images of the app (decision 181)', () => {
   it('number as septum the arc of a short-axis cut the RV touches, counter-clockwise, in every case', () => {
     const off: string[] = [];
@@ -245,8 +256,13 @@ describe('the LV segments on the images of the app (decision 181)', () => {
       for (const view of ['psax-mv', 'psax-pm']) {
         const f = frameOf(input.id, view);
         const ring = view === 'psax-mv' ? [1, 2, 3, 4, 5, 6] : [7, 8, 9, 10, 11, 12];
-        if (!counterClockwise(f, ring))
-          off.push(`${input.id} ${view}: the ring is not numbered counter-clockwise`);
+        const known = KNOWN_UNORDERED_RINGS[`${input.id} ${view}`] !== undefined;
+        if (counterClockwise(f, ring) === known)
+          off.push(
+            known
+              ? `${input.id} ${view}: KNOWN_UNORDERED_RINGS declares a ring that now reads in order`
+              : `${input.id} ${view}: the ring is not numbered counter-clockwise`,
+          );
         const { septum, rv } = arcs(f);
         const rvDeg = 2 * rv.filter(Boolean).length;
         const miss = mismatchDeg(septum, rv);
