@@ -66,8 +66,8 @@ describe('the great vessels of the bound Rodero heart (decision 372)', async () 
         // eleven points: the first lies in the volume's own outflow where the CT still has it
         expect(trunkBlood, `trunk at phase ${phase.toFixed(2)}`).toBeGreaterThanOrEqual(10);
       }
-      // where the volume has tissue, the volume's own label is drawn: its aortic and pulmonary walls and its pulmonary
-      // valve (the aortic valve plane is the root's blood since decision 373)
+      // where the volume has tissue, the volume's own label is drawn: its aortic and pulmonary walls (both valve planes
+      // are blood since decisions 373 and 375)
       const cls = vh.classifier({ apparatus: ed });
       let own = 0,
         kept = 0;
@@ -75,7 +75,7 @@ describe('the great vessels of the bound Rodero heart (decision 372)', async () 
         for (let y = -4; y <= 8; y += 0.25)
           for (let z = -9; z <= 2; z += 0.25) {
             const l = vh.labelAt(x, y, z);
-            if (l !== 5 && l !== 6 && l !== 10) continue;
+            if (l !== 5 && l !== 6) continue;
             own++;
             if (cls(x, y, z, q) && q.structure === LABELS[l]![1]) kept++;
           }

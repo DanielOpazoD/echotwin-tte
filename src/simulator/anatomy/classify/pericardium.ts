@@ -1,8 +1,9 @@
 import { Structure, Tissue } from '../tissue';
-import { sdCapsule, sdEllipsoid, sdRoundCone, smax, smin } from '../sdf';
+import { sdCapsule, sdEllipsoid, smax, smin } from '../sdf';
 import { setSample, type ClassifyCtx } from './context';
 import { AORTIC_ROOT_WALL_CM } from '../aorticValve';
 import { DESC_AORTA_MAX_OUTER_R, SPINE_R } from '../thoraxModel';
+import { pulmonaryTrunkEpiDistance, trunkFrontDistance } from '../greatVessels';
 
 /** Left atrial wall (cm) and the appendage's. */
 /**
@@ -102,33 +103,7 @@ export function classifyPericardium(c: ClassifyCtx): boolean {
     A.rvotB.z,
     A.rvotRa + fw,
   );
-  const dPaEpi = Math.min(
-    sdRoundCone(
-      x,
-      y,
-      z,
-      A.rvotB.x,
-      A.rvotB.y,
-      A.rvotB.z,
-      A.paStj.x,
-      A.paStj.y,
-      A.paStj.z,
-      A.paRootR + 0.2,
-      A.paR + 0.2,
-    ),
-    sdCapsule(
-      x,
-      y,
-      z,
-      A.paStj.x,
-      A.paStj.y,
-      A.paStj.z,
-      A.paEnd.x,
-      A.paEnd.y,
-      A.paEnd.z,
-      A.paR + 0.2,
-    ),
-  );
+  const dPaEpi = pulmonaryTrunkEpiDistance(A, x, y, z);
   // the cardiac silhouette is the smooth union of the epicardial surfaces: the grooves between chambers and
   // the space between outflow and root are filled with epicardial fat, and one pericardium wraps the whole heart
   // the sac lies against the descending aorta and the vertebral body and does not run into them (decision 273)
@@ -202,13 +177,7 @@ export function classifyPericardium(c: ClassifyCtx): boolean {
   const dRoot = c.rootT > -90 ? c.rootRr - c.rootR - AORTIC_ROOT_WALL_CM : dSac;
   // in front of the pulmonary trunk the mediastinum's fat stands between the trunk and the lung, as far as the point lies
   // in front of the trunk's middle, the torso's anterior direction read in the heart frame (decision 336)
-  const F = m.frame;
-  const mx = x - 0.5 * (A.rvotB.x + A.paStj.x),
-    my = y - 0.5 * (A.rvotB.y + A.paStj.y),
-    mz = z - 0.5 * (A.rvotB.z + A.paStj.z);
-  const ml = Math.sqrt(mx * mx + my * my + mz * mz);
-  const front = ml > 1e-6 ? (mx * F.ex.z + my * F.ey.z + mz * F.ez.z) / ml : 0;
-  const dTrunkFront = dPaEpi - PERICARDIUM_CM - PA_ANTERIOR_FAT_CM * Math.max(0, front);
+  const dTrunkFront = trunkFrontDistance(m, A, x, y, z, dPaEpi);
   out.sdf = Math.min(dSac, dRoot, dTrunkFront);
   return false;
 }

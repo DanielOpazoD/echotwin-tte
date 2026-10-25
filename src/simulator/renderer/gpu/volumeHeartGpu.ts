@@ -17,6 +17,7 @@ import {
   MITRAL_FADE_CM,
   LABELS,
   ROOT_BLOOD,
+  TRUNK_BLOOD,
   LV_BAND_CM,
   LV_FADE_CM,
   RV_DESCENT_FROM_CM,
@@ -187,6 +188,15 @@ export function volumeHeartGpu(vh: VolumeHeart, endDiastole: HeartPose): HeartVo
         gl.uniform3f(u(gl, prog, 'uVolAoO'), w.o[0], w.o[1], w.o[2]);
         gl.uniformMatrix3fv(u(gl, prog, 'uVolAoM'), true, w.m);
         gl.uniform2f(u(gl, prog, 'uVolAoReach'), AORTIC_CUSP_REACH_CM[0], AORTIC_CUSP_REACH_CM[1]);
+      }
+      // the analytic pulmonary cusps over the CT's pulmonary valve plane (decision 375)
+      const pw = vh.pulmonaryWarp(pose);
+      gl.uniform1i(u(gl, prog, 'uVolPvLabel'), pw ? TRUNK_BLOOD : -1);
+      if (pw) {
+        gl.uniform3f(u(gl, prog, 'uVolPvC'), pw.centre[0], pw.centre[1], pw.centre[2]);
+        gl.uniform3f(u(gl, prog, 'uVolPvN'), pw.axis[0], pw.axis[1], pw.axis[2]);
+        gl.uniform3f(u(gl, prog, 'uVolPvO'), pw.o[0], pw.o[1], pw.o[2]);
+        gl.uniformMatrix3fv(u(gl, prog, 'uVolPvM'), true, pw.m);
       }
       // the mitral leaflets carried onto the CT's annulus (decision 374)
       const mw = vh.mitralWarp(pose);

@@ -1,6 +1,7 @@
 import { anchorsCached, type Anchors } from './anchors';
 import { classifyAorticExtension } from './aorticExtension';
 import { setSample } from './classify/context';
+import { PA_ANTERIOR_FAT_CM, PERICARDIUM_CM } from './classify/pericardium';
 import type { HeartModel, HeartPose } from './heartModel';
 import { sdCapsule, sdRoundCone } from './sdf';
 import { Structure, Tissue, type TissueSample } from './tissue';
@@ -75,6 +76,59 @@ export function pulmonaryTrunkDistance(
   return Math.min(dPa, dRpa, dLpa);
 }
 
+/** Distance (cm) beyond the epicardium of the pulmonary trunk: its lumen, wall and fat, as the pericardium wraps it. */
+export function pulmonaryTrunkEpiDistance(A: Anchors, x: number, y: number, z: number): number {
+  return Math.min(
+    sdRoundCone(
+      x,
+      y,
+      z,
+      A.rvotB.x,
+      A.rvotB.y,
+      A.rvotB.z,
+      A.paStj.x,
+      A.paStj.y,
+      A.paStj.z,
+      A.paRootR + 0.2,
+      A.paR + 0.2,
+    ),
+    sdCapsule(
+      x,
+      y,
+      z,
+      A.paStj.x,
+      A.paStj.y,
+      A.paStj.z,
+      A.paEnd.x,
+      A.paEnd.y,
+      A.paEnd.z,
+      A.paR + 0.2,
+    ),
+  );
+}
+
+/**
+ * How far (cm) beyond the mediastinal fat in front of the pulmonary trunk a point lies (decision 336): the trunk's
+ * epicardial distance less the pericardium and PA_ANTERIOR_FAT_CM, as far as the point lies in front of the trunk's
+ * middle along the torso's anterior direction read in the heart frame. The lung keeps outside it.
+ */
+export function trunkFrontDistance(
+  m: HeartModel,
+  A: Anchors,
+  x: number,
+  y: number,
+  z: number,
+  dPaEpi: number,
+): number {
+  const F = m.frame;
+  const mx = x - 0.5 * (A.rvotB.x + A.paStj.x),
+    my = y - 0.5 * (A.rvotB.y + A.paStj.y),
+    mz = z - 0.5 * (A.rvotB.z + A.paStj.z);
+  const ml = Math.sqrt(mx * mx + my * my + mz * mz);
+  const front = ml > 1e-6 ? (mx * F.ex.z + my * F.ey.z + mz * F.ez.z) / ml : 0;
+  return dPaEpi - PERICARDIUM_CM - PA_ANTERIOR_FAT_CM * Math.max(0, front);
+}
+
 /**
  * The analytic heart's great vessels alone, for a heart that ends where its own vessels were cut (decision 372): the
  * ascending aorta past the sinotubular junction, the arch and its three branches (`aorticExtension.ts`), and the
@@ -110,6 +164,11 @@ export function classifyGreatVessels(
     );
     return true;
   }
-  out.sdf = Math.min(out.sdf, d - PA_WALL_CM);
+  // the lung keeps off the trunk and the mediastinal fat in front of it, as around the analytic heart (decision 375)
+  out.sdf = Math.min(
+    out.sdf,
+    d - PA_WALL_CM,
+    trunkFrontDistance(m, A, x, y, z, pulmonaryTrunkEpiDistance(A, x, y, z)),
+  );
   return false;
 }

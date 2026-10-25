@@ -219,6 +219,12 @@ export const CURTAIN_MM = 2;
 export const AORTIC_VALVE_LABEL = 9;
 /** The root's blood, which the valve plane becomes and in which the cusps are drawn. */
 export const ROOT_BLOOD = 35;
+/**
+ * The CT's pulmonary valve plane (decision 375), a closed disc of label 10 like the aortic one, and the trunk's blood
+ * it becomes, in which the analytic pulmonary cusps are drawn over it the same way.
+ */
+export const PULMONARY_VALVE_LABEL = 10;
+export const TRUNK_BLOOD = 36;
 export const AORTIC_CUSP_REACH_CM: readonly [number, number] = [-0.5, 2.5];
 
 /** The CT's aortic valve plane in the heart frame and the map of a root point to the analytic valve (decision 373). */
@@ -511,6 +517,8 @@ export interface VolumeHeart {
   crux(): [number, number, number];
   /** The map of the root onto the analytic aortic valve at `pose` (decision 373); null when the CT has no valve plane. */
   aorticWarp(pose: HeartPose): AorticWarp | null;
+  /** The map of the trunk onto the analytic pulmonary valve at `pose` (decision 375); null without a valve plane. */
+  pulmonaryWarp(pose: HeartPose): AorticWarp | null;
   /** The map of the left heart onto the analytic mitral apparatus at `pose` (decision 374); null without an annulus. */
   mitralWarp(pose: HeartPose): MitralWarp | null;
 }
@@ -869,7 +877,27 @@ export function volumeHeart(
   const F = marks.frame;
   const k = marks.lvLength / M.far;
   const label = bakeApparatus(vol, heart, endDiastole, M, F, k);
-  const aorticPlane = takeAorticPlane(vol.header, label, M, F, k, anchorsCached(heart).avAxis);
+  const anchors0 = anchorsCached(heart);
+  const aorticPlane = takeValvePlane(
+    vol.header,
+    label,
+    M,
+    F,
+    k,
+    anchors0.avAxis,
+    AORTIC_VALVE_LABEL,
+    ROOT_BLOOD,
+  );
+  const pulmonaryPlane = takeValvePlane(
+    vol.header,
+    label,
+    M,
+    F,
+    k,
+    anchors0.paDir,
+    PULMONARY_VALVE_LABEL,
+    TRUNK_BLOOD,
+  );
   const { h, dEpi, dIf } = volumeFields(h0, label);
   const mitralRing = takeMitralRing(h, label, M, F, k, endDiastole);
   const dims = h.dims;
@@ -1418,6 +1446,7 @@ export function volumeHeart(
       refH: V3 = [0, 0, 0];
     const ref: ReferencePoint = { x: 0, y: 0, z: 0, twist: 0 };
     const warp = options.apparatus ? aorticWarp(options.apparatus) : null;
+    const pWarp = options.apparatus ? pulmonaryWarp(options.apparatus) : null;
     const mWarp = options.apparatus ? mitralWarp(options.apparatus) : null;
     const mq: V3 = [0, 0, 0];
     return (hx, hy, hz, q) => {
@@ -1479,22 +1508,37 @@ export function volumeHeart(
             (rz - warp.centre[2]) * warp.axis[2];
           aortic = t >= AORTIC_CUSP_REACH_CM[0] && t <= AORTIC_CUSP_REACH_CM[1];
         }
-        if (aortic || APPARATUS_HOSTS.has(l)) {
-          const w = warp?.m ?? [];
+        // in the trunk over the CT's pulmonary valve plane, the analytic pulmonary cusps (decision 375)
+        let pulmonary = false;
+        if (pWarp && l === TRUNK_BLOOD) {
+          const t =
+            (rx - pWarp.centre[0]) * pWarp.axis[0] +
+            (ry - pWarp.centre[1]) * pWarp.axis[1] +
+            (rz - pWarp.centre[2]) * pWarp.axis[2];
+          pulmonary = t >= AORTIC_CUSP_REACH_CM[0] && t <= AORTIC_CUSP_REACH_CM[1];
+        }
+        if (aortic || pulmonary || APPARATUS_HOSTS.has(l)) {
+          const w = aortic ? warp!.m : pulmonary ? pWarp!.m : [];
+          const wo = aortic ? warp!.o : pulmonary ? pWarp!.o : [0, 0, 0];
           // the mitral leaflets and their chords carried onto the CT's annulus (decision 374)
-          if (!aortic && mWarp && LEFT_HOSTS.has(l))
+          if (!aortic && !pulmonary && mWarp && LEFT_HOSTS.has(l))
             mitralWarpPoint(mWarp, rx, ry, rz, hx, hy, hz, mq);
           else {
             mq[0] = hx;
             mq[1] = hy;
             mq[2] = hz;
           }
-          const px = aortic ? w[0]! * rx + w[1]! * ry + w[2]! * rz + warp!.o[0] : mq[0],
-            py = aortic ? w[3]! * rx + w[4]! * ry + w[5]! * rz + warp!.o[1] : mq[1],
-            pz = aortic ? w[6]! * rx + w[7]! * ry + w[8]! * rz + warp!.o[2] : mq[2];
+          const semilunar = aortic || pulmonary;
+          const px = semilunar ? w[0]! * rx + w[1]! * ry + w[2]! * rz + wo[0]! : mq[0],
+            py = semilunar ? w[3]! * rx + w[4]! * ry + w[5]! * rz + wo[1]! : mq[1],
+            pz = semilunar ? w[6]! * rx + w[7]! * ry + w[8]! * rz + wo[2]! : mq[2];
           if (
             classifyHeart(heart, options.apparatus, px, py, pz, q) &&
-            (aortic ? q.structure === Structure.AorticValve : LEAFLETS.has(q.structure))
+            (aortic
+              ? q.structure === Structure.AorticValve
+              : pulmonary
+                ? q.structure === Structure.PulmonaryValve
+                : LEAFLETS.has(q.structure))
           )
             return true;
         }
@@ -1631,9 +1675,31 @@ export function volumeHeart(
   const aorticWarp = (pose: HeartPose): AorticWarp | null => {
     if (!aorticPlane) return null;
     const A = anchorsCached(heart);
-    const na: V3 = [A.avAxis.x, A.avAxis.y, A.avAxis.z];
-    const ca: V3 = [A.avCenter.x, A.avCenter.y, A.avCenter.z + pose.zAnn * ROOT_EXCURSION];
-    const nr = aorticPlane.axis;
+    return semilunarWarp(
+      aorticPlane,
+      [A.avCenter.x, A.avCenter.y, A.avCenter.z + pose.zAnn * ROOT_EXCURSION],
+      [A.avAxis.x, A.avAxis.y, A.avAxis.z],
+      rootRadiusAt(pose.valves.root, 0, 0),
+    );
+  };
+  const pulmonaryWarp = (pose: HeartPose): AorticWarp | null => {
+    if (!pulmonaryPlane) return null;
+    const A = anchorsCached(heart);
+    return semilunarWarp(
+      pulmonaryPlane,
+      [A.rvotB.x, A.rvotB.y, A.rvotB.z + pose.pvZ],
+      [A.paDir.x, A.paDir.y, A.paDir.z],
+      A.pvR,
+    );
+  };
+  /** A CT valve plane taken onto an analytic valve centred at `ca`, on axis `na`, of annulus radius `ra`. */
+  const semilunarWarp = (
+    plane: { centre: V3; axis: V3; radius: number },
+    ca: V3,
+    na: V3,
+    ra: number,
+  ): AorticWarp => {
+    const nr = plane.axis;
     // the shortest turn from the CT's axis onto the analytic one (Rodrigues), scaled to the analytic annulus
     const v: V3 = [
       nr[1] * na[2] - nr[2] * na[1],
@@ -1642,7 +1708,7 @@ export function volumeHeart(
     ];
     const c = dot(nr, na);
     const f = 1 / (1 + c);
-    const sc = rootRadiusAt(pose.valves.root, 0, 0) / aorticPlane.radius;
+    const sc = ra / plane.radius;
     const R = [
       1 - f * (v[1] * v[1] + v[2] * v[2]),
       -v[2] + f * v[0] * v[1],
@@ -1655,7 +1721,7 @@ export function volumeHeart(
       1 - f * (v[0] * v[0] + v[1] * v[1]),
     ];
     const m = R.map((x) => x * sc);
-    const C = aorticPlane.centre;
+    const C = plane.centre;
     const o: V3 = [0, 1, 2].map(
       (r) => ca[r]! - (m[3 * r]! * C[0] + m[3 * r + 1]! * C[1] + m[3 * r + 2]! * C[2]),
     ) as V3;
@@ -1693,6 +1759,7 @@ export function volumeHeart(
     cmPerMm: k,
     crux,
     aorticWarp,
+    pulmonaryWarp,
     mitralWarp,
   };
 }
@@ -1799,18 +1866,20 @@ export function mitralWarpPoint(
  * The CT's aortic valve plane (decision 373): its centre, axis (toward the aorta, the side of `toward`) and radius in the
  * heart frame (cm), and its voxels made the root's blood. Null when the volume has none.
  */
-function takeAorticPlane(
+function takeValvePlane(
   h: LabelVolumeHeader,
   label: Uint8Array,
   M: { o: V3; ex: V3; ey: V3; ez: V3 },
   F: { origin: V3; ex: V3; ey: V3; ez: V3 },
   k: number,
   toward: { x: number; y: number; z: number },
+  valve: number,
+  blood: number,
 ): { centre: V3; axis: V3; radius: number } | null {
   const [nx, ny] = h.dims;
   const pts: V3[] = [];
   for (let v = 0; v < label.length; v++) {
-    if (label[v] !== AORTIC_VALVE_LABEL) continue;
+    if (label[v] !== valve) continue;
     const i = v % nx,
       j = Math.floor(v / nx) % ny,
       kk = Math.floor(v / (nx * ny));
@@ -1825,7 +1894,7 @@ function takeAorticPlane(
         (c) => F.origin[c]! + a[0] * F.ex[c]! + a[1] * F.ey[c]! + a[2] * F.ez[c]!,
       ) as V3,
     );
-    label[v] = ROOT_BLOOD;
+    label[v] = blood;
   }
   if (pts.length < 10) return null;
   const centre: V3 = [0, 0, 0];

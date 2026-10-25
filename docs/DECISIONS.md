@@ -3458,3 +3458,20 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     **Paquetes**: la bisagra de la mitral entra dos veces en el trozo del corazón de volumen (+5,6 kB, total 2150,0 kB); el presupuesto total sube a 2160 kB.
 
     **Lo que no resuelve**: la tricúspide de Rodero sigue sobre el anillo analítico. Los velos son los del analítico, con su forma de D y su silla, escalados al anillo de la TC sector a sector.
+
+375. **La válvula pulmonar de Rodero se abre y el tronco se ve entero en el eje corto**: Daniel: «sigue con la válvula pulmonar y el tracto de salida, que sea visible y no oscurecido por artefacto de pulmón».
+
+    **Medido antes**: el plano valvular pulmonar de la TC (etiqueta 10) es un disco cerrado de 3,0 mm y 1,71 cm de radio, igual en todas las fases. Su centro queda a 6,2 mm del plano analítico. En el PSAX aórtico, el tronco pulmonar de Rodero ocupaba el 2,1–4,8 % del sector en el normal y la ICFEr, en el plano canónico y en los giros de ±15°, en telediástole y mesosístole. En el analítico ocupa el 4,7–7,1 %. Junto al tronco, la línea pleural brillante llegaba hasta el tracto de salida. Delante del tronco no hay pulmón en ninguno de los dos corazones: en Rodero esos puntos son su propio tracto de salida.
+
+    **Cambio** (`volumeHeart.ts`, `greatVessels.ts`, `classify/pericardium.ts`; espejo en `glslHeart.ts`, `glslVolumeHeart.ts` y `volumeHeartGpu.ts`):
+
+    1. El disco pulmonar pasa a ser sangre del tronco (etiqueta 36) y se dibujan sobre él las valvas analíticas, como las aórticas de la 373. El mapa aórtico se generaliza a las dos semilunares (`semilunarWarp`). El marco pulmonar analítico es el plano del tracto de salida con su descenso (`rvotB` + `pvZ`), el eje del tronco (`paDir`) y el radio del anillo (`pvR`).
+    2. Alrededor del tronco injertado (decisión 372), el tórax lee en Rodero la misma distancia que alrededor del analítico, incluida la grasa del mediastino delante del tronco de la 336. Esa distancia pasa a dos funciones comunes, `pulmonaryTrunkEpiDistance` y `trunkFrontDistance`, que usan los dos corazones y sus espejos GLSL. Sin ella el trazador se saltaba el borde del tronco: quitándola, el tronco visible vuelve exactamente a las cifras de antes.
+
+    **Medido después**: no queda ningún vóxel del disco. Cerradas, las valvas pulmonares tienen unas ocho veces más muestras que abiertas en mesosístole. En el PSAX aórtico, el tronco ocupa el 4,3–6,1 % del sector en el normal (2,1–4,2 antes) y el 3,6–5,0 % en la ICFEr (2,7–4,8). El pulmón se aparta hacia la izquierda del paciente, y el tracto de salida y el tronco se leen de la válvula a la bifurcación (`tools/offline/review/out/pulmonar-375/`). El tronco sigue tocando el pulmón en su extremo, junto al hilio, como en el analítico.
+
+    **Pruebas**: `roderoPulmonary.test.ts`, en el normal y la ICFEr. No queda disco. La válvula cerrada tiene más de 500 muestras y más de cuatro veces las de la abierta. Alrededor del tronco, donde el volumen está vacío, el tórax lee como mucho la distancia del analítico. Tres mutaciones, tres fallos: disco conservado, sin valvas y sin grasa delante del tronco.
+
+    **Lo que cuesta, declarado**: la hoja de sospechas de Rodero en las 13 vistas pasa de 721 a 725 candidatos (8 nuevas, 5 fuera). Casi todas son islas de arteria pulmonar en planos oblicuos (A3C, PSAX aórtico y supraesternal) y la pulmonar que asoma en el A2C a 5°. Total de paquetes: 2153,4 de 2160 kB.
+
+    **Lo que no resuelve**: las valvas pulmonares son las del analítico llevadas al disco de la TC, cuyo radio es un 49 % mayor que el anillo analítico, así que la escala las encoge. El tracto de salida es el de la TC.
