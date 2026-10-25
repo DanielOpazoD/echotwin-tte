@@ -44,7 +44,9 @@ describe('GLSL heart classifier wiring', () => {
   for (const m of body.matchAll(IDENT)) used.set(m[0], (used.get(m[0]) ?? 0) + 1);
 
   it('every ALL_CAPS identifier the heart code uses is declared as a define or constant', () => {
-    const undeclared = [...used.keys()].filter((n) => !declared.has(n)).sort();
+    // the variant switches are defined by the program that assembles pass A (webgl2Renderer passAFor, decision 375)
+    const variants = new Set(['VOLUME_HEART', 'SCATTER_FIELD']);
+    const undeclared = [...used.keys()].filter((n) => !declared.has(n) && !variants.has(n)).sort();
     expect(undeclared, `undeclared in GLSL_HEART: ${undeclared.join(', ')}`).toEqual([]);
   });
 
