@@ -168,12 +168,14 @@ describe('the bound Rodero atria (decision 358)', async () => {
       if (L[v] === 33 && faces.some((s) => L[v + s] === 31)) touching++;
       if (L[v] !== CURTAIN) continue;
       curtain++;
-      if (faces.some((s) => L[v + s] === 5 || L[v + s] === 9)) onRoot++;
+      // the root: its wall, or its blood where the CT's valve plane lay (decision 373: the cusps hinge there)
+      if (faces.some((s) => L[v + s] === 5 || L[v + s] === 35)) onRoot++;
       if (faces.some((s) => L[v + s] === 33)) onAtrium++;
       if (faces.some((s) => L[v + s] === 31)) onOutflow++;
     }
     expect(touching).toBe(0);
-    // 717 voxels (0.75 mL) reaching the aortic wall and valve on 43, lining the atrium on 314 and the outflow on 327
+    // 717 voxels (0.75 mL) reaching the root on 43 (its valve plane until decision 373), lining the atrium on 314 and the
+    // outflow on 327
     expect(curtain).toBeGreaterThan(500);
     expect(onRoot).toBeGreaterThan(20);
     expect(onAtrium).toBeGreaterThan(200);

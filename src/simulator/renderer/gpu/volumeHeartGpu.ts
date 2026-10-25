@@ -12,7 +12,9 @@ import {
   ATRIAL_TISSUE,
   FAT,
   GPU_SLICE_COLUMNS,
+  AORTIC_CUSP_REACH_CM,
   LABELS,
+  ROOT_BLOOD,
   LV_BAND_CM,
   LV_FADE_CM,
   RV_DESCENT_FROM_CM,
@@ -172,6 +174,16 @@ export function volumeHeartGpu(vh: VolumeHeart, endDiastole: HeartPose): HeartVo
       gl.uniform1f(u(gl, prog, 'uVolRoof'), m.roof);
       gl.uniform1f(u(gl, prog, 'uVolRvRatio'), m.rvRatio);
       gl.uniform2f(u(gl, prog, 'uVolAtrialScale'), m.atrialScales[0] ?? 1, m.atrialScales[1] ?? 1);
+      // the analytic cusps over the CT's annulus (decision 373)
+      const w = vh.aorticWarp(pose);
+      gl.uniform1i(u(gl, prog, 'uVolAoLabel'), w ? ROOT_BLOOD : -1);
+      if (w) {
+        gl.uniform3f(u(gl, prog, 'uVolAoC'), w.centre[0], w.centre[1], w.centre[2]);
+        gl.uniform3f(u(gl, prog, 'uVolAoN'), w.axis[0], w.axis[1], w.axis[2]);
+        gl.uniform3f(u(gl, prog, 'uVolAoO'), w.o[0], w.o[1], w.o[2]);
+        gl.uniformMatrix3fv(u(gl, prog, 'uVolAoM'), true, w.m);
+        gl.uniform2f(u(gl, prog, 'uVolAoReach'), AORTIC_CUSP_REACH_CM[0], AORTIC_CUSP_REACH_CM[1]);
+      }
     },
   };
 }
