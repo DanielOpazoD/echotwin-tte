@@ -18,6 +18,7 @@ import { atlasMarks } from './atlasFrame';
 import { anchorsCached, heartAnchors } from './anchors';
 import { rootRadiusAt } from './aorticValve';
 import { ROOT_EXCURSION } from './heartFrame';
+import { hingeHeight } from './mitralValve';
 import { makeSample } from './tissue';
 import { PERICARDIUM_CM } from './classify/pericardium';
 import { classifyGreatVessels } from './greatVessels';
@@ -338,6 +339,26 @@ export const LEAFLETS = new Set<Structure>([
 ]);
 /** Labels of the volume that are cavity blood the apparatus may occupy: the AV valve planes and the four chambers. */
 export const APPARATUS_HOSTS = new Set([7, 8, 31, 32, 33, 34]);
+/** The hosts on the left, where the analytic mitral leaflets and their chords are carried onto the CT's annulus. */
+export const LEFT_HOSTS = new Set([7, 31, 33]);
+/**
+ * The CT's mitral annulus against the analytic one (decision 374): sectors around the analytic valve's centre over which
+ * each annulus's hinge (inner radius and height, cm) is taken, and the depth below the hinge (cm, toward the apex) over
+ * which the map onto the analytic leaflets fades out, so the chords still reach the papillary muscles.
+ */
+export const MITRAL_SECTORS = 36;
+export const MITRAL_FADE_CM: readonly [number, number] = [1, 2.5];
+
+/**
+ * The map of the left heart's points onto the analytic mitral apparatus at a pose (decision 374): per sector of
+ * MITRAL_SECTORS, the CT's hinge radius and height and the analytic ones (cm), and the two centres (x, y).
+ */
+export interface MitralWarp {
+  /** Per sector: CT radius, CT height, analytic radius, analytic height. */
+  sectors: Float64Array;
+  /** The CT's centre (the analytic valve's at end diastole) and the analytic valve's now. */
+  centre: [number, number, number, number];
+}
 
 /** The labels of each atrium's tissue: left (cavity, wall, the pulmonary veins' and appendage's caps and rings), right. */
 export const ATRIAL_TISSUE = [
@@ -490,6 +511,8 @@ export interface VolumeHeart {
   crux(): [number, number, number];
   /** The map of the root onto the analytic aortic valve at `pose` (decision 373); null when the CT has no valve plane. */
   aorticWarp(pose: HeartPose): AorticWarp | null;
+  /** The map of the left heart onto the analytic mitral apparatus at `pose` (decision 374); null without an annulus. */
+  mitralWarp(pose: HeartPose): MitralWarp | null;
 }
 
 interface Fields {
@@ -848,6 +871,7 @@ export function volumeHeart(
   const label = bakeApparatus(vol, heart, endDiastole, M, F, k);
   const aorticPlane = takeAorticPlane(vol.header, label, M, F, k, anchorsCached(heart).avAxis);
   const { h, dEpi, dIf } = volumeFields(h0, label);
+  const mitralRing = takeMitralRing(h, label, M, F, k, endDiastole);
   const dims = h.dims;
   const [nx, ny, nz] = dims;
   const vox = h.voxelMm;
@@ -1394,6 +1418,8 @@ export function volumeHeart(
       refH: V3 = [0, 0, 0];
     const ref: ReferencePoint = { x: 0, y: 0, z: 0, twist: 0 };
     const warp = options.apparatus ? aorticWarp(options.apparatus) : null;
+    const mWarp = options.apparatus ? mitralWarp(options.apparatus) : null;
+    const mq: V3 = [0, 0, 0];
     return (hx, hy, hz, q) => {
       let rx = hx,
         ry = hy,
@@ -1455,9 +1481,17 @@ export function volumeHeart(
         }
         if (aortic || APPARATUS_HOSTS.has(l)) {
           const w = warp?.m ?? [];
-          const px = aortic ? w[0]! * rx + w[1]! * ry + w[2]! * rz + warp!.o[0] : hx,
-            py = aortic ? w[3]! * rx + w[4]! * ry + w[5]! * rz + warp!.o[1] : hy,
-            pz = aortic ? w[6]! * rx + w[7]! * ry + w[8]! * rz + warp!.o[2] : hz;
+          // the mitral leaflets and their chords carried onto the CT's annulus (decision 374)
+          if (!aortic && mWarp && LEFT_HOSTS.has(l))
+            mitralWarpPoint(mWarp, rx, ry, rz, hx, hy, hz, mq);
+          else {
+            mq[0] = hx;
+            mq[1] = hy;
+            mq[2] = hz;
+          }
+          const px = aortic ? w[0]! * rx + w[1]! * ry + w[2]! * rz + warp!.o[0] : mq[0],
+            py = aortic ? w[3]! * rx + w[4]! * ry + w[5]! * rz + warp!.o[1] : mq[1],
+            pz = aortic ? w[6]! * rx + w[7]! * ry + w[8]! * rz + warp!.o[2] : mq[2];
           if (
             classifyHeart(heart, options.apparatus, px, py, pz, q) &&
             (aortic ? q.structure === Structure.AorticValve : LEAFLETS.has(q.structure))
@@ -1628,6 +1662,27 @@ export function volumeHeart(
     return { centre: C, axis: nr, m, o };
   };
 
+  const mitralWarp = (pose: HeartPose): MitralWarp | null => {
+    if (!mitralRing) return null;
+    const mv = pose.valves.mitral;
+    const sectors = new Float64Array(4 * MITRAL_SECTORS);
+    for (let t = 0; t < MITRAL_SECTORS; t++) {
+      const a = -Math.PI + ((t + 0.5) * 2 * Math.PI) / MITRAL_SECTORS;
+      const dx = Math.cos(a),
+        dy = Math.sin(a);
+      // the D-shaped annulus: the circle of radius R cut by the straight curtain at D toward the aortic valve
+      const c = dx * mv.ux + dy * mv.uy;
+      const r = c > 0 && mv.D / c < mv.R ? mv.D / c : mv.R;
+      const v = r * c,
+        u = r * (dx * -mv.uy + dy * mv.ux);
+      sectors[4 * t] = mitralRing.radius[t]!;
+      sectors[4 * t + 1] = mitralRing.height[t]!;
+      sectors[4 * t + 2] = r;
+      sectors[4 * t + 3] = mv.cz + hingeHeight(mv.R, mv.D, mv.saddle, mv.lift, u, v);
+    }
+    return { sectors, centre: [mitralRing.cx, mitralRing.cy, mv.cx, mv.cy] };
+  };
+
   return {
     classifier,
     toReference,
@@ -1638,7 +1693,106 @@ export function volumeHeart(
     cmPerMm: k,
     crux,
     aorticWarp,
+    mitralWarp,
   };
+}
+
+/**
+ * The CT's mitral hinge (decision 374): per sector of MITRAL_SECTORS around the analytic valve's centre at end diastole,
+ * the inner radius of the annulus (its 10th percentile, where the leaflets attach) and its most atrial height, in the
+ * heart frame (cm). A sector without annulus takes its nearest neighbour's. Null when the volume has no annulus.
+ */
+function takeMitralRing(
+  h: LabelVolumeHeader,
+  label: Uint8Array,
+  M: { o: V3; ex: V3; ey: V3; ez: V3 },
+  F: { origin: V3; ex: V3; ey: V3; ez: V3 },
+  k: number,
+  ed: HeartPose,
+): { cx: number; cy: number; radius: Float64Array; height: Float64Array } | null {
+  const [nx, ny] = h.dims;
+  const cx = ed.valves.mitral.cx,
+    cy = ed.valves.mitral.cy;
+  const rs: number[][] = Array.from({ length: MITRAL_SECTORS }, () => []);
+  const height = new Float64Array(MITRAL_SECTORS).fill(Infinity);
+  for (let v = 0; v < label.length; v++) {
+    if (label[v] !== 37) continue;
+    const i = v % nx,
+      j = Math.floor(v / nx) % ny,
+      kk = Math.floor(v / (nx * ny));
+    const m: V3 = [
+      h.origin[0] + (i + 0.5) * h.voxelMm - M.o[0],
+      h.origin[1] + (j + 0.5) * h.voxelMm - M.o[1],
+      h.origin[2] + (kk + 0.5) * h.voxelMm - M.o[2],
+    ];
+    const a: V3 = [dot(m, M.ex) * k, dot(m, M.ey) * k, dot(m, M.ez) * k];
+    const p = [0, 1, 2].map(
+      (c) => F.origin[c]! + a[0] * F.ex[c]! + a[1] * F.ey[c]! + a[2] * F.ez[c]!,
+    );
+    const t =
+      Math.floor(
+        ((Math.atan2(p[1]! - cy, p[0]! - cx) + Math.PI) / (2 * Math.PI)) * MITRAL_SECTORS,
+      ) % MITRAL_SECTORS;
+    rs[t]!.push(Math.hypot(p[0]! - cx, p[1]! - cy));
+    height[t] = Math.min(height[t]!, p[2]!);
+  }
+  if (rs.every((r) => r.length === 0)) return null;
+  const radius = new Float64Array(MITRAL_SECTORS);
+  rs.forEach((r, t) => {
+    r.sort((a, b) => a - b);
+    radius[t] = r.length ? r[Math.floor(0.1 * (r.length - 1))]! : NaN;
+  });
+  for (let t = 0; t < MITRAL_SECTORS; t++)
+    for (let d = 1; !Number.isFinite(radius[t]) && d < MITRAL_SECTORS; d++)
+      for (const u of [t + d, t - d]) {
+        const w = (u + MITRAL_SECTORS) % MITRAL_SECTORS;
+        if (!Number.isFinite(radius[t]) && rs[w]!.length) {
+          radius[t] = radius[w]!;
+          height[t] = height[w]!;
+        }
+      }
+  return { cx, cy, radius, height };
+}
+
+/**
+ * Where a left-heart point is classified against the analytic mitral apparatus (decision 374), into `out`: its reference
+ * point (the CT at end diastole) taken onto the analytic annulus now, by the radius and the hinge height of its sector
+ * (interpolated between sectors), blended toward its current point below the hinge over MITRAL_FADE_CM.
+ */
+export function mitralWarpPoint(
+  w: MitralWarp,
+  rx: number,
+  ry: number,
+  rz: number,
+  hx: number,
+  hy: number,
+  hz: number,
+  out: V3,
+): void {
+  const [cxR, cyR, cxA, cyA] = w.centre;
+  const dx = rx - cxR,
+    dy = ry - cyR;
+  const f = ((Math.atan2(dy, dx) + Math.PI) / (2 * Math.PI)) * MITRAL_SECTORS - 0.5;
+  const i0 = Math.floor(f);
+  const fr = f - i0;
+  const a = ((i0 % MITRAL_SECTORS) + MITRAL_SECTORS) % MITRAL_SECTORS,
+    b = (a + 1) % MITRAL_SECTORS;
+  const S = w.sectors;
+  const rR = S[4 * a]! + fr * (S[4 * b]! - S[4 * a]!),
+    zR = S[4 * a + 1]! + fr * (S[4 * b + 1]! - S[4 * a + 1]!),
+    rA = S[4 * a + 2]! + fr * (S[4 * b + 2]! - S[4 * a + 2]!),
+    zA = S[4 * a + 3]! + fr * (S[4 * b + 3]! - S[4 * a + 3]!);
+  const depth = rz - zR;
+  const wt =
+    depth <= MITRAL_FADE_CM[0]
+      ? 1
+      : depth >= MITRAL_FADE_CM[1]
+        ? 0
+        : (MITRAL_FADE_CM[1] - depth) / (MITRAL_FADE_CM[1] - MITRAL_FADE_CM[0]);
+  const sc = rA / rR;
+  out[0] = wt * (cxA + dx * sc) + (1 - wt) * hx;
+  out[1] = wt * (cyA + dy * sc) + (1 - wt) * hy;
+  out[2] = wt * (rz + zA - zR) + (1 - wt) * hz;
 }
 
 /**

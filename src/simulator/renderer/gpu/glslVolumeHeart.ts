@@ -6,6 +6,8 @@
  * chords are the analytic heart's of the frame (`classifyHeart`, called once: a shader with two inlined copies of the
  * classifier fails under SwiftShader). Shipped with the volume's code, outside the WebGL2 chunk.
  */
+import { MITRAL_SECTORS } from '@/simulator/anatomy/volumeHeart';
+
 export const GLSL_VOLUME_HEART = /* glsl */ `
 uniform highp usampler3D uVolLabel; // labels (R8UI)
 uniform highp sampler3D uVolField;  // distance beyond the epicardium (mm), to the nearest interface (mm), octahedral normal
@@ -37,6 +39,11 @@ uniform int uVolAoLabel;             // the root's blood label where the analyti
 uniform vec3 uVolAoC, uVolAoN, uVolAoO; // the CT's valve plane: centre and axis (reference frame), and the map's offset
 uniform mat3 uVolAoM;                // the map of a reference point onto the analytic valve
 uniform vec2 uVolAoReach;            // reach of the cusps along the axis (cm)
+uniform int uVolMvOn;                // the mitral leaflets carried onto the CT's annulus (decision 374)
+uniform uvec2 uVolLeftHosts;         // the left hosts, where they are carried
+uniform vec4 uVolMv[${MITRAL_SECTORS}];             // per sector: CT hinge radius and height, analytic radius and height (cm)
+uniform vec4 uVolMvC;                // the CT's centre (x, y) and the analytic valve's now
+uniform vec2 uVolMvFade;             // depth below the hinge over which the map fades (cm)
 uniform float uVolSL, uVolSR, uVolCapLambda, uVolAlpha, uVolTwist, uVolRoof, uVolRvRatio;
 uniform vec2 uVolAtrialScale;
 
@@ -195,6 +202,20 @@ vec3 volOcta(vec2 e) {
   return n;
 }
 float volEpi(ivec3 c) { return texelFetch(uVolField, clamp(c, ivec3(0), uVolDims - 1), 0).r; }
+/** A left-heart point taken onto the analytic mitral apparatus (volumeHeart.ts mitralWarpPoint, decision 374). */
+vec3 volMitralWarp(vec3 r, vec3 h) {
+  vec2 d = r.xy - uVolMvC.xy;
+  float f = (atan(d.y, d.x) + PI) / (2.0 * PI) * float(${MITRAL_SECTORS}) - 0.5;
+  float i0 = floor(f);
+  float fr = f - i0;
+  int a = int(mod(i0, float(${MITRAL_SECTORS})));
+  int b = (a + 1) % ${MITRAL_SECTORS};
+  vec4 sct = mix(uVolMv[a], uVolMv[b], fr);
+  float depth = r.z - sct.y;
+  float wt = depth <= uVolMvFade.x ? 1.0 : depth >= uVolMvFade.y ? 0.0 : (uVolMvFade.y - depth) / (uVolMvFade.y - uVolMvFade.x);
+  vec3 q = vec3(uVolMvC.zw + d * (sct.z / sct.x), r.z + sct.w - sct.y);
+  return wt * q + (1.0 - wt) * h;
+}
 /** The analytic heart's great vessels alone (greatVessels.ts classifyGreatVessels, decision 372). */
 bool classifyGreatVessels(vec3 p, inout Sample s) {
   if (classifyAorticExtension(p, s)) return true;
@@ -250,7 +271,9 @@ bool classifyVolumeHeart(vec3 pH, inout Sample s) {
     Sample s2;
     s2.segment = 0;
     s2.transmural = -1.0;
-    vec3 qp = aortic ? uVolAoM * ref + uVolAoO : pH;
+    // the mitral leaflets and their chords carried onto the CT's annulus (decision 374)
+    vec3 qp = aortic ? uVolAoM * ref + uVolAoO
+      : uVolMvOn == 1 && volHas(uVolLeftHosts, l) ? volMitralWarp(ref, pH) : pH;
     if (classifyHeart(qp, s2) &&
         (aortic ? s2.structure == S_AV
                 : (s2.structure == S_MV_ANT || s2.structure == S_MV_POST || s2.structure == S_TV || s2.structure == S_CHORDAE))) {
