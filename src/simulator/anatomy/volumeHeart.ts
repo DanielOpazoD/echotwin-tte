@@ -72,6 +72,8 @@ export const LABELS: Record<number, [Tissue, Structure]> = {
   // the rims of the atrioventricular planes against the walls: the fibrous annuli (decision 350)
   37: [Tissue.Fibrous, Structure.MitralAnnulus],
   38: [Tissue.Fibrous, Structure.TricuspidAnnulus],
+  // the aortomitral curtain between the left atrium and the outflow above the mitral hinge (decision 371)
+  39: [Tissue.Fibrous, Structure.AortomitralCurtain],
   31: [Tissue.Blood, Structure.LvCavity],
   32: [Tissue.Blood, Structure.RvCavity],
   33: [Tissue.Blood, Structure.LaCavity],
@@ -195,6 +197,13 @@ const HINGE_TOLERANCE_MM = 0.5;
 const JUNCTION_REACH_MM = 5;
 /** Passes of the junction's take, each reaching SEPTUM_GAP_MM / 2 beyond the atrium's blood (three on the mean mesh). */
 const JUNCTION_PASSES = 6;
+/**
+ * The aortomitral curtain (decision 371): the label of the fibrous sheet the junction's take leaves between the left
+ * atrium and the LV's outflow above the mitral hinge, and its thickness (mm): fibrous tissue, as the analytic heart
+ * draws it (`classify/aorticRoot.ts`, which names it by the septal wall), under its own name; a measured curtain is 1–2 mm.
+ */
+export const CURTAIN = 39;
+export const CURTAIN_MM = 2;
 /** The walls that fill what is left of a gap inside the heart: the four chambers' myocardium and the aortic wall. */
 const INNER_WALLS = [1, 2, 3, 4, 5];
 /** How far (mm, mesh scale) from the atrioventricular planes the interatrial septum counts as the crux (decision 360). */
@@ -563,8 +572,12 @@ function volumeFields(h: LabelVolumeHeader, label: Uint8Array): Fields {
         return Number.isFinite(hz) && a[2] <= hz - HINGE_TOLERANCE_MM;
       };
       // the left atrium's own, and what it opens onto: its blood, wall and inlets, the annulus, the mitral plane and the
-      // LV cavity below it (the orifice; the taken tissue lies above the hinge, so they meet only across the valve plane)
-      const own = new Set([33, 3, 7, 31, 37, 11, 12, 13, 14, 15, 18, 19, 20, 21, 22]);
+      // LV cavity below the hinge (the orifice). Above the hinge the LV cavity is the outflow tract beside the aortic
+      // root, and the atrium meets it across the aortomitral curtain (decision 371): counted as its own there, the take
+      // left 4.5 cm² of the atrium's blood against the outflow's with no wall between them, and the anterior leaflet's
+      // insertion hung free of the aortic root in the long axis
+      const own = new Set([33, 3, 7, 31, 37, CURTAIN, 11, 12, 13, 14, 15, 18, 19, 20, 21, 22]);
+      const outflow = (v: number): boolean => label[v] === 31 && aboveHinge(v);
       // which atrium a voxel is nearer is settled by the mesh's cavities, before any take: on the right atrium's side the
       // LV's basal septum faces the atrium above the tricuspid hinge (the atrioventricular septum), and it stays
       const dL0 = edt(dims, (v) => LA_BLOOD.has(label[v]!));
@@ -592,11 +605,19 @@ function volumeFields(h: LabelVolumeHeader, label: Uint8Array): Fields {
           )
             taken.push(v);
         }
-        // the region becomes cavity except ATRIAL_WALL_MM against anything else
+        // the region becomes cavity except CURTAIN_MM of curtain against the outflow and ATRIAL_WALL_MM of atrial wall
+        // against anything else
         const isTaken = new Uint8Array(label.length);
         for (const v of taken) isTaken[v] = 1;
-        const dForeign = edt(dims, (v) => !own.has(label[v]!) && !isTaken[v]);
-        for (const v of taken) label[v] = dForeign[v]! * vox <= ATRIAL_WALL_MM ? 3 : 33;
+        const dOutflow = edt(dims, outflow);
+        const dForeign = edt(dims, (v) => (!own.has(label[v]!) || outflow(v)) && !isTaken[v]);
+        for (const v of taken)
+          label[v] =
+            dOutflow[v]! * vox <= CURTAIN_MM
+              ? CURTAIN
+              : dForeign[v]! * vox <= ATRIAL_WALL_MM
+                ? 3
+                : 33;
         if (!taken.some((v) => sheet[v])) break;
       }
     }

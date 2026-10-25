@@ -208,6 +208,8 @@ export const enum Structure {
   LeftSubclavian,
   /** The right atrial appendage (decision 323). */
   RaAppendage,
+  /** The aortomitral curtain of the volume heart: the fibrous sheet between the left atrium and the outflow (decision 371). */
+  AortomitralCurtain,
 }
 
 export function makeSample(): TissueSample {

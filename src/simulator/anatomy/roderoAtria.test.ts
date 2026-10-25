@@ -3,7 +3,8 @@
  * The shipped Rodero heart's atria as the app binds them (decision 358): walls 1.4–2 mm thick (CT 1.45, septum 2.0;
  * photon-counting CT 1.6–1.8 by region), closed, and the epicardial fat beside the left atrium in the atrioventricular
  * groove, not on its roof and around its veins. Since decision 364, one interatrial septum where the atria face each
- * other, the left atrium down to the mitral hinge, and no fat nor pericardium inside the heart.
+ * other, the left atrium down to the mitral hinge, and no fat nor pericardium inside the heart. Since decision 371, the
+ * aortomitral curtain between the left atrium and the outflow above the hinge.
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -13,7 +14,7 @@ import { cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { buildCaseModels, REST_PATIENT } from './caseModels';
 import { computeHeartPose } from './heartModel';
 import { loadRoderoVolume } from './roderoAsset';
-import { edt, FAT, GROOVE_REACH_MM, SEPTUM_MM, volumeHeart } from './volumeHeart';
+import { CURTAIN, edt, FAT, GROOVE_REACH_MM, SEPTUM_MM, volumeHeart } from './volumeHeart';
 
 const fromPublic = (path: string): Promise<ArrayBuffer> => {
   const b = readFileSync(join(process.cwd(), 'public', path));
@@ -153,6 +154,30 @@ describe('the bound Rodero atria (decision 358)', async () => {
     // on the right atrium's side the LV's basal septum faces the atrium above the tricuspid hinge: the atrioventricular
     // septum, kept (0.71 mL; 0.65 in the mesh)
     expect(rightSide * mL).toBeGreaterThan(0.4);
+  });
+
+  it('closes the outflow from the left atrium with the aortomitral curtain (decision 371)', () => {
+    // the junction of decision 364 counted the LV cavity as the atrium's own and left 4.5 cm² of the atrium's blood
+    // against the outflow's above the hinge, beside the aortic valve: the anterior leaflet hung free of the root
+    let touching = 0,
+      curtain = 0,
+      onRoot = 0,
+      onAtrium = 0,
+      onOutflow = 0;
+    for (let v = nx * ny; v < L.length - nx * ny; v++) {
+      if (L[v] === 33 && faces.some((s) => L[v + s] === 31)) touching++;
+      if (L[v] !== CURTAIN) continue;
+      curtain++;
+      if (faces.some((s) => L[v + s] === 5 || L[v + s] === 9)) onRoot++;
+      if (faces.some((s) => L[v + s] === 33)) onAtrium++;
+      if (faces.some((s) => L[v + s] === 31)) onOutflow++;
+    }
+    expect(touching).toBe(0);
+    // 717 voxels (0.75 mL) reaching the aortic wall and valve on 43, lining the atrium on 314 and the outflow on 327
+    expect(curtain).toBeGreaterThan(500);
+    expect(onRoot).toBeGreaterThan(20);
+    expect(onAtrium).toBeGreaterThan(200);
+    expect(onOutflow).toBeGreaterThan(200);
   });
 
   it('rests each atrium on the aortic root, with no gap between them (decision 364)', () => {

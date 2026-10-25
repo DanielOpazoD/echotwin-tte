@@ -25,6 +25,7 @@ const STRUCTURES: Record<string, Structure> = {
   PulmonaryVein: Structure.PulmonaryVein,
   LaAppendage: Structure.LaAppendage,
   RaAppendage: Structure.RaAppendage,
+  AortomitralCurtain: Structure.AortomitralCurtain,
   CoronarySinus: Structure.CoronarySinus,
   Svc: Structure.Svc,
   Ivc: Structure.Ivc,

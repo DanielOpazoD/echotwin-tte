@@ -235,6 +235,27 @@ describe('the volume census on a grid with known figures (decision 365)', () => 
     const median = Object.fromEntries(c.walls.map((w) => [w.wall, w.stats?.median]));
     expect(median).toEqual({ 'VI pared libre': 2, AI: 2, AD: 2 });
   });
+  it('finds the left atrium against the LV above the hinge, and not within the orifice (decision 371)', () => {
+    const g = syntheticGrid();
+    const at = (i: number, j: number, k: number) => i + 40 * (j + 40 * k);
+    // LV blood (label 7) on 2 × 2 faces of the atrium's roof (label 9), 7 mm atrial of the hinge: a hole in the junction
+    for (const [i, j] of [
+      [9, 12],
+      [10, 12],
+      [9, 13],
+      [10, 13],
+    ] as const)
+      g.labels[at(i, j, 14)] = 7;
+    // and the atrium's blood on the LV's 3 mm atrial of the hinge, within the orifice's reach
+    g.labels[at(9, 11, 17)] = 9;
+    g.labels[at(9, 11, 18)] = 7;
+    const contacts = volumeCensus(g).contacts;
+    expect(contacts.map((k) => k.key)).toEqual([
+      'PulmonaryVein|RaCavity',
+      'LaCavity|LvCavity sobre la bisagra',
+    ]);
+    expect(contacts[1]!.cm2).toBeCloseTo(4 * 0.01, 9);
+  });
   it('holds the figures against the thresholds', () => {
     expect(censusFindings(c).map((f) => f.key)).toEqual([
       'AI|AD hueco',

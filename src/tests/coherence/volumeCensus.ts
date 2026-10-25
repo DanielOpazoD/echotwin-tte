@@ -57,6 +57,13 @@ export const HINGE_SECTORS = 36;
 export const HINGE_TOLERANCE_MM = 0.5;
 /** Within this distance (mm) of an atrium's blood, myocardium past the hinge lies beside that atrium. */
 export const HINGE_SIDE_MM = 8;
+/**
+ * How far (mm) atrial of the mitral hinge of its sector the left atrium's blood may touch the LV's (decision 371): the
+ * orifice lies at the valve plane, and above it the two meet across the annulus, the curtain or the walls. The analytic
+ * heart's atrium meets the ventricle up to 3–4 mm above the most atrial voxel of its annulus inside the ring; the hole
+ * the junction of decision 364 opened in Rodero's curtain reached 6 mm on average.
+ */
+export const ORIFICE_MM = 4;
 
 /** The blood of each structure of the census, by the Spanish abbreviation the reports use. */
 export const CENSUS_BLOOD: Record<string, readonly Structure[]> = {
@@ -274,6 +281,8 @@ export function volumeCensus(g: LabelGrid): VolumeCensus {
 
   // myocardium past the atrioventricular hinges: the hinge per sector is the most atrial voxel of the annulus
   const hinges: HingeCrossing[] = [];
+  /** The hinge height per sector of each valve, by its ventricle, for the blood contacts below. */
+  const hingeOf = new Map<'VI' | 'VD', { sector: (p: V3) => number; hinge: number[] }>();
   const dLA = dist.get('AI'),
     dRA = dist.get('AD');
   for (const [ventricle, annulus, isWall] of [
@@ -325,6 +334,7 @@ export function volumeCensus(g: LabelGrid): VolumeCensus {
           if (Number.isFinite(h)) hinge[t] = Math.min(hinge[t]!, h);
         }
     }
+    hingeOf.set(ventricle, { sector, hinge });
     const side = { AI: 0, AD: 0, otro: 0 };
     const above = { AI: [] as number[], AD: [] as number[] };
     const bySector = new Map<number, { AI: number; AD: number; otro: number }>();
@@ -397,8 +407,16 @@ export function volumeCensus(g: LabelGrid): VolumeCensus {
     const mv = mean(L[v]!),
       mw = mean(L[w]!);
     if (!mv || !mw || mv[0] !== Tissue.Blood || mw[0] !== Tissue.Blood || mv[1] === mw[1]) return;
-    const key = bloodPairKey(mv[1], mw[1]);
-    if (ALLOWED_BLOOD.has(key)) return;
+    let key = bloodPairKey(mv[1], mw[1]);
+    // the left atrium's blood meets the LV's at the orifice only: atrial of the hinge it is a hole in the junction
+    const valve =
+      key === bloodPairKey(Structure.LaCavity, Structure.LvCavity) ? hingeOf.get('VI') : undefined;
+    if (valve) {
+      const p = g.toAnat(v);
+      const hz = valve.hinge[valve.sector(p)]!;
+      if (!Number.isFinite(hz) || p[2] > hz - ORIFICE_MM) return;
+      key = `${key} sobre la bisagra`;
+    } else if (ALLOWED_BLOOD.has(key)) return;
     const e = contactAcc.get(key) ?? { faces: 0, sum: [0, 0, 0] as V3 };
     const p = g.toAnat(v);
     e.faces++;

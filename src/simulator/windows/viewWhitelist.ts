@@ -25,6 +25,7 @@ export const VIEW_BACKGROUND = new Set<Structure>([
 
 export const VIEW_ALLOWED: Record<string, readonly Structure[]> = {
   plax: [
+    Structure.AortomitralCurtain,
     Structure.AorticRoot,
     Structure.AscendingAorta,
     Structure.LaCavity,
@@ -41,6 +42,7 @@ export const VIEW_ALLOWED: Record<string, readonly Structure[]> = {
     Structure.Svc,
   ],
   'psax-av': [
+    Structure.AortomitralCurtain,
     Structure.AorticRoot,
     Structure.AorticValve,
     Structure.InteratrialSeptum,
@@ -107,6 +109,7 @@ export const VIEW_ALLOWED: Record<string, readonly Structure[]> = {
     Structure.Svc,
   ],
   a5c: [
+    Structure.AortomitralCurtain,
     // the appendage beside the atrium's base, broad on the annulus since decision 328 (0.31 % in the pulmonary
     // hypertension at mid-systole)
     Structure.LaAppendage,
@@ -143,6 +146,7 @@ export const VIEW_ALLOWED: Record<string, readonly Structure[]> = {
     Structure.PapillaryMuscle,
   ],
   a3c: [
+    Structure.AortomitralCurtain,
     Structure.AorticRoot,
     Structure.AscendingAorta,
     Structure.LaCavity,
