@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 375 (última: 375).
+Decisiones: 376 (última: 376).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -383,3 +383,4 @@ Decisiones: 375 (última: 375).
 | [373](DECISIONS.md#L3434) | 2026-10-24 | La válvula aórtica de Rodero se abre en sístole: las valvas del analítico sobre el anillo de la TC | vigente |
 | [374](DECISIONS.md#L3448) | 2026-10-24 | Los velos mitrales de Rodero nacen de su propio anillo | vigente |
 | [375](DECISIONS.md#L3462) | 2026-10-24 | La válvula pulmonar de Rodero se abre y el tronco se ve entero en el eje corto | vigente |
+| [376](DECISIONS.md#L3479) | 2026-10-24 | El corazón y el modo revisión, a un clic en la barra superior | vigente |
