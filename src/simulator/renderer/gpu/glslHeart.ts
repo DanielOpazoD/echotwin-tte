@@ -872,7 +872,12 @@ float coronarySinusDistance(vec3 p, vec3 la, vec3 lr, float bo, float czL, float
 bool classifyHeart(vec3 p0, out Sample s) {
   s.segment = 0;
   s.sdf = FAR_FROM_HEART_CM;
+#ifndef VOLUME_HEART
+  // over a volume heart this classifier is asked for the valve apparatus only, which the arch never holds, and the great
+  // vessels come from classifyGreatVessels: one inlined copy of the arch's loop, not two, which SwiftShader cannot take
+  // (decision 375: the second copy left pass A of the volume variant empty)
   if (classifyAorticExtension(p0, s)) return true;
+#endif
   float vascularDistance = s.sdf;
   vec3 p = vec3(p0.x - SWING_X, p0.y, p0.z);
   float x = p.x, y = p.y, z = p.z;

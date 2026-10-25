@@ -3474,6 +3474,8 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
 
     **Lo que cuesta, declarado**: la hoja de sospechas de Rodero en las 13 vistas pasa de 721 a 725 candidatos (8 nuevas, 5 fuera). Casi todas son islas de arteria pulmonar en planos oblicuos (A3C, PSAX aórtico y supraesternal) y la pulmonar que asoma en el A2C a 5°. Total de paquetes: 2153,4 de 2160 kB.
 
+    **SwiftShader**: con estos cambios, la variante del sombreador del corazón de volumen con imagen de red dejó de dibujar en la CI. La equivalencia de Rodero en el A4C y el PLAX coincidía en el 8–9 % de las estructuras, el sector entero sin estructura, mientras en el GPU del Mac pasaba. El bucle de 51 segmentos de la extensión aórtica estaba copiado en línea dos veces: dentro del clasificador analítico, que en esa variante sólo se consulta para velos y valvas, y en los grandes vasos. El renderizador ya advertía de que SwiftShader no admite dos copias del clasificador. En la variante del volumen, el clasificador analítico deja fuera la extensión aórtica, que nunca contiene velos ni valvas, y queda una sola copia.
+
     **Lo que no resuelve**: las valvas pulmonares son las del analítico llevadas al disco de la TC, cuyo radio es un 49 % mayor que el anillo analítico, así que la escala las encoge. El tracto de salida es el de la TC.
 
 376. **El corazón y el modo revisión, a un clic en la barra superior**: Daniel: «haz que sea más fácil en el programa seleccionar (botón/selector visible) entre estilo default/original v/s Rodero», y lo mismo «para modo edición/notas».
