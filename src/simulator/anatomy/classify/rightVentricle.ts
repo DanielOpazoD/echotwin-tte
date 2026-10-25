@@ -4,6 +4,7 @@ import { skirtOffsetAt } from '../valveSkirt';
 import { rvCrescent, rvInflowSdf } from '../rv';
 import { setSample, type ClassifyCtx } from './context';
 import { LV_WALL_BASAL_OVERHANG_CM } from '../heartFrame';
+import { PA_WALL_CM, pulmonaryTrunkDistance } from '../greatVessels';
 
 /** RV free-wall thickness now: thickens with the contraction. */
 export function rvFreeWallNow(freeWallCm: number, contraction: number): number {
@@ -79,59 +80,7 @@ export function classifyRightVentricle(c: ClassifyCtx): boolean {
     ),
   );
   // pulmonary trunk from the valve to the bifurcation; right branch behind the ascending aorta, left branch
-  const dPa = Math.min(
-    sdRoundCone(
-      x,
-      y,
-      zo,
-      A.rvotB.x,
-      A.rvotB.y,
-      A.rvotB.z,
-      A.paStj.x,
-      A.paStj.y,
-      A.paStj.z,
-      A.paRootR,
-      A.paR,
-    ),
-    // the trunk runs from the moving junction to the bifurcation, which stays
-    sdCapsule(
-      x,
-      y,
-      z,
-      A.paStj.x,
-      A.paStj.y,
-      A.paStj.z + pvZ,
-      A.paEnd.x,
-      A.paEnd.y,
-      A.paEnd.z,
-      A.paR,
-    ),
-  );
-  const dRpa = sdCapsule(
-    x,
-    y,
-    z,
-    A.paEnd.x,
-    A.paEnd.y,
-    A.paEnd.z,
-    A.rpaEnd.x,
-    A.rpaEnd.y,
-    A.rpaEnd.z,
-    A.rpaR,
-  );
-  const dLpa = sdCapsule(
-    x,
-    y,
-    z,
-    A.paEnd.x,
-    A.paEnd.y,
-    A.paEnd.z,
-    A.lpaEnd.x,
-    A.lpaEnd.y,
-    A.lpaEnd.z,
-    A.lpaR,
-  );
-  const dTrunk = Math.min(dPa, dRpa, dLpa);
+  const dTrunk = pulmonaryTrunkDistance(A, pvZ, x, y, z);
   const vx = x - A.rvotB.x,
     vy = y - A.rvotB.y,
     vz = zo - A.rvotB.z;
@@ -139,11 +88,11 @@ export function classifyRightVentricle(c: ClassifyCtx): boolean {
     setSample(out, Tissue.Blood, dTrunk, vx, vy, vz, x, y, z, 0, Structure.PulmonaryArtery);
     return true;
   }
-  if (dTrunk < 0.18 && dRvot > 0 && dRvU > 0) {
+  if (dTrunk < PA_WALL_CM && dRvot > 0 && dRvU > 0) {
     setSample(
       out,
       Tissue.VesselWall,
-      -Math.min(dTrunk, 0.18 - dTrunk),
+      -Math.min(dTrunk, PA_WALL_CM - dTrunk),
       vx,
       vy,
       vz,

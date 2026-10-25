@@ -39,6 +39,7 @@ import {
 } from '@/simulator/anatomy/aorticExtension';
 import { VASCULAR_JOIN_EPS_CM } from '@/simulator/anatomy/vascularTube';
 import { ROOT_TUBE_END_T } from '@/simulator/anatomy/classify/root';
+import { PA_WALL_CM } from '@/simulator/anatomy/greatVessels';
 import { LV_PROF_BINS } from '@/simulator/anatomy/lvShape';
 import {
   PV_INF_Z,
@@ -771,6 +772,17 @@ bool classifyAorticExtension(vec3 p, inout Sample s) {
   setSample(s, best<0.0 ? T_BLOOD : T_VESSEL, best<0.0 ? best : -min(best,AO_WALL-best), n>0.0 ? normal/n : vec3(0.0), p, 0.0, int(P(AO_IDS_BASE+segment)));
   return true;
 }
+const float PA_WALL_CM = ${PA_WALL_CM.toFixed(8)};
+/** Signed distance to the lumen of the pulmonary trunk and its branches (greatVessels.ts pulmonaryTrunkDistance). */
+float pulmonaryTrunkDist(vec3 p) {
+  vec3 rvotB = vec3(RVOT_BX, RVOT_BY, RVOT_BZ + PV_Z);
+  vec3 paStj = vec3(PA_SX, PA_SY, PA_SZ + PV_Z);
+  vec3 paEnd = vec3(PA_EX, PA_EY, PA_EZ);
+  float dPa = min(sdRoundCone(p, rvotB, paStj, PA_ROOT_R, PA_R), sdCapsule(p, paStj, paEnd, PA_R));
+  float dRpa = sdCapsule(p, paEnd, vec3(RPA_EX, RPA_EY, RPA_EZ), RPA_R);
+  float dLpa = sdCapsule(p, paEnd, vec3(LPA_EX, LPA_EY, LPA_EZ), LPA_R);
+  return min(dPa, min(dRpa, dLpa));
+}
 
 // Shared RV distance for the pericardium block (recomputed; cheap)
 // decision 320: distance to the lumen of the pulmonary veins and the appendage, which the atrial wall and septum leave open
@@ -1349,20 +1361,15 @@ bool classifyHeart(vec3 p0, out Sample s) {
     vec3 rvotA = vec3(RVOT_AX, RVOT_AY, RVOT_AZ + PV_Z);
     vec3 rvotM = vec3(RVOT_MX, RVOT_MY, RVOT_MZ + PV_Z);
     vec3 rvotB = vec3(RVOT_BX, RVOT_BY, RVOT_BZ + PV_Z);
-    vec3 paEnd = vec3(PA_EX, PA_EY, PA_EZ);
     float dRvot = min(sdRoundCone(p, rvotA, rvotM, RVOT_RA * k, RVOT_RM * k), sdRoundCone(p, rvotM, rvotB, RVOT_RM * k, RVOT_R * k));
-    vec3 paStj = vec3(PA_SX, PA_SY, PA_SZ + PV_Z);
-    float dPa = min(sdRoundCone(p, rvotB, paStj, PA_ROOT_R, PA_R), sdCapsule(p, paStj, paEnd, PA_R));
-    float dRpa = sdCapsule(p, paEnd, vec3(RPA_EX, RPA_EY, RPA_EZ), RPA_R);
-    float dLpa = sdCapsule(p, paEnd, vec3(LPA_EX, LPA_EY, LPA_EZ), LPA_R);
-    float dTrunk = min(dPa, min(dRpa, dLpa));
+    float dTrunk = pulmonaryTrunkDist(p);
     vec3 v = p - rvotB;
     if (dTrunk < 0.0) {
       setSample(s, T_BLOOD, dTrunk, v, p, 0.0, S_PA);
       return true;
     }
-    if (dTrunk < 0.18 && dRvot > 0.0 && dRvU > 0.0) {
-      setSample(s, T_VESSEL, -min(dTrunk, 0.18 - dTrunk), v, p, 0.0, S_PA);
+    if (dTrunk < PA_WALL_CM && dRvot > 0.0 && dRvU > 0.0) {
+      setSample(s, T_VESSEL, -min(dTrunk, PA_WALL_CM - dTrunk), v, p, 0.0, S_PA);
       return true;
     }
     float dCavRv = smin(dRvU, dRvot, RV_OUTFLOW_BLEND_CM);
