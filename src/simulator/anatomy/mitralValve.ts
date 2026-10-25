@@ -135,7 +135,7 @@ function openProfile(angles: number[], segLen: number): Float64Array {
 }
 
 /** Hinge height above the hinge plane at angle theta from the anteroposterior axis: saddle plus the curtain lift. */
-function hingeHeight(
+export function hingeHeight(
   R: number,
   D: number,
   saddle: number,

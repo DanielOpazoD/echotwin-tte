@@ -13,6 +13,8 @@ import {
   FAT,
   GPU_SLICE_COLUMNS,
   AORTIC_CUSP_REACH_CM,
+  LEFT_HOSTS,
+  MITRAL_FADE_CM,
   LABELS,
   ROOT_BLOOD,
   LV_BAND_CM,
@@ -117,6 +119,8 @@ export function volumeHeartGpu(vh: VolumeHeart, endDiastole: HeartPose): HeartVo
       gl.uniform2i(u(gl, prog, 'uVolFat'), Tissue.Fat, Structure.EpicardialFat);
       gl.uniform1i(u(gl, prog, 'uVolFatLabel'), FAT);
       gl.uniform2ui(u(gl, prog, 'uVolHosts'), ...mask(APPARATUS_HOSTS));
+      gl.uniform2ui(u(gl, prog, 'uVolLeftHosts'), ...mask(LEFT_HOSTS));
+      gl.uniform2f(u(gl, prog, 'uVolMvFade'), MITRAL_FADE_CM[0], MITRAL_FADE_CM[1]);
       gl.uniform2ui(u(gl, prog, 'uVolLeftAtrium'), ...mask(ATRIAL_TISSUE[0]!));
       gl.uniform2ui(u(gl, prog, 'uVolRightAtrium'), ...mask(ATRIAL_TISSUE[1]!));
       gl.uniform3i(u(gl, prog, 'uVolDims'), d.dims[0], d.dims[1], d.dims[2]);
@@ -183,6 +187,13 @@ export function volumeHeartGpu(vh: VolumeHeart, endDiastole: HeartPose): HeartVo
         gl.uniform3f(u(gl, prog, 'uVolAoO'), w.o[0], w.o[1], w.o[2]);
         gl.uniformMatrix3fv(u(gl, prog, 'uVolAoM'), true, w.m);
         gl.uniform2f(u(gl, prog, 'uVolAoReach'), AORTIC_CUSP_REACH_CM[0], AORTIC_CUSP_REACH_CM[1]);
+      }
+      // the mitral leaflets carried onto the CT's annulus (decision 374)
+      const mw = vh.mitralWarp(pose);
+      gl.uniform1i(u(gl, prog, 'uVolMvOn'), mw ? 1 : 0);
+      if (mw) {
+        gl.uniform4fv(u(gl, prog, 'uVolMv'), Float32Array.from(mw.sectors));
+        gl.uniform4f(u(gl, prog, 'uVolMvC'), ...mw.centre);
       }
     },
   };
