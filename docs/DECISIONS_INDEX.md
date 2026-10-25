@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 371 (última: 371).
+Decisiones: 372 (última: 372).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -379,3 +379,4 @@ Decisiones: 371 (última: 371).
 | [369](DECISIONS.md#L3353) | 2026-10-24 | El tabique interauricular pasa sin escalón a la fosa, la fosa sigue a la base y el tabique se abomba hacia la aurícula derecha en sístole | vigente |
 | [370](DECISIONS.md#L3389) | 2026-10-24 | La pared de las venas pulmonares es fina y dispersa como miocardio, no como una arteria | vigente |
 | [371](DECISIONS.md#L3406) | 2026-10-24 | El corazón de Rodero tiene cortina aortomitral: la AI ya no toca el tracto de salida y el velo anterior nace de la raíz | vigente |
+| [372](DECISIONS.md#L3420) | 2026-10-24 | Los grandes vasos de Rodero siguen como los del analítico donde la TC los cortó: arco aórtico y tronco pulmonar | vigente |

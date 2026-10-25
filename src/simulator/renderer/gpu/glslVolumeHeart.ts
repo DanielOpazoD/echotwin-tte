@@ -191,6 +191,19 @@ vec3 volOcta(vec2 e) {
   return n;
 }
 float volEpi(ivec3 c) { return texelFetch(uVolField, clamp(c, ivec3(0), uVolDims - 1), 0).r; }
+/** The analytic heart's great vessels alone (greatVessels.ts classifyGreatVessels, decision 372). */
+bool classifyGreatVessels(vec3 p, inout Sample s) {
+  if (classifyAorticExtension(p, s)) return true;
+  float d = pulmonaryTrunkDist(p);
+  if (d < PA_WALL_CM) {
+    s.segment = 0;
+    s.transmural = -1.0;
+    setSample(s, d < 0.0 ? T_BLOOD : T_VESSEL, d < 0.0 ? d : -min(d, PA_WALL_CM - d), p - vec3(RVOT_BX, RVOT_BY, RVOT_BZ + PV_Z), p, 0.0, S_PA);
+    return true;
+  }
+  s.sdf = min(s.sdf, d - PA_WALL_CM);
+  return false;
+}
 
 bool classifyVolumeHeart(vec3 pH, inout Sample s) {
   s.segment = 0;
@@ -207,16 +220,17 @@ bool classifyVolumeHeart(vec3 pH, inout Sample s) {
   vec3 a = vec3(dot(dr, uVolFX), dot(dr, uVolFY), dot(dr, uVolFZ)) / uVolK;
   vec3 f = volGrid(a);
   ivec3 c = ivec3(floor(f));
-  if (any(lessThan(c, ivec3(0))) || any(greaterThanEqual(c, uVolDims))) {
-    vec3 o = max(max(vec3(0.0), -f), f - vec3(uVolDims));
-    s.sdf = (volEpi(c) + length(o) * uVolVox) * uVolK - uVolPeri;
-    return false;
-  }
-  int l = int(texelFetch(uVolLabel, c, 0).r);
-  vec4 fld = texelFetch(uVolField, c, 0);
+  bool outside = any(lessThan(c, ivec3(0))) || any(greaterThanEqual(c, uVolDims));
+  int l = outside ? 0 : int(texelFetch(uVolLabel, c, 0).r);
+  vec4 fld = outside ? vec4(0.0) : texelFetch(uVolField, c, 0);
   if (l == 0) {
-    float de = fld.r * uVolK;
-    if (de >= uVolPeri) { s.sdf = de - uVolPeri; return false; }
+    // beyond the grid: its margin plus the way out to it; inside it, the distance beyond the epicardium
+    vec3 o = max(max(vec3(0.0), -f), f - vec3(uVolDims));
+    float de = outside ? (volEpi(c) + length(o) * uVolVox) * uVolK : fld.r * uVolK;
+    // where the CT has nothing, the great vessels it cut carry on as the analytic heart's (decision 372)
+    s.sdf = de - uVolPeri;
+    if (uVolApparatus == 1 && classifyGreatVessels(pH, s)) return true;
+    if (outside || de >= uVolPeri) return false;
     vec3 g = vec3(
       volEpi(c + ivec3(1, 0, 0)) - volEpi(c - ivec3(1, 0, 0)),
       volEpi(c + ivec3(0, 1, 0)) - volEpi(c - ivec3(0, 1, 0)),

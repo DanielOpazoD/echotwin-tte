@@ -16,6 +16,7 @@ import { atlasMarks } from './atlasFrame';
 import { heartAnchors } from './anchors';
 import { makeSample } from './tissue';
 import { PERICARDIUM_CM } from './classify/pericardium';
+import { classifyGreatVessels } from './greatVessels';
 import { classifyHeart, type HeartModel, type HeartPose } from './heartModel';
 import type { HeartClassifier } from './sceneClassifier';
 import { Structure, Tissue, type TissueSample } from './tissue';
@@ -1385,25 +1386,26 @@ export function volumeHeart(
         kk = Math.floor(fk);
       q.segment = 0;
       q.transmural = -1;
-      if (i < 0 || j < 0 || kk < 0 || i >= nx || j >= ny || kk >= nz) {
-        // beyond the grid: its margin plus the way out to it
-        const ox = Math.max(0, -fi, fi - nx),
-          oy = Math.max(0, -fj, fj - ny),
-          oz = Math.max(0, -fk, fk - nz);
-        const ci = clampI(i, nx),
-          cj = clampI(j, ny),
-          ck = clampI(kk, nz);
-        q.sdf = (dEpi[at(ci, cj, ck)]! + Math.hypot(ox, oy, oz) * vox) * k - PERICARDIUM_CM;
-        return false;
-      }
-      const v = at(i, j, kk);
-      const l = label[v]!;
+      const outside = i < 0 || j < 0 || kk < 0 || i >= nx || j >= ny || kk >= nz;
+      const v = outside ? -1 : at(i, j, kk);
+      const l = outside ? 0 : label[v]!;
       if (l === 0) {
-        const de = dEpi[v]! * k;
-        if (de >= PERICARDIUM_CM) {
-          q.sdf = de - PERICARDIUM_CM;
-          return false;
-        }
+        // beyond the grid: its margin plus the way out to it; inside it, the distance beyond the epicardium
+        const de = outside
+          ? (dEpi[at(clampI(i, nx), clampI(j, ny), clampI(kk, nz))]! +
+              Math.hypot(
+                Math.max(0, -fi, fi - nx),
+                Math.max(0, -fj, fj - ny),
+                Math.max(0, -fk, fk - nz),
+              ) *
+                vox) *
+            k
+          : dEpi[v]! * k;
+        // where the CT has nothing, the great vessels it cut carry on as the analytic heart's (decision 372)
+        q.sdf = de - PERICARDIUM_CM;
+        if (options.apparatus && classifyGreatVessels(heart, options.apparatus, hx, hy, hz, q))
+          return true;
+        if (outside || de >= PERICARDIUM_CM) return false;
         setMaterial(q, rx, ry, rz);
         q.tissue = Tissue.Pericardium;
         q.structure = Structure.Pericardium;
