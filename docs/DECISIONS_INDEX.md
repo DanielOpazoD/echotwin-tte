@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 372 (última: 372).
+Decisiones: 373 (última: 373).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -380,3 +380,4 @@ Decisiones: 372 (última: 372).
 | [370](DECISIONS.md#L3389) | 2026-10-24 | La pared de las venas pulmonares es fina y dispersa como miocardio, no como una arteria | vigente |
 | [371](DECISIONS.md#L3406) | 2026-10-24 | El corazón de Rodero tiene cortina aortomitral: la AI ya no toca el tracto de salida y el velo anterior nace de la raíz | vigente |
 | [372](DECISIONS.md#L3420) | 2026-10-24 | Los grandes vasos de Rodero siguen como los del analítico donde la TC los cortó: arco aórtico y tronco pulmonar | vigente |
+| [373](DECISIONS.md#L3434) | 2026-10-24 | La válvula aórtica de Rodero se abre en sístole: las valvas del analítico sobre el anillo de la TC | vigente |

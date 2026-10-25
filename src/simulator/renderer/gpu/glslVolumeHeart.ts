@@ -33,6 +33,10 @@ uniform vec4 uVolBand;              // LV taper above the annulus (−1, 0), atr
 // the frame's motion
 uniform int uVolMotion;
 uniform int uVolApparatus;
+uniform int uVolAoLabel;             // the root's blood label where the analytic cusps are drawn, -1 for none (decision 373)
+uniform vec3 uVolAoC, uVolAoN, uVolAoO; // the CT's valve plane: centre and axis (reference frame), and the map's offset
+uniform mat3 uVolAoM;                // the map of a reference point onto the analytic valve
+uniform vec2 uVolAoReach;            // reach of the cusps along the axis (cm)
 uniform float uVolSL, uVolSR, uVolCapLambda, uVolAlpha, uVolTwist, uVolRoof, uVolRvRatio;
 uniform vec2 uVolAtrialScale;
 
@@ -238,13 +242,18 @@ bool classifyVolumeHeart(vec3 pH, inout Sample s) {
     setSample(s, T_PERI, -min(de, uVolPeri - de), volToHeart(g, normalTwist), ref, 0.0, S_PERI);
     return true;
   }
-  // the analytic leaflets and chords where the analytic heart has them now (decision 353)
-  if (uVolApparatus == 1 && volHas(uVolHosts, l)) {
+  // the analytic leaflets and chords where the analytic heart has them now (decision 353); in the root over the CT's
+  // annulus, the analytic cusps carried onto it (decision 373): one call of the classifier for both
+  float tAo = dot(ref - uVolAoC, uVolAoN);
+  bool aortic = uVolApparatus == 1 && l == uVolAoLabel && tAo >= uVolAoReach.x && tAo <= uVolAoReach.y;
+  if (aortic || (uVolApparatus == 1 && volHas(uVolHosts, l))) {
     Sample s2;
     s2.segment = 0;
     s2.transmural = -1.0;
-    if (classifyHeart(pH, s2) &&
-        (s2.structure == S_MV_ANT || s2.structure == S_MV_POST || s2.structure == S_TV || s2.structure == S_CHORDAE)) {
+    vec3 qp = aortic ? uVolAoM * ref + uVolAoO : pH;
+    if (classifyHeart(qp, s2) &&
+        (aortic ? s2.structure == S_AV
+                : (s2.structure == S_MV_ANT || s2.structure == S_MV_POST || s2.structure == S_TV || s2.structure == S_CHORDAE))) {
       s = s2;
       return true;
     }

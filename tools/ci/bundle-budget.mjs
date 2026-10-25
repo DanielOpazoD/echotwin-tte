@@ -66,8 +66,10 @@ const BUDGETS = [
 // 2120 kB. Decision 364 (the interatrial septum, the atria on the aortic root and the left atrioventricular junction
 // built when the volume heart is bound) adds 2.7 kB to that chunk, twice: 2123.0 kB, raised to 2130 kB. Decision 366
 // (the left atrium's lateral wall and shelf, in the anatomy and its GLSL mirror, bundled three times) adds 6.1 kB:
-// 2129.1 kB, raised to 2140 kB.
-const TOTAL_JS_BUDGET = 2140 * KB;
+// 2129.1 kB, raised to 2140 kB. Decisions 370–372 bring it to 2138.4 kB, and decision 373 (the CT's aortic valve plane
+// taken as blood and the analytic cusps carried onto its annulus, which brings the aortic root's profile and the anchors
+// into the volume heart's chunk, twice) adds 5.7 kB: 2144.1 kB, raised to 2150 kB.
+const TOTAL_JS_BUDGET = 2150 * KB;
 
 let files;
 try {

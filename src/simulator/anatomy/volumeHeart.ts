@@ -10,10 +10,14 @@
  * sac for the thorax. The atrial walls, which the segmentation draws thicker than CT measures them, keep ATRIAL_WALL_MM
  * from their cavity. The CT has no leaflets, chords or papillary muscles: its atrioventricular
  * valve planes are flat discs, taken as blood, and the analytic heart's apparatus is drawn in the cavities (APPARATUS).
- * The semilunar planes are closed valve, as at end diastole. The vessels end where the CT segmentation cut them.
+ * The pulmonary valve plane is closed valve, as at end diastole; the aortic one is the root's blood, in which the analytic
+ * cusps are drawn over the CT's annulus (decision 373). Where the CT segmentation cut the great vessels they carry on as
+ * the analytic heart's (decision 372).
  */
 import { atlasMarks } from './atlasFrame';
-import { heartAnchors } from './anchors';
+import { anchorsCached, heartAnchors } from './anchors';
+import { rootRadiusAt } from './aorticValve';
+import { ROOT_EXCURSION } from './heartFrame';
 import { makeSample } from './tissue';
 import { PERICARDIUM_CM } from './classify/pericardium';
 import { classifyGreatVessels } from './greatVessels';
@@ -205,6 +209,26 @@ const JUNCTION_PASSES = 6;
  */
 export const CURTAIN = 39;
 export const CURTAIN_MM = 2;
+/**
+ * The CT's aortic valve plane (decision 373): a closed disc of label 9, 3.8 mm thick, that never opened. Bound to a heart
+ * it becomes the root's blood (label 35), and the analytic heart's cusps are drawn in the root over the CT's annulus:
+ * each point of the root within AORTIC_CUSP_REACH_CM (cm, along the disc's axis toward the aorta) of the disc is carried
+ * to the analytic valve, centred, turned onto its axis and scaled to its annulus (`aorticWarp`), and classified there.
+ */
+export const AORTIC_VALVE_LABEL = 9;
+/** The root's blood, which the valve plane becomes and in which the cusps are drawn. */
+export const ROOT_BLOOD = 35;
+export const AORTIC_CUSP_REACH_CM: readonly [number, number] = [-0.5, 2.5];
+
+/** The CT's aortic valve plane in the heart frame and the map of a root point to the analytic valve (decision 373). */
+export interface AorticWarp {
+  /** The disc's centre (cm) and unit axis toward the aorta, at end diastole. */
+  centre: V3;
+  axis: V3;
+  /** Row-major 3×3 and offset: analytic point = m · reference point + o. */
+  m: number[];
+  o: V3;
+}
 /** The walls that fill what is left of a gap inside the heart: the four chambers' myocardium and the aortic wall. */
 const INNER_WALLS = [1, 2, 3, 4, 5];
 /** How far (mm, mesh scale) from the atrioventricular planes the interatrial septum counts as the crux (decision 360). */
@@ -464,6 +488,8 @@ export interface VolumeHeart {
    * heart frame (cm); computed on first request. The four-chamber plane of this heart passes through it.
    */
   crux(): [number, number, number];
+  /** The map of the root onto the analytic aortic valve at `pose` (decision 373); null when the CT has no valve plane. */
+  aorticWarp(pose: HeartPose): AorticWarp | null;
 }
 
 interface Fields {
@@ -820,6 +846,7 @@ export function volumeHeart(
   const F = marks.frame;
   const k = marks.lvLength / M.far;
   const label = bakeApparatus(vol, heart, endDiastole, M, F, k);
+  const aorticPlane = takeAorticPlane(vol.header, label, M, F, k, anchorsCached(heart).avAxis);
   const { h, dEpi, dIf } = volumeFields(h0, label);
   const dims = h.dims;
   const [nx, ny, nz] = dims;
@@ -1366,6 +1393,7 @@ export function volumeHeart(
     const cur: V3 = [0, 0, 0],
       refH: V3 = [0, 0, 0];
     const ref: ReferencePoint = { x: 0, y: 0, z: 0, twist: 0 };
+    const warp = options.apparatus ? aorticWarp(options.apparatus) : null;
     return (hx, hy, hz, q) => {
       let rx = hx,
         ry = hy,
@@ -1414,14 +1442,29 @@ export function volumeHeart(
         return true;
       }
       // the analytic leaflets and chords where the analytic heart has them now; the papillary muscles and the moderator
-      // band are the volume's own voxels, baked at end diastole and carried with the walls (decision 353)
-      if (
-        options.apparatus &&
-        APPARATUS_HOSTS.has(l) &&
-        classifyHeart(heart, options.apparatus, hx, hy, hz, q) &&
-        LEAFLETS.has(q.structure)
-      )
-        return true;
+      // band are the volume's own voxels, baked at end diastole and carried with the walls (decision 353). In the root
+      // over the CT's annulus, the analytic cusps, carried onto it (decision 373)
+      if (options.apparatus) {
+        let aortic = false;
+        if (warp && l === ROOT_BLOOD) {
+          const t =
+            (rx - warp.centre[0]) * warp.axis[0] +
+            (ry - warp.centre[1]) * warp.axis[1] +
+            (rz - warp.centre[2]) * warp.axis[2];
+          aortic = t >= AORTIC_CUSP_REACH_CM[0] && t <= AORTIC_CUSP_REACH_CM[1];
+        }
+        if (aortic || APPARATUS_HOSTS.has(l)) {
+          const w = warp?.m ?? [];
+          const px = aortic ? w[0]! * rx + w[1]! * ry + w[2]! * rz + warp!.o[0] : hx,
+            py = aortic ? w[3]! * rx + w[4]! * ry + w[5]! * rz + warp!.o[1] : hy,
+            pz = aortic ? w[6]! * rx + w[7]! * ry + w[8]! * rz + warp!.o[2] : hz;
+          if (
+            classifyHeart(heart, options.apparatus, px, py, pz, q) &&
+            (aortic ? q.structure === Structure.AorticValve : LEAFLETS.has(q.structure))
+          )
+            return true;
+        }
+      }
       setMaterial(q, rx, ry, rz);
       const lab = l === FAT ? null : LABELS[l];
       if (l !== FAT && !lab) {
@@ -1551,5 +1594,124 @@ export function volumeHeart(
     ) as [number, number, number];
     return cruxPoint;
   };
-  return { classifier, toReference, motionParams, gpu, lvSlices, labelAt, cmPerMm: k, crux };
+  const aorticWarp = (pose: HeartPose): AorticWarp | null => {
+    if (!aorticPlane) return null;
+    const A = anchorsCached(heart);
+    const na: V3 = [A.avAxis.x, A.avAxis.y, A.avAxis.z];
+    const ca: V3 = [A.avCenter.x, A.avCenter.y, A.avCenter.z + pose.zAnn * ROOT_EXCURSION];
+    const nr = aorticPlane.axis;
+    // the shortest turn from the CT's axis onto the analytic one (Rodrigues), scaled to the analytic annulus
+    const v: V3 = [
+      nr[1] * na[2] - nr[2] * na[1],
+      nr[2] * na[0] - nr[0] * na[2],
+      nr[0] * na[1] - nr[1] * na[0],
+    ];
+    const c = dot(nr, na);
+    const f = 1 / (1 + c);
+    const sc = rootRadiusAt(pose.valves.root, 0, 0) / aorticPlane.radius;
+    const R = [
+      1 - f * (v[1] * v[1] + v[2] * v[2]),
+      -v[2] + f * v[0] * v[1],
+      v[1] + f * v[0] * v[2],
+      v[2] + f * v[0] * v[1],
+      1 - f * (v[0] * v[0] + v[2] * v[2]),
+      -v[0] + f * v[1] * v[2],
+      -v[1] + f * v[0] * v[2],
+      v[0] + f * v[1] * v[2],
+      1 - f * (v[0] * v[0] + v[1] * v[1]),
+    ];
+    const m = R.map((x) => x * sc);
+    const C = aorticPlane.centre;
+    const o: V3 = [0, 1, 2].map(
+      (r) => ca[r]! - (m[3 * r]! * C[0] + m[3 * r + 1]! * C[1] + m[3 * r + 2]! * C[2]),
+    ) as V3;
+    return { centre: C, axis: nr, m, o };
+  };
+
+  return {
+    classifier,
+    toReference,
+    motionParams,
+    gpu,
+    lvSlices,
+    labelAt,
+    cmPerMm: k,
+    crux,
+    aorticWarp,
+  };
+}
+
+/**
+ * The CT's aortic valve plane (decision 373): its centre, axis (toward the aorta, the side of `toward`) and radius in the
+ * heart frame (cm), and its voxels made the root's blood. Null when the volume has none.
+ */
+function takeAorticPlane(
+  h: LabelVolumeHeader,
+  label: Uint8Array,
+  M: { o: V3; ex: V3; ey: V3; ez: V3 },
+  F: { origin: V3; ex: V3; ey: V3; ez: V3 },
+  k: number,
+  toward: { x: number; y: number; z: number },
+): { centre: V3; axis: V3; radius: number } | null {
+  const [nx, ny] = h.dims;
+  const pts: V3[] = [];
+  for (let v = 0; v < label.length; v++) {
+    if (label[v] !== AORTIC_VALVE_LABEL) continue;
+    const i = v % nx,
+      j = Math.floor(v / nx) % ny,
+      kk = Math.floor(v / (nx * ny));
+    const m: V3 = [
+      h.origin[0] + (i + 0.5) * h.voxelMm - M.o[0],
+      h.origin[1] + (j + 0.5) * h.voxelMm - M.o[1],
+      h.origin[2] + (kk + 0.5) * h.voxelMm - M.o[2],
+    ];
+    const a: V3 = [dot(m, M.ex) * k, dot(m, M.ey) * k, dot(m, M.ez) * k];
+    pts.push(
+      [0, 1, 2].map(
+        (c) => F.origin[c]! + a[0] * F.ex[c]! + a[1] * F.ey[c]! + a[2] * F.ez[c]!,
+      ) as V3,
+    );
+    label[v] = ROOT_BLOOD;
+  }
+  if (pts.length < 10) return null;
+  const centre: V3 = [0, 0, 0];
+  for (const p of pts) for (let c = 0; c < 3; c++) centre[c]! += p[c]! / pts.length;
+  const C = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+  for (const p of pts)
+    for (let r = 0; r < 3; r++)
+      for (let c = 0; c < 3; c++)
+        C[3 * r + c]! += ((p[r]! - centre[r]!) * (p[c]! - centre[c]!)) / pts.length;
+  // the disc's two long axes by power iteration; its axis is normal to both
+  const power = (ortho: V3[]): V3 => {
+    let x: V3 = [0.3, 0.5, 0.8];
+    for (let it = 0; it < 100; it++) {
+      let y: V3 = [0, 1, 2].map(
+        (r) => C[3 * r]! * x[0] + C[3 * r + 1]! * x[1] + C[3 * r + 2]! * x[2],
+      ) as V3;
+      for (const o of ortho) {
+        const d = dot(y, o);
+        y = [y[0] - d * o[0], y[1] - d * o[1], y[2] - d * o[2]];
+      }
+      const l = Math.hypot(...y);
+      x = [y[0] / l, y[1] / l, y[2] / l];
+    }
+    return x;
+  };
+  const e1 = power([]),
+    e2 = power([e1]);
+  let axis: V3 = [
+    e1[1] * e2[2] - e1[2] * e2[1],
+    e1[2] * e2[0] - e1[0] * e2[2],
+    e1[0] * e2[1] - e1[1] * e2[0],
+  ];
+  if (axis[0] * toward.x + axis[1] * toward.y + axis[2] * toward.z < 0)
+    axis = [-axis[0], -axis[1], -axis[2]];
+  const radial = pts
+    .map((p) => {
+      const d: V3 = [p[0] - centre[0], p[1] - centre[1], p[2] - centre[2]];
+      const t = dot(d, axis);
+      return Math.hypot(d[0] - t * axis[0], d[1] - t * axis[1], d[2] - t * axis[2]);
+    })
+    .sort((a, b) => a - b);
+  return { centre, axis, radius: radial[Math.floor(0.98 * (radial.length - 1))]! };
 }
