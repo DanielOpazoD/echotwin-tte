@@ -990,6 +990,61 @@ export function classifyAtria(c: ClassifyCtx): boolean {
     );
     return true;
   }
+  // The vestibule reaches the annulus (decision 379): below the floor of the ellipsoid, over the ring and short of the
+  // annulus, the blood is the atrium's, and its wall rises from the ring around it. The rule above opened only the floor's
+  // own 2.2 mm of wall, so where neither the ventricle nor the leaflets filled the space beneath, the vestibule's blood
+  // met fat, pericardium or the outside: 7.5-14.5 cm² at end-diastole in three cases, the ring's rim without its wall.
+  // The sac wraps the column's wall as it does the body's.
+  const zTvAnn = A.tvCenter.z + hp.tvZ + tvOff;
+  const oxT = x - V.tv.cx,
+    oyT = y - V.tv.cy;
+  // over the ring, under a roof at the ellipsoid's equator where the ring reaches beyond the body's outline
+  const dColumn = Math.max(Math.hypot(oxT, oyT) - V.tv.R / skirtWarpScale(V.tv, oxT, oyT), czR - z);
+  c.raColumn = Math.max(dColumn, z - zTvAnn);
+  if (
+    !inSeptum &&
+    z > czR - 0.22 &&
+    z <= zTvAnn &&
+    septumPlane < 0 &&
+    dSvc >= 0 &&
+    dIvc >= 0 &&
+    dCs >= 0 &&
+    dRaa >= 0 &&
+    c.laCav > raLaMin
+  ) {
+    if (dColumn < 0) {
+      setSample(
+        out,
+        Tissue.Blood,
+        dColumn,
+        (x - ra.x) / rr.x,
+        (y - ra.y) / rr.y,
+        (z - czR) / rzR,
+        x,
+        y,
+        z,
+        0,
+        Structure.RaCavity,
+      );
+      return true;
+    }
+    if (dColumn < 0.22) {
+      setSample(
+        out,
+        Tissue.Myocardium,
+        -Math.min(dColumn, 0.22 - dColumn),
+        oxT,
+        oyT,
+        0,
+        x,
+        y,
+        z,
+        0,
+        Structure.RaWall,
+      );
+      return true;
+    }
+  }
   // near the root the appendage keeps out of the septum and off the left atrial blood as the cavity does (decision 335:
   // there the left atrium now meets its face, and the appendage reached into the slab)
   if (dRaa < 0 && !(nearRoot && (inSeptum || c.laCav <= raLaMin))) {

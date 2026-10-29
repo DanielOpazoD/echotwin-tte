@@ -236,6 +236,7 @@ Cada prueba del modelo que tolera una desviación la declara en un conjunto `KNO
 | `KNOWN_GREY_INVERSIONS` | `tests/coherence/coherenceCensus.test.ts` | 31 | `normal-excellent-window a4c @0`, `normal-excellent-window a2c @0`, `normal-excellent-window a4c @0.35`, `normal-difficult-window plax @0.35`, `pulmonary-hypertension-rv a4c @0`, `normal-difficult-window psax-mv @0`, `normal-difficult-window psax-mv @0.35`, `hfref-severe-mr a4c @0`, `hfref-severe-mr a2c @0`, `hfref-severe-mr a2c @0.35`, `inferior-rwma a4c @0`, `inferior-rwma a4c @0.35`, `inferior-rwma a2c @0`, `inferior-rwma a2c @0.35`, `aortic-stenosis-moderate a4c @0`, `aortic-stenosis-moderate a2c @0`, `aortic-stenosis-severe a4c @0`, `aortic-stenosis-severe a2c @0`, `aortic-stenosis-severe a2c @0.35`, `hocm-sam a4c @0`, `hocm-sam a2c @0`, `mvp-primary-mr a4c @0`, `mvp-primary-mr a4c @0.35`, `mvp-primary-mr a2c @0`, `pulmonary-hypertension-rv a2c @0`, `af-diastolic a2c @0`, `af-diastolic a2c @0.35`, `af-diastolic plax @0.35`, `artifact-challenge a2c @0`, `artifact-challenge a2c @0.35`, `artifact-challenge psax-mv @0.35` |
 | `KNOWN_STRAIGHT_BORDERS` | `tests/coherence/coherenceCensus.test.ts` | 11 | `a2c LaCavity`, `a2c LvCavity`, `a4c LaCavity`, `a4c LvCavity`, `a4c RaCavity`, `a4c RvCavity`, `plax LaCavity`, `plax LvCavity`, `plax RvCavity`, `psax-mv LvCavity`, `psax-mv RvCavity` |
 | `KNOWN_VOLUME_CENSUS` | `tests/coherence/volumeCensus.test.ts` | 28 | `rodero AI|RAo hueco`, `rodero AI|RAo grasa`, `rodero AD|RAo hueco`, `rodero AD|RAo grasa`, `rodero VD|TP hueco`, `rodero VD|TP grasa`, `rodero AI|VP hueco`, `rodero AD|VCS hueco`, `rodero AD|VCI hueco`, `rodero VD sobre bisagra AD`, `rodero sangre AorticRoot|PulmonaryArtery`, `analytic AI|AD hueco`, `analytic AI|AD grasa`, `analytic AI|AD tabique`, `analytic AD|VD hueco`, `analytic AI|RAo hueco`, `analytic AI|RAo grasa`, `analytic AD|RAo hueco`, `analytic AD|RAo grasa`, `analytic VD|TP hueco`, `analytic VD|TP grasa`, `analytic AI|VP hueco`, `analytic AI|VP grasa`, `analytic AD|VCS hueco`, `analytic AD|VCI hueco`, `analytic AD|VCI grasa`, `analytic AD|SC hueco`, `analytic AD|SC grasa` |
+| `KNOWN_RA_BARE_BLOOD` | `simulator/anatomy/classify/raWall.test.ts` | 3 | `normal-excellent-window @0`, `hfref-severe-mr @0.35`, `pulmonary-hypertension-rv @0` |
 | `KNOWN_SUSPICIONS` | `tests/coherence/planeSuspicions.test.ts` | 9 | `a2c 0 TD lista blanca PulmonaryArtery`, `psax-mv 0 TD lista blanca Ivc`, `psax-mv 0 TS lista blanca Ivc`, `psax-mv 0 TS lista blanca LaWall`, `psax-mv 0 TS lista blanca RaCavity`, `psax-mv 0 TS lista blanca Rvot`, `psax-mv 0 TS lista blanca PulmonaryArtery`, `psax-mv 0 TS lista blanca RaWall`, `psax-mv 0 TS lista blanca Lvot` |
 | `KNOWN_LA_ROOF_EXCESS` | `simulator/renderer/atrialSurroundings.test.ts` | 7 | `normal-excellent-window a4c ES roofWall`, `normal-excellent-window a4c ES roofBeyond`, `normal-excellent-window a2c ES roofWall`, `normal-excellent-window a2c ES roofBeyond`, `pulmonary-hypertension-rv a4c ES roofWall`, `pulmonary-hypertension-rv a2c ES roofWall`, `pulmonary-hypertension-rv a2c ES roofBeyond` |
 | `KNOWN_LOW_TISSUE_BLOOD_DB` | `simulator/renderer/acoustic/imageFormation.test.ts` | 1 | `plax lv walls` |
@@ -406,6 +407,13 @@ franja de ±8 mm alrededor del plano de cuatro cámaras. Lo que cuesta:
 
 La pared de la AD se mueve con el anillo tricuspídeo en el Doppler tisular: el vestíbulo entero y el techo a la mitad. No es
 una medida de la pared auricular, sino lo que la celda del anillo lee cuando el anillo la abandona en sístole.
+
+### Bocas de las venas en la AD (decisión 379)
+
+El vestíbulo de la AD llega al anillo con su pared, pero junto a las bocas de las cavas y del seno coronario la pared no se
+dibuja para que las venas desemboquen. Donde la luz de la vena no llena ese hueco, la sangre de la AD toca grasa o
+pericardio: 1,3–2,5 cm² en una rejilla de 1 mm (`KNOWN_RA_BARE_BLOOD`). El lóbulo anteromedial junto a la raíz deja algo
+parecido.
 
 ### Eje corto mitral (decisión 368)
 

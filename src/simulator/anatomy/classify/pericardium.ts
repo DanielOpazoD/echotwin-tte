@@ -86,6 +86,7 @@ export function classifyPericardium(c: ClassifyCtx): boolean {
     raSleeve + 0.22, // the lengthened atrium over the vacated base (decision 133)
     raBody - 0.22, // the outer face of its body's wall, with the lateral wall over the tricuspid hinge (decision 367)
     c.raaEpi, // and its appendage (decision 323)
+    c.raColumn - 0.22, // and the vestibule's column over the ring (decision 379)
   );
   // The sac around the outflow tract and the trunk stays where the pericardium is anchored (sternopericardial ligaments in
   // front, the arterial reflection on the trunk) while they descend in systole (decision 111). One envelope stands for the

@@ -1092,6 +1092,8 @@ bool classifyHeart(vec3 p0, out Sample s) {
   float laEpi = 1e3;
   // decision 323
   float raaEpi = 1e3;
+  // decision 379
+  float raColumn = 1e3;
   // ---------- atria ----------
   vec3 la = vec3(LA_CX, LA_CY, LA_CZ);
   vec3 lr = vec3(LA_RX, LA_RY, LA_RZ);
@@ -1288,6 +1290,21 @@ bool classifyHeart(vec3 p0, out Sample s) {
       setSample(s, T_MYO, -min(dFreeRa, 0.22 - dFreeRa), vec3((x - ra.x) / rar.x, (y - ra.y) / rar.y, (z - czR) / rzR), p, 0.0, S_RA_WALL);
       return true;
     }
+    // the vestibule reaches the annulus, under a roof at the equator, with its wall rising from the ring (decision 379)
+    vec2 dOC = vec2(x - TVS_CX, y - TVS_CY);
+    float dColumn = max(length(dOC) - TVS_R / tvWarpScale(dOC), czR - z);
+    raColumn = max(dColumn, z - (TV_CZ + TVZ + tvOff));
+    if (!inSeptum && z > czR - 0.22 && z <= TV_CZ + TVZ + tvOff && septumPlane < 0.0 && dSvc >= 0.0 && dIvc >= 0.0 && dCs >= 0.0 && dRaa >= 0.0 && d > raLaMin) {
+      vec2 dO = dOC;
+      if (dColumn < 0.0) {
+        setSample(s, T_BLOOD, dColumn, vec3((x - ra.x) / rar.x, (y - ra.y) / rar.y, (z - czR) / rzR), p, 0.0, S_RA_CAV);
+        return true;
+      }
+      if (dColumn < 0.22) {
+        setSample(s, T_MYO, -min(dColumn, 0.22 - dColumn), vec3(dO, 0.0), p, 0.0, S_RA_WALL);
+        return true;
+      }
+    }
     // the right atrial appendage (decision 323)
     // decision 335: the appendage keeps out of the septum and off the left atrial blood
     if (dRaa < 0.0 && !(nearRoot && (inSeptum || d <= raLaMin))) {
@@ -1438,7 +1455,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float fw = RV_FW;
     float dRvEpi = dRvU - fw;
     float dLaEpi = laEpi;
-    float dRaEpi = min(min(raSleeve + 0.22, raBody - 0.22), raaEpi); // the atrium's own wall (decision 378)
+    float dRaEpi = min(min(min(raSleeve + 0.22, raBody - 0.22), raaEpi), raColumn - 0.22); // the atrium's own wall (decision 378), and the vestibule's column (decision 379)
     // the sac around the outflow tract and the trunk stays where the pericardium is anchored (decision 111)
     vec3 rvotA = vec3(RVOT_AX, RVOT_AY, RVOT_AZ);
     vec3 rvotB = vec3(RVOT_BX, RVOT_BY, RVOT_BZ);
