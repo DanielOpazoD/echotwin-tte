@@ -783,6 +783,20 @@ float pulmonaryTrunkDist(vec3 p) {
   float dLpa = sdCapsule(p, paEnd, vec3(LPA_EX, LPA_EY, LPA_EZ), LPA_R);
   return min(dPa, min(dRpa, dLpa));
 }
+/** Distance beyond the epicardium of the pulmonary trunk (greatVessels.ts pulmonaryTrunkEpiDistance). */
+float pulmonaryTrunkEpiDist(vec3 p) {
+  vec3 rvotB = vec3(RVOT_BX, RVOT_BY, RVOT_BZ);
+  vec3 paStj = vec3(PA_SX, PA_SY, PA_SZ);
+  vec3 paEnd = vec3(PA_EX, PA_EY, PA_EZ);
+  return min(sdRoundCone(p, rvotB, paStj, PA_ROOT_R + 0.2, PA_R + 0.2), sdCapsule(p, paStj, paEnd, PA_R + 0.2));
+}
+/** Beyond the mediastinal fat in front of the pulmonary trunk (greatVessels.ts trunkFrontDistance, decision 336). */
+float trunkFrontDist(vec3 p, float dPaEpi) {
+  vec3 tm = p - 0.5 * (vec3(RVOT_BX, RVOT_BY, RVOT_BZ) + vec3(PA_SX, PA_SY, PA_SZ));
+  float tl = length(tm);
+  float front = tl > 1e-6 ? dot(tm, vec3(HF_EXZ, HF_EYZ, HF_EZZ)) / tl : 0.0;
+  return dPaEpi - PERICARDIUM_CM - PA_ANTERIOR_FAT_CM * max(0.0, front);
+}
 
 // Shared RV distance for the pericardium block (recomputed; cheap)
 // decision 320: distance to the lumen of the pulmonary veins and the appendage, which the atrial wall and septum leave open
@@ -858,7 +872,12 @@ float coronarySinusDistance(vec3 p, vec3 la, vec3 lr, float bo, float czL, float
 bool classifyHeart(vec3 p0, out Sample s) {
   s.segment = 0;
   s.sdf = FAR_FROM_HEART_CM;
+#ifndef VOLUME_HEART
+  // over a volume heart this classifier is asked for the valve apparatus only, which the arch never holds, and the great
+  // vessels come from classifyGreatVessels: one inlined copy of the arch's loop, not two, which SwiftShader cannot take
+  // (decision 375: the second copy left pass A of the volume variant empty)
   if (classifyAorticExtension(p0, s)) return true;
+#endif
   float vascularDistance = s.sdf;
   vec3 p = vec3(p0.x - SWING_X, p0.y, p0.z);
   float x = p.x, y = p.y, z = p.z;
@@ -1425,8 +1444,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     vec3 rvotB = vec3(RVOT_BX, RVOT_BY, RVOT_BZ);
     vec3 paEnd = vec3(PA_EX, PA_EY, PA_EZ);
     float dRvotEpi = sdCapsule(p, rvotA, rvotB, RVOT_RA + fw);
-    vec3 paStj = vec3(PA_SX, PA_SY, PA_SZ);
-    float dPaEpi = min(sdRoundCone(p, rvotB, paStj, PA_ROOT_R + 0.2, PA_R + 0.2), sdCapsule(p, paStj, paEnd, PA_R + 0.2));
+    float dPaEpi = pulmonaryTrunkEpiDist(p);
     float dEpi = smax(smin(smin(smin(dLvEpi, dRvEpi, 0.8), smin(dLaEpi, dRaEpi, 0.8), 0.8), smin(dRvotEpi, dPaEpi, 0.8), 0.8), PERICARDIUM_CM - colDist, 0.2);
     // decision 255: the effusion thins over the left atrium
     float eff = EFFUSION > 0.0 ? min(effusionAt(EFFUSION, sdEllipsoid(p, la, lr + 0.25), min(min(min(dLvEpi, dRvEpi), min(dRaEpi, dRvotEpi)), dPaEpi)), max(0.0, dEpi + colDist - 2.0 * PERICARDIUM_CM)) : 0.0;
@@ -1452,10 +1470,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float dSac = dEpi - 0.12 - (eff > 0.0 ? eff + 0.12 : 0.0);
     float dRoot = rootT > -90.0 ? rootRr - rootR - 0.2 : dSac;
     // decision 336: in front of the pulmonary trunk the mediastinum's fat stands between the trunk and the lung
-    vec3 tm = p - 0.5 * (vec3(RVOT_BX, RVOT_BY, RVOT_BZ) + vec3(PA_SX, PA_SY, PA_SZ));
-    float tl = length(tm);
-    float front = tl > 1e-6 ? dot(tm, vec3(HF_EXZ, HF_EYZ, HF_EZZ)) / tl : 0.0;
-    float dTrunkFront = dPaEpi - PERICARDIUM_CM - PA_ANTERIOR_FAT_CM * max(0.0, front);
+    float dTrunkFront = trunkFrontDist(p, dPaEpi);
     s.sdf = min(min(min(dSac, dRoot), vascularDistance), dTrunkFront);
   }
   return false;

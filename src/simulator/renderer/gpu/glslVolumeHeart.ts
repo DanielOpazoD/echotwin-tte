@@ -39,6 +39,9 @@ uniform int uVolAoLabel;             // the root's blood label where the analyti
 uniform vec3 uVolAoC, uVolAoN, uVolAoO; // the CT's valve plane: centre and axis (reference frame), and the map's offset
 uniform mat3 uVolAoM;                // the map of a reference point onto the analytic valve
 uniform vec2 uVolAoReach;            // reach of the cusps along the axis (cm)
+uniform int uVolPvLabel;             // the trunk's blood label where the analytic pulmonary cusps are drawn, -1 for none (375)
+uniform vec3 uVolPvC, uVolPvN, uVolPvO; // the CT's pulmonary valve plane and the map's offset
+uniform mat3 uVolPvM;                // the map of a reference point onto the analytic pulmonary valve
 uniform int uVolMvOn;                // the mitral leaflets carried onto the CT's annulus (decision 374)
 uniform uvec2 uVolLeftHosts;         // the left hosts, where they are carried
 uniform vec4 uVolMv[${MITRAL_SECTORS}];             // per sector: CT hinge radius and height, analytic radius and height (cm)
@@ -226,7 +229,8 @@ bool classifyGreatVessels(vec3 p, inout Sample s) {
     setSample(s, d < 0.0 ? T_BLOOD : T_VESSEL, d < 0.0 ? d : -min(d, PA_WALL_CM - d), p - vec3(RVOT_BX, RVOT_BY, RVOT_BZ + PV_Z), p, 0.0, S_PA);
     return true;
   }
-  s.sdf = min(s.sdf, d - PA_WALL_CM);
+  // the lung keeps off the trunk and the mediastinal fat in front of it (decision 375)
+  s.sdf = min(s.sdf, min(d - PA_WALL_CM, trunkFrontDist(p, pulmonaryTrunkEpiDist(p))));
   return false;
 }
 
@@ -267,15 +271,20 @@ bool classifyVolumeHeart(vec3 pH, inout Sample s) {
   // annulus, the analytic cusps carried onto it (decision 373): one call of the classifier for both
   float tAo = dot(ref - uVolAoC, uVolAoN);
   bool aortic = uVolApparatus == 1 && l == uVolAoLabel && tAo >= uVolAoReach.x && tAo <= uVolAoReach.y;
-  if (aortic || (uVolApparatus == 1 && volHas(uVolHosts, l))) {
+  // in the trunk over the CT's pulmonary valve plane, the analytic pulmonary cusps (decision 375)
+  float tPv = dot(ref - uVolPvC, uVolPvN);
+  bool pulmonary = uVolApparatus == 1 && l == uVolPvLabel && tPv >= uVolAoReach.x && tPv <= uVolAoReach.y;
+  if (aortic || pulmonary || (uVolApparatus == 1 && volHas(uVolHosts, l))) {
     Sample s2;
     s2.segment = 0;
     s2.transmural = -1.0;
     // the mitral leaflets and their chords carried onto the CT's annulus (decision 374)
     vec3 qp = aortic ? uVolAoM * ref + uVolAoO
+      : pulmonary ? uVolPvM * ref + uVolPvO
       : uVolMvOn == 1 && volHas(uVolLeftHosts, l) ? volMitralWarp(ref, pH) : pH;
     if (classifyHeart(qp, s2) &&
         (aortic ? s2.structure == S_AV
+                : pulmonary ? s2.structure == S_PV
                 : (s2.structure == S_MV_ANT || s2.structure == S_MV_POST || s2.structure == S_TV || s2.structure == S_CHORDAE))) {
       s = s2;
       return true;
