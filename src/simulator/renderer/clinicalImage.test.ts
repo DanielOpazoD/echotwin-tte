@@ -200,11 +200,10 @@ const KNOWN_SURROUNDINGS_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['2CH-ES:side2EpiOverMid', -0.19],
   // The near field, 15 mm under the sector apex, brighter than clinical (128 against 83-122; 125 before decision 312,
   // at the edge), and at end-systole the lateral band (86 against 91-135; 80 before the lung's haze kept what it had at
-  // the heart's surface, decision 313), both pericardial peaks and the bright end of the far background dimmer; the
-  // two-chamber anterior pericardial peak a little brighter.
+  // the heart's surface, decision 313) and both pericardial peaks dimmer; the two-chamber anterior pericardial peak a
+  // little brighter. The bright end of the end-systolic far background came inside at decision 378.
   ['4CH-ED:nearFieldGrey', 0.15],
   ['4CH-ES:nearFieldGrey', 0.14],
-  ['4CH-ES:farBackgroundP99', -0.21],
   ['4CH-ES:side2BandGrey', -0.1],
   ['4CH-ES:side1EpicardialPeakGrey', -0.33],
   ['4CH-ES:side2EpicardialPeakGrey', -0.18],
@@ -238,8 +237,9 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // 1.38 → 1.58 two-chamber); the two-chamber correlation 1 mm along the beam comes closer (0.46/0.52 → 0.24) and
   // the four-chamber ones at 1 mm (end-diastole) and 4 mm (end-systole) inside; the end-systolic four-chamber texture 8
   // mm across the beam and the end-diastolic two-chamber one 4 mm along it step just outside (the four-chamber one
-  // −0.15 since decision 367, with the right atrium's lateral wall and its sac; −0.1 before)
-  ['4CH-ES:tangentialCorr8', -0.15],
+  // −0.15 since decision 367, with the right atrium's lateral wall and its sac; −0.1 before; −0.38 since decision 378,
+  // with the atrium's wall against its sac and the lung where fat stood)
+  ['4CH-ES:tangentialCorr8', -0.38],
   ['2CH-ED:radialCorr4', 0.24],
   // Decision 296: diffuse clutter loses coarse image-plane modulation; small residual texture/edge deficits. At decision
   // 312 the four-chamber end-diastolic edge came inside, the two-chamber end-systolic local std too, and the two-chamber
@@ -274,18 +274,21 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // septum.
   // sharper than clinical and drawn with thin bright lines, less so through the persistence (median gradient 2.2-2.9
   // quartile widths out before decision 258)
+  // decision 378: without the fat band around the right atrium its wall meets the pericardium and the lung, a sharper
+  // edge (0.71 before at end-systole), and the steepest end-systolic gradients step just outside (34.8 against 27-33.9)
   ['4CH-ED:gradientP50', 0.89],
-  ['4CH-ES:gradientP50', 0.71],
+  ['4CH-ES:gradientP50', 0.86],
+  ['4CH-ES:gradientP95', 0.12],
   ['2CH-ED:gradientP50', 1.32],
   ['2CH-ES:gradientP50', 0.76],
   // decision 317: with the shorter pulse the thin bright interfaces stand out more (0.71, 0.61, 0.96 and 0.53 widths
   // out before): the next target, with the lateral tail
   // decision 367: the right atrium's lateral wall rising from the tricuspid hinge draws one more interface along the
-  // beam at end-diastole (1.71 before)
-  ['4CH-ED:ridgeFraction', 1.86],
+  // beam at end-diastole (1.71 before); decision 378: the right atrium's wall on its sac, without the fat band (1.86 before)
+  ['4CH-ED:ridgeFraction', 2.17],
   // decision 370: the pulmonary veins' wall, thinned to 0.7 mm, draws a thin line in the four-chamber view at end-systole
-  // where the 1.2 mm arterial wall drew a band (1.67 before)
-  ['4CH-ES:ridgeFraction', 1.85],
+  // where the 1.2 mm arterial wall drew a band (1.67 before); decision 378, as at end-diastole (1.85 before)
+  ['4CH-ES:ridgeFraction', 2.32],
   // decision 321: the coronary sinus in the inferior atrioventricular groove adds its wall's specular line (1.6 before)
   ['2CH-ED:ridgeFraction', 2.35],
   // texture longer along the beam at 1 mm (0.34 against 0.20-0.23), less coherent across it at 2-4 mm in places, and

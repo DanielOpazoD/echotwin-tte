@@ -79,10 +79,10 @@ export function classifyPericardium(c: ClassifyCtx): boolean {
   // the atrium's own outer face (decision 273): a fixed ellipsoid 0.25 cm over its largest size, it left up to 1.7 cm of
   // fat behind the posterior wall, where the cavity is flattened and, at end-diastole, smaller
   const dLaEpi = c.laEpi;
-  const ra = A.raCenter,
-    rar = A.raR;
+  // the right atrium's outer face is its own wall's (decision 378), as the left's is: the anchor ellipsoid 0.22 cm over its
+  // largest size laid 8-10 cm³ of fat over its free walls, a layer 4 mm thick at the median and up to 1.6 cm, that the
+  // subcostal view showed as a band around the atrium
   const dRaEpi = Math.min(
-    sdEllipsoid(x, y, z, ra.x, ra.y, ra.z, rar.x + 0.22, rar.y + 0.22, rar.z + 0.22),
     raSleeve + 0.22, // the lengthened atrium over the vacated base (decision 133)
     raBody - 0.22, // the outer face of its body's wall, with the lateral wall over the tricuspid hinge (decision 367)
     c.raaEpi, // and its appendage (decision 323)
@@ -119,6 +119,8 @@ export function classifyPericardium(c: ClassifyCtx): boolean {
   // the effusion thins over the left atrium (decision 255), within the reach of its largest size: the oblique sinus
   const la = A.laCenter,
     lr = A.laR;
+  const ra = A.raCenter,
+    rar = A.raR;
   // and it lies in front of the descending aorta and the vertebral body, not across them (decision 273)
   const eff =
     hp.effusion > 0
@@ -126,7 +128,17 @@ export function classifyPericardium(c: ClassifyCtx): boolean {
           effusionAt(
             hp.effusion,
             sdEllipsoid(x, y, z, la.x, la.y, la.z, lr.x + 0.25, lr.y + 0.25, lr.z + 0.25),
-            Math.min(dLvEpi, dRvEpi, dRaEpi, dRvotEpi, dPaEpi),
+            // around the right atrium the effusion keeps the reach decision 255 set against its anchor ellipsoid 0.22 cm
+            // over its largest size, which the sac no longer follows (decision 378): measured from the wall, the taper
+            // over the left atrium folded the parietal layer into a 0.1 mL island inside the fluid
+            Math.min(
+              dLvEpi,
+              dRvEpi,
+              dRaEpi,
+              sdEllipsoid(x, y, z, ra.x, ra.y, ra.z, rar.x + 0.22, rar.y + 0.22, rar.z + 0.22),
+              dRvotEpi,
+              dPaEpi,
+            ),
           ),
           Math.max(0, dEpi + c.colDist - 2 * PERICARDIUM_CM),
         )

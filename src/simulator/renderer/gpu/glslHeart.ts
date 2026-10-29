@@ -1119,7 +1119,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float dFreeLa = smax(smax(dEllLa, la.y - LA_POSTERIOR_RATIO * lr.y * boL - y, 0.6), zTop + 0.15 * rzL - z, 0.5);
     // the body at the scale of the moment, without the hold: what the right atrium's release reads (decision 341)
     float dFreeLaNow = boL == bo ? dFreeLa : smax(smax(sdEllipsoid(p, vec3(la.x, la.y, czL), vec3(lr.x * bo, lr.y * bo, rzL)), la.y - LA_POSTERIOR_RATIO * lr.y * bo - y, 0.6), zTop + 0.15 * rzL - z, 0.5);
-    laEpi = min(dFreeLa - LA_WALL_CM, sdCapsule(p, vec3(la.x + lr.x * 0.55, la.y + lr.y * 0.55, czL + 0.4), vec3(la.x + lr.x * 0.95, la.y + lr.y * 0.55 + 2.0, czL + 0.9), 0.55 * bo) - LAA_WALL_CM);
+    laEpi = sdCapsule(p, vec3(la.x + lr.x * 0.55, la.y + lr.y * 0.55, czL + 0.4), vec3(la.x + lr.x * 0.95, la.y + lr.y * 0.55 + 2.0, czL + 0.9), 0.55 * bo) - LAA_WALL_CM; // the body's face below (decision 378)
     // the septal corner above the annulus belongs to the atrium (decision 318)
     // only toward the septum, where the atrium's own section reaches at this height
     vec3 pc = vec3(la.x, y, z);
@@ -1438,7 +1438,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float fw = RV_FW;
     float dRvEpi = dRvU - fw;
     float dLaEpi = laEpi;
-    float dRaEpi = min(min(min(sdEllipsoid(p, ra, rar + 0.22), raSleeve + 0.22), raBody - 0.22), raaEpi);
+    float dRaEpi = min(min(raSleeve + 0.22, raBody - 0.22), raaEpi); // the atrium's own wall (decision 378)
     // the sac around the outflow tract and the trunk stays where the pericardium is anchored (decision 111)
     vec3 rvotA = vec3(RVOT_AX, RVOT_AY, RVOT_AZ);
     vec3 rvotB = vec3(RVOT_BX, RVOT_BY, RVOT_BZ);
@@ -1447,7 +1447,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float dPaEpi = pulmonaryTrunkEpiDist(p);
     float dEpi = smax(smin(smin(smin(dLvEpi, dRvEpi, 0.8), smin(dLaEpi, dRaEpi, 0.8), 0.8), smin(dRvotEpi, dPaEpi, 0.8), 0.8), PERICARDIUM_CM - colDist, 0.2);
     // decision 255: the effusion thins over the left atrium
-    float eff = EFFUSION > 0.0 ? min(effusionAt(EFFUSION, sdEllipsoid(p, la, lr + 0.25), min(min(min(dLvEpi, dRvEpi), min(dRaEpi, dRvotEpi)), dPaEpi)), max(0.0, dEpi + colDist - 2.0 * PERICARDIUM_CM)) : 0.0;
+    float eff = EFFUSION > 0.0 ? min(effusionAt(EFFUSION, sdEllipsoid(p, la, lr + 0.25), min(min(min(dLvEpi, dRvEpi), min(min(dRaEpi, sdEllipsoid(p, ra, rar + 0.22)), dRvotEpi)), dPaEpi)), max(0.0, dEpi + colDist - 2.0 * PERICARDIUM_CM)) : 0.0; // the right atrium's reach of decision 255 (decision 378)
     vec3 nEpi = n0;
     if (dEpi < 0.0) {
       setSample(s, T_FAT, dEpi, nEpi, p, 0.0, S_EPI_FAT);

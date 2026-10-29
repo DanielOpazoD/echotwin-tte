@@ -111,6 +111,9 @@ const KNOWN_GREY_INVERSIONS: Record<string, string[]> = {
     'LvWallLateral>Pericardium',
     'LvWallAnterior>Pericardium',
   ],
+  // decision 378: the dilated atrium's sac follows its clipped wall, and the roof and lateral wall, now against the
+  // pericardium where fat stood, read over it as the other atria do
+  'hfref-severe-mr a4c @0': ['LaWall>Pericardium'],
   'hfref-severe-mr a2c @0': ['LaWall>Pericardium'],
   'hfref-severe-mr a2c @0.35': ['LaWall>Pericardium'],
   'inferior-rwma a4c @0': ['LaWall>Pericardium'],
@@ -129,6 +132,8 @@ const KNOWN_GREY_INVERSIONS: Record<string, string[]> = {
   'mvp-primary-mr a2c @0': ['LaWall>Pericardium'],
   'pulmonary-hypertension-rv a2c @0': ['LaWall>Pericardium'],
   'af-diastolic a2c @0': ['LaWall>Pericardium'],
+  'af-diastolic a2c @0.35': ['LaWall>Pericardium'],
+  'af-diastolic plax @0.35': ['LaWall>Pericardium'],
   'artifact-challenge a2c @0': [
     'LvCavity>=LvWallAnterior',
     'LvApex>Pericardium',
