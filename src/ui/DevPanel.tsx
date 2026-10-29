@@ -6,23 +6,15 @@ import {
   ANATOMY_CHOICES,
   IMAGE_FORMATION_CHOICES,
   RENDERER_BACKEND_CHOICES,
-  type AnatomyChoice,
   type ImageFormationChoice,
   type RendererBackendChoice,
 } from '@/simulator/core/protocol';
+import { ANATOMY_LABELS } from './anatomyLabels';
 
 const BACKEND_TITLES: Record<RendererBackendChoice, string> = {
   atlas: 'Caché de pose idéntica sobre la GPU (o la CPU si no hay WebGL2)',
   procedural: 'Trazador de referencia en CPU',
   webgl2: 'Trazador en GPU (WebGL2); vuelve al procedimental si no está disponible',
-};
-
-const ANATOMY_LABELS: Record<AnatomyChoice, [string, string]> = {
-  analytic: ['analítica', 'El corazón del modelo analítico (por omisión)'],
-  rodero: [
-    'Rodero (experimental)',
-    'El corazón medio de Rodero et al. 2021 (TC, CC BY 4.0) movido por el ciclo del caso, en la CPU y en la GPU',
-  ],
 };
 
 const IMAGE_FORMATION_LABELS: Record<ImageFormationChoice, [string, string]> = {
@@ -140,9 +132,9 @@ export function DevPanel() {
             className={s.anatomy === a ? 'active' : ''}
             aria-pressed={s.anatomy === a}
             onClick={() => s.setAnatomy(a)}
-            data-tip={ANATOMY_LABELS[a][1]}
+            data-tip={ANATOMY_LABELS[a].tip}
           >
-            {ANATOMY_LABELS[a][0]}
+            {ANATOMY_LABELS[a].panel}
           </button>
         ))}
       </div>

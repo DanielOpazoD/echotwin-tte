@@ -64,6 +64,43 @@ describe('TopBar', () => {
   });
 });
 
+describe('TopBar: the heart and the notes at hand (decision 376)', () => {
+  it('switches the heart between the analytic one and Rodero', () => {
+    seed('sandbox');
+    render(<TopBar />);
+    const heart = within(screen.getByRole('group', { name: 'Corazón' }));
+    expect(heart.getByRole('button', { name: 'Analítico' }).getAttribute('aria-pressed')).toBe(
+      'true',
+    );
+    act(() => heart.getByRole('button', { name: 'Rodero' }).click());
+    expect(useSimStore.getState().anatomy).toBe('rodero');
+    expect(heart.getByRole('button', { name: 'Rodero' }).getAttribute('aria-pressed')).toBe('true');
+    act(() => heart.getByRole('button', { name: 'Analítico' }).click());
+    expect(useSimStore.getState().anatomy).toBe('analytic');
+  });
+
+  it('turns the review mode and its notes on and off, opening and leaving its tab', () => {
+    seed('sandbox');
+    render(<TopBar />);
+    const notes = screen.getByRole('button', { name: 'Notas' });
+    expect(notes.getAttribute('aria-pressed')).toBe('false');
+    act(() => notes.click());
+    expect(useSimStore.getState().ui.reviewMode).toBe(true);
+    expect(useSimStore.getState().ui.consoleTab).toBe('revisar');
+    expect(screen.getByRole('button', { name: 'Notas' }).getAttribute('aria-pressed')).toBe('true');
+    act(() => screen.getByRole('button', { name: 'Notas' }).click());
+    expect(useSimStore.getState().ui.reviewMode).toBe(false);
+    expect(useSimStore.getState().ui.consoleTab).toBe('adquirir');
+  });
+
+  it('shows neither in exam mode, where the developer tools are closed', () => {
+    seed('exam');
+    render(<TopBar />);
+    expect(screen.queryByRole('group', { name: 'Corazón' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Notas' })).toBeNull();
+  });
+});
+
 describe('ReportSections', () => {
   it('switches between the case, the curriculum and the progress', () => {
     seed('sandbox');
