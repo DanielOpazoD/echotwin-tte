@@ -20,6 +20,8 @@ export const VIEW_BACKGROUND = new Set<Structure>([
   Structure.Pericardium,
   Structure.PericardialEffusion,
   Structure.DescendingAorta,
+  Structure.Esophagus,
+  Structure.Mediastinum,
   Structure.None,
 ]);
 

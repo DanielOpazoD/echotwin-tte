@@ -130,6 +130,8 @@ export function enumDefinesGlsl(): string {
     S_LAA: Structure.LaAppendage,
     S_RAA: Structure.RaAppendage,
     S_AM_CURTAIN: Structure.AortomitralCurtain,
+    S_ESOPH: Structure.Esophagus,
+    S_MEDIAST: Structure.Mediastinum,
     S_PVEIN: Structure.PulmonaryVein,
     S_CS: Structure.CoronarySinus,
     S_PA: Structure.PulmonaryArtery,

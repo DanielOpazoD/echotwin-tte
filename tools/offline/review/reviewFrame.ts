@@ -102,6 +102,8 @@ export const MAP_LABELS: Partial<Record<Structure, string>> = {
   [Structure.LaAppendage]: 'OREJUELA I',
   [Structure.RaAppendage]: 'OREJUELA D',
   [Structure.AortomitralCurtain]: 'CORTINA',
+  [Structure.Esophagus]: 'ESOFAGO',
+  [Structure.Mediastinum]: 'MEDIASTINO',
   [Structure.PulmonaryVein]: 'V PULMONAR',
   [Structure.CoronarySinus]: 'SENO COR',
   [Structure.PulmonaryArtery]: 'AP',
