@@ -483,9 +483,11 @@ export function classifyAtria(c: ClassifyCtx): boolean {
     boL === bo
       ? dFreeLa
       : leftAtrialFreeSdf(x, y, z, la.x, la.y, czL, lr.x * bo, lr.y * bo, rzL, zTop);
-  // the atrium's epicardium, for the pericardial sac: the outer face of its wall and of the appendage's (decision 273)
-  c.laEpi = Math.min(
-    dFreeLa - LA_WALL_CM,
+  // the atrium's epicardium, for the pericardial sac: the outer face of the appendage's wall here, and of the body's below,
+  // once its clips are known (decision 273). The unclipped ellipsoid's face counted too, and over the dilated atrium of the
+  // HFrEF, flattened on the aorta and under the bifurcation, it left 11.5 cm³ of fat, 5 mm thick at the median (decision
+  // 378)
+  c.laEpi =
     sdCapsule(
       x,
       y,
@@ -497,8 +499,7 @@ export function classifyAtria(c: ClassifyCtx): boolean {
       la.y + lr.y * 0.55 + 2.0,
       czL + 0.9,
       0.55 * bo,
-    ) - LAA_WALL_CM,
-  );
+    ) - LAA_WALL_CM;
   // The corner between the septum and the annulus belongs to the atrium (decision 318): its medial wall is the septum
   // down to the septal hinge of the mitral valve. As an ellipsoid it curved away from both toward the annulus, and the
   // oblique four-chamber cut showed the gap as a wedge of wall, fat and ventricular overhang under the hinge.

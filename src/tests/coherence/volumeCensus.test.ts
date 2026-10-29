@@ -44,7 +44,9 @@ import {
  * right ventricular wall ends at the
  * tricuspid hinge and the atrium's lateral wall rises from it (decision 367; the wall rose up to 8.6 mm past the hinge,
  * 1.93 mL, and reads 0.26 mL now, under the census's threshold), the groove fat by the inferior vena cava reads 0.73 mL
- * (0.47).
+ * (0.47). Since the right atrium's sac follows its own wall (decision 378), the fat that its anchor ellipsoid laid between
+ * it and the superior vena cava (0.59 mL) is gone, and the pericardium there and beside the coronary sinus and the root
+ * reads as a little more gap: 0.38, 0.16 and 0.12 mL (0.21, 0.10 and 0.08).
  */
 const KNOWN_VOLUME_CENSUS: Record<string, number> = {
   'rodero AI|RAo hueco': 0.47,
@@ -62,7 +64,7 @@ const KNOWN_VOLUME_CENSUS: Record<string, number> = {
   'analytic AI|AD grasa': 0.35,
   'analytic AI|AD tabique': 6.0,
   'analytic AD|VD hueco': 0.08,
-  'analytic AI|RAo hueco': 0.08,
+  'analytic AI|RAo hueco': 0.12,
   'analytic AI|RAo grasa': 0.51,
   'analytic AD|RAo hueco': 0.24,
   'analytic AD|RAo grasa': 0.18,
@@ -70,11 +72,10 @@ const KNOWN_VOLUME_CENSUS: Record<string, number> = {
   'analytic VD|TP grasa': 0.6,
   'analytic AI|VP hueco': 0.62,
   'analytic AI|VP grasa': 1.14,
-  'analytic AD|VCS hueco': 0.21,
-  'analytic AD|VCS grasa': 0.59,
+  'analytic AD|VCS hueco': 0.38,
   'analytic AD|VCI hueco': 0.26,
   'analytic AD|VCI grasa': 0.73,
-  'analytic AD|SC hueco': 0.1,
+  'analytic AD|SC hueco': 0.16,
   'analytic AD|SC grasa': 0.49,
 };
 /** A declared figure may grow this much before the test fails: a quarter for volumes and areas, half a millimetre for thicknesses. */
