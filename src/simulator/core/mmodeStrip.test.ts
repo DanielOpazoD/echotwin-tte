@@ -538,7 +538,9 @@ describe('M-mode strip through the simulator (decision 84)', () => {
   });
 
   it('a line four times finer than the frame keeps, tissue by tissue, the levels of the same line sampled like a frame', () => {
-    // Levels are compared inside tissue runs over the whole sector and five phases: one line alone holds a single speckle
+    // Levels are compared inside tissue runs, tissue by tissue within each structure (decision 377: pooled by tissue, the
+    // thin bright fat of the chest wall, which the finer line's runs keep more often, and the deep mediastinal fat, once it
+    // had a name, read 2.7 dB apart; each alone reads within 0.5 dB), over the whole sector and five phases: one line alone holds a single speckle
     // realisation of still tissue (four phases left the mediastinal fat 15 samples short of the 300 the comparison
     // asks for once the apical probe of decision 139 put lung on the edge lines). Interface peaks are not compared here: the frame merges the two surfaces of a thin
     // membrane that the finer line resolves (psf.test.ts checks a single interface).
@@ -591,25 +593,26 @@ describe('M-mode strip through the simulator (decision 84)', () => {
         renderer.renderMmodeLine(scene, beam, spec, fine, th, p * 31 + k, b.amp, b.st, b.tr, b.ti);
         for (let i = 0; i < spec.samples; i++)
           if (inside(a, spec.samples, i, 2)) {
-            const e = power.get(a.ti[i]!) ?? [0, 0, 0, 0];
+            const e = power.get(a.ti[i]! * 256 + a.st[i]!) ?? [0, 0, 0, 0];
             e[0] += a.amp[i]! ** 2;
             e[1]++;
-            power.set(a.ti[i]!, e);
+            power.set(a.ti[i]! * 256 + a.st[i]!, e);
           }
         for (let i = 0; i < fine; i++)
           if (inside(b, fine, i, 8)) {
-            const e = power.get(b.ti[i]!) ?? [0, 0, 0, 0];
+            const e = power.get(b.ti[i]! * 256 + b.st[i]!) ?? [0, 0, 0, 0];
             e[2] += b.amp[i]! ** 2;
             e[3]++;
-            power.set(b.ti[i]!, e);
+            power.set(b.ti[i]! * 256 + b.st[i]!, e);
           }
       }
     }
     const compared: string[] = [];
-    for (const [tissue, [pa, na, pb, nb]] of power) {
+    for (const [key, [pa, na, pb, nb]] of power) {
       if (na < 300 || nb < 1000) continue;
-      compared.push(String(tissue));
-      expect(Math.abs(10 * Math.log10(pb / nb / (pa / na))), `tissue ${tissue}`).toBeLessThan(1);
+      const which = `tissue ${key >> 8} of structure ${key & 255}`;
+      compared.push(which);
+      expect(Math.abs(10 * Math.log10(pb / nb / (pa / na))), which).toBeLessThan(1);
     }
     expect(compared.length).toBeGreaterThanOrEqual(4);
   });

@@ -148,6 +148,8 @@ export const STRUCTURE_LABELS: Record<number, string> = {
   [Structure.LaAppendage]: 'orejuela izquierda',
   [Structure.RaAppendage]: 'orejuela derecha',
   [Structure.AortomitralCurtain]: 'cortina aortomitral',
+  [Structure.Esophagus]: 'esófago',
+  [Structure.Mediastinum]: 'grasa del mediastino',
   [Structure.PulmonaryVein]: 'vena pulmonar',
   [Structure.CoronarySinus]: 'seno coronario',
   [Structure.PulmonaryArtery]: 'arteria pulmonar',

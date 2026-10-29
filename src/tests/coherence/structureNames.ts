@@ -54,4 +54,6 @@ export const STRUCTURE_NAME: Record<number, string> = {
   51: 'LeftSubclavian',
   52: 'RaAppendage',
   53: 'AortomitralCurtain',
+  54: 'Esophagus',
+  55: 'Mediastinum',
 };

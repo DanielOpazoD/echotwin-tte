@@ -210,6 +210,10 @@ export const enum Structure {
   RaAppendage,
   /** The aortomitral curtain of the volume heart: the fibrous sheet between the left atrium and the outflow (decision 371). */
   AortomitralCurtain,
+  /** The esophagus in the posterior mediastinum, behind the left atrium (decision 377). */
+  Esophagus,
+  /** The mediastinum's fat around the heart and the great vessels (decision 377); it had no name. */
+  Mediastinum,
 }
 
 export function makeSample(): TissueSample {

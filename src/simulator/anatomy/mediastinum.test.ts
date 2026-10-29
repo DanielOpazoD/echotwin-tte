@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { classifyThorax, createThoraxModel, mediastinumDistance } from './thoraxModel';
-import { makeSample, Tissue } from './tissue';
+import {
+  classifyThorax,
+  createThoraxModel,
+  ESOPHAGUS_RZ,
+  ESOPHAGUS_X,
+  ESOPHAGUS_Z,
+  mediastinumDistance,
+} from './thoraxModel';
+import { makeSample, Structure, Tissue } from './tissue';
 import { loadCaseById } from '@/cases';
 
 /**
@@ -52,5 +59,37 @@ describe('mediastinum', () => {
     // within the pericardial fat pad it is never lung
     expect(classifyThorax(thorax, 1.5, 0, -8, s, 0.1)).toBe(true);
     expect(s.tissue).not.toBe(Tissue.Lung);
+  });
+
+  it('names every soft tissue it draws: the esophagus behind the left atrium and the mediastinum (decision 377)', () => {
+    const c = loadCaseById('normal-excellent-window');
+    const thorax = createThoraxModel(c.bodyHabitus, c.acousticWindow, {
+      position: 'left-lateral',
+      respiration: 'expiration',
+      headElevationDeg: 0,
+    });
+    const s = makeSample();
+    // the esophagus at every height above the diaphragm: a muscular wall around a bright mucosa
+    for (const y of [-2, 0, 2, 4, 8]) {
+      expect(classifyThorax(thorax, ESOPHAGUS_X, y, ESOPHAGUS_Z, s, 1)).toBe(true);
+      expect(s.structure).toBe(Structure.Esophagus);
+      expect(s.tissue).toBe(Tissue.Fibrous);
+      expect(classifyThorax(thorax, ESOPHAGUS_X, y, ESOPHAGUS_Z + 0.8 * ESOPHAGUS_RZ, s, 1)).toBe(
+        true,
+      );
+      expect(s.structure).toBe(Structure.Esophagus);
+      expect(s.tissue).toBe(Tissue.Muscle);
+    }
+    // nothing inside the body is fat without a name: the mediastinum's fat carries one ('outside the model' in the review)
+    let fat = 0;
+    for (let x = -8; x <= 8; x += 0.5)
+      for (let y = -8; y <= 10; y += 0.5)
+        for (let z = -20; z <= -2; z += 0.5)
+          for (const heartDist of [0.1, 1, 3]) {
+            if (!classifyThorax(thorax, x, y, z, s, heartDist) || s.tissue !== Tissue.Fat) continue;
+            fat++;
+            expect(s.structure, `fat at (${x}, ${y}, ${z})`).not.toBe(Structure.None);
+          }
+    expect(fat).toBeGreaterThan(1000);
   });
 });

@@ -354,6 +354,19 @@ export const SPINE_R = 2.2;
 /** Centre (torso z) of the posterior mediastinal column behind the left atrium (decision 150). */
 export const POSTERIOR_MEDIASTINUM_Z = -15.5;
 /**
+ * The esophagus (decision 377): a collapsed muscular tube in the posterior mediastinum, behind the left atrium and in
+ * front of the vertebral body, right of the descending aorta. Its centre (torso x, z, cm, carried with the posterior
+ * column), its lateral and anteroposterior half-axes (cm; collapsed, 2.0 × 1.5 cm), and the share of them its mucosa
+ * fills, a bright line in its middle. Between the left atrium's pericardium (12.5 cm deep in the normal) and the vertebral
+ * body (15.1) the posterior mediastinum was 2.3 cm of fat with no name, brighter than muscle: the reviewer read it as an
+ * artefact; a dilated atrium flattens it, as in life.
+ */
+export const ESOPHAGUS_X = 0;
+export const ESOPHAGUS_Z = -13.9;
+export const ESOPHAGUS_RX = 1.0;
+export const ESOPHAGUS_RZ = 0.75;
+export const ESOPHAGUS_MUCOSA = 0.3;
+/**
  * Posterior mediastinal fat around the descending aorta, reaching forward to the pericardium behind the left atrium: the
  * lung wraps the aorta laterally and behind, and does not come between it and the atrium (the oesophagus and fat lie
  * there). In the transverse plane, the aorta's disk widened by `DESC_AORTA_SLEEVE` and drawn forward by
@@ -601,6 +614,26 @@ export function classifyThorax(
       return true;
     }
   }
+  // the esophagus behind the left atrium (decision 377): muscular wall, mucosa in its middle
+  {
+    const ex = (x - ESOPHAGUS_X) / ESOPHAGUS_RX,
+      ez = (z - ESOPHAGUS_Z - t.columnShiftCm) / ESOPHAGUS_RZ;
+    const e = Math.sqrt(ex * ex + ez * ez);
+    if (e < 1) {
+      const mucosa = e < ESOPHAGUS_MUCOSA;
+      out.tissue = mucosa ? Tissue.Fibrous : Tissue.Muscle;
+      out.structure = Structure.Esophagus;
+      out.sdf =
+        (mucosa ? Math.max(e - ESOPHAGUS_MUCOSA, -e) : Math.max(e - 1, ESOPHAGUS_MUCOSA - e)) *
+        ESOPHAGUS_RZ;
+      const gx = ex / ESOPHAGUS_RX,
+        gz = ez / ESOPHAGUS_RZ;
+      const gl = Math.sqrt(gx * gx + gz * gz) || 1;
+      out.nx = gx / gl;
+      out.nz = gz / gl;
+      return true;
+    }
+  }
   // Lungs: lateral to the cardiac notch borders (the acoustic windows), and everywhere beyond the pericardial fat pad and
   // the corridor under the chest wall that is not mediastinum (decision 150), except under the heart, which rests on the
   // diaphragm (decision 229)
@@ -616,9 +649,9 @@ export function classifyThorax(
     out.nz = 1;
     return true;
   }
-  // Mediastinal soft tissue / fat
+  // the mediastinum's fat, named (decision 377): it read «outside the model» in the review
   out.tissue = Tissue.Fat;
-  out.structure = Structure.None;
+  out.structure = Structure.Mediastinum;
   out.sdf = -1;
   return true;
 }

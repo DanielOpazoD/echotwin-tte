@@ -12,6 +12,11 @@ import {
   DIAPHRAGM_MAP_N,
   DIAPHRAGM_MAP_NONE_CM,
   UNDERSIDE_FAT_CM,
+  ESOPHAGUS_X,
+  ESOPHAGUS_Z,
+  ESOPHAGUS_RX,
+  ESOPHAGUS_RZ,
+  ESOPHAGUS_MUCOSA,
 } from '@/simulator/anatomy/thoraxModel';
 
 const f = (v: number): string => (Number.isInteger(v) ? `${v}.0` : `${v}`);
@@ -28,6 +33,11 @@ const float FASCIA_HALF_CM = ${f(FASCIA_HALF_CM)};
 const int DM_N = ${DIAPHRAGM_MAP_N};
 const float DM_NONE = ${f(DIAPHRAGM_MAP_NONE_CM)};
 const float UNDERSIDE_FAT_CM = ${f(UNDERSIDE_FAT_CM)};
+const float ESOPHAGUS_X = ${f(ESOPHAGUS_X)};
+const float ESOPHAGUS_Z = ${f(ESOPHAGUS_Z)};
+const float ESOPHAGUS_RX = ${f(ESOPHAGUS_RX)};
+const float ESOPHAGUS_RZ = ${f(ESOPHAGUS_RZ)};
+const float ESOPHAGUS_MUCOSA = ${f(ESOPHAGUS_MUCOSA)};
 float skinZ(float x, float y) {
   float ax = min(abs(x) / TH_AW, 0.999);
   float inner = 1.0 - pow(ax, TH_N);
@@ -135,6 +145,20 @@ bool classifyThorax(vec3 p, out Sample s, float heartDist) {
     if (d < 0.0) { s.tissue = T_BLOOD; s.structure = S_DESC_AO; s.sdf = d; s.n = vec3(dx / ra, 0.0, dz / ra); return true; }
     if (d < DESC_AORTA_WALL) { s.tissue = T_VESSEL; s.structure = S_DESC_AO; s.sdf = -min(d, DESC_AORTA_WALL - d); s.n = vec3(dx / ra, 0.0, dz / ra); return true; }
   }
+  // decision 377: the esophagus behind the left atrium, muscular wall and mucosa
+  {
+    float ex = (x - ESOPHAGUS_X) / ESOPHAGUS_RX, ez = (z - ESOPHAGUS_Z - TH_COL_SHIFT) / ESOPHAGUS_RZ;
+    float e = sqrt(ex * ex + ez * ez);
+    if (e < 1.0) {
+      bool mucosa = e < ESOPHAGUS_MUCOSA;
+      s.tissue = mucosa ? T_FIBROUS : T_MUSCLE; s.structure = S_ESOPH;
+      s.sdf = (mucosa ? max(e - ESOPHAGUS_MUCOSA, -e) : max(e - 1.0, ESOPHAGUS_MUCOSA - e)) * ESOPHAGUS_RZ;
+      vec2 gr = vec2(ex / ESOPHAGUS_RX, ez / ESOPHAGUS_RZ);
+      float gl = length(gr);
+      s.n = gl > 0.0 ? vec3(gr.x / gl, 0.0, gr.y / gl) : vec3(0.0, 0.0, 1.0);
+      return true;
+    }
+  }
   bool lungL = x > leftLungBorderX(y);
   bool lungR = x < rightLungBorderX();
 
@@ -144,7 +168,7 @@ bool classifyThorax(vec3 p, out Sample s, float heartDist) {
   bool outsideMediastinum = mediastinumDistance(x, y, z - TH_COL_SHIFT) > 0.0;
   bool aroundHeart = heartDist > PERICARDIAL_FAT_CM && depth > T + ANTERIOR_CORRIDOR_CM;
   if ((lungL || lungR || aroundHeart) && outsideMediastinum && !isUnderHeart(x, y, z)) { s.tissue = T_LUNG; s.structure = S_LUNG; s.sdf = -1.0; s.n = vec3(0.0, 0.0, 1.0); return true; }
-  s.tissue = T_FAT; s.structure = S_NONE; s.sdf = -1.0;
+  s.tissue = T_FAT; s.structure = S_MEDIAST; s.sdf = -1.0;
   return true;
 }
 `;
