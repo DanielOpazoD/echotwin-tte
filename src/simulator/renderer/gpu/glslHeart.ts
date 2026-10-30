@@ -1452,6 +1452,9 @@ bool classifyHeart(vec3 p0, out Sample s) {
   // ---------- pericardium & effusion ----------
   {
     float dLvEpi = dEllR - wallT - crestLoss;
+    // decision 380: the ventricle's epicardium ends at its base, but around the root
+    float rootGap = rootT > -90.0 ? rootRr - rootR : 1e3;
+    float dLvSac = smax(dLvEpi, min(zHinge - LV_SAC_ABOVE_HINGE_CM - z, rootGap - LV_SAC_ROOT_KEEP_CM), 0.2);
     float fw = RV_FW;
     float dRvEpi = dRvU - fw;
     float dLaEpi = laEpi;
@@ -1462,7 +1465,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     vec3 paEnd = vec3(PA_EX, PA_EY, PA_EZ);
     float dRvotEpi = sdCapsule(p, rvotA, rvotB, RVOT_RA + fw);
     float dPaEpi = pulmonaryTrunkEpiDist(p);
-    float dEpi = smax(smin(smin(smin(dLvEpi, dRvEpi, 0.8), smin(dLaEpi, dRaEpi, 0.8), 0.8), smin(dRvotEpi, dPaEpi, 0.8), 0.8), PERICARDIUM_CM - colDist, 0.2);
+    float dEpi = smax(smin(smin(smin(dLvSac, dRvEpi, 0.8), smin(dLaEpi, dRaEpi, 0.8), 0.8), smin(dRvotEpi, dPaEpi, 0.8), 0.8), PERICARDIUM_CM - colDist, 0.2);
     // decision 255: the effusion thins over the left atrium
     float eff = EFFUSION > 0.0 ? min(effusionAt(EFFUSION, sdEllipsoid(p, la, lr + 0.25), min(min(min(dLvEpi, dRvEpi), min(min(dRaEpi, sdEllipsoid(p, ra, rar + 0.22)), dRvotEpi)), dPaEpi)), max(0.0, dEpi + colDist - 2.0 * PERICARDIUM_CM)) : 0.0; // the right atrium's reach of decision 255 (decision 378)
     vec3 nEpi = n0;

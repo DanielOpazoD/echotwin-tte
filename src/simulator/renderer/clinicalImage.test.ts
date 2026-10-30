@@ -240,6 +240,11 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // −0.15 since decision 367, with the right atrium's lateral wall and its sac; −0.1 before; −0.38 since decision 378,
   // with the atrium's wall against its sac and the lung where fat stood)
   ['4CH-ES:tangentialCorr8', -0.38],
+  // decision 380: without the fat wedge beside the left atrium's lateral wall, the four-chamber texture at 4 mm steps just
+  // outside, across the beam at end-diastole (0.087 against 0.096-0.187) and along it at end-systole (−0.058 against
+  // −0.054 to −0.014)
+  ['4CH-ED:tangentialCorr4', -0.1],
+  ['4CH-ES:radialCorr4', -0.1],
   ['2CH-ED:radialCorr4', 0.24],
   // Decision 296: diffuse clutter loses coarse image-plane modulation; small residual texture/edge deficits. At decision
   // 312 the four-chamber end-diastolic edge came inside, the two-chamber end-systolic local std too, and the two-chamber

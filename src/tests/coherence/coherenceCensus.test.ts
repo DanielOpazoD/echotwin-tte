@@ -133,8 +133,12 @@ const KNOWN_GREY_INVERSIONS: Record<string, string[]> = {
   'pulmonary-hypertension-rv a2c @0': ['LaWall>Pericardium'],
   'af-diastolic a2c @0': ['LaWall>Pericardium'],
   'af-diastolic a2c @0.35': ['LaWall>Pericardium'],
-  'af-diastolic plax @0.35': ['LaWall>Pericardium'],
+  // decision 380: without the ventricle's cap above the hinge the left atrium's lateral wall meets the pericardium where
+  // the groove's fat stood, as it does over the roof (and in the PLAX of the AF case at end-systole the fat it read
+  // against is gone, and with it the inversion)
+  'aortic-stenosis-moderate a4c @0.35': ['LaWall>Pericardium'],
   'artifact-challenge a2c @0': [
+    'LaWall>Pericardium',
     'LvCavity>=LvWallAnterior',
     'LvApex>Pericardium',
     'LvWallSeptal>Pericardium',
