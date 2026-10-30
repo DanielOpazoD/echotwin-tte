@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 380 (última: 380).
+Decisiones: 381 (última: 381).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -388,3 +388,4 @@ Decisiones: 380 (última: 380).
 | [378](DECISIONS.md#L3508) | 2026-10-24 | La grasa epicárdica sobre las aurículas es una capa fina | vigente |
 | [379](DECISIONS.md#L3527) | 2026-10-24 | El vestíbulo de la AD llega al anillo, con su pared | vigente |
 | [380](DECISIONS.md#L3543) | 2026-10-24 | La cara epicárdica del VI termina en su base, y junto a la pared lateral de la AI no queda una cuña de grasa | vigente |
+| [381](DECISIONS.md#L3561) | 2026-10-30 | La pared lateral de la AI no se alza como una aleta sobre el techo | vigente |

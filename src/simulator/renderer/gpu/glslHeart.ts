@@ -1181,8 +1181,8 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float holdShare = atSinuses && rootOuter < LA_ROOT_NEAR_CM ? raReach : 1.0;
     float frontClear = min(rootClearFaceLine, xFace + RA_LA_MIN_CM * holdShare - x);
     float faceKeep = rootClearFaceLine > 0.0 ? xFace - x : -1e3;
-    // decision 366: the lateral wall stands on the lateral hinge
-    float dLatWall = laLateralWallSdf(x, y, zHinge - z, (czL - z) / rzL, la.x, MVL_CX + MVL_R + LA_LATERAL_HINGE_CM, MVL_CY + LA_LATERAL_WALL_AHEAD_CM, LA_LATERAL_WALL_HOLD, LA_LATERAL_WALL_TOP);
+    // decision 366: the lateral wall stands on the lateral hinge; above its top it adds nothing (decision 381)
+    float dLatWall = max(laLateralWallSdf(x, y, zHinge - z, (czL - z) / rzL, la.x, MVL_CX + MVL_R + LA_LATERAL_HINGE_CM, MVL_CY + LA_LATERAL_WALL_AHEAD_CM, LA_LATERAL_WALL_HOLD, LA_LATERAL_WALL_TOP), czL - LA_LATERAL_WALL_TOP * rzL - z);
     float dBodyPost = smin(smin(dFreeLa, dPost, 0.6), dLatWall, laLateralWallBlend(zHinge - z));
     float dLaBody = max(max(max(min(min(dBodyPost, dCorner), min(dFossaLa, dFlat)), tPost), frontClear), faceKeep);
     laEpi = min(laEpi, dLaBody - LA_WALL_CM);
