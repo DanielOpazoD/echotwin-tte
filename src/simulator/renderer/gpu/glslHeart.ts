@@ -997,6 +997,9 @@ bool classifyHeart(vec3 p0, out Sample s) {
     }
   }
 
+#ifndef VOLUME_HEART
+  // over a volume heart only the valve apparatus above is asked for: the chambers below stay out of that variant, whose
+  // pass A SwiftShader leaves empty past its size (decisions 375 and 381)
   // ---------- LV cavity & wall ----------
   float az = atan(y, x);
   float levelFrac = clamp((z - zAnn) / max(LENGTH_NOW, 1.0), 0.0, 1.0);
@@ -1493,6 +1496,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float dTrunkFront = trunkFrontDist(p, dPaEpi);
     s.sdf = min(min(min(dSac, dRoot), vascularDistance), dTrunkFront);
   }
+#endif
   return false;
 }
 `;
