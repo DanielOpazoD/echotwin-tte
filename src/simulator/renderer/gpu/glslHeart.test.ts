@@ -77,3 +77,50 @@ describe('GLSL heart classifier wiring', () => {
     }
   });
 });
+
+/** The source as the preprocessor leaves it with `defines` set (#ifdef, #ifndef, #else and #endif, nested). */
+function preprocess(glsl: string, defines: Set<string>): string {
+  const keep: boolean[] = [];
+  const out: string[] = [];
+  for (const line of glsl.split('\n')) {
+    const d = line.match(/^\s*#(ifdef|ifndef|else|endif)\b\s*(\w+)?/);
+    if (d) {
+      if (d[1] === 'ifdef') keep.push(defines.has(d[2]!));
+      else if (d[1] === 'ifndef') keep.push(!defines.has(d[2]!));
+      else if (d[1] === 'else') keep.push(!keep.pop()!);
+      else keep.pop();
+      continue;
+    }
+    if (keep.every(Boolean)) out.push(line);
+  }
+  return out.join('\n');
+}
+
+describe('the volume variant of pass A carries only the valve apparatus of the analytic heart', () => {
+  // Over a volume heart the analytic classifier is asked for leaflets, cusps and chords only (glslVolumeHeart.ts); its
+  // chambers stay out of that variant, whose pass A SwiftShader leaves empty past its size: a second copy of the arch's
+  // loop did it at decision 375, and the left atrial lateral wall's top at decision 381 (structure agreement 0 in the
+  // CI's Rodero comparisons)
+  const APPARATUS = new Set([
+    'S_MV_ANT',
+    'S_MV_POST',
+    'S_AV',
+    'S_PV',
+    'S_CHORDAE',
+    'S_MV_ANN',
+    'S_TV_ANN',
+  ]);
+  const structuresOf = (glsl: string) => {
+    const src = stripComments(glsl);
+    const start = src.indexOf('bool classifyHeart(');
+    return new Set(src.slice(start).match(/\bS_[A-Z0-9_]+\b/g) ?? []);
+  };
+  it('without the volume every chamber is drawn', () => {
+    const all = structuresOf(preprocess(GLSL_HEART, new Set()));
+    expect([...all].filter((n) => !APPARATUS.has(n)).length).toBeGreaterThan(10);
+  });
+  it('with it, nothing but the apparatus', () => {
+    const vol = structuresOf(preprocess(GLSL_HEART, new Set(['VOLUME_HEART'])));
+    expect([...vol].filter((n) => !APPARATUS.has(n)).sort()).toEqual([]);
+  });
+});

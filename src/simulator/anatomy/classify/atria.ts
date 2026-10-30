@@ -661,17 +661,21 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   const holdShare = atSinuses && rootOuter < LA_ROOT_NEAR_CM ? raReach : 1;
   const frontClear = Math.min(rootClearFaceLine, xFace + RA_LA_MIN_CM * holdShare - x);
   const faceKeep = rootClearFaceLine > 0 ? xFace - x : -1e3;
-  // the lateral wall stands on the lateral hinge (decision 366)
-  const dLatWall = laLateralWallSdf(
-    x,
-    y,
-    c.zHinge - z,
-    (czL - z) / rzL,
-    la.x,
-    mvA.cx + mvA.R + LA_LATERAL_HINGE_CM,
-    mvA.cy + LA_LATERAL_WALL_AHEAD_CM,
-    LA_LATERAL_WALL_HOLD,
-    LA_LATERAL_WALL_TOP,
+  // the lateral wall stands on the lateral hinge (decision 366), and above its top adds nothing: there its fill, narrowed
+  // to the body's centre, is a sheet of zero width whose wall stood as a fin 4 mm thick over the roof (decision 381)
+  const dLatWall = Math.max(
+    laLateralWallSdf(
+      x,
+      y,
+      c.zHinge - z,
+      (czL - z) / rzL,
+      la.x,
+      mvA.cx + mvA.R + LA_LATERAL_HINGE_CM,
+      mvA.cy + LA_LATERAL_WALL_AHEAD_CM,
+      LA_LATERAL_WALL_HOLD,
+      LA_LATERAL_WALL_TOP,
+    ),
+    czL - LA_LATERAL_WALL_TOP * rzL - z,
   );
   // (united after the body's blend with the posterior prism: inside that blend, the wall's distance near its floor swelled
   // the dilated atria over the hinge)

@@ -32,6 +32,8 @@ const KNOWN_ATLAS_POSITIONS: Record<string, string> = {
     'the atrium meets the septum flat (decision 327), and the septum does not count as atrial wall in this census: its wall centroid 0.05 cm past the 90th percentile toward the lateral wall',
   'normal-difficult-window:leftAtrium.z':
     'the same: its wall centroid 0.1 cm toward the base of the 90th percentile',
+  'normal-difficult-window:leftAtrium.x':
+    'the same: its wall centroid 0.024 LV lengths past the 90th percentile toward the lateral wall since the fin of wall over the roof went (decision 381)',
   'normal-excellent-window:leftAtrium.z': 'and 0.01 cm toward the apex of the 90th percentile',
   'normal-excellent-window:pulmonaryValve.y': '0.01 cm behind the 10th percentile',
   'normal-difficult-window:leftAtrium.y':

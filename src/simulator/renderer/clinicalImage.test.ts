@@ -230,8 +230,9 @@ const KNOWN_GEOMETRY_DEVIATIONS: ReadonlyMap<string, number> = new Map([
  */
 const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // the left atrium held on the aortic root (decision 341) moves the two-chamber end-diastolic correlation 8 mm along
-  // the beam from −0.013 to −0.017, just past the quartile's edge
-  ['2CH-ED:radialCorr8', -0.49],
+  // the beam from −0.013 to −0.017, just past the quartile's edge (−0.49; −0.32 since decision 381, without the fin of
+  // left atrial wall over the roof)
+  ['2CH-ED:radialCorr8', -0.32],
   // decision 333: the pericardium's interface echo is collagen against fat (0.15, not 1.0): the white lines it drew
   // across the beam were thin bright ridges, and the end-systolic ridge deficit grows (1.42 → 1.67 four-chamber,
   // 1.38 → 1.58 two-chamber); the two-chamber correlation 1 mm along the beam comes closer (0.46/0.52 → 0.24) and
@@ -241,9 +242,8 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // with the atrium's wall against its sac and the lung where fat stood)
   ['4CH-ES:tangentialCorr8', -0.38],
   // decision 380: without the fat wedge beside the left atrium's lateral wall, the four-chamber texture at 4 mm steps just
-  // outside, across the beam at end-diastole (0.087 against 0.096-0.187) and along it at end-systole (−0.058 against
-  // −0.054 to −0.014)
-  ['4CH-ED:tangentialCorr4', -0.1],
+  // outside along the beam at end-systole (−0.058 against −0.054 to −0.014); across it at end-diastole it came back
+  // inside at decision 381
   ['4CH-ES:radialCorr4', -0.1],
   ['2CH-ED:radialCorr4', 0.24],
   // Decision 296: diffuse clutter loses coarse image-plane modulation; small residual texture/edge deficits. At decision
@@ -293,8 +293,10 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // decision 379: the vestibule reaching the annulus takes away the fat and pericardium wedge beneath it (2.17 before)
   ['4CH-ED:ridgeFraction', 1.88],
   // decision 370: the pulmonary veins' wall, thinned to 0.7 mm, draws a thin line in the four-chamber view at end-systole
-  // where the 1.2 mm arterial wall drew a band (1.67 before); decision 378, as at end-diastole (1.85 before)
-  ['4CH-ES:ridgeFraction', 2.32],
+  // where the 1.2 mm arterial wall drew a band (1.67 before); decision 378, as at end-diastole (1.85 before); decision
+  // 381: without the fin of left atrial wall over the roof, the roof's wall meets the pericardium in a thin line (2.32
+  // before)
+  ['4CH-ES:ridgeFraction', 2.53],
   // decision 321: the coronary sinus in the inferior atrioventricular groove adds its wall's specular line (1.6 before)
   ['2CH-ED:ridgeFraction', 2.35],
   // texture longer along the beam at 1 mm (0.34 against 0.20-0.23), less coherent across it at 2-4 mm in places, and

@@ -101,7 +101,6 @@ const KNOWN_GREY_INVERSIONS: Record<string, string[]> = {
   'normal-excellent-window a2c @0': ['LaWall>Pericardium'],
   // decision 366: the lateral wall of the left atrium runs along the beam from the shelf over the groove, and in these
   // planes it reads over the pericardium as the roof does in the others
-  'normal-excellent-window a4c @0.35': ['LaWall>Pericardium'],
   'normal-difficult-window plax @0.35': ['LaWall>Pericardium'],
   'pulmonary-hypertension-rv a4c @0': ['LaWall>Pericardium'],
   'normal-difficult-window psax-mv @0': ['LvWallLateral>Pericardium'],
@@ -137,6 +136,9 @@ const KNOWN_GREY_INVERSIONS: Record<string, string[]> = {
   // the groove's fat stood, as it does over the roof (and in the PLAX of the AF case at end-systole the fat it read
   // against is gone, and with it the inversion)
   'aortic-stenosis-moderate a4c @0.35': ['LaWall>Pericardium'],
+  // decision 381: without the fin of left atrial wall over the roof, the PLAX of the AF case at end-systole reads the
+  // roof's wall against the pericardium again, and the normal case's A4C at end-systole no longer does
+  'af-diastolic plax @0.35': ['LaWall>Pericardium'],
   'artifact-challenge a2c @0': [
     'LaWall>Pericardium',
     'LvCavity>=LvWallAnterior',

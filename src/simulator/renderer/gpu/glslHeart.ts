@@ -997,6 +997,9 @@ bool classifyHeart(vec3 p0, out Sample s) {
     }
   }
 
+#ifndef VOLUME_HEART
+  // over a volume heart only the valve apparatus above is asked for: the chambers below stay out of that variant, whose
+  // pass A SwiftShader leaves empty past its size (decisions 375 and 381)
   // ---------- LV cavity & wall ----------
   float az = atan(y, x);
   float levelFrac = clamp((z - zAnn) / max(LENGTH_NOW, 1.0), 0.0, 1.0);
@@ -1181,8 +1184,8 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float holdShare = atSinuses && rootOuter < LA_ROOT_NEAR_CM ? raReach : 1.0;
     float frontClear = min(rootClearFaceLine, xFace + RA_LA_MIN_CM * holdShare - x);
     float faceKeep = rootClearFaceLine > 0.0 ? xFace - x : -1e3;
-    // decision 366: the lateral wall stands on the lateral hinge
-    float dLatWall = laLateralWallSdf(x, y, zHinge - z, (czL - z) / rzL, la.x, MVL_CX + MVL_R + LA_LATERAL_HINGE_CM, MVL_CY + LA_LATERAL_WALL_AHEAD_CM, LA_LATERAL_WALL_HOLD, LA_LATERAL_WALL_TOP);
+    // decision 366: the lateral wall stands on the lateral hinge; above its top it adds nothing (decision 381)
+    float dLatWall = max(laLateralWallSdf(x, y, zHinge - z, (czL - z) / rzL, la.x, MVL_CX + MVL_R + LA_LATERAL_HINGE_CM, MVL_CY + LA_LATERAL_WALL_AHEAD_CM, LA_LATERAL_WALL_HOLD, LA_LATERAL_WALL_TOP), czL - LA_LATERAL_WALL_TOP * rzL - z);
     float dBodyPost = smin(smin(dFreeLa, dPost, 0.6), dLatWall, laLateralWallBlend(zHinge - z));
     float dLaBody = max(max(max(min(min(dBodyPost, dCorner), min(dFossaLa, dFlat)), tPost), frontClear), faceKeep);
     laEpi = min(laEpi, dLaBody - LA_WALL_CM);
@@ -1493,6 +1496,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float dTrunkFront = trunkFrontDist(p, dPaEpi);
     s.sdf = min(min(min(dSac, dRoot), vascularDistance), dTrunkFront);
   }
+#endif
   return false;
 }
 `;
