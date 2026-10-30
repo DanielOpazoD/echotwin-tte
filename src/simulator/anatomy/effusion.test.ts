@@ -7,6 +7,7 @@ import { classifyHeart, computeHeartPose } from './heartModel';
 import { cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
 import { makeSample, Structure } from './tissue';
 import { v3, type Vec3 } from '@/core/vec3';
+import { borderCorners } from '@/tests/coherence/borderCorners';
 
 /**
  * A pericardial effusion runs around the ventricles and stops behind the left atrium, where the pericardium reflects onto
@@ -52,6 +53,21 @@ describe('the pericardial effusion respects the oblique sinus (decision 255)', (
           out.push(`@${phase} behind the LV at ${level} cm ${behindLv.toFixed(2)} cm`);
       }
     }
+    expect(out).toEqual([]);
+  });
+
+  it('in the tamponade case the parietal layer is smooth: at most 6 corners on the outer edge of the sac per plane (decision 383)', () => {
+    // pushed out from the visceral surface, the parietal layer drew the planes of the atria in straight faces and
+    // corners: 7-10 per plane in the four-chamber, two-chamber, long-axis and subcostal views; the smooth envelope leaves
+    // 1-6, where the fluid rests on the descending aorta and the column
+    const out: string[] = [];
+    for (const viewId of ['a4c', 'a2c', 'plax', 'psax-mv', 'subcostal-4c'])
+      for (const phase of [0, 0.35]) {
+        const n = borderCorners('pericardial-effusion-tamponade', viewId, phase).filter(
+          (c) => c.border === 'sac',
+        ).length;
+        if (n > 6) out.push(`${viewId} @${phase}: ${n} corners`);
+      }
     expect(out).toEqual([]);
   });
 });

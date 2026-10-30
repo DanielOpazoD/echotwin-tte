@@ -19,20 +19,21 @@ const FALL = 5;
  * the visceral surface pushed out by the fat, the pericardium and the effusion, and far from the walls it shows the
  * planes the atria are built from; the atria's blood (733 the left, with the mouths of its veins and its appendage; 574
  * the right, along its septal face and its venae cavae) is cut by those planes too. The left ventricle's profile has the
- * fewest (128), at the shoulders of its apical cap. A border with none is not declared.
+ * fewest (128), at the shoulders of its apical cap. A border with none is not declared. Decision 383: over the
+ * tamponade's effusion the parietal layer is a smooth envelope, and the sac loses 45 (730).
  */
 const KNOWN_BORDER_CORNERS: ReadonlyMap<string, number> = new Map([
-  ['a4c sac', 185],
+  ['a4c sac', 173],
   ['a4c lv', 33],
   ['a4c rv', 33],
   ['a4c la', 214],
   ['a4c ra', 191],
-  ['a2c sac', 175],
+  ['a2c sac', 166],
   ['a2c lv', 52],
   ['a2c rv', 10],
   ['a2c la', 162],
   ['a2c ra', 122],
-  ['plax sac', 73],
+  ['plax sac', 59],
   ['plax lv', 26],
   ['plax rv', 64],
   ['plax la', 115],
@@ -41,7 +42,7 @@ const KNOWN_BORDER_CORNERS: ReadonlyMap<string, number> = new Map([
   ['psax-mv rv', 111],
   ['psax-mv la', 3],
   ['psax-mv ra', 53],
-  ['subcostal-4c sac', 233],
+  ['subcostal-4c sac', 223],
   ['subcostal-4c lv', 13],
   ['subcostal-4c rv', 70],
   ['subcostal-4c la', 239],
