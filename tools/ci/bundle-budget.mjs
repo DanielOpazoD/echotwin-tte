@@ -71,8 +71,9 @@ const BUDGETS = [
 // taken as blood and the analytic cusps carried onto its annulus, which brings the aortic root's profile and the anchors
 // into the volume heart's chunk, twice) adds 5.7 kB: 2144.1 kB, raised to 2150 kB. Decision 374 (the mitral leaflets
 // carried onto the CT's annulus, which brings the mitral valve's hinge into that chunk, twice) adds 5.6 kB: 2150.0 kB,
-// raised to 2160 kB.
-const TOTAL_JS_BUDGET = 2160 * KB;
+// raised to 2160 kB. Decisions 377-379 (the oesophagus, the atria's own epicardium, the right atrial vestibule's column
+// and its sac, in the anatomy and its GLSL mirror, bundled three times) bring it to 2160.1 kB: raised to 2170 kB.
+const TOTAL_JS_BUDGET = 2170 * KB;
 
 let files;
 try {

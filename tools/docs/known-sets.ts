@@ -55,6 +55,7 @@ export const KNOWN_SETS: readonly {
     name: 'KNOWN_STRAIGHT_BORDERS',
   },
   { file: 'src/tests/coherence/volumeCensus.test.ts', name: 'KNOWN_VOLUME_CENSUS' },
+  { file: 'src/simulator/anatomy/classify/raWall.test.ts', name: 'KNOWN_RA_BARE_BLOOD' },
   { file: 'src/tests/coherence/planeSuspicions.test.ts', name: 'KNOWN_SUSPICIONS' },
   { file: 'src/simulator/renderer/atrialSurroundings.test.ts', name: 'KNOWN_LA_ROOF_EXCESS' },
   {

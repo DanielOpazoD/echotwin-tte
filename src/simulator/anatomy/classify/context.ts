@@ -80,6 +80,8 @@ export interface ClassifyCtx {
   raBody: number;
   /** Distance (cm) to the right atrial appendage's epicardium, for the pericardial sac (decision 323). */
   raaEpi: number;
+  /** Distance (cm) to the vestibule's column over the tricuspid ring, short of the annulus (decision 379), for the sac. */
+  raColumn: number;
   /** Scratch of the sleeve's end-diastolic radii. */
   sleeveRad: Float64Array;
 }
@@ -124,6 +126,7 @@ export const ctx: ClassifyCtx = {
   raSleeve: 1e3,
   raBody: 1e3,
   raaEpi: 1e3,
+  raColumn: 1e3,
   sleeveRad: new Float64Array(4),
 };
 

@@ -284,8 +284,9 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // decision 317: with the shorter pulse the thin bright interfaces stand out more (0.71, 0.61, 0.96 and 0.53 widths
   // out before): the next target, with the lateral tail
   // decision 367: the right atrium's lateral wall rising from the tricuspid hinge draws one more interface along the
-  // beam at end-diastole (1.71 before); decision 378: the right atrium's wall on its sac, without the fat band (1.86 before)
-  ['4CH-ED:ridgeFraction', 2.17],
+  // beam at end-diastole (1.71 before); decision 378: the right atrium's wall on its sac, without the fat band (1.86 before);
+  // decision 379: the vestibule reaching the annulus takes away the fat and pericardium wedge beneath it (2.17 before)
+  ['4CH-ED:ridgeFraction', 1.88],
   // decision 370: the pulmonary veins' wall, thinned to 0.7 mm, draws a thin line in the four-chamber view at end-systole
   // where the 1.2 mm arterial wall drew a band (1.67 before); decision 378, as at end-diastole (1.85 before)
   ['4CH-ES:ridgeFraction', 2.32],
