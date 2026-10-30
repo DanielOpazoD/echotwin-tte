@@ -14,6 +14,8 @@ import { cycleStateAt } from '@/simulator/cardiac-cycle/cycleModel';
  * over the right atrium of every case, 4 mm thick at the median and up to 1.6 cm, and 11.5 cm³ over the dilated left
  * atrium of the HFrEF. Counted here as the fat 4 mm or more from its atrium's wall: 3.2-7.3 cm³ over the right atrium
  * then and 0.05-0.8 now; over the left atrium of the HFrEF 3.8-7.1 then and 0.8-1.1 now (1.9 in the normal heart).
+ * Over the left atrium of the hypertrophic case, 6.3 in early diastole until the left ventricle's epicardium ended at its
+ * base (decision 380), and 0.4 since.
  */
 const H = 0.15;
 // the atria in the heart frame: above the annuli (z negative), the right atrium at negative x
@@ -123,6 +125,7 @@ describe('the epicardial fat over the atria is a thin layer away from the groove
     ['normal-excellent-window', 0.59],
     ['hfref-severe-mr', 0],
     ['hfref-severe-mr', 0.59],
+    ['hocm-sam', 0.45],
   ] as const)
     it(`${id} @${phase}`, () => {
       const v = deepFreeFat(id, phase);

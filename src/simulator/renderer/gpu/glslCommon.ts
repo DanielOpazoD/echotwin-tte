@@ -60,6 +60,8 @@ import {
   OBLIQUE_SINUS_TAPER_CM,
   PERICARDIUM_CM,
   PA_ANTERIOR_FAT_CM,
+  LV_SAC_ABOVE_HINGE_CM,
+  LV_SAC_ROOT_KEEP_CM,
 } from '@/simulator/anatomy/classify/pericardium';
 import { LV_NECK_ZETA } from '@/simulator/anatomy/lvShape';
 import {
@@ -183,6 +185,9 @@ const float LA_WALL_CM = ${gf(LA_WALL_CM)};
 const float LAA_WALL_CM = ${gf(LAA_WALL_CM)};
 const float PERICARDIUM_CM = ${gf(PERICARDIUM_CM)};
 const float PA_ANTERIOR_FAT_CM = ${gf(PA_ANTERIOR_FAT_CM)};
+// the left ventricle's epicardium ends at its base for the sac (decision 380)
+const float LV_SAC_ABOVE_HINGE_CM = ${gf(LV_SAC_ABOVE_HINGE_CM)};
+const float LV_SAC_ROOT_KEEP_CM = ${gf(LV_SAC_ROOT_KEEP_CM)};
 // vertebral body and posterior mediastinum (thoraxModel.ts)
 const float SPINE_Z = ${gf(SPINE_Z)};
 const float SPINE_R = ${gf(SPINE_R)};

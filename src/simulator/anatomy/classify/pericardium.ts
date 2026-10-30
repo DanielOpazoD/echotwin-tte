@@ -15,6 +15,13 @@ export const LA_WALL_CM = 0.25;
 export const LAA_WALL_CM = 0.18;
 /** Thickness (cm) of the pericardium the sac draws outside the epicardium. */
 export const PERICARDIUM_CM = 0.12;
+/**
+ * How far (cm) above the mitral hinge the left ventricle's epicardium reaches for the sac (decision 380), and from how far
+ * (cm) beyond the aortic root's wall it ends there: around the root its cap stays, the fill between the root, the atria
+ * and the ventricular base.
+ */
+export const LV_SAC_ABOVE_HINGE_CM = 0.3;
+export const LV_SAC_ROOT_KEEP_CM = 1.2;
 
 /**
  * Distance (cm) from a heart-frame point to the surface of the posterior column (decision 273): the descending aorta at
@@ -74,6 +81,15 @@ export function classifyPericardium(c: ClassifyCtx): boolean {
   // the epicardium is the outer face of the wall shell; the sac keeps the septum's full thickness where its crest narrows
   // (decision 223), so no hole opens between the root, the crest and the atrium
   const dLvEpi = dEllR - wallT - c.crestLoss;
+  // the ventricle's epicardium ends at its base (decision 380): the profile it is the outer face of closes 2-2.5 cm above
+  // the mitral hinge, and where no atrium covered that cap the sac held it as fat, 1-1.4 cm thick in the left
+  // atrioventricular groove beside the atrium, 3-8 cm³ in the hypertrophic case; around the root the cap stays
+  const rootGap = c.rootT > -90 ? c.rootRr - c.rootR : 1e3;
+  const dLvSac = smax(
+    dLvEpi,
+    Math.min(c.zHinge - LV_SAC_ABOVE_HINGE_CM - z, rootGap - LV_SAC_ROOT_KEEP_CM),
+    0.2,
+  );
   const fw = m.anatomy.rv.freeWallThicknessCm;
   const dRvEpi = rvSdf[0]! - fw; // crescent and tricuspid inflow, computed just before (this point is outside the RV)
   // the atrium's own outer face (decision 273): a fixed ellipsoid 0.25 cm over its largest size, it left up to 1.7 cm of
@@ -110,7 +126,7 @@ export function classifyPericardium(c: ClassifyCtx): boolean {
   // the sac lies against the descending aorta and the vertebral body and does not run into them (decision 273)
   const dEpi = smax(
     smin(
-      smin(smin(dLvEpi, dRvEpi, 0.8), smin(dLaEpi, dRaEpi, 0.8), 0.8),
+      smin(smin(dLvSac, dRvEpi, 0.8), smin(dLaEpi, dRaEpi, 0.8), 0.8),
       smin(dRvotEpi, dPaEpi, 0.8),
       0.8,
     ),

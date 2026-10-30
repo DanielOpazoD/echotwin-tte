@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 379 (última: 379).
+Decisiones: 380 (última: 380).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -387,3 +387,4 @@ Decisiones: 379 (última: 379).
 | [377](DECISIONS.md#L3489) | 2026-10-24 | El mediastino posterior tiene esófago y toda su grasa tiene nombre | vigente |
 | [378](DECISIONS.md#L3508) | 2026-10-24 | La grasa epicárdica sobre las aurículas es una capa fina | vigente |
 | [379](DECISIONS.md#L3527) | 2026-10-24 | El vestíbulo de la AD llega al anillo, con su pared | vigente |
+| [380](DECISIONS.md#L3543) | 2026-10-24 | La cara epicárdica del VI termina en su base, y junto a la pared lateral de la AI no queda una cuña de grasa | vigente |
