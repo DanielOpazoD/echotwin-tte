@@ -77,6 +77,7 @@ export const KNOWN_SETS: readonly {
   { file: 'src/simulator/measurements/laVolume.test.ts', name: 'KNOWN_BIPLANE_SHORTFALL' },
   { file: 'src/simulator/anatomy/coronarySinus.test.ts', name: 'KNOWN_CS_OSTIUM' },
   { file: 'src/simulator/anatomy/atlasPositions.test.ts', name: 'KNOWN_ATLAS_POSITIONS' },
+  { file: 'src/tests/coherence/borderCorners.test.ts', name: 'KNOWN_BORDER_CORNERS' },
   { file: 'src/simulator/anatomy/atlasPositions.test.ts', name: 'KNOWN_ATLAS_VESSELS' },
   { file: 'src/simulator/windows/viewIntruders.test.ts', name: 'KNOWN_VIEW_INTRUDERS' },
   { file: 'src/simulator/renderer/papillaryEcho.test.ts', name: 'KNOWN_DIM_PAPILLARY' },
