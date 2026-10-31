@@ -12,11 +12,15 @@ import { join } from 'node:path';
  * `return`; `for (let i = a; i < b; i++)` with integer bounds; assignments and compound assignments;
  * `+ - * / < <= > >= === !== && || ! -`; the conditional operator; parentheses; numeric literals;
  * `Math.{abs,min,max,sqrt,pow,exp,log,floor,ceil,cos,sin,tan,atan2,PI}` (`Math.pow` with a whole exponent of 2-4 becomes a
- * product: GLSL leaves `pow` undefined for a negative base); calls to other target functions;
+ * product: GLSL leaves `pow` undefined for a negative base); calls to other target functions and to the smooth union
+ * and intersection `smin`/`smax` of sdf.ts, which glslCommon.ts defines before the generated block;
  * free identifiers in ALL_CAPS, which must be `#define`s or constants of the shader that includes the
  * output (glslHeart.test.ts and glslParity.test.ts check that). Anything else throws with the node kind, so
  * a target that grows past the subset is noticed at generation time, not in the browser.
  */
+/** The helpers glslCommon.ts defines before the generated block, the same formulas as their TypeScript (sdf.ts). */
+const GLSL_HELPERS = new Set(['smin', 'smax']);
+
 export interface GenTarget {
   file: string;
   functions: string[];
@@ -70,7 +74,7 @@ export const TARGETS: GenTarget[] = [
   },
   {
     file: 'src/simulator/anatomy/classify/pericardium.ts',
-    functions: ['effusionAt', 'posteriorColumnDistance'],
+    functions: ['parietalSdf', 'posteriorColumnDistance'],
   },
   {
     file: 'src/simulator/anatomy/classify/rightVentricle.ts',
@@ -220,7 +224,10 @@ function expr(n: ts.Expression, c: Ctx, wantInt = false): string {
           .reduce((acc, a) => `${g}(${acc}, ${expr(a, c)})`, expr(n.arguments[0]!, c));
       return `${g}(${args})`;
     }
-    if (ts.isIdentifier(n.expression) && c.functions.has(n.expression.text))
+    if (
+      ts.isIdentifier(n.expression) &&
+      (c.functions.has(n.expression.text) || GLSL_HELPERS.has(n.expression.text))
+    )
       return `${n.expression.text}(${args})`;
     throw new Unsupported(n, c.fn, 'call target must be Math.* or another generated function');
   }

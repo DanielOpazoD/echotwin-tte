@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 382 (última: 382).
+Decisiones: 383 (última: 383).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -390,3 +390,4 @@ Decisiones: 382 (última: 382).
 | [380](DECISIONS.md#L3543) | 2026-10-24 | La cara epicárdica del VI termina en su base, y junto a la pared lateral de la AI no queda una cuña de grasa | vigente |
 | [381](DECISIONS.md#L3561) | 2026-10-30 | La pared lateral de la AI no se alza como una aleta sobre el techo | vigente |
 | [382](DECISIONS.md#L3575) | 2026-10-30 | El censo de coherencia cuenta las esquinas de los bordes en los planos | vigente |
+| [383](DECISIONS.md#L3587) | 2026-10-30 | Sobre un derrame, el pericardio parietal es una envoltura lisa | vigente |

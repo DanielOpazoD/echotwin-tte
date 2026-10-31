@@ -1469,8 +1469,8 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float dRvotEpi = sdCapsule(p, rvotA, rvotB, RVOT_RA + fw);
     float dPaEpi = pulmonaryTrunkEpiDist(p);
     float dEpi = smax(smin(smin(smin(dLvSac, dRvEpi, 0.8), smin(dLaEpi, dRaEpi, 0.8), 0.8), smin(dRvotEpi, dPaEpi, 0.8), 0.8), PERICARDIUM_CM - colDist, 0.2);
-    // decision 255: the effusion thins over the left atrium
-    float eff = EFFUSION > 0.0 ? min(effusionAt(EFFUSION, sdEllipsoid(p, la, lr + 0.25), min(min(min(dLvEpi, dRvEpi), min(min(dRaEpi, sdEllipsoid(p, ra, rar + 0.22)), dRvotEpi)), dPaEpi)), max(0.0, dEpi + colDist - 2.0 * PERICARDIUM_CM)) : 0.0; // the right atrium's reach of decision 255 (decision 378)
+    // decision 383: over an effusion the parietal layer is a smooth envelope, thin behind the left atrium (decision 255)
+    float par = EFFUSION > 0.0 ? parietalSdf(EFFUSION, smin(smin(smin(dLvEpi, dRvEpi, 0.8), smin(sdEllipsoid(p, la, lr + 0.25), sdEllipsoid(p, ra, rar + 0.22), 0.8), 0.8), smin(dRvotEpi, dPaEpi, 0.8), 0.8), (la.y - y) / lr.y, ((x - la.x) / lr.x) * ((x - la.x) / lr.x) + ((z - la.z) / lr.z) * ((z - la.z) / lr.z), colDist) : 1e3;
     vec3 nEpi = n0;
     if (dEpi < 0.0) {
       setSample(s, T_FAT, dEpi, nEpi, p, 0.0, S_EPI_FAT);
@@ -1481,16 +1481,16 @@ bool classifyHeart(vec3 p0, out Sample s) {
       setSample(s, T_PERI, -min(de, 0.12 - de), nEpi, p, 0.0, S_PERI);
       return true;
     }
-    if (eff > 0.0 && dEpi < 0.12 + eff) {
-      setSample(s, T_FLUID, dEpi - 0.12 - eff, nEpi, p, 0.0, S_EFFUSION);
+    if (par < 0.0) {
+      setSample(s, T_FLUID, max(par, PERICARDIUM_CM - dEpi), nEpi, p, 0.0, S_EFFUSION);
       return true;
     }
-    if (eff > 0.0 && dEpi < 0.12 + eff + 0.12) {
+    if (par < PERICARDIUM_CM) {
       setSample(s, T_PERI, 0.0, nEpi, p, 0.0, S_PERI);
       return true;
     }
     // outside the sac: distance beyond the parietal pericardium or the wall of the ascending aorta (decision 144)
-    float dSac = dEpi - 0.12 - (eff > 0.0 ? eff + 0.12 : 0.0);
+    float dSac = min(dEpi, par) - PERICARDIUM_CM;
     float dRoot = rootT > -90.0 ? rootRr - rootR - 0.2 : dSac;
     // decision 336: in front of the pulmonary trunk the mediastinum's fat stands between the trunk and the lung
     float dTrunkFront = trunkFrontDist(p, dPaEpi);

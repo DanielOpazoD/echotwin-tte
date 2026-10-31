@@ -59,20 +59,50 @@ export function posteriorColumnDistance(
 
 /** Effusion (cm) the sac holds over the left atrium (decision 255). */
 export const OBLIQUE_SINUS_EFFUSION_CM = 0.3;
-/** Distance (cm) over which the effusion thins from the ventricles to the left atrium (decision 255). */
-export const OBLIQUE_SINUS_TAPER_CM = 1;
+/** The oblique sinus behind the left atrium, in its own semi-axes (decision 383): the fluid thins from its centre plane
+ * to OBLIQUE_SINUS_BEHIND behind it, within the atrium's footprint (its normalised lateral and vertical radius squared
+ * from OBLIQUE_SINUS_FOOTPRINT_FROM to OBLIQUE_SINUS_FOOTPRINT_TO). */
+export const OBLIQUE_SINUS_BEHIND = 0.6;
+export const OBLIQUE_SINUS_FOOTPRINT_FROM = 0.6;
+export const OBLIQUE_SINUS_FOOTPRINT_TO = 1.4;
+/** Blend (cm) of the parietal layer against the descending aorta and the vertebral body (decision 383). */
+export const PARIETAL_COLUMN_BLEND_CM = 1;
 
 /**
- * Effusion (cm) at a point whose nearest epicardial surfaces are the left atrium at `dLa` and the rest of the heart at
- * `dRest` (decision 255). Behind the left atrium the parietal pericardium reflects onto the atrial wall around the
- * four pulmonary veins and the oblique sinus between them holds little fluid, so an effusion stays anterior to the
- * descending aorta and does not run behind the atrium; around the ventricles and the right atrium it has its full
- * thickness. The effusion of the tamponade case was a uniform 2.2 cm shell, the same behind the atrium.
+ * Signed distance (cm) to the inner face of the parietal pericardium over an effusion `eff` (decision 383), from the
+ * smooth envelope of the heart (`dHeart`), the point's place behind the left atrium (`behind`, in the atrium's posterior
+ * semi-axis from its centre; `footprint`, its normalised lateral and vertical radius squared) and the distance to the
+ * descending aorta and the vertebral body (`colDist`). Around the heart the fluid has its full thickness; behind the
+ * left atrium the parietal pericardium reflects onto the atrial wall around the pulmonary veins and the oblique sinus
+ * between them holds little fluid (decision 255); and it lies in front of the column (decision 273). The parietal layer
+ * was the visceral surface pushed out by the effusion: 2.3 cm from the walls that surface showed the planes the atria
+ * are built from, in straight faces meeting at corners, and its thinning over the left atrium, 2.2 to 0.3 cm within 1 cm
+ * of the difference between two distances, drew steps. A smooth envelope pushed out by a thickness that changes
+ * smoothly in space has neither.
  */
-export function effusionAt(eff: number, dLa: number, dRest: number): number {
-  const w = Math.min(1, Math.max(0, (dRest - dLa) / OBLIQUE_SINUS_TAPER_CM));
+export function parietalSdf(
+  eff: number,
+  dHeart: number,
+  behind: number,
+  footprint: number,
+  colDist: number,
+): number {
   const thin = Math.min(eff, OBLIQUE_SINUS_EFFUSION_CM);
-  return eff - (eff - thin) * w * w * (3 - 2 * w);
+  const tb = Math.min(1, Math.max(0, behind / OBLIQUE_SINUS_BEHIND));
+  const tf = Math.min(
+    1,
+    Math.max(
+      0,
+      (footprint - OBLIQUE_SINUS_FOOTPRINT_FROM) /
+        (OBLIQUE_SINUS_FOOTPRINT_TO - OBLIQUE_SINUS_FOOTPRINT_FROM),
+    ),
+  );
+  const w = tb * tb * (3 - 2 * tb) * (1 - tf * tf * (3 - 2 * tf));
+  return smax(
+    dHeart - PERICARDIUM_CM - (eff - (eff - thin) * w),
+    2 * PERICARDIUM_CM - colDist,
+    PARIETAL_COLUMN_BLEND_CM,
+  );
 }
 
 /** Pericardium & effusion: the outer envelope of all epicardial surfaces. True when the point is in the sac. */
@@ -133,33 +163,34 @@ export function classifyPericardium(c: ClassifyCtx): boolean {
     PERICARDIUM_CM - c.colDist,
     0.2,
   );
-  // the effusion thins over the left atrium (decision 255), within the reach of its largest size: the oblique sinus
+  // the parietal layer over an effusion is a smooth envelope (decision 383): the ventricles, the atria at their largest
+  // sizes, the outflow tract and the trunk, smoothly united, and thin behind the left atrium
   const la = A.laCenter,
     lr = A.laR;
   const ra = A.raCenter,
     rar = A.raR;
-  // and it lies in front of the descending aorta and the vertebral body, not across them (decision 273)
-  const eff =
+  const par =
     hp.effusion > 0
-      ? Math.min(
-          effusionAt(
-            hp.effusion,
-            sdEllipsoid(x, y, z, la.x, la.y, la.z, lr.x + 0.25, lr.y + 0.25, lr.z + 0.25),
-            // around the right atrium the effusion keeps the reach decision 255 set against its anchor ellipsoid 0.22 cm
-            // over its largest size, which the sac no longer follows (decision 378): measured from the wall, the taper
-            // over the left atrium folded the parietal layer into a 0.1 mL island inside the fluid
-            Math.min(
-              dLvEpi,
-              dRvEpi,
-              dRaEpi,
-              sdEllipsoid(x, y, z, ra.x, ra.y, ra.z, rar.x + 0.22, rar.y + 0.22, rar.z + 0.22),
-              dRvotEpi,
-              dPaEpi,
+      ? parietalSdf(
+          hp.effusion,
+          smin(
+            smin(
+              smin(dLvEpi, dRvEpi, 0.8),
+              smin(
+                sdEllipsoid(x, y, z, la.x, la.y, la.z, lr.x + 0.25, lr.y + 0.25, lr.z + 0.25),
+                sdEllipsoid(x, y, z, ra.x, ra.y, ra.z, rar.x + 0.22, rar.y + 0.22, rar.z + 0.22),
+                0.8,
+              ),
+              0.8,
             ),
+            smin(dRvotEpi, dPaEpi, 0.8),
+            0.8,
           ),
-          Math.max(0, dEpi + c.colDist - 2 * PERICARDIUM_CM),
+          (la.y - y) / lr.y,
+          ((x - la.x) / lr.x) ** 2 + ((z - la.z) / lr.z) ** 2,
+          c.colDist,
         )
-      : 0;
+      : 1e3;
   if (dEpi < 0) {
     setSample(out, Tissue.Fat, dEpi, nx0, ny0, nz0, x, y, z, 0, Structure.EpicardialFat);
     return true;
@@ -180,11 +211,11 @@ export function classifyPericardium(c: ClassifyCtx): boolean {
     );
     return true;
   }
-  if (eff > 0 && dEpi < 0.12 + eff) {
+  if (par < 0) {
     setSample(
       out,
       Tissue.Fluid,
-      dEpi - 0.12 - eff,
+      Math.max(par, PERICARDIUM_CM - dEpi),
       nx0,
       ny0,
       nz0,
@@ -196,13 +227,13 @@ export function classifyPericardium(c: ClassifyCtx): boolean {
     );
     return true;
   }
-  if (eff > 0 && dEpi < 0.12 + eff + 0.12) {
+  if (par < PERICARDIUM_CM) {
     setSample(out, Tissue.Pericardium, 0, nx0, ny0, nz0, x, y, z, 0, Structure.Pericardium);
     return true;
   }
   // outside the sac: how far beyond the parietal pericardium, or beyond the wall of the ascending aorta, which leaves
   // the sac — what the thorax classifier needs to wrap the lungs around the heart (decision 144)
-  const dSac = dEpi - 0.12 - (eff > 0 ? eff + 0.12 : 0);
+  const dSac = Math.min(dEpi, par) - PERICARDIUM_CM;
   const dRoot = c.rootT > -90 ? c.rootRr - c.rootR - AORTIC_ROOT_WALL_CM : dSac;
   // in front of the pulmonary trunk the mediastinum's fat stands between the trunk and the lung, as far as the point lies
   // in front of the trunk's middle, the torso's anterior direction read in the heart frame (decision 336)
