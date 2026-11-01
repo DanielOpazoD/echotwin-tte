@@ -3600,3 +3600,19 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
 
     **Lo que no resuelve**: sin derrame, el borde externo del saco sigue siendo la cara visceral más 1,2 mm de pericardio, con las esquinas de las aurículas (703 en los once casos sin derrame); quitarlas es tarea de las propias aurículas. Donde el derrame se apoya en la aorta descendente y en la columna queda un ángulo, como en un corazón.
 
+384. **El borde de la fosa oval se redondea, y el censo deja de contar el seno coronario**: Daniel dio paso a seguir con las esquinas de las aurículas, empezando por la cara septal de la AD.
+
+    **Medido antes**: de las 574 esquinas de la AD en el censo de la 382, unas 270 están junto al tabique interauricular y 118 en el seno coronario. Estas últimas no son un defecto: un tubo de 8 mm de diámetro gira en su sección tanto como una esquina. En el A4C del normal, la cara derecha del tabique sube de los 1,2 mm de la membrana a los 5,5 mm del tabique muscular en unos 4 mm (`IAS_FOSSA_EDGE_FROM` 0,8 a `IAS_FOSSA_EDGE_TO` 1,4 de los semiejes de la fosa): 58° de pendiente, con esquinas en sus dos extremos.
+
+    **Probado**: con el extremo de la subida en 1,4 (como estaba), 1,6, 1,8, 2,2 y 2,6, sin contar el seno coronario, la AD tiene 456, 414, 335, 298 y 307 esquinas. Con 2,2 el tabique del taponamiento mide 0,08 cm (rango 0,2–0,7), la pared de la AD llega más a la vena inferior derecha y crecen los huecos: descartado. Con 1,6 se gana un tercio de lo de 1,8.
+
+    **Cambio** (`laGeometry.ts`, `tests/coherence/borderCorners.ts`): `IAS_FOSSA_EDGE_TO` pasa a 1,8, y la subida ocupa unos 6,5 mm. El censo no cuenta las esquinas de la AD a menos de 3 mm del seno coronario.
+
+    **Medido después**: la AD pasa de 456 a 335 esquinas: A4C 132, subcostal 146, PSAX mitral 51, A2C 6. Los demás bordes no cambian: saco 730, AI 733, VD 288, VI 128. En los doce casos, la AD gana 0,1–0,3 mL, la AI no cambia y el tabique pierde 0,27–0,34 cm³ de músculo (3–10 %). Las imágenes de referencia, las inversiones de gris y la textura frente a CAMUS no cambian. En el eco la diferencia apenas se ve a la escala de las hojas (`tools/offline/review/out/fosa-384/`, A4C y subcostal del normal y la ICFEr).
+
+    **Lo que cuesta, declarado**: el hueco junto a la cava superior pasa de 0,38 a 0,50 mL (`volumeCensus.test.ts`). La AD entra en el borde de la luz de la vena inferior derecha en 1 de 480 muestras en el prolapso y 2 de 480 en el caso de artefactos (`KNOWN_RA_IN_VEIN`).
+
+    **Pruebas**: el trinquete de la 382 baja las declaraciones de la AD. Con el valor anterior falla el A4C (191 frente a 132) y el subcostal (208 frente a 146). `interatrialCrux.test.ts` eximía el borde de la fosa siguiendo `IAS_FOSSA_EDGE_TO`: al ensancharlo, el tabique fino declarado de la estenosis moderada dejaba de verse sin haberse corregido, y la prueba pedía borrar la declaración. La exención queda fija en 1,5, donde estaba, y la declaración sigue.
+
+    **Lo que no resuelve**: siguen las esquinas donde el tabique termina plano en el techo y el piso de la AD, las de las bocas de las cavas y las de la AI (733), que son el mayor grupo que queda.
+

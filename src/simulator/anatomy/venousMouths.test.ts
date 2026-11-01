@@ -100,6 +100,9 @@ describe('the pulmonary veins and the appendage open into the left atrium (decis
 const KNOWN_RA_IN_VEIN: Record<string, string> = {
   'hfref-severe-mr':
     'the right inferior vein, risen 1 cm with the forward-drawn body, opens 0.9-1.0 cm behind the centre of the fossa, inside the septal plane in systole: 1-11 of 480 samples of its first 2 cm are right atrium from 0.3 to 0.8 of the cycle',
+  'mvp-primary-mr':
+    'the septum thinner around the fossa lets the right atrium reach the vein at the edge of its lumen (decision 384): 1 of 480 samples at 0.7 of the cycle',
+  'artifact-challenge': 'the same (decision 384): 2 of 480 samples at 0.3 and at 0.8 of the cycle',
 };
 
 describe('the right atrium leaves room for the pulmonary veins (decision 320)', () => {
