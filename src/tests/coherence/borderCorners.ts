@@ -8,8 +8,8 @@
  * rendered map takes each pixel's nearest polar sample, and at depth the spacing between beam lines draws steps of its
  * own). Each border is a group's outline (marching squares, chained and resampled every RESAMPLE_CM): the sac (all the
  * heart classifier holds) and the blood of the four chambers with their mouths. Not counted: corners within
- * CORNER_CLEAR_CM of the valve apparatus (for the chambers) or of a vessel leaving the sac (for the sac), where the
- * anatomy has its angles, and on the sector's edge.
+ * CORNER_CLEAR_CM of the valve apparatus (for the chambers), of the coronary sinus (for the right atrium) or of a vessel
+ * leaving the sac (for the sac), where the anatomy has its angles, and on the sector's edge.
  *
  *   npx tsx tools/offline/review/border-corners.ts [caseIds,comma|all] [viewIds,comma] [phases,comma]
  */
@@ -69,6 +69,8 @@ const APPARATUS = new Set<number>([
   Structure.AortomitralCurtain,
 ]);
 /** The vessels that leave the sac, where its outline has its angles. */
+/** The coronary sinus: a tube 8 mm across, whose section turns as sharply as a corner (decision 384). */
+const THIN_TUBE = new Set<number>([...APPARATUS, Structure.CoronarySinus]);
 const LEAVING = new Set<number>([
   Structure.AorticRoot,
   Structure.AscendingAorta,
@@ -144,7 +146,7 @@ export function borderCorners(id: string, viewId: string, phase: number): Corner
     for (let k = 0; k < W * H; k++)
       mask[k] =
         border === 'sac' ? (st[k]! >= 0 ? 1 : 0) : blood[k] && BLOOD[border].has(st[k]!) ? 1 : 0;
-    const clearOf = border === 'sac' ? LEAVING : APPARATUS;
+    const clearOf = border === 'sac' ? LEAVING : border === 'ra' ? THIN_TUBE : APPARATUS;
     for (const loop of outlines(mask, W, H, g, -U)) {
       const pts = resample(loop.pts, loop.closed);
       const n = pts.length;

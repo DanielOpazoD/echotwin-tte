@@ -46,7 +46,8 @@ import {
  * 1.93 mL, and reads 0.26 mL now, under the census's threshold), the groove fat by the inferior vena cava reads 0.73 mL
  * (0.47). Since the right atrium's sac follows its own wall (decision 378), the fat that its anchor ellipsoid laid between
  * it and the superior vena cava (0.59 mL) is gone, and the pericardium there and beside the coronary sinus and the root
- * reads as a little more gap: 0.38, 0.16 and 0.12 mL (0.21, 0.10 and 0.08).
+ * reads as a little more gap: 0.38, 0.16 and 0.12 mL (0.21, 0.10 and 0.08); beside the superior vena cava 0.50 since the
+ * septum around the fossa is thinner (decision 384).
  */
 const KNOWN_VOLUME_CENSUS: Record<string, number> = {
   'rodero AI|RAo hueco': 0.47,
@@ -72,7 +73,7 @@ const KNOWN_VOLUME_CENSUS: Record<string, number> = {
   'analytic VD|TP grasa': 0.6,
   'analytic AI|VP hueco': 0.62,
   'analytic AI|VP grasa': 1.14,
-  'analytic AD|VCS hueco': 0.38,
+  'analytic AD|VCS hueco': 0.5,
   'analytic AD|VCI hueco': 0.26,
   'analytic AD|VCI grasa': 0.73,
   'analytic AD|SC hueco': 0.16,

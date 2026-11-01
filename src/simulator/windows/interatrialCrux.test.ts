@@ -7,7 +7,6 @@ import { classifyHeart, computeHeartPose, heartAnchors } from '@/simulator/anato
 import {
   IAS_FOSSA_DESCENT_SHARE,
   IAS_FOSSA_EDGE_FROM,
-  IAS_FOSSA_EDGE_TO,
   IAS_LEFT_FACE_CM,
   iasBow,
   iasThickness,
@@ -374,8 +373,10 @@ describe('the septum lies whole wherever the atria face each other (decision 327
             }
             if (!RIGHT.has(kind)) continue;
             cells++;
-            // (where the membrane rises to the muscular septum the thickness changes faster than the grid resolves)
-            const onRim = fo >= IAS_FOSSA_EDGE_FROM - 0.1 && fo <= IAS_FOSSA_EDGE_TO + 0.1;
+            // (where the membrane rises to the muscular septum the thickness changes faster than the grid resolves; the rise
+            // is gentler since decision 384, and the exemption keeps its reach: following the edge, it hid the thin septum
+            // declared above)
+            const onRim = fo >= IAS_FOSSA_EDGE_FROM - 0.1 && fo <= 1.5;
             if (t < 0.05) holes++;
             else if (!onRim && t < iasThickness(fo) - 0.06) {
               thin++;
