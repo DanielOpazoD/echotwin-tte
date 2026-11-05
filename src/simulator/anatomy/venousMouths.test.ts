@@ -103,6 +103,10 @@ const KNOWN_RA_IN_VEIN: Record<string, string> = {
   'mvp-primary-mr':
     'the septum thinner around the fossa lets the right atrium reach the vein at the edge of its lumen (decision 384): 1 of 480 samples at 0.7 of the cycle',
   'artifact-challenge': 'the same (decision 384): 2 of 480 samples at 0.3 and at 0.8 of the cycle',
+  'normal-excellent-window':
+    'the volume fit pays the lateral wall brought forward with 3.2 % of the body (decision 385), the vein follows the body, and the edge of its lumen meets the right atrial wall by 0.07 mm: 1 of 480 samples at 0.7 of the cycle',
+  'hocm-sam':
+    'the same with 0.8 % of the body (decision 385): 1 of 480 samples at 0.7 of the cycle',
 };
 
 describe('the right atrium leaves room for the pulmonary veins (decision 320)', () => {

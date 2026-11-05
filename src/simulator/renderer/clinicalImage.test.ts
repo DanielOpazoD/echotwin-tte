@@ -239,12 +239,12 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // the four-chamber ones at 1 mm (end-diastole) and 4 mm (end-systole) inside; the end-systolic four-chamber texture 8
   // mm across the beam and the end-diastolic two-chamber one 4 mm along it step just outside (the four-chamber one
   // −0.15 since decision 367, with the right atrium's lateral wall and its sac; −0.1 before; −0.38 since decision 378,
-  // with the atrium's wall against its sac and the lung where fat stood)
-  ['4CH-ES:tangentialCorr8', -0.38],
-  // decision 380: without the fat wedge beside the left atrium's lateral wall, the four-chamber texture at 4 mm steps just
-  // outside along the beam at end-systole (−0.058 against −0.054 to −0.014); across it at end-diastole it came back
-  // inside at decision 381
-  ['4CH-ES:radialCorr4', -0.1],
+  // with the atrium's wall against its sac and the lung where fat stood; −0.13 since decision 385, with the left atrium's
+  // lateral wall brought forward)
+  ['4CH-ES:tangentialCorr8', -0.13],
+  // (decision 380: without the fat wedge beside the left atrium's lateral wall, the four-chamber texture at 4 mm stepped
+  // just outside along the beam at end-systole, −0.058 against −0.054 to −0.014, until decision 385; across it at
+  // end-diastole it came back inside at decision 381)
   ['2CH-ED:radialCorr4', 0.24],
   // Decision 296: diffuse clutter loses coarse image-plane modulation; small residual texture/edge deficits. At decision
   // 312 the four-chamber end-diastolic edge came inside, the two-chamber end-systolic local std too, and the two-chamber
@@ -297,8 +297,9 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // 381: without the fin of left atrial wall over the roof, the roof's wall meets the pericardium in a thin line (2.32
   // before)
   ['4CH-ES:ridgeFraction', 2.53],
-  // decision 321: the coronary sinus in the inferior atrioventricular groove adds its wall's specular line (1.6 before)
-  ['2CH-ED:ridgeFraction', 2.35],
+  // decision 321: the coronary sinus in the inferior atrioventricular groove adds its wall's specular line (1.6 before;
+  // 2.35 until decision 385)
+  ['2CH-ED:ridgeFraction', 2.08],
   // texture longer along the beam at 1 mm (0.34 against 0.20-0.23), less coherent across it at 2-4 mm in places, and
   // through the persistence a little smoother over the sector (local std)
   // decision 324: with the superior vena cava joining the top of the atrium, the end-systolic four-chamber texture at
@@ -307,7 +308,8 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // decision 321: with the coronary sinus at the inferior groove, the two-chamber end-diastolic texture at 8 mm (−0.11 before)
   ['2CH-ED:radialCorr1', 0.24],
   ['2CH-ES:radialCorr1', 0.24],
-  ['2CH-ED:tangentialCorr4', -0.65],
+  // (−0.65 until decision 385)
+  ['2CH-ED:tangentialCorr4', -0.49],
   // decision 366: the lateral wall of the left atrium stands on the hinge, along the beam, and the two-chamber sector at
   // end-diastole correlates less across the beam (2CH-ED radialCorr2, radialCorr8 and tangentialCorr4 moved with it)
   ['2CH-ED:tangentialCorr2', -0.17],

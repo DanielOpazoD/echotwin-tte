@@ -22,33 +22,34 @@ const FALL = 5;
  * fewest (128), at the shoulders of its apical cap. A border with none is not declared. Decision 383: over the
  * tamponade's effusion the parietal layer is a smooth envelope, and the sac loses 45 (730). Decision 384: the fossa's edge
  * over about 6.5 mm takes 121 from the right atrium, and its 118 at the coronary sinus, a tube 8 mm across, no longer
- * count (335).
+ * count (335). Decision 385: the left atrium's lateral wall without the base's triangle, and its front face forward, take
+ * 51 from the left atrium (682) and 82 from the sac (648).
  */
 const KNOWN_BORDER_CORNERS: ReadonlyMap<string, number> = new Map([
-  ['a4c sac', 173],
+  ['a4c sac', 134],
   ['a4c lv', 33],
   ['a4c rv', 33],
-  ['a4c la', 214],
-  ['a4c ra', 132],
-  ['a2c sac', 166],
+  ['a4c la', 195],
+  ['a4c ra', 133],
+  ['a2c sac', 165],
   ['a2c lv', 52],
   ['a2c rv', 10],
-  ['a2c la', 162],
+  ['a2c la', 153],
   ['a2c ra', 6],
-  ['plax sac', 59],
+  ['plax sac', 60],
   ['plax lv', 26],
   ['plax rv', 64],
-  ['plax la', 115],
+  ['plax la', 116],
   ['psax-mv sac', 109],
   ['psax-mv lv', 4],
   ['psax-mv rv', 111],
   ['psax-mv la', 3],
   ['psax-mv ra', 51],
-  ['subcostal-4c sac', 223],
+  ['subcostal-4c sac', 180],
   ['subcostal-4c lv', 13],
   ['subcostal-4c rv', 70],
-  ['subcostal-4c la', 239],
-  ['subcostal-4c ra', 146],
+  ['subcostal-4c la', 215],
+  ['subcostal-4c ra', 142],
 ]);
 
 describe('the borders of the drawn planes turn no sharper than declared (decision 382)', () => {

@@ -124,6 +124,8 @@ export const LA_BASE_SECTION_SLACK_CM = 0.3;
  * The reach (the lateral wall's stand) is declared as an assumption.
  */
 export const LA_BASE_SHELF_CM = 0.5;
+/** How far (cm) past the shelf the flare may reach where none of the base takes the shelf (decision 385). */
+export const LA_BASE_FLARE_RELEASE_CM = 2;
 export const LA_BASE_SHELF_RISE_CM = 0.3;
 export const LA_BASE_SHELF_FULL_CM = 0.6;
 /** How far (cm) beyond the annulus outline the shelf reaches `dz` cm above the hinge. Shared with GLSL. */
@@ -163,6 +165,13 @@ export const LA_SHELF_COS_FROM = 0.5;
  */
 export const LA_LATERAL_HINGE_CM = 0.5;
 export const LA_LATERAL_WALL_HALF_AP_CM = 0.8;
+/**
+ * How much further forward (cm) the left atrium's lateral wall reaches than the right's (decision 385), in full
+ * LA_LATERAL_WALL_FRONT_RAMP_CM lateral of the body's centre: its front face, 1 cm in front of the hinge's depth, left
+ * 1-2 cm of wall cut obliquely and fat between the atrium and the aortic root in the five-chamber view.
+ */
+export const LA_LATERAL_WALL_FRONT_CM = 0.4;
+export const LA_LATERAL_WALL_FRONT_RAMP_CM = 1;
 /** The band's centre lies this far (cm) in front of the lateral hinge's depth, where the four-chamber plane crosses the ring. */
 export const LA_LATERAL_WALL_AHEAD_CM = 0.2;
 export const LA_LATERAL_WALL_HOLD = 0;
@@ -198,13 +207,18 @@ export function laLateralWallSdf(
   yArc: number,
   hold: number,
   top: number,
+  front: number,
 ): number {
   const t = Math.min(1, Math.max(0, (w - hold) / (top - hold)));
   const xWall = xLat + (laX - xLat) * t * t * (3 - 2 * t);
   // the lateral face and the front and back faces, their corners rounded
   const r = LA_LATERAL_WALL_ROUND_CM;
+  // (the front face comes forward with the distance from the centre: at its full reach there it stood as a step in front
+  // of the body, 9.8 mm along the four-chamber border of the normal atrium, decision 385)
+  const f = Math.min(1, Math.max(0, (x - laX) / LA_LATERAL_WALL_FRONT_RAMP_CM));
+  const fy = (front * f * f * (3 - 2 * f)) / 2;
   const qx = x - xWall + r,
-    qy = Math.abs(y - yArc) - LA_LATERAL_WALL_HALF_AP_CM + r;
+    qy = Math.abs(y - yArc - fy) - LA_LATERAL_WALL_HALF_AP_CM - fy + r;
   const dXY =
     Math.sqrt(Math.max(qx, 0) * Math.max(qx, 0) + Math.max(qy, 0) * Math.max(qy, 0)) +
     Math.min(Math.max(qx, qy), 0) -
@@ -241,7 +255,12 @@ export function laBaseSdf(
   const t = Math.min(1, Math.max(0, dz / (zHinge - zRef)));
   const bound = (dCrossEq - LA_BASE_SECTION_SLACK_CM) * (1 - t) + dCrossRef * t;
   // over the lateral arc the base is a shelf over the groove that the lateral wall rises from (decision 366)
-  const flare = Math.max(LA_BASE_FLARE * dz, laBaseShelf(dz) * lateralShare);
+  // (over the lateral arc the flare stops at the shelf: it went on widening past the lateral wall, up to the section at
+  // zRef, where it ended flat, a triangle of 2-5 mm standing out of the wall, decision 385)
+  const flare = Math.max(
+    Math.min(LA_BASE_FLARE * dz, LA_BASE_SHELF_CM + (1 - lateralShare) * LA_BASE_FLARE_RELEASE_CM),
+    laBaseShelf(dz) * lateralShare,
+  );
   return Math.min(
     Math.max(shared, dCrossRef, x - laX),
     Math.max(shared, bound, outlineSdf - flare),

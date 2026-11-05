@@ -21,12 +21,6 @@ const PHASES = [0, 0.09, 0.2, 0.6, 0.8];
 const END_SYSTOLE = 0.4;
 /** How much farther from the root the atrium may lie than at end-systole (mm). */
 const SLACK_MM = 1;
-/**
- * Declared, with the largest distance measured (mm): in the tamponade the effusion fills the transverse sinus between the
- * root and the atrium in diastole (22.4 mm at 0.8), as fluid there does in large effusions; the atrium is held where the
- * root's wall is, but the sac's fluid comes first.
- */
-const KNOWN_OFF_ROOT: Record<string, number> = { 'pericardial-effusion-tamponade': 22.4 };
 
 /** Median distance (mm) from the root lumen to the atrial blood on the PLAX lines that cross both within 4 cm. */
 function rootGapMm(id: string, phase: number): number {
@@ -81,12 +75,6 @@ describe('the left atrium lies on the aortic root through the beat (decision 341
       const far = PHASES.map((ph) => ({ ph, gap: rootGapMm(id, ph) })).filter(
         (x) => x.gap > es + SLACK_MM,
       );
-      const declared = KNOWN_OFF_ROOT[id];
-      if (declared !== undefined) {
-        expect(far.length, `${id}: declared off the root, and it lies on it`).toBeGreaterThan(0);
-        expect(Math.max(...far.map((x) => x.gap))).toBeLessThanOrEqual(declared + SLACK_MM);
-        return;
-      }
       expect(
         far.map((x) => `@${x.ph}: ${x.gap.toFixed(1)} mm (end-systole ${es.toFixed(1)})`),
       ).toEqual([]);

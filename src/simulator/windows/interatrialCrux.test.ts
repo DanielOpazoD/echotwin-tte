@@ -317,10 +317,11 @@ describe('the septum lies whole wherever the atria face each other (decision 327
   /**
    * Declared, `case @phase` → the thinnest septum (mm) and how many cells: since decision 366 the volume fit pays the left
    * atrium's lateral wall with 3 % of the body's scale, and in moderate aortic stenosis at end-diastole one cell beside
-   * the root, 9 mm above the annulus, has the left atrium 1.4 mm from the right (its wall, fat and the right atrial wall).
+   * the root, 9 mm above the annulus, has the left atrium 1.4 mm from the right (its wall, fat and the right atrial wall),
+   * 1.0 mm since decision 385 brought the lateral wall's front face forward, which the fit pays with another 2.2 %.
    */
   const KNOWN_THIN_SEPTUM: Record<string, [mm: number, cells: number]> = {
-    'aortic-stenosis-moderate @0': [1.4, 1],
+    'aortic-stenosis-moderate @0': [1.0, 1],
   };
   const seenThin = new Set<string>();
   const ANY_BLOOD = new Set<number>([
