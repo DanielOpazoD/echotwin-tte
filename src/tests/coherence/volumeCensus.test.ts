@@ -50,6 +50,9 @@ import {
  * septum around the fossa is thinner (decision 384). The volume fit pays the left atrium's lateral wall brought forward with
  * 3.2 % of the body's scale (decision 385), the right inferior vein follows the body, and its lumen meets the right
  * atrium's blood over 0.03 cm² at its edge; the right atrium's fat within 6 mm of the superior vena cava reads 0.03 mL.
+ * Above the atrioventricular groove the blend of the ventricles' epicardium with the atria's narrows (decision 387), and
+ * where it filled the space between them and the root with fat the census reads gap: 0.23 mL by the left atrium and the
+ * root (0.12 before), 0.10 between the atria (0.04), the transverse sinus and the interatrial groove.
  */
 const KNOWN_VOLUME_CENSUS: Record<string, number> = {
   'rodero AI|RAo hueco': 0.47,
@@ -63,11 +66,11 @@ const KNOWN_VOLUME_CENSUS: Record<string, number> = {
   'rodero AD|VCI hueco': 0.05,
   'rodero VD sobre bisagra AD': 2.15,
   'rodero sangre AorticRoot|PulmonaryArtery': 0.09,
-  'analytic AI|AD hueco': 0.04,
+  'analytic AI|AD hueco': 0.1,
   'analytic AI|AD grasa': 0.35,
   'analytic AI|AD tabique': 6.0,
   'analytic AD|VD hueco': 0.08,
-  'analytic AI|RAo hueco': 0.12,
+  'analytic AI|RAo hueco': 0.23,
   'analytic AI|RAo grasa': 0.51,
   'analytic AD|RAo hueco': 0.24,
   'analytic AD|RAo grasa': 0.18,

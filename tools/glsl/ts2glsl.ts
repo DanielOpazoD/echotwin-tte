@@ -51,6 +51,7 @@ export const TARGETS: GenTarget[] = [
   { file: 'src/simulator/anatomy/lvWall.ts', functions: ['septalShiftAt', 'septalCrestFactor'] },
   { file: 'src/simulator/anatomy/lvSegments.ts', functions: ['lvSegmentCode', 'lvWallKind'] },
   { file: 'src/simulator/anatomy/classify/root.ts', functions: ['rootBend'] },
+  { file: 'src/simulator/anatomy/classify/pericardium.ts', functions: ['avGrooveBlend'] },
   { file: 'src/simulator/anatomy/thoraxModel.ts', functions: ['mediastinumDistance'] },
   {
     file: 'src/simulator/anatomy/classify/atria.ts',

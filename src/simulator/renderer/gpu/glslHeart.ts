@@ -1468,7 +1468,8 @@ bool classifyHeart(vec3 p0, out Sample s) {
     vec3 paEnd = vec3(PA_EX, PA_EY, PA_EZ);
     float dRvotEpi = sdCapsule(p, rvotA, rvotB, RVOT_RA + fw);
     float dPaEpi = pulmonaryTrunkEpiDist(p);
-    float dEpi = smax(smin(smin(smin(dLvSac, dRvEpi, 0.8), smin(dLaEpi, dRaEpi, 0.8), 0.8), smin(dRvotEpi, dPaEpi, 0.8), 0.8), PERICARDIUM_CM - colDist, 0.2);
+    // decision 387: the atrioventricular groove's blend narrows above the groove
+    float dEpi = smax(smin(smin(smin(dLvSac, dRvEpi, 0.8), smin(dLaEpi, dRaEpi, 0.8), avGrooveBlend(zHinge - z)), smin(dRvotEpi, dPaEpi, 0.8), 0.8), PERICARDIUM_CM - colDist, 0.2);
     // decision 383: over an effusion the parietal layer is a smooth envelope, thin behind the left atrium (decision 255)
     float par = EFFUSION > 0.0 ? parietalSdf(EFFUSION, smin(smin(smin(dLvEpi, dRvEpi, 0.8), smin(sdEllipsoid(p, la, lr + 0.25), sdEllipsoid(p, ra, rar + 0.22), 0.8), 0.8), smin(dRvotEpi, dPaEpi, 0.8), 0.8), (la.y - y) / lr.y, ((x - la.x) / lr.x) * ((x - la.x) / lr.x) + ((z - la.z) / lr.z) * ((z - la.z) / lr.z), colDist) : 1e3;
     vec3 nEpi = n0;

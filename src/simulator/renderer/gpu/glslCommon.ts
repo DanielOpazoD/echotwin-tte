@@ -72,6 +72,10 @@ import {
   PA_ANTERIOR_FAT_CM,
   LV_SAC_ABOVE_HINGE_CM,
   LV_SAC_ROOT_KEEP_CM,
+  AV_GROOVE_BLEND_CM,
+  AV_GROOVE_BLEND_TOP_CM,
+  AV_GROOVE_BLEND_FADE_CM,
+  AV_GROOVE_BLEND_MIN_CM,
 } from '@/simulator/anatomy/classify/pericardium';
 import { LV_NECK_ZETA } from '@/simulator/anatomy/lvShape';
 import {
@@ -198,6 +202,11 @@ const float PA_ANTERIOR_FAT_CM = ${gf(PA_ANTERIOR_FAT_CM)};
 // the left ventricle's epicardium ends at its base for the sac (decision 380)
 const float LV_SAC_ABOVE_HINGE_CM = ${gf(LV_SAC_ABOVE_HINGE_CM)};
 const float LV_SAC_ROOT_KEEP_CM = ${gf(LV_SAC_ROOT_KEEP_CM)};
+// the atrioventricular groove's blend narrows above the groove (decision 387): read by the generated avGrooveBlend
+const float AV_GROOVE_BLEND_CM = ${gf(AV_GROOVE_BLEND_CM)};
+const float AV_GROOVE_BLEND_TOP_CM = ${gf(AV_GROOVE_BLEND_TOP_CM)};
+const float AV_GROOVE_BLEND_FADE_CM = ${gf(AV_GROOVE_BLEND_FADE_CM)};
+const float AV_GROOVE_BLEND_MIN_CM = ${gf(AV_GROOVE_BLEND_MIN_CM)};
 // vertebral body and posterior mediastinum (thoraxModel.ts)
 const float SPINE_Z = ${gf(SPINE_Z)};
 const float SPINE_R = ${gf(SPINE_R)};
