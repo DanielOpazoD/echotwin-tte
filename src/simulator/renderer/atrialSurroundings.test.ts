@@ -27,12 +27,14 @@ const KNOWN_LA_ROOF_EXCESS: Record<string, number> = {
   'normal-excellent-window a4c ES roofWall': 0.15,
   // decision 366: the volume fit pays the lateral wall with 3–4 % of the body's scale, and the roof sits lower in the band
   'normal-excellent-window a4c ES roofBeyond': 0.19,
-  'normal-excellent-window a2c ES roofWall': 0.3,
-  // 0.15 until decision 335, whose atrium meets its septal face beside the root
-  'normal-excellent-window a2c ES roofBeyond': 0.29,
+  // decision 385: the fit pays the lateral wall's front face with 1.6-3.2 % of the body's scale, and the roof sits lower
+  // in the band (0.32 and 0.13 before)
+  'normal-excellent-window a2c ES roofWall': 0.43,
+  // 0.15 until decision 335, whose atrium meets its septal face beside the root; 0.29 until decision 385
+  'normal-excellent-window a2c ES roofBeyond': 0.14,
   'pulmonary-hypertension-rv a4c ES roofWall': 0.14,
   'pulmonary-hypertension-rv a2c ES roofWall': 0.41,
-  'pulmonary-hypertension-rv a2c ES roofBeyond': 0.15,
+  'pulmonary-hypertension-rv a2c ES roofBeyond': 0.23,
 };
 
 /**

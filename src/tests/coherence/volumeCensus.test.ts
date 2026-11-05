@@ -47,7 +47,9 @@ import {
  * (0.47). Since the right atrium's sac follows its own wall (decision 378), the fat that its anchor ellipsoid laid between
  * it and the superior vena cava (0.59 mL) is gone, and the pericardium there and beside the coronary sinus and the root
  * reads as a little more gap: 0.38, 0.16 and 0.12 mL (0.21, 0.10 and 0.08); beside the superior vena cava 0.50 since the
- * septum around the fossa is thinner (decision 384).
+ * septum around the fossa is thinner (decision 384). The volume fit pays the left atrium's lateral wall brought forward with
+ * 3.2 % of the body's scale (decision 385), the right inferior vein follows the body, and its lumen meets the right
+ * atrium's blood over 0.03 cm² at its edge; the right atrium's fat within 6 mm of the superior vena cava reads 0.03 mL.
  */
 const KNOWN_VOLUME_CENSUS: Record<string, number> = {
   'rodero AI|RAo hueco': 0.47,
@@ -74,6 +76,8 @@ const KNOWN_VOLUME_CENSUS: Record<string, number> = {
   'analytic AI|VP hueco': 0.62,
   'analytic AI|VP grasa': 1.14,
   'analytic AD|VCS hueco': 0.5,
+  'analytic AD|VCS grasa': 0.03,
+  'analytic sangre PulmonaryVein|RaCavity': 0.03,
   'analytic AD|VCI hueco': 0.26,
   'analytic AD|VCI grasa': 0.73,
   'analytic AD|SC hueco': 0.16,

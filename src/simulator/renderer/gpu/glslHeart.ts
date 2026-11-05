@@ -1185,7 +1185,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     float frontClear = min(rootClearFaceLine, xFace + RA_LA_MIN_CM * holdShare - x);
     float faceKeep = rootClearFaceLine > 0.0 ? xFace - x : -1e3;
     // decision 366: the lateral wall stands on the lateral hinge; above its top it adds nothing (decision 381)
-    float dLatWall = max(laLateralWallSdf(x, y, zHinge - z, (czL - z) / rzL, la.x, MVL_CX + MVL_R + LA_LATERAL_HINGE_CM, MVL_CY + LA_LATERAL_WALL_AHEAD_CM, LA_LATERAL_WALL_HOLD, LA_LATERAL_WALL_TOP), czL - LA_LATERAL_WALL_TOP * rzL - z);
+    float dLatWall = max(laLateralWallSdf(x, y, zHinge - z, (czL - z) / rzL, la.x, MVL_CX + MVL_R + LA_LATERAL_HINGE_CM, MVL_CY + LA_LATERAL_WALL_AHEAD_CM, LA_LATERAL_WALL_HOLD, LA_LATERAL_WALL_TOP, LA_LATERAL_WALL_FRONT_CM), czL - LA_LATERAL_WALL_TOP * rzL - z);
     float dBodyPost = smin(smin(dFreeLa, dPost, 0.6), dLatWall, laLateralWallBlend(zHinge - z));
     float dLaBody = max(max(max(min(min(dBodyPost, dCorner), min(dFossaLa, dFlat)), tPost), frontClear), faceKeep);
     laEpi = min(laEpi, dLaBody - LA_WALL_CM);
@@ -1220,7 +1220,7 @@ bool classifyHeart(vec3 p0, out Sample s) {
     // decision 367: the lateral wall rises from the lateral tricuspid hinge (the ring shortens about its septal edge)
     float tvRNow = TV_R * (1.0 - tvShortening(CONTRACTION, RV_RADIAL_SCALE));
     float tvLat = TV_CX + TV_R - 2.0 * tvRNow - RA_LATERAL_HINGE_CM;
-    float dLatR = max(laLateralWallSdf(-x, y, zBotR - z, (czR - z) / rzR, -ra.x, -tvLat, TV_CY, RA_LATERAL_WALL_HOLD, RA_LATERAL_WALL_TOP), czR - RA_LATERAL_WALL_TOP * rzR - z);
+    float dLatR = max(laLateralWallSdf(-x, y, zBotR - z, (czR - z) / rzR, -ra.x, -tvLat, TV_CY, RA_LATERAL_WALL_HOLD, RA_LATERAL_WALL_TOP, 0.0), czR - RA_LATERAL_WALL_TOP * rzR - z);
     dFreeRa = smin(dFreeRa, dLatR, laLateralWallBlend(zBotR - z));
     raBody = dFreeRa;
     // decision 218

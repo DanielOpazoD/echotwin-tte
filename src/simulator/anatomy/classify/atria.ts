@@ -13,6 +13,7 @@ import {
   LA_LATERAL_WALL_TOP,
   LA_LATERAL_HINGE_CM,
   LA_LATERAL_WALL_AHEAD_CM,
+  LA_LATERAL_WALL_FRONT_CM,
   laLateralWallBlend,
   LA_CORNER_FLAT_CM,
   LA_FLOOR_Y_CM,
@@ -674,6 +675,7 @@ export function classifyAtria(c: ClassifyCtx): boolean {
       mvA.cy + LA_LATERAL_WALL_AHEAD_CM,
       LA_LATERAL_WALL_HOLD,
       LA_LATERAL_WALL_TOP,
+      LA_LATERAL_WALL_FRONT_CM,
     ),
     czL - LA_LATERAL_WALL_TOP * rzL - z,
   );
@@ -778,6 +780,7 @@ export function classifyAtria(c: ClassifyCtx): boolean {
         V.tv.cy,
         RA_LATERAL_WALL_HOLD,
         RA_LATERAL_WALL_TOP,
+        0,
       ),
       czR - RA_LATERAL_WALL_TOP * rzR - z,
     );
