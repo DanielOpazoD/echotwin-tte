@@ -22,10 +22,10 @@ const JUNCTION_MM = 4;
 const JUNCTION_FAT_MAX_MM2 = 7.5;
 /**
  * Junctions over it, as measured (mm²): at end-systole in these cases the right atrium is released from the septal plane
- * toward the root (decision 222), and there the left atrium keeps its distance and the curtain's bound stands.
+ * toward the root (decision 222), and there the left atrium keeps its distance and the curtain's bound stands. The
+ * difficult window's (10.3) came inside, 5.0, when decision 387 narrowed the groove's blend above the groove.
  */
 const KNOWN_JUNCTION_FAT: Record<string, number> = {
-  'normal-difficult-window ES': 10.3,
   'pulmonary-hypertension-rv ES': 10.4,
   'pericardial-effusion-tamponade ES': 10.5,
 };

@@ -232,10 +232,10 @@ const KNOWN_GEOMETRY_DEVIATIONS: ReadonlyMap<string, number> = new Map([
  * phases 1–3 of the fidelity plan. The near field came inside at decision 156.
  */
 const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
-  // the left atrium held on the aortic root (decision 341) moves the two-chamber end-diastolic correlation 8 mm along
-  // the beam from −0.013 to −0.017, just past the quartile's edge (−0.49; −0.32 since decision 381, without the fin of
-  // left atrial wall over the roof)
-  ['2CH-ED:radialCorr8', -0.32],
+  // (the left atrium held on the aortic root, decision 341, moved the two-chamber end-diastolic correlation 8 mm along
+  // the beam just past the quartile's edge until decision 387 took the band of fat from under the atrium; at
+  // end-systole it steps just outside instead, 0.021 against −0.008 to 0.018)
+  ['2CH-ES:radialCorr8', 0.13],
   // decision 333: the pericardium's interface echo is collagen against fat (0.15, not 1.0): the white lines it drew
   // across the beam were thin bright ridges, and the end-systolic ridge deficit grows (1.42 → 1.67 four-chamber,
   // 1.38 → 1.58 two-chamber); the two-chamber correlation 1 mm along the beam comes closer (0.46/0.52 → 0.24) and

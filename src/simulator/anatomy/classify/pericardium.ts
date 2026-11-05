@@ -22,6 +22,22 @@ export const PERICARDIUM_CM = 0.12;
  */
 export const LV_SAC_ABOVE_HINGE_CM = 0.3;
 export const LV_SAC_ROOT_KEEP_CM = 1.2;
+/**
+ * The blend (cm) of the ventricles' epicardium with the atria's, which fills the atrioventricular groove with fat, and how
+ * it narrows from AV_GROOVE_BLEND_TOP_CM above the mitral hinge over AV_GROOVE_BLEND_FADE_CM to AV_GROOVE_BLEND_MIN_CM
+ * (decision 387). Above the groove the left ventricle's cap kept beside the root (decision 380) still lay 1-2 mm from the
+ * left atrium's wall, and the full blend filled the space between them with a band of fat 1-2 mm thick that the
+ * five-chamber view drew under the atrium.
+ */
+export const AV_GROOVE_BLEND_CM = 0.8;
+export const AV_GROOVE_BLEND_TOP_CM = 1;
+export const AV_GROOVE_BLEND_FADE_CM = 0.5;
+export const AV_GROOVE_BLEND_MIN_CM = 0.2;
+/** The blend of the atrioventricular groove `h` cm above the mitral hinge (decision 387). Shared with GLSL. */
+export function avGrooveBlend(h: number): number {
+  const t = Math.min(1, Math.max(0, (h - AV_GROOVE_BLEND_TOP_CM) / AV_GROOVE_BLEND_FADE_CM));
+  return Math.max(AV_GROOVE_BLEND_MIN_CM, AV_GROOVE_BLEND_CM * (1 - t));
+}
 
 /**
  * Distance (cm) from a heart-frame point to the surface of the posterior column (decision 273): the descending aorta at
@@ -156,7 +172,7 @@ export function classifyPericardium(c: ClassifyCtx): boolean {
   // the sac lies against the descending aorta and the vertebral body and does not run into them (decision 273)
   const dEpi = smax(
     smin(
-      smin(smin(dLvSac, dRvEpi, 0.8), smin(dLaEpi, dRaEpi, 0.8), 0.8),
+      smin(smin(dLvSac, dRvEpi, 0.8), smin(dLaEpi, dRaEpi, 0.8), avGrooveBlend(c.zHinge - z)),
       smin(dRvotEpi, dPaEpi, 0.8),
       0.8,
     ),
