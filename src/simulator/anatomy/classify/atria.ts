@@ -397,10 +397,15 @@ export function coronarySinusDistance(c: ClassifyCtx, x: number, y: number, z: n
  * A rounded cone from inside the atrium's anterosuperior face (`raaBase` in the anchors, decision 324) to a tip
  * set from the aortic valve centre (RAA_TIP_FROM_AV), radii RAA_BASE_R_CM and RAA_TIP_R_CM scaled with the atrium, with the
  * wall of the left appendage.
+ * Decision 388 widened the tip from 0.55 to 0.85 cm and moved it to the atlas region's height and side, 1 cm up, 0.3 cm
+ * to the right and 0.3 cm back (it was [−3.2, 3.0, −1.3]): a finger of 7.1-8.8 mL at its largest, below one SD of the
+ * published mean in every man, that the canonical five-chamber view cut as a small circle far from the root (0.30-0.47 %
+ * of the sector at end-diastole) where the Rodero heart shows the right atrium beside it. Now a pouch of 10.5-12.7 mL,
+ * between the two sexes' means, since the model has one appendage for both.
  */
-export const RAA_TIP_FROM_AV: readonly [number, number, number] = [-3.2, 3.0, -1.3];
+export const RAA_TIP_FROM_AV: readonly [number, number, number] = [-3.5, 2.7, -2.3];
 export const RAA_BASE_R_CM = 1.1;
-export const RAA_TIP_R_CM = 0.55;
+export const RAA_TIP_R_CM = 0.85;
 /**
  * Height (cm) over the atrial floor below which the appendage does not reach (decision 324): its base lies over the
  * anterior atrioventricular groove, and without this its wall reached the anteroseptal edge of the tricuspid orifice.

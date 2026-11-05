@@ -3665,3 +3665,33 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     **Pruebas**: `avGrooveFat.test.ts`. En el plano de Daniel, a 0 y a 0,15 del ciclo, como mucho tres haces tienen, en los 3 mm que siguen a la sangre de la AI, una banda de grasa epicárdica de 0,5 mm o más a más de 1,2 cm sobre el anillo. Con la unión de 0,8 cm en todas partes fallan las dos fases (17–18 haces).
 
     **Lo que no resuelve**: la grasa del mediastino detrás de la AI, que Daniel marcó en rojo, es la vaina de la aorta descendente y se queda (decisión 386).
+
+388. **La orejuela derecha tiene su volumen publicado y el cinco cámaras muestra la aurícula derecha**: tras las decisiones 385–387, Daniel pidió «aunque no se ve la aurícula derecha en A5C corrige eso».
+
+    **Medido antes**: en el A5C canónico, la aurícula derecha y su orejuela ocupan el 0,30–0,47 % del sector en telediástole en los doce casos, y el 0,47–0,75 % en telesístole. Lo que se ve es un círculo pequeño de orejuela más allá del tracto de salida del VD, lejos de la raíz. Con el mismo plano, el corazón de Rodero del caso normal muestra la aurícula derecha junto a la raíz: el 1,4 % del sector en telediástole y el 2,6 % en telesístole. La orejuela de la decisión 323 contiene 7,1–8,8 mL en su máximo. En TC mide 13,3 ± 3,5 mL en hombres y 10,7 ± 2,8 mL en mujeres (decisión 323): queda por debajo de una desviación típica en todos los hombres y en la hipertensión pulmonar. Además, en el caso normal su mitad queda 1 cm más baja que la región del atlas que la motivó, centrada en (−4,2; 3,4; −2,2) cm.
+
+    **Medido y no cambiado, la AI del mismo plano**: el corazón de Rodero ligado al caso normal tiene aurículas del doble del volumen declarado (AI 73 frente a 34 mL y AD 82 frente a 41 mL en telediástole). Por eso su A5C muestra aurícula alrededor de toda la raíz. En la ICFEr, con una AI de 70 mL, el modelo muestra en el A5C tanta AI como Rodero (4,0 frente a 3,7 % del sector). Se probaron tres remodelados de la AI con su volumen, que el ajuste conserva:
+    - una cúpula apoyada en la raíz y la ascendente;
+    - el rincón anterosuperior lleno;
+    - una AI más alta y estrecha, con la proporción publicada del apical de cuatro cámaras: 4,6–4,8 cm de largo por 3,6–3,8 de ancho en telesístole, frente a 4,26 por 4,18 del modelo.
+
+    Ninguno sube la AI del A5C más de 0,3 puntos del sector. Tampoco se adoptó apuntar el plano 0,6 cm hacia las aurículas: el CW desde el A5C canónico leía 2,3 m/s de la obstrucción de la MCH, frente a 4,0 × cos 0,889.
+
+    **Cambio** (`classify/atria.ts`; el GLSL lee las mismas constantes):
+    - **Punta** (`RAA_TIP_FROM_AV`): de (−3,2; 3,0; −1,3) a (−3,5; 2,7; −2,3) cm desde la válvula aórtica. Queda 1 cm más alta, 0,3 cm más a la derecha y 0,3 cm más atrás, a la altura y en el lado de la región del atlas. Con 0,5 cm a la derecha, el centroide de la aurícula derecha de la ventana difícil quedaba 0,001 longitudes del VI fuera del percentil 10 del atlas.
+    - **Radio de la punta** (`RAA_TIP_R_CM`): de 0,55 a 0,85 cm. La orejuela pasa de dedo a bolsa, como la base de 37 × 26 mm publicada. El modelo tiene una sola orejuela para los dos sexos, así que se elige entre las dos medias. Con 0,9 cm, las mujeres llegaban a 13,5 mL, el borde de su desviación típica. Con 0,8 cm, dos casos quedaban en el 0,48–0,49 % del A5C.
+    - **Base:** sin cambios.
+
+    **Medido después**: la orejuela contiene 10,5–12,7 mL en telesístole, dentro de una desviación típica de su sexo en los doce casos (12,4 mL en el normal). En el A5C, la aurícula derecha con su orejuela ocupa el 0,53–0,77 % del sector en telediástole y el 0,44–1,13 % en telesístole, en el sitio donde Rodero tiene la aurícula derecha. En telesístole la MCH apenas cambia (0,47 → 0,44 %).
+
+    El censo de coherencia no encuentra contactos nuevos entre sangres ni islas. La orejuela toca su pared, su aurícula y, como antes, 0,2–0,7 cm² de pericardio. Su sangre deja de tocar la de la cava superior (0,04 cm² en dos casos). Su sangre sin pared contra la grasa pasa de 17 casos y fases a uno (0,04 cm²). Sólo aparece pared de la AD contra pared de la ascendente, 0,08 cm² en la estenosis grave en telesístole. En el censo de los planos (A5C, A4C, eje corto aórtico, subcostales, PLAX y VD-focalizado), la orejuela sólo cambia el A5C; en los demás sigue por debajo de 200 muestras. Las hojas de revisión antes y después están en `tools/offline/review/out/orejuela-388/` (A5C, A4C, eje corto aórtico y subcostal de la cava). El trazador CPU queda 7,3 % sobre la referencia de la 331, como en la 387.
+
+    **Lo que cuesta, declarado**: en telediástole la orejuela contiene 7,3–9,1 mL, por encima de los 5–6 mL publicados en su mínimo. Su vaciado sigue la escala de la aurícula, como desde la decisión 323.
+
+    **Pruebas**: `raAppendage.test.ts`.
+    - La orejuela de cada caso, en telesístole, queda dentro de una desviación típica del volumen publicado para su sexo.
+    - En el A5C canónico en telediástole, la aurícula derecha y su orejuela ocupan al menos el 0,5 % del sector.
+
+    Con la orejuela de la decisión 323 fallan 20 de las 24 comprobaciones: las 12 del A5C y las 8 de volumen de los hombres y la hipertensión pulmonar.
+
+    **Lo que no resuelve**: en el A5C la orejuela sigue separada de la raíz por grasa y mediastino, y en Rodero la aurícula derecha toca la raíz. Tampoco cambia la AI del A5C del caso normal, que es menor que la de Rodero porque su volumen es la mitad (ver arriba).
