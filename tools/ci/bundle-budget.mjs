@@ -52,8 +52,10 @@ const BUDGETS = [
   // wall and shelf, mirrored in GLSL) took it to 216.7 kB: raised by 2 kB more. Decisions 367-369 (the right atrium's
   // lateral wall and sac, the free wall ending at its hinge, the septum's bow and fossa, mirrored) took it to 218.6 kB:
   // raised by 2 kB more. Decisions 372-377 (the great vessels' trunk and front fat shared with the volume heart, the
-  // esophagus of the posterior mediastinum, mirrored) took it to 220.3 kB: raised by 2 kB more
-  [/^webgl2Renderer-.*\.js$/, (132 + 82 + 8) * KB],
+  // esophagus of the posterior mediastinum, mirrored) took it to 220.3 kB: raised by 2 kB more. Decisions 385-386 (the
+  // left atrium's lateral front face, the superior mediastinum around the root, mirrored) took it to 222.4 kB: raised by
+  // 3 kB more, for decision 387's blend of the atrioventricular groove too
+  [/^webgl2Renderer-.*\.js$/, (132 + 82 + 11) * KB],
   [/^heartMesh\.worker-.*\.js$/, 220 * KB],
   [/^(ReportScreen|CurriculumScreen|ProgressScreen|ReferencesScreen)-.*\.js$/, 80 * KB],
   // Decision 287: bounded beat history and timestamp context add 1.2 kB to the lazy core (80.5 kB).

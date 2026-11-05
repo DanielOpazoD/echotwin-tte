@@ -148,7 +148,7 @@ La referencia son 505 secuencias apicales de calidad Good de CAMUS (Leclerc et a
 - **La calibración supone que los cuadros de CAMUS llevan la persistencia de la app** (decisión 258): la copia local de CAMUS no trae secuencias, así que no se sabe qué promedio temporal tienen sus cuadros. Pero su cavidad, sin un píxel bajo el gris 20 con mediana 56, no puede ser un cuadro único de speckle desarrollado, y desde la decisión 258 la calibración pasa cinco cuadros por la persistencia por defecto (0,35), como la app. Con ella el miocardio sale más liso que el clínico en telesístole (desviación local 7,8 frente a 9,1–9,5 de cuartil inferior) y la textura del sector más coherente a lo largo del haz a 1 mm. La contribución difusa sigue siendo fenomenológica, sin separar la reverberación de los ecos fuera del eje. La decisión 296 elimina su segunda envolvente aleatoria de 3 mm; la textura procede de los fasores y la PSF, conservando el nivel relativo de clutter.
 - **La ventana difícil no se parece a una imagen clínica pobre**: contra CAMUS Poor el miocardio queda en 62–91 (frente a 95–103) y el contraste en 2–21 (frente a 34–36); hasta la decisión 261, en 60–68 y 0–4. Al quitar la atenuación extra de la pared, el A4C telediastólico tiene el miocardio dentro del rango clínico, pero el A2C sigue casi sin contraste (2–5): el simulador apaga el miocardio, cuando una imagen pobre real lo conserva gris y degrada otras cosas, y su textura es más lisa y de grano más ancho que la clínica (desviación local 6,2–7,3 frente a 9–9,8; celda horizontal 2,5–2,7 mm frente a 2,1–2,2). Es información, no referencia: la calibración usa sólo la ventana óptima.
 
-- **Detrás del techo de la aurícula izquierda, la imagen sigue algo más brillante que CAMUS en telesístole** (decisión 333). La banda que el haz cruza de frente queda 0,07–0,43 medianas de miocardio sobre el percentil 75 de CAMUS Good (`KNOWN_LA_ROOF_EXCESS`), con el mayor exceso en el A2C, donde la reflectividad difusa propia del pericardio (0,85, cuatro veces la del miocardio) cae 3–4 mm detrás del techo. Bajarla dejaría bajo CAMUS la línea pericárdica junto al VI, que corre a lo largo del haz. Sólo el coeficiente especular del pericardio se deduce de las impedancias de los tejidos; los demás siguen calibrados. Al quitar ese eco, el contraste entre la pared del VI y la sangre del PLAX baja de 25,27 a 24,97 dB (24,91 desde la decisión 385), bajo el suelo de 25 dB de la prueba (`KNOWN_LOW_TISSUE_BLOOD_DB`), y las crestas finas brillantes del sector, ya por debajo de CAMUS, bajan algo más (1,42 → 1,67 anchos intercuartiles en el A4C en telesístole).
+- **Detrás del techo de la aurícula izquierda, la imagen sigue algo más brillante que CAMUS en telesístole** (decisión 333). La banda que el haz cruza de frente queda 0,07–0,43 medianas de miocardio sobre el percentil 75 de CAMUS Good (`KNOWN_LA_ROOF_EXCESS`), con el mayor exceso en el A2C, donde la reflectividad difusa propia del pericardio (0,85, cuatro veces la del miocardio) cae 3–4 mm detrás del techo. Bajarla dejaría bajo CAMUS la línea pericárdica junto al VI, que corre a lo largo del haz. Sólo el coeficiente especular del pericardio se deduce de las impedancias de los tejidos; los demás siguen calibrados. Al quitar ese eco, el contraste entre la pared del VI y la sangre del PLAX baja de 25,27 a 24,97 dB (24,91 desde la decisión 385 y 24,82 desde la 386), bajo el suelo de 25 dB de la prueba (`KNOWN_LOW_TISSUE_BLOOD_DB`), y las crestas finas brillantes del sector, ya por debajo de CAMUS, bajan algo más (1,42 → 1,67 anchos intercuartiles en el A4C en telesístole).
 
 ## Mediciones: alcance de la evaluación de técnica
 - Las mediciones del protocolo (las de `protocol.ts`, listadas en `MEASUREMENTS.md`) llevan id semántico y calificación de técnica; las herramientas libres no se califican y el informe sigue emparejándolas con la verdad «más cercana».
@@ -260,7 +260,7 @@ Cada prueba del modelo que tolera una desviación la declara en un conjunto `KNO
 | `KNOWN_DEVIATIONS` | `simulator/renderer/clinicalImage.test.ts` | 19 | `cavityDetrendedStd` (4CH-ED, 4CH-ES, 2CH-ED, 2CH-ES); `contrast` (2CH-ES, 4CH-ES); `myocardialResidualSkew` (2CH-ED); `speckleCellHorizontalMm` (4CH-ES, 2CH-ES); `myocardialLocalStd` (4CH-ES, 2CH-ES); `myocardialDetrendedStd` (4CH-ED, 4CH-ES, 2CH-ED, 2CH-ES); `speckleCellVerticalMm` (4CH-ED, 4CH-ES, 2CH-ED, 2CH-ES) |
 | `KNOWN_GEOMETRY_DEVIATIONS` | `simulator/renderer/clinicalImage.test.ts` | 6 | `septalMinusLateralGrey` (4CH-ED, 4CH-ES); `axisTiltDeg` (2CH-ED, 2CH-ES); `apexOffsetMm` (2CH-ED, 2CH-ES) |
 | `KNOWN_SECTOR_DEVIATIONS` | `simulator/renderer/clinicalImage.test.ts` | 26 | `radialCorr8` (2CH-ED); `tangentialCorr8` (4CH-ES); `radialCorr4` (2CH-ED); `edgeRollOff` (2CH-ES, 4CH-ES); `ridgeFraction` (2CH-ES, 4CH-ED, 4CH-ES, 2CH-ED); `bandGrey2` (4CH-ED, 2CH-ES, 2CH-ED); `gradientP95` (2CH-ED, 4CH-ED, 2CH-ES, 4CH-ES); `gradientP50` (4CH-ED, 4CH-ES, 2CH-ED, 2CH-ES); `radialCorr2` (2CH-ED); `radialCorr1` (2CH-ED, 2CH-ES); `tangentialCorr4` (2CH-ED); `tangentialCorr2` (2CH-ED); `bandGrey8` (4CH-ES) |
-| `KNOWN_SURROUNDINGS_DEVIATIONS` | `simulator/renderer/clinicalImage.test.ts` | 18 | `side1EndoOverMid` (4CH-ED, 4CH-ES, 2CH-ED, 2CH-ES); `side2EndoOverMid` (4CH-ED, 4CH-ES, 2CH-ED, 2CH-ES); `side2EpiOverMid` (4CH-ED, 4CH-ES, 2CH-ES); `side1EpiOverMid` (2CH-ES); `nearFieldGrey` (4CH-ED, 4CH-ES); `side2BandGrey` (4CH-ES); `side1EpicardialPeakGrey` (4CH-ES); `side2EpicardialPeakGrey` (4CH-ES, 2CH-ED) |
+| `KNOWN_SURROUNDINGS_DEVIATIONS` | `simulator/renderer/clinicalImage.test.ts` | 19 | `side1EndoOverMid` (4CH-ED, 4CH-ES, 2CH-ED, 2CH-ES); `side2EndoOverMid` (4CH-ED, 4CH-ES, 2CH-ED, 2CH-ES); `side2EpiOverMid` (4CH-ED, 4CH-ES, 2CH-ES); `side1EpiOverMid` (2CH-ES); `farBackgroundP99` (2CH-ED); `nearFieldGrey` (4CH-ED, 4CH-ES); `side2BandGrey` (4CH-ES); `side1EpicardialPeakGrey` (4CH-ES); `side2EpicardialPeakGrey` (4CH-ES, 2CH-ED) |
 <!-- /generado -->
 
 - **Navegación táctil (decisión 279):** arrastre de un puntero para sonda o cámara; no hay gestos simultáneos de varios dedos. Balanceo e inclinación siguen disponibles en la consola. Las mallas usan diez fases nominales y no reproducen toda la deformación latido a latido.
@@ -407,6 +407,21 @@ volumen la paga con la escala del cuerpo (0,2–3,2 %):
 - El contraste pared–sangre del VI en el PLAX baja de 24,97 a 24,91 dB.
 
 En ese plano queda una franja de pared cortada en oblicuo de 0,34 cm² (0,68 antes).
+
+### Mediastino detrás de la raíz (decisión 386)
+
+Alrededor de la raíz y de la aorta ascendente el mediastino superior empieza a 1 cm de altura, y por encima de ellas, entre
+3,25 y 4 cm, vuelve al ensanche de la decisión 150. Lo que cuesta:
+
+- En el A2C sale del fondo lejano una línea pleural: en telediástole sus píxeles más brillantes leen 153,9 frente a
+  165–224 de CAMUS, y en telesístole la textura a 1 mm se aleja (0,45 anchos intercuartiles, 0,24 antes).
+- La pared de la AI del A2C del caso de artefactos en telediástole lee por encima del pericardio.
+- A 4 cm de altura, donde el ensanche vuelve al anterior, queda pulmón a 0,35–0,70 cm del borde derecho de la ascendente
+  ancha de cuatro casos, y en la base de la raíz, a 2–3,5 mm de ella en cinco.
+- El mediastino es todo grasa: no hay arteria pulmonar derecha ni bronquios detrás de la ascendente.
+- La grasa detrás de la AI del A5C es la vaina de la aorta descendente (decisión 273), y se queda: en su lugar entraría
+  pulmón, que en ese plano lee casi como la sangre de la AI (90 frente a 83, la grasa 126), y en el PLAX volvería a haber
+  pulmón entre la AI y la aorta.
 
 ### Pared lateral de la aurícula derecha (decisión 367)
 

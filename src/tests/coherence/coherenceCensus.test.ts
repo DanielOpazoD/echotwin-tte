@@ -140,8 +140,10 @@ const KNOWN_GREY_INVERSIONS: Record<string, string[]> = {
   // decision 381: without the fin of left atrial wall over the roof, the PLAX of the AF case at end-systole reads the
   // roof's wall against the pericardium again, and the normal case's A4C at end-systole no longer does
   'af-diastolic plax @0.35': ['LaWall>Pericardium'],
-  // (the left atrial wall of the artifact case's A2C at end-diastole read over the pericardium until decision 385)
+  // (the left atrial wall of the artifact case's A2C at end-diastole read over the pericardium until decision 385, and
+  // again since decision 386, with mediastinum where the lung lay behind the root)
   'artifact-challenge a2c @0': [
+    'LaWall>Pericardium',
     'LvCavity>=LvWallAnterior',
     'LvApex>Pericardium',
     'LvWallSeptal>Pericardium',

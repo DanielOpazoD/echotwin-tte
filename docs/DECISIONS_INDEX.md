@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 385 (última: 385).
+Decisiones: 386 (última: 386).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -393,3 +393,4 @@ Decisiones: 385 (última: 385).
 | [383](DECISIONS.md#L3587) | 2026-10-30 | Sobre un derrame, el pericardio parietal es una envoltura lisa | vigente |
 | [384](DECISIONS.md#L3603) | 2026-10-30 | El borde de la fosa oval se redondea, y el censo deja de contar el seno coronario | vigente |
 | [385](DECISIONS.md#L3619) | 2026-10-30 | La pared lateral de la AI no se sale en triángulo, y su cara frontal llega a la raíz en el cinco cámaras | vigente |
+| [386](DECISIONS.md#L3635) | 2026-10-30 | Detrás de la raíz y de la aorta ascendente hay mediastino, no pulmón | vigente |
