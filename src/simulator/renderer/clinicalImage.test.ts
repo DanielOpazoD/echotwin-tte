@@ -198,6 +198,9 @@ const KNOWN_SURROUNDINGS_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['2CH-ES:side1EpiOverMid', -0.26],
   ['2CH-ES:side2EndoOverMid', 0.88],
   ['2CH-ES:side2EpiOverMid', -0.19],
+  // decision 386: the mediastinum behind the root and the ascending aorta takes a pleural line out of the two-chamber far
+  // field at end-diastole, whose brightest pixels read 153.9 against 165-224
+  ['2CH-ED:farBackgroundP99', -0.19],
   // The near field, 15 mm under the sector apex, brighter than clinical (128 against 83-122; 125 before decision 312,
   // at the edge), and at end-systole the lateral band (86 against 91-135; 80 before the lung's haze kept what it had at
   // the heart's surface, decision 313) and both pericardial peaks dimmer; the two-chamber anterior pericardial peak a
@@ -259,8 +262,9 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   // decision 270: the lung's diffuse reverberation now carries its path loss, so the outer sector of the end-systolic four-chamber view darkens
   ['4CH-ES:edgeRollOff', -0.12],
   // decision 264: with the chest-wall reverberation fading within 0.8 cm the near field comes inside and the two-chamber cavities darken
-  // decision 369: the septum without its 7 mm limbus draws one bright interface fewer at end-systole (1.58 before)
-  ['2CH-ES:ridgeFraction', 1.43],
+  // decision 369: the septum without its 7 mm limbus draws one bright interface fewer at end-systole (1.58 before);
+  // decision 386: the mediastinum behind the root takes one pleural line out of the far field (1.43 before)
+  ['2CH-ES:ridgeFraction', 1.08],
   // decision 263: the cavity reverberation no longer reinforced behind blood darkens the end-diastolic cavities
   // decision 262: with the LV's diaphragmatic face on the diaphragm, liver fills the two-chamber sector beyond the
   // inferior wall where lung reverberation was; at end-systole its texture and the outer sector move out
@@ -307,7 +311,8 @@ const KNOWN_SECTOR_DEVIATIONS: ReadonlyMap<string, number> = new Map([
   ['2CH-ED:radialCorr2', 0.6],
   // decision 321: with the coronary sinus at the inferior groove, the two-chamber end-diastolic texture at 8 mm (−0.11 before)
   ['2CH-ED:radialCorr1', 0.24],
-  ['2CH-ES:radialCorr1', 0.24],
+  // decision 386: with mediastinum where the lung lay behind the root, the end-systolic texture at 1 mm (0.24 before)
+  ['2CH-ES:radialCorr1', 0.45],
   // (−0.65 until decision 385)
   ['2CH-ED:tangentialCorr4', -0.49],
   // decision 366: the lateral wall of the left atrium stands on the hinge, along the beam, and the two-chamber sector at

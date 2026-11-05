@@ -44,6 +44,10 @@ import {
   DESC_AORTA_X,
   DESC_AORTA_Z,
   POSTERIOR_MEDIASTINUM_Z,
+  SUPERIOR_MEDIASTINUM_FROM_Y,
+  SUPERIOR_MEDIASTINUM_RISE_CM,
+  SUPERIOR_MEDIASTINUM_FADE_FROM_Y,
+  SUPERIOR_MEDIASTINUM_FADE_CM,
   SPINE_R,
   SPINE_Z,
 } from '@/simulator/anatomy/thoraxModel';
@@ -198,6 +202,10 @@ const float LV_SAC_ROOT_KEEP_CM = ${gf(LV_SAC_ROOT_KEEP_CM)};
 const float SPINE_Z = ${gf(SPINE_Z)};
 const float SPINE_R = ${gf(SPINE_R)};
 const float POSTERIOR_MEDIASTINUM_Z = ${gf(POSTERIOR_MEDIASTINUM_Z)};
+const float SUPERIOR_MEDIASTINUM_FROM_Y = ${gf(SUPERIOR_MEDIASTINUM_FROM_Y)};
+const float SUPERIOR_MEDIASTINUM_RISE_CM = ${gf(SUPERIOR_MEDIASTINUM_RISE_CM)};
+const float SUPERIOR_MEDIASTINUM_FADE_FROM_Y = ${gf(SUPERIOR_MEDIASTINUM_FADE_FROM_Y)};
+const float SUPERIOR_MEDIASTINUM_FADE_CM = ${gf(SUPERIOR_MEDIASTINUM_FADE_CM)};
 // right ventricular body contraction (rv.ts, decision 220): read by the generated rvRadialContraction
 const float RV_BODY_RADIAL_CONTRACTION = ${gf(RV_BODY_RADIAL_CONTRACTION)};
 // free wall hung from the tricuspid annulus and reach of the inflow column (rv.ts, decision 243)

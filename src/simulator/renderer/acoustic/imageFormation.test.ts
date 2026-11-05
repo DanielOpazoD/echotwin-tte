@@ -230,10 +230,11 @@ describe('acoustic image formation', () => {
   /**
    * Tissue-to-blood contrasts declared under the 25 dB floor, as measured (dB): the PLAX LV walls since decision 333,
    * when the pericardium's interface echo stopped spilling into the posterior wall (25.27 before, the wall's mean 3.4 %
-   * lower); 24.97 until decision 385 changed the left atrium behind the posterior wall. The myocardium's backscatter over
+   * lower); 24.97 until decision 385 changed the left atrium behind the posterior wall, 24.91 until decision 386 put
+   * mediastinum where the lung lay behind the root. The myocardium's backscatter over
    * the blood's at its brightest fibre angle is 0.21 over 0.0126, 24.4 dB: the floor sits at the model's edge.
    */
-  const KNOWN_LOW_TISSUE_BLOOD_DB: Record<string, number> = { 'plax lv walls': 24.91 };
+  const KNOWN_LOW_TISSUE_BLOOD_DB: Record<string, number> = { 'plax lv walls': 24.82 };
   it('tissue is 25–40 dB above blood away from the walls, and the septum stays lit with the beam across its fibres', () => {
     const { lines: L, samples: N } = spec;
     const dr = spec.depthCm / N;

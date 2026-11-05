@@ -354,6 +354,19 @@ export const SPINE_R = 2.2;
 /** Centre (torso z) of the posterior mediastinal column behind the left atrium (decision 150). */
 export const POSTERIOR_MEDIASTINUM_Z = -15.5;
 /**
+ * Around the root and the ascending aorta the superior mediastinum widens from nothing at torso y =
+ * SUPERIOR_MEDIASTINUM_FROM_Y to its full half width SUPERIOR_MEDIASTINUM_RISE_CM higher, and above them, from
+ * SUPERIOR_MEDIASTINUM_FADE_FROM_Y over SUPERIOR_MEDIASTINUM_FADE_CM, returns to the taper of decision 150 (decision 386).
+ * That taper rose from y = 2 to y = 6, and beside the root and the ascending aorta, which leave the heart at y = 1.5-4,
+ * the lung came within 2 mm of the aortic wall in every case but the tamponade: its pleural face followed the vessel's
+ * contour and the five-chamber view showed it under the aortic valve as a second, brighter valve. At its full width up to
+ * y = 6 the mediastinum let the beam reach the arch from 6 cm beside the suprasternal notch (18 % of its samples).
+ */
+export const SUPERIOR_MEDIASTINUM_FROM_Y = 1;
+export const SUPERIOR_MEDIASTINUM_RISE_CM = 2;
+export const SUPERIOR_MEDIASTINUM_FADE_FROM_Y = 3.25;
+export const SUPERIOR_MEDIASTINUM_FADE_CM = 0.75;
+/**
  * The esophagus (decision 377): a collapsed muscular tube in the posterior mediastinum, behind the left atrium and in
  * front of the vertebral body, right of the descending aorta. Its centre (torso x, z, cm, carried with the posterior
  * column), its lateral and anteroposterior half-axes (cm; collapsed, 2.0 × 1.5 cm), and the share of them its mucosa
@@ -429,17 +442,28 @@ export const LIVER_LEFT_LOBE_DEPTH_CM = 7;
  * the lungs meet the pericardial fat pad; the mediastinum proper is a posterior column behind the left atrium
  * (oesophagus, descending aorta, the front of the spine: an ellipse in the transverse plane, centred 1.5 cm right of the
  * midline and 15.5 cm deep, 1.8 cm across and 4.0 cm deep, running the whole height) and a superior one around the great
- * vessels that widens from nothing at the heart's base (torso y = 2 cm) to 2.5 cm on either side by y = 6. Until then the
- * mediastinum was a straight slab 5 cm wide from front to back at every height and the posterior lung began at a plane
- * 10.5 cm deep: their faces are pleural interfaces, and they crossed the parasternal and apical sectors as straight
- * bright lines. A third region is the fat around the descending aorta (decision 213).
+ * vessels that widens from nothing at the heart's base (torso y = 2 cm) to 2.5 cm on either side by y = 6, and around the
+ * root and the ascending aorta from y = 1 to y = 3, fading above y = 3.25 (decision 386). Until then the mediastinum was a straight slab 5 cm wide from front to back at every height
+ * and the posterior lung began at a plane 10.5 cm deep: their faces are pleural interfaces, and they crossed the
+ * parasternal and apical sectors as straight bright lines. A third region is the fat around the descending aorta
+ * (decision 213).
  */
 export function mediastinumDistance(x: number, y: number, z: number): number {
   const px = (x + 0.5) / 1.8,
     pz = (z - POSTERIOR_MEDIASTINUM_Z) / 4.0;
   const posterior = px * px + pz * pz - 1;
+  // around the root and the ascending aorta it starts lower and, above them, fades into the taper of decision 150 (386)
   const u = Math.min(1, Math.max(0, (y - 2) / 4));
-  const halfWidth = 2.5 * u * u * (3 - 2 * u);
+  const v = Math.min(
+    1,
+    Math.max(0, (y - SUPERIOR_MEDIASTINUM_FROM_Y) / SUPERIOR_MEDIASTINUM_RISE_CM),
+  );
+  const w = Math.min(
+    1,
+    Math.max(0, (y - SUPERIOR_MEDIASTINUM_FADE_FROM_Y) / SUPERIOR_MEDIASTINUM_FADE_CM),
+  );
+  const halfWidth =
+    2.5 * Math.max(u * u * (3 - 2 * u), v * v * (3 - 2 * v) * (1 - w * w * (3 - 2 * w)));
   let superior = 1;
   if (halfWidth > 0.05) {
     const sx = (x + 0.5) / halfWidth,

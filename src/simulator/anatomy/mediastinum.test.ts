@@ -37,7 +37,8 @@ describe('mediastinum', () => {
     // widest at the centre of the column, narrowing smoothly toward its front and back (a flat face keeps one width)
     expect(posterior[2]!).toBeGreaterThan(posterior[0]! + 0.5);
     expect(posterior[2]!).toBeGreaterThan(posterior[4]! + 0.5);
-    const superior = [3, 4, 5, 6].map((y) => halfWidth(y, -8));
+    // (it grows from y = 1 to y = 3 since decision 386: from 2 to 6 until then)
+    const superior = [1.25, 1.75, 2.25, 2.75].map((y) => halfWidth(y, -8));
     for (let i = 1; i < superior.length; i++)
       expect(superior[i]!).toBeGreaterThan(superior[i - 1]!);
   });
