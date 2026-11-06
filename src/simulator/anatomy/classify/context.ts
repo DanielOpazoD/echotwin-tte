@@ -80,6 +80,11 @@ export interface ClassifyCtx {
   raBody: number;
   /** Distance (cm) to the right atrial appendage's epicardium, for the pericardial sac (decision 323). */
   raaEpi: number;
+  /**
+   * Distance (cm) from the point to the outer wall of the ascending aorta, as its classifier left it on a miss (decision
+   * 389); FAR_FROM_HEART_CM where the vessel is far or not built (the fit of the anchors).
+   */
+  aaOuter: number;
   /** Distance (cm) to the vestibule's column over the tricuspid ring, short of the annulus (decision 379), for the sac. */
   raColumn: number;
   /** Scratch of the sleeve's end-diastolic radii. */
@@ -126,6 +131,7 @@ export const ctx: ClassifyCtx = {
   raSleeve: 1e3,
   raBody: 1e3,
   raaEpi: 1e3,
+  aaOuter: 99,
   raColumn: 1e3,
   sleeveRad: new Float64Array(4),
 };

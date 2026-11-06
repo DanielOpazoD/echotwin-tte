@@ -402,15 +402,37 @@ export function coronarySinusDistance(c: ClassifyCtx, x: number, y: number, z: n
  * published mean in every man, that the canonical five-chamber view cut as a small circle far from the root (0.30-0.47 %
  * of the sector at end-diastole) where the Rodero heart shows the right atrium beside it. Now a pouch of 10.5-12.7 mL,
  * between the two sexes' means, since the model has one appendage for both.
+ * Decision 389 laid the tip against the right side of the ascending aorta, 0.8 cm left, 1.1 cm back and 0.1 cm up (it
+ * was [−3.5, 2.7, −2.3]), widened it from 0.85 to 1 cm for the volume the aorta takes from it, and its lumen keeps only
+ * its wall against the vessel and the root: it stood 4-10 mm off the aorta, lumen to lumen, with up to 4.6 mm of
+ * mediastinal fat and 1.0-1.4 mm of pericardium between them, where in the Rodero heart (3.0-3.6 mm) the two walls
+ * touch; the sac between them is a potential space. Laid 1.2 cm left and 0.3 cm back instead, in front of the vessel's
+ * right side, its wall entered the parasternal and apical long-axis planes (0.3-0.6 % of the sector).
  */
-export const RAA_TIP_FROM_AV: readonly [number, number, number] = [-3.5, 2.7, -2.3];
+export const RAA_TIP_FROM_AV: readonly [number, number, number] = [-2.7, 1.6, -2.4];
 export const RAA_BASE_R_CM = 1.1;
-export const RAA_TIP_R_CM = 0.85;
+export const RAA_TIP_R_CM = 1;
 /**
  * Height (cm) over the atrial floor below which the appendage does not reach (decision 324): its base lies over the
  * anterior atrioventricular groove, and without this its wall reached the anteroseptal edge of the tricuspid orifice.
  */
 export const RAA_ABOVE_FLOOR_CM = 0.5;
+
+/**
+ * The appendage's own emptying (decision 389). On CT it holds its least volume at 5 % of the cycle, after the atrial
+ * contraction, and its most at 45 %, at end-systole, and empties 53 ± 9 % of it: 6.1 ± 2.0 mL at its least in men and
+ * 5.2 ± 1.6 mL in women; in diastasis, at 75 %, it still holds 84 % (9.6 of 11.4 mL; BMC Cardiovasc Disord 2025, 60
+ * patients in sinus rhythm). Scaled with its atrium it emptied 23-42 %, losing 27 % passively and only 19 % more with the
+ * atrial contraction: 7.3-9.1 mL at end-diastole. Its passive emptying is RAA_PASSIVE_SHARE of the body's and its
+ * contraction shortens its radii RAA_BOOSTER_GAIN times as much as the body's.
+ */
+export const RAA_PASSIVE_SHARE = 0.5;
+export const RAA_BOOSTER_GAIN = 3.5;
+/** The appendage's radial scale from its atrium's booster and reservoir (decision 389). Shared with GLSL. */
+export function appendageScale(booster: number, reservoir: number, contraction: number): number {
+  const res = 1 - (1 - reservoir) * RAA_PASSIVE_SHARE;
+  return (1 - (1 - booster) * RAA_BOOSTER_GAIN) * (res + (1 - res) * contraction);
+}
 
 /** Distance to the right atrial appendage's lumen (decision 323). */
 export function rightAppendageDistance(
@@ -929,7 +951,14 @@ export function classifyAtria(c: ClassifyCtx): boolean {
   // 0.10-0.16 cm the superior one in diastole.
   // the right atrial appendage opens into the atrium and the sac wraps it (decision 323)
   // above the atrioventricular groove: it stays RAA_ABOVE_FLOOR_CM over the atrial floor, clear of the tricuspid orifice
-  const dRaa = smax(rightAppendageDistance(c, boR, x, y, z), z - (zBotR - RAA_ABOVE_FLOOR_CM), 0.2);
+  // with its own emptying, and against the ascending aorta and the root only its wall (decision 389): the aorta's
+  // classifier left how far its wall is, and the root's coordinates how far the root's
+  const boA = appendageScale(hp.laBooster, A.raReservoir, hp.state.contraction);
+  const dRaa = Math.max(
+    smax(rightAppendageDistance(c, boA, x, y, z), z - (zBotR - RAA_ABOVE_FLOOR_CM), 0.2),
+    LAA_WALL_CM - c.aaOuter,
+    c.rootT > -90 ? LAA_WALL_CM - rootOuter : -1e3,
+  );
   c.raaEpi = dRaa - LAA_WALL_CM;
   const dSvc = svcDistance(A, x, y, z);
   const dIvc = ivcDistance(A, hp.ivcCollapse, x, y, z);

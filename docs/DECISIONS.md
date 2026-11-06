@@ -3695,3 +3695,40 @@ Revisado en el navegador a 1440 × 900 en 2D, color y PW. Las pruebas de `src/ui
     Con la orejuela de la decisión 323 fallan 20 de las 24 comprobaciones: las 12 del A5C y las 8 de volumen de los hombres y la hipertensión pulmonar.
 
     **Lo que no resuelve**: en el A5C la orejuela sigue separada de la raíz por grasa y mediastino, y en Rodero la aurícula derecha toca la raíz. Tampoco cambia la AI del A5C del caso normal, que es menor que la de Rodero porque su volumen es la mitad (ver arriba).
+
+## 2026-11-05
+
+389. **La orejuela derecha se apoya en la aorta ascendente y se vacía como la publicada**: Daniel pidió resolver lo que la 388 dejó pendiente «como si fueras un ecografista experto que quiera que la imagen sea de alta fidelidad y coherencia interna».
+
+    **Medido antes**:
+    - **Contacto.** Entre la sangre de la orejuela y la de la aorta ascendente había 4,0–10,0 mm en los doce casos, en telediástole y en telesístole. Por el camino más corto había hasta 4,6 mm de grasa del mediastino (de derrame en el taponamiento) y 1,0–1,4 mm del pericardio del saco, además de las dos paredes. En el corazón de Rodero del caso normal, la aurícula derecha queda a 3,0–3,6 mm de la aorta, con sólo las dos paredes entre ellas. En el A5C canónico en telediástole, el normal, la ICFEr y la MCH muestran sólo la orejuela, a 14,5 mm de la aorta en el plano (7,9 mm de mediastino en el normal). Rodero, con el mismo plano: 5,0 mm.
+    - **Vaciado.** La orejuela se vaciaba con la escala de su aurícula: 36–42 % de su volumen en los casos sin aurícula dilatada (23–42 % en todos) y 7,3–8,3 mL en telediástole en ritmo sinusal. En el normal perdía el 27 % en la diástasis y sólo un 19 % más con la contracción auricular. En TC (BMC Cardiovasc Disord 2025, 60 pacientes en ritmo sinusal) la orejuela tiene su mínimo al 5 % del ciclo, tras la contracción auricular: 6,06 ± 2,03 mL en hombres y 5,18 ± 1,57 mL en mujeres. Tiene su máximo al 45 %, en telesístole, y se vacía un 53 ± 9 % (54,5 ± 7,9 en hombres, 51,5 ± 9,5 en mujeres). Al 75 %, en la diástasis, conserva el 84 % (9,6 de 11,4 mL).
+
+    **Cambio** (`classify/atria.ts`, `classify.ts`; el GLSL lee las mismas constantes y la función generada):
+    - **Contacto.** La punta (`RAA_TIP_FROM_AV`) pasa de (−3,5; 2,7; −2,3) a (−2,7; 1,6; −2,4) cm desde la válvula aórtica: al costado derecho de la ascendente, 0,8 cm a la izquierda, 1,1 cm atrás y 0,1 cm arriba. Su radio (`RAA_TIP_R_CM`) pasa de 0,85 a 1 cm, por el volumen que le quita la aorta. Contra la ascendente y la raíz, la luz de la orejuela guarda sólo su pared (`LAA_WALL_CM`). El clasificador de la aorta ya dejaba la distancia a su pared al fallar, y ahora el contexto la guarda (`aaOuter`); la de la raíz sale de sus coordenadas. El saco entre las dos es un espacio virtual.
+    - **Vaciado** (`appendageScale`): la orejuela tiene su reservorio y su contracción. Su vaciado pasivo es la mitad del de su aurícula (`RAA_PASSIVE_SHARE`). Su contracción acorta sus radios 3,5 veces lo que acorta los de la aurícula (`RAA_BOOSTER_GAIN`).
+    - **Primer intento descartado.** Con la punta 1,2 cm a la izquierda y 0,3 cm atrás, por delante del costado de la aorta, su pared entraba en el PLAX y en el A3C (0,3–0,6 % del sector en seis casos). Más atrás, el centroide de la AD del normal salía del percentil 10 del atlas por 0,001 longitudes del VI.
+    - **Lista de lo que muestra cada vista** (`viewWhitelist.ts`): el subcostal de la cava admite la orejuela. Es el plano sagital por la aurícula y las dos cavas, el bicava transtorácico, que ya admitía la cava superior y la ascendente. Ahí la orejuela queda delante de la boca de la cava superior, como en el bicava transesofágico. Ocupa el 0,3–1,0 % del sector en la ICFEr, la hipertensión pulmonar, el taponamiento y la fibrilación auricular.
+
+    **Medido después**:
+    - **Contacto.** Entre la sangre de la orejuela y la de la aorta hay 4,0 mm en los doce casos y en cuatro fases del ciclo: la pared aórtica (2,0 mm) y la de la orejuela (1,8 mm). El contacto mide 0,2–0,7 cm². En el A5C en telediástole, la sangre de la aurícula derecha queda a 0,5–3,1 mm de la pared aórtica en el plano (2,8–3,1 mm donde sólo se ve la orejuela). En el normal hay 5,5 mm de luz a luz: la pared aórtica cortada en oblicuo (2,7 mm), 0,1 mm de saco y la pared de la orejuela (2,3 mm).
+    - **Vaciado.** En ritmo sinusal, la orejuela contiene 5,8–6,4 mL en telediástole, dentro de una desviación típica de su sexo, y 10,3–12,4 mL en telesístole. Se vacía un 48–52 % en los casos sin aurícula dilatada y un 39–40 % en la ICFEr y la hipertensión pulmonar. En la diástasis conserva el 81–94 % de su máximo. En la fibrilación auricular no hay contracción auricular y sólo se vacía un 15 % (10,1 mL en telediástole).
+    - **Otras vistas.** En ningún caso la orejuela ni su pared llegan al 0,3 % del PLAX ni del A3C; la pared, como mucho, ocupa el 0,26 % en el A3C de la fibrilación auricular. El atlas de posiciones no cambia de veredicto.
+    - **Censo de coherencia**, doce casos en dos fases: no hay contactos nuevos entre sangres, y las islas pasan de 1224 a 1222. La sangre de la orejuela contra el pericardio baja de 0,12–0,68 a 0–0,16 cm², y la pared de la AD contra la de la ascendente sube de 0–0,40 a 1,52–4,80 cm². Con la rejilla de 2 mm aparecen además 0,08–0,28 cm² de sangre de la orejuela contra la pared aórtica. Con la de 1 mm (normal e ICFEr, en las dos fases) desaparecen: la pared de 1,8 mm caía entre dos muestras.
+    - **Censo por pares** (decisión 365, caso normal en telediástole): el hueco a menos de 6 mm de la AD y de la raíz pasa de 0,25 a 0,37 mL, declarado. Al acercarse la orejuela a la aorta, más pericardio y mediastino junto a la raíz quedan a menos de 6 mm de la AD. Alrededor de la orejuela el clasificador deja menos espacio sin corazón: en un cubo de 1,3 cm, 0,47 mL frente a 0,72.
+    - **Censo de los planos:** la orejuela cambia el A5C y el subcostal de la cava. En este último aparece con su pared y deja menos pulmón; en las demás vistas el gris de cada estructura cambia menos de 2 niveles.
+    - **Hojas de revisión** antes y después: `tools/offline/review/out/orejuela-389/` (A5C, A4C, eje corto aórtico y subcostal de la cava).
+    - **Trazador CPU:** 2,1 % sobre la referencia de la 331.
+
+    **Lo que cuesta, declarado** (`KNOWN_A5C_RIGHT_ED`): en telediástole la aurícula derecha ocupa el 0,41–0,85 % del A5C canónico, frente al 0,53–0,77 % de la 388. La orejuela de la 388 se veía más porque tenía 1,5–2 mL de más en telediástole. Seis casos quedan por debajo del 0,5 % que pide la prueba de la 388 (0,41–0,49 %). En cuatro de ellos (normal, ICFEr, estenosis grave y MCH) el plano sólo corta la orejuela en telediástole, apoyada en la aorta, y el cuerpo de la AD queda fuera. En telesístole la aurícula derecha ocupa el 0,54–1,27 %.
+
+    **Medido y no cambiado**: el cuerpo de la AD toca la raíz a 1,4–1,7 mm de luz a luz, sólo con la pared aórtica entre ambas, junto al tabique membranoso. En Rodero hay 3,0–3,6 mm con las dos paredes.
+
+    **Pruebas** (`raAppendage.test.ts`):
+    - El volumen de la orejuela en telesístole, y en telediástole en ritmo sinusal, queda dentro de una desviación típica del publicado para su sexo.
+    - En telediástole y en telesístole su sangre queda a menos de las dos paredes (más el redondeo de la rejilla de 1 mm) de la sangre de la aorta ascendente o de la raíz, sin nada más que esas paredes entre ellas.
+    - En el A5C en telediástole, la sangre de la aurícula derecha queda a la pared de la orejuela, la capa del saco y una línea del sector de la aorta, y ocupa al menos el 0,5 % del sector, salvo los casos declarados.
+
+    Con el clasificador anterior fallan 23 de las 36 comprobaciones: 5 de volumen, las 12 de contacto y 6 del A5C.
+
+    **Lo que no resuelve**: que el cuerpo de la AD aparezca en el A5C en telediástole junto a la raíz. El plano lo deja fuera en cuatro casos, y llevarlo allí es mover el cuerpo de la AD, no la orejuela.

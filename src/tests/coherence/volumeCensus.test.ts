@@ -52,7 +52,10 @@ import {
  * atrium's blood over 0.03 cm² at its edge; the right atrium's fat within 6 mm of the superior vena cava reads 0.03 mL.
  * Above the atrioventricular groove the blend of the ventricles' epicardium with the atria's narrows (decision 387), and
  * where it filled the space between them and the root with fat the census reads gap: 0.23 mL by the left atrium and the
- * root (0.12 before), 0.10 between the atria (0.04), the transverse sinus and the interatrial groove.
+ * root (0.12 before), 0.10 between the atria (0.04), the transverse sinus and the interatrial groove. Since the right
+ * atrial appendage lies against the ascending aorta (decision 389), the pericardium and mediastinum beside the root come
+ * within 6 mm of the right atrium: 0.37 mL of gap by the right atrium and the root (0.25), though around the appendage the
+ * heart misses less (0.47 mL in a 1.3 cm cube there, 0.72 before).
  */
 const KNOWN_VOLUME_CENSUS: Record<string, number> = {
   'rodero AI|RAo hueco': 0.47,
@@ -72,7 +75,7 @@ const KNOWN_VOLUME_CENSUS: Record<string, number> = {
   'analytic AD|VD hueco': 0.08,
   'analytic AI|RAo hueco': 0.23,
   'analytic AI|RAo grasa': 0.51,
-  'analytic AD|RAo hueco': 0.24,
+  'analytic AD|RAo hueco': 0.37,
   'analytic AD|RAo grasa': 0.18,
   'analytic VD|TP hueco': 0.11,
   'analytic VD|TP grasa': 0.6,

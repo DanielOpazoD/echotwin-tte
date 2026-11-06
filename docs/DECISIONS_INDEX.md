@@ -4,7 +4,7 @@ Generado por `npx tsx tools/docs/decisions-index.ts` a partir de `DECISIONS.md`;
 Una decisión marcada en su texto con `[Estado: superada por N]` o `[Estado: revertida en N]` lo muestra aquí;
 las demás están vigentes. `src/tests/docsConsistency.test.ts` falla si este índice no coincide con el registro.
 
-Decisiones: 388 (última: 388).
+Decisiones: 389 (última: 389).
 
 | N | Fecha | Decisión | Estado |
 |---|---|---|---|
@@ -396,3 +396,4 @@ Decisiones: 388 (última: 388).
 | [386](DECISIONS.md#L3635) | 2026-10-30 | Detrás de la raíz y de la aorta ascendente hay mediastino, no pulmón | vigente |
 | [387](DECISIONS.md#L3653) | 2026-10-30 | Por encima del surco auriculoventricular no queda una franja de grasa bajo la AI | vigente |
 | [388](DECISIONS.md#L3669) | 2026-10-30 | La orejuela derecha tiene su volumen publicado y el cinco cámaras muestra la aurícula derecha | vigente |
+| [389](DECISIONS.md#L3701) | 2026-11-05 | La orejuela derecha se apoya en la aorta ascendente y se vacía como la publicada | vigente |

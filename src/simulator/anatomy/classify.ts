@@ -40,7 +40,10 @@ export function classifyHeart(
   out.sdf = FAR_FROM_HEART_CM;
   if (classifyAorticExtension(hp.aorta, x0, y, z, out)) return true;
   const vascularDistance = out.sdf;
+  // the chambers that lie against the ascending aorta read how far its wall is (decision 389)
+  ctx.aaOuter = vascularDistance;
   const hit = classifyChambers(m, hp, x0, y, z, out);
+  ctx.aaOuter = FAR_FROM_HEART_CM;
   if (!hit) out.sdf = Math.min(out.sdf, vascularDistance);
   return hit;
 }

@@ -60,6 +60,7 @@ import {
 } from '@/simulator/anatomy/rv';
 import { TV_SYSTOLIC_SHORTENING } from '@/simulator/anatomy/valveSkirt';
 import { AORTIC_ROOT_WALL_CM } from '@/simulator/anatomy/aorticValve';
+import { RAA_BOOSTER_GAIN, RAA_PASSIVE_SHARE } from '@/simulator/anatomy/classify/atria';
 import {
   LA_WALL_CM,
   LAA_WALL_CM,
@@ -197,6 +198,9 @@ const float DESC_AORTA_MAX_OUTER_R = ${gf(DESC_AORTA_MAX_OUTER_R)};
 // left atrial and pericardial layers against the posterior column (classify/pericardium.ts, decision 273)
 const float LA_WALL_CM = ${gf(LA_WALL_CM)};
 const float LAA_WALL_CM = ${gf(LAA_WALL_CM)};
+// the right atrial appendage's own emptying (decision 389): read by the generated appendageScale
+const float RAA_PASSIVE_SHARE = ${gf(RAA_PASSIVE_SHARE)};
+const float RAA_BOOSTER_GAIN = ${gf(RAA_BOOSTER_GAIN)};
 const float PERICARDIUM_CM = ${gf(PERICARDIUM_CM)};
 const float PA_ANTERIOR_FAT_CM = ${gf(PA_ANTERIOR_FAT_CM)};
 // the left ventricle's epicardium ends at its base for the sac (decision 380)
