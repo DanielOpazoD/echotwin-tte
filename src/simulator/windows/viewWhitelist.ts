@@ -192,6 +192,11 @@ export const VIEW_ALLOWED: Record<string, readonly Structure[]> = {
     Structure.LaWall,
     Structure.LvWallSeptal,
     Structure.PulmonaryVein,
+    // the sagittal plane through the atrium and both cavae, the transthoracic bicaval view: the appendage lies in front
+    // of the superior vena cava's mouth, against the ascending aorta (decision 389), as the transoesophageal bicaval
+    // view shows it (0.3-1.0 % of the sector with heart failure, the pulmonary hypertension, the tamponade and the atrial
+    // fibrillation)
+    Structure.RaAppendage,
     Structure.RaCavity,
     Structure.RaWall,
     Structure.RvCavity,

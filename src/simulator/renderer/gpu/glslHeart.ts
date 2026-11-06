@@ -1273,8 +1273,10 @@ bool classifyHeart(vec3 p0, out Sample s) {
       return true;
     }
     // decision 323
-    float dRaa = sdRoundCone(p, vec3(RAA_BX, RAA_BY, RAA_BZ), vec3(AV_CX + RAA_TIP_FROM_AV_X, AV_CY + RAA_TIP_FROM_AV_Y, AV_CZ + RAA_TIP_FROM_AV_Z), RAA_BASE_R_CM * boR, RAA_TIP_R_CM * boR);
-    dRaa = smax(dRaa, z - (zBotR - RAA_ABOVE_FLOOR_CM), 0.2);
+    // decision 389: its own emptying, and against the ascending aorta and the root only its wall
+    float boA = appendageScale(LA_BOOSTER, RA_RESERVOIR, CONTRACTION);
+    float dRaa = sdRoundCone(p, vec3(RAA_BX, RAA_BY, RAA_BZ), vec3(AV_CX + RAA_TIP_FROM_AV_X, AV_CY + RAA_TIP_FROM_AV_Y, AV_CZ + RAA_TIP_FROM_AV_Z), RAA_BASE_R_CM * boA, RAA_TIP_R_CM * boA);
+    dRaa = max(max(smax(dRaa, z - (zBotR - RAA_ABOVE_FLOOR_CM), 0.2), LAA_WALL_CM - vascularDistance), rootT > -90.0 ? LAA_WALL_CM - rootOuter : -1e3);
     raaEpi = dRaa - LAA_WALL_CM;
     // decision 219
     // decision 324: the entry segment and the rest that rises

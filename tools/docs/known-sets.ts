@@ -68,6 +68,7 @@ export const KNOWN_SETS: readonly {
   { file: 'src/simulator/anatomy/valveAnatomy.test.ts', name: 'KNOWN_THICK_PARTITION' },
   { file: 'src/simulator/anatomy/leftAtrialBase.test.ts', name: 'KNOWN_VEIN_AT_HINGE' },
   { file: 'src/simulator/anatomy/raLateralWall.test.ts', name: 'KNOWN_RA_EDGE_INSIDE' },
+  { file: 'src/simulator/anatomy/raAppendage.test.ts', name: 'KNOWN_A5C_RIGHT_ED' },
   {
     file: 'src/simulator/view-recognition/segmentOrientation.test.ts',
     name: 'KNOWN_UNORDERED_RINGS',
